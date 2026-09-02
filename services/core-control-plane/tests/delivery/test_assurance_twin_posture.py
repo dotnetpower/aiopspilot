@@ -1,4 +1,8 @@
-"""Assurance Twin durable ledger + live activity-tip orchestration tests."""
+"""Assurance Twin durable ledger + live activity-tip orchestration tests.
+
+Posture reports publish a bus tip; change reviews are durably persisted but
+never publish one (see ``fdai.delivery.assurance_twin_posture`` docstring).
+"""
 
 from __future__ import annotations
 
@@ -94,7 +98,7 @@ async def test_posture_report_is_durably_recorded_and_replayable_from_the_bus() 
     assert durable["evidence_source_revision"] == _REVISION
 
 
-async def test_change_review_redelivery_is_idempotent_but_still_publishes_a_tip() -> None:
+async def test_change_review_redelivery_is_idempotent_and_never_publishes_a_tip() -> None:
     bus = InMemoryEventBus()
     store = InMemoryStateStore()
     recorder = _recorder(bus, store)
@@ -112,6 +116,8 @@ async def test_change_review_redelivery_is_idempotent_but_still_publishes_a_tip(
         evidence_source_revision=_REVISION,
     )
 
+    assert first.published is False
+    assert second.published is False
     assert first.durable_write_created is True
     assert second.durable_write_created is False
     assert second.conflict is False
@@ -120,10 +126,10 @@ async def test_change_review_redelivery_is_idempotent_but_still_publishes_a_tip(
     assert len(reviews) == 1
 
     envelopes = [event async for event in bus.subscribe(_TOPIC, "replay-consumer")]
-    assert len(envelopes) == 2, "each attempt still announces its live tip"
+    assert envelopes == [], "change-review activity publication is disabled entirely"
 
 
-async def test_conflicting_review_key_publishes_unavailable_and_keeps_one_truth() -> None:
+async def test_conflicting_review_key_stays_durably_unavailable_and_never_publishes() -> None:
     bus = InMemoryEventBus()
     store = InMemoryStateStore()
     recorder = _recorder(bus, store)
@@ -141,6 +147,7 @@ async def test_conflicting_review_key_publishes_unavailable_and_keeps_one_truth(
         evidence_source_revision=_REVISION,
     )
 
+    assert conflicting.published is False
     assert conflicting.conflict is True
     assert conflicting.durable_write_created is False
     assert conflicting.activity.freshness is OperationalFreshness.UNAVAILABLE
@@ -153,7 +160,7 @@ async def test_conflicting_review_key_publishes_unavailable_and_keeps_one_truth(
     assert reviews[0]["verdict"] == "needs_review", "the durable body is never replaced"
 
     envelopes = [event async for event in bus.subscribe(_TOPIC, "replay-consumer")]
-    assert [envelope.payload["freshness"] for envelope in envelopes] == ["fresh", "unavailable"]
+    assert envelopes == [], "change-review activity publication is disabled entirely"
 
 
 async def test_unavailable_source_never_grants_authority() -> None:

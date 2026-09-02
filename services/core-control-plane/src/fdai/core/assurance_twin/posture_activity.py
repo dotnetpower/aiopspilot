@@ -1,4 +1,4 @@
-"""Assurance Twin - bounded read-only posture/review activity for the event bus.
+"""Assurance Twin - bounded read-only posture/review activity value objects.
 
 Turns an already-computed :class:`~fdai.core.assurance_twin.report.PostureAssessmentReport`
 or ambient :class:`~fdai.shared.providers.iac_review.IacReview` into one
@@ -6,10 +6,13 @@ or ambient :class:`~fdai.shared.providers.iac_review.IacReview` into one
 bounded, authority-free evidence channel Heimdall already uses for other
 observation domains (``resource-health``, ``metrics``, ``cost``, ...).
 
-The activity is a **live tip**, not the authoritative report body: it lets a
-Console/Operator-API subscriber know a posture report or ambient change
-review was recorded, with its freshness and a bounded evidence count. The
-durable finding-level content is written separately by
+The activity is a **live tip**, not the authoritative report body. For a
+posture report, ``fdai.delivery.assurance_twin_posture`` publishes it on the
+event bus so a Console/Operator-API subscriber knows a report was recorded,
+with its freshness and a bounded evidence count. For a change review, the
+built value is never published (see that module's docstring for why); it is
+still returned to the caller for audit/logging use, and the durable
+finding-level content is always written separately by
 ``fdai.delivery.assurance_twin_posture`` so this module stays pure and CSP
 neutral, matching every other ``core/assurance_twin/`` component
 ([module placement](../../../../../docs/roadmap/operations/assurance-twin.md#module-placement)).

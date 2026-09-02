@@ -33,12 +33,18 @@ _PROVENANCE = {
 }
 
 
-def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Finding:
+def _finding(
+    rule: str = "r-1",
+    ref: str = "vm-a",
+    severity: str = "high",
+    evidence_refs: tuple[str, ...] = (),
+) -> Finding:
     return Finding(
         rule_id=rule,
         resource=ResourceRef(resource_type="compute.vm", ref=ref),
         severity=severity,  # type: ignore[arg-type]
         reason="reason",
+        evidence_refs=evidence_refs,
     )
 
 
@@ -395,6 +401,157 @@ async def test_posture_report_findings_at_the_bound_are_accepted_and_over_bound_
     report = await ledger.read_latest_posture_report(_SCOPE)
     assert report is not None
     assert len(report["findings"]) == 200
+
+
+async def test_finding_evidence_refs_at_the_bound_are_accepted_and_over_bound_rejected() -> None:
+    """200 evidence_refs matches the projection's ``_MAX_ITEMS``; 201 does not."""
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    refs_200 = tuple(f"ref-{i}" for i in range(200))
+    refs_201 = tuple(f"ref-{i}" for i in range(201))
+
+    accepted = await ledger.record_change_review(
+        _review("k-refs-200", _finding(evidence_refs=refs_200)),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(ValueError, match=r"finding evidence_refs MUST number <= 200, got 201"):
+        await ledger.record_change_review(
+            _review("k-refs-201", _finding(evidence_refs=refs_201)),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+    reviews = await ledger.read_recent_change_reviews(limit=10)
+    assert [row["review_key"] for row in reviews] == ["k-refs-200"]
+
+
+async def test_finding_evidence_ref_at_the_char_bound_is_accepted_and_over_bound_rejected() -> None:
+    """512 chars matches the projection's ``_MAX_TEXT_LEN``; 513 does not."""
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    accepted = await ledger.record_change_review(
+        _review("k-ref-512", _finding(evidence_refs=("x" * 512,))),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(
+        ValueError, match=r"finding evidence_refs entries MUST be <= 512 characters"
+    ):
+        await ledger.record_change_review(
+            _review("k-ref-513", _finding(evidence_refs=("x" * 513,))),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+
+async def test_blank_finding_evidence_ref_is_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    with pytest.raises(
+        ValueError, match=r"finding evidence_refs entries MUST be non-blank strings"
+    ):
+        await ledger.record_change_review(
+            _review("k-blank-ref", _finding(evidence_refs=("  ",))),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+
+async def test_duplicate_finding_evidence_ref_is_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    with pytest.raises(ValueError, match=r"finding evidence_refs entries MUST be unique"):
+        await ledger.record_change_review(
+            _review("k-dup-ref", _finding(evidence_refs=("dup", "dup"))),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+
+async def test_reason_codes_at_the_bound_are_accepted_and_over_bound_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    codes_200 = tuple(f"code-{i}" for i in range(200))
+    codes_201 = tuple(f"code-{i}" for i in range(201))
+
+    accepted = await ledger.record_change_review(
+        _review("k-codes-200", _finding()),
+        freshness="unavailable",
+        reason_codes=codes_200,
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(ValueError, match=r"reason_codes MUST number <= 200, got 201"):
+        await ledger.record_change_review(
+            _review("k-codes-201", _finding()),
+            freshness="unavailable",
+            reason_codes=codes_201,
+            **_PROVENANCE,
+        )
+
+
+async def test_blank_reason_code_is_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    with pytest.raises(ValueError, match=r"reason_codes entries MUST be non-blank strings"):
+        await ledger.record_posture_report(
+            _report(),
+            freshness="unavailable",
+            reason_codes=("  ",),
+            **_PROVENANCE,
+        )
+
+
+async def test_duplicate_reason_code_is_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    with pytest.raises(ValueError, match=r"reason_codes entries MUST be unique"):
+        await ledger.record_posture_report(
+            _report(),
+            freshness="unavailable",
+            reason_codes=("dup", "dup"),
+            **_PROVENANCE,
+        )
+
+
+async def test_evidence_source_revision_at_the_char_bound_is_accepted_and_over_bound_rejected() -> (
+    None
+):
+    """512 chars matches the projection's ``_bounded_identity`` bound; 513 does not."""
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    accepted = await ledger.record_posture_report(
+        _report(),
+        freshness="fresh",
+        activity_id="activity-1",
+        correlation_id="correlation-1",
+        evidence_source_revision="r" * 512,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(ValueError, match=r"evidence_source_revision MUST be <= 512 characters"):
+        await ledger.record_posture_report(
+            _report(),
+            freshness="fresh",
+            activity_id="activity-2",
+            correlation_id="correlation-2",
+            evidence_source_revision="r" * 513,
+        )
 
 
 class _StalledCasStateStore:

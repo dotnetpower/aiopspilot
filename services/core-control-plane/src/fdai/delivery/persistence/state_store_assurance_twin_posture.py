@@ -13,9 +13,12 @@ module never calls the Operator API or another service in-process.
 Design invariants
 ------------------
 
-- **Durable-first**: the report/review body is the authoritative record;
-  the bus activity tip built in ``core/assurance_twin/posture_activity.py``
-  only announces that this durable write happened.
+- **Durable-first**: the report/review body is the authoritative record.
+  The posture-report bus activity tip built in
+  ``core/assurance_twin/posture_activity.py`` only announces that a
+  posture-report durable write happened; the change-review recorder no
+  longer publishes an activity tip at all (see
+  ``fdai.delivery.assurance_twin_posture``).
 - **Read-only surface**: this ledger never judges, approves, or executes;
   it stores exactly the report/review the twin already computed.
 - **Idempotent by identity, fail-closed on conflict**: a posture report
@@ -38,21 +41,29 @@ Design invariants
   rather than a bare ``write_state``. A concurrent duplicate racing the
   tombstone write either loses the compare-and-set and re-reads the now-
   tombstoned row, or wins it and tombstones the row itself; either way every
-  concurrent caller observes the conflict and none can publish a
+  concurrent caller observes the conflict and none reports a
   completed/available result for a row another caller just tombstoned. A
   *matching*-body redelivery uses the same compare-and-set to confirm its
   read before returning non-conflict, rather than trusting the read alone:
   a redelivery that read the row before a concurrent conflicting write
-  tombstoned it can therefore never publish completed/available for the
+  tombstoned it can therefore never report completed/available for the
   identity its sibling just marked unavailable - the whole persistence
-  result and its eventual activity publication are linearized per
-  ``review_key`` through this one compare-and-set point.
+  result is linearized per ``review_key`` through this one compare-and-set
+  point. This linearizes the *durable* result only: a caller still cannot
+  atomically order an activity-bus publish with this compare-and-set (a
+  separate async call after the fact), which is exactly why
+  ``fdai.delivery.assurance_twin_posture`` no longer publishes a change-
+  review activity tip at all - see that module's docstring.
 - **Bounded by identity and by size**: ``review_key`` is rejected above
-  256 characters and ``findings`` above 200 entries, at write time, before
-  any durable write or activity publication - the same bounds the Operator
-  API's detail lookup and projection already enforce on read. A write this
-  ledger accepts is therefore always reachable and fully renderable
-  through the Operator API, never a row nobody can ever read back.
+  256 characters, ``findings`` above 200 entries, ``reason_codes`` and any
+  finding's ``evidence_refs`` above 200 entries or containing a blank,
+  over-512-character, or duplicate entry, and ``evidence_source_revision``
+  when blank or over 512 characters - all at write time, before any
+  durable write or activity publication - the same bounds the Operator
+  API's detail lookup and projection (``_strict_string_list``,
+  ``_bounded_identity``) already enforce on read. A write this ledger
+  accepts is therefore always reachable and fully renderable through the
+  Operator API, never a row nobody can ever read back.
 - **Replayable provenance**: every row carries the bounded activity and
   correlation identity of the record call plus the SHA-256 digest of the
   exact evidence body, so an Operator API reader can verify that a
@@ -125,6 +136,31 @@ land while the bus still announces it ``completed``, keeps every
 successful write's evidence actually replayable.
 """
 
+_MAX_LIST_ITEMS = 200
+_MAX_TEXT_CHARS = 512
+"""Bounds for a single bounded string list (``reason_codes``, one
+finding's ``evidence_refs``), enforced at write time.
+
+Matches ``_MAX_ITEMS``/``_MAX_TEXT_LEN`` and ``_strict_string_list`` in
+``fdai_operator_service.assurance_twin_posture_projection``: at most
+:data:`_MAX_LIST_ITEMS` entries, each a non-blank string of at most
+:data:`_MAX_TEXT_CHARS` characters, with no duplicate entries. The
+projection renders a list that breaks any of these rules as
+``evidence_malformed`` for the whole row rather than a filtered,
+truncated, or deduplicated one, so this ledger rejects the write outright
+for the same reason :data:`_MAX_FINDINGS` does: a write this ledger
+accepts must stay fully renderable, never a row nobody can ever read back.
+"""
+
+_MAX_EVIDENCE_SOURCE_REVISION_CHARS = 512
+"""Upper bound on ``evidence_source_revision``, enforced at write time.
+
+Matches :data:`_MAX_TEXT_CHARS` - the same bound the Operator API's
+projection applies to every provenance identity string via
+``_bounded_identity`` - so a revision this ledger accepts is always
+rendered as usable provenance there too, never ``evidence_malformed``.
+"""
+
 #: Provenance fields describe *this* write, not the twin's evidence body, so
 #: they are excluded before the body digest is computed. A redelivery that
 #: differs only in correlation identity therefore still compares equal. The
@@ -168,20 +204,65 @@ def change_review_state_key(review_key: str) -> str:
     return f"{CHANGE_REVIEW_STATE_PREFIX}{review_key}"
 
 
-def _check_bounded_findings(findings: Sequence[object]) -> None:
+def _check_bounded_findings(findings: Sequence[Any]) -> None:
     """Reject a finding list before it is ever written or announced.
 
+    Also validates each finding's ``evidence_refs`` with
+    :func:`_check_bounded_string_list`, so a finding carrying an
+    over-long, duplicate, or blank evidence ref is rejected here too,
+    rather than landing as a row the Operator API's projection can only
+    render ``evidence_malformed``.
+
     Raises:
-        ValueError: when ``findings`` exceeds :data:`_MAX_FINDINGS` - the
-            same bound the Operator API's projection applies when
-            rendering a row, so a write this function accepts is always
-            rendered as usable evidence there too.
+        ValueError: when ``findings`` exceeds :data:`_MAX_FINDINGS`, or
+            any finding's ``evidence_refs`` fails
+            :func:`_check_bounded_string_list` - the same bounds the
+            Operator API's projection applies when rendering a row, so a
+            write this function accepts is always rendered as usable
+            evidence there too.
     """
 
     if len(findings) > _MAX_FINDINGS:
         raise ValueError(
             f"assurance twin findings MUST number <= {_MAX_FINDINGS}, got {len(findings)}"
         )
+    for finding in findings:
+        _check_bounded_string_list(finding.evidence_refs, field="finding evidence_refs")
+
+
+def _check_bounded_string_list(items: Sequence[object], *, field: str) -> None:
+    """Reject a bounded string list before it is ever written or announced.
+
+    Mirrors ``_strict_string_list`` in
+    ``fdai_operator_service.assurance_twin_posture_projection`` exactly:
+    at most :data:`_MAX_LIST_ITEMS` entries, each a non-blank string of at
+    most :data:`_MAX_TEXT_CHARS` characters, with no duplicate entries.
+    Applies to ``reason_codes`` and to one finding's ``evidence_refs`` -
+    every list field the projection validates with the same rule.
+
+    Raises:
+        ValueError: when ``items`` breaks any of the above rules, naming
+            ``field`` so the caller can trace which write-side value
+            failed.
+    """
+
+    if len(items) > _MAX_LIST_ITEMS:
+        raise ValueError(
+            f"assurance twin {field} MUST number <= {_MAX_LIST_ITEMS}, got {len(items)}"
+        )
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"assurance twin {field} entries MUST be non-blank strings")
+        if len(item) > _MAX_TEXT_CHARS:
+            raise ValueError(
+                f"assurance twin {field} entries MUST be <= {_MAX_TEXT_CHARS} characters"
+            )
+        if item in seen:
+            raise ValueError(
+                f"assurance twin {field} entries MUST be unique, got a duplicate {item!r}"
+            )
+        seen.add(item)
 
 
 def evidence_body_digest(body: Mapping[str, Any]) -> str:
@@ -241,12 +322,17 @@ class StateStoreAssuranceTwinPostureLedger:
 
         Raises:
             ValueError: when ``report.findings`` exceeds
-                :data:`_MAX_FINDINGS` - rejected before any write so a
-                report this call persists is always fully renderable by
-                the Operator API's projection.
+                :data:`_MAX_FINDINGS`, a finding's ``evidence_refs`` fails
+                :func:`_check_bounded_string_list`, ``reason_codes`` fails
+                :func:`_check_bounded_string_list`, or
+                ``evidence_source_revision`` is blank or exceeds
+                :data:`_MAX_EVIDENCE_SOURCE_REVISION_CHARS` - all rejected
+                before any write so a report this call persists is always
+                fully renderable by the Operator API's projection.
         """
 
         _check_bounded_findings(report.findings)
+        _check_bounded_string_list(reason_codes, field="reason_codes")
         key = posture_report_state_key(report.scope)
         body: dict[str, Any] = {
             **report.to_dict(),
@@ -282,7 +368,8 @@ class StateStoreAssuranceTwinPostureLedger:
         the same ``review_key`` returns ``conflict=True``: the stored
         evidence body is preserved, a durable conflict marker is written
         onto the row, and every later read renders it unavailable, so the
-        ledger never holds one truth while the bus announces another.
+        ledger never holds one truth for one reader while serving another to
+        a different reader.
 
         The redeliver-then-tombstone sequence is not one atomic
         ``StateStore`` call, so a same-key redelivery racing a concurrent
@@ -291,7 +378,7 @@ class StateStoreAssuranceTwinPostureLedger:
         ``revision`` counter rather than a bare ``write_state``: a losing
         caller re-reads the row a concurrent write just advanced and never
         overwrites it, so a duplicate arriving after a tombstone lands can
-        never publish that identity as completed/available. This holds for
+        never report that identity as completed/available. This holds for
         a *matching*-body redelivery too: it never returns non-conflict
         from a bare read, only after confirming via the same compare-and-
         set that no concurrent tombstone landed on the row it read (see
@@ -299,13 +386,18 @@ class StateStoreAssuranceTwinPostureLedger:
 
         Raises:
             ValueError: when ``review.review_key`` exceeds
-                :data:`_REVIEW_KEY_MAX_CHARS`, or ``review.findings``
-                exceeds :data:`_MAX_FINDINGS` - both rejected before any
-                write so a review this call persists is always reachable
-                and fully renderable by the Operator API.
+                :data:`_REVIEW_KEY_MAX_CHARS`, ``review.findings`` exceeds
+                :data:`_MAX_FINDINGS`, a finding's ``evidence_refs`` fails
+                :func:`_check_bounded_string_list`, ``reason_codes`` fails
+                :func:`_check_bounded_string_list`, or
+                ``evidence_source_revision`` is blank or exceeds
+                :data:`_MAX_EVIDENCE_SOURCE_REVISION_CHARS` - all rejected
+                before any write so a review this call persists is always
+                reachable and fully renderable by the Operator API.
         """
 
         _check_bounded_findings(review.findings)
+        _check_bounded_string_list(reason_codes, field="reason_codes")
         key = change_review_state_key(review.review_key)
         body = _change_review_body(review, freshness=freshness, reason_codes=reason_codes)
         digest = evidence_body_digest(body)
@@ -513,6 +605,11 @@ def _with_provenance(
         raise ValueError("assurance twin provenance MUST carry activity and correlation identity")
     if not evidence_source_revision.strip():
         raise ValueError("assurance twin provenance MUST carry an evidence source revision")
+    if len(evidence_source_revision) > _MAX_EVIDENCE_SOURCE_REVISION_CHARS:
+        raise ValueError(
+            "assurance twin evidence_source_revision MUST be "
+            f"<= {_MAX_EVIDENCE_SOURCE_REVISION_CHARS} characters"
+        )
     return {
         **body,
         "activity_id": activity_id,
