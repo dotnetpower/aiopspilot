@@ -92,8 +92,8 @@ def test_manifest_and_focused_fixture_gate_pass(
     _checker_module().validate(mode="focused")
 
     assert summary.service_count == 5
-    assert summary.contract_count == 7
-    assert summary.matrix_edge_count == 7
+    assert summary.contract_count == 8
+    assert summary.matrix_edge_count == 8
     output = capsys.readouterr().out
     assert "mode=focused" in output
     assert "proof_kind=focused" in output

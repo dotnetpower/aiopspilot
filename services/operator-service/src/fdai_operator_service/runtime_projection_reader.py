@@ -764,14 +764,14 @@ class RuntimeProjectionReader:
 
     async def _assurance_twin_posture(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 200",
+            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
             (f"{_ASSURANCE_TWIN_POSTURE_PREFIX}%",),
         )
         return assurance_twin_posture_projection(rows)
 
     async def _assurance_twin_reviews(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 200",
+            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
             (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}%",),
         )
         return assurance_twin_review_list_projection(rows)

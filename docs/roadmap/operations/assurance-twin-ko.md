@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 9272357e91610f59e6b8525962fd9c80a355b9a9
+translation_source_sha: 5de4339fade38371c8a1744f6575c3d5f2506491
 translation_revised: 2026-09-02
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -40,8 +40,9 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 ## 구현 상태
 
 결정론적 Twin 코어와 스칼라 및 그래프 시뮬레이션 기본 기능은 구현되어 집중 테스트로
-검증됩니다. 운영 `state_kv` 원장을 통한 범위가 제한된 읽기 전용 운영자 패널 연결이 이제
-존재합니다. 운영 인벤토리, 자연어, 검토 전달 연결은 미완성이므로 실제 Azure 근거로
+검증됩니다. 책임 주체인 Heimdall 트리거, 운영 `state_kv` 원장, 범위가 제한된 읽기 전용
+운영자 패널도 구현되어 집중 테스트로 검증됩니다. 운영 인벤토리, 자연어, 검토 전달 연결은
+아직 미완성입니다. 통제된 런타임 증적을 아직 수집하지 않았으므로 실제 Azure 근거로
 검증 완료된 영역으로 표시하지 않습니다.
 
 ### 구현 범위
@@ -55,13 +56,14 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
-| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py` (delivery)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 경로, [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx), 그리고 집중 테스트(`32개 통과`) | Heimdall은 기록된 모든 자세 보고서나 선제적 변경 검토에 대해 범위가 제한된 스키마 검증 `agent.operational-activity`(`assurance-twin.posture` 종류, 스키마 `1.2.0`) 신호를 발행합니다. 운영 보고서/검토 본문은 기존 `state_kv` 원장에 있으며 Operator API/콘솔은 판정, 심각도, 신선도를 다시 계산하지 않고 그대로 렌더링합니다. 수정 제안 연결, 운영 인벤토리 연결, 위의 선제적 변경 이벤트 트리거는 여전히 시작 전이므로 이 행은 implemented가 아니라 in-progress로 남습니다. |
+| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`runtime/assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_posture.py), [`assurance_twin_posture.py`(전달)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 경로, [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx), 그리고 집중 테스트(`110 passed`) | Heimdall은 이미 구독 중인 `object.event`로 도착한 선제적 Twin 후보를 기록합니다. 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처와 함께 영속 `state_kv` 본문을 쓰고, 스키마가 검증된 `agent.operational-activity` 신호(`assurance-twin.posture` 종류, 스키마 `1.2.0`, `execution_authority`는 상수 `false`)를 게시합니다. 하나의 `review_key`에 대해 상충하는 재전달은 영속 본문을 대체하지 않고 명시적인 사용 불가 신호를 게시합니다. Operator API와 콘솔은 저장된 근거를 그대로 표시하고, 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치 행은 명시적인 공백으로 보류합니다. 이 후보 이벤트를 게시하는 상류 구성 요소는 아직 없고 수정 제안 연결과 운영 인벤토리 연결도 미착수이므로 이 항목은 implemented가 아니라 in-progress로 유지합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-02 | in-progress | Heimdall이 소유하는 범위 제한 자세/검토 활동 신호(`agent.operational-activity` 스키마 `1.2.0`, `assurance-twin.posture` 종류), 운영 `state_kv` 자세 보고서 및 변경 검토 원장, 읽기 전용 `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 연산, 드릴다운 검토 상세를 갖춘 지역화된 읽기 전용 콘솔 패널을 추가했습니다. | `current change`; 집중 core, Operator API, 콘솔 검사 32개 통과. 콘솔 타입 검사, 빌드, 지역화 카탈로그 일치성 게이트 통과. | 운영 `Inventory` 출처를 연결하고, 선제적 변경 이벤트를 운영 게시자에 연결하고, 수정 제안 연결을 추가합니다. |
+| 2026-09-03 | in-progress | 독립 검토에서 발견한 결함 일곱 건을 보완했습니다. 조립 루트에서 레코더를 Heimdall의 기존 `object.event` 구독 위 책임 주체 트리거에 연결했고, 상충하는 `review_key` 재전달이 진실을 둘로 나누는 대신 명시적인 사용 불가 신호로 실패 시 닫히도록 했으며, 이벤트-보고서 재생을 위해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처를 저장하고 노출했습니다. Operator API와 콘솔은 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치 행을 사용 가능한 결과 대신 명시적 공백으로 보류합니다. `agent-operational-activity` N/N-1 호환성 경계와 재생성한 Python/TypeScript 산출물, 스키마 `1.2.0`을 인식하는 콘솔 디코더를 추가했고, 콘솔 라우팅에서 불투명한 검토 키 식별자를 그대로 보존합니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사 110건과 서비스 호환성 focused 게이트, 계약 생성, 프로젝트 ruff 및 strict mypy, 콘솔 타입 검사와 빌드, 카탈로그 일치/번역/로드맵 추적 게이트가 통과했습니다. | 통제된 실제 런타임 증적은 없습니다. 선제적 Twin 후보 이벤트를 게시하는 상류 구성 요소가 아직 없고 운영 `Inventory` 연결과 수정 제안 연결도 미착수입니다. |
 | 2026-08-31 | implemented | 엄격한 의미 컴파일러 조정기와 런타임 조립 경계를 추가했습니다. 검증은 정확한 질문 계보, 컴파일러 개정, 근거 인용, 결과 한계를 요구합니다. 유효하지 않은 계획은 명시적 모호성으로 바뀌고 내용 없는 무권한 발견 공백만 게시합니다. | `current change`; 집중 질의 및 런타임 조립 검사 50개 통과. | 통제된 모델 컴파일러와 발견 sink를 연결한 뒤 인증된 런타임 증적 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 Twin 기본 기능과 연결되지 않은 전달 표면을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 어슈어런스 트윈, Security Assessment, 보고 집중 테스트. | 운영 근거와 전달 표면을 연결한 다음 거버넌스가 적용된 런타임 증적을 수집합니다. |
 | 2026-08-21 | in-progress | 기본 Twin 컴파일러에서 lexical 자연어 grammar를 제거했습니다. 바인딩되지 않은 컴파일은 `semantic_model_unavailable`을 반환하며 결정론적 읽기 전용 검증기는 주입된 모든 컴파일러에 계속 authoritative합니다. | `current change`; 집중 Assurance Twin 검사 45개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 자연어 컴파일을 사용할 수 있다고 설명하기 전에 Twin 전용 모델 projection과 ChatOps 입력을 연결합니다. |
@@ -78,9 +80,12 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
   게시된 검토를 연결하는 거버넌스 적용 shadow 증적을 기록합니다.
 - [ ] 판단 보류된 질문과 수정 제안을 발견 및 정상 risk-gate 액션 경로로 보내고 Twin이 실행하거나
   권한을 높이지 않는지 테스트합니다.
-- [x] 읽기 전용 Twin 자세 API와 콘솔 패널을 추가한 다음 하나의 전체 인벤토리-보고서 렌더링에
-  대한 거버넌스 적용 런타임 증적을 수집합니다. 운영 `Inventory` 연결과 선제적 변경 이벤트
-  트리거는 위의 두 항목으로 남습니다.
+- [x] 책임 주체가 게시하는 스키마 검증 Heimdall 트리거 위에 읽기 전용 Twin 자세 API와 콘솔
+  패널을 구현하고, 영속 원장, 재전달, 상충하는 재전달, 형식 오류 후보, 실패 시 닫히는 렌더링을
+  집중 테스트로 검증합니다.
+- [ ] 하나의 전체 인벤토리-보고서 렌더링에 대한 통제된 런타임 증적을 수집합니다. 이 항목은
+  운영 `Inventory` 연결과 선제적 Twin 후보 이벤트를 게시하는 상류 생산자를 필요로 하므로
+  구현은 완료되었지만 검증은 완료되지 않았습니다. 실제 증적은 아직 없습니다.
 
 ## 왜 챗봇이 아닌가
 
@@ -353,7 +358,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory 불변식을 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
 | `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
-| `posture_activity` | 계산된 `PostureAssessmentReport` 또는 `IacReview` 에 대해 범위가 제한되고 스키마 검증된 `agent.operational-activity` 신호(Heimdall 소유, `assurance-twin.posture` 종류)를 만듭니다. 발견 사항은 담지 않고 범위가 제한된 근거 개수와 신선도만 담습니다. |
+| `posture_activity` | 계산된 `PostureAssessmentReport` 또는 `IacReview` 에 대해 범위가 제한되고 스키마 검증된 `agent.operational-activity` 신호(Heimdall 소유, `assurance-twin.posture` 종류)를 만듭니다. 발견 사항은 담지 않고 범위가 제한된 근거 개수와 신선도만 담습니다. 이를 호출하는 책임 주체 트리거는 [`runtime/assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_posture.py)에 있으며 조립 루트에서 Heimdall에 연결됩니다. |
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는

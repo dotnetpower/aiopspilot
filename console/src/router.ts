@@ -135,9 +135,13 @@ export function parseConsoleRoute(pathname: string, search = ""): ConsoleRoute {
       search: new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
     };
   }
+  // Opaque detail identity (process ids, ontology names, assurance twin
+  // review keys) is meaningful byte for byte, so these panels MUST NOT be
+  // canonicalised through the slugifying href builder.
   const preservesExactSegments = panelId === "processes"
     || panelId === "ontology"
-    || panelId === "cost-governance";
+    || panelId === "cost-governance"
+    || panelId === "assurance-twin";
   const canonicalPathname = preservesExactSegments && detailSegments.length > 0
     ? `${panelPath(panelId)}/${detailSegments.map(encodeURIComponent).join("/")}`
     : routeHref(panelId, { segments: detailSegments });

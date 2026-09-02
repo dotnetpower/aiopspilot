@@ -220,7 +220,9 @@ campaign: `assurance-twin.posture`, published by Heimdall for a computed Assuran
 report or ambient change review
 ([assurance-twin.md](assurance-twin.md#module-placement)). It never uses `observation_domain` and is
 never produced by `observation-campaign-job`, so it does not enter the per-domain source-coverage
-check above.
+check above. The Console activity decoder accepts schema `1.2.0` and rejects the `assurance-twin`
+producer on any other kind, and the `agent-operational-activity` compatibility edge classifies the
+`N` producer against an `N-1` consumer as an ordered rollout rather than a supported pair.
 
 ## Failure behavior
 

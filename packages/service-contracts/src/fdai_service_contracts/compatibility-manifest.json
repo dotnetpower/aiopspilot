@@ -230,6 +230,29 @@
         "normal_retention_days": 1,
         "dlq_retention_days": 7
       }
+    },
+    {
+      "id": "agent-operational-activity",
+      "owner": "core-control-plane",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "compatibility_policy": "version-negotiated",
+      "producer_schemas": {
+        "N-1": {"version": "1.1.0", "path": "schemas/agent-operational-activity/1.1.0.json"},
+        "N": {"version": "1.2.0", "path": "schemas/agent-operational-activity/1.2.0.json"}
+      },
+      "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0", "1.2.0"]},
+      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATIONAL_ACTIVITY_PRODUCER_V11", "N": "fdai_core_service.contract_codecs:OPERATIONAL_ACTIVITY_PRODUCER_V12"},
+      "consumer_codecs": {"N-1": "fdai_operator_service.contract_codecs:OPERATIONAL_ACTIVITY_CONSUMER_V11", "N": "fdai_operator_service.contract_codecs:OPERATIONAL_ACTIVITY_CONSUMER_V12"},
+      "delivery": {
+        "guarantee": "at-least-once",
+        "partition_key_field": "owner_agent",
+        "idempotency_key_field": "idempotency_key",
+        "duplicate_policy": "deduplicate-by-idempotency-key",
+        "reorder_policy": "partition-sequence",
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
+      }
     }
   ],
   "producer_consumer_matrix": [
@@ -310,6 +333,19 @@
       ],
       "unsupported_pairs": [
         {"producer_release": "N", "consumer_release": "N-1", "reason": "executor receipt 1.1.0 requires Core 1.1.0 before Executor 1.1.0"}
+      ]
+    },
+    {
+      "contract_id": "agent-operational-activity",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "supported_pairs": [
+        {"producer_release": "N-1", "consumer_release": "N-1"},
+        {"producer_release": "N-1", "consumer_release": "N"},
+        {"producer_release": "N", "consumer_release": "N"}
+      ],
+      "unsupported_pairs": [
+        {"producer_release": "N", "consumer_release": "N-1", "reason": "operational activity 1.2.0 requires Operator 1.2.0 acceptance before Core emits assurance-twin.posture"}
       ]
     }
   ],

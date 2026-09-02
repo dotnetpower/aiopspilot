@@ -19,6 +19,49 @@ describe("mandatory English catalog fallback", () => {
       .toBe("인벤토리 검사");
   });
 
+  test("resolves every dotted Assurance Twin panel key in both locales", () => {
+    const keys = [
+      "assuranceTwin.verdictValue.clear",
+      "assuranceTwin.verdictValue.needs_review",
+      "assuranceTwin.verdictValue.blocked",
+      "assuranceTwin.severityValue.low",
+      "assuranceTwin.severityValue.medium",
+      "assuranceTwin.severityValue.high",
+      "assuranceTwin.severityValue.critical",
+      "assuranceTwin.freshnessValue.fresh",
+      "assuranceTwin.freshnessValue.stale",
+      "assuranceTwin.freshnessValue.unavailable",
+      "assuranceTwin.freshnessValue.unknown",
+      "assuranceTwin.mode.shadow",
+      "assuranceTwin.mode.enforce",
+      "assuranceTwin.gap.unknownIdentity",
+      "assuranceTwin.gap.evidence_malformed",
+      "assuranceTwin.gap.evidence_digest_mismatch",
+      "assuranceTwin.gap.evidence_conflict",
+      "assuranceTwin.gap.evidence_not_fresh",
+      "assuranceTwin.gap.evidence_truncated",
+      "assuranceTwin.provenance.activity",
+      "assuranceTwin.provenance.correlation",
+      "assuranceTwin.provenance.evidenceDigest",
+      "assuranceTwin.provenance.sourceRevision",
+      "assuranceTwin.postureWithheld",
+      "assuranceTwin.reviewsWithheld",
+      "assuranceTwin.reviewDetailWithheld",
+      "assuranceTwin.reviewDetailUnavailable",
+      "agentActivity.log.lane.assurance-twin.posture",
+    ];
+    for (const locale of ["en", "ko"] as const) {
+      for (const key of keys) {
+        // A missing key resolves to the key itself, which would render raw
+        // machine text in the operator-facing evidence-gap and provenance UI.
+        expect(tForLocale(locale, key), `${locale} ${key}`).not.toBe(key);
+      }
+    }
+    // The scalar labels MUST keep resolving alongside their nested values.
+    expect(tForLocale("en", "assuranceTwin.verdict")).toBe("Verdict");
+    expect(tForLocale("en", "assuranceTwin.freshness")).toBe("Freshness");
+  });
+
   test("renders an explicit conversational locale without changing the UI locale", () => {
     setLocale("en");
     expect(tForLocale("ko", "deck.incidentCandidates.title")).toBe("조사할 인시던트 선택");

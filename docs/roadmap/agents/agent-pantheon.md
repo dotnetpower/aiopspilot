@@ -145,6 +145,15 @@ Before publishing a threshold anomaly, Heimdall may call an injected bounded rea
 `operational_evidence_hook`. The hook can attach provider evidence such as a hold-only Kubernetes
 capacity finding, but it cannot decide, approve, or execute. A provider failure is attached as
 structured unavailable evidence and never suppresses the authoritative anomaly.
+On the same declared `object.event` subscription Heimdall also records an ambient Assurance Twin
+posture or change-review candidate through the composition-owned `assurance_twin_posture_hook`,
+mirroring the `evidence.conflict.candidate.v1` shape: Huginn stays the sole `Event` writer, and
+Heimdall validates the candidate, writes the durable read model, and publishes one bounded
+`agent.operational-activity` tip whose `execution_authority` is the schema `const` `false`. It adds
+no owned object type and no publish onto another agent's topic. A rejected candidate, an unbound
+hook, and a conflicting redelivery are all recorded as held or unavailable, never as a clear
+posture. No shipped component publishes these candidates yet
+([assurance-twin.md](../operations/assurance-twin.md#implementation-status)).
 One correlation episode repeated inside the rate window forms one anomaly at its worst severity.
 Global/per-resource caps prevent cross-resource eviction. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an

@@ -34,6 +34,8 @@ DOCUMENT_INDEX_PRODUCER_V1 = ProducerCodec("document-worker-index", "N-1", "1.0.
 DOCUMENT_INDEX_PRODUCER_V11 = ProducerCodec("document-worker-index", "N", "1.0.0")
 EXECUTOR_COMMAND_PRODUCER_V1 = ProducerCodec("executor-command", "N-1", "1.0.0")
 EXECUTOR_COMMAND_PRODUCER_V11 = ProducerCodec("executor-command", "N", "1.0.0")
+OPERATIONAL_ACTIVITY_PRODUCER_V11 = ProducerCodec("agent-operational-activity", "N-1", "1.1.0")
+OPERATIONAL_ACTIVITY_PRODUCER_V12 = ProducerCodec("agent-operational-activity", "N", "1.2.0")
 EXECUTOR_RECEIPT_CONSUMER_V1 = ConsumerCodec("executor-receipt", "N-1", ("1.0.0",))
 EXECUTOR_RECEIPT_CONSUMER_V11 = ConsumerCodec("executor-receipt", "N", ("1.0.0", "1.1.0"))
 

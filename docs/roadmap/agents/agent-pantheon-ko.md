@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7d5f0076351b856522df67f8c834a08a68c9e257
+translation_source_sha: 2aeab5787db96d20c304a8fdb33b436b89f4c369
 translation_revised: 2026-09-06
 ---
 # 에이전트 판테온
@@ -144,7 +144,7 @@ Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소
 뒤 선택적 `incident_candidate_hook`을 호출할 수 있습니다. 이 훅은 정규화된 리소스, 이벤트 타입, 상관관계, worst 심각도, 사유 코드, 모든 burst 근거 키를 조립 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 인시던트를 직접 쓰거나 새 임계값 anomaly를 publish하기 전에 Heimdall은 주입된 범위가 제한된 읽기 전용
 `operational_evidence_hook`을 호출할 수 있습니다. 이 훅은 hold-only Kubernetes 용량 발견 사항 같은 프로바이더 근거를 첨부할 수 있지만 판단, 승인 또는 실행하지 않습니다. 프로바이더 실패는 구조화된 사용 불가
-근거로 첨부되며 권위 있는 anomaly를 억제하지 않습니다. Heimdall은 인시던트를 직접 쓰거나 새 객체 타입을 publish하지 않습니다. 한 에피소드의 반복 Event는 worst 심각도 anomaly 하나를 형성합니다. Global/리소스
+근거로 첨부되며 권위 있는 anomaly를 억제하지 않습니다. 같은 `object.event` 구독에서 Heimdall은 조립 소유 `assurance_twin_posture_hook`을 통해 선제적 Assurance Twin 자세 또는 변경 검토 후보도 기록합니다. `evidence.conflict.candidate.v1`과 같은 형태로, Huginn이 유일한 `Event` 작성자로 남고 Heimdall은 후보를 검증해 영속 읽기 모델을 쓰고 `execution_authority`가 스키마 상수 `false`인 범위 제한 `agent.operational-activity` 신호 하나를 게시합니다. 소유 객체 타입이나 다른 에이전트 토픽으로의 게시는 추가하지 않습니다. 거부된 후보, 연결되지 않은 훅, 상충하는 재전달은 모두 보류 또는 사용 불가로 기록되며 깨끗한 자세로 기록되지 않습니다. 이 후보를 게시하는 구성 요소는 아직 없습니다([assurance-twin.md](../operations/assurance-twin.md#implementation-status)). Heimdall은 인시던트를 직접 쓰거나 새 객체 타입을 publish하지 않습니다. 한 에피소드의 반복 Event는 worst 심각도 anomaly 하나를 형성합니다. Global/리소스
 상한은 cross-resource 제거를 방지합니다. Routine 하트비트, healthy 탐색, within-threshold 관측은 발견 사항이나 인시던트를 생성하지 않습니다. 분산 추적 불연속 Event의 경우 Huginn은 범위가 제한된
 감지기, 토폴로지, hop, 추적 조각, 근거 참조, 구간 필드만 정규화된 속성으로 복사합니다. Heimdall은 등록된 연속성 사유 코드만 수락하고 anomaly에 해당 근거를 보존하며, 일반 반복 사유로 대체하지 않고 관측된 사유를 인시던트 후보에
 사용합니다. 작업처럼 보이는 입력을 포함한 알 수 없는 필드는 버립니다. 이 근거 인계는 ActionType을 선택하거나 판단, 승인, 실행 권한을 부여하지 않습니다. 명시적 `incident_correlation=correlate`, 상관관계와

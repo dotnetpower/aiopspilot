@@ -2,21 +2,36 @@
 
 The Operator Service does not compute the twin's verdict, severity, or
 freshness - it only shapes rows the twin already wrote. Every test below
-asks whether a malformed row produces an explicit unavailable/gap outcome
-rather than a fabricated one.
+asks whether unusable evidence produces an explicit gap rather than a
+fabricated clear result.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 from fdai_operator_service.assurance_twin_posture_projection import (
+    GAP_CONFLICT,
+    GAP_DIGEST_MISMATCH,
+    GAP_MALFORMED,
+    GAP_NOT_FRESH,
+    GAP_TRUNCATED,
     assurance_twin_posture_projection,
     assurance_twin_review_detail_projection,
     assurance_twin_review_list_projection,
 )
 
-_POSTURE_VALUE: dict[str, Any] = {
+_PROVENANCE_FIELDS = (
+    "activity_id",
+    "correlation_id",
+    "evidence_digest",
+    "evidence_source_revision",
+)
+_REVISION = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
+
+_POSTURE_BODY: dict[str, Any] = {
     "scope": "sub/00000000-0000-0000-0000-000000000001",
     "generated_at": "2026-07-07T00:00:00Z",
     "mode": "shadow",
@@ -40,14 +55,15 @@ _POSTURE_VALUE: dict[str, Any] = {
     "reason_codes": [],
 }
 
-_REVIEW_VALUE: dict[str, Any] = {
+_REVIEW_BODY: dict[str, Any] = {
     "pr_ref": "owner/repo#1",
-    "review_key": "k-1",
+    "review_key": "Review_Key-1",
     "verdict": "needs_review",
     "mode": "shadow",
     "generated_at": "2026-07-07T00:00:00Z",
     "freshness": "fresh",
     "reason_codes": [],
+    "metadata": {},
     "findings": [
         {
             "rule_id": "r-1",
@@ -61,15 +77,38 @@ _REVIEW_VALUE: dict[str, Any] = {
 }
 
 
+def _digest(body: dict[str, Any]) -> str:
+    material = {key: value for key, value in body.items() if key not in _PROVENANCE_FIELDS}
+    encoded = json.dumps(material, sort_keys=True, separators=(",", ":"), default=str)
+    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
+def _row(body: dict[str, Any], **provenance: Any) -> dict[str, Any]:
+    """Build one durable row with verifying provenance unless overridden."""
+
+    value = {
+        **body,
+        "activity_id": "assurance-twin.posture-report:correlation-1:completed",
+        "correlation_id": "correlation-1",
+        "evidence_digest": _digest(body),
+        "evidence_source_revision": _REVISION,
+    }
+    value.update(provenance)
+    return {"value": value}
+
+
 def test_posture_projection_is_unavailable_when_no_rows_exist() -> None:
     projection = assurance_twin_posture_projection(())
     assert projection["available"] is False
+    assert projection["complete"] is True
     assert projection["reports"] == []
+    assert projection["gaps"] == []
 
 
 def test_posture_projection_renders_a_recorded_report_verbatim() -> None:
-    projection = assurance_twin_posture_projection(({"value": _POSTURE_VALUE},))
+    projection = assurance_twin_posture_projection((_row(_POSTURE_BODY),))
     assert projection["available"] is True
+    assert projection["complete"] is True
     reports = projection["reports"]
     assert isinstance(reports, list)
     report = reports[0]
@@ -79,23 +118,97 @@ def test_posture_projection_renders_a_recorded_report_verbatim() -> None:
     assert report["freshness"] == "fresh"
 
 
-def test_posture_projection_drops_a_row_with_an_invalid_verdict() -> None:
-    malformed = {**_POSTURE_VALUE, "verdict": "not-a-real-verdict"}
-    projection = assurance_twin_posture_projection(({"value": malformed},))
+def test_posture_projection_exposes_replay_provenance() -> None:
+    projection = assurance_twin_posture_projection((_row(_POSTURE_BODY),))
+    reports = projection["reports"]
+    assert isinstance(reports, list)
+    report = reports[0]
+    assert report["activity_id"] == "assurance-twin.posture-report:correlation-1:completed"
+    assert report["correlation_id"] == "correlation-1"
+    assert report["evidence_digest"] == _digest(_POSTURE_BODY)
+    assert report["evidence_source_revision"] == _REVISION
+
+
+def test_posture_projection_reports_a_gap_for_an_invalid_verdict() -> None:
+    malformed = {**_POSTURE_BODY, "verdict": "not-a-real-verdict"}
+    projection = assurance_twin_posture_projection((_row(malformed),))
+    assert projection["available"] is False
+    assert projection["complete"] is False
+    assert projection["reports"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_reports_a_gap_for_incomplete_severity_counts() -> None:
+    malformed = {**_POSTURE_BODY, "severity_counts": {"low": 0}}
+    projection = assurance_twin_posture_projection((_row(malformed),))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_never_renders_stale_evidence_as_usable() -> None:
+    stale = {
+        **_POSTURE_BODY,
+        "freshness": "stale",
+        "reason_codes": ["inventory_freshness_ttl_exceeded"],
+    }
+    projection = assurance_twin_posture_projection((_row(stale),))
+    assert projection["available"] is False
+    assert projection["complete"] is False
+    assert projection["reports"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_NOT_FRESH
+    assert gaps[0]["freshness"] == "stale"
+    assert gaps[0]["reason_codes"] == ["inventory_freshness_ttl_exceeded"]
+
+
+def test_posture_projection_never_renders_unavailable_or_unknown_evidence() -> None:
+    for freshness in ("unavailable", "unknown"):
+        body = {**_POSTURE_BODY, "freshness": freshness}
+        projection = assurance_twin_posture_projection((_row(body),))
+        assert projection["available"] is False, freshness
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_NOT_FRESH
+
+
+def test_posture_projection_rejects_a_row_whose_digest_does_not_verify() -> None:
+    tampered = _row(_POSTURE_BODY)
+    tampered["value"]["verdict"] = "clear"
+    projection = assurance_twin_posture_projection((tampered,))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_DIGEST_MISMATCH
+
+
+def test_posture_projection_rejects_a_row_without_provenance() -> None:
+    projection = assurance_twin_posture_projection(({"value": dict(_POSTURE_BODY)},))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_withholds_conflicting_rows_for_one_identity() -> None:
+    other = {**_POSTURE_BODY, "verdict": "clear", "highest_severity": None}
+    projection = assurance_twin_posture_projection((_row(_POSTURE_BODY), _row(other)))
     assert projection["available"] is False
     assert projection["reports"] == []
-
-
-def test_posture_projection_drops_a_row_with_incomplete_severity_counts() -> None:
-    malformed = {**_POSTURE_VALUE, "severity_counts": {"low": 0}}
-    projection = assurance_twin_posture_projection(({"value": malformed},))
-    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_CONFLICT
+    assert gaps[0]["identity"] == _POSTURE_BODY["scope"]
 
 
 def test_posture_projection_sorts_multiple_reports_newest_first() -> None:
-    older = {**_POSTURE_VALUE, "scope": "sub/a", "generated_at": "2026-01-01T00:00:00Z"}
-    newer = {**_POSTURE_VALUE, "scope": "sub/b", "generated_at": "2026-06-01T00:00:00Z"}
-    projection = assurance_twin_posture_projection(({"value": older}, {"value": newer}))
+    older = {**_POSTURE_BODY, "scope": "sub/a", "generated_at": "2026-01-01T00:00:00Z"}
+    newer = {**_POSTURE_BODY, "scope": "sub/b", "generated_at": "2026-06-01T00:00:00Z"}
+    projection = assurance_twin_posture_projection((_row(older), _row(newer)))
     reports = projection["reports"]
     assert isinstance(reports, list)
     assert [report["scope"] for report in reports] == ["sub/b", "sub/a"]
@@ -104,18 +217,31 @@ def test_posture_projection_sorts_multiple_reports_newest_first() -> None:
 def test_review_list_projection_is_unavailable_when_no_rows_exist() -> None:
     projection = assurance_twin_review_list_projection(())
     assert projection["available"] is False
+    assert projection["complete"] is True
     assert projection["reviews"] == []
 
 
 def test_review_list_projection_renders_a_recorded_review_summary() -> None:
-    projection = assurance_twin_review_list_projection(({"value": _REVIEW_VALUE},))
+    projection = assurance_twin_review_list_projection((_row(_REVIEW_BODY),))
     assert projection["available"] is True
     reviews = projection["reviews"]
     assert isinstance(reviews, list)
     review = reviews[0]
-    assert review["review_key"] == "k-1"
+    assert review["review_key"] == "Review_Key-1"
     assert review["finding_count"] == 1
     assert "findings" not in review
+    assert review["evidence_digest"] == _digest(_REVIEW_BODY)
+
+
+def test_review_list_projection_never_coerces_malformed_findings_to_zero() -> None:
+    malformed = {**_REVIEW_BODY, "findings": "not-a-list"}
+    projection = assurance_twin_review_list_projection((_row(malformed),))
+    assert projection["available"] is False
+    assert projection["reviews"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+    assert gaps[0]["identity"] == "Review_Key-1"
 
 
 def test_review_detail_projection_is_none_when_row_is_absent() -> None:
@@ -123,14 +249,66 @@ def test_review_detail_projection_is_none_when_row_is_absent() -> None:
 
 
 def test_review_detail_projection_includes_finding_evidence() -> None:
-    detail = assurance_twin_review_detail_projection({"value": _REVIEW_VALUE})
+    detail = assurance_twin_review_detail_projection(_row(_REVIEW_BODY))
     assert detail is not None
-    assert detail["review_key"] == "k-1"
-    findings = detail["findings"]
+    assert detail["available"] is True
+    review = detail["review"]
+    assert isinstance(review, dict)
+    assert review["review_key"] == "Review_Key-1"
+    findings = review["findings"]
     assert isinstance(findings, list)
     assert findings[0]["rule_id"] == "r-1"
 
 
-def test_review_detail_projection_is_none_for_malformed_findings() -> None:
-    malformed = {**_REVIEW_VALUE, "findings": "not-a-list"}
-    assert assurance_twin_review_detail_projection({"value": malformed}) is None
+def test_review_detail_projection_is_explicitly_unavailable_for_malformed_findings() -> None:
+    malformed = {**_REVIEW_BODY, "findings": "not-a-list"}
+    detail = assurance_twin_review_detail_projection(_row(malformed))
+    assert detail is not None
+    assert detail["available"] is False
+    assert detail["review"] is None
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_MALFORMED
+
+
+def test_review_detail_projection_is_explicitly_unavailable_when_not_fresh() -> None:
+    stale = {**_REVIEW_BODY, "freshness": "unavailable", "reason_codes": ["provider_error"]}
+    detail = assurance_twin_review_detail_projection(_row(stale))
+    assert detail is not None
+    assert detail["available"] is False
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_NOT_FRESH
+    assert gap["reason_codes"] == ["provider_error"]
+
+
+def test_review_detail_projection_rejects_a_tampered_body() -> None:
+    tampered = _row(_REVIEW_BODY)
+    tampered["value"]["verdict"] = "clear"
+    detail = assurance_twin_review_detail_projection(tampered)
+    assert detail is not None
+    assert detail["available"] is False
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_DIGEST_MISMATCH
+
+
+def test_posture_projection_reports_a_gap_when_the_page_does_not_cover_the_prefix() -> None:
+    rows = tuple(_row({**_POSTURE_BODY, "scope": f"sub/{index}"}) for index in range(201))
+    projection = assurance_twin_posture_projection(rows)
+    reports = projection["reports"]
+    gaps = projection["gaps"]
+    assert isinstance(reports, list)
+    assert isinstance(gaps, list)
+    assert len(reports) == 200
+    assert projection["complete"] is False
+    assert gaps[0]["reason_code"] == GAP_TRUNCATED
+
+
+def test_review_list_projection_reports_a_truncation_gap_too() -> None:
+    rows = tuple(_row({**_REVIEW_BODY, "review_key": f"k-{index}"}) for index in range(201))
+    projection = assurance_twin_review_list_projection(rows)
+    assert projection["complete"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_TRUNCATED

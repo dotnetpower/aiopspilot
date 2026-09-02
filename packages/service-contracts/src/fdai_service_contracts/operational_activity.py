@@ -140,6 +140,10 @@ class AgentOperationalActivity(ContractBase):
                 raise ValueError(
                     "assurance-twin posture activity MUST be Heimdall-owned twin evidence"
                 )
+            if any(not _OBSERVATION_REASON_CODE.fullmatch(code) for code in self.reason_codes):
+                raise ValueError(
+                    "assurance-twin posture reason_codes MUST be machine-safe identifiers"
+                )
         elif self.owner_agent != "Heimdall" or self.producer != "inventory-sync-job":
             raise ValueError("ontology projection MUST be Heimdall-owned job evidence")
         if (

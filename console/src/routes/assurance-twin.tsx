@@ -14,7 +14,7 @@ import {
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, panelPath, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   panelArray,
@@ -35,6 +35,20 @@ type TwinMode = (typeof MODES)[number];
 const FRESHNESS_STATES = ["fresh", "stale", "unavailable", "unknown"] as const;
 type Freshness = (typeof FRESHNESS_STATES)[number];
 
+export interface AssuranceTwinProvenance {
+  readonly activity_id: string | null;
+  readonly correlation_id: string | null;
+  readonly evidence_digest: string | null;
+  readonly evidence_source_revision: string | null;
+}
+
+export interface AssuranceTwinEvidenceGap {
+  readonly identity: string | null;
+  readonly freshness: Freshness | null;
+  readonly reason_code: string;
+  readonly reason_codes: readonly string[];
+}
+
 export interface AssuranceTwinFinding {
   readonly rule_id: string;
   readonly resource_type: string;
@@ -44,7 +58,7 @@ export interface AssuranceTwinFinding {
   readonly evidence_refs: readonly string[];
 }
 
-export interface AssuranceTwinPostureReport {
+export interface AssuranceTwinPostureReport extends AssuranceTwinProvenance {
   readonly scope: string;
   readonly generated_at: string;
   readonly mode: TwinMode;
@@ -60,7 +74,7 @@ export interface AssuranceTwinPostureReport {
   readonly reason_codes: readonly string[];
 }
 
-export interface AssuranceTwinReviewSummary {
+export interface AssuranceTwinReviewSummary extends AssuranceTwinProvenance {
   readonly review_key: string;
   readonly pr_ref: string;
   readonly generated_at: string;
@@ -75,15 +89,34 @@ export interface AssuranceTwinReviewDetail extends AssuranceTwinReviewSummary {
   readonly findings: readonly AssuranceTwinFinding[];
 }
 
+export interface AssuranceTwinReviewDetailState {
+  readonly available: boolean;
+  readonly review: AssuranceTwinReviewDetail | null;
+  readonly gap: AssuranceTwinEvidenceGap | null;
+}
+
 export interface AssuranceTwinResponse {
   readonly posture: {
     readonly available: boolean;
+    readonly complete: boolean;
     readonly reports: readonly AssuranceTwinPostureReport[];
+    readonly gaps: readonly AssuranceTwinEvidenceGap[];
   };
   readonly reviews: {
     readonly available: boolean;
+    readonly complete: boolean;
     readonly reviews: readonly AssuranceTwinReviewSummary[];
+    readonly gaps: readonly AssuranceTwinEvidenceGap[];
   };
+}
+
+/** Build a drill-down href that preserves the review key byte for byte.
+
+Review keys are opaque twin identity (mixed case and underscores are
+meaningful), so the shared slugifying `routeHref` helper MUST NOT touch
+them. */
+export function assuranceTwinReviewHref(reviewKey: string): string {
+  return `${panelPath("assurance-twin")}/${encodeURIComponent(reviewKey)}`;
 }
 
 export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): ViewSnapshot {
@@ -100,7 +133,7 @@ export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): Vie
       },
     ]),
     headline: report
-      ? `${t("assuranceTwin.verdict")}: ${t(`assuranceTwin.verdict.${report.verdict}`)}; `
+      ? `${t("assuranceTwin.verdict")}: ${t(`assuranceTwin.verdictValue.${report.verdict}`)}; `
         + `${t("assuranceTwin.reviews")}: ${data.reviews.reviews.length}`
       : t("assuranceTwin.unavailable"),
     capturedAt: new Date().toISOString(),
@@ -123,7 +156,8 @@ export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): Vie
   };
 }
 
-const POSTURE_ROOT_KEYS = new Set(["surface", "available", "source", "reports"]);
+const PROVENANCE_KEYS = ["activity_id", "correlation_id", "evidence_digest", "evidence_source_revision"] as const;
+const POSTURE_ROOT_KEYS = new Set(["surface", "available", "complete", "source", "reports", "gaps"]);
 const REPORT_KEYS = new Set([
   "scope",
   "generated_at",
@@ -138,8 +172,11 @@ const REPORT_KEYS = new Set([
   "findings",
   "freshness",
   "reason_codes",
+  ...PROVENANCE_KEYS,
 ]);
-const REVIEWS_ROOT_KEYS = new Set(["surface", "available", "source", "reviews"]);
+const REVIEWS_ROOT_KEYS = new Set(["surface", "available", "complete", "source", "reviews", "gaps"]);
+const DETAIL_ROOT_KEYS = new Set(["surface", "source", "available", "review", "gap"]);
+const GAP_KEYS = new Set(["identity", "freshness", "reason_code", "reason_codes"]);
 const REVIEW_SUMMARY_KEYS = new Set([
   "review_key",
   "pr_ref",
@@ -149,6 +186,7 @@ const REVIEW_SUMMARY_KEYS = new Set([
   "finding_count",
   "freshness",
   "reason_codes",
+  ...PROVENANCE_KEYS,
 ]);
 const FINDING_KEYS = new Set([
   "rule_id",
@@ -162,7 +200,7 @@ const FINDING_KEYS = new Set([
 export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiClient }) {
   const reviewId = currentRoute().segments[0] ?? null;
   const [state, setState] = useState<AsyncState<AssuranceTwinResponse>>({ status: "loading" });
-  const [detailState, setDetailState] = useState<AsyncState<AssuranceTwinReviewDetail> | null>(null);
+  const [detailState, setDetailState] = useState<AsyncState<AssuranceTwinReviewDetailState> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +237,7 @@ export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiCli
             state={detailState ?? { status: "loading" }}
             resourceLabel={t("assuranceTwin.reviewDetailResourceLabel")}
           >
-            {(detail) => <AssuranceTwinReviewDetailBody detail={detail} />}
+            {(detail) => <AssuranceTwinReviewDetailBody state={detail} />}
           </AsyncBoundary>
         )}
     </div>
@@ -232,7 +270,7 @@ export async function loadAssuranceTwinState(
 export async function loadAssuranceTwinReviewDetail(
   client: Pick<OperatorApiClient, "panel">,
   reviewId: string,
-): Promise<AsyncState<AssuranceTwinReviewDetail>> {
+): Promise<AsyncState<AssuranceTwinReviewDetailState>> {
   try {
     const payload = await client.panel<unknown>(
       `/assurance-twin/reviews/${encodeURIComponent(reviewId)}`,
@@ -250,26 +288,81 @@ function decodeAssuranceTwinPosture(value: unknown): AssuranceTwinResponse["post
   const root = panelRecord(value, "assurance twin posture");
   requireExactKeys(root, POSTURE_ROOT_KEYS, "assurance twin posture");
   const available = panelBoolean(root, "available", "assurance twin posture");
+  const complete = panelBoolean(root, "complete", "assurance twin posture");
   const rawReports = panelArray(root["reports"], "assurance twin posture.reports");
   const reports = rawReports.map((item, index) => decodeReport(item, index));
-  return { available, reports };
+  const gaps = decodeGaps(root["gaps"], "assurance twin posture.gaps");
+  if (available !== reports.length > 0 || complete !== (gaps.length === 0)) {
+    throw new OperatorApiError(502, "invalid Operator API response: assurance twin posture availability is inconsistent");
+  }
+  return { available, complete, reports, gaps };
 }
 
 function decodeAssuranceTwinReviews(value: unknown): AssuranceTwinResponse["reviews"] {
   const root = panelRecord(value, "assurance twin reviews");
   requireExactKeys(root, REVIEWS_ROOT_KEYS, "assurance twin reviews");
   const available = panelBoolean(root, "available", "assurance twin reviews");
+  const complete = panelBoolean(root, "complete", "assurance twin reviews");
   const rawReviews = panelArray(root["reviews"], "assurance twin reviews.reviews");
   const reviews = rawReviews.map((item, index) => decodeReviewSummary(item, index));
-  return { available, reviews };
+  const gaps = decodeGaps(root["gaps"], "assurance twin reviews.gaps");
+  if (available !== reviews.length > 0 || complete !== (gaps.length === 0)) {
+    throw new OperatorApiError(502, "invalid Operator API response: assurance twin review availability is inconsistent");
+  }
+  return { available, complete, reviews, gaps };
 }
 
-function decodeAssuranceTwinReviewDetail(value: unknown): AssuranceTwinReviewDetail {
+function decodeAssuranceTwinReviewDetail(value: unknown): AssuranceTwinReviewDetailState {
   const root = panelRecord(value, "assurance twin review detail");
-  const summary = decodeReviewSummary(root, 0);
-  const rawFindings = panelArray(root["findings"], "assurance twin review detail.findings");
+  requireExactKeys(root, DETAIL_ROOT_KEYS, "assurance twin review detail");
+  const available = panelBoolean(root, "available", "assurance twin review detail");
+  const rawReview = root["review"];
+  const rawGap = root["gap"];
+  if (!available) {
+    if (rawReview !== null) {
+      throw new OperatorApiError(502, "invalid Operator API response: unavailable assurance twin detail MUST NOT carry a review");
+    }
+    return { available, review: null, gap: decodeGap(rawGap, "assurance twin review detail.gap") };
+  }
+  if (rawGap !== null) {
+    throw new OperatorApiError(502, "invalid Operator API response: available assurance twin detail MUST NOT carry a gap");
+  }
+  const row = panelRecord(rawReview, "assurance twin review detail.review");
+  const { findings: rawFindingsValue, ...summaryRow } = row;
+  const summary = decodeReviewSummary(summaryRow, 0);
+  const rawFindings = panelArray(rawFindingsValue, "assurance twin review detail.findings");
   const findings = rawFindings.map((item, index) => decodeFinding(item, index));
-  return { ...summary, findings };
+  if (summary.finding_count !== findings.length) {
+    throw new OperatorApiError(502, "invalid Operator API response: assurance twin finding_count MUST match findings");
+  }
+  return { available, review: { ...summary, findings }, gap: null };
+}
+
+function decodeGaps(value: unknown, label: string): readonly AssuranceTwinEvidenceGap[] {
+  return panelArray(value, label).map((item) => decodeGap(item, label));
+}
+
+function decodeGap(value: unknown, label: string): AssuranceTwinEvidenceGap {
+  const row = panelRecord(value, label);
+  requireExactKeys(row, GAP_KEYS, label);
+  return {
+    identity: panelNullableString(row, "identity", label),
+    freshness: nullableEnum(row, "freshness", FRESHNESS_STATES, label),
+    reason_code: panelNonEmptyString(row, "reason_code", label),
+    reason_codes: panelStringArray(row["reason_codes"], `${label}.reason_codes`),
+  };
+}
+
+function decodeProvenance(
+  row: Readonly<Record<string, unknown>>,
+  label: string,
+): AssuranceTwinProvenance {
+  return {
+    activity_id: panelNullableString(row, "activity_id", label),
+    correlation_id: panelNullableString(row, "correlation_id", label),
+    evidence_digest: panelNullableString(row, "evidence_digest", label),
+    evidence_source_revision: panelNullableString(row, "evidence_source_revision", label),
+  };
 }
 
 function decodeReport(value: unknown, index: number): AssuranceTwinPostureReport {
@@ -282,6 +375,7 @@ function decodeReport(value: unknown, index: number): AssuranceTwinPostureReport
     throw new OperatorApiError(502, "invalid Operator API response: assurance twin finding_count MUST match findings");
   }
   return {
+    ...decodeProvenance(row, "assurance twin posture report"),
     scope: panelNonEmptyString(row, "scope", "assurance twin posture report"),
     generated_at: panelNonEmptyString(row, "generated_at", "assurance twin posture report"),
     mode: enumValue(row, "mode", MODES, "assurance twin posture report"),
@@ -300,7 +394,9 @@ function decodeReport(value: unknown, index: number): AssuranceTwinPostureReport
 
 function decodeReviewSummary(value: unknown, index: number): AssuranceTwinReviewSummary {
   const row = panelRecord(value, `assurance twin reviews[${index}]`);
+  requireExactKeys(row, REVIEW_SUMMARY_KEYS, `assurance twin reviews[${index}]`);
   return {
+    ...decodeProvenance(row, "assurance twin review"),
     review_key: panelNonEmptyString(row, "review_key", "assurance twin review"),
     pr_ref: panelNonEmptyString(row, "pr_ref", "assurance twin review"),
     generated_at: panelNonEmptyString(row, "generated_at", "assurance twin review"),
@@ -405,6 +501,54 @@ function EvidenceGaps({ reasonCodes }: { readonly reasonCodes: readonly string[]
   );
 }
 
+function WithheldEvidence(
+  { gaps, title }: { readonly gaps: readonly AssuranceTwinEvidenceGap[]; readonly title: string },
+) {
+  if (gaps.length === 0) return null;
+  return (
+    <div class="assurance-twin-gaps" role="status">
+      <strong>{title}</strong>
+      <ul>
+        {gaps.map((gap, index) => (
+          <li key={`${gap.identity ?? "unknown"}:${gap.reason_code}:${index}`}>
+            <span class="mono">{gap.identity ?? t("assuranceTwin.gap.unknownIdentity")}</span>
+            {" - "}
+            <span>{t(`assuranceTwin.gap.${gap.reason_code}`)}</span>
+            {gap.freshness === null ? null : (
+              <>
+                {" "}
+                <StatusPill
+                  kind={freshnessStatusKind(gap.freshness)}
+                  label={t(`assuranceTwin.freshnessValue.${gap.freshness}`)}
+                />
+              </>
+            )}
+            {gap.reason_codes.length === 0 ? null : (
+              <span class="mono">{` (${gap.reason_codes.join(", ")})`}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function EvidenceProvenance({ record }: { readonly record: AssuranceTwinProvenance }) {
+  if (record.evidence_digest === null && record.activity_id === null) return null;
+  return (
+    <dl class="assurance-twin-provenance">
+      <dt>{t("assuranceTwin.provenance.activity")}</dt>
+      <dd class="mono">{record.activity_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      <dt>{t("assuranceTwin.provenance.correlation")}</dt>
+      <dd class="mono">{record.correlation_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      <dt>{t("assuranceTwin.provenance.evidenceDigest")}</dt>
+      <dd class="mono">{record.evidence_digest ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      <dt>{t("assuranceTwin.provenance.sourceRevision")}</dt>
+      <dd class="mono">{record.evidence_source_revision ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+    </dl>
+  );
+}
+
 function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
   usePublishViewContext(() => buildAssuranceTwinViewSnapshot(data), [data]);
   const report = data.posture.reports[0] ?? null;
@@ -414,7 +558,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
       key: "pr_ref",
       header: t("assuranceTwin.column.change"),
       render: (row) => (
-        <a class="mono" href={routeHref("assurance-twin", { segments: [row.review_key] })}>
+        <a class="mono" href={assuranceTwinReviewHref(row.review_key)}>
           {row.pr_ref}
         </a>
       ),
@@ -425,7 +569,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
       render: (row) => (
         <StatusPill
           kind={verdictStatusKind(row.verdict)}
-          label={t(`assuranceTwin.verdict.${row.verdict}`)}
+          label={t(`assuranceTwin.verdictValue.${row.verdict}`)}
         />
       ),
     },
@@ -445,7 +589,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
       render: (row) => (
         <StatusPill
           kind={freshnessStatusKind(row.freshness)}
-          label={t(`assuranceTwin.freshness.${row.freshness}`)}
+          label={t(`assuranceTwin.freshnessValue.${row.freshness}`)}
         />
       ),
     },
@@ -468,7 +612,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
               <KpiCard
                 href={reviewsHref}
                 label={t("assuranceTwin.verdict")}
-                value={t(`assuranceTwin.verdict.${report.verdict}`)}
+                value={t(`assuranceTwin.verdictValue.${report.verdict}`)}
                 tone={verdictTone(report.verdict)}
               />
               <KpiCard href={reviewsHref} label={t("assuranceTwin.resourceCount")} value={report.resource_count} />
@@ -476,21 +620,23 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
               <KpiCard
                 href={reviewsHref}
                 label={t("assuranceTwin.highestSeverity")}
-                value={report.highest_severity ? t(`assuranceTwin.severity.${report.highest_severity}`) : t("assuranceTwin.noFindings")}
+                value={report.highest_severity ? t(`assuranceTwin.severityValue.${report.highest_severity}`) : t("assuranceTwin.noFindings")}
                 tone={report.highest_severity === "critical" || report.highest_severity === "high" ? "danger" : "default"}
               />
               <KpiCard
                 href={reviewsHref}
                 label={t("assuranceTwin.freshness")}
-                value={t(`assuranceTwin.freshness.${report.freshness}`)}
+                value={t(`assuranceTwin.freshnessValue.${report.freshness}`)}
                 evidenceState={report.freshness === "unavailable" ? "not-connected" : "measured"}
                 tone={report.freshness === "unavailable" ? "danger" : "default"}
               />
             </KpiGrid>
             <EvidenceGaps reasonCodes={report.reason_codes} />
+            <EvidenceProvenance record={report} />
           </>
         )
         : <div class="muted">{t("assuranceTwin.noPostureReport")}</div>}
+      <WithheldEvidence gaps={data.posture.gaps} title={t("assuranceTwin.postureWithheld")} />
       <div id="assurance-twin-reviews">
         <h2>{t("assuranceTwin.reviews")}</h2>
         <DataTable
@@ -499,39 +645,56 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
           keyOf={(row) => row.review_key}
           empty={t("assuranceTwin.reviewsEmpty")}
         />
+        <WithheldEvidence gaps={data.reviews.gaps} title={t("assuranceTwin.reviewsWithheld")} />
       </div>
     </div>
   );
 }
 
-function AssuranceTwinReviewDetailBody({ detail }: { readonly detail: AssuranceTwinReviewDetail }) {
+function AssuranceTwinReviewDetailBody(
+  { state }: { readonly state: AssuranceTwinReviewDetailState },
+) {
+  const detail = state.review;
   const columns: readonly Column<AssuranceTwinFinding>[] = [
     { key: "rule", header: t("assuranceTwin.column.rule"), render: (row) => <span class="mono">{row.rule_id}</span> },
     { key: "resource", header: t("assuranceTwin.column.resource"), render: (row) => `${row.resource_type} / ${row.resource_ref}` },
     {
       key: "severity",
       header: t("assuranceTwin.column.severity"),
-      render: (row) => <StatusPill kind={row.severity === "critical" || row.severity === "high" ? "danger" : "warning"} label={t(`assuranceTwin.severity.${row.severity}`)} />,
+      render: (row) => <StatusPill kind={row.severity === "critical" || row.severity === "high" ? "danger" : "warning"} label={t(`assuranceTwin.severityValue.${row.severity}`)} />,
     },
     { key: "reason", header: t("assuranceTwin.column.reason"), render: (row) => row.reason },
   ];
+  if (detail === null) {
+    return (
+      <div class="stack">
+        <a href={routeHref("assurance-twin")}>{t("assuranceTwin.backToReviews")}</a>
+        <WithheldEvidence
+          gaps={state.gap === null ? [] : [state.gap]}
+          title={t("assuranceTwin.reviewDetailWithheld")}
+        />
+        <div class="muted">{t("assuranceTwin.reviewDetailUnavailable")}</div>
+      </div>
+    );
+  }
   return (
     <div class="stack">
       <a href={routeHref("assurance-twin")}>{t("assuranceTwin.backToReviews")}</a>
       <KpiGrid>
         <KpiCard
-          href={routeHref("assurance-twin", { segments: [detail.review_key] })}
+          href={assuranceTwinReviewHref(detail.review_key)}
           label={t("assuranceTwin.verdict")}
-          value={t(`assuranceTwin.verdict.${detail.verdict}`)}
+          value={t(`assuranceTwin.verdictValue.${detail.verdict}`)}
           tone={verdictTone(detail.verdict)}
         />
         <KpiCard
-          href={routeHref("assurance-twin", { segments: [detail.review_key] })}
+          href={assuranceTwinReviewHref(detail.review_key)}
           label={t("assuranceTwin.column.findings")}
           value={detail.finding_count}
         />
       </KpiGrid>
       <EvidenceGaps reasonCodes={detail.reason_codes} />
+      <EvidenceProvenance record={detail} />
       <DataTable
         columns={columns}
         rows={detail.findings}

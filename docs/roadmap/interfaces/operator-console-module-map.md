@@ -18,7 +18,10 @@ The Ontology Instances projection keeps observed `runtime_calls` separate from g
 The `assurance_twin.posture`, `assurance_twin.reviews`, and `assurance_twin.review_detail`
 operations extend `runtime_projection_reader.py` the same way: they read the existing `state_kv`
 rows an Assurance Twin recorder already wrote and render the stored verdict, severity, and
-freshness verbatim through the existing operations family manifest, never recomputing them.
+freshness verbatim through the existing operations family manifest, never recomputing them. They
+also fail closed: a row is rendered as a result only when its recorded evidence digest verifies and
+its freshness is `fresh`. Stale, unavailable, unknown, malformed, and digest-mismatched rows become
+explicit gap entries, so an empty result never reads as a clear estate.
 ## Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces

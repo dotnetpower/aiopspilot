@@ -157,6 +157,30 @@ def test_assurance_twin_posture_rejects_wrong_owner_or_producer() -> None:
         )
 
 
+def test_assurance_twin_posture_rejects_raw_reason_text() -> None:
+    """Producer and Console consumer MUST agree on machine-safe reason codes.
+
+    The Console decoder rejects a twin tip whose reason codes are not
+    machine-safe, and one rejected item fails the whole activity page, so the
+    contract MUST reject the same payload at the producer boundary.
+    """
+
+    with pytest.raises(ValidationError, match="machine-safe identifiers"):
+        AgentOperationalActivity(
+            schema_version="1.2.0",
+            activity_id="assurance-twin.change-review:review-1:failed",
+            idempotency_key="assurance-twin.change-review:review-1:failed",
+            kind="assurance-twin.posture",
+            status="failed",
+            owner_agent="Heimdall",
+            producer="assurance-twin",
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+            source="assurance-twin:review:owner/repo#1",
+            freshness="unavailable",
+            reason_codes=("resource /subscriptions/example conflicted",),
+        )
+
+
 def test_observation_rejects_raw_reason_text() -> None:
     with pytest.raises(ValidationError, match="machine-safe identifiers"):
         AgentOperationalActivity(

@@ -6,6 +6,46 @@ from __future__ import annotations
 from typing import Literal, NotRequired, TypedDict
 
 
+class AgentOperationalActivityV1_1_0(TypedDict):
+    type: Literal['agent.operational-activity']
+    schema_version: Literal['1.1.0']
+    activity_id: str
+    idempotency_key: str
+    kind: Literal['inventory.scan', 'inventory.ontology-projection', 'current-state.read', 'observation']
+    status: Literal['started', 'completed', 'failed', 'superseded', 'degraded']
+    owner_agent: Literal['Huginn', 'Heimdall', 'Njord', 'Freyr', 'Vidar']
+    producer: Literal['inventory-sync-job', 'core-control-plane', 'observation-campaign-job']
+    observation_domain: Literal['inventory', 'activity-log', 'resource-health', 'service-health', 'metrics', 'logs', 'guest-logs', 'network-config', 'cost', 'recovery'] | None
+    observed_at: str
+    source: str
+    freshness: Literal['fresh', 'stale', 'unavailable', 'unknown']
+    evidence_count: int
+    duration_ms: int | None
+    correlation_id: str | None
+    reason_codes: tuple[str, ...]
+    execution_authority: Literal[False]
+
+
+class AgentOperationalActivityV1_2_0(TypedDict):
+    type: Literal['agent.operational-activity']
+    schema_version: Literal['1.2.0']
+    activity_id: str
+    idempotency_key: str
+    kind: Literal['inventory.scan', 'inventory.ontology-projection', 'current-state.read', 'observation', 'assurance-twin.posture']
+    status: Literal['started', 'completed', 'failed', 'superseded', 'degraded']
+    owner_agent: Literal['Huginn', 'Heimdall', 'Njord', 'Freyr', 'Vidar']
+    producer: Literal['inventory-sync-job', 'core-control-plane', 'observation-campaign-job', 'assurance-twin']
+    observation_domain: Literal['inventory', 'activity-log', 'resource-health', 'service-health', 'metrics', 'logs', 'guest-logs', 'network-config', 'cost', 'recovery'] | None
+    observed_at: str
+    source: str
+    freshness: Literal['fresh', 'stale', 'unavailable', 'unknown']
+    evidence_count: int
+    duration_ms: int | None
+    correlation_id: str | None
+    reason_codes: tuple[str, ...]
+    execution_authority: Literal[False]
+
+
 class CoreOperatorProjectionV1_0_0(TypedDict):
     schema_version: str
     projection_id: str
@@ -290,6 +330,8 @@ class OperatorCoreRequestV1_5_0(TypedDict):
     semantic_turn: NotRequired[OperatorCoreRequestV1_5_0SemanticTurn]
 
 __all__ = (
+    "AgentOperationalActivityV1_1_0",
+    "AgentOperationalActivityV1_2_0",
     "CoreOperatorProjectionV1_0_0",
     "CoreOperatorProjectionV1_4_0",
     "DocumentIngestionActivityV1_0_0",

@@ -2,7 +2,8 @@ export type OperationalActivityKind =
   | "inventory.scan"
   | "inventory.ontology-projection"
   | "current-state.read"
-  | "observation";
+  | "observation"
+  | "assurance-twin.posture";
 
 export type ObservationDomain =
   | "inventory"
@@ -27,13 +28,17 @@ export type OperationalFreshness = "fresh" | "stale" | "unavailable" | "unknown"
 
 export interface AgentOperationalActivityMessage {
   readonly type: "agent.operational-activity";
-  readonly schema_version: "1.0.0" | "1.1.0";
+  readonly schema_version: "1.0.0" | "1.1.0" | "1.2.0";
   readonly activity_id: string;
   readonly idempotency_key: string;
   readonly kind: OperationalActivityKind;
   readonly status: OperationalActivityStatus;
   readonly owner_agent: "Huginn" | "Heimdall" | "Njord" | "Freyr" | "Vidar";
-  readonly producer: "inventory-sync-job" | "core-control-plane" | "observation-campaign-job";
+  readonly producer:
+    | "inventory-sync-job"
+    | "core-control-plane"
+    | "observation-campaign-job"
+    | "assurance-twin";
   readonly observation_domain: ObservationDomain | null;
   readonly observed_at: string;
   readonly source: string;
@@ -56,14 +61,16 @@ const KINDS = new Set<string>([
   "inventory.ontology-projection",
   "current-state.read",
   "observation",
+  "assurance-twin.posture",
 ]);
+const SCHEMA_VERSIONS = new Set<string>(["1.0.0", "1.1.0", "1.2.0"]);
 const STATUSES = new Set<string>([
   "started", "completed", "failed", "superseded", "degraded",
 ]);
 const FRESHNESS = new Set<string>(["fresh", "stale", "unavailable", "unknown"]);
 const OWNERS = new Set<string>(["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]);
 const PRODUCERS = new Set<string>([
-  "inventory-sync-job", "core-control-plane", "observation-campaign-job",
+  "inventory-sync-job", "core-control-plane", "observation-campaign-job", "assurance-twin",
 ]);
 const OBSERVATION_DOMAINS = new Set<string>([
   "inventory", "activity-log", "resource-health", "service-health", "metrics", "logs",
@@ -85,7 +92,7 @@ export function decodeAgentOperationalActivity(
   if (!isRecord(value)) return null;
   if (
     value.type !== "agent.operational-activity" ||
-    (value.schema_version !== "1.0.0" && value.schema_version !== "1.1.0") ||
+    typeof value.schema_version !== "string" || !SCHEMA_VERSIONS.has(value.schema_version) ||
     !boundedText(value.activity_id, 512) || !boundedText(value.idempotency_key, 512) ||
     typeof value.kind !== "string" || !KINDS.has(value.kind) ||
     typeof value.status !== "string" || !STATUSES.has(value.status) ||
@@ -114,6 +121,12 @@ export function decodeAgentOperationalActivity(
       (value.owner_agent !== "Heimdall" || value.producer !== "core-control-plane")) ||
     (value.kind === "inventory.ontology-projection" &&
       (value.owner_agent !== "Heimdall" || value.producer !== "inventory-sync-job")) ||
+    (value.kind === "assurance-twin.posture" && (
+      value.schema_version !== "1.2.0" ||
+      value.owner_agent !== "Heimdall" || value.producer !== "assurance-twin" ||
+      !value.reason_codes.every((reason) => OBSERVATION_REASON_CODE.test(String(reason)))
+    )) ||
+    (value.kind !== "assurance-twin.posture" && value.producer === "assurance-twin") ||
     (value.kind === "observation" && (
       value.schema_version !== "1.1.0" ||
       typeof observationDomain !== "string" || !OBSERVATION_DOMAINS.has(observationDomain) ||

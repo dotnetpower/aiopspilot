@@ -12,7 +12,16 @@ Splits cleanly along the two existing seams so each stays single-purpose:
 - ``fdai.core.assurance_twin.posture_activity`` builds the tip payload from
   the report/review, pure and CSP-neutral.
 
-This module only wires the three together; it computes nothing.
+This module only wires the three together; it computes nothing. The single
+judgement it makes is fail-closed: when the durable ledger reports that the
+same ``review_key`` already holds a *different* evidence body, the recorder
+refuses to announce the incoming version and publishes an explicit
+unavailable tip instead, so the bus and the ledger can never carry two
+contradictory truths for one identity.
+
+The accountable runtime call site is
+``fdai.runtime.assurance_twin_posture``, which binds this recorder to
+Heimdall's existing ``object.event`` subscription.
 """
 
 from __future__ import annotations
@@ -34,6 +43,9 @@ from fdai.delivery.persistence.state_store_assurance_twin_posture import (
 )
 from fdai.shared.providers.iac_review import IacReview
 
+REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
+"""Reason code carried by the unavailable tip a conflicting redelivery raises."""
+
 
 @dataclass(frozen=True, slots=True)
 class AssuranceTwinPostureRecord:
@@ -45,6 +57,14 @@ class AssuranceTwinPostureRecord:
     published: bool
     """``False`` only when the bus publish itself failed; the durable write
     already landed regardless, so a broker outage never loses the report."""
+    evidence_digest: str
+    """SHA-256 digest of the evidence body this call carried."""
+    conflict: bool = False
+    """``True`` when an existing row under the same ``review_key`` holds a
+    different body. The durable row was left untouched and ``activity``
+    carries the explicit unavailable tip."""
+    stored_evidence_digest: str | None = None
+    """Digest that remains durable when ``conflict`` is ``True``."""
 
 
 class AssuranceTwinPostureRecorder:
@@ -66,25 +86,30 @@ class AssuranceTwinPostureRecorder:
         correlation_id: str,
         freshness: OperationalFreshness,
         reason_codes: tuple[str, ...] = (),
+        evidence_source_revision: str,
     ) -> AssuranceTwinPostureRecord:
         """Persist ``report`` and publish its bounded activity tip."""
 
-        write = await self._ledger.record_posture_report(
-            report,
-            freshness=freshness.value,
-            reason_codes=reason_codes,
-        )
         activity = build_posture_report_activity(
             report,
             correlation_id=correlation_id,
             freshness=freshness,
             reason_codes=reason_codes,
         )
+        write = await self._ledger.record_posture_report(
+            report,
+            freshness=freshness.value,
+            reason_codes=reason_codes,
+            activity_id=activity.activity_id,
+            correlation_id=correlation_id,
+            evidence_source_revision=evidence_source_revision,
+        )
         published = await self._publisher.publish(activity)
         return AssuranceTwinPostureRecord(
             activity=activity,
             durable_write_created=write.created,
             published=published,
+            evidence_digest=write.evidence_digest,
         )
 
     async def record_change_review(
@@ -94,25 +119,44 @@ class AssuranceTwinPostureRecorder:
         correlation_id: str,
         freshness: OperationalFreshness,
         reason_codes: tuple[str, ...] = (),
+        evidence_source_revision: str,
     ) -> AssuranceTwinPostureRecord:
-        """Persist ``review`` (idempotent by ``review_key``) and publish its tip."""
+        """Persist ``review`` (idempotent by ``review_key``) and publish its tip.
 
-        write = await self._ledger.record_change_review(
-            review,
-            freshness=freshness.value,
-            reason_codes=reason_codes,
-        )
+        A redelivery whose body matches the durable row republishes the same
+        tip. A redelivery whose body differs is a conflict: nothing is
+        overwritten and the published tip is explicitly unavailable.
+        """
+
         activity = build_change_review_activity(
             review,
             correlation_id=correlation_id,
             freshness=freshness,
             reason_codes=reason_codes,
         )
+        write = await self._ledger.record_change_review(
+            review,
+            freshness=freshness.value,
+            reason_codes=reason_codes,
+            activity_id=activity.activity_id,
+            correlation_id=correlation_id,
+            evidence_source_revision=evidence_source_revision,
+        )
+        if write.conflict:
+            activity = build_change_review_activity(
+                review,
+                correlation_id=correlation_id,
+                freshness=OperationalFreshness.UNAVAILABLE,
+                reason_codes=(REVIEW_CONFLICT_REASON_CODE,),
+            )
         published = await self._publisher.publish(activity)
         return AssuranceTwinPostureRecord(
             activity=activity,
             durable_write_created=write.created,
             published=published,
+            evidence_digest=write.evidence_digest,
+            conflict=write.conflict,
+            stored_evidence_digest=write.stored_evidence_digest,
         )
 
     async def read_latest_posture_report(self, scope: str) -> Mapping[str, Any] | None:
@@ -131,6 +175,7 @@ class AssuranceTwinPostureRecorder:
 
 
 __all__ = [
+    "REVIEW_CONFLICT_REASON_CODE",
     "AssuranceTwinPostureRecord",
     "AssuranceTwinPostureRecorder",
 ]

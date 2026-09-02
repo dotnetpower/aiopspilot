@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 4b4616eb8dffda21105cdf166af24b47ebe7f6b1
+translation_source_sha: d29085b49820495e1f7952ca737c7ec125351fc2
 translation_revised: 2026-09-04
 ---
 
@@ -220,7 +220,9 @@ Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신�
 전달합니다: `assurance-twin.posture`로, 계산된 Assurance Twin 자세 보고서나 선제적 변경 검토에
 대해 Heimdall이 발행합니다([assurance-twin-ko.md](assurance-twin-ko.md#모듈-배치) 참고). 이 종류는
 `observation_domain`을 사용하지 않으며 `observation-campaign-job`이 발행하지 않으므로 위의
-도메인별 출처 커버리지 검사에 들어가지 않습니다.
+도메인별 출처 커버리지 검사에 들어가지 않습니다. 콘솔 활동 디코더는 스키마 `1.2.0`을 수락하고
+다른 종류에서 `assurance-twin` 생산자를 거부합니다. `agent-operational-activity` 호환성 경계는
+`N` 생산자와 `N-1` 소비자 조합을 지원 쌍이 아니라 순차 롤아웃으로 분류합니다.
 
 ## 실패 동작
 

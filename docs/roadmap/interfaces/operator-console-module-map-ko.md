@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: c98f39c5459f583a450c10c44e6f57dba7bd6b07
+translation_source_sha: 4249d0c9e895f265a66ecaf19cfb7d7a2a975114
 translation_revised: 2026-09-05
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -27,7 +27,10 @@ Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 �
 `assurance_twin.posture`, `assurance_twin.reviews`, `assurance_twin.review_detail` 연산은
 `runtime_projection_reader.py`를 같은 방식으로 확장합니다: Assurance Twin 레코더가 이미 기록한
 기존 `state_kv` 행만 읽고 저장된 판정, 심각도, 신선도를 기존 operations family manifest를 통해
-다시 계산하지 않고 그대로 렌더링합니다.
+다시 계산하지 않고 그대로 렌더링합니다. 또한 실패 시 닫힙니다. 기록된 증거 다이제스트가
+검증되고 신선도가 `fresh`인 행만 결과로 렌더링합니다. 오래되었거나 사용 불가, 알 수 없음,
+형식 오류, 다이제스트 불일치 행은 명시적인 공백 항목이 되므로 빈 결과가 깨끗한 자산 상태로
+읽히지 않습니다.
 ## Dependency-direction 게이트
 
 `check-operator-api-boundaries.py`는 애플리케이션 코드를 로드하지 않고 가져오기를 파싱합니다. 정리된

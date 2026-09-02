@@ -408,6 +408,9 @@
         "current-state": {
           "read": "Current state"
         },
+        "assurance-twin": {
+          "posture": "Assurance Twin posture"
+        },
         "observation": "Observation campaign"
       },
       "find": "Find",
@@ -948,23 +951,49 @@
     "noPostureReport": "No posture report has been recorded yet.",
     "noFindings": "No findings",
     "verdict": "Verdict",
-    "verdict.clear": "Clear",
-    "verdict.needs_review": "Needs review",
-    "verdict.blocked": "Blocked",
+    "verdictValue": {
+      "clear": "Clear",
+      "needs_review": "Needs review",
+      "blocked": "Blocked"
+    },
     "resourceCount": "Resources",
     "ruleCount": "Rules",
     "highestSeverity": "Highest severity",
-    "severity.low": "Low",
-    "severity.medium": "Medium",
-    "severity.high": "High",
-    "severity.critical": "Critical",
+    "severityValue": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
     "freshness": "Freshness",
-    "freshness.fresh": "Fresh",
-    "freshness.stale": "Stale",
-    "freshness.unavailable": "Unavailable",
-    "freshness.unknown": "Unknown",
-    "mode.shadow": "Shadow",
-    "mode.enforce": "Enforce",
+    "freshnessValue": {
+      "fresh": "Fresh",
+      "stale": "Stale",
+      "unavailable": "Unavailable",
+      "unknown": "Unknown"
+    },
+    "mode": {
+      "shadow": "Shadow",
+      "enforce": "Enforce"
+    },
+    "postureWithheld": "Withheld posture evidence",
+    "reviewsWithheld": "Withheld change-review evidence",
+    "reviewDetailWithheld": "Withheld review evidence",
+    "reviewDetailUnavailable": "This change review cannot be rendered as usable evidence.",
+    "gap": {
+      "unknownIdentity": "Unknown",
+      "evidence_malformed": "Stored evidence is malformed or missing provenance",
+      "evidence_digest_mismatch": "Stored evidence does not match its recorded digest",
+      "evidence_conflict": "Conflicting evidence exists for this identity",
+      "evidence_not_fresh": "Evidence is not fresh, so it is not rendered as a result",
+      "evidence_truncated": "Older evidence was not read within the bounded page"
+    },
+    "provenance": {
+      "activity": "Activity",
+      "correlation": "Correlation",
+      "evidenceDigest": "Evidence digest",
+      "sourceRevision": "Evidence source revision"
+    },
     "evidenceGaps": "Evidence gaps",
     "reviews": "Ambient change reviews",
     "reviewsEmpty": "No ambient change reviews recorded.",
