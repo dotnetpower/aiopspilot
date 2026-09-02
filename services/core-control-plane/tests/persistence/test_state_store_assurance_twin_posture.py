@@ -42,6 +42,10 @@ def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Fi
     )
 
 
+def _findings_batch(count: int) -> tuple[Finding, ...]:
+    return tuple(_finding(rule=f"r-{i}", ref=f"vm-{i}") for i in range(count))
+
+
 def _report(*findings: Finding) -> object:
     return build_posture_assessment_report(
         scope=_SCOPE,
@@ -306,6 +310,93 @@ async def test_read_recent_change_reviews_bounds_limit() -> None:
         await ledger.read_recent_change_reviews(limit=0)
 
 
+async def test_change_review_key_at_the_bound_is_accepted_and_over_bound_rejected() -> None:
+    """256 chars matches the Operator API's detail-lookup bound; 257 does not.
+
+    A key this call accepts MUST always be fetchable through the Operator
+    API's list-then-detail round trip; rejecting anything over that same
+    bound here, before any write, is what keeps that round trip whole.
+    """
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    accepted = await ledger.record_change_review(
+        _review("k" * 256, _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+    assert accepted.key == change_review_state_key("k" * 256)
+
+    with pytest.raises(ValueError, match=r"review key MUST be <= 256 characters"):
+        await ledger.record_change_review(
+            _review("k" * 257, _finding()),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+    # The rejected call never persisted anything under its own identity.
+    reviews = await ledger.read_recent_change_reviews(limit=10)
+    assert len(reviews) == 1
+    assert reviews[0]["review_key"] == "k" * 256
+
+
+async def test_change_review_findings_at_the_bound_are_accepted_and_over_bound_rejected() -> None:
+    """200 findings matches the Operator API's projection bound; 201 does not.
+
+    A row this call persists MUST always be rendered as usable evidence by
+    the Operator API's projection, not silently made permanently
+    ``evidence_malformed``; rejecting an over-long finding list here,
+    before any write or activity publication, is what keeps that promise.
+    """
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    accepted = await ledger.record_change_review(
+        _review("k-200", *_findings_batch(200)),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(ValueError, match=r"findings MUST number <= 200, got 201"):
+        await ledger.record_change_review(
+            _review("k-201", *_findings_batch(201)),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+    # The rejected call never persisted a row under its own identity.
+    reviews = await ledger.read_recent_change_reviews(limit=10)
+    assert [row["review_key"] for row in reviews] == ["k-200"]
+
+
+async def test_posture_report_findings_at_the_bound_are_accepted_and_over_bound_rejected() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    accepted = await ledger.record_posture_report(
+        _report(*_findings_batch(200)),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert accepted.created is True
+
+    with pytest.raises(ValueError, match=r"findings MUST number <= 200, got 201"):
+        await ledger.record_posture_report(
+            _report(*_findings_batch(201)),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+
+    # The rejected call never overwrote the accepted latest snapshot.
+    report = await ledger.read_latest_posture_report(_SCOPE)
+    assert report is not None
+    assert len(report["findings"]) == 200
+
+
 class _StalledCasStateStore:
     """Wrap ``InMemoryStateStore`` to force two CAS attempts to race.
 
@@ -456,7 +547,85 @@ async def test_concurrent_duplicate_conflict_after_tombstone_never_publishes_ava
     assert len(conflict_audits) == 1
 
 
-async def test_concurrent_creation_race_is_won_by_exactly_one_writer() -> None:
+async def test_concurrent_matching_replay_never_publishes_completed_after_a_tombstone() -> None:
+    """A matching-body redelivery racing a concurrent conflicting write.
+
+    Regression test for the defect this hardens: the matching-body branch
+    used to return ``conflict=False`` straight from a bare ``read_state``,
+    so a redelivery whose read happened to land a moment before a
+    concurrent *different*-body redelivery's tombstone write could still
+    report a completed/available result to its own caller - even though
+    the identity was already durably conflicted by the time that result
+    was used to publish an activity tip.
+
+    The stall forces exactly that ordering: the matching-body racer's read
+    is allowed to complete first (capturing the pre-conflict row), then
+    the conflicting racer's tombstone compare-and-set is allowed to land,
+    and only then does the matching-body racer's own confirming compare-
+    and-set run - against a revision a concurrent write has since
+    advanced. With the fix, that confirmation fails and the matching-body
+    racer re-reads and reports the conflict its sibling already wrote,
+    instead of the stale match it originally observed.
+    """
+
+    inner = InMemoryStateStore()
+    store = _StalledCasStateStore(inner)
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+
+    baseline = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert baseline.created is True
+
+    matching_result, conflicting_result = await asyncio.gather(
+        ledger.record_change_review(
+            _review("k-1", _finding()),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_change_review(
+            _review("k-1", _finding(rule="r-conflict"), verdict="blocked"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    # Neither racer is ever allowed to publish a completed/available result
+    # once the identity is contested - not even the one that read a
+    # matching body before the tombstone landed.
+    assert matching_result.conflict is True
+    assert matching_result.created is False
+    assert matching_result.evidence_digest == baseline.evidence_digest
+    assert matching_result.stored_evidence_digest == baseline.evidence_digest
+
+    assert conflicting_result.conflict is True
+    assert conflicting_result.created is False
+    assert conflicting_result.stored_evidence_digest == baseline.evidence_digest
+
+    # Exactly one durable tombstone write lands; the matching-body racer's
+    # own confirming compare-and-set never wins after it.
+    conflict_audits = [
+        entry
+        for entry in inner.audit_entries
+        if entry["entry"].get("action_kind") == "assurance_twin.review_conflict_marked"
+    ]
+    assert len(conflict_audits) == 1
+    replay_confirmations = [
+        entry
+        for entry in inner.audit_entries
+        if entry["entry"].get("action_kind") == "assurance_twin.review_replay_confirmed"
+    ]
+    assert replay_confirmations == []
+
+    rows = await ledger.read_recent_change_reviews(limit=10)
+    assert len(rows) == 1
+    assert rows[0]["findings"][0]["rule_id"] == "r-1"
+    marker = rows[0][CONFLICT_MARKER_FIELD]
+    assert marker["reason_code"] == REVIEW_CONFLICT_REASON_CODE
+    assert marker["stored_evidence_digest"] == baseline.evidence_digest
+
     """Two brand-new-key writes racing ``write_state_if_absent`` itself.
 
     The first-writer-wins path was already atomic via the underlying

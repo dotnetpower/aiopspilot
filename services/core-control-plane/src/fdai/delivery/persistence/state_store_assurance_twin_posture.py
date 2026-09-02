@@ -39,7 +39,20 @@ Design invariants
   tombstone write either loses the compare-and-set and re-reads the now-
   tombstoned row, or wins it and tombstones the row itself; either way every
   concurrent caller observes the conflict and none can publish a
-  completed/available result for a row another caller just tombstoned.
+  completed/available result for a row another caller just tombstoned. A
+  *matching*-body redelivery uses the same compare-and-set to confirm its
+  read before returning non-conflict, rather than trusting the read alone:
+  a redelivery that read the row before a concurrent conflicting write
+  tombstoned it can therefore never publish completed/available for the
+  identity its sibling just marked unavailable - the whole persistence
+  result and its eventual activity publication are linearized per
+  ``review_key`` through this one compare-and-set point.
+- **Bounded by identity and by size**: ``review_key`` is rejected above
+  256 characters and ``findings`` above 200 entries, at write time, before
+  any durable write or activity publication - the same bounds the Operator
+  API's detail lookup and projection already enforce on read. A write this
+  ledger accepts is therefore always reachable and fully renderable
+  through the Operator API, never a row nobody can ever read back.
 - **Replayable provenance**: every row carries the bounded activity and
   correlation identity of the record call plus the SHA-256 digest of the
   exact evidence body, so an Operator API reader can verify that a
@@ -52,7 +65,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -87,6 +100,31 @@ body), so the loop terminates within one extra attempt per concurrent
 racer; the cap exists purely so a StateStore bug cannot spin forever.
 """
 
+_REVIEW_KEY_MAX_CHARS = 256
+"""Upper bound on ``review_key`` length, enforced at write time.
+
+Matches ``_ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS`` in
+``fdai_operator_service.runtime_projection_reader`` - the bound the
+Operator API's detail lookup already enforces on the same identity. The
+two services stay independently packaged (see module docstring), so the
+constant is restated here rather than imported across the service
+boundary. Rejecting an over-long key at persistence time, instead of only
+at read time, guarantees every row this ledger ever writes stays
+reachable through the Operator API's list-then-detail round trip.
+"""
+
+_MAX_FINDINGS = 200
+"""Upper bound on findings per report/review, enforced at write time.
+
+Matches ``_MAX_ITEMS`` in
+``fdai_operator_service.assurance_twin_posture_projection`` - the bound
+the Operator API's projection already applies when rendering a row's
+finding list (an over-long list makes the whole row ``evidence_malformed``
+there). Rejecting the write here, rather than letting an unreadable row
+land while the bus still announces it ``completed``, keeps every
+successful write's evidence actually replayable.
+"""
+
 #: Provenance fields describe *this* write, not the twin's evidence body, so
 #: they are excluded before the body digest is computed. A redelivery that
 #: differs only in correlation identity therefore still compares equal. The
@@ -114,11 +152,36 @@ def posture_report_state_key(scope: str) -> str:
 
 
 def change_review_state_key(review_key: str) -> str:
-    """Return the deterministic per-review key for ``review_key``."""
+    """Return the deterministic per-review key for ``review_key``.
+
+    Raises:
+        ValueError: when ``review_key`` is blank or exceeds
+            :data:`_REVIEW_KEY_MAX_CHARS` - the same bound the Operator
+            API's detail lookup enforces, so a key this function accepts
+            is always fetchable there too.
+    """
 
     if not review_key.strip():
         raise ValueError("assurance twin review key MUST be non-empty")
+    if len(review_key) > _REVIEW_KEY_MAX_CHARS:
+        raise ValueError(f"assurance twin review key MUST be <= {_REVIEW_KEY_MAX_CHARS} characters")
     return f"{CHANGE_REVIEW_STATE_PREFIX}{review_key}"
+
+
+def _check_bounded_findings(findings: Sequence[object]) -> None:
+    """Reject a finding list before it is ever written or announced.
+
+    Raises:
+        ValueError: when ``findings`` exceeds :data:`_MAX_FINDINGS` - the
+            same bound the Operator API's projection applies when
+            rendering a row, so a write this function accepts is always
+            rendered as usable evidence there too.
+    """
+
+    if len(findings) > _MAX_FINDINGS:
+        raise ValueError(
+            f"assurance twin findings MUST number <= {_MAX_FINDINGS}, got {len(findings)}"
+        )
 
 
 def evidence_body_digest(body: Mapping[str, Any]) -> str:
@@ -174,8 +237,16 @@ class StateStoreAssuranceTwinPostureLedger:
         correlation_id: str,
         evidence_source_revision: str,
     ) -> AssuranceTwinLedgerWrite:
-        """Persist ``report`` as the latest snapshot for its scope."""
+        """Persist ``report`` as the latest snapshot for its scope.
 
+        Raises:
+            ValueError: when ``report.findings`` exceeds
+                :data:`_MAX_FINDINGS` - rejected before any write so a
+                report this call persists is always fully renderable by
+                the Operator API's projection.
+        """
+
+        _check_bounded_findings(report.findings)
         key = posture_report_state_key(report.scope)
         body: dict[str, Any] = {
             **report.to_dict(),
@@ -220,9 +291,21 @@ class StateStoreAssuranceTwinPostureLedger:
         ``revision`` counter rather than a bare ``write_state``: a losing
         caller re-reads the row a concurrent write just advanced and never
         overwrites it, so a duplicate arriving after a tombstone lands can
-        never publish that identity as completed/available.
+        never publish that identity as completed/available. This holds for
+        a *matching*-body redelivery too: it never returns non-conflict
+        from a bare read, only after confirming via the same compare-and-
+        set that no concurrent tombstone landed on the row it read (see
+        :meth:`_resolve_conflict`).
+
+        Raises:
+            ValueError: when ``review.review_key`` exceeds
+                :data:`_REVIEW_KEY_MAX_CHARS`, or ``review.findings``
+                exceeds :data:`_MAX_FINDINGS` - both rejected before any
+                write so a review this call persists is always reachable
+                and fully renderable by the Operator API.
         """
 
+        _check_bounded_findings(review.findings)
         key = change_review_state_key(review.review_key)
         body = _change_review_body(review, freshness=freshness, reason_codes=reason_codes)
         digest = evidence_body_digest(body)
@@ -280,7 +363,13 @@ class StateStoreAssuranceTwinPostureLedger:
                 stored_evidence_digest=stored_digest,
             )
         if stored_digest == digest:
-            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
+            return await self._confirm_matching_replay(
+                key=key,
+                digest=digest,
+                existing=existing,
+                correlation_id=correlation_id,
+                attempts_remaining=attempts_remaining,
+            )
         if attempts_remaining <= 0:
             raise RuntimeError(
                 "assurance twin review conflict compare-and-set exceeded its retry bound"
@@ -318,6 +407,74 @@ class StateStoreAssuranceTwinPostureLedger:
         if replay is None:
             raise RuntimeError(
                 "assurance twin review row disappeared during a conflict compare-and-set race"
+            )
+        return await self._resolve_conflict(
+            key=key,
+            digest=digest,
+            existing=replay,
+            correlation_id=correlation_id,
+            attempts_remaining=attempts_remaining - 1,
+        )
+
+    async def _confirm_matching_replay(
+        self,
+        *,
+        key: str,
+        digest: str,
+        existing: Mapping[str, Any],
+        correlation_id: str,
+        attempts_remaining: int,
+    ) -> AssuranceTwinLedgerWrite:
+        """Confirm a matching-body redelivery against the row's live revision.
+
+        ``existing`` is a snapshot from a plain read, not a linearization
+        point: a concurrent conflicting redelivery could tombstone this
+        exact row between that read and this call returning. Returning
+        ``conflict=False`` straight from the stale read would let this
+        caller announce a completed/available result for an identity
+        another caller just marked unavailable.
+
+        So this never trusts the read alone. It re-asserts the *unchanged*
+        row through the same ``compare_and_set_state_with_audit`` primitive
+        the tombstone write uses, against the exact revision ``existing``
+        carries. Since the tombstone write is the only path that ever
+        mutates a row after creation, and it always advances
+        ``_REVISION_FIELD``, the two calls are linearized through the same
+        expected-revision check:
+
+        - The compare-and-set succeeds only when no tombstone has landed
+          since ``existing`` was read, so returning non-conflict here is
+          then provably still true at the moment of the durable write, not
+          just at the moment of the earlier read.
+        - The compare-and-set fails exactly when a concurrent tombstone won
+          the race first; this caller re-reads the now-tombstoned row and
+          recurses into :meth:`_resolve_conflict`, which reports the
+          conflict its sibling just wrote instead of a stale match.
+        """
+
+        current_revision = _stored_revision(existing)
+        confirmed = await self._store.compare_and_set_state_with_audit(
+            key,
+            dict(existing),
+            expected_revision=current_revision,
+            audit_entry={
+                "action_kind": "assurance_twin.review_replay_confirmed",
+                "actor": "fdai.system",
+                "mode": "shadow",
+                "correlation_id": correlation_id,
+                "idempotency_key": f"assurance-twin-review-replay:{key}:{digest}",
+            },
+        )
+        if confirmed:
+            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
+        if attempts_remaining <= 0:
+            raise RuntimeError(
+                "assurance twin review replay compare-and-set exceeded its retry bound"
+            )
+        replay = await self._store.read_state(key)
+        if replay is None:
+            raise RuntimeError(
+                "assurance twin review row disappeared during a replay compare-and-set race"
             )
         return await self._resolve_conflict(
             key=key,
