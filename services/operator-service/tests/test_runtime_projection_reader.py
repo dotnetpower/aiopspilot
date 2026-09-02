@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from fdai_operator_service.families.operations import (
+    ProjectionNotFoundError,
     ProjectionQuery,
     ProjectionUnavailableError,
 )
@@ -613,3 +616,72 @@ async def test_unknown_operation_delegates_unchanged() -> None:
 
     assert result == {"operation": "ontology.graph"}
     assert fallback.operations == ["ontology.graph"]
+
+
+async def test_assurance_twin_review_detail_round_trips_an_opaque_slashed_key(
+    monkeypatch: Any,
+) -> None:
+    """The review key is opaque identity: a `/` survives, unchanged, to the row key."""
+
+    body = {
+        "pr_ref": "owner/repo#12",
+        "review_key": "Owner/Repo#12:Change_A",
+        "verdict": "needs_review",
+        "mode": "shadow",
+        "generated_at": "2026-07-07T00:00:00Z",
+        "freshness": "fresh",
+        "reason_codes": [],
+        "metadata": {},
+        "findings": [],
+    }
+    material = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    value = {
+        **body,
+        "activity_id": "assurance-twin.change-review:Owner/Repo#12:Change_A:completed",
+        "correlation_id": "correlation-1",
+        "evidence_digest": f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}",
+        "evidence_source_revision": f"sha256:{'1' * 64}",
+    }
+    statements: list[tuple[str, tuple[object, ...]]] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self
+        statements.append((statement, parameters))
+        return [{"value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    detail = await reader.read(
+        _query(
+            "assurance_twin.review_detail",
+            params={"review_key": ("Owner/Repo#12:Change_A",)},
+        )
+    )
+
+    assert statements[0][1] == ("runtime:assurance-twin-review:Owner/Repo#12:Change_A",)
+    assert detail["available"] is True
+    review = detail["review"]
+    assert isinstance(review, dict)
+    assert review["review_key"] == "Owner/Repo#12:Change_A"
+
+
+async def test_assurance_twin_review_detail_requires_a_bounded_key() -> None:
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(ProjectionNotFoundError):
+        await reader.read(_query("assurance_twin.review_detail"))
+    with pytest.raises(ProjectionNotFoundError):
+        await reader.read(
+            _query("assurance_twin.review_detail", params={"review_key": ("x" * 257,)})
+        )

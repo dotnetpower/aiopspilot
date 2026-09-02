@@ -28,6 +28,7 @@ _PROVENANCE_FIELDS = (
     "correlation_id",
     "evidence_digest",
     "evidence_source_revision",
+    "conflict",
 )
 _REVISION = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
 
@@ -203,6 +204,80 @@ def test_posture_projection_withholds_conflicting_rows_for_one_identity() -> Non
     assert isinstance(gaps, list)
     assert gaps[0]["reason_code"] == GAP_CONFLICT
     assert gaps[0]["identity"] == _POSTURE_BODY["scope"]
+
+
+def test_posture_projection_rejects_a_missing_blocks_action_flag() -> None:
+    body = {key: value for key, value in _POSTURE_BODY.items() if key != "blocks_action"}
+    projection = assurance_twin_posture_projection((_row(body),))
+    assert projection["available"] is False
+    assert projection["reports"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_never_coerces_a_string_blocks_action_flag() -> None:
+    # A truthy string MUST NOT silently become a blocking posture, and
+    # "false" MUST NOT silently become non-blocking.
+    for value in ("true", "false", 1, None):
+        projection = assurance_twin_posture_projection(
+            (_row({**_POSTURE_BODY, "blocks_action": value}),)
+        )
+        assert projection["available"] is False
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_renders_a_blocking_report_exactly() -> None:
+    projection = assurance_twin_posture_projection(
+        (_row({**_POSTURE_BODY, "blocks_action": True}),)
+    )
+    reports = projection["reports"]
+    assert isinstance(reports, list)
+    assert reports[0]["blocks_action"] is True
+
+
+def test_review_list_projection_withholds_a_tombstoned_row() -> None:
+    row = _row(_REVIEW_BODY)
+    row["value"]["conflict"] = {
+        "reason_code": "assurance_twin_review_key_conflict",
+        "stored_evidence_digest": _digest(_REVIEW_BODY),
+        "rejected_evidence_digest": _digest({**_REVIEW_BODY, "verdict": "blocked"}),
+    }
+    projection = assurance_twin_review_list_projection((row,))
+    assert projection["available"] is False
+    assert projection["reviews"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_CONFLICT
+    assert gaps[0]["identity"] == "Review_Key-1"
+
+
+def test_review_detail_projection_is_unavailable_for_a_tombstoned_row() -> None:
+    row = _row(_REVIEW_BODY)
+    row["value"]["conflict"] = {
+        "reason_code": "assurance_twin_review_key_conflict",
+        "stored_evidence_digest": _digest(_REVIEW_BODY),
+        "rejected_evidence_digest": _digest({**_REVIEW_BODY, "verdict": "blocked"}),
+    }
+    detail = assurance_twin_review_detail_projection(row)
+    assert detail is not None
+    assert detail["available"] is False
+    assert detail["review"] is None
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_CONFLICT
+
+
+def test_posture_projection_withholds_a_tombstoned_row_too() -> None:
+    row = _row(_POSTURE_BODY)
+    row["value"]["conflict"] = {"reason_code": "assurance_twin_review_key_conflict"}
+    projection = assurance_twin_posture_projection((row,))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_CONFLICT
 
 
 def test_posture_projection_sorts_multiple_reports_newest_first() -> None:

@@ -14,7 +14,7 @@ import {
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { currentRoute, panelPath, routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   panelArray,
@@ -112,11 +112,19 @@ export interface AssuranceTwinResponse {
 
 /** Build a drill-down href that preserves the review key byte for byte.
 
-Review keys are opaque twin identity (mixed case and underscores are
-meaningful), so the shared slugifying `routeHref` helper MUST NOT touch
+Review keys are opaque twin identity: mixed case, underscores, and a `/`
+(as in `owner/repo#12`) are all meaningful. They therefore travel as an
+exact query value rather than a path segment, so neither the slugifying
+`routeHref` segment builder nor a path router can split or canonicalise
 them. */
 export function assuranceTwinReviewHref(reviewKey: string): string {
-  return `${panelPath("assurance-twin")}/${encodeURIComponent(reviewKey)}`;
+  return routeHref("assurance-twin", { params: { review: reviewKey } });
+}
+
+/** Read the exact review identity carried by the current route, if any. */
+export function assuranceTwinReviewIdFromSearch(search: URLSearchParams): string | null {
+  const value = search.get("review");
+  return value === null || value === "" ? null : value;
 }
 
 export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): ViewSnapshot {
@@ -198,7 +206,7 @@ const FINDING_KEYS = new Set([
 ]);
 
 export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiClient }) {
-  const reviewId = currentRoute().segments[0] ?? null;
+  const reviewId = assuranceTwinReviewIdFromSearch(currentRoute().search);
   const [state, setState] = useState<AsyncState<AssuranceTwinResponse>>({ status: "loading" });
   const [detailState, setDetailState] = useState<AsyncState<AssuranceTwinReviewDetailState> | null>(null);
 
@@ -273,7 +281,8 @@ export async function loadAssuranceTwinReviewDetail(
 ): Promise<AsyncState<AssuranceTwinReviewDetailState>> {
   try {
     const payload = await client.panel<unknown>(
-      `/assurance-twin/reviews/${encodeURIComponent(reviewId)}`,
+      "/assurance-twin/review",
+      { review_key: reviewId },
     );
     return { status: "ready", data: decodeAssuranceTwinReviewDetail(payload) };
   } catch (error) {

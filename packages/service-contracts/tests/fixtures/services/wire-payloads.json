@@ -147,51 +147,5 @@
       "completed_at": "2026-08-08T01:00:05Z",
       "effect_applied": false
     }
-  },
-  {
-    "contract_id": "agent-operational-activity",
-    "producer_release": "N-1",
-    "payload": {
-      "type": "agent.operational-activity",
-      "schema_version": "1.1.0",
-      "activity_id": "observation:resource-health:110",
-      "idempotency_key": "observation:resource-health:110",
-      "kind": "observation",
-      "status": "completed",
-      "owner_agent": "Heimdall",
-      "producer": "observation-campaign-job",
-      "observation_domain": "resource-health",
-      "observed_at": "2026-08-08T01:00:06Z",
-      "source": "observation:resource-health",
-      "freshness": "fresh",
-      "evidence_count": 1,
-      "duration_ms": null,
-      "correlation_id": "correlation-110",
-      "reason_codes": [],
-      "execution_authority": false
-    }
-  },
-  {
-    "contract_id": "agent-operational-activity",
-    "producer_release": "N",
-    "payload": {
-      "type": "agent.operational-activity",
-      "schema_version": "1.2.0",
-      "activity_id": "assurance-twin.change-review:review-110:completed",
-      "idempotency_key": "assurance-twin.change-review:review-110:completed",
-      "kind": "assurance-twin.posture",
-      "status": "completed",
-      "owner_agent": "Heimdall",
-      "producer": "assurance-twin",
-      "observation_domain": null,
-      "observed_at": "2026-08-08T01:00:06Z",
-      "source": "assurance-twin:review:owner/repo#1",
-      "freshness": "fresh",
-      "evidence_count": 1,
-      "duration_ms": null,
-      "correlation_id": "correlation-110",
-      "reason_codes": [],
-      "execution_authority": false
-    }
   }
 ]

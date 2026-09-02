@@ -15,13 +15,8 @@ requirements in the read model. The Console can explain which producer, scope, f
 and owner are required, but it exposes no evidence writer or remediation control.
 The Ontology Instances projection keeps observed `runtime_calls` separate from generic direct relationships in the Inspector, dense legend, and current-screen evidence context. It preserves the stored source-to-target direction and cannot infer a call when the runtime source is unavailable. The Console panel registry keeps every route module behind a lazy import. Named route exports use one typed adapter, routes that share a module reuse one loader, and the production entry-bundle check verifies the required lazy boundaries and enforces both raw and gzip limits.
 
-The `assurance_twin.posture`, `assurance_twin.reviews`, and `assurance_twin.review_detail`
-operations extend `runtime_projection_reader.py` the same way: they read the existing `state_kv`
-rows an Assurance Twin recorder already wrote and render the stored verdict, severity, and
-freshness verbatim through the existing operations family manifest, never recomputing them. They
-also fail closed: a row is rendered as a result only when its recorded evidence digest verifies and
-its freshness is `fresh`. Stale, unavailable, unknown, malformed, and digest-mismatched rows become
-explicit gap entries, so an empty result never reads as a clear estate.
+The `assurance_twin.posture`, `assurance_twin.reviews`, and `assurance_twin.review_detail` operations extend `runtime_projection_reader.py` the same way: they read the existing `state_kv` rows an Assurance Twin recorder already wrote and render the stored verdict, severity, and freshness verbatim through the existing operations family manifest, never recomputing them. They also fail closed: a row is rendered as a result only when its recorded evidence digest verifies, it carries no durable conflict marker, and its freshness is `fresh`. Stale, unavailable, unknown, malformed, digest-mismatched, and conflict-tombstoned rows become explicit gap entries, so an empty result never reads as a clear estate. Safety-relevant flags are read strictly: a missing or non-boolean `blocks_action` is malformed evidence, never a default.
+`assurance_twin.review_detail` is `GET /assurance-twin/review?review_key=`, not a path segment, because a review key is opaque twin identity that may contain `/`: it travels as an exact query value and is compared byte for byte, never trimmed, normalised, or lowercased. The Console mirrors this with `/assurance-twin?review=`. These rows have no shipped writer today. The recorder stays unbound until a trusted producer computes twin findings ([assurance-twin.md](../operations/assurance-twin.md#implementation-status)), so the panel currently renders an explicit unavailable state.
 ## Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces

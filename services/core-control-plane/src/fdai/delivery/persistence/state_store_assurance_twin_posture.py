@@ -23,8 +23,12 @@ Design invariants
   ``StateStore.write_state`` semantics). A change review is written once per
   ``review_key``. Redelivery of an identical review body is an idempotent
   no-op; a *different* body under the same ``review_key`` is a conflict -
-  the stored body is never replaced and the caller MUST render the row as
-  unavailable instead of publishing a second, contradictory truth.
+  the stored evidence body is never replaced, and a durable conflict marker
+  is written onto the row so every later read renders it unavailable rather
+  than serving one of two contradictory truths. The marker is durable: once
+  a ``review_key`` has conflicted, it stays conflicted until an operator
+  removes the row, and a subsequent redelivery of either body cannot clear
+  it.
 - **Replayable provenance**: every row carries the bounded activity and
   correlation identity of the record call plus the SHA-256 digest of the
   exact evidence body, so an Operator API reader can verify that a
@@ -48,15 +52,24 @@ from fdai.shared.providers.state_store import StateStore
 POSTURE_REPORT_STATE_PREFIX = "runtime:assurance-twin-posture:"
 CHANGE_REVIEW_STATE_PREFIX = "runtime:assurance-twin-review:"
 
+REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
+"""Reason code carried by the durable conflict marker and the unavailable tip."""
+
+CONFLICT_MARKER_FIELD = "conflict"
+"""Row field that makes a same-key different-digest conflict durable."""
+
 #: Provenance fields describe *this* write, not the twin's evidence body, so
 #: they are excluded before the body digest is computed. A redelivery that
-#: differs only in correlation identity therefore still compares equal.
+#: differs only in correlation identity therefore still compares equal. The
+#: conflict marker is write history too: excluding it keeps the preserved
+#: evidence body's digest verifiable after the row is tombstoned.
 _PROVENANCE_FIELDS = frozenset(
     {
         "activity_id",
         "correlation_id",
         "evidence_digest",
         "evidence_source_revision",
+        CONFLICT_MARKER_FIELD,
     }
 )
 
@@ -103,8 +116,10 @@ class AssuranceTwinLedgerWrite:
 
     conflict: bool = False
     """``True`` when an existing row under the same identity holds a
-    different evidence body. The durable row is left untouched; the caller
-    MUST fail closed rather than announce either version as authoritative.
+    different evidence body, or already carries a durable conflict marker.
+    The stored evidence body is preserved and the row is tombstoned; the
+    caller MUST fail closed rather than announce either version as
+    authoritative.
     """
 
     stored_evidence_digest: str | None = None
@@ -162,9 +177,10 @@ class StateStoreAssuranceTwinPostureLedger:
         """Persist ``review`` once per ``review_key``.
 
         Identical redelivery is an idempotent no-op. A different body under
-        the same ``review_key`` returns ``conflict=True`` without replacing
-        the durable row, so the ledger never holds one truth while the bus
-        announces another.
+        the same ``review_key`` returns ``conflict=True``: the stored
+        evidence body is preserved, a durable conflict marker is written
+        onto the row, and every later read renders it unavailable, so the
+        ledger never holds one truth while the bus announces another.
         """
 
         key = change_review_state_key(review.review_key)
@@ -182,9 +198,20 @@ class StateStoreAssuranceTwinPostureLedger:
         )
         if created:
             return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
-        stored_digest = _stored_digest(await self._store.read_state(key))
-        if stored_digest == digest:
+        existing = await self._store.read_state(key)
+        stored_digest = _stored_digest(existing)
+        already_conflicted = _has_conflict_marker(existing)
+        if stored_digest == digest and not already_conflicted:
             return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
+        if existing is not None and not already_conflicted:
+            await self._store.write_state(
+                key,
+                _with_conflict_marker(
+                    existing,
+                    stored_evidence_digest=stored_digest,
+                    rejected_evidence_digest=digest,
+                ),
+            )
         return AssuranceTwinLedgerWrite(
             key=key,
             created=False,
@@ -276,10 +303,39 @@ def _stored_digest(existing: Mapping[str, Any] | None) -> str | None:
     return evidence_body_digest(existing)
 
 
+def _has_conflict_marker(existing: Mapping[str, Any] | None) -> bool:
+    return existing is not None and isinstance(existing.get(CONFLICT_MARKER_FIELD), Mapping)
+
+
+def _with_conflict_marker(
+    existing: Mapping[str, Any],
+    *,
+    stored_evidence_digest: str | None,
+    rejected_evidence_digest: str,
+) -> dict[str, Any]:
+    """Return the stored row tombstoned with a content-free conflict marker.
+
+    The preserved evidence body and its provenance are untouched; only the
+    excluded-from-digest marker is added, so a reader can still verify the
+    stored body while being forced to render the row unavailable.
+    """
+
+    return {
+        **existing,
+        CONFLICT_MARKER_FIELD: {
+            "reason_code": REVIEW_CONFLICT_REASON_CODE,
+            "stored_evidence_digest": stored_evidence_digest,
+            "rejected_evidence_digest": rejected_evidence_digest,
+        },
+    }
+
+
 __all__ = [
-    "AssuranceTwinLedgerWrite",
     "CHANGE_REVIEW_STATE_PREFIX",
+    "CONFLICT_MARKER_FIELD",
     "POSTURE_REPORT_STATE_PREFIX",
+    "REVIEW_CONFLICT_REASON_CODE",
+    "AssuranceTwinLedgerWrite",
     "StateStoreAssuranceTwinPostureLedger",
     "change_review_state_key",
     "evidence_body_digest",

@@ -4,6 +4,7 @@ import type { OperatorApiClient } from "../api";
 import { parseConsoleRoute } from "../router";
 import {
   assuranceTwinReviewHref,
+  assuranceTwinReviewIdFromSearch,
   buildAssuranceTwinViewSnapshot,
   loadAssuranceTwinReviewDetail,
   loadAssuranceTwinState,
@@ -81,11 +82,11 @@ const reviewDetailResponse = () => ({
 });
 
 function panelClient(
-  handler: (path: string) => Promise<unknown>,
+  handler: (path: string, params?: Record<string, string>) => Promise<unknown>,
 ): Pick<OperatorApiClient, "panel"> {
   return {
-    async panel<T>(path: string): Promise<T> {
-      return await handler(path) as T;
+    async panel<T>(path: string, params?: Record<string, string>): Promise<T> {
+      return await handler(path, params) as T;
     },
   };
 }
@@ -220,8 +221,9 @@ describe("assurance twin decoder", () => {
   });
 
   it("decodes one review detail with its finding evidence", async () => {
-    const handler = vi.fn(async (path: string) => {
-      expect(path).toBe("/assurance-twin/reviews/Review_Key-1");
+    const handler = vi.fn(async (path: string, params?: Record<string, string>) => {
+      expect(path).toBe("/assurance-twin/review");
+      expect(params).toEqual({ review_key: "Review_Key-1" });
       return reviewDetailResponse();
     });
     const state = await loadAssuranceTwinReviewDetail(panelClient(handler), "Review_Key-1");
@@ -269,33 +271,49 @@ describe("assurance twin decoder", () => {
 });
 
 describe("assurance twin review identity", () => {
-  it("preserves mixed case and underscores in the drill-down href", () => {
-    expect(assuranceTwinReviewHref("Review_Key-1")).toBe("/assurance-twin/Review_Key-1");
+  it("carries an opaque review key as an exact query value", () => {
+    expect(assuranceTwinReviewHref("Review_Key-1")).toBe("/assurance-twin?review=Review_Key-1");
     expect(assuranceTwinReviewHref("owner/repo#7 KEY_a"))
-      .toBe("/assurance-twin/owner%2Frepo%237%20KEY_a");
+      .toBe("/assurance-twin?review=owner%2Frepo%237+KEY_a");
   });
 
-  it("round-trips an opaque review key through the router without canonicalising it", () => {
-    const href = assuranceTwinReviewHref("Review_Key-1");
-    const route = parseConsoleRoute(href);
+  it("round-trips a slash-bearing review key through the router byte for byte", () => {
+    const key = "Owner/Repo#12:Change_A";
+    const href = assuranceTwinReviewHref(key);
+    const [pathname = "", search = ""] = href.split("?", 2);
+    const route = parseConsoleRoute(pathname, search);
     expect(route.panelId).toBe("assurance-twin");
-    expect(route.segments).toEqual(["Review_Key-1"]);
-    expect(route.canonicalPathname).toBe(href);
+    expect(route.segments).toEqual([]);
+    expect(route.canonicalPathname).toBe("/assurance-twin");
+    expect(assuranceTwinReviewIdFromSearch(route.search)).toBe(key);
   });
 
-  it("keeps a percent-encoded review key stable across canonicalisation", () => {
-    const href = assuranceTwinReviewHref("owner/repo#7 KEY_a");
-    const route = parseConsoleRoute(href);
-    expect(route.segments).toEqual(["owner/repo#7 KEY_a"]);
-    expect(route.canonicalPathname).toBe(href);
+  it("never normalises or lowercases the review key", () => {
+    const key = "Owner/Repo#12:Change_A";
+    const [, search = ""] = assuranceTwinReviewHref(key).split("?", 2);
+    const decoded = assuranceTwinReviewIdFromSearch(new URLSearchParams(search));
+    expect(decoded).toBe(key);
+    expect(decoded).not.toBe(key.toLowerCase());
   });
 
-  it("requests the detail endpoint with the exact encoded key", async () => {
-    const handler = vi.fn(async (path: string) => {
-      expect(path).toBe("/assurance-twin/reviews/Review_Key-1");
-      return reviewDetailResponse();
+  it("treats an absent or empty review parameter as the list view", () => {
+    expect(assuranceTwinReviewIdFromSearch(new URLSearchParams(""))).toBeNull();
+    expect(assuranceTwinReviewIdFromSearch(new URLSearchParams("review="))).toBeNull();
+  });
+
+  it("requests the detail endpoint with the exact unencoded key", async () => {
+    const key = "Owner/Repo#12:Change_A";
+    const handler = vi.fn(async (path: string, params?: Record<string, string>) => {
+      expect(path).toBe("/assurance-twin/review");
+      expect(params).toEqual({ review_key: key });
+      return {
+        ...reviewDetailResponse(),
+        review: { ...reviewSummary, review_key: key, findings: [finding] },
+      };
     });
-    await loadAssuranceTwinReviewDetail(panelClient(handler), "Review_Key-1");
+    const state = await loadAssuranceTwinReviewDetail(panelClient(handler), key);
+    if (state.status !== "ready") throw new Error("expected ready state");
+    expect(state.data.review?.review_key).toBe(key);
     expect(handler).toHaveBeenCalledOnce();
   });
 });

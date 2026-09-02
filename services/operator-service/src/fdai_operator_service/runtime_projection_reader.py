@@ -45,6 +45,7 @@ from fdai_operator_service.process_transition_projection import (
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 _ASSURANCE_TWIN_POSTURE_PREFIX = "runtime:assurance-twin-posture:"
 _ASSURANCE_TWIN_REVIEW_PREFIX = "runtime:assurance-twin-review:"
+_ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -777,9 +778,12 @@ class RuntimeProjectionReader:
         return assurance_twin_review_list_projection(rows)
 
     async def _assurance_twin_review_detail(self, query: ProjectionQuery) -> Mapping[str, object]:
-        review_id = str(query.path.get("review_id", "")).strip()
-        if not review_id:
-            raise ProjectionNotFoundError("assurance twin review id is required")
+        # The review key is opaque twin identity: it is compared byte for
+        # byte and never trimmed, normalised, or lowercased here.
+        values = query.params.get("review_key", ())
+        review_id = values[-1] if values else ""
+        if not review_id or len(review_id) > _ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS:
+            raise ProjectionNotFoundError("assurance twin review key is required")
         rows = await self._fetch_all(
             "SELECT value FROM state_kv WHERE key = %s",
             (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}{review_id}",),

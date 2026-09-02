@@ -9,13 +9,19 @@ Fail-closed contract
 --------------------
 
 A row becomes a rendered **report** only when it is well formed, its
-recorded provenance digest matches its body, and its recorded freshness is
-``fresh``. Every other row becomes an explicit **gap** carrying a reason
-code and, when decodable, its identity and freshness. A stale, unavailable,
-unknown, malformed, or digest-mismatched row is therefore never rendered as
+recorded provenance digest matches its body, its recorded freshness is
+``fresh``, and it carries no durable conflict marker. Every other row
+becomes an explicit **gap** carrying a reason code and, when decodable, its
+identity and freshness. A stale, unavailable, unknown, malformed,
+digest-mismatched, or conflict-tombstoned row is therefore never rendered as
 a usable posture, and an empty ``reports`` list never reads as a clear
 estate: ``available`` states whether any usable report exists and
 ``complete`` states whether anything was withheld.
+
+Safety-relevant flags are read strictly: ``blocks_action`` MUST be a present
+boolean. A missing value or a truthy string is malformed evidence, not a
+default, because coercing it would silently render a blocking posture as
+non-blocking.
 """
 
 from __future__ import annotations
@@ -43,8 +49,13 @@ _PROVENANCE_FIELDS = frozenset(
         "correlation_id",
         "evidence_digest",
         "evidence_source_revision",
+        "conflict",
     }
 )
+
+#: Row field the recorder writes when one identity received two different
+#: evidence bodies. Its presence alone makes the row permanently unusable.
+_CONFLICT_MARKER_FIELD = "conflict"
 
 GAP_MALFORMED = "evidence_malformed"
 GAP_DIGEST_MISMATCH = "evidence_digest_mismatch"
@@ -198,8 +209,10 @@ def _gap(
 
 
 def _digest_reason(value: Mapping[str, Any]) -> str | None:
-    """Return a gap reason when provenance is absent or does not verify."""
+    """Return a gap reason when the row is tombstoned or fails provenance."""
 
+    if _CONFLICT_MARKER_FIELD in value:
+        return GAP_CONFLICT
     recorded = value.get("evidence_digest")
     if not isinstance(recorded, str) or not recorded:
         return GAP_MALFORMED
@@ -259,12 +272,15 @@ def _posture_report(row: Mapping[str, Any]) -> dict[str, object] | None:
     highest_severity = value.get("highest_severity")
     if highest_severity is not None and highest_severity not in _SEVERITIES:
         return None
+    blocks_action = value.get("blocks_action")
+    if not isinstance(blocks_action, bool):
+        return None
     return {
         "scope": scope,
         "generated_at": generated_at,
         "mode": mode,
         "verdict": verdict,
-        "blocks_action": bool(value.get("blocks_action", False)),
+        "blocks_action": blocks_action,
         "resource_count": resource_count,
         "rule_count": rule_count,
         "highest_severity": highest_severity,

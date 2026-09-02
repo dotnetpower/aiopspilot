@@ -1,7 +1,7 @@
 """Assurance Twin - compose the durable ledger and the bus activity tip.
 
-The one call site an accountable-agent runtime binding uses to both persist
-a computed report/review and announce it on the schema-validated event bus.
+The one call site a future trusted producer binding uses to both persist a
+computed report/review and announce it on the schema-validated event bus.
 Splits cleanly along the two existing seams so each stays single-purpose:
 
 - ``fdai.delivery.persistence.state_store_assurance_twin_posture`` owns the
@@ -19,9 +19,11 @@ refuses to announce the incoming version and publishes an explicit
 unavailable tip instead, so the bus and the ledger can never carry two
 contradictory truths for one identity.
 
-The accountable runtime call site is
-``fdai.runtime.assurance_twin_posture``, which binds this recorder to
-Heimdall's existing ``object.event`` subscription.
+**No shipped call site.** This recorder is deliberately unbound: no trusted
+component computes twin findings yet, and an ambient ingress payload is not
+trustworthy evidence, so nothing in the runtime invokes it. It stays a
+read-only, authority-free surface for a future trusted producer. See
+[assurance-twin.md](../../../../../docs/roadmap/operations/assurance-twin.md#implementation-status).
 """
 
 from __future__ import annotations
@@ -39,12 +41,10 @@ from fdai.core.assurance_twin.posture_activity import (
 from fdai.core.assurance_twin.report import PostureAssessmentReport
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
+    REVIEW_CONFLICT_REASON_CODE,
     StateStoreAssuranceTwinPostureLedger,
 )
 from fdai.shared.providers.iac_review import IacReview
-
-REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
-"""Reason code carried by the unavailable tip a conflicting redelivery raises."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,8 +124,9 @@ class AssuranceTwinPostureRecorder:
         """Persist ``review`` (idempotent by ``review_key``) and publish its tip.
 
         A redelivery whose body matches the durable row republishes the same
-        tip. A redelivery whose body differs is a conflict: nothing is
-        overwritten and the published tip is explicitly unavailable.
+        tip. A redelivery whose body differs is a conflict: the stored
+        evidence body is preserved, the row is durably tombstoned, and the
+        published tip is explicitly unavailable.
         """
 
         activity = build_change_review_activity(

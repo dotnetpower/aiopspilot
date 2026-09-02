@@ -10,6 +10,8 @@ from __future__ import annotations
 import pytest
 from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
+    CONFLICT_MARKER_FIELD,
+    REVIEW_CONFLICT_REASON_CODE,
     StateStoreAssuranceTwinPostureLedger,
     change_review_state_key,
     evidence_body_digest,
@@ -152,7 +154,7 @@ async def test_identical_redelivery_under_a_new_correlation_stays_idempotent() -
     assert replay.conflict is False
 
 
-async def test_conflicting_redelivery_never_replaces_the_durable_body() -> None:
+async def test_conflicting_redelivery_tombstones_the_row_and_keeps_the_stored_body() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
@@ -176,6 +178,45 @@ async def test_conflicting_redelivery_never_replaces_the_durable_body() -> None:
     assert len(reviews) == 1
     assert reviews[0]["verdict"] == "needs_review"
     assert reviews[0]["findings"][0]["rule_id"] == "r-1"
+    # The durable marker is what makes an Operator API/Console read render
+    # the row unavailable instead of serving one of two contradicting bodies.
+    marker = reviews[0][CONFLICT_MARKER_FIELD]
+    assert marker["reason_code"] == REVIEW_CONFLICT_REASON_CODE
+    assert marker["stored_evidence_digest"] == first.evidence_digest
+    assert marker["rejected_evidence_digest"] == conflicting.evidence_digest
+    # The marker is write history, so the preserved body still verifies.
+    assert evidence_body_digest(reviews[0]) == first.evidence_digest
+
+
+async def test_conflict_marker_is_durable_across_later_redeliveries() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    first = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    await ledger.record_change_review(
+        _review("k-1", _finding(rule="r-2"), verdict="blocked"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    # Replaying the originally stored body cannot clear the conflict.
+    replay = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert replay.conflict is True
+    assert replay.created is False
+    assert replay.evidence_digest == first.evidence_digest
+
+    rows = await ledger.read_recent_change_reviews(limit=10)
+    assert len(rows) == 1
+    assert rows[0][CONFLICT_MARKER_FIELD]["reason_code"] == REVIEW_CONFLICT_REASON_CODE
+    assert rows[0]["verdict"] == "needs_review"
 
 
 async def test_conflict_is_detected_against_a_row_without_recorded_provenance() -> None:

@@ -215,14 +215,14 @@ Durable and live delivery share one activity id, so reconnect and refresh cannot
 Passive scheduler wakes that skip every source do not appear as new work rows and preserve the last
 coverage result instead of inventing a healthy state.
 
-The shared `agent.operational-activity` contract (schema `1.2.0`) also carries one kind outside this
-campaign: `assurance-twin.posture`, published by Heimdall for a computed Assurance Twin posture
-report or ambient change review
-([assurance-twin.md](assurance-twin.md#module-placement)). It never uses `observation_domain` and is
-never produced by `observation-campaign-job`, so it does not enter the per-domain source-coverage
-check above. The Console activity decoder accepts schema `1.2.0` and rejects the `assurance-twin`
-producer on any other kind, and the `agent-operational-activity` compatibility edge classifies the
-`N` producer against an `N-1` consumer as an ordered rollout rather than a supported pair.
+The shared `agent.operational-activity` contract (schema `1.2.0`) also declares one kind outside this
+campaign: `assurance-twin.posture`, reserved for a computed Assurance Twin posture report or ambient
+change review ([assurance-twin.md](assurance-twin.md#module-placement)). It never uses
+`observation_domain` and is never produced by `observation-campaign-job`, so it does not enter the
+per-domain source-coverage check above. The Console activity decoder accepts schema `1.2.0` and
+rejects the `assurance-twin` producer on any other kind. No shipped component publishes this kind
+today: the Assurance Twin recorder that builds it is unbound because no trusted producer computes
+twin findings yet, so the campaign stream carries no `assurance-twin.posture` rows.
 
 ## Failure behavior
 

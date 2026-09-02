@@ -14,7 +14,6 @@ from typing import Any, cast
 import httpx
 
 from fdai.agents import (
-    Heimdall,
     Norns,
     PantheonRuntime,
     Saga,
@@ -61,7 +60,6 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
 )
-from fdai.runtime.assurance_twin_posture import build_assurance_twin_posture_observer
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -393,11 +391,6 @@ async def initialize_pantheon(
             "vidar_recovery_contracts": sorted(thor_safety_readiness.vidar_recovery_contracts),
         },
     )
-    assurance_twin_posture_observer = build_assurance_twin_posture_observer(
-        state_store=config.incident_audit_store,
-        event_bus=config.bus,
-        topic=config.stage_topic,
-    )
     heimdall_action_observation_hook = None
     observation_collector = config.container.executed_action_observation_collector
     if observation_collector is not None:
@@ -562,15 +555,6 @@ async def initialize_pantheon(
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
     )
-    # Heimdall already subscribes object.event; this binds the composition-owned
-    # Assurance Twin recorder so an ambient twin candidate becomes accountable,
-    # authority-free evidence instead of reaching an unbound helper. A fork that
-    # disables Heimdall simply records no twin evidence; it never fabricates one.
-    heimdall_agent = pantheon_runtime.agents.get("Heimdall")
-    if isinstance(heimdall_agent, Heimdall):
-        heimdall_agent.register_assurance_twin_posture(assurance_twin_posture_observer.observe)
-    else:
-        _LOGGER.info("assurance_twin_posture_unbound", extra={"reason": "heimdall_disabled"})
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant
         raise RuntimeError("Pantheon runtime is missing Thor")

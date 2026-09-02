@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: d29085b49820495e1f7952ca737c7ec125351fc2
+translation_source_sha: 6605c7220501b8388afe7124b56136e5f2c0f2cf
 translation_revised: 2026-09-04
 ---
 
@@ -216,13 +216,14 @@ Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신�
 않습니다. 모든 출처를 건너뛰는 수동 scheduler 기동은 새 작업 행으로 표시하지 않고 정상 상태를
 만들어내는 대신 마지막 커버리지 결과를 보존합니다.
 
-공유 `agent.operational-activity` 계약(스키마 `1.2.0`)은 이 캠페인 밖에서 발생하는 종류도 하나
-전달합니다: `assurance-twin.posture`로, 계산된 Assurance Twin 자세 보고서나 선제적 변경 검토에
-대해 Heimdall이 발행합니다([assurance-twin-ko.md](assurance-twin-ko.md#모듈-배치) 참고). 이 종류는
+공유 `agent.operational-activity` 계약(스키마 `1.2.0`)은 이 캠페인 밖에서 쓰이는 종류도 하나
+선언합니다: `assurance-twin.posture`로, 계산된 Assurance Twin 자세 보고서나 선제적 변경 검토를
+위해 예약되어 있습니다([assurance-twin-ko.md](assurance-twin-ko.md#모듈-배치) 참고). 이 종류는
 `observation_domain`을 사용하지 않으며 `observation-campaign-job`이 발행하지 않으므로 위의
 도메인별 출처 커버리지 검사에 들어가지 않습니다. 콘솔 활동 디코더는 스키마 `1.2.0`을 수락하고
-다른 종류에서 `assurance-twin` 생산자를 거부합니다. `agent-operational-activity` 호환성 경계는
-`N` 생산자와 `N-1` 소비자 조합을 지원 쌍이 아니라 순차 롤아웃으로 분류합니다.
+다른 종류에서 `assurance-twin` 생산자를 거부합니다. 현재 이 종류를 발행하는 구성 요소는
+없습니다. 이 신호를 만드는 Assurance Twin 레코더는 Twin 발견 사항을 계산하는 신뢰된 생산자가
+없어 연결되어 있지 않으므로, 캠페인 스트림에는 `assurance-twin.posture` 행이 없습니다.
 
 ## 실패 동작
 

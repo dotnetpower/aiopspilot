@@ -80,14 +80,6 @@ OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]
 ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool]]
 """Composition-provided terminal ActionRun observation handler."""
 
-AssuranceTwinPostureHook = Callable[[dict[str, Any]], Awaitable[bool]]
-"""Composition-provided read-only Assurance Twin posture/review recorder.
-
-Bounded evidence only: the hook persists the already-computed report or
-ambient change review and announces a schema-validated, authority-free
-``agent.operational-activity`` tip. It never judges, approves, or executes.
-"""
-
 _LOG = logging.getLogger(__name__)
 
 #: The admin-card rate limit is per rolling hour. A limiter that never reset
@@ -109,7 +101,6 @@ _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_ASSURANCE_TWIN_EVENT_PREFIX = "assurance.twin."
 
 
 class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
@@ -128,7 +119,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         read_investigation_hook: ReadInvestigationHook | None = None,
         operational_evidence_hook: OperationalEvidenceHook | None = None,
         action_observation_hook: ActionObservationHook | None = None,
-        assurance_twin_posture_hook: AssuranceTwinPostureHook | None = None,
         alert_rate_per_hour: int = 5,
         clock: Callable[[], float] | None = None,
         forecast_clock: Callable[[], datetime] | None = None,
@@ -157,7 +147,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         self._read_investigation_hook = read_investigation_hook
         self._operational_evidence_hook = operational_evidence_hook
         self._action_observation_hook = action_observation_hook
-        self._assurance_twin_posture_hook = assurance_twin_posture_hook
         self._alert_rate_per_hour = alert_rate_per_hour
         # Per-initiator rolling-hour alert budget: (window_start, count).
         # Injected clock keeps the window deterministic under test; defaults
@@ -194,11 +183,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
 
         self._operational_evidence_hook = hook
 
-    def register_assurance_twin_posture(self, hook: AssuranceTwinPostureHook) -> None:
-        """Bind the composition-owned Assurance Twin posture/review recorder."""
-
-        self._assurance_twin_posture_hook = hook
-
     def bind_rule_generation_validation_handler(
         self,
         handler: RuleGenerationValidationHandler,
@@ -233,9 +217,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             if str(payload.get("event_type") or "").startswith(SPECIALIST_EVENT_PREFIX):
                 self.record_behavior("specialist_signal:deferred")
                 return
-            if str(payload.get("event_type") or "").startswith(_ASSURANCE_TWIN_EVENT_PREFIX):
-                await self._observe_assurance_twin_posture(payload)
-                return
             if payload.get("event_type") == _DETECTION_READINESS_EVENT:
                 await self._observe_detection_readiness(payload)
                 return
@@ -258,30 +239,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
-
-    async def _observe_assurance_twin_posture(self, payload: dict[str, Any]) -> None:
-        """Record one ambient twin candidate as bounded, authority-free evidence.
-
-        Fails toward silence-with-a-behavior-record, never toward a fabricated
-        posture: an unbound hook or a rejected candidate is reported as held,
-        so a missing binding is visible instead of looking like a clear estate.
-        """
-
-        if self._assurance_twin_posture_hook is None:
-            self.record_behavior("assurance_twin_posture:unavailable")
-            return
-        try:
-            recorded = await self._assurance_twin_posture_hook(payload)
-        except Exception:  # noqa: BLE001 - one candidate cannot stall observation
-            self.record_behavior("assurance_twin_posture:hook_error")
-            _LOG.exception(
-                "assurance_twin_posture_hook_failed",
-                extra={"event_type": str(payload.get("event_type") or "")},
-            )
-            return
-        self.record_behavior(
-            "assurance_twin_posture:recorded" if recorded else "assurance_twin_posture:held"
-        )
 
     async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
         """Validate one candidate and publish the authoritative immutable revision."""
@@ -875,7 +832,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
 __all__ = [
     "Heimdall",
     "AlerterHook",
-    "AssuranceTwinPostureHook",
     "IncidentCandidateHook",
     "ReadInvestigationHook",
 ]

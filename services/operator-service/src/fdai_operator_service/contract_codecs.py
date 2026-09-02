@@ -24,12 +24,6 @@ CORE_PROJECTION_CONSUMER_V13 = ConsumerCodec(
 CORE_PROJECTION_CONSUMER_V14 = ConsumerCodec(
     "core-operator-projection", "N", ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0")
 )
-OPERATIONAL_ACTIVITY_CONSUMER_V11 = ConsumerCodec(
-    "agent-operational-activity", "N-1", ("1.0.0", "1.1.0")
-)
-OPERATIONAL_ACTIVITY_CONSUMER_V12 = ConsumerCodec(
-    "agent-operational-activity", "N", ("1.0.0", "1.1.0", "1.2.0")
-)
 
 __all__ = [
     "BACKGROUND_TASK_PROJECTION_CONSUMER_V1",
@@ -44,6 +38,4 @@ __all__ = [
     "CORE_REQUEST_PRODUCER_V13",
     "CORE_REQUEST_PRODUCER_V14",
     "CORE_REQUEST_PRODUCER_V15",
-    "OPERATIONAL_ACTIVITY_CONSUMER_V11",
-    "OPERATIONAL_ACTIVITY_CONSUMER_V12",
 ]
