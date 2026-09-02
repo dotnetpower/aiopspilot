@@ -225,7 +225,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 38
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 41
 
 
 def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:

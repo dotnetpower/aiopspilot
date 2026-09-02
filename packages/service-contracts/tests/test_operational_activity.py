@@ -99,6 +99,64 @@ def test_observation_rejects_wrong_owner() -> None:
         )
 
 
+def test_assurance_twin_posture_contract_is_authority_free_and_schema_valid() -> None:
+    activity = AgentOperationalActivity(
+        schema_version="1.2.0",
+        activity_id="assurance-twin.posture-report:subscription:completed",
+        idempotency_key="assurance-twin.posture-report:subscription:completed",
+        kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
+        status=OperationalActivityStatus.COMPLETED,
+        owner_agent="Heimdall",
+        producer="assurance-twin",
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        source="assurance-twin:posture:subscription",
+        freshness=OperationalFreshness.FRESH,
+        evidence_count=3,
+        correlation_id="posture-report-1",
+    )
+    payload = activity.model_dump(mode="json")
+
+    assert payload["execution_authority"] is False
+    assert payload["observation_domain"] is None
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "agent-operational-activity",
+        payload,
+        version="1.2.0",
+    )
+
+
+def test_assurance_twin_posture_rejects_pre_1_2_0_schema() -> None:
+    with pytest.raises(ValidationError, match="MUST use schema 1.2.0"):
+        AgentOperationalActivity(
+            schema_version="1.1.0",
+            activity_id="assurance-twin.posture-report:subscription:completed",
+            idempotency_key="assurance-twin.posture-report:subscription:completed",
+            kind="assurance-twin.posture",
+            status="completed",
+            owner_agent="Heimdall",
+            producer="assurance-twin",
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+            source="assurance-twin:posture:subscription",
+            freshness="fresh",
+        )
+
+
+def test_assurance_twin_posture_rejects_wrong_owner_or_producer() -> None:
+    with pytest.raises(ValidationError, match="Heimdall-owned twin evidence"):
+        AgentOperationalActivity(
+            schema_version="1.2.0",
+            activity_id="assurance-twin.posture-report:subscription:completed",
+            idempotency_key="assurance-twin.posture-report:subscription:completed",
+            kind="assurance-twin.posture",
+            status="completed",
+            owner_agent="Heimdall",
+            producer="observation-campaign-job",
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+            source="assurance-twin:posture:subscription",
+            freshness="fresh",
+        )
+
+
 def test_observation_rejects_raw_reason_text() -> None:
     with pytest.raises(ValidationError, match="machine-safe identifiers"):
         AgentOperationalActivity(

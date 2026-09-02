@@ -137,6 +137,10 @@ const ConversationAssuranceRoute = lazyRoute(
   () => import("./routes/conversation-assurance"),
   "ConversationAssuranceRoute",
 );
+const AssuranceTwinRoute = lazyRoute(
+  () => import("./routes/assurance-twin"),
+  "AssuranceTwinRoute",
+);
 const loadAnalyticsHubs = () => import("./routes/analytics-hubs");
 const OperatingOutcomesRoute = lazyRoute(loadAnalyticsHubs, "OperatingOutcomesRoute");
 const ControlAssuranceRoute = lazyRoute(loadAnalyticsHubs, "ControlAssuranceRoute");
@@ -380,6 +384,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.forecastLearning"),
     group: "evidence",
     component: ForecastLearningRoute,
+  },
+  {
+    id: "assurance-twin",
+    label: t("nav.panel.assuranceTwin"),
+    subtitle: t("nav.panelSub.assuranceTwin"),
+    group: "evidence",
+    component: AssuranceTwinRoute,
   },
   {
     id: "conversation-search",

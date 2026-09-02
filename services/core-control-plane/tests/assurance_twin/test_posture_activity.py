@@ -1,0 +1,125 @@
+"""Assurance Twin - bounded posture/review activity tip contract tests."""
+
+from __future__ import annotations
+
+import pytest
+from fdai.core.assurance_twin import build_posture_assessment_report
+from fdai.core.assurance_twin.posture_activity import (
+    build_change_review_activity,
+    build_posture_report_activity,
+)
+from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.iac_review import IacReview
+from fdai.shared.providers.projection import Finding, ResourceRef
+from fdai_service_contracts import (
+    JsonSchemaContractValidator,
+    OperationalActivityStatus,
+    OperationalFreshness,
+    PackageResourceSchemaRegistry,
+)
+
+
+def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Finding:
+    return Finding(
+        rule_id=rule,
+        resource=ResourceRef(resource_type="compute.vm", ref=ref),
+        severity=severity,  # type: ignore[arg-type]
+        reason="reason",
+    )
+
+
+def _report(*findings: Finding) -> object:
+    return build_posture_assessment_report(
+        scope="sub/00000000-0000-0000-0000-000000000001",
+        generated_at="2026-07-07T00:00:00Z",
+        mode=Mode.SHADOW,
+        findings=findings,
+    )
+
+
+def _review(*findings: Finding) -> IacReview:
+    return IacReview(
+        pr_ref="owner/repo#1",
+        review_key="k-1",
+        findings=findings,
+        verdict="needs_review",
+        mode=Mode.SHADOW,
+        generated_at="2026-07-07T00:00:00Z",
+    )
+
+
+def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
+    activity = build_posture_report_activity(
+        _report(_finding()),
+        correlation_id="posture-1",
+        freshness=OperationalFreshness.FRESH,
+    )
+    payload = activity.model_dump(mode="json")
+
+    assert payload["execution_authority"] is False
+    assert payload["owner_agent"] == "Heimdall"
+    assert payload["producer"] == "assurance-twin"
+    assert payload["observation_domain"] is None
+    assert payload["evidence_count"] == 1
+    assert activity.status is OperationalActivityStatus.COMPLETED
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "agent-operational-activity",
+        payload,
+        version="1.2.0",
+    )
+
+
+def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
+    activity = build_change_review_activity(
+        _review(_finding(), _finding(rule="r-2")),
+        correlation_id="review-1",
+        freshness=OperationalFreshness.FRESH,
+    )
+    payload = activity.model_dump(mode="json")
+
+    assert payload["execution_authority"] is False
+    assert payload["evidence_count"] == 2
+    assert "k-1" in activity.activity_id
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "agent-operational-activity",
+        payload,
+        version="1.2.0",
+    )
+
+
+def test_unavailable_freshness_requires_reason_code() -> None:
+    with pytest.raises(ValueError, match="MUST include a reason code"):
+        build_posture_report_activity(
+            _report(),
+            correlation_id="posture-2",
+            freshness=OperationalFreshness.UNAVAILABLE,
+        )
+
+
+def test_stale_freshness_requires_reason_code() -> None:
+    with pytest.raises(ValueError, match="MUST include a reason code"):
+        build_change_review_activity(
+            _review(),
+            correlation_id="review-2",
+            freshness=OperationalFreshness.STALE,
+        )
+
+
+def test_unavailable_freshness_with_reason_yields_failed_status() -> None:
+    activity = build_posture_report_activity(
+        _report(),
+        correlation_id="posture-3",
+        freshness=OperationalFreshness.UNAVAILABLE,
+        reason_codes=("inventory_freshness_ttl_exceeded",),
+    )
+    assert activity.status is OperationalActivityStatus.FAILED
+    assert activity.freshness is OperationalFreshness.UNAVAILABLE
+
+
+def test_empty_correlation_id_is_rejected() -> None:
+    with pytest.raises(ValueError, match="correlation_id MUST be non-empty"):
+        build_posture_report_activity(
+            _report(),
+            correlation_id="  ",
+            freshness=OperationalFreshness.FRESH,
+        )

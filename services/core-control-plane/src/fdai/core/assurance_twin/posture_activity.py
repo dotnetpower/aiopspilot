@@ -1,0 +1,159 @@
+"""Assurance Twin - bounded read-only posture/review activity for the event bus.
+
+Turns an already-computed :class:`~fdai.core.assurance_twin.report.PostureAssessmentReport`
+or ambient :class:`~fdai.shared.providers.iac_review.IacReview` into one
+:class:`~fdai_service_contracts.AgentOperationalActivity` record - the existing
+bounded, authority-free evidence channel Heimdall already uses for other
+observation domains (``resource-health``, ``metrics``, ``cost``, ...).
+
+The activity is a **live tip**, not the authoritative report body: it lets a
+Console/Operator-API subscriber know a posture report or ambient change
+review was recorded, with its freshness and a bounded evidence count. The
+durable finding-level content is written separately by
+``fdai.delivery.assurance_twin_posture`` so this module stays pure and CSP
+neutral, matching every other ``core/assurance_twin/`` component
+([module placement](../../../../../docs/roadmap/operations/assurance-twin.md#module-placement)).
+
+Design invariants
+------------------
+
+- **Pure**: no I/O, no clock reads beyond the values already carried by the
+  report/review the caller computed.
+- **Bounded**: ``evidence_count`` mirrors the finding count; the record never
+  carries a resource identifier, finding text, or customer value.
+- **No authority**: ``execution_authority`` stays the schema ``const`` of
+  ``False``. The twin never grants approval or execution through this
+  channel
+  ([safety posture](../../../../../docs/roadmap/operations/assurance-twin.md#safety-posture)).
+- **Fail-closed status**: a ``stale`` or ``unavailable`` freshness MUST carry
+  at least one reason code, matching the shared contract's requirement that
+  a degraded/failed activity explain itself.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from fdai_service_contracts import (
+    AgentOperationalActivity,
+    OperationalActivityKind,
+    OperationalActivityStatus,
+    OperationalFreshness,
+)
+
+from fdai.core.assurance_twin.report import PostureAssessmentReport
+from fdai.shared.providers.iac_review import IacReview
+
+_OWNER_AGENT: Literal["Heimdall"] = "Heimdall"
+_PRODUCER: Literal["assurance-twin"] = "assurance-twin"
+_MAX_SOURCE_CHARS = 128
+
+
+def build_posture_report_activity(
+    report: PostureAssessmentReport,
+    *,
+    correlation_id: str,
+    freshness: OperationalFreshness,
+    reason_codes: tuple[str, ...] = (),
+) -> AgentOperationalActivity:
+    """Build one bounded activity tip for an on-demand posture report.
+
+    Raises:
+        ValueError: when ``correlation_id`` is empty or ``freshness`` is
+            ``stale``/``unavailable`` without a reason code.
+    """
+
+    if not correlation_id.strip():
+        raise ValueError("posture report activity correlation_id MUST be non-empty")
+    status = _status_for(freshness, reason_codes)
+    source = _bounded_source(f"assurance-twin:posture:{report.scope}")
+    return AgentOperationalActivity(
+        schema_version="1.2.0",
+        activity_id=f"assurance-twin.posture-report:{correlation_id}:{status.value}",
+        idempotency_key=f"assurance-twin.posture-report:{correlation_id}:{status.value}",
+        kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
+        status=status,
+        owner_agent=_OWNER_AGENT,
+        producer=_PRODUCER,
+        observed_at=_parse_timestamp(report.generated_at),
+        source=source,
+        freshness=freshness,
+        evidence_count=len(report.findings),
+        correlation_id=correlation_id,
+        reason_codes=reason_codes,
+    )
+
+
+def build_change_review_activity(
+    review: IacReview,
+    *,
+    correlation_id: str,
+    freshness: OperationalFreshness,
+    reason_codes: tuple[str, ...] = (),
+) -> AgentOperationalActivity:
+    """Build one bounded activity tip for an ambient per-change review.
+
+    Raises:
+        ValueError: when ``correlation_id`` is empty or ``freshness`` is
+            ``stale``/``unavailable`` without a reason code.
+    """
+
+    if not correlation_id.strip():
+        raise ValueError("change review activity correlation_id MUST be non-empty")
+    status = _status_for(freshness, reason_codes)
+    source = _bounded_source(f"assurance-twin:review:{review.pr_ref}")
+    return AgentOperationalActivity(
+        schema_version="1.2.0",
+        activity_id=f"assurance-twin.change-review:{review.review_key}:{status.value}",
+        idempotency_key=f"assurance-twin.change-review:{review.review_key}:{status.value}",
+        kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
+        status=status,
+        owner_agent=_OWNER_AGENT,
+        producer=_PRODUCER,
+        observed_at=_parse_timestamp(review.generated_at),
+        source=source,
+        freshness=freshness,
+        evidence_count=len(review.findings),
+        correlation_id=correlation_id,
+        reason_codes=reason_codes,
+    )
+
+
+def _status_for(
+    freshness: OperationalFreshness,
+    reason_codes: tuple[str, ...],
+) -> OperationalActivityStatus:
+    """Derive the activity status from freshness, never from a guess.
+
+    A stale or unavailable observation MUST cite a reason so the shared
+    contract's fail-closed invariant (degraded/failed activity MUST include
+    a reason code) is satisfied by construction.
+    """
+
+    if freshness is OperationalFreshness.UNAVAILABLE:
+        if not reason_codes:
+            raise ValueError("unavailable assurance-twin activity MUST include a reason code")
+        return OperationalActivityStatus.FAILED
+    if freshness is OperationalFreshness.STALE:
+        if not reason_codes:
+            raise ValueError("stale assurance-twin activity MUST include a reason code")
+        return OperationalActivityStatus.DEGRADED
+    return OperationalActivityStatus.COMPLETED
+
+
+def _bounded_source(value: str) -> str:
+    return value if len(value) <= _MAX_SOURCE_CHARS else value[:_MAX_SOURCE_CHARS]
+
+
+def _parse_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("assurance-twin activity timestamp MUST include a timezone")
+    return parsed
+
+
+__all__ = [
+    "build_change_review_activity",
+    "build_posture_report_activity",
+]

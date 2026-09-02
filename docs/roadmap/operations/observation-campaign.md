@@ -215,6 +215,13 @@ Durable and live delivery share one activity id, so reconnect and refresh cannot
 Passive scheduler wakes that skip every source do not appear as new work rows and preserve the last
 coverage result instead of inventing a healthy state.
 
+The shared `agent.operational-activity` contract (schema `1.2.0`) also carries one kind outside this
+campaign: `assurance-twin.posture`, published by Heimdall for a computed Assurance Twin posture
+report or ambient change review
+([assurance-twin.md](assurance-twin.md#module-placement)). It never uses `observation_domain` and is
+never produced by `observation-campaign-job`, so it does not enter the per-domain source-coverage
+check above.
+
 ## Failure behavior
 
 - A source denial produces `unavailable/unauthorized` and does not stop unrelated sources.

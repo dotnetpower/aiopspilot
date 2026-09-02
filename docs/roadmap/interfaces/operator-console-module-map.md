@@ -15,6 +15,10 @@ requirements in the read model. The Console can explain which producer, scope, f
 and owner are required, but it exposes no evidence writer or remediation control.
 The Ontology Instances projection keeps observed `runtime_calls` separate from generic direct relationships in the Inspector, dense legend, and current-screen evidence context. It preserves the stored source-to-target direction and cannot infer a call when the runtime source is unavailable. The Console panel registry keeps every route module behind a lazy import. Named route exports use one typed adapter, routes that share a module reuse one loader, and the production entry-bundle check verifies the required lazy boundaries and enforces both raw and gzip limits.
 
+The `assurance_twin.posture`, `assurance_twin.reviews`, and `assurance_twin.review_detail`
+operations extend `runtime_projection_reader.py` the same way: they read the existing `state_kv`
+rows an Assurance Twin recorder already wrote and render the stored verdict, severity, and
+freshness verbatim through the existing operations family manifest, never recomputing them.
 ## Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces

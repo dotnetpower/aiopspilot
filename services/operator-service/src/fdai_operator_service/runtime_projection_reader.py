@@ -20,6 +20,11 @@ from psycopg.rows import dict_row
 from fdai_operator_service.analyzer_lifecycle_projection import (
     project_analyzer_lifecycle,
 )
+from fdai_operator_service.assurance_twin_posture_projection import (
+    assurance_twin_posture_projection,
+    assurance_twin_review_detail_projection,
+    assurance_twin_review_list_projection,
+)
 from fdai_operator_service.detection_lifecycle_projection import (
     detection_lifecycle_projection,
 )
@@ -38,6 +43,8 @@ from fdai_operator_service.process_transition_projection import (
 )
 
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
+_ASSURANCE_TWIN_POSTURE_PREFIX = "runtime:assurance-twin-posture:"
+_ASSURANCE_TWIN_REVIEW_PREFIX = "runtime:assurance-twin-review:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +85,12 @@ class RuntimeProjectionReader:
             return await self._detection_readiness()
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
+        if query.operation == "assurance_twin.posture":
+            return await self._assurance_twin_posture()
+        if query.operation == "assurance_twin.reviews":
+            return await self._assurance_twin_reviews()
+        if query.operation == "assurance_twin.review_detail":
+            return await self._assurance_twin_review_detail(query)
         return await self.fallback.read(query)
 
     async def _process_list(self, query: ProjectionQuery) -> Mapping[str, object]:
@@ -748,6 +761,33 @@ class RuntimeProjectionReader:
                 "failed_attempts": 0,
             },
         }
+
+    async def _assurance_twin_posture(self) -> Mapping[str, object]:
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 200",
+            (f"{_ASSURANCE_TWIN_POSTURE_PREFIX}%",),
+        )
+        return assurance_twin_posture_projection(rows)
+
+    async def _assurance_twin_reviews(self) -> Mapping[str, object]:
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 200",
+            (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}%",),
+        )
+        return assurance_twin_review_list_projection(rows)
+
+    async def _assurance_twin_review_detail(self, query: ProjectionQuery) -> Mapping[str, object]:
+        review_id = str(query.path.get("review_id", "")).strip()
+        if not review_id:
+            raise ProjectionNotFoundError("assurance twin review id is required")
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %s",
+            (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}{review_id}",),
+        )
+        detail = assurance_twin_review_detail_projection(rows[0] if rows else None)
+        if detail is None:
+            raise ProjectionNotFoundError(review_id)
+        return detail
 
     async def _fetch_all(
         self,

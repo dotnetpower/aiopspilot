@@ -42,8 +42,9 @@ is composition of existing parts.
 ## Implementation status
 
 The deterministic Twin core and its scalar and graph simulation primitives are implemented and
-covered by focused tests. Production inventory, natural-language, review-delivery, and dedicated
-operator-panel bindings remain incomplete, so no area is claimed as operationally validated.
+covered by focused tests. A bounded read-only operator-panel binding now exists over the durable
+`state_kv` ledger; production inventory, natural-language, and review-delivery bindings remain
+incomplete, so no area is claimed as operationally validated against live Azure evidence.
 
 ### Implementation scope
 
@@ -56,12 +57,13 @@ operator-panel bindings remain incomplete, so no area is claimed as operationall
 | Production inventory projection and ambient change-review delivery | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py) and [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) define provider seams | No production inventory adapter, change-event coordinator, or Checks API publisher is bound upstream. |
 | Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
 | T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
-| Twin-specific operator panel and governed remediation proposal bridge | not-started | The report and review primitives above provide inputs but no dedicated Operator API or console route | The implemented Security Assessment report doesn't satisfy the broader Twin posture panel or action-bridging workflow. |
+| Twin-specific operator panel and governed remediation proposal bridge | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py` (delivery)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), the `/assurance-twin/posture`, `/assurance-twin/reviews`, and `/assurance-twin/reviews/{review_id}` Operator API routes, the [`assurance-twin` Console route](../../../console/src/routes/assurance-twin.tsx), and their focused tests (`32 passed`) | Heimdall publishes a bounded, schema-validated `agent.operational-activity` (`assurance-twin.posture` kind, schema `1.2.0`) tip for every recorded posture report or ambient change review; the durable report/review body lives in the existing `state_kv` ledger and the Operator API/Console render it verbatim without recomputing verdict, severity, or freshness. Remediation-proposal bridging, the production inventory binding, and the ambient change-event trigger above remain not-started, so this row stays in-progress rather than implemented. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-02 | in-progress | Added the Heimdall-owned bounded posture/review activity tip (`agent.operational-activity` schema `1.2.0`, `assurance-twin.posture` kind), the durable `state_kv` posture-report and change-review ledger, the read-only `/assurance-twin/posture`, `/assurance-twin/reviews`, and `/assurance-twin/reviews/{review_id}` Operator API operations, and the localized read-only Console panel with drill-down review detail. | `current change`; 32 focused core, Operator API, and Console checks passed; the Console typecheck, build, and localization catalog-parity gates passed. | Bind the production `Inventory` source, wire ambient change events to a production publisher, and add a remediation-proposal bridge. |
 | 2026-08-31 | implemented | Added the strict semantic compiler coordinator and runtime composition seams. Verification requires exact question lineage, compiler revision, evidence citations, and result bounds; invalid plans become explicit ambiguity and publish only content-free no-authority discovery gaps. | `current change`; 50 focused query and runtime composition checks passed. | Bind a governed model compiler and discovery sink, then retain one authenticated runtime receipt. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested Twin primitives from unbound delivery surfaces; earlier provenance wasn't reconstructed. | Current change; focused assurance-twin, security-assessment, and reporting tests cited in the scope table. | Bind production evidence and delivery surfaces, then collect governed runtime evidence. |
 | 2026-08-21 | in-progress | Removed the lexical natural-language grammar from the default Twin compiler. Unbound compilation now returns `semantic_model_unavailable`, while the deterministic read-only verifier remains authoritative for every injected compiler. | `current change`; focused Assurance Twin checks passed 45 cases and the semantic-routing guard reports no migrate paths. | Bind a Twin-specific model projection and ChatOps intake before describing natural-language compilation as available. |
@@ -79,8 +81,9 @@ operator-panel bindings remain incomplete, so no area is claimed as operationall
   receipt that links the change, finding, rule evidence, and published review.
 - [ ] Route abstained questions and remediation proposals through the discovery and normal risk-gated
   action paths, with tests proving the Twin never executes or raises authority.
-- [ ] Add a read-only Twin posture API and console panel, then capture a governed runtime receipt for
-  one complete inventory-to-report rendering.
+- [x] Add a read-only Twin posture API and console panel, then capture a governed runtime receipt for
+  one complete inventory-to-report rendering. Production `Inventory` binding and the ambient
+  change-event trigger remain the two items above.
 
 ## Why not a chatbot
 
@@ -375,6 +378,7 @@ cloud SDK and no privileged identity.
 | `graph_effect` / `graph_runtime` | Propagate bounded graph effects, evaluate required active-trajectory invariants, and return review-only simulation evidence. |
 | `trajectory_ledger` | Persist predicted trajectory episodes and atomically close only complete comparable outcomes through StateStore. |
 | `graph_closure` | Drain independent observations off-path, update challenger slices, and audit that active mutation and promotion did not occur. |
+| `posture_activity` | Build the bounded, schema-validated `agent.operational-activity` tip (Heimdall-owned, `assurance-twin.posture` kind) for a computed `PostureAssessmentReport` or `IacReview`; carries no findings, only a bounded evidence count and freshness. |
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current
