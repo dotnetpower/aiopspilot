@@ -45,6 +45,7 @@ from fdai.core.hil_resume import (
 )
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.core.operational_context import StateStoreOperatingIntentAdmissionReader
 from fdai.core.quality_gate import (
     DeterministicEvidenceKind,
     DeterministicEvidenceVerifier,
@@ -669,7 +670,10 @@ def _build_control_loop(
     precondition_evaluator = (
         GovernedPreconditionEvaluator(
             open_actions=StateStoreOpenActionEvidenceProvider(audit_store),
-            change_windows=OntologyChangeWindowEvidenceProvider(ontology_instance_store),
+            change_windows=OntologyChangeWindowEvidenceProvider(
+                ontology_instance_store,
+                intent_admission=StateStoreOperatingIntentAdmissionReader(audit_store),
+            ),
         )
         if ontology_instance_store is not None
         else None

@@ -96,8 +96,12 @@ from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
-from fdai.runtime.operating_intent_source import project_operating_intent_source_from_env
-from fdai.runtime.operating_model import project_operating_model_from_env
+from fdai.runtime.operating_intent_revalidation import (
+    OperatingIntentSourceRevalidationWorker,
+)
+from fdai.runtime.operating_intent_source import (
+    bind_operating_intent_source_from_env,
+)
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
@@ -140,6 +144,7 @@ class CoreRuntime:
     effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None
     operational_readiness_handler: OperationalReadinessEventHandler | None
     continuous_operating_model_worker: Any
+    operating_intent_revalidation_worker: OperatingIntentSourceRevalidationWorker | None
     incident_notification_replay_worker: IncidentNotificationReplayWorker
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
@@ -174,6 +179,7 @@ class CoreRuntime:
             effect_reconciliation_worker=self.effect_reconciliation_worker,
             effect_reconciliation_request_binding=(self.effect_reconciliation_request_binding),
             continuous_operating_model_worker=self.continuous_operating_model_worker,
+            operating_intent_revalidation_worker=(self.operating_intent_revalidation_worker),
             rule_generation_binding=self.semantic.rule_generation_binding,
             rule_generation_reconciliation=self.semantic.rule_generation_reconciliation,
             case_history_retention_publisher=(self.pantheon.case_history_retention_publisher),
@@ -491,24 +497,19 @@ async def build_core_runtime(
             extra={"reason": "artifact_resolver_and_observation_verifier_absent"},
         )
     catalog_projection_result = await project_catalog_ontology(control_loop)
-    operating_model_topic = environment.get("FDAI_OPERATING_MODEL_TOPIC", "").strip()
-    operating_model_lock = _build_resource_lock(environment) if operating_model_topic else None
-    if operating_model_lock is None:
-        operating_model_result = await project_operating_model_from_env(
-            store=control_loop.ontology_instance_store,
-            object_types=container.ontology_object_types,
-            link_types=container.ontology_link_types,
-            status_store=state_store,
-        )
-    else:
-        operating_model_result = await project_initial_operating_model_from_env(
-            store=control_loop.ontology_instance_store,
-            object_types=container.ontology_object_types,
-            link_types=container.ontology_link_types,
-            state_store=state_store,
-            environment=environment,
-            resource_lock=operating_model_lock,
-        )
+    # One deployment-wide lock provider serializes every operating-model manifest
+    # read, interrupted-apply recovery, and projection - startup included - so a
+    # concurrently starting replica never reads another replica's in-flight
+    # ``applying`` manifest as an interrupted apply and deletes its subgraph.
+    operating_model_lock = _build_resource_lock(environment)
+    operating_model_result = await project_initial_operating_model_from_env(
+        store=control_loop.ontology_instance_store,
+        object_types=container.ontology_object_types,
+        link_types=container.ontology_link_types,
+        state_store=state_store,
+        environment=environment,
+        resource_lock=operating_model_lock,
+    )
     continuous_operating_model_worker = build_continuous_operating_model_worker(
         bus=messaging.operational_bus,
         store=control_loop.ontology_instance_store,
@@ -518,12 +519,21 @@ async def build_core_runtime(
         environment=environment,
         resource_lock=operating_model_lock,
     )
-    operating_intent_source_result = await project_operating_intent_source_from_env(
+    (
+        operating_intent_source_result,
+        operating_intent_source_runtime,
+    ) = await bind_operating_intent_source_from_env(
         store=control_loop.ontology_instance_store,
         object_types=container.ontology_object_types,
         link_types=container.ontology_link_types,
         status_store=state_store,
         env=environment,
+        resource_lock=operating_model_lock,
+    )
+    operating_intent_revalidation_worker = (
+        OperatingIntentSourceRevalidationWorker(runtime=operating_intent_source_runtime)
+        if operating_intent_source_runtime is not None
+        else None
     )
     semantic = await build_semantic_runtime(
         container=container,
@@ -659,6 +669,7 @@ async def build_core_runtime(
         effect_reconciliation_request_binding=effect_request_binding,
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
+        operating_intent_revalidation_worker=operating_intent_revalidation_worker,
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         notification_receipt_applier=incident_runtime.notification_receipt_applier,
         environment=environment,

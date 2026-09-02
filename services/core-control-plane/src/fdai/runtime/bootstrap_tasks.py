@@ -63,6 +63,7 @@ class RuntimeTaskConfiguration:
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
     read_investigation_binding: Any = None
+    operating_intent_revalidation_worker: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
     diagnostic_event_ingest_bridge: Any = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
@@ -311,6 +312,7 @@ async def run_runtime_tasks(
     stewardship_identity_health_task: asyncio.Task[None] | None = None
     stewardship_merge_effects_task: asyncio.Task[None] | None = None
     handover_knowledge_lifecycle_task: asyncio.Task[None] | None = None
+    operating_intent_revalidation_task: asyncio.Task[None] | None = None
     pantheon_runtime = config.pantheon_runtime
     if pantheon_runtime is not None:
         pantheon_task = asyncio.create_task(
@@ -459,6 +461,14 @@ async def run_runtime_tasks(
             ),
             name="handover-knowledge-lifecycle",
         )
+    if config.operating_intent_revalidation_worker is not None:
+        operating_intent_revalidation_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.operating_intent_revalidation_worker.run(config.stop),
+            ),
+            name="operating-intent-source-revalidation",
+        )
 
     t1_mini_probe_task = (
         asyncio.create_task(
@@ -504,6 +514,7 @@ async def run_runtime_tasks(
             stewardship_identity_health_task,
             stewardship_merge_effects_task,
             handover_knowledge_lifecycle_task,
+            operating_intent_revalidation_task,
             t1_mini_probe_task,
         ),
     )

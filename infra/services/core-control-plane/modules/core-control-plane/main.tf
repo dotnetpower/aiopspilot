@@ -161,6 +161,9 @@ module "container_app" {
     ], (!var.operating_intent_source.enabled
     || trimspace(var.operating_intent_source.expected_counts_json) == "") ? [] : [
     { name = "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON", value = var.operating_intent_source.expected_counts_json },
+    ], (!var.operating_intent_source.enabled
+    || var.operating_intent_source.revalidate_seconds == 0) ? [] : [
+    { name = "FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS", value = tostring(var.operating_intent_source.revalidate_seconds) },
   ])
   health            = var.health
   scaling           = var.scaling

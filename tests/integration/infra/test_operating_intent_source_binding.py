@@ -56,3 +56,17 @@ def test_operating_intent_source_threads_exact_revision_digest_and_path() -> Non
     assert "sha256:[0-9a-f]{64}" in _MODULE_VARIABLES
     assert "exact pinned revision" in _MODULE_VARIABLES
     assert "whole-document sha256 content digest" in _MODULE_VARIABLES
+
+
+def test_operating_intent_source_exposes_a_bounded_revalidation_interval() -> None:
+    """Continuous admission is deployment-configurable, and bounded on both ends.
+
+    The runtime keeps a source admitted for a multiple of this interval, so an
+    unbounded value would let one startup proof back authority indefinitely.
+    """
+
+    assert "FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS" in _MODULE_MAIN
+    assert "revalidate_seconds   = optional(number, 0)" in _MODULE_VARIABLES
+    assert "revalidate_seconds   = optional(number, 0)" in _SERVICE_VARIABLES
+    assert "var.operating_intent_source.revalidate_seconds <= 28800" in _MODULE_VARIABLES
+    assert "var.operating_intent_source.revalidate_seconds >= 1" in _MODULE_VARIABLES

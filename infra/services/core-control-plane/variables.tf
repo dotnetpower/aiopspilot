@@ -453,13 +453,14 @@ variable "diagnostic_ingest" {
 }
 
 variable "operating_intent_source" {
-  description = "Deployment-owned six-type operating-intent source binding: image path, exact pinned revision, whole-document sha256 digest (provenance included), and exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow. Defaults to the customer-agnostic generic source baked into the Core image at /app/config/operating-intent/generic-source.json; a deployment that owns a reviewed source overrides every field together."
+  description = "Deployment-owned six-type operating-intent source binding: image path, exact pinned revision, whole-document sha256 digest (provenance included), exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow, and the bounded revalidation interval that keeps admission current after startup. Defaults to the customer-agnostic generic source baked into the Core image at /app/config/operating-intent/generic-source.json; a deployment that owns a reviewed source overrides every field together."
   type = object({
     enabled              = optional(bool, false)
     path                 = optional(string, "")
     revision             = optional(string, "")
     sha256               = optional(string, "")
     expected_counts_json = optional(string, "")
+    revalidate_seconds   = optional(number, 0)
   })
   default = {
     enabled              = true

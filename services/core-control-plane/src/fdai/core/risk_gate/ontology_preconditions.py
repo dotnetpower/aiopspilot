@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Protocol, runtime_checkable
 
+from fdai.core.operational_context.operating_intent_admission import (
+    OperatingIntentAdmission,
+)
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 
 _TERMINAL_ACTION_STATUSES = frozenset(
@@ -52,23 +56,51 @@ class OntologyOpenActionEvidenceProvider:
         return False
 
 
+@runtime_checkable
+class OperatingIntentAdmissionReader(Protocol):
+    """Resolve whether the deployment-owned intent source currently backs authority."""
+
+    async def resolve(self, *, now: datetime) -> OperatingIntentAdmission: ...
+
+
 class OntologyChangeWindowEvidenceProvider:
     """Resolve effective maintenance authority without granting execution authority.
 
     A truncated read and an effective freeze or quiet window with unusable
     bounds both deny: neither proves that the target is inside an open
     maintenance window.
+
+    A projected ``ChangeWindow`` is a graph object, not a standing grant. When an
+    ``intent_admission`` reader is bound, the window may only open while the
+    deployment-owned operating-intent source is *currently* admitted at the decision
+    instant. A source that has since gone stale, missing, cross-release, or
+    unreachable quarantines the whole maintenance-authority surface even though its
+    objects remain readable as evidence and history. Denying every window - rather
+    than only the quarantined source's own - is the fail-closed direction: the
+    projected graph does not record which source vouched for each window, so nothing
+    proves an individual window is still backed.
     """
 
-    def __init__(self, store: OntologyInstanceStore, *, query_limit: int = 500) -> None:
+    def __init__(
+        self,
+        store: OntologyInstanceStore,
+        *,
+        query_limit: int = 500,
+        intent_admission: OperatingIntentAdmissionReader | None = None,
+    ) -> None:
         if query_limit < 1:
             raise ValueError("query_limit MUST be positive")
         self._store = store
         self._query_limit = query_limit
+        self._intent_admission = intent_admission
 
     async def is_active(self, *, target_ref: str, at: datetime) -> bool:
         if at.tzinfo is None:
             raise ValueError("at MUST be timezone-aware")
+        if self._intent_admission is not None:
+            admission = await self._intent_admission.resolve(now=at)
+            if not admission.grants_intent_authority:
+                return False
         snapshot = await self._store.query_objects(
             object_types=("ChangeWindow",),
             property_equals={"scope_ref": target_ref},
@@ -116,4 +148,5 @@ def _parse_timestamp(value: object) -> datetime | None:
 __all__ = [
     "OntologyChangeWindowEvidenceProvider",
     "OntologyOpenActionEvidenceProvider",
+    "OperatingIntentAdmissionReader",
 ]

@@ -131,12 +131,12 @@ private local runtime environment. A missing or malformed narrator endpoint stop
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
 Core Runtime reads the same `FDAI_OPERATING_MODEL_PATH` and `FDAI_OPERATING_INTENT_SOURCE_PATH` env
 vars in both venues, so a venue difference is only which value is set, never a different code path.
-The operating-intent binding also requires `FDAI_OPERATING_INTENT_SOURCE_REVISION`,
-`FDAI_OPERATING_INTENT_SOURCE_SHA256` (the whole-document digest), and
-`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, threaded through the Core Terraform module's
-`operating_intent_source` variable exactly like `configuration_drift`. That caller binds the generic
-source the Core image ships at `/app/config/operating-intent/generic-source.json` by default, so
-both venues project the same six intent types with no tenant value.
+The [operating-intent source](../architecture/operating-intent-source.md) binding also requires
+`FDAI_OPERATING_INTENT_SOURCE_REVISION`, `FDAI_OPERATING_INTENT_SOURCE_SHA256`,
+`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, and the optional revalidation interval
+`FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS`, all threaded through the Core Terraform
+`operating_intent_source` variable like `configuration_drift`. That caller binds the shipped generic
+source by default, and both venues serialize projection under one deployment-wide resource lock.
 An optional local configuration-baseline conversation binds three ignored artifacts through `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and `FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces that file.
 Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops Operator API startup; callers cannot replace the pinned scope, version, digest, or document. When the binding succeeds, local composition registers the same context for deterministic chat and the GET-only Configuration baselines panel.
 The panel runs the configured observation source per request, reports an absent binding as unavailable, never substitutes fixtures or cached Azure state, and binds campaign state to PostgreSQL when available.

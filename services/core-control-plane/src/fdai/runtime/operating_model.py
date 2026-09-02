@@ -190,10 +190,17 @@ async def operating_model_projection_matches(
     status_store: StateStore,
     source_revision: str,
     snapshot_digest: str,
+    manifest_key: str = _OPERATING_MODEL_MANIFEST_KEY,
 ) -> bool:
-    """Return whether the durable manifest closes this exact projected snapshot."""
+    """Return whether the durable manifest closes this exact projected snapshot.
 
-    manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+    ``manifest_key`` defaults to the shared operating-model namespace. A caller that
+    owns a disjoint deployment-owned subgraph MUST pass the same distinct key it
+    passes to :func:`project_operating_model_snapshot`, or it would answer about
+    another source's manifest.
+    """
+
+    manifest = await status_store.read_state(manifest_key)
     if manifest is None:
         return False
     _decode_manifest(manifest)

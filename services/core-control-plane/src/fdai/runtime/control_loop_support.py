@@ -21,6 +21,7 @@ from fdai.core.hil_resume import (
     EscalationRung,
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
+from fdai.core.operational_context import StateStoreOperatingIntentAdmissionReader
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.risk_gate import OntologyChangeWindowEvidenceProvider
 from fdai.core.stewardship import (
@@ -118,7 +119,10 @@ def build_workflow_coordinator(
     )
     inner_guard: WorkflowContextualGuardEvaluator | WorkflowGuardEvaluator = (
         ChangeWindowWorkflowGuardEvaluator(
-            change_windows=OntologyChangeWindowEvidenceProvider(ontology_store),
+            change_windows=OntologyChangeWindowEvidenceProvider(
+                ontology_store,
+                intent_admission=StateStoreOperatingIntentAdmissionReader(audit_store),
+            ),
             fallback=architecture_guard,
         )
         if ontology_store is not None

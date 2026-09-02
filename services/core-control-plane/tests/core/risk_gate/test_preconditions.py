@@ -5,6 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai.core.operational_context import (
+    OPERATING_INTENT_SOURCE_ADMISSION_KEY,
+    OperatingIntentAdmission,
+    OperatingIntentAdmissionStatus,
+    StateStoreOperatingIntentAdmissionReader,
+)
 from fdai.core.risk_gate import (
     EventPreconditionEvaluator,
     GovernedPreconditionEvaluator,
@@ -25,6 +31,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 def _action_type(*preconditions: ActionPrecondition) -> OntologyActionType:
@@ -395,3 +402,104 @@ async def test_ontology_change_window_ignores_unusable_allowing_window() -> None
     )
 
     assert active is False
+
+
+def _open_maintenance_window(now: datetime) -> _OntologyQueryStore:
+    return _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ChangeWindow",
+                    "window-1",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="maintenance",
+                    effective_from=(now - timedelta(hours=1)).isoformat(),
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+            )
+        )
+    )
+
+
+class _StubIntentAdmission:
+    """Return one fixed admission so the gate's own branch is what is measured."""
+
+    def __init__(self, admission: OperatingIntentAdmission) -> None:
+        self._admission = admission
+        self.resolved_at: list[datetime] = []
+
+    async def resolve(self, *, now: datetime) -> OperatingIntentAdmission:
+        self.resolved_at.append(now)
+        return self._admission
+
+
+async def test_change_window_requires_a_current_intent_source_admission() -> None:
+    """A quarantined source withdraws maintenance authority the graph still shows."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _open_maintenance_window(now)
+    admission = _StubIntentAdmission(
+        OperatingIntentAdmission(
+            status=OperatingIntentAdmissionStatus.QUARANTINED,
+            grants_intent_authority=False,
+            reason="operating intent source instance is not currently effective (stale)",
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=admission,
+    ).is_active(target_ref="resource-1", at=now)
+
+    assert active is False
+    assert admission.resolved_at == [now]
+
+
+async def test_change_window_opens_under_a_current_intent_source_admission() -> None:
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _open_maintenance_window(now)
+    admission = _StubIntentAdmission(
+        OperatingIntentAdmission(
+            status=OperatingIntentAdmissionStatus.ADMITTED,
+            grants_intent_authority=True,
+            source_revision="operating-intent-revision-1",
+            snapshot_digest=f"sha256:{'a' * 64}",
+            validated_at=now,
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=admission,
+    ).is_active(target_ref="resource-1", at=now)
+
+    assert active is True
+
+
+async def test_change_window_gates_on_the_durable_admission_record() -> None:
+    """The deployed wiring reads state, so a stale record must deny end to end."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _open_maintenance_window(now)
+    state_store = InMemoryStateStore()
+    await state_store.write_state(
+        OPERATING_INTENT_SOURCE_ADMISSION_KEY,
+        {
+            "schema_version": "1.0.0",
+            "status": "admitted",
+            "source_revision": "operating-intent-revision-1",
+            "snapshot_digest": f"sha256:{'a' * 64}",
+            "validated_at": (now - timedelta(seconds=901)).isoformat(),
+            "max_age_seconds": 900,
+        },
+    )
+    provider = OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=StateStoreOperatingIntentAdmissionReader(state_store),
+    )
+
+    assert await provider.is_active(target_ref="resource-1", at=now) is False
+    assert (
+        await provider.is_active(target_ref="resource-1", at=now - timedelta(seconds=600))
+    ) is True

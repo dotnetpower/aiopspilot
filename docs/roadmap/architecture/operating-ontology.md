@@ -568,23 +568,11 @@ ownership across revisions. The optional
 projection status, source revision, and aggregate counts, never deployment instance properties.
 
 `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, and
-`ChangeWindow` use a distinct `FDAI_OPERATING_INTENT_SOURCE_PATH` binding because they carry
-protected objectives and constraints the risk gate reads. The file MUST carry one `provenance` block
-(`source_url`, `resolved_ref`, `retrieved_at`), and the operator pins
-`FDAI_OPERATING_INTENT_SOURCE_REVISION` and `FDAI_OPERATING_INTENT_SOURCE_SHA256` once, out of band,
-after review. That digest covers the whole document, provenance included, so rewriting any
-provenance field fails the pin. Before projecting, the runtime fails closed - recording the reason
-and preserving the graph already durably owned - on a revision, `resolved_ref`, or digest that
-disagrees with the binding (cross-release); a required type with zero instances (missing); a type
-whose count differs from `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, default one each,
-where a surplus is duplicate and a shortfall incomplete; or a stale instance. Staleness has two
-independent axes: the effective interval (`effective_from`, `effective_to`) is when the intent
-applies, while `freshness_seconds` is measured from `provenance.retrieved_at`, never from
-`effective_from`, so a long-lived objective just read is fresh, a newly-effective one from an old
-retrieval is stale, and a future `retrieved_at` denies. The Core image ships an approved generic
-source at `/app/config/operating-intent/generic-source.json`; the Terraform caller pins that path,
-revision, digest, and per-type counts by default, and a deployment overrides all four together. Its
-placeholder references and non-effective change window mean binding it grants no authority.
+`ChangeWindow` use a distinct, operator-pinned `FDAI_OPERATING_INTENT_SOURCE_PATH` binding because
+they carry protected objectives and constraints the risk gate reads. It fails closed on a
+cross-release, missing, duplicate, incomplete, or stale source, revalidates on a bounded interval,
+and quarantines intent authority - never the projected graph - once the source stops proving itself.
+[operating-intent-source.md](operating-intent-source.md) owns that contract.
 
 The promoted inventory projection validates every resource and link record before graph projection.
 Malformed identities, properties, or observation timestamps fail the attempt. Byte-identical
@@ -711,6 +699,7 @@ separately validated slices.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/operating-ontology.md) |
+| Deployment-owned six-type intent source | [Operating-intent source](operating-intent-source.md) |
 | Declaration kinds, operational lenses, state, and context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Current resource, rule, signal, and finding foundation | [LLM strategy](llm-strategy.md#ontology-foundation) |
 | Runtime ontology storage | [Rule lookup ontology storage](rule-lookup-ontology-storage.md) |

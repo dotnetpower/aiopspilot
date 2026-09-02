@@ -555,22 +555,11 @@ deletion과 비정상 종료 복구를 위해 이전 및 현재 owned 신원의 
 상태, 출처 개정 번호, 집계 개수만 노출하며 배포 인스턴스 속성은 반환하지 않습니다.
 
 `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`,
-`ChangeWindow`는 risk gate가 읽는 보호 대상 objective와 constraint를 담으므로 별도의
-`FDAI_OPERATING_INTENT_SOURCE_PATH` 바인딩을 사용합니다. 파일은 `provenance` 블록(`source_url`,
-`resolved_ref`, `retrieved_at`) 하나를 반드시 포함하고, 운영자는 검토 후
-`FDAI_OPERATING_INTENT_SOURCE_REVISION`과 `FDAI_OPERATING_INTENT_SOURCE_SHA256`을 out-of-band로 한
-번 고정합니다. 이 digest는 provenance를 포함한 문서 전체를 덮으므로 provenance 필드를 고쳐 쓰면
-고정값 검사에서 실패합니다. 투영 전에 런타임은 다음 경우 사유를 기록하고 이미 durable하게 owned된
-그래프를 보존하며 fail closed합니다: 개정 번호, `resolved_ref`, digest가 바인딩과
-불일치(cross-release), 필수 타입 인스턴스 0개(missing),
-`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`(기본 타입별 1개)과 개수 불일치(초과는 duplicate,
-미달은 incomplete), stale 인스턴스. Stale 판정은 독립적인 두 축을 씁니다. 유효
-구간(`effective_from`, `effective_to`)은 intent가 적용되는 기간이고, `freshness_seconds`는
-`effective_from`이 아니라 `provenance.retrieved_at` 기준으로 측정하므로 방금 읽은 장수명 objective는
-신선하고, 오래된 조회로 게시한 갓 유효해진 objective는 stale이며, 미래 `retrieved_at`은 거부합니다.
-Core 이미지는 승인된 일반 출처를 `/app/config/operating-intent/generic-source.json`에 함께 제공하고,
-Terraform 호출부가 그 경로, 개정 번호, digest, 타입별 개수를 기본으로 고정하며 배포는 네 값을 함께
-재정의합니다. 자리표시자 참조와 비유효 change window 때문에 바인딩해도 권한은 부여되지 않습니다.
+`ChangeWindow`는 risk gate가 읽는 보호 대상 objective와 constraint를 담으므로 운영자가 고정하는
+별도의 `FDAI_OPERATING_INTENT_SOURCE_PATH` 바인딩을 사용합니다. 이 바인딩은 cross-release, missing,
+duplicate, incomplete, stale 출처에서 fail closed하고, 유계 간격으로 재검증하며, 출처가 스스로를 더
+이상 증명하지 못하면 투영된 그래프가 아니라 intent 권한만 격리합니다.
+[operating-intent-source-ko.md](operating-intent-source-ko.md)가 그 계약을 소유합니다.
 
 Promoted 인벤토리 변환 결과는 그래프 변환 결과 전에 모든 리소스 및 링크 기록을 검증합니다.
 Malformed 신원, 속성 또는 관측 시각은 시도를 실패시킵니다. 인증된 하나의 프로바이더 행에서
@@ -691,6 +680,7 @@ O0 이후 첫 코드 구획은 semantic-spine 선언, 링크 제약, 조회 고�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/operating-ontology.md) |
+| 배포 소유 six-type intent 출처 | [Operating-intent 출처](operating-intent-source-ko.md) |
 | 선언 종류, operational 관점, 상태 및 맥락 경계 | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 현재 리소스, 룰, 신호, 발견 사항 기반 | [LLM strategy](llm-strategy-ko.md#ontology-foundation) |
 | 런타임 온톨로지 저장소 | [Rule 조회 온톨로지 저장소](rule-lookup-ontology-storage-ko.md) |
