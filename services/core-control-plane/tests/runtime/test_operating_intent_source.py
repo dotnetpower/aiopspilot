@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -45,6 +45,7 @@ def _document(
     extra_service_objectives: int = 0,
     service_objective_effective_from: str = _EFFECTIVE_FROM,
     change_window_effective_to: str = "2026-09-30T00:00:00+00:00",
+    retrieved_at: str = _NOW,
 ) -> dict[str, object]:
     objects: list[dict[str, object]] = [
         {
@@ -150,7 +151,7 @@ def _document(
         "provenance": {
             "source_url": "https://example.invalid/operating-intent-source",
             "resolved_ref": resolved_ref if resolved_ref is not None else revision,
-            "retrieved_at": _NOW,
+            "retrieved_at": retrieved_at,
         },
         "objects": objects,
         "links": [],
@@ -158,13 +159,18 @@ def _document(
 
 
 def _digest_of(document: Mapping[str, object]) -> str:
+    """Pin the whole document, provenance included, exactly as an operator would."""
+
     from fdai.delivery.operating_model.json_file import (
         operating_intent_source_document_from_mapping,
     )
-    from fdai.shared.providers.operating_model import operating_model_snapshot_digest
+    from fdai.shared.providers.operating_model import (
+        operating_intent_source_document_digest,
+    )
 
-    parsed = operating_intent_source_document_from_mapping(document)
-    return operating_model_snapshot_digest(parsed.snapshot)
+    return operating_intent_source_document_digest(
+        operating_intent_source_document_from_mapping(document)
+    )
 
 
 def _env(path: Path, document: Mapping[str, object], **overrides: str) -> dict[str, str]:
@@ -325,6 +331,112 @@ async def test_stale_instance_is_rejected(tmp_path: Path) -> None:
     assert "not currently effective" in status["reason"]
 
 
+async def test_long_lived_intent_from_a_current_retrieval_projects(tmp_path: Path) -> None:
+    """A years-old but still effective objective is fresh when the source was just read."""
+
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document(service_objective_effective_from="2020-01-01T00:00:00+00:00")
+    _write(path, document)
+
+    result = await project_operating_intent_source_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env=_env(path, document),
+        now=_VALIDATION_NOW,
+    )
+
+    assert result is not None
+    assert await store.get_object("service-objective-1") is not None
+
+
+async def test_stale_retrieval_of_a_newly_effective_intent_is_rejected(tmp_path: Path) -> None:
+    """Freshness is judged from the pinned retrieval time, not from effective_from."""
+
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document(
+        service_objective_effective_from="2026-08-27T11:59:00+00:00",
+        retrieved_at="2026-08-24T12:00:00+00:00",
+    )
+    _write(path, document)
+
+    result = await project_operating_intent_source_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env=_env(path, document),
+        now=_VALIDATION_NOW,
+    )
+
+    assert result is None
+    status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
+    assert status is not None
+    assert status["status"] == "rejected"
+    assert "freshness_seconds" in status["reason"]
+    assert await store.get_object("service-objective-1") is None
+
+
+async def test_below_pinned_instance_count_is_rejected(tmp_path: Path) -> None:
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    env = _env(path, document)
+    env["FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON"] = json.dumps({"ServiceObjective": 2})
+
+    result = await project_operating_intent_source_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env=env,
+        now=_VALIDATION_NOW,
+    )
+
+    assert result is None
+    status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
+    assert status is not None
+    assert status["status"] == "rejected"
+    assert "incomplete" in status["reason"]
+
+
+async def test_rewritten_provenance_url_is_rejected(tmp_path: Path) -> None:
+    """The pinned digest covers provenance, so rewriting attribution fails closed."""
+
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    original = _document()
+    env = _env(path, original)
+    rewritten = _document()
+    provenance = rewritten["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["source_url"] = "https://example.invalid/other-operating-intent-source"
+    _write(path, rewritten)
+
+    result = await project_operating_intent_source_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env=env,
+        now=_VALIDATION_NOW,
+    )
+
+    assert result is None
+    status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
+    assert status is not None
+    assert status["status"] == "rejected"
+    assert "digest" in status["reason"]
+
+
 async def test_cross_release_revision_mismatch_is_rejected(tmp_path: Path) -> None:
     catalog, store = _catalog_and_store()
     status_store = InMemoryStateStore()
@@ -476,4 +588,57 @@ async def test_unconfigured_clears_previously_projected_instances(tmp_path: Path
     assert await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY) == {
         "schema_version": "1.0.0",
         "status": "unconfigured",
+    }
+
+
+async def test_shipped_generic_source_projects_through_the_real_catalog(tmp_path: Path) -> None:
+    """The artifact the Core image ships must actually project, not just parse.
+
+    Instance validation happens at the store write boundary, so a property the ontology
+    catalog does not declare - or a required one the artifact omits - would only surface
+    here. Copying the tracked file keeps the check on the exact bytes the image carries.
+    """
+
+    from fdai.delivery.operating_model.json_file import (
+        operating_intent_source_document_from_mapping,
+    )
+    from fdai.shared.providers.operating_model import (
+        operating_intent_source_document_digest,
+    )
+
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    source = REPO_ROOT / "config/operating-intent/generic-source.json"
+    document = json.loads(source.read_text(encoding="utf-8"))
+    path = tmp_path / "generic-source.json"
+    _write(path, document)
+    parsed = operating_intent_source_document_from_mapping(document)
+
+    result = await project_operating_intent_source_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env={
+            "FDAI_OPERATING_INTENT_SOURCE_PATH": str(path),
+            "FDAI_OPERATING_INTENT_SOURCE_REVISION": parsed.snapshot.source_revision,
+            "FDAI_OPERATING_INTENT_SOURCE_SHA256": operating_intent_source_document_digest(parsed),
+        },
+        now=datetime.now(UTC),
+    )
+
+    assert result is not None
+    assert result.object_count == 6
+    projected = {
+        record.object_type
+        for record in parsed.snapshot.objects
+        if await store.get_object(record.id) is not None
+    }
+    assert projected == {
+        "ArchitectureConstraint",
+        "ChangeWindow",
+        "CostObjective",
+        "Ownership",
+        "RecoveryObjective",
+        "ServiceObjective",
     }

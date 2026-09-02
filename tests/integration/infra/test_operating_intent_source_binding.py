@@ -1,4 +1,4 @@
-"""Infrastructure contract for the opt-in six-type operating-intent source binding."""
+"""Infrastructure contract for the deployment-owned six-type operating-intent binding."""
 
 import re
 from pathlib import Path
@@ -28,11 +28,20 @@ def _assigns(text: str, name: str) -> bool:
     return re.search(rf"\b{re.escape(name)}\s*=\s*var\.{re.escape(name)}\b", text) is not None
 
 
-def test_operating_intent_source_is_explicitly_opt_in() -> None:
+def test_operating_intent_source_is_supplied_by_the_caller_and_overridable() -> None:
+    """The caller supplies the shipped generic source; a deployment may replace it.
+
+    The module still gates every variable behind `enabled`, so a fork that binds its
+    own reviewed source - or none at all - keeps the same fail-closed contract.
+    """
+
     assert 'variable "operating_intent_source"' in _SERVICE_VARIABLES
     assert 'variable "operating_intent_source"' in _MODULE_VARIABLES
     assert _assigns(_SERVICE_MAIN, "operating_intent_source")
     assert "!var.operating_intent_source.enabled ? [] : [" in _MODULE_MAIN
+    assert "/app/config/operating-intent/generic-source.json" in _SERVICE_VARIABLES
+    assert re.search(r"\benabled\s*=\s*true\b", _SERVICE_VARIABLES) is not None
+    assert re.search(r"\benabled\s*=\s*optional\(bool, false\)", _MODULE_VARIABLES) is not None
 
 
 def test_operating_intent_source_threads_exact_revision_digest_and_path() -> None:
@@ -46,3 +55,4 @@ def test_operating_intent_source_threads_exact_revision_digest_and_path() -> Non
 
     assert "sha256:[0-9a-f]{64}" in _MODULE_VARIABLES
     assert "exact pinned revision" in _MODULE_VARIABLES
+    assert "whole-document sha256 content digest" in _MODULE_VARIABLES

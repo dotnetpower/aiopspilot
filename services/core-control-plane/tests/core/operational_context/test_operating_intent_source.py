@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.operational_context.operating_intent_source import (
     OperatingIntentSourceBinding,
     OperatingIntentSourceError,
-    validate_operating_intent_snapshot,
+    validate_operating_intent_source_document,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.operating_model import (
+    OperatingIntentSourceDocument,
     OperatingIntentSourceProvenance,
     OperatingModelSnapshot,
-    operating_model_snapshot_digest,
+    operating_intent_source_document_digest,
 )
 
 _NOW = datetime(2026, 8, 27, 12, 0, 0, tzinfo=UTC)
 _EFFECTIVE_FROM = "2026-08-27T00:00:00+00:00"
 _REVISION = "operating-intent-revision-1"
+_SOURCE_URL = "https://example.invalid/operating-intent-source"
 
 
 def _objective(
@@ -132,59 +134,78 @@ def _complete_objects() -> tuple[OntologyObjectRecord, ...]:
     )
 
 
-def _snapshot(objects: tuple[OntologyObjectRecord, ...]) -> OperatingModelSnapshot:
-    return OperatingModelSnapshot(source_revision=_REVISION, objects=objects, links=())
-
-
-def _provenance(resolved_ref: str = _REVISION) -> OperatingIntentSourceProvenance:
-    return OperatingIntentSourceProvenance(
-        source_url="https://example.invalid/operating-intent-source",
-        resolved_ref=resolved_ref,
-        retrieved_at=_NOW,
+def _document(
+    objects: tuple[OntologyObjectRecord, ...] | None = None,
+    *,
+    revision: str = _REVISION,
+    resolved_ref: str | None = None,
+    source_url: str = _SOURCE_URL,
+    retrieved_at: datetime | None = None,
+) -> OperatingIntentSourceDocument:
+    return OperatingIntentSourceDocument(
+        snapshot=OperatingModelSnapshot(
+            source_revision=revision,
+            objects=_complete_objects() if objects is None else objects,
+            links=(),
+        ),
+        provenance=OperatingIntentSourceProvenance(
+            source_url=source_url,
+            resolved_ref=resolved_ref if resolved_ref is not None else revision,
+            retrieved_at=retrieved_at if retrieved_at is not None else _NOW,
+        ),
     )
 
 
 def _binding(
-    snapshot: OperatingModelSnapshot, *, expected_revision: str = _REVISION
+    document: OperatingIntentSourceDocument,
+    *,
+    expected_revision: str = _REVISION,
+    expected_instance_counts: dict[str, int] | None = None,
 ) -> OperatingIntentSourceBinding:
     return OperatingIntentSourceBinding(
         expected_revision=expected_revision,
-        expected_sha256=operating_model_snapshot_digest(snapshot),
+        expected_sha256=operating_intent_source_document_digest(document),
+        expected_instance_counts=expected_instance_counts or {},
     )
 
 
 def test_complete_current_source_passes() -> None:
-    snapshot = _snapshot(_complete_objects())
-    validate_operating_intent_snapshot(
-        snapshot,
-        provenance=_provenance(),
-        binding=_binding(snapshot),
-        now=_NOW,
-    )
+    document = _document()
+    validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
 def test_missing_required_type_fails_closed() -> None:
-    objects = _complete_objects()[:-1]  # drop ChangeWindow
-    snapshot = _snapshot(objects)
-    binding = OperatingIntentSourceBinding(
-        expected_revision=_REVISION,
-        expected_sha256=operating_model_snapshot_digest(snapshot),
-    )
+    document = _document(_complete_objects()[:-1])  # drop ChangeWindow
     with pytest.raises(OperatingIntentSourceError, match="missing required type 'ChangeWindow'"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
 def test_duplicate_required_type_fails_closed() -> None:
     extra = _objective("service-objective-2", "ServiceObjective")
-    objects = (*_complete_objects(), extra)
-    snapshot = _snapshot(objects)
-    binding = _binding(snapshot)
-    with pytest.raises(OperatingIntentSourceError, match="duplicate"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+    document = _document((*_complete_objects(), extra))
+    with pytest.raises(OperatingIntentSourceError, match="expected exactly 1 \\(duplicate\\)"):
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
+
+
+def test_below_pinned_instance_count_fails_closed() -> None:
+    """A pinned count is exact in both directions, not just an upper bound.
+
+    An operator who reviewed and pinned two `ServiceObjective` instances is asserting
+    that both are present; a later source carrying only one has silently dropped an
+    approved objective, which is a fail-closed defect rather than a safe subset.
+    """
+
+    document = _document()
+    binding = _binding(document, expected_instance_counts={"ServiceObjective": 2})
+    with pytest.raises(OperatingIntentSourceError, match="expected exactly 2 \\(incomplete\\)"):
+        validate_operating_intent_source_document(document, binding=binding, now=_NOW)
+
+
+def test_expected_instance_counts_permit_a_reviewed_extra_instance() -> None:
+    extra = _objective("service-objective-2", "ServiceObjective")
+    document = _document((*_complete_objects(), extra))
+    binding = _binding(document, expected_instance_counts={"ServiceObjective": 2})
+    validate_operating_intent_source_document(document, binding=binding, now=_NOW)
 
 
 def test_stale_change_window_fails_closed() -> None:
@@ -192,31 +213,9 @@ def test_stale_change_window_fails_closed() -> None:
         *_complete_objects()[:-1],
         _change_window(effective_to="2026-08-27T06:00:00+00:00"),
     )
-    snapshot = _snapshot(objects)
-    binding = _binding(snapshot)
+    document = _document(objects)
     with pytest.raises(OperatingIntentSourceError, match="not currently effective"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
-
-
-def test_stale_freshness_exceeded_fails_closed() -> None:
-    objects = (
-        _objective(
-            "service-objective-1", "ServiceObjective", effective_from="2026-01-01T00:00:00+00:00"
-        ),
-        _recovery_objective(),
-        _cost_objective(),
-        _architecture_constraint(),
-        _ownership(),
-        _change_window(),
-    )
-    snapshot = _snapshot(objects)
-    binding = _binding(snapshot)
-    with pytest.raises(OperatingIntentSourceError, match="freshness_seconds"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
 def test_not_yet_effective_fails_closed() -> None:
@@ -226,46 +225,105 @@ def test_not_yet_effective_fails_closed() -> None:
             effective_from="2026-12-01T00:00:00+00:00", effective_to="2026-12-02T00:00:00+00:00"
         ),
     )
-    snapshot = _snapshot(objects)
-    binding = _binding(snapshot)
+    document = _document(objects)
     with pytest.raises(OperatingIntentSourceError, match="not currently effective"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
+
+
+def test_long_lived_objective_from_a_current_retrieval_is_fresh() -> None:
+    """Effective age is not staleness: a years-old objective just re-read is fresh.
+
+    `effective_from` records when the intent started applying. Judging freshness from
+    it would reject every durable objective a deployment actually operates against.
+    """
+
+    objects = (
+        _objective(
+            "service-objective-1", "ServiceObjective", effective_from="2020-01-01T00:00:00+00:00"
+        ),
+        *_complete_objects()[1:],
+    )
+    document = _document(objects, retrieved_at=_NOW - timedelta(minutes=5))
+    validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
+
+
+def test_newly_effective_instance_from_a_stale_retrieval_fails_closed() -> None:
+    """A just-effective instance does not launder an old retrieval.
+
+    `freshness_seconds` is 86400 here, so a source last retrieved three days ago is
+    stale even though its objective only became effective minutes before `now`.
+    """
+
+    objects = (
+        _objective(
+            "service-objective-1",
+            "ServiceObjective",
+            effective_from=(_NOW - timedelta(minutes=1)).isoformat(),
+        ),
+        *_complete_objects()[1:],
+    )
+    document = _document(objects, retrieved_at=_NOW - timedelta(days=3))
+    with pytest.raises(OperatingIntentSourceError, match="freshness_seconds"):
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
+
+
+def test_future_retrieval_time_fails_closed() -> None:
+    document = _document(retrieved_at=_NOW + timedelta(hours=1))
+    with pytest.raises(OperatingIntentSourceError, match="retrieved_at is in the future"):
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
 def test_cross_release_revision_mismatch_fails_closed() -> None:
-    snapshot = _snapshot(_complete_objects())
-    binding = _binding(snapshot, expected_revision="operating-intent-revision-2")
+    document = _document()
+    binding = _binding(document, expected_revision="operating-intent-revision-2")
     with pytest.raises(OperatingIntentSourceError, match="revision does not match"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+        validate_operating_intent_source_document(document, binding=binding, now=_NOW)
 
 
 def test_cross_release_provenance_mismatch_fails_closed() -> None:
-    snapshot = _snapshot(_complete_objects())
-    binding = _binding(snapshot)
+    document = _document(resolved_ref="operating-intent-revision-2")
     with pytest.raises(OperatingIntentSourceError, match="resolved_ref does not match"):
-        validate_operating_intent_snapshot(
-            snapshot,
-            provenance=_provenance(resolved_ref="operating-intent-revision-2"),
-            binding=binding,
-            now=_NOW,
-        )
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
 def test_cross_release_digest_mismatch_fails_closed() -> None:
-    snapshot = _snapshot(_complete_objects())
-    tampered = _snapshot(_complete_objects()[:-1])
-    binding = OperatingIntentSourceBinding(
-        expected_revision=_REVISION,
-        expected_sha256=operating_model_snapshot_digest(tampered),
-    )
+    document = _document()
+    binding = _binding(_document(_complete_objects()[:-1]))
     with pytest.raises(OperatingIntentSourceError, match="content digest does not match"):
-        validate_operating_intent_snapshot(
-            snapshot, provenance=_provenance(), binding=binding, now=_NOW
-        )
+        validate_operating_intent_source_document(document, binding=binding, now=_NOW)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("source_url", "https://example.invalid/other-operating-intent-source"),
+        ("resolved_ref", "operating-intent-revision-2"),
+        ("retrieved_at", _NOW - timedelta(days=30)),
+    ],
+)
+def test_every_provenance_field_is_covered_by_the_document_digest(
+    field: str, value: object
+) -> None:
+    """Attribution and observation time are pinned content, not free-text decoration."""
+
+    baseline = operating_intent_source_document_digest(_document())
+    assert operating_intent_source_document_digest(_document(**{field: value})) != baseline
+
+
+def test_rewritten_source_url_fails_the_pinned_digest() -> None:
+    document = _document(source_url="https://example.invalid/other-operating-intent-source")
+    binding = _binding(_document())
+    with pytest.raises(OperatingIntentSourceError, match="content digest does not match"):
+        validate_operating_intent_source_document(document, binding=binding, now=_NOW)
+
+
+def test_rewritten_retrieved_at_fails_the_pinned_digest() -> None:
+    """Back-dating a retrieval to defeat the freshness check fails the pin first."""
+
+    document = _document(retrieved_at=_NOW - timedelta(minutes=1))
+    binding = _binding(_document(retrieved_at=_NOW - timedelta(days=30)))
+    with pytest.raises(OperatingIntentSourceError, match="content digest does not match"):
+        validate_operating_intent_source_document(document, binding=binding, now=_NOW)
 
 
 def test_binding_rejects_malformed_sha256() -> None:
@@ -308,15 +366,11 @@ def test_binding_rejects_non_integer_expected_count() -> None:
         )
 
 
-def test_expected_instance_counts_permit_a_reviewed_extra_instance() -> None:
-    extra = _objective("service-objective-2", "ServiceObjective")
-    objects = (*_complete_objects(), extra)
-    snapshot = _snapshot(objects)
-    binding = OperatingIntentSourceBinding(
-        expected_revision=_REVISION,
-        expected_sha256=operating_model_snapshot_digest(snapshot),
-        expected_instance_counts={"ServiceObjective": 2},
-    )
-    validate_operating_intent_snapshot(
-        snapshot, provenance=_provenance(), binding=binding, now=_NOW
-    )
+def test_naive_now_is_rejected() -> None:
+    document = _document()
+    with pytest.raises(ValueError, match="timezone-aware"):
+        validate_operating_intent_source_document(
+            document,
+            binding=_binding(document),
+            now=datetime(2026, 8, 27, 12, 0, 0),  # noqa: DTZ001
+        )

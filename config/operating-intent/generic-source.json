@@ -1,0 +1,87 @@
+{
+  "source_revision": "operating-intent-source:generic@1.0.0",
+  "provenance": {
+    "source_url": "https://github.com/dotnetpower/fdai",
+    "resolved_ref": "operating-intent-source:generic@1.0.0",
+    "retrieved_at": "2026-09-02T00:00:00+00:00"
+  },
+  "objects": [
+    {
+      "id": "generic-service-objective",
+      "object_type": "ServiceObjective",
+      "properties": {
+        "id": "generic-service-objective",
+        "objective_kind": "availability",
+        "metric": "availability",
+        "unit": "ratio",
+        "target": 0.99,
+        "window_seconds": 2592000,
+        "measurement_source_ref": "source:example-service-objectives",
+        "freshness_seconds": 315360000,
+        "effective_from": "2026-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "id": "generic-recovery-objective",
+      "object_type": "RecoveryObjective",
+      "properties": {
+        "id": "generic-recovery-objective",
+        "rto_seconds": 14400,
+        "rpo_seconds": 3600,
+        "measurement_source_ref": "source:example-recovery-objectives",
+        "freshness_seconds": 315360000,
+        "effective_from": "2026-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "id": "generic-cost-objective",
+      "object_type": "CostObjective",
+      "properties": {
+        "id": "generic-cost-objective",
+        "objective_kind": "monthly_budget",
+        "currency": "USD",
+        "target": 0,
+        "period_seconds": 2592000,
+        "measurement_source_ref": "source:example-cost-objectives",
+        "freshness_seconds": 315360000,
+        "effective_from": "2026-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "id": "generic-architecture-constraint",
+      "object_type": "ArchitectureConstraint",
+      "properties": {
+        "id": "generic-architecture-constraint",
+        "constraint_kind": "placeholder",
+        "expression_ref": "policy:example-placeholder",
+        "severity": "informational",
+        "effective_from": "2026-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "id": "generic-ownership",
+      "object_type": "Ownership",
+      "properties": {
+        "id": "generic-ownership",
+        "owner_ref": "group:example-operations-owner",
+        "escalation_ref": "route:example-escalation",
+        "effective_from": "2026-01-01T00:00:00+00:00",
+        "source_ref": "source:example-service-catalog"
+      }
+    },
+    {
+      "id": "generic-change-window",
+      "object_type": "ChangeWindow",
+      "properties": {
+        "id": "generic-change-window",
+        "window_kind": "maintenance",
+        "scope_ref": "scope:example-placeholder",
+        "status": "proposed",
+        "effective_from": "2026-01-01T00:00:00+00:00",
+        "effective_to": "2036-01-01T00:00:00+00:00",
+        "policy_ref": "policy:example-change-window"
+      }
+    }
+  ],
+  "links": []
+}

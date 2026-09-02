@@ -453,7 +453,7 @@ variable "diagnostic_ingest" {
 }
 
 variable "operating_intent_source" {
-  description = "Optional deployment-owned six-type operating-intent source binding: exact pinned revision, content digest, and provenance for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow."
+  description = "Deployment-owned six-type operating-intent source binding: image path, exact pinned revision, whole-document sha256 digest (provenance included), and exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow. Defaults to the customer-agnostic generic source baked into the Core image at /app/config/operating-intent/generic-source.json; a deployment that owns a reviewed source overrides every field together."
   type = object({
     enabled              = optional(bool, false)
     path                 = optional(string, "")
@@ -461,7 +461,13 @@ variable "operating_intent_source" {
     sha256               = optional(string, "")
     expected_counts_json = optional(string, "")
   })
-  default = {}
+  default = {
+    enabled              = true
+    path                 = "/app/config/operating-intent/generic-source.json"
+    revision             = "operating-intent-source:generic@1.0.0"
+    sha256               = "sha256:a359ad5094e8fca59fb4a2144afdcf471d78c182df1cca1ecbb4e26596b89d6d"
+    expected_counts_json = "{\"ArchitectureConstraint\":1,\"ChangeWindow\":1,\"CostObjective\":1,\"Ownership\":1,\"RecoveryObjective\":1,\"ServiceObjective\":1}"
+  }
 }
 
 variable "scaling" {

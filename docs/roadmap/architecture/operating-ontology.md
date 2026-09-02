@@ -568,23 +568,23 @@ ownership across revisions. The optional
 projection status, source revision, and aggregate counts, never deployment instance properties.
 
 `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, and
-`ChangeWindow` additionally accept a distinct, opt-in `FDAI_OPERATING_INTENT_SOURCE_PATH` binding
-because they carry protected objectives and constraints the risk gate and Forseti read, not a
-generic graph fragment. The file MUST supply exactly one `provenance` block
-(`source_url`, `resolved_ref`, `retrieved_at`) alongside its `source_revision`, and the operator
-separately pins `FDAI_OPERATING_INTENT_SOURCE_REVISION` and `FDAI_OPERATING_INTENT_SOURCE_SHA256`
-(a recomputed canonical content digest, not a self-reported one) once, out of band, after review.
-Before projecting anything, the runtime fails closed - preserving whatever operating-intent graph
-is already durably owned - on: a source revision, provenance `resolved_ref`, or content digest that
-disagrees with the pinned binding (cross-release); a required type with zero instances (missing); a
-required type whose instance count exceeds `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`'s
-pinned expectation, default one each (duplicate); or an instance that is not currently effective
-(`effective_from` in the future, or `effective_to` already past) or exceeds its own declared
-`freshness_seconds` (stale). A rejected attempt is recorded durably with its reason and the prior
-graph is left untouched; only a complete, current, exactly-pinned source can replace it. The
-binding threads through the Core Terraform module as an explicit opt-in, mirroring the
-`configuration_drift` baseline-path/version/sha256 precedent, so local and deployed venues share the
-same env-var contract.
+`ChangeWindow` use a distinct `FDAI_OPERATING_INTENT_SOURCE_PATH` binding because they carry
+protected objectives and constraints the risk gate reads. The file MUST carry one `provenance` block
+(`source_url`, `resolved_ref`, `retrieved_at`), and the operator pins
+`FDAI_OPERATING_INTENT_SOURCE_REVISION` and `FDAI_OPERATING_INTENT_SOURCE_SHA256` once, out of band,
+after review. That digest covers the whole document, provenance included, so rewriting any
+provenance field fails the pin. Before projecting, the runtime fails closed - recording the reason
+and preserving the graph already durably owned - on a revision, `resolved_ref`, or digest that
+disagrees with the binding (cross-release); a required type with zero instances (missing); a type
+whose count differs from `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, default one each,
+where a surplus is duplicate and a shortfall incomplete; or a stale instance. Staleness has two
+independent axes: the effective interval (`effective_from`, `effective_to`) is when the intent
+applies, while `freshness_seconds` is measured from `provenance.retrieved_at`, never from
+`effective_from`, so a long-lived objective just read is fresh, a newly-effective one from an old
+retrieval is stale, and a future `retrieved_at` denies. The Core image ships an approved generic
+source at `/app/config/operating-intent/generic-source.json`; the Terraform caller pins that path,
+revision, digest, and per-type counts by default, and a deployment overrides all four together. Its
+placeholder references and non-effective change window mean binding it grants no authority.
 
 The promoted inventory projection validates every resource and link record before graph projection.
 Malformed identities, properties, or observation timestamps fail the attempt. Byte-identical

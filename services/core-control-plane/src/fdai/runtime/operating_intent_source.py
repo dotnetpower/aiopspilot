@@ -5,7 +5,7 @@ Distinct from the generic ``FDAI_OPERATING_MODEL_PATH`` mechanism in
 this binding is specifically for ``ServiceObjective``, ``RecoveryObjective``,
 ``CostObjective``, ``ArchitectureConstraint``, ``Ownership``, and ``ChangeWindow``.
 It requires every candidate source to carry the operator-pinned exact revision,
-self-consistent provenance, and content digest, and it fails closed - preserving
+self-consistent provenance, and whole-document digest, and it fails closed - preserving
 whatever operating-intent graph is already durably owned - on a missing, duplicate,
 stale, or cross-release attempt rather than projecting a partial or wrong graph.
 """
@@ -23,7 +23,7 @@ from fdai.core.operational_context import (
     OperatingIntentSourceError,
     OperatingModelProjectionResult,
     OperatingModelProjector,
-    validate_operating_intent_snapshot,
+    validate_operating_intent_source_document,
 )
 from fdai.delivery.operating_model import (
     JsonOperatingIntentSourceProvider,
@@ -109,9 +109,8 @@ async def project_operating_intent_source_from_env(
     document = await provider.load()
     effective_now = now if now is not None else datetime.now(UTC)
     try:
-        validate_operating_intent_snapshot(
-            document.snapshot,
-            provenance=document.provenance,
+        validate_operating_intent_source_document(
+            document,
             binding=binding,
             now=effective_now,
         )

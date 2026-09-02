@@ -39,7 +39,7 @@ from .models import (
 from .operating_intent_source import (
     OperatingIntentSourceBinding,
     OperatingIntentSourceError,
-    validate_operating_intent_snapshot,
+    validate_operating_intent_source_document,
 )
 from .operating_scope import (
     UNMAPPED_SERVICE_REF,
@@ -94,5 +94,5 @@ __all__ = [
     "project_operating_scope",
     "project_operational_evidence_read_result",
     "render_untrusted_document_evidence",
-    "validate_operating_intent_snapshot",
+    "validate_operating_intent_source_document",
 ]

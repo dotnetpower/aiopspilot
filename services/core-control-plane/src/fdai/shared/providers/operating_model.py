@@ -112,16 +112,8 @@ class OperatingIntentSourceDocument:
     provenance: OperatingIntentSourceProvenance
 
 
-def operating_model_snapshot_digest(snapshot: OperatingModelSnapshot) -> str:
-    """Return the canonical ``sha256:...`` content digest of one complete snapshot.
-
-    The digest covers ``source_revision`` plus every object and link (sorted for order
-    independence) and excludes nothing, so any content change - including a swapped,
-    edited, or truncated deployment-owned source file - produces a different digest. Used
-    both by the continuous worker's replay/conflict suppression and by the one-shot
-    deployment-owned operating-intent source binding to detect a cross-release or
-    tampered source before it can be projected.
-    """
+def _snapshot_payload(snapshot: OperatingModelSnapshot) -> dict[str, object]:
+    """Return the canonical, order-independent JSON payload of one snapshot."""
 
     objects = [
         {
@@ -150,18 +142,59 @@ def operating_model_snapshot_digest(snapshot: OperatingModelSnapshot) -> str:
             key=lambda value: (value.from_id, value.link_type, value.to_id),
         )
     ]
+    return {
+        "source_revision": snapshot.source_revision,
+        "objects": objects,
+        "links": links,
+    }
+
+
+def _canonical_sha256(payload: object) -> str:
     encoded = json.dumps(
-        {
-            "source_revision": snapshot.source_revision,
-            "objects": objects,
-            "links": links,
-        },
+        payload,
         allow_nan=False,
         ensure_ascii=True,
         separators=(",", ":"),
         sort_keys=True,
     )
     return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
+def operating_model_snapshot_digest(snapshot: OperatingModelSnapshot) -> str:
+    """Return the canonical ``sha256:...`` content digest of one complete snapshot.
+
+    The digest covers ``source_revision`` plus every object and link (sorted for order
+    independence) and excludes nothing, so any content change - including a swapped,
+    edited, or truncated deployment-owned source file - produces a different digest. Used
+    by the continuous worker's replay/conflict suppression, where a snapshot arrives
+    without a self-declared provenance block.
+    """
+
+    return _canonical_sha256(_snapshot_payload(snapshot))
+
+
+def operating_intent_source_document_digest(document: OperatingIntentSourceDocument) -> str:
+    """Return the canonical ``sha256:...`` digest of one *complete* intent source document.
+
+    The deployment-owned operating-intent binding pins this digest, not the snapshot-only
+    digest, because provenance is load-bearing evidence rather than decoration: the
+    ``retrieved_at`` timestamp anchors every freshness judgement, and ``source_url`` and
+    ``resolved_ref`` are the attribution an operator reviewed. Excluding them would leave
+    a signed-looking source whose attribution and observation time could be rewritten
+    without changing the pinned digest. Covering all three closes that gap, so editing
+    any provenance field fails the pin exactly like editing an object does.
+    """
+
+    return _canonical_sha256(
+        {
+            "provenance": {
+                "source_url": document.provenance.source_url,
+                "resolved_ref": document.provenance.resolved_ref,
+                "retrieved_at": document.provenance.retrieved_at.isoformat(),
+            },
+            "snapshot": _snapshot_payload(document.snapshot),
+        }
+    )
 
 
 __all__ = [
@@ -172,5 +205,6 @@ __all__ = [
     "OperatingModelProvider",
     "OperatingModelSnapshot",
     "OperatingModelUpdate",
+    "operating_intent_source_document_digest",
     "operating_model_snapshot_digest",
 ]

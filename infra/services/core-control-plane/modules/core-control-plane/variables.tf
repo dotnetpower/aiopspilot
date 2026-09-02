@@ -235,7 +235,7 @@ variable "scaling" {
 variable "tags" { type = map(string) }
 
 variable "operating_intent_source" {
-  description = "Optional deployment-owned six-type operating-intent source binding: exact pinned revision, content digest, and provenance for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow."
+  description = "Deployment-owned six-type operating-intent source binding: source path, exact pinned revision, whole-document sha256 content digest (provenance included), and exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow."
   type = object({
     enabled              = optional(bool, false)
     path                 = optional(string, "")

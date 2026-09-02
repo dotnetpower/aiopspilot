@@ -8,6 +8,11 @@ instances), a source presented specifically as the operating-intent binding MUST
 supply every required type at its deployment-pinned exact revision and provenance, or
 the runtime MUST reject the whole attempt rather than project a partial, duplicated,
 expired, or cross-release graph.
+
+Time is handled on two independent axes here. The *effective interval* of an instance
+says when its declared intent applies; the *freshness* of the source says how recently
+it was actually retrieved. The pinned whole-document digest covers the provenance block
+that anchors the second axis, so neither axis can be rewritten without failing the pin.
 """
 
 from __future__ import annotations
@@ -19,9 +24,9 @@ from datetime import datetime
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.operating_model import (
     REQUIRED_OPERATING_INTENT_OBJECT_TYPES,
+    OperatingIntentSourceDocument,
     OperatingIntentSourceProvenance,
-    OperatingModelSnapshot,
-    operating_model_snapshot_digest,
+    operating_intent_source_document_digest,
 )
 
 
@@ -42,9 +47,11 @@ class OperatingIntentSourceBinding:
     an operator reviews and approves a source generation (mirroring
     ``ConfigurationDriftService``'s frozen baseline binding); a later file that
     disagrees with either is evidence of a cross-release swap or a tampered file, not
-    a newer approved release. ``expected_instance_counts`` defaults every required
-    type to exactly one instance; a fork MAY override it for a type that legitimately
-    carries more than one deployment-owned instance.
+    a newer approved release. ``expected_sha256`` is the *whole-document* digest,
+    provenance included. ``expected_instance_counts`` defaults every required type to
+    exactly one instance and is enforced exactly - both a surplus and a shortfall fail
+    closed - so a fork that reviews and pins two instances of a type never silently
+    accepts one.
     """
 
     expected_revision: str
@@ -71,10 +78,9 @@ class OperatingIntentSourceBinding:
         return self.expected_instance_counts.get(object_type, 1)
 
 
-def validate_operating_intent_snapshot(
-    snapshot: OperatingModelSnapshot,
+def validate_operating_intent_source_document(
+    document: OperatingIntentSourceDocument,
     *,
-    provenance: OperatingIntentSourceProvenance,
     binding: OperatingIntentSourceBinding,
     now: datetime,
 ) -> None:
@@ -82,14 +88,15 @@ def validate_operating_intent_snapshot(
 
     Checked in fixed priority order so one violated source always reports its
     highest-priority defect first: cross-release identity (revision, self-declared
-    provenance, content digest), then missing required types, then duplicate
-    instances beyond the pinned count, then stale (not currently effective)
-    instances. ``now`` MUST be supplied by the caller (never read from the wall
+    provenance, whole-document digest), then required-type instance counts, then
+    stale instances. ``now`` MUST be supplied by the caller (never read from the wall
     clock here) so this check stays deterministic under test.
     """
 
     if now.tzinfo is None:
         raise ValueError("operating intent source validation 'now' MUST be timezone-aware")
+    snapshot = document.snapshot
+    provenance = document.provenance
     if snapshot.source_revision != binding.expected_revision:
         raise OperatingIntentSourceError(
             "operating intent source revision does not match the configured binding (cross-release)"
@@ -99,11 +106,16 @@ def validate_operating_intent_snapshot(
             "operating intent source provenance.resolved_ref does not match the configured "
             "binding (cross-release)"
         )
-    digest = operating_model_snapshot_digest(snapshot)
+    digest = operating_intent_source_document_digest(document)
     if digest != binding.expected_sha256:
         raise OperatingIntentSourceError(
             "operating intent source content digest does not match the configured binding "
             "(cross-release or tampered source)"
+        )
+    if provenance.retrieved_at > now:
+        raise OperatingIntentSourceError(
+            "operating intent source provenance.retrieved_at is in the future (untrusted "
+            "observation time)"
         )
 
     by_type: dict[str, list[OntologyObjectRecord]] = {}
@@ -117,18 +129,37 @@ def validate_operating_intent_snapshot(
                 f"operating intent source is missing required type {object_type!r}"
             )
         expected = binding.expected_count(object_type)
-        if count > expected:
+        if count != expected:
+            defect = "duplicate" if count > expected else "incomplete"
             raise OperatingIntentSourceError(
                 f"operating intent source has {count} instances of {object_type!r}, "
-                f"expected exactly {expected} (duplicate)"
+                f"expected exactly {expected} ({defect})"
             )
 
     for object_type in sorted(REQUIRED_OPERATING_INTENT_OBJECT_TYPES):
         for item in sorted(by_type[object_type], key=lambda record: record.id):
-            _reject_if_stale(item, now=now)
+            _reject_if_stale(item, provenance=provenance, now=now)
 
 
-def _reject_if_stale(item: OntologyObjectRecord, *, now: datetime) -> None:
+def _reject_if_stale(
+    item: OntologyObjectRecord,
+    *,
+    provenance: OperatingIntentSourceProvenance,
+    now: datetime,
+) -> None:
+    """Reject an instance that is outside its effective interval or no longer fresh.
+
+    These are two independent time axes and MUST NOT be conflated. The effective
+    interval (``effective_from``/``effective_to``) is *when the declared intent
+    applies*: an objective approved years ago and still in force is perfectly current.
+    Freshness is *how recently the source was actually observed*, so it is measured
+    from the document's trusted ``provenance.retrieved_at`` - which the pinned
+    whole-document digest covers, so it cannot be forward-dated without failing the
+    pin first. Measuring freshness from ``effective_from`` instead would call every
+    long-lived objective stale while accepting a stale re-publication of a
+    newly-effective one.
+    """
+
     effective_from = _required_datetime(item, "effective_from")
     effective_to = _optional_datetime(item, "effective_to")
     if effective_from > now or (effective_to is not None and now >= effective_to):
@@ -144,10 +175,10 @@ def _reject_if_stale(item: OntologyObjectRecord, *, now: datetime) -> None:
             f"operating intent source instance {item.id!r} ({item.object_type}) "
             "freshness_seconds MUST be an integer"
         )
-    if (now - effective_from).total_seconds() > freshness_seconds:
+    if (now - provenance.retrieved_at).total_seconds() > freshness_seconds:
         raise OperatingIntentSourceError(
             f"operating intent source instance {item.id!r} ({item.object_type}) exceeds its "
-            "declared freshness_seconds (stale)"
+            "declared freshness_seconds since the source was retrieved (stale)"
         )
 
 
@@ -188,5 +219,5 @@ def _optional_datetime(item: OntologyObjectRecord, key: str) -> datetime | None:
 __all__ = [
     "OperatingIntentSourceBinding",
     "OperatingIntentSourceError",
-    "validate_operating_intent_snapshot",
+    "validate_operating_intent_source_document",
 ]
