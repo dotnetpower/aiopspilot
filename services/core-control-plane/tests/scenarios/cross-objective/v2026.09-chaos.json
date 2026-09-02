@@ -1,10 +1,10 @@
 {
   "schema_version": "1.2.0",
-  "id": "dr.cross-objective-conflict.v2026-07",
-  "scenario_set_version": "v2026.07",
-  "capability": "dr",
+  "id": "chaos.cross-objective-conflict.v2026-09",
+  "scenario_set_version": "v2026.09",
+  "capability": "chaos",
   "dimension": "cross_objective_conflict",
-  "correlation_id": "dr-cross-objective-conflict-v2026-07",
+  "correlation_id": "chaos-cross-objective-conflict-v2026-09",
   "observed_at": "2026-07-05T08:00:00Z",
   "arbitration": {
     "raiser_agent": "Forseti",
@@ -16,67 +16,67 @@
   },
   "operating_context": {
     "clock_identity": "frozen-scenario-utc",
-    "note": "The customer-agnostic ontology neighborhood the replayed DR options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
+    "note": "The customer-agnostic ontology neighborhood the replayed Chaos options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
     "objects": [
       {
-        "id": "example-dr-recovery-plan-subscription",
+        "id": "example-chaos-recovery-subscription",
         "object_type": "Resource",
         "properties": {
-          "id": "example-dr-recovery-plan-subscription",
+          "id": "example-chaos-recovery-subscription",
           "type": "subscription"
         }
       },
       {
-        "id": "example-dr-recovery-plan-postgresql-server",
+        "id": "example-chaos-recovery-postgresql",
         "object_type": "Resource",
         "properties": {
-          "id": "example-dr-recovery-plan-postgresql-server",
+          "id": "example-chaos-recovery-postgresql",
           "type": "postgresql-server"
         }
       },
       {
-        "id": "example-dr-failover-load-balancer",
+        "id": "example-chaos-failover-load-balancer",
         "object_type": "Resource",
         "properties": {
-          "id": "example-dr-failover-load-balancer",
+          "id": "example-chaos-failover-load-balancer",
           "type": "network.load-balancer"
         }
       },
       {
-        "id": "example-unmapped-recovery-vault",
+        "id": "example-novel-experiment",
         "object_type": "Resource",
         "properties": {
-          "id": "example-unmapped-recovery-vault",
-          "type": "recovery-services-vault.unmapped"
+          "id": "example-novel-experiment",
+          "type": "chaos-experiment.novel"
         }
       },
       {
-        "id": "example-dr-recovery-workload",
+        "id": "example-chaos-recovery-workload",
         "object_type": "Workload",
         "properties": {
-          "id": "example-dr-recovery-workload",
-          "name": "Example DR Recovery Workload",
+          "id": "example-chaos-recovery-workload",
+          "name": "Example Chaos Recovery Workload",
           "workload_kind": "platform",
           "effective_from": "2026-07-05T08:00:00Z",
           "source_ref": "service-manifest:example"
         }
       },
       {
-        "id": "example-dr-recovery-service",
+        "id": "example-chaos-recovery-service",
         "object_type": "BusinessService",
         "properties": {
-          "id": "example-dr-recovery-service",
-          "name": "Example DR Recovery Service",
+          "id": "example-chaos-recovery-service",
+          "name": "Example Chaos Recovery Service",
           "criticality": "high",
           "effective_from": "2026-07-05T08:00:00Z",
           "source_ref": "service-catalog:example"
         }
       },
       {
-        "id": "example-dr-recovery-readiness-objective",
+        "id": "example-chaos-recovery-readiness-objective",
         "object_type": "ServiceObjective",
         "properties": {
-          "id": "example-dr-recovery-readiness-objective",
+          "id": "example-chaos-recovery-readiness-objective",
           "objective_kind": "recovery_readiness",
           "metric": "recovery_plan_audit_ratio",
           "unit": "ratio",
@@ -88,13 +88,13 @@
         }
       },
       {
-        "id": "example-dr-recovery-cost-objective",
+        "id": "example-chaos-recovery-cost-objective",
         "object_type": "CostObjective",
         "properties": {
-          "id": "example-dr-recovery-cost-objective",
+          "id": "example-chaos-recovery-cost-objective",
           "objective_kind": "run_rate",
           "currency": "USD",
-          "target": 1000.0,
+          "target": 1000,
           "period_seconds": 2592000,
           "measurement_source_ref": "cost:monthly",
           "freshness_seconds": 86400,
@@ -105,38 +105,38 @@
     "links": [
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-dr-recovery-workload",
-        "to_id": "example-dr-recovery-plan-subscription"
+        "from_id": "example-chaos-recovery-workload",
+        "to_id": "example-chaos-recovery-subscription"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-dr-recovery-workload",
-        "to_id": "example-dr-recovery-plan-postgresql-server"
+        "from_id": "example-chaos-recovery-workload",
+        "to_id": "example-chaos-recovery-postgresql"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-dr-recovery-workload",
-        "to_id": "example-dr-failover-load-balancer"
+        "from_id": "example-chaos-recovery-workload",
+        "to_id": "example-chaos-failover-load-balancer"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-dr-recovery-workload",
-        "to_id": "example-unmapped-recovery-vault"
+        "from_id": "example-chaos-recovery-workload",
+        "to_id": "example-novel-experiment"
       },
       {
         "link_type": "implemented_by",
-        "from_id": "example-dr-recovery-service",
-        "to_id": "example-dr-recovery-workload"
+        "from_id": "example-chaos-recovery-service",
+        "to_id": "example-chaos-recovery-workload"
       },
       {
         "link_type": "service_has_service_objective",
-        "from_id": "example-dr-recovery-service",
-        "to_id": "example-dr-recovery-readiness-objective"
+        "from_id": "example-chaos-recovery-service",
+        "to_id": "example-chaos-recovery-readiness-objective"
       },
       {
         "link_type": "service_has_cost_objective",
-        "from_id": "example-dr-recovery-service",
-        "to_id": "example-dr-recovery-cost-objective"
+        "from_id": "example-chaos-recovery-service",
+        "to_id": "example-chaos-recovery-cost-objective"
       }
     ]
   },
@@ -150,8 +150,8 @@
           "metric": "recovery_plan_audit_signal",
           "utility": 0.6,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         },
         {
@@ -159,8 +159,8 @@
           "metric": "recovery_plan_change_run_rate",
           "utility": -0.4,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         }
       ],
@@ -175,8 +175,8 @@
           "metric": "recovery_plan_audit_signal",
           "utility": -0.5,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         },
         {
@@ -184,8 +184,8 @@
           "metric": "recovery_plan_change_run_rate",
           "utility": 0.5,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         }
       ],
@@ -195,7 +195,7 @@
   "options": [
     {
       "option_id": "enable-postgres-diagnostics",
-      "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+      "scenario_id": "dr.chaos-diagnostics-missing.004",
       "objective_domain": "change_safety",
       "expected_action_type": "remediate.enable-diagnostic-settings",
       "expected_eligibility": "eligible",
@@ -203,15 +203,15 @@
     },
     {
       "option_id": "remove-orphan-load-balancer",
-      "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+      "scenario_id": "dr.chaos-load-balancer-unused-backend.005",
       "objective_domain": "cost",
       "expected_action_type": "remediate.remove-orphan-resource",
       "expected_eligibility": "eligible",
       "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `network.load-balancer.unused-backend` and builds a `remediate.remove-orphan-resource` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
     },
     {
-      "option_id": "map-vault-signal",
-      "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+      "option_id": "hold-novel-experiment",
+      "scenario_id": "dr.chaos-experiment-novel.003",
       "objective_domain": "resilience",
       "expected_action_type": null,
       "expected_eligibility": "unresolved_evidence",
@@ -219,13 +219,13 @@
     }
   ],
   "expected": {
-    "shared_target_id": "example-dr-recovery-plan-subscription",
+    "shared_target_id": "example-chaos-recovery-subscription",
     "eligible_option_ids": [
       "enable-postgres-diagnostics",
       "remove-orphan-load-balancer"
     ],
     "unresolved_option_ids": [
-      "map-vault-signal"
+      "hold-novel-experiment"
     ],
     "held_recommendation": "hold",
     "domains_in_conflict": [
@@ -244,14 +244,14 @@
           "change_safety",
           "cost"
         ],
-        "objective_id": "example-dr-recovery-cost-objective"
+        "objective_id": "example-chaos-recovery-cost-objective"
       },
       {
         "domains": [
           "change_safety",
           "cost"
         ],
-        "objective_id": "example-dr-recovery-readiness-objective"
+        "objective_id": "example-chaos-recovery-readiness-objective"
       }
     ],
     "winning_domain": "resilience",
@@ -262,8 +262,8 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "b5fb79f4fe7385c156ed3eb0981be5645ce952bf1d4ae4904a2509e436c7234a",
-      "context_snapshot_id": "9a62024abf0a63abeb49e9bd0c9df7b8eb1a7adeba4621c80a654804875d6cb2",
+      "case_id": "0bf751f252a3ce66cede549e38bf8727b3f5a1345a20e8eedda4ffe780c73bc8",
+      "context_snapshot_id": "c49e75129d690636155bea0d131487735d1c71e1ccd7fe2e4404d00116044e2c",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.enable-diagnostic-settings",
         "cost": "cost:remediate.remove-orphan-resource"
@@ -273,20 +273,20 @@
         "cost:remediate.remove-orphan-resource"
       ],
       "protected_objective_ids": [
-        "example-dr-recovery-readiness-objective"
+        "example-chaos-recovery-readiness-objective"
       ],
       "evidence_refs": [
-        "audit:scenario-16/postgresql-server.diagnostic-settings-required/example-dr-recovery-plan-postgresql-server",
-        "audit:scenario-17/network.load-balancer.unused-backend/example-dr-failover-load-balancer",
-        "event:00000000-0000-0000-0000-000000000016",
-        "event:00000000-0000-0000-0000-000000000017",
-        "receipt:sha256:9743d992d56098e7fd63e6dffc9648f2e018a96675125bfc3aae19141c624a6e",
-        "receipt:sha256:9bf6efbc88862e3cb01559a8f2119002b16fab96c441f49590b52fbfe2e5fb13",
+        "audit:scenario-21/postgresql-server.diagnostic-settings-required/example-chaos-recovery-postgresql",
+        "audit:scenario-22/network.load-balancer.unused-backend/example-chaos-failover-load-balancer",
+        "event:00000000-0000-0000-0000-000000000021",
+        "event:00000000-0000-0000-0000-000000000022",
+        "receipt:sha256:0c52b56ea62c68ce59b384846a719efcb3dbcedfe9a33bdbfe0feeb44eec1ac1",
+        "receipt:sha256:f4d5dbd1f8fe0b9e5d449bb2013d32bba111b7305ec9f3d4a8c34929b58b61fe",
         "rule:network.load-balancer.unused-backend",
         "rule:postgresql-server.diagnostic-settings-required",
-        "specialist:change_safety:dr-cross-objective-conflict-v2026-07",
-        "specialist:cost:dr-cross-objective-conflict-v2026-07",
-        "specialist:resilience:dr-cross-objective-conflict-v2026-07"
+        "specialist:change_safety:chaos-cross-objective-conflict-v2026-09",
+        "specialist:cost:chaos-cross-objective-conflict-v2026-09",
+        "specialist:resilience:chaos-cross-objective-conflict-v2026-09"
       ],
       "selected_option_id": "change_safety:remediate.enable-diagnostic-settings",
       "selection_reason": "weighted_objective_score;rejected=cost:remediate.remove-orphan-resource:protected_objective",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:3b8c76e5bda8174ce21ff9f35a6eae4ec14922820cb0f741e5123a29eb09ae13",
-    "evidence_digest": "sha256:a4df7053e38993bd3cfdce337328f4a0fedc124b2a2591fde7b336cfd2c7b744"
+    "decision_digest": "sha256:12bd592abe3747a4926ab105e995e638cfb965a8d4dd12dd95528de7f83e8728",
+    "evidence_digest": "sha256:6eab94645d1bf52e031fbfc1001151869cef79ada5807ec66786db884870b1ab"
   }
 }

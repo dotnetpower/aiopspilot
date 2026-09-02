@@ -1,10 +1,10 @@
 {
   "schema_version": "1.2.0",
-  "id": "arb_change_safety.cross-objective-conflict.v2026-07",
-  "scenario_set_version": "v2026.07",
-  "capability": "arb_change_safety",
+  "id": "finops.cross-objective-conflict.v2026-09",
+  "scenario_set_version": "v2026.09",
+  "capability": "finops",
   "dimension": "cross_objective_conflict",
-  "correlation_id": "arb-cross-objective-conflict-v2026-07",
+  "correlation_id": "finops-cross-objective-conflict-v2026-09",
   "observed_at": "2026-07-05T08:00:00Z",
   "arbitration": {
     "raiser_agent": "Forseti",
@@ -16,67 +16,67 @@
   },
   "operating_context": {
     "clock_identity": "frozen-scenario-utc",
-    "note": "The customer-agnostic ontology neighborhood the replayed ARB options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
+    "note": "The customer-agnostic ontology neighborhood the replayed FinOps options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
     "objects": [
       {
-        "id": "example-arb-fleet-subscription",
+        "id": "example-finops-fleet-subscription",
         "object_type": "Resource",
         "properties": {
-          "id": "example-arb-fleet-subscription",
+          "id": "example-finops-fleet-subscription",
           "type": "subscription"
         }
       },
       {
-        "id": "example-vm-fleet-node",
+        "id": "example-finops-vm",
         "object_type": "Resource",
         "properties": {
-          "id": "example-vm-fleet-node",
+          "id": "example-finops-vm",
           "type": "compute.vm"
         }
       },
       {
-        "id": "example-disk-fleet-volume",
+        "id": "example-orphan-pip",
         "object_type": "Resource",
         "properties": {
-          "id": "example-disk-fleet-volume",
-          "type": "disk"
+          "id": "example-orphan-pip",
+          "type": "network.public-ip"
         }
       },
       {
-        "id": "example-unmapped-container-registry",
+        "id": "example-unmapped-cost-signal",
         "object_type": "Resource",
         "properties": {
-          "id": "example-unmapped-container-registry",
-          "type": "container-registry.unmapped"
+          "id": "example-unmapped-cost-signal",
+          "type": "cost-signal.unmapped"
         }
       },
       {
-        "id": "example-arb-fleet-workload",
+        "id": "example-finops-workload",
         "object_type": "Workload",
         "properties": {
-          "id": "example-arb-fleet-workload",
-          "name": "Example ARB Fleet Workload",
+          "id": "example-finops-workload",
+          "name": "Example FinOps Fleet Workload",
           "workload_kind": "platform",
           "effective_from": "2026-07-05T08:00:00Z",
           "source_ref": "service-manifest:example"
         }
       },
       {
-        "id": "example-arb-fleet-service",
+        "id": "example-finops-service",
         "object_type": "BusinessService",
         "properties": {
-          "id": "example-arb-fleet-service",
-          "name": "Example ARB Fleet Service",
+          "id": "example-finops-service",
+          "name": "Example FinOps Fleet Service",
           "criticality": "high",
           "effective_from": "2026-07-05T08:00:00Z",
           "source_ref": "service-catalog:example"
         }
       },
       {
-        "id": "example-arb-compliance-objective",
+        "id": "example-finops-efficiency-objective",
         "object_type": "ServiceObjective",
         "properties": {
-          "id": "example-arb-compliance-objective",
+          "id": "example-finops-efficiency-objective",
           "objective_kind": "compliance_posture",
           "metric": "compliant_resource_ratio",
           "unit": "ratio",
@@ -88,13 +88,13 @@
         }
       },
       {
-        "id": "example-arb-fleet-cost-objective",
+        "id": "example-finops-cost-objective",
         "object_type": "CostObjective",
         "properties": {
-          "id": "example-arb-fleet-cost-objective",
+          "id": "example-finops-cost-objective",
           "objective_kind": "run_rate",
           "currency": "USD",
-          "target": 1000.0,
+          "target": 1000,
           "period_seconds": 2592000,
           "measurement_source_ref": "cost:monthly",
           "freshness_seconds": 86400,
@@ -105,38 +105,38 @@
     "links": [
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-arb-fleet-workload",
-        "to_id": "example-arb-fleet-subscription"
+        "from_id": "example-finops-workload",
+        "to_id": "example-finops-fleet-subscription"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-arb-fleet-workload",
-        "to_id": "example-vm-fleet-node"
+        "from_id": "example-finops-workload",
+        "to_id": "example-finops-vm"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-arb-fleet-workload",
-        "to_id": "example-disk-fleet-volume"
+        "from_id": "example-finops-workload",
+        "to_id": "example-orphan-pip"
       },
       {
         "link_type": "workload_runs_on",
-        "from_id": "example-arb-fleet-workload",
-        "to_id": "example-unmapped-container-registry"
+        "from_id": "example-finops-workload",
+        "to_id": "example-unmapped-cost-signal"
       },
       {
         "link_type": "implemented_by",
-        "from_id": "example-arb-fleet-service",
-        "to_id": "example-arb-fleet-workload"
+        "from_id": "example-finops-service",
+        "to_id": "example-finops-workload"
       },
       {
         "link_type": "service_has_service_objective",
-        "from_id": "example-arb-fleet-service",
-        "to_id": "example-arb-compliance-objective"
+        "from_id": "example-finops-service",
+        "to_id": "example-finops-efficiency-objective"
       },
       {
         "link_type": "service_has_cost_objective",
-        "from_id": "example-arb-fleet-service",
-        "to_id": "example-arb-fleet-cost-objective"
+        "from_id": "example-finops-service",
+        "to_id": "example-finops-cost-objective"
       }
     ]
   },
@@ -150,8 +150,8 @@
           "metric": "identity_hardening_signal",
           "utility": 0.6,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         },
         {
@@ -159,15 +159,15 @@
           "metric": "fleet_change_run_rate",
           "utility": -0.4,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         }
       ],
       "note": "Assigning a managed identity closes the attestable-identity gap the compliance objective is measured from and adds a change to the fleet that the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
     },
     {
-      "cited_rule_id": "disk.unattached",
+      "cited_rule_id": "network.public-ip.orphan",
       "action_type": "remediate.remove-orphan-resource",
       "effects": [
         {
@@ -175,8 +175,8 @@
           "metric": "identity_hardening_signal",
           "utility": -0.5,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         },
         {
@@ -184,34 +184,34 @@
           "metric": "fleet_change_run_rate",
           "utility": 0.5,
           "confidence": 0.9,
-          "expected_min": -1.0,
-          "expected_max": 1.0,
+          "expected_min": -1,
+          "expected_max": 1,
           "observation_window_seconds": 300
         }
       ],
-      "note": "Removing the unattached disk lowers the fleet's change run-rate cost, and dropping a resource out of the fleet narrows the population the compliance objective's attestation window covers. Bound the same way, by cited rule and produced ActionType."
+      "note": "Releasing the unattached public IP lowers the fleet's change run-rate cost, and dropping a resource out of the fleet narrows the population the compliance objective's attestation window covers. Bound the same way, by cited rule and produced ActionType."
     }
   ],
   "options": [
     {
       "option_id": "assign-managed-identity",
-      "scenario_id": "change.vm-managed-identity-missing.004",
+      "scenario_id": "finops.vm-managed-identity-cost.004",
       "objective_domain": "change_safety",
       "expected_action_type": "remediate.assign-identity",
       "expected_eligibility": "eligible",
       "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `compute.vm.managed-identity.assigned` and builds a `remediate.assign-identity` action. That pair is what binds the objective effects this option carries into arbitration."
     },
     {
-      "option_id": "remove-orphan-disk",
-      "scenario_id": "change.disk-unattached-orphan-cost.005",
+      "option_id": "release-orphan-public-ip",
+      "scenario_id": "finops.unattached-public-ip.001",
       "objective_domain": "cost",
       "expected_action_type": "remediate.remove-orphan-resource",
       "expected_eligibility": "eligible",
-      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `disk.unattached` and builds a `remediate.remove-orphan-resource` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `network.public-ip.orphan` and builds a `remediate.remove-orphan-resource` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
     },
     {
-      "option_id": "map-registry-signal",
-      "scenario_id": "change.container-registry-signal-unmapped.006",
+      "option_id": "map-cost-signal",
+      "scenario_id": "finops.cost-signal-unmapped.005",
       "objective_domain": "resilience",
       "expected_action_type": null,
       "expected_eligibility": "unresolved_evidence",
@@ -219,13 +219,13 @@
     }
   ],
   "expected": {
-    "shared_target_id": "example-arb-fleet-subscription",
+    "shared_target_id": "example-finops-fleet-subscription",
     "eligible_option_ids": [
       "assign-managed-identity",
-      "remove-orphan-disk"
+      "release-orphan-public-ip"
     ],
     "unresolved_option_ids": [
-      "map-registry-signal"
+      "map-cost-signal"
     ],
     "held_recommendation": "hold",
     "domains_in_conflict": [
@@ -244,14 +244,14 @@
           "change_safety",
           "cost"
         ],
-        "objective_id": "example-arb-compliance-objective"
+        "objective_id": "example-finops-cost-objective"
       },
       {
         "domains": [
           "change_safety",
           "cost"
         ],
-        "objective_id": "example-arb-fleet-cost-objective"
+        "objective_id": "example-finops-efficiency-objective"
       }
     ],
     "winning_domain": "resilience",
@@ -262,8 +262,8 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "c026091a8b759c4c56ac8f3fde1fd9991cdb550abbebb8b23643f3b6cbf21bcb",
-      "context_snapshot_id": "44c47fbd8bb2c4aa962aa6882479aeca34db0a94131f5eb723e61fd53540892d",
+      "case_id": "c7f4123c7d799b3a7dfeaf015fbf484967f5e4e212c07793de8960dee09e1a83",
+      "context_snapshot_id": "cfa775038ff05d7b70e77cc1e6242217bbc769ae34113e04633a230d5c8ac7fe",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.assign-identity",
         "cost": "cost:remediate.remove-orphan-resource"
@@ -273,20 +273,20 @@
         "cost:remediate.remove-orphan-resource"
       ],
       "protected_objective_ids": [
-        "example-arb-compliance-objective"
+        "example-finops-efficiency-objective"
       ],
       "evidence_refs": [
-        "audit:scenario-13/compute.vm.managed-identity.assigned/example-vm-fleet-node",
-        "audit:scenario-14/disk.unattached/example-disk-fleet-volume",
-        "event:00000000-0000-0000-0000-000000000013",
-        "event:00000000-0000-0000-0000-000000000014",
-        "receipt:sha256:b22bb648b127f13928251b09cf44a77faeea46f8b72c75a9a7df824bc13967f0",
-        "receipt:sha256:e1fe42d473e879bca7c5d95b25e25156c47103d900bcb43a76d84f4c39ff71fe",
+        "audit:scenario-19/compute.vm.managed-identity.assigned/example-finops-vm",
+        "audit:scenario-7/network.public-ip.orphan/example-orphan-pip",
+        "event:00000000-0000-0000-0000-000000000007",
+        "event:00000000-0000-0000-0000-000000000019",
+        "receipt:sha256:32a9c6cc40bbda9f3ed66bca9b14392a77dc2cd2c02b410d9c6202a9e0ef3b82",
+        "receipt:sha256:89fd0a2b15d5ea5f83018649e9e477a07571e10a764823fc453a73c36ba6c99e",
         "rule:compute.vm.managed-identity.assigned",
-        "rule:disk.unattached",
-        "specialist:change_safety:arb-cross-objective-conflict-v2026-07",
-        "specialist:cost:arb-cross-objective-conflict-v2026-07",
-        "specialist:resilience:arb-cross-objective-conflict-v2026-07"
+        "rule:network.public-ip.orphan",
+        "specialist:change_safety:finops-cross-objective-conflict-v2026-09",
+        "specialist:cost:finops-cross-objective-conflict-v2026-09",
+        "specialist:resilience:finops-cross-objective-conflict-v2026-09"
       ],
       "selected_option_id": "change_safety:remediate.assign-identity",
       "selection_reason": "weighted_objective_score;rejected=cost:remediate.remove-orphan-resource:protected_objective",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:d8ce6e175dc28e28c782d488ff9a8b7db85e3cdda10e84ba0a9217a1f0349b54",
-    "evidence_digest": "sha256:cd23abc537306cc89c0b87ba78df646443fdb883eeb3baebe1fac70779d8aa9a"
+    "decision_digest": "sha256:3d1ac187f35fdce2cb7b2c15c89c66d3196efd85537417cb28dd905784e6548a",
+    "evidence_digest": "sha256:b80fdef913c24d4ea517982c7916911a357bfb1fc5abb40cb4dbc7fee8cc2a98"
   }
 }

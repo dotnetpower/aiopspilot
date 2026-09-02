@@ -1,26 +1,25 @@
 {
   "schema_version": "1.0.0",
-  "id": "sre.slo-signal-source-unmapped.002",
-  "version": "v2026.07",
+  "id": "change.container-registry-signal-unmapped.006",
+  "version": "v2026.09",
   "domain": "dr",
-  "capability": "sre",
+  "capability": "arb_change_safety",
   "tags": [
-    "slo",
     "unknown-signal",
     "abstain"
   ],
   "event": {
     "schema_version": "1.0.0",
-    "event_id": "00000000-0000-0000-0000-000000000011",
-    "idempotency_key": "scenario-11",
-    "source": "example_slo_monitor",
-    "event_type": "error_budget_burn",
+    "event_id": "00000000-0000-0000-0000-000000000015",
+    "idempotency_key": "scenario-15",
+    "source": "example_activity_log",
+    "event_type": "change_detected",
     "detected_at": "2026-07-05T08:00:00Z",
     "ingested_at": "2026-07-05T08:00:01Z",
     "mode": "shadow"
   },
   "expected": {
-    "tier": "t2",
+    "tier": "t1",
     "decision": "abstain",
     "citing_rule_ids": [],
     "guard": {

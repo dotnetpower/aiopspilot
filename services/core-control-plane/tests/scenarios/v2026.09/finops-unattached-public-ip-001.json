@@ -1,19 +1,19 @@
 {
   "schema_version": "1.0.0",
-  "id": "dr.load-balancer-unused-backend-cost.005",
-  "version": "v2026.07",
+  "id": "finops.unattached-public-ip.001",
+  "version": "v2026.09",
   "domain": "finops",
-  "capability": "dr",
+  "capability": "finops",
   "tags": [
-    "cost-governance",
-    "orphan-resource"
+    "cost-cleanup",
+    "unattached-resource"
   ],
   "event": {
     "schema_version": "1.0.0",
-    "event_id": "00000000-0000-0000-0000-000000000017",
-    "idempotency_key": "scenario-17",
-    "source": "example_activity_log",
-    "event_type": "change_detected",
+    "event_id": "00000000-0000-0000-0000-000000000007",
+    "idempotency_key": "scenario-7",
+    "source": "example_cost_management",
+    "event_type": "cost_anomaly",
     "detected_at": "2026-07-05T08:00:00Z",
     "ingested_at": "2026-07-05T08:00:01Z",
     "mode": "shadow"
@@ -22,13 +22,13 @@
     "tier": "t0",
     "decision": "auto",
     "citing_rule_ids": [
-      "example.network.load-balancer-unused-backend"
+      "example.finops.release-unattached-pip"
     ],
     "guard": {
       "should_execute": true,
       "should_rollback": false,
       "should_trigger_policy_violation": false,
-      "expected_mttr_s_max": 60
+      "expected_mttr_s_max": 30
     }
   }
 }

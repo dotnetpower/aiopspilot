@@ -1,19 +1,19 @@
 {
   "schema_version": "1.0.0",
-  "id": "change.vm-managed-identity-missing.004",
-  "version": "v2026.07",
-  "domain": "change",
-  "capability": "arb_change_safety",
+  "id": "dr.chaos-load-balancer-unused-backend.005",
+  "version": "v2026.09",
+  "domain": "finops",
+  "capability": "chaos",
   "tags": [
-    "azure-policy",
-    "identity-hardening"
+    "chaos",
+    "orphan-resource"
   ],
   "event": {
     "schema_version": "1.0.0",
-    "event_id": "00000000-0000-0000-0000-000000000013",
-    "idempotency_key": "scenario-13",
-    "source": "example_activity_log",
-    "event_type": "change_detected",
+    "event_id": "00000000-0000-0000-0000-000000000022",
+    "idempotency_key": "scenario-22",
+    "source": "example_chaos_studio",
+    "event_type": "recovery_topology_review",
     "detected_at": "2026-07-05T08:00:00Z",
     "ingested_at": "2026-07-05T08:00:01Z",
     "mode": "shadow"
@@ -22,7 +22,7 @@
     "tier": "t0",
     "decision": "auto",
     "citing_rule_ids": [
-      "example.compute.vm-managed-identity-required"
+      "example.network.load-balancer-unused-backend"
     ],
     "guard": {
       "should_execute": true,

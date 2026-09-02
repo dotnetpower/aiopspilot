@@ -523,20 +523,42 @@ jobs:
         run: |
           set -euo pipefail
           base_sha=$(git rev-parse origin/${{ github.base_ref }})
-          # Only *.json files under versioned scenario folders count as frozen.
-          # A new version directory is allowed. Existing version directories
-          # reject additions, edits, deletes, renames, and type changes.
+          frozen_patterns=(
+            'services/core-control-plane/tests/scenarios/v*/*.json'
+            'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'
+            'services/core-control-plane/tests/scenarios/manifests/v*.json'
+            'services/core-control-plane/tests/scenarios/cross-objective/v*.json'
+          )
+          # A new manifest version admits one complete new corpus. Once that
+          # manifest exists on the base ref, every artifact in the version is
+          # immutable: scenarios, enrichments, conflict specs, and manifest.
           changed=$(git diff --name-only --diff-filter=MDRT "$base_sha...HEAD" \
-                    -- 'services/core-control-plane/tests/scenarios/v*/*.json' || true)
+                    -- "${frozen_patterns[@]}" || true)
           added_to_frozen=""
           while IFS= read -r file; do
             [[ -z "$file" ]] && continue
-            version_dir=${file%/*}
-            if git cat-file -e "$base_sha:$version_dir" 2>/dev/null; then
+            case "$file" in
+              */manifests/v*.json)
+                version=$(basename "$file" .json)
+                ;;
+              */cross-objective/v*.json)
+                name=$(basename "$file")
+                version=${name%%-*}
+                ;;
+              */enrichment/v*/*.json|*/scenarios/v*/*.json)
+                version=$(basename "$(dirname "$file")")
+                ;;
+              *)
+                echo "Unable to resolve frozen scenario version: $file"
+                exit 1
+                ;;
+            esac
+            manifest="services/core-control-plane/tests/scenarios/manifests/${version}.json"
+            if git cat-file -e "$base_sha:$manifest" 2>/dev/null; then
               added_to_frozen+="${file}"$'\n'
             fi
           done < <(git diff --name-only --diff-filter=A "$base_sha...HEAD" \
-                    -- 'services/core-control-plane/tests/scenarios/v*/*.json')
+                    -- "${frozen_patterns[@]}")
           changed=$(printf '%s\n%s' "$changed" "$added_to_frozen" | sed '/^$/d')
           if [[ -n "$changed" ]]; then
             echo "Frozen scenario files modified or deleted:"

@@ -1,19 +1,19 @@
 {
   "schema_version": "1.0.0",
-  "id": "dr.recovery-vault-signal-unmapped.006",
-  "version": "v2026.07",
+  "id": "dr.chaos-experiment-novel.003",
+  "version": "v2026.09",
   "domain": "dr",
-  "capability": "dr",
+  "capability": "chaos",
   "tags": [
-    "unknown-signal",
-    "abstain"
+    "chaos",
+    "novel-scenario"
   ],
   "event": {
     "schema_version": "1.0.0",
-    "event_id": "00000000-0000-0000-0000-000000000018",
-    "idempotency_key": "scenario-18",
-    "source": "example_activity_log",
-    "event_type": "change_detected",
+    "event_id": "00000000-0000-0000-0000-000000000006",
+    "idempotency_key": "scenario-6",
+    "source": "example_chaos_studio",
+    "event_type": "experiment_novel",
     "detected_at": "2026-07-05T08:00:00Z",
     "ingested_at": "2026-07-05T08:00:01Z",
     "mode": "shadow"

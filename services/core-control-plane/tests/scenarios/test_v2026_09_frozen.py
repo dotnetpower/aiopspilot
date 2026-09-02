@@ -19,13 +19,13 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import JsonSchemaContractValidator
 from jsonschema import Draft202012Validator
 
-SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
+SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.09"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.json"
 MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
-MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
+MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.09.json"
 CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
 CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
-ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
+ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.09"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier

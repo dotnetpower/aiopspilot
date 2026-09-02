@@ -18,7 +18,7 @@
   "expected_citing_rule_id_present": "postgresql-server.diagnostic-settings-required",
   "effect_evidence": {
     "note": "Frozen independent effect evidence for the DR `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, conflicting, and not-yet-recorded.",
-    "prediction_id": "dr-successful-full-loop-v2026-07",
+    "prediction_id": "dr-successful-full-loop-v2026-09",
     "metric": "diagnostic_settings_configured_count",
     "acceptable_min": 1.0,
     "acceptable_max": 1.0,
