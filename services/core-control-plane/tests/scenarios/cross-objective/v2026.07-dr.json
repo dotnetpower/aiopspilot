@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.2.0",
+  "id": "dr.cross-objective-conflict.v2026-07",
+  "scenario_set_version": "v2026.07",
+  "capability": "dr",
+  "dimension": "cross_objective_conflict",
+  "correlation_id": "dr-cross-objective-conflict-v2026-07",
+  "observed_at": "2026-07-05T08:00:00Z",
+  "arbitration": {
+    "raiser_agent": "Forseti",
+    "owner_agent": "Odin",
+    "auditor_agent": "Saga",
+    "request_topic": "object.arbitration-request",
+    "decision_topic": "object.arbitration-decision",
+    "verdict_topic": "object.verdict"
+  },
+  "operating_context": {
+    "clock_identity": "frozen-scenario-utc",
+    "note": "The customer-agnostic ontology neighborhood the replayed DR options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
+    "objects": [
+      {
+        "id": "example-dr-recovery-plan-subscription",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-dr-recovery-plan-subscription",
+          "type": "subscription"
+        }
+      },
+      {
+        "id": "example-dr-recovery-plan-postgresql-server",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-dr-recovery-plan-postgresql-server",
+          "type": "postgresql-server"
+        }
+      },
+      {
+        "id": "example-dr-failover-load-balancer",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-dr-failover-load-balancer",
+          "type": "network.load-balancer"
+        }
+      },
+      {
+        "id": "example-unmapped-recovery-vault",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-unmapped-recovery-vault",
+          "type": "recovery-services-vault.unmapped"
+        }
+      },
+      {
+        "id": "example-dr-recovery-workload",
+        "object_type": "Workload",
+        "properties": {
+          "id": "example-dr-recovery-workload",
+          "name": "Example DR Recovery Workload",
+          "workload_kind": "platform",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-manifest:example"
+        }
+      },
+      {
+        "id": "example-dr-recovery-service",
+        "object_type": "BusinessService",
+        "properties": {
+          "id": "example-dr-recovery-service",
+          "name": "Example DR Recovery Service",
+          "criticality": "high",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-catalog:example"
+        }
+      },
+      {
+        "id": "example-dr-recovery-readiness-objective",
+        "object_type": "ServiceObjective",
+        "properties": {
+          "id": "example-dr-recovery-readiness-objective",
+          "objective_kind": "recovery_readiness",
+          "metric": "recovery_plan_audit_ratio",
+          "unit": "ratio",
+          "target": 0.999,
+          "window_seconds": 2592000,
+          "measurement_source_ref": "metrics:recovery-readiness",
+          "freshness_seconds": 300,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      },
+      {
+        "id": "example-dr-recovery-cost-objective",
+        "object_type": "CostObjective",
+        "properties": {
+          "id": "example-dr-recovery-cost-objective",
+          "objective_kind": "run_rate",
+          "currency": "USD",
+          "target": 1000.0,
+          "period_seconds": 2592000,
+          "measurement_source_ref": "cost:monthly",
+          "freshness_seconds": 86400,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      }
+    ],
+    "links": [
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-dr-recovery-workload",
+        "to_id": "example-dr-recovery-plan-subscription"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-dr-recovery-workload",
+        "to_id": "example-dr-recovery-plan-postgresql-server"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-dr-recovery-workload",
+        "to_id": "example-dr-failover-load-balancer"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-dr-recovery-workload",
+        "to_id": "example-unmapped-recovery-vault"
+      },
+      {
+        "link_type": "implemented_by",
+        "from_id": "example-dr-recovery-service",
+        "to_id": "example-dr-recovery-workload"
+      },
+      {
+        "link_type": "service_has_service_objective",
+        "from_id": "example-dr-recovery-service",
+        "to_id": "example-dr-recovery-readiness-objective"
+      },
+      {
+        "link_type": "service_has_cost_objective",
+        "from_id": "example-dr-recovery-service",
+        "to_id": "example-dr-recovery-cost-objective"
+      }
+    ]
+  },
+  "objective_effects": [
+    {
+      "cited_rule_id": "postgresql-server.diagnostic-settings-required",
+      "action_type": "remediate.enable-diagnostic-settings",
+      "effects": [
+        {
+          "objective_kind": "recovery_readiness",
+          "metric": "recovery_plan_audit_signal",
+          "utility": 0.6,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "recovery_plan_change_run_rate",
+          "utility": -0.4,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Attaching diagnostic settings closes the audit-trail gap the recovery-readiness objective is measured from and adds a change to the recovery plan that the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
+    },
+    {
+      "cited_rule_id": "network.load-balancer.unused-backend",
+      "action_type": "remediate.remove-orphan-resource",
+      "effects": [
+        {
+          "objective_kind": "recovery_readiness",
+          "metric": "recovery_plan_audit_signal",
+          "utility": -0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "recovery_plan_change_run_rate",
+          "utility": 0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Removing the unused failover load-balancer lowers the recovery plan's change run-rate cost, but dropping a resource out of the failover path narrows the population the recovery-readiness objective's audit covers. Bound the same way, by cited rule and produced ActionType."
+    }
+  ],
+  "options": [
+    {
+      "option_id": "enable-postgres-diagnostics",
+      "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+      "objective_domain": "change_safety",
+      "expected_action_type": "remediate.enable-diagnostic-settings",
+      "expected_eligibility": "eligible",
+      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `postgresql-server.diagnostic-settings-required` and builds a `remediate.enable-diagnostic-settings` action. That pair is what binds the objective effects this option carries into arbitration."
+    },
+    {
+      "option_id": "remove-orphan-load-balancer",
+      "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+      "objective_domain": "cost",
+      "expected_action_type": "remediate.remove-orphan-resource",
+      "expected_eligibility": "eligible",
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `network.load-balancer.unused-backend` and builds a `remediate.remove-orphan-resource` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
+    },
+    {
+      "option_id": "map-vault-signal",
+      "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+      "objective_domain": "resilience",
+      "expected_action_type": null,
+      "expected_eligibility": "unresolved_evidence",
+      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so the replay produces no ActionType and no effect record binds to it. With no grounded option it can only hold, and it carries the abstention marker instead of evidence."
+    }
+  ],
+  "expected": {
+    "shared_target_id": "example-dr-recovery-plan-subscription",
+    "eligible_option_ids": [
+      "enable-postgres-diagnostics",
+      "remove-orphan-load-balancer"
+    ],
+    "unresolved_option_ids": [
+      "map-vault-signal"
+    ],
+    "held_recommendation": "hold",
+    "domains_in_conflict": [
+      "change_safety",
+      "cost",
+      "resilience"
+    ],
+    "advice": {
+      "change_safety": "remediate.enable-diagnostic-settings",
+      "cost": "remediate.remove-orphan-resource",
+      "resilience": "hold"
+    },
+    "objective_conflicts": [
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-dr-recovery-cost-objective"
+      },
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-dr-recovery-readiness-objective"
+      }
+    ],
+    "winning_domain": "resilience",
+    "losing_domains": [
+      "change_safety",
+      "cost"
+    ],
+    "reason": "initial_vertical_precedence",
+    "escalate_hil": false,
+    "decision_case": {
+      "case_id": "b5fb79f4fe7385c156ed3eb0981be5645ce952bf1d4ae4904a2509e436c7234a",
+      "context_snapshot_id": "9a62024abf0a63abeb49e9bd0c9df7b8eb1a7adeba4621c80a654804875d6cb2",
+      "option_by_domain": {
+        "change_safety": "change_safety:remediate.enable-diagnostic-settings",
+        "cost": "cost:remediate.remove-orphan-resource"
+      },
+      "option_ids": [
+        "change_safety:remediate.enable-diagnostic-settings",
+        "cost:remediate.remove-orphan-resource"
+      ],
+      "protected_objective_ids": [
+        "example-dr-recovery-readiness-objective"
+      ],
+      "evidence_refs": [
+        "audit:scenario-16/postgresql-server.diagnostic-settings-required/example-dr-recovery-plan-postgresql-server",
+        "audit:scenario-17/network.load-balancer.unused-backend/example-dr-failover-load-balancer",
+        "event:00000000-0000-0000-0000-000000000016",
+        "event:00000000-0000-0000-0000-000000000017",
+        "receipt:sha256:9743d992d56098e7fd63e6dffc9648f2e018a96675125bfc3aae19141c624a6e",
+        "receipt:sha256:9bf6efbc88862e3cb01559a8f2119002b16fab96c441f49590b52fbfe2e5fb13",
+        "rule:network.load-balancer.unused-backend",
+        "rule:postgresql-server.diagnostic-settings-required",
+        "specialist:change_safety:dr-cross-objective-conflict-v2026-07",
+        "specialist:cost:dr-cross-objective-conflict-v2026-07",
+        "specialist:resilience:dr-cross-objective-conflict-v2026-07"
+      ],
+      "selected_option_id": "change_safety:remediate.enable-diagnostic-settings",
+      "selection_reason": "weighted_objective_score;rejected=cost:remediate.remove-orphan-resource:protected_objective",
+      "requires_human_approval": false
+    },
+    "terminal": {
+      "risk_verdict": "hil",
+      "reason": "arbitration_unresolved",
+      "action_type": "",
+      "initiator_principal": null,
+      "audited_producer": "Forseti",
+      "audited_topic": "object.verdict"
+    },
+    "without_arbitration_owner": {
+      "unavailable_agent": "Odin",
+      "degradation_effect": "conflicts_require_hil",
+      "blocks_mutation": false,
+      "effective_mode": "configured",
+      "decisions": 0,
+      "recorded_arbitrations": 0,
+      "verdicts": 1,
+      "audited_verdicts": 1,
+      "terminal": {
+        "risk_verdict": "hil",
+        "reason": "arbitration_owner_unavailable",
+        "action_type": "",
+        "winning_domain": "",
+        "owner_available": false,
+        "quorum_required": 1
+      }
+    },
+    "decision_digest": "sha256:3b8c76e5bda8174ce21ff9f35a6eae4ec14922820cb0f741e5123a29eb09ae13",
+    "evidence_digest": "sha256:a4df7053e38993bd3cfdce337328f4a0fedc124b2a2591fde7b336cfd2c7b744"
+  }
+}

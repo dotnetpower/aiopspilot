@@ -1,0 +1,15 @@
+{
+  "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+  "shipped_rule_id": "network.load-balancer.unused-backend",
+  "event_payload_resource": {
+    "resource_id": "example-dr-failover-load-balancer",
+    "type": "network.load-balancer",
+    "props": {
+      "backend_count": 0
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "network.load-balancer.unused-backend",
+  "note": "Maps the placeholder rule id `example.network.load-balancer-unused-backend` to the shipped cost-governance rule `network.load-balancer.unused-backend`. `network.load-balancer` has no other registered rule, so the citing set stays single-rule with no extra props required. `remediate.remove-orphan-resource` declares a `static_enum` blast radius (unlike `remediate.right-size`, whose `graph_derived` computation always yields an undeclared count and fail-closes at the executor's blast-radius check), so the shadow executor genuinely publishes one remediation PR, matching should_execute=true. Cross-objective conflict role: cost."
+}

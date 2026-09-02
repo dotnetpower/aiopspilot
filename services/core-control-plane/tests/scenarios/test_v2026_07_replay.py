@@ -127,6 +127,17 @@ CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
 CONFLICT_SPEC_PATH = CONFLICT_DIR / "v2026.07-sre.json"
 CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
 
+# One frozen cross-objective conflict spec per capability pack that has
+# reached the `cross_objective_conflict` dimension. Parametrizing every
+# conflict test over this map is what proves ARB and DR compose the real
+# governed-arbitration boundary the same way SRE does, rather than only
+# freezing digests the harness never replayed.
+CONFLICT_SPEC_PATHS: dict[str, Path] = {
+    "sre": CONFLICT_SPEC_PATH,
+    "arb_change_safety": CONFLICT_DIR / "v2026.07-arb_change_safety.json",
+    "dr": CONFLICT_DIR / "v2026.07-dr.json",
+}
+
 _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
     not _OPA_PRESENT,
@@ -407,15 +418,65 @@ async def test_phase0_correlation_spans_ingest_route_gate_and_audit(
     assert any(item.get("action_kind") == "risk_gate.unified" for item in audit_entries)
 
 
+_A3E_SCENARIO_IDS: dict[str, str] = {
+    "sre": "sre.slo-signal-source-unmapped.002",
+    "arb_change_safety": "change.container-registry-signal-unmapped.006",
+    "dr": "dr.recovery-vault-signal-unmapped.006",
+}
+
+_FULL_LOOP_SCENARIO_ID = "sre.cluster-diagnostics-missing.001"
+
+# One frozen `successful_full_loop` scenario per capability pack. Each one
+# carries its own `effect_evidence` overlay block (a frozen prediction, an
+# authoritative observation, and the fail-closed negative cases), so
+# parametrizing the full-loop and partial-failure-recovery tests over this
+# map replays the real independent-effect-observation path for ARB and DR
+# instead of only reusing SRE's evidence.
+_FULL_LOOP_SCENARIO_IDS: dict[str, str] = {
+    "sre": _FULL_LOOP_SCENARIO_ID,
+    "arb_change_safety": "change.vm-managed-identity-missing.004",
+    "dr": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+}
+
+
+def _full_loop_inputs(
+    scenario_id: str = _FULL_LOOP_SCENARIO_ID,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Return the frozen scenario, its overlay, and the frozen effect evidence."""
+
+    scenario = json.loads(
+        (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
+    )
+    overlay = _load_enrichment(scenario_id)
+    assert overlay is not None, f"{scenario_id} lost its enrichment overlay"
+    evidence = overlay.get("effect_evidence")
+    assert isinstance(evidence, dict), (
+        f"{scenario_id} lost its frozen effect evidence; "
+        "the successful_full_loop dimension cannot close without it"
+    )
+    return scenario, overlay, evidence
+
+
+def _sre_full_loop_inputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Return the frozen scenario, its overlay, and the frozen effect evidence."""
+
+    return _full_loop_inputs(_FULL_LOOP_SCENARIO_ID)
+
+
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario_id",
+    list(_A3E_SCENARIO_IDS.values()),
+    ids=list(_A3E_SCENARIO_IDS.keys()),
+)
 async def test_sre_unknown_terminates_before_a3e_authority_is_applicable(
+    scenario_id: str,
     shipped_catalog: CostGovernanceCatalogComposition,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Prove A3-E is inapplicable because the SRE unknown produces no Action."""
+    """Prove A3-E is inapplicable because the unknown-signal finding produces no Action."""
 
-    scenario_id = "sre.slo-signal-source-unmapped.002"
     scenario = json.loads(
         (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
     )
@@ -489,7 +550,13 @@ class _FailOncePublisher(RemediationPrPublisher):
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario_id",
+    list(_FULL_LOOP_SCENARIO_IDS.values()),
+    ids=list(_FULL_LOOP_SCENARIO_IDS.keys()),
+)
 async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry(
+    scenario_id: str,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """SRE `partial_failure_recovery` evidence for `sre.cluster-diagnostics-missing.001`.
@@ -502,7 +569,6 @@ async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retr
     dedupe hit would return the unknown result and publish nothing.
     """
 
-    scenario_id = "sre.cluster-diagnostics-missing.001"
     scenario = json.loads(
         (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
     )
@@ -572,26 +638,6 @@ def _unwrap_audit(record: Any) -> dict[str, Any]:
 # Nothing here widens execution authority: the event stays `shadow`, every
 # execution result and published PR stays `shadow`, and no approval or
 # risk-gate path is bypassed.
-
-_FULL_LOOP_SCENARIO_ID = "sre.cluster-diagnostics-missing.001"
-
-
-def _sre_full_loop_inputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Return the frozen scenario, its overlay, and the frozen effect evidence."""
-
-    scenario = json.loads(
-        (SCENARIO_DIR / _scenario_id_to_filename(_FULL_LOOP_SCENARIO_ID)).read_text(
-            encoding="utf-8"
-        )
-    )
-    overlay = _load_enrichment(_FULL_LOOP_SCENARIO_ID)
-    assert overlay is not None, f"{_FULL_LOOP_SCENARIO_ID} lost its enrichment overlay"
-    evidence = overlay.get("effect_evidence")
-    assert isinstance(evidence, dict), (
-        f"{_FULL_LOOP_SCENARIO_ID} lost its frozen effect evidence; "
-        "the successful_full_loop dimension cannot close without it"
-    )
-    return scenario, overlay, evidence
 
 
 def _negative_effect_case(evidence: Mapping[str, Any], kind: str) -> dict[str, Any]:
@@ -736,12 +782,18 @@ def _assert_shadow_boundary_preserved(
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario_id",
+    list(_FULL_LOOP_SCENARIO_IDS.values()),
+    ids=list(_FULL_LOOP_SCENARIO_IDS.keys()),
+)
 async def test_sre_successful_full_loop_closes_only_on_independent_effect_observation(
+    scenario_id: str,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """SRE `successful_full_loop` evidence for `sre.cluster-diagnostics-missing.001`."""
 
-    scenario, overlay, evidence = _sre_full_loop_inputs()
+    scenario, overlay, evidence = _full_loop_inputs(scenario_id)
     source = _IndependentEffectEvidence(evidence, evidence["authoritative_observation"])
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
@@ -825,13 +877,19 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
 @pytest.mark.parametrize(
     "kind", ["missing", "stale", "incomplete", "conflicting", "not_yet_recorded"]
 )
+@pytest.mark.parametrize(
+    "scenario_id",
+    list(_FULL_LOOP_SCENARIO_IDS.values()),
+    ids=list(_FULL_LOOP_SCENARIO_IDS.keys()),
+)
 async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
+    scenario_id: str,
     kind: str,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Deficient effect evidence MUST end unknown instead of reporting success."""
 
-    scenario, overlay, evidence = _sre_full_loop_inputs()
+    scenario, overlay, evidence = _full_loop_inputs(scenario_id)
     case = _negative_effect_case(evidence, kind)
     source = _IndependentEffectEvidence(evidence, case["observation"])
     publisher = RecordingRemediationPrPublisher()
@@ -886,12 +944,18 @@ async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario_id",
+    list(_FULL_LOOP_SCENARIO_IDS.values()),
+    ids=list(_FULL_LOOP_SCENARIO_IDS.keys()),
+)
 async def test_sre_full_loop_dispatch_without_observation_is_never_success(
+    scenario_id: str,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Unbind the observation seam: a published shadow PR alone closes nothing."""
 
-    scenario, overlay, _ = _sre_full_loop_inputs()
+    scenario, overlay, _ = _full_loop_inputs(scenario_id)
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
     loop, _, _, _ = _make_loop(
@@ -950,8 +1014,8 @@ async def test_sre_full_loop_dispatch_without_observation_is_never_success(
 # subscription. No second arbiter and no new authority is introduced here.
 
 
-def _load_conflict_spec() -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads(CONFLICT_SPEC_PATH.read_text(encoding="utf-8")))
+def _load_conflict_spec(spec_path: Path = CONFLICT_SPEC_PATH) -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(spec_path.read_text(encoding="utf-8")))
 
 
 def _canonical_digest(payload: object) -> str:
@@ -1509,12 +1573,17 @@ def _objective_records(spec: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def test_cross_objective_conflict_spec_is_schema_valid() -> None:
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
+def test_cross_objective_conflict_spec_is_schema_valid(spec_path: Path) -> None:
     """The frozen conflict spec MUST stay valid and self-consistent."""
 
     schema = cast(dict[str, Any], json.loads(CONFLICT_SCHEMA_PATH.read_text(encoding="utf-8")))
     Draft202012Validator.check_schema(schema)
-    spec = _load_conflict_spec()
+    spec = _load_conflict_spec(spec_path)
     Draft202012Validator(schema).validate(spec)
 
     manifest = json.loads(
@@ -1611,7 +1680,13 @@ def test_cross_objective_conflict_spec_is_schema_valid() -> None:
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
 async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
+    spec_path: Path,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """SRE `cross_objective_conflict` evidence for the frozen v2026.07 pack.
@@ -1625,7 +1700,7 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
     close in an audited terminal verdict.
     """
 
-    spec = _load_conflict_spec()
+    spec = _load_conflict_spec(spec_path)
     expected = spec["expected"]
     replay = await _replay_conflict(shipped_catalog, spec)
     bus = replay.bus
@@ -1802,7 +1877,13 @@ def _assert_decision_case(case: Any, spec: dict[str, Any]) -> None:
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
 async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_authority(
+    spec_path: Path,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Missing arbitration authority MUST close through the governed HIL path.
@@ -1819,7 +1900,7 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
     conflict is the only call made.
     """
 
-    spec = _load_conflict_spec()
+    spec = _load_conflict_spec(spec_path)
     expected = spec["expected"]["without_arbitration_owner"]
     replay = await _replay_conflict(shipped_catalog, spec, with_arbitration_owner=False)
     bus = replay.bus
@@ -1880,7 +1961,13 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
 async def test_sre_cross_objective_agreement_raises_no_arbitration(
+    spec_path: Path,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Negative control: agreeing objective effects MUST NOT be arbitrated.
@@ -1893,7 +1980,7 @@ async def test_sre_cross_objective_agreement_raises_no_arbitration(
     so nothing crosses the boundary and no verdict is fabricated.
     """
 
-    spec = _load_conflict_spec()
+    spec = _load_conflict_spec(spec_path)
     replay = await _replay_conflict(shipped_catalog, spec)
     event = dict(replay.event)
     evidence = [dict(item) for item in event["domain_evidence"]]
@@ -1915,7 +2002,13 @@ async def test_sre_cross_objective_agreement_raises_no_arbitration(
 
 @requires_opa
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
 async def test_sre_cross_objective_conflict_replays_to_stable_digests(
+    spec_path: Path,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Deterministic replay MUST reproduce the frozen decision and evidence digests.
@@ -1926,7 +2019,7 @@ async def test_sre_cross_objective_conflict_replays_to_stable_digests(
     digest that only matches itself would prove repetition, not a freeze.
     """
 
-    spec = _load_conflict_spec()
+    spec = _load_conflict_spec(spec_path)
     digests: list[tuple[str, str]] = []
     for _ in range(2):
         replay = await _replay_conflict(shipped_catalog, spec)
