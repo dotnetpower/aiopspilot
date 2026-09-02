@@ -475,7 +475,16 @@ async def test_sre_unknown_terminates_before_a3e_authority_is_applicable(
     shipped_catalog: CostGovernanceCatalogComposition,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Prove A3-E is inapplicable because the unknown-signal finding produces no Action."""
+    """Prove A3-E is inapplicable because the unknown-signal finding produces no Action.
+
+    Also proves the frozen scenario's ``expected.tier`` matches the tier the
+    real replay actually reaches. A fully unmapped resource type never
+    yields a T0 candidate rule, so :class:`TrustRouter` routes it to ``t1``
+    (not ``abstain``, and never ``t2``: ``_consult_t2`` only reasons over
+    rules the router already matched to the resource type). Asserting the
+    tier here keeps the frozen expectation honest instead of an
+    unverified label the harness happens to never check.
+    """
 
     scenario = json.loads(
         (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
@@ -516,6 +525,10 @@ async def test_sre_unknown_terminates_before_a3e_authority_is_applicable(
 
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
     assert result.decision == "abstain"
+    assert result.tier == scenario["expected"]["tier"], (
+        f"scenario {scenario_id}: frozen expected.tier={scenario['expected']['tier']!r} "
+        f"disagrees with the actual replayed tier={result.tier!r}"
+    )
     assert result.citing_rule_ids == ()
     assert result.execution_results == ()
     assert action_builds == []

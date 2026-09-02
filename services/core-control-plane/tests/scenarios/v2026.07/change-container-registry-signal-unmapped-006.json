@@ -19,7 +19,7 @@
     "mode": "shadow"
   },
   "expected": {
-    "tier": "t2",
+    "tier": "t1",
     "decision": "abstain",
     "citing_rule_ids": [],
     "guard": {
