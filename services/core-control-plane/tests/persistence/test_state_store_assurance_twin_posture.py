@@ -8,10 +8,11 @@ silently keeping one truth in the ledger and publishing another?
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, TypedDict
 
 import pytest
 from fdai.core.assurance_twin import build_posture_assessment_report
+from fdai.core.assurance_twin.report import PostureAssessmentReport
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     CONFLICT_MARKER_FIELD,
     REVIEW_CONFLICT_REASON_CODE,
@@ -26,7 +27,15 @@ from fdai.shared.providers.projection import Finding, ResourceRef
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _SCOPE = "sub/00000000-0000-0000-0000-000000000001"
-_PROVENANCE = {
+
+
+class _Provenance(TypedDict):
+    activity_id: str
+    correlation_id: str
+    evidence_source_revision: str
+
+
+_PROVENANCE: _Provenance = {
     "activity_id": "assurance-twin.change-review:k-1:completed",
     "correlation_id": "correlation-1",
     "evidence_source_revision": "sha256:feedface",
@@ -52,7 +61,7 @@ def _findings_batch(count: int) -> tuple[Finding, ...]:
     return tuple(_finding(rule=f"r-{i}", ref=f"vm-{i}") for i in range(count))
 
 
-def _report(*findings: Finding) -> object:
+def _report(*findings: Finding) -> PostureAssessmentReport:
     return build_posture_assessment_report(
         scope=_SCOPE,
         generated_at="2026-07-07T00:00:00Z",
@@ -290,7 +299,7 @@ async def test_provenance_identity_is_required() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
-    with pytest.raises(ValueError, match="activity and correlation identity"):
+    with pytest.raises(ValueError, match="activity_id MUST be non-blank"):
         await ledger.record_posture_report(
             _report(),
             freshness="fresh",
@@ -298,7 +307,7 @@ async def test_provenance_identity_is_required() -> None:
             correlation_id="correlation-1",
             evidence_source_revision="sha256:feedface",
         )
-    with pytest.raises(ValueError, match="evidence source revision"):
+    with pytest.raises(ValueError, match="evidence_source_revision MUST be non-blank"):
         await ledger.record_posture_report(
             _report(),
             freshness="fresh",
@@ -554,6 +563,40 @@ async def test_evidence_source_revision_at_the_char_bound_is_accepted_and_over_b
         )
 
 
+@pytest.mark.parametrize("field", ["activity_id", "correlation_id"])
+async def test_provenance_identity_at_the_char_bound_is_accepted_and_over_bound_rejected(
+    field: str,
+) -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    accepted_activity_id = "x" * 512 if field == "activity_id" else _PROVENANCE["activity_id"]
+    accepted_correlation_id = (
+        "x" * 512 if field == "correlation_id" else _PROVENANCE["correlation_id"]
+    )
+
+    write = await ledger.record_posture_report(
+        _report(),
+        freshness="fresh",
+        activity_id=accepted_activity_id,
+        correlation_id=accepted_correlation_id,
+        evidence_source_revision=_PROVENANCE["evidence_source_revision"],
+    )
+    assert write.created is True
+
+    rejected_activity_id = "x" * 513 if field == "activity_id" else _PROVENANCE["activity_id"]
+    rejected_correlation_id = (
+        "x" * 513 if field == "correlation_id" else _PROVENANCE["correlation_id"]
+    )
+    with pytest.raises(ValueError, match=rf"{field} MUST be <= 512 characters"):
+        await ledger.record_posture_report(
+            _report(),
+            freshness="fresh",
+            activity_id=rejected_activity_id,
+            correlation_id=rejected_correlation_id,
+            evidence_source_revision=_PROVENANCE["evidence_source_revision"],
+        )
+
+
 class _StalledCasStateStore:
     """Wrap ``InMemoryStateStore`` to force two CAS attempts to race.
 
@@ -607,7 +650,7 @@ async def test_concurrent_conflicting_redeliveries_tombstone_exactly_once() -> N
 
     inner = InMemoryStateStore()
     store = _StalledCasStateStore(inner)
-    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
     baseline = await ledger.record_change_review(
         _review("k-1", _finding()),
@@ -670,7 +713,7 @@ async def test_concurrent_duplicate_conflict_after_tombstone_never_publishes_ava
 
     inner = InMemoryStateStore()
     store = _StalledCasStateStore(inner)
-    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
     baseline = await ledger.record_change_review(
         _review("k-1", _finding()),
@@ -727,7 +770,7 @@ async def test_concurrent_matching_replay_never_publishes_completed_after_a_tomb
 
     inner = InMemoryStateStore()
     store = _StalledCasStateStore(inner)
-    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
     baseline = await ledger.record_change_review(
         _review("k-1", _finding()),
@@ -783,6 +826,8 @@ async def test_concurrent_matching_replay_never_publishes_completed_after_a_tomb
     assert marker["reason_code"] == REVIEW_CONFLICT_REASON_CODE
     assert marker["stored_evidence_digest"] == baseline.evidence_digest
 
+
+async def test_concurrent_new_key_writes_preserve_first_writer_and_mark_conflict() -> None:
     """Two brand-new-key writes racing ``write_state_if_absent`` itself.
 
     The first-writer-wins path was already atomic via the underlying

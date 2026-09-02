@@ -55,7 +55,8 @@ Design invariants
   ``fdai.delivery.assurance_twin_posture`` no longer publishes a change-
   review activity tip at all - see that module's docstring.
 - **Bounded by identity and by size**: ``review_key`` is rejected above
-  256 characters, ``findings`` above 200 entries, ``reason_codes`` and any
+  256 characters, provenance identities above 512 characters, ``findings``
+  above 200 entries, ``reason_codes`` and any
   finding's ``evidence_refs`` above 200 entries or containing a blank,
   over-512-character, or duplicate entry, and ``evidence_source_revision``
   when blank or over 512 characters - all at write time, before any
@@ -601,15 +602,9 @@ def _with_provenance(
     digest: str,
     evidence_source_revision: str,
 ) -> dict[str, Any]:
-    if not activity_id.strip() or not correlation_id.strip():
-        raise ValueError("assurance twin provenance MUST carry activity and correlation identity")
-    if not evidence_source_revision.strip():
-        raise ValueError("assurance twin provenance MUST carry an evidence source revision")
-    if len(evidence_source_revision) > _MAX_EVIDENCE_SOURCE_REVISION_CHARS:
-        raise ValueError(
-            "assurance twin evidence_source_revision MUST be "
-            f"<= {_MAX_EVIDENCE_SOURCE_REVISION_CHARS} characters"
-        )
+    _check_provenance_identity("activity_id", activity_id)
+    _check_provenance_identity("correlation_id", correlation_id)
+    _check_provenance_identity("evidence_source_revision", evidence_source_revision)
     return {
         **body,
         "activity_id": activity_id,
@@ -617,6 +612,15 @@ def _with_provenance(
         "evidence_digest": digest,
         "evidence_source_revision": evidence_source_revision,
     }
+
+
+def _check_provenance_identity(name: str, value: str) -> None:
+    if not value.strip():
+        raise ValueError(f"assurance twin {name} MUST be non-blank")
+    if len(value) > _MAX_EVIDENCE_SOURCE_REVISION_CHARS:
+        raise ValueError(
+            f"assurance twin {name} MUST be <= {_MAX_EVIDENCE_SOURCE_REVISION_CHARS} characters"
+        )
 
 
 def _change_review_body(

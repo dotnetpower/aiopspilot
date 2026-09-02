@@ -772,7 +772,8 @@ class RuntimeProjectionReader:
 
     async def _assurance_twin_reviews(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
+            "SELECT value FROM state_kv WHERE key LIKE %s "
+            "ORDER BY value ->> 'generated_at' DESC NULLS LAST, key ASC LIMIT 201",
             (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}%",),
         )
         return assurance_twin_review_list_projection(rows)
