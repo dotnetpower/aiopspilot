@@ -261,7 +261,7 @@ def test_review_detail_projection_is_unavailable_for_a_tombstoned_row() -> None:
         "stored_evidence_digest": _digest(_REVIEW_BODY),
         "rejected_evidence_digest": _digest({**_REVIEW_BODY, "verdict": "blocked"}),
     }
-    detail = assurance_twin_review_detail_projection(row)
+    detail = assurance_twin_review_detail_projection(row, requested_review_key="Review_Key-1")
     assert detail is not None
     assert detail["available"] is False
     assert detail["review"] is None
@@ -320,11 +320,13 @@ def test_review_list_projection_never_coerces_malformed_findings_to_zero() -> No
 
 
 def test_review_detail_projection_is_none_when_row_is_absent() -> None:
-    assert assurance_twin_review_detail_projection(None) is None
+    assert assurance_twin_review_detail_projection(None, requested_review_key="k-1") is None
 
 
 def test_review_detail_projection_includes_finding_evidence() -> None:
-    detail = assurance_twin_review_detail_projection(_row(_REVIEW_BODY))
+    detail = assurance_twin_review_detail_projection(
+        _row(_REVIEW_BODY), requested_review_key="Review_Key-1"
+    )
     assert detail is not None
     assert detail["available"] is True
     review = detail["review"]
@@ -337,7 +339,9 @@ def test_review_detail_projection_includes_finding_evidence() -> None:
 
 def test_review_detail_projection_is_explicitly_unavailable_for_malformed_findings() -> None:
     malformed = {**_REVIEW_BODY, "findings": "not-a-list"}
-    detail = assurance_twin_review_detail_projection(_row(malformed))
+    detail = assurance_twin_review_detail_projection(
+        _row(malformed), requested_review_key="Review_Key-1"
+    )
     assert detail is not None
     assert detail["available"] is False
     assert detail["review"] is None
@@ -348,7 +352,9 @@ def test_review_detail_projection_is_explicitly_unavailable_for_malformed_findin
 
 def test_review_detail_projection_is_explicitly_unavailable_when_not_fresh() -> None:
     stale = {**_REVIEW_BODY, "freshness": "unavailable", "reason_codes": ["provider_error"]}
-    detail = assurance_twin_review_detail_projection(_row(stale))
+    detail = assurance_twin_review_detail_projection(
+        _row(stale), requested_review_key="Review_Key-1"
+    )
     assert detail is not None
     assert detail["available"] is False
     gap = detail["gap"]
@@ -360,7 +366,7 @@ def test_review_detail_projection_is_explicitly_unavailable_when_not_fresh() -> 
 def test_review_detail_projection_rejects_a_tampered_body() -> None:
     tampered = _row(_REVIEW_BODY)
     tampered["value"]["verdict"] = "clear"
-    detail = assurance_twin_review_detail_projection(tampered)
+    detail = assurance_twin_review_detail_projection(tampered, requested_review_key="Review_Key-1")
     assert detail is not None
     assert detail["available"] is False
     gap = detail["gap"]
@@ -387,3 +393,137 @@ def test_review_list_projection_reports_a_truncation_gap_too() -> None:
     gaps = projection["gaps"]
     assert isinstance(gaps, list)
     assert gaps[0]["reason_code"] == GAP_TRUNCATED
+
+
+def test_posture_projection_rejects_whitespace_only_provenance_fields() -> None:
+    # A falsy-only check (``not value``) would let a whitespace-only string
+    # through; each provenance field MUST be rejected as malformed instead.
+    for field in ("activity_id", "correlation_id", "evidence_source_revision"):
+        row = _row(_POSTURE_BODY)
+        row["value"][field] = "   "
+        projection = assurance_twin_posture_projection((row,))
+        assert projection["available"] is False, field
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_MALFORMED, field
+
+
+def test_posture_projection_rejects_an_empty_evidence_digest() -> None:
+    row = _row(_POSTURE_BODY)
+    row["value"]["evidence_digest"] = ""
+    projection = assurance_twin_posture_projection((row,))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_rejects_an_oversized_provenance_field() -> None:
+    row = _row(_POSTURE_BODY)
+    row["value"]["correlation_id"] = "c" * 513
+    projection = assurance_twin_posture_projection((row,))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_never_trims_a_valid_provenance_field() -> None:
+    # A leading/trailing space inside an otherwise valid value is part of
+    # its identity - it MUST pass through unmodified, not be silently
+    # trimmed before being replayed to a caller.
+    row = _row(_POSTURE_BODY)
+    row["value"]["correlation_id"] = " correlation-1 "
+    row["value"]["evidence_digest"] = _digest(_POSTURE_BODY)
+    projection = assurance_twin_posture_projection((row,))
+    assert projection["available"] is True
+    reports = projection["reports"]
+    assert isinstance(reports, list)
+    assert reports[0]["correlation_id"] == " correlation-1 "
+
+
+def test_posture_projection_rejects_malformed_reason_codes_while_otherwise_valid() -> None:
+    cases: list[object] = [
+        "not-a-list",
+        ["ok", ""],
+        ["ok", "   "],
+        ["dup", "dup"],
+        [1, 2],
+        ["x" * 513],
+        [f"code-{index}" for index in range(201)],
+    ]
+    for reason_codes in cases:
+        projection = assurance_twin_posture_projection(
+            (_row({**_POSTURE_BODY, "reason_codes": reason_codes}),)
+        )
+        assert projection["available"] is False, reason_codes
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_MALFORMED, reason_codes
+
+
+def test_posture_projection_renders_valid_distinct_reason_codes_verbatim() -> None:
+    projection = assurance_twin_posture_projection(
+        (_row({**_POSTURE_BODY, "reason_codes": ["a", "b"]}),)
+    )
+    assert projection["available"] is True
+    reports = projection["reports"]
+    assert isinstance(reports, list)
+    assert reports[0]["reason_codes"] == ["a", "b"]
+
+
+def test_review_projection_rejects_malformed_evidence_refs_while_otherwise_valid() -> None:
+    cases: list[object] = [
+        "not-a-list",
+        ["ref-a", ""],
+        ["ref-a", "ref-a"],
+        [None],
+    ]
+    for evidence_refs in cases:
+        malformed_findings = [{**_REVIEW_BODY["findings"][0], "evidence_refs": evidence_refs}]
+        projection = assurance_twin_review_list_projection(
+            (_row({**_REVIEW_BODY, "findings": malformed_findings}),)
+        )
+        assert projection["available"] is False, evidence_refs
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_MALFORMED, evidence_refs
+
+
+def test_review_detail_projection_binds_the_requested_key_to_the_stored_body() -> None:
+    slashed_review_key = "Owner/Repo#7:Change/With Slash"
+    body = {**_REVIEW_BODY, "review_key": slashed_review_key}
+    detail = assurance_twin_review_detail_projection(
+        _row(body), requested_review_key=slashed_review_key
+    )
+    assert detail is not None
+    assert detail["available"] is True
+    review = detail["review"]
+    assert isinstance(review, dict)
+    assert review["review_key"] == slashed_review_key
+
+
+def test_review_detail_projection_rejects_a_case_mismatched_key() -> None:
+    detail = assurance_twin_review_detail_projection(
+        _row(_REVIEW_BODY), requested_review_key="review_key-1"
+    )
+    assert detail is not None
+    assert detail["available"] is False
+    assert detail["review"] is None
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_MALFORMED
+    # No fragment of the mismatched row's own identity leaks into the gap.
+    assert gap["identity"] is None
+
+
+def test_review_detail_projection_rejects_a_slash_variant_of_the_stored_key() -> None:
+    body = {**_REVIEW_BODY, "review_key": "owner/repo#1"}
+    detail = assurance_twin_review_detail_projection(
+        _row(body), requested_review_key="owner/repo/1"
+    )
+    assert detail is not None
+    assert detail["available"] is False
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_MALFORMED

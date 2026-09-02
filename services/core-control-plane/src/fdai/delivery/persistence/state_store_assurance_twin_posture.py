@@ -29,6 +29,17 @@ Design invariants
   a ``review_key`` has conflicted, it stays conflicted until an operator
   removes the row, and a subsequent redelivery of either body cannot clear
   it.
+- **Atomic tombstoning**: the read-compare-tombstone sequence a same-key
+  redelivery runs is not a single ``StateStore`` call, so it uses the row's
+  own ``revision`` counter with ``compare_and_set_state_with_audit`` (the
+  same optimistic-concurrency primitive
+  ``fdai/delivery/evidence_conflict.py`` and
+  ``fdai/delivery/persistence/state_store_case_history.py`` already use)
+  rather than a bare ``write_state``. A concurrent duplicate racing the
+  tombstone write either loses the compare-and-set and re-reads the now-
+  tombstoned row, or wins it and tombstones the row itself; either way every
+  concurrent caller observes the conflict and none can publish a
+  completed/available result for a row another caller just tombstoned.
 - **Replayable provenance**: every row carries the bounded activity and
   correlation identity of the record call plus the SHA-256 digest of the
   exact evidence body, so an Operator API reader can verify that a
@@ -58,11 +69,30 @@ REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
 CONFLICT_MARKER_FIELD = "conflict"
 """Row field that makes a same-key different-digest conflict durable."""
 
+_REVISION_FIELD = "revision"
+"""Optimistic-concurrency counter for ``compare_and_set_state_with_audit``.
+
+Write history, like the conflict marker: excluded from the evidence digest
+so it never changes evidence identity, and bumped only by the atomic
+tombstone write so a racing duplicate's compare-and-set is checked against
+the exact row it read.
+"""
+
+_MAX_CONFLICT_CAS_ATTEMPTS = 8
+"""Bound on retrying a lost compare-and-set before failing loudly.
+
+Each retry only happens when a concurrent writer just advanced the row
+(either tombstoning it, or - impossible once created - replacing its
+body), so the loop terminates within one extra attempt per concurrent
+racer; the cap exists purely so a StateStore bug cannot spin forever.
+"""
+
 #: Provenance fields describe *this* write, not the twin's evidence body, so
 #: they are excluded before the body digest is computed. A redelivery that
 #: differs only in correlation identity therefore still compares equal. The
-#: conflict marker is write history too: excluding it keeps the preserved
-#: evidence body's digest verifiable after the row is tombstoned.
+#: conflict marker and revision counter are write history too: excluding
+#: them keeps the preserved evidence body's digest verifiable after the row
+#: is tombstoned or its revision is bumped.
 _PROVENANCE_FIELDS = frozenset(
     {
         "activity_id",
@@ -70,6 +100,7 @@ _PROVENANCE_FIELDS = frozenset(
         "evidence_digest",
         "evidence_source_revision",
         CONFLICT_MARKER_FIELD,
+        _REVISION_FIELD,
     }
 )
 
@@ -181,6 +212,15 @@ class StateStoreAssuranceTwinPostureLedger:
         evidence body is preserved, a durable conflict marker is written
         onto the row, and every later read renders it unavailable, so the
         ledger never holds one truth while the bus announces another.
+
+        The redeliver-then-tombstone sequence is not one atomic
+        ``StateStore`` call, so a same-key redelivery racing a concurrent
+        duplicate (or the tombstone write it just triggered) is resolved
+        with ``compare_and_set_state_with_audit`` against the row's own
+        ``revision`` counter rather than a bare ``write_state``: a losing
+        caller re-reads the row a concurrent write just advanced and never
+        overwrites it, so a duplicate arriving after a tombstone lands can
+        never publish that identity as completed/available.
         """
 
         key = change_review_state_key(review.review_key)
@@ -188,36 +228,103 @@ class StateStoreAssuranceTwinPostureLedger:
         digest = evidence_body_digest(body)
         created = await self._store.write_state_if_absent(
             key,
-            _with_provenance(
-                body,
-                activity_id=activity_id,
-                correlation_id=correlation_id,
-                digest=digest,
-                evidence_source_revision=evidence_source_revision,
-            ),
+            {
+                **_with_provenance(
+                    body,
+                    activity_id=activity_id,
+                    correlation_id=correlation_id,
+                    digest=digest,
+                    evidence_source_revision=evidence_source_revision,
+                ),
+                _REVISION_FIELD: 1,
+            },
         )
         if created:
             return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
         existing = await self._store.read_state(key)
-        stored_digest = _stored_digest(existing)
-        already_conflicted = _has_conflict_marker(existing)
-        if stored_digest == digest and not already_conflicted:
-            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
-        if existing is not None and not already_conflicted:
-            await self._store.write_state(
-                key,
-                _with_conflict_marker(
-                    existing,
-                    stored_evidence_digest=stored_digest,
-                    rejected_evidence_digest=digest,
-                ),
-            )
-        return AssuranceTwinLedgerWrite(
+        if existing is None:
+            raise RuntimeError("assurance twin review row disappeared after losing its create race")
+        return await self._resolve_conflict(
             key=key,
-            created=False,
-            evidence_digest=digest,
-            conflict=True,
-            stored_evidence_digest=stored_digest,
+            digest=digest,
+            existing=existing,
+            correlation_id=correlation_id,
+            attempts_remaining=_MAX_CONFLICT_CAS_ATTEMPTS,
+        )
+
+    async def _resolve_conflict(
+        self,
+        *,
+        key: str,
+        digest: str,
+        existing: Mapping[str, Any],
+        correlation_id: str,
+        attempts_remaining: int,
+    ) -> AssuranceTwinLedgerWrite:
+        """Reconcile a same-key redelivery against ``existing`` atomically.
+
+        Only one path ever mutates a row after creation: the atomic
+        tombstone write below. So a lost compare-and-set means a concurrent
+        caller just tombstoned the row (or is about to be observed as
+        having done so); re-reading and recursing here always terminates in
+        the branch that returns ``conflict=True`` without writing again.
+        """
+
+        stored_digest = _stored_digest(existing)
+        if _has_conflict_marker(existing):
+            return AssuranceTwinLedgerWrite(
+                key=key,
+                created=False,
+                evidence_digest=digest,
+                conflict=True,
+                stored_evidence_digest=stored_digest,
+            )
+        if stored_digest == digest:
+            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
+        if attempts_remaining <= 0:
+            raise RuntimeError(
+                "assurance twin review conflict compare-and-set exceeded its retry bound"
+            )
+        current_revision = _stored_revision(existing)
+        tombstoned = {
+            **_with_conflict_marker(
+                existing,
+                stored_evidence_digest=stored_digest,
+                rejected_evidence_digest=digest,
+            ),
+            _REVISION_FIELD: current_revision + 1,
+        }
+        advanced = await self._store.compare_and_set_state_with_audit(
+            key,
+            tombstoned,
+            expected_revision=current_revision,
+            audit_entry={
+                "action_kind": "assurance_twin.review_conflict_marked",
+                "actor": "fdai.system",
+                "mode": "shadow",
+                "correlation_id": correlation_id,
+                "idempotency_key": f"assurance-twin-review-conflict:{key}:{digest}",
+            },
+        )
+        if advanced:
+            return AssuranceTwinLedgerWrite(
+                key=key,
+                created=False,
+                evidence_digest=digest,
+                conflict=True,
+                stored_evidence_digest=stored_digest,
+            )
+        replay = await self._store.read_state(key)
+        if replay is None:
+            raise RuntimeError(
+                "assurance twin review row disappeared during a conflict compare-and-set race"
+            )
+        return await self._resolve_conflict(
+            key=key,
+            digest=digest,
+            existing=replay,
+            correlation_id=correlation_id,
+            attempts_remaining=attempts_remaining - 1,
         )
 
     async def read_latest_posture_report(self, scope: str) -> Mapping[str, Any] | None:
@@ -301,6 +408,21 @@ def _stored_digest(existing: Mapping[str, Any] | None) -> str | None:
     if isinstance(recorded, str) and recorded:
         return recorded
     return evidence_body_digest(existing)
+
+
+def _stored_revision(existing: Mapping[str, Any]) -> int:
+    """Return the durable row's CAS revision, defaulting a legacy row to ``0``.
+
+    Mirrors the Postgres adapter's own
+    ``COALESCE(value ->> 'revision', '0')`` fallback, so a row written
+    before this counter existed compares equal against the same expected
+    revision the real backend would accept.
+    """
+
+    revision = existing.get(_REVISION_FIELD)
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        return 0
+    return revision
 
 
 def _has_conflict_marker(existing: Mapping[str, Any] | None) -> bool:

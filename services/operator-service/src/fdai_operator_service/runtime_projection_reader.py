@@ -788,7 +788,14 @@ class RuntimeProjectionReader:
             "SELECT value FROM state_kv WHERE key = %s",
             (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}{review_id}",),
         )
-        detail = assurance_twin_review_detail_projection(rows[0] if rows else None)
+        # Bind the durable key just fetched to the body's own claimed
+        # identity: a row whose stored ``review_key`` disagrees with the
+        # exact key just queried is never rendered as this identity's
+        # evidence.
+        detail = assurance_twin_review_detail_projection(
+            rows[0] if rows else None,
+            requested_review_key=review_id,
+        )
         if detail is None:
             raise ProjectionNotFoundError(review_id)
         return detail

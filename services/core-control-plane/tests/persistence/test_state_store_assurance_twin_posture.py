@@ -7,6 +7,9 @@ silently keeping one truth in the ledger and publishing another?
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 import pytest
 from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
@@ -301,3 +304,187 @@ async def test_read_recent_change_reviews_bounds_limit() -> None:
 
     with pytest.raises(ValueError, match=r"limit MUST be in \[1, 1000\]"):
         await ledger.read_recent_change_reviews(limit=0)
+
+
+class _StalledCasStateStore:
+    """Wrap ``InMemoryStateStore`` to force two CAS attempts to race.
+
+    Nothing in this in-memory store ever suspends mid-call, so two
+    concurrently scheduled coroutines never actually interleave unless a
+    call explicitly yields. This wrapper makes the *first* arrival at
+    ``compare_and_set_state_with_audit`` block until a *second* concurrent
+    caller has also reached the same call, so the deterministic scenario
+    this exercises is: two conflict-resolution attempts computed against
+    the exact same pre-write snapshot, both trying to tombstone the row,
+    with only the underlying compare-and-set - not call order - deciding
+    the single winner.
+    """
+
+    def __init__(self, inner: InMemoryStateStore) -> None:
+        self._inner = inner
+        self._arrivals = 0
+        self._second_arrived: asyncio.Event = asyncio.Event()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Any,
+        *,
+        expected_revision: int,
+        audit_entry: Any,
+    ) -> bool:
+        self._arrivals += 1
+        if self._arrivals == 1:
+            await self._second_arrived.wait()
+        else:
+            self._second_arrived.set()
+        return await self._inner.compare_and_set_state_with_audit(
+            key, value, expected_revision=expected_revision, audit_entry=audit_entry
+        )
+
+
+async def test_concurrent_conflicting_redeliveries_tombstone_exactly_once() -> None:
+    """Two different-body redeliveries racing the same tombstone write.
+
+    Both read the identical pre-conflict row, so without a CAS both would
+    independently decide to overwrite it with a plain ``write_state`` - a
+    lost-update race where the loser's overwrite can silently discard the
+    winner's tombstone. With the atomic compare-and-set, exactly one
+    concurrent attempt lands; the other loses, re-reads the now-tombstoned
+    row, and reports the conflict it observes instead of clobbering it.
+    """
+
+    inner = InMemoryStateStore()
+    store = _StalledCasStateStore(inner)
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+
+    baseline = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    assert baseline.created is True
+
+    results = await asyncio.gather(
+        ledger.record_change_review(
+            _review("k-1", _finding(rule="r-conflict-a"), verdict="blocked"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_change_review(
+            _review("k-1", _finding(rule="r-conflict-b"), verdict="blocked"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    # Neither concurrent conflicting redelivery is ever allowed to publish a
+    # completed/available result once its identity is contested.
+    assert all(result.conflict is True for result in results)
+    assert all(result.created is False for result in results)
+    assert all(result.stored_evidence_digest == baseline.evidence_digest for result in results)
+
+    # Exactly one durable mutation lands: the compare-and-set audit trail
+    # proves the loser re-read instead of racing a second overwrite.
+    conflict_audits = [
+        entry
+        for entry in inner.audit_entries
+        if entry["entry"].get("action_kind") == "assurance_twin.review_conflict_marked"
+    ]
+    assert len(conflict_audits) == 1
+
+    rows = await ledger.read_recent_change_reviews(limit=10)
+    assert len(rows) == 1
+    assert rows[0]["verdict"] == "needs_review"
+    assert rows[0]["findings"][0]["rule_id"] == "r-1"
+    marker = rows[0][CONFLICT_MARKER_FIELD]
+    assert marker["reason_code"] == REVIEW_CONFLICT_REASON_CODE
+    assert marker["stored_evidence_digest"] == baseline.evidence_digest
+    # The winning rejected digest is one of the two racers, never a third
+    # value and never the baseline's own digest.
+    assert marker["rejected_evidence_digest"] in {result.evidence_digest for result in results}
+
+
+async def test_concurrent_duplicate_conflict_after_tombstone_never_publishes_available() -> None:
+    """A duplicate racing the very write that first tombstones its identity.
+
+    Simulates the exact regression this hardens: a redelivery of the
+    *same* conflicting body arrives twice, concurrently. Under the old
+    read-then-``write_state`` sequence, both racers could observe the
+    pre-conflict row and one's plain overwrite could silently replace the
+    other's tombstone. With the CAS, only one lands; the loser's retry
+    observes the marker its sibling wrote and reports conflict, never a
+    completed/available outcome for either racer.
+    """
+
+    inner = InMemoryStateStore()
+    store = _StalledCasStateStore(inner)
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)  # type: ignore[arg-type]
+
+    baseline = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    duplicate_conflicting_review = _review("k-1", _finding(rule="r-2"), verdict="blocked")
+    results = await asyncio.gather(
+        ledger.record_change_review(
+            duplicate_conflicting_review,
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_change_review(
+            duplicate_conflicting_review,
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    assert all(result.conflict is True for result in results)
+    assert {result.evidence_digest for result in results} == {results[0].evidence_digest}
+    assert all(result.stored_evidence_digest == baseline.evidence_digest for result in results)
+
+    conflict_audits = [
+        entry
+        for entry in inner.audit_entries
+        if entry["entry"].get("action_kind") == "assurance_twin.review_conflict_marked"
+    ]
+    assert len(conflict_audits) == 1
+
+
+async def test_concurrent_creation_race_is_won_by_exactly_one_writer() -> None:
+    """Two brand-new-key writes racing ``write_state_if_absent`` itself.
+
+    The first-writer-wins path was already atomic via the underlying
+    ``write_state_if_absent`` primitive; this asserts that guarantee still
+    holds end to end through the ledger when both callers race a key that
+    has never been written. (No CAS stall is needed here: only the loser
+    of ``write_state_if_absent`` ever reaches the compare-and-set path.)
+    """
+
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    results = await asyncio.gather(
+        ledger.record_change_review(
+            _review("k-new", _finding(rule="r-a")),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_change_review(
+            _review("k-new", _finding(rule="r-b"), verdict="blocked"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    created_results = [result for result in results if result.created]
+    assert len(created_results) == 1
+    conflicting = [result for result in results if not result.created]
+    assert len(conflicting) == 1
+    assert conflicting[0].conflict is True
+    assert conflicting[0].stored_evidence_digest == created_results[0].evidence_digest

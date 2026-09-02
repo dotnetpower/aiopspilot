@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai_operator_service.assurance_twin_posture_projection import GAP_MALFORMED
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -685,3 +686,65 @@ async def test_assurance_twin_review_detail_requires_a_bounded_key() -> None:
         await reader.read(
             _query("assurance_twin.review_detail", params={"review_key": ("x" * 257,)})
         )
+
+
+async def test_assurance_twin_review_detail_rejects_a_mismatched_stored_key(
+    monkeypatch: Any,
+) -> None:
+    """A row fetched by one key whose body claims a different key is unavailable.
+
+    Guards against ever rendering another identity's finding evidence under
+    the requested key - the row's own ``review_key`` field MUST bind byte
+    for byte to the exact key just queried, with no case-folding or other
+    normalisation on either side.
+    """
+
+    body = {
+        "pr_ref": "owner/repo#12",
+        "review_key": "Owner/Repo#12:Change_A",
+        "verdict": "needs_review",
+        "mode": "shadow",
+        "generated_at": "2026-07-07T00:00:00Z",
+        "freshness": "fresh",
+        "reason_codes": [],
+        "metadata": {},
+        "findings": [],
+    }
+    material = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    value = {
+        **body,
+        "activity_id": "assurance-twin.change-review:Owner/Repo#12:Change_A:completed",
+        "correlation_id": "correlation-1",
+        "evidence_digest": f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}",
+        "evidence_source_revision": f"sha256:{'1' * 64}",
+    }
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [{"value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    # A case-folded variant of the stored key is a different key entirely.
+    detail = await reader.read(
+        _query(
+            "assurance_twin.review_detail",
+            params={"review_key": ("owner/repo#12:change_a",)},
+        )
+    )
+
+    assert detail["available"] is False
+    assert detail["review"] is None
+    gap = detail["gap"]
+    assert isinstance(gap, dict)
+    assert gap["reason_code"] == GAP_MALFORMED
+    # No fragment of the other identity's finding evidence is exposed.
+    assert gap["identity"] is None
