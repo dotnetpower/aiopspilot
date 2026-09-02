@@ -452,6 +452,18 @@ variable "diagnostic_ingest" {
   default = {}
 }
 
+variable "operating_intent_source" {
+  description = "Optional deployment-owned six-type operating-intent source binding: exact pinned revision, content digest, and provenance for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow."
+  type = object({
+    enabled              = optional(bool, false)
+    path                 = optional(string, "")
+    revision             = optional(string, "")
+    sha256               = optional(string, "")
+    expected_counts_json = optional(string, "")
+  })
+  default = {}
+}
+
 variable "scaling" {
   description = "Replica and resource limits for the Core service."
   type = object({

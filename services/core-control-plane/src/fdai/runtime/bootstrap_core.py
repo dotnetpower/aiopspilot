@@ -96,6 +96,7 @@ from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
+from fdai.runtime.operating_intent_source import project_operating_intent_source_from_env
 from fdai.runtime.operating_model import project_operating_model_from_env
 from fdai.runtime.providers import (
     _build_audit_store,
@@ -517,6 +518,13 @@ async def build_core_runtime(
         environment=environment,
         resource_lock=operating_model_lock,
     )
+    operating_intent_source_result = await project_operating_intent_source_from_env(
+        store=control_loop.ontology_instance_store,
+        object_types=container.ontology_object_types,
+        link_types=container.ontology_link_types,
+        status_store=state_store,
+        env=environment,
+    )
     semantic = await build_semantic_runtime(
         container=container,
         control_loop=control_loop,
@@ -540,6 +548,11 @@ async def build_core_runtime(
             "operating_model_revision": (
                 operating_model_result.source_revision
                 if operating_model_result is not None
+                else None
+            ),
+            "operating_intent_source_revision": (
+                operating_intent_source_result.source_revision
+                if operating_intent_source_result is not None
                 else None
             ),
             "catalog_ontology_objects": (

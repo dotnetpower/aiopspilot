@@ -554,6 +554,24 @@ deletion과 비정상 종료 복구를 위해 이전 및 현재 owned 신원의 
 `FDAI_OPERATING_MODEL_MAX_BYTES` 상한의 기본값은 16 MiB입니다. `GET /ontology/graph`는 변환 결과
 상태, 출처 개정 번호, 집계 개수만 노출하며 배포 인스턴스 속성은 반환하지 않습니다.
 
+`ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`,
+`ChangeWindow`는 risk gate와 Forseti가 읽는 보호 대상 objective와 constraint를 담고 있어 일반
+그래프 조각이 아니므로, 별도의 opt-in `FDAI_OPERATING_INTENT_SOURCE_PATH` 바인딩을 추가로
+지원합니다. 이 파일은 `source_revision`과 함께 정확히 하나의 `provenance` 블록
+(`source_url`, `resolved_ref`, `retrieved_at`)을 반드시 포함해야 하며, 운영자는 검토를 마친 뒤
+`FDAI_OPERATING_INTENT_SOURCE_REVISION`과 `FDAI_OPERATING_INTENT_SOURCE_SHA256`(자체 신고 값이
+아니라 재계산한 canonical content digest)을 out-of-band로 한 번 고정합니다. 무엇이든 투영하기
+전에, 런타임은 다음 중 하나라도 해당하면 fail closed하여 이미 durable하게 owned된
+operating-intent 그래프를 그대로 보존합니다: 출처 개정 번호, provenance의 `resolved_ref`, 또는
+content digest가 고정된 바인딩과 불일치(cross-release); 필수 타입 인스턴스가 0개(missing); 필수
+타입의 인스턴스 개수가 `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`이 고정한 기대값(기본
+타입별 1개)을 초과(duplicate); 또는 인스턴스가 현재 유효하지 않거나(`effective_from`이 미래이거나
+`effective_to`가 이미 지남) 스스로 선언한 `freshness_seconds`를 초과(stale)한 경우입니다. 거부된
+시도는 사유와 함께 durable하게 기록되며 이전 그래프는 그대로 유지됩니다. 완전하고 현재 유효하며
+정확히 고정된 출처만 그래프를 교체할 수 있습니다. 이 바인딩은 `configuration_drift`의
+baseline-path/version/sha256 선례를 그대로 따라 Core Terraform 모듈을 통과하므로, 로컬과 배포
+환경이 동일한 env-var 계약을 공유합니다.
+
 Promoted 인벤토리 변환 결과는 그래프 변환 결과 전에 모든 리소스 및 링크 기록을 검증합니다.
 Malformed 신원, 속성 또는 관측 시각은 시도를 실패시킵니다. 인증된 하나의 프로바이더 행에서
 반복된 byte-identical 참조는 세대 검증 전에 하나의 후보로 합치며, 충돌하거나 관측 간에

@@ -154,6 +154,13 @@ module "container_app" {
     { name = "FDAI_DIAGNOSTIC_TOPIC", value = var.diagnostic_ingest.topic },
     { name = "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON", value = jsonencode(var.diagnostic_ingest.metric_whitelist) },
     { name = "FDAI_DIAGNOSTIC_CONSUMER_GROUP_ID", value = var.diagnostic_ingest.consumer_group_id },
+    ], !var.operating_intent_source.enabled ? [] : [
+    { name = "FDAI_OPERATING_INTENT_SOURCE_PATH", value = var.operating_intent_source.path },
+    { name = "FDAI_OPERATING_INTENT_SOURCE_REVISION", value = var.operating_intent_source.revision },
+    { name = "FDAI_OPERATING_INTENT_SOURCE_SHA256", value = var.operating_intent_source.sha256 },
+    ], (!var.operating_intent_source.enabled
+    || trimspace(var.operating_intent_source.expected_counts_json) == "") ? [] : [
+    { name = "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON", value = var.operating_intent_source.expected_counts_json },
   ])
   health            = var.health
   scaling           = var.scaling

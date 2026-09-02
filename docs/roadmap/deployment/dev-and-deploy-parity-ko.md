@@ -137,6 +137,14 @@ Resolved-model 산출물이 있으면 같은 준비 단계에서 서술기 엔�
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 비공개 로컬 런타임 환경에 기록합니다.
 Narrator 엔드포인트가 없거나 올바르지 않으면 코어 런타임을 시작한 뒤 실패하게 두지 않고 Terraform
 또는 Azure 프로바이더에 접근하기 전에 준비 단계를 중단합니다.
+코어 런타임은 두 venue 모두에서 같은 `FDAI_OPERATING_MODEL_PATH`와 opt-in
+`FDAI_OPERATING_INTENT_SOURCE_PATH` env var를 읽으므로, venue 차이는 (있다면) 설정된 값의
+차이일 뿐 코드 경로가 달라지지 않습니다. Operating-intent 바인딩은 추가로
+`FDAI_OPERATING_INTENT_SOURCE_REVISION`과 `FDAI_OPERATING_INTENT_SOURCE_SHA256`을 요구하며,
+운영자가 후보 출처를 검토한 뒤 out-of-band로 한 번 고정합니다. 배포 venue는 같은 세 변수(그리고
+선택적인 `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`)를 Core Terraform 모듈의
+`operating_intent_source` 변수를 통해 전달하며, 기존 `configuration_drift` opt-in 바인딩 형태를
+그대로 따릅니다.
 선택적인 로컬 configuration-baseline 대화는 ignored 산출물 세 개를 `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, `FDAI_CONFIGURATION_OBSERVATION_JSON`으로 연결합니다. Full-stack preparation 이후 Operator API launch에 세 값을 모두 제공합니다. Preparation이 생성된 `.fdai/local-runtime.env`를 교체하므로 해당 파일을 직접 수정하지 않는 것이 좋습니다.
 일부 값만 구성하거나 기준선 무결성 또는 DOCX 다이제스트가 일치하지 않으면 Operator API 시작이 중단되며 호출자는 고정된 범위, 버전, 다이제스트 또는 문서를 바꿀 수 없습니다. 연결이 성공하면 로컬 조립은 같은 맥락을 결정론적 채팅과 GET-only 구성 기준선 패널에 등록합니다.
 패널은 요청마다 관측 출처를 실행하고 연결 부재를 사용 불가로 보고하며 고정본나 cached Azure 상태를 대체 근거로 사용하지 않습니다. 가능한 경우 캠페인 상태를 PostgreSQL에 연결합니다.

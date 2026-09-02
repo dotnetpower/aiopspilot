@@ -129,6 +129,14 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
+Core Runtime reads the same `FDAI_OPERATING_MODEL_PATH` and opt-in `FDAI_OPERATING_INTENT_SOURCE_PATH`
+env vars in both venues, so a venue difference is only which value (if any) is set, never a
+different code path. The operating-intent binding additionally requires
+`FDAI_OPERATING_INTENT_SOURCE_REVISION` and `FDAI_OPERATING_INTENT_SOURCE_SHA256`, pinned once out
+of band after an operator reviews the candidate source; deployed venues thread the same three
+variables (plus the optional `FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`) through the Core
+Terraform module's `operating_intent_source` variable, mirroring the existing `configuration_drift`
+opt-in binding shape.
 An optional local configuration-baseline conversation binds three ignored artifacts through `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and `FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces that file.
 Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops Operator API startup; callers cannot replace the pinned scope, version, digest, or document. When the binding succeeds, local composition registers the same context for deterministic chat and the GET-only Configuration baselines panel.
 The panel runs the configured observation source per request, reports an absent binding as unavailable, never substitutes fixtures or cached Azure state, and binds campaign state to PostgreSQL when available.

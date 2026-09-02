@@ -3,11 +3,26 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from .ontology_instance import OntologyLinkRecord, OntologyObjectRecord
+from .ontology_instance import OntologyLinkRecord, OntologyObjectRecord, normalize_json_value
+
+REQUIRED_OPERATING_INTENT_OBJECT_TYPES: frozenset[str] = frozenset(
+    {
+        "ArchitectureConstraint",
+        "ChangeWindow",
+        "CostObjective",
+        "Ownership",
+        "RecoveryObjective",
+        "ServiceObjective",
+    }
+)
+"""The six operating-intent ObjectTypes a deployment-owned intent source MUST supply."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,9 +78,99 @@ class ContinuousOperatingModelProvider(Protocol):
     ) -> AsyncIterator[OperatingModelUpdate]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class OperatingIntentSourceProvenance:
+    """Attribution the deployment-owned operating-intent source MUST self-declare.
+
+    ``resolved_ref`` pins the exact upstream revision the deployment reviewed and
+    approved; the runtime binding cross-checks it against the same file's own
+    ``source_revision`` and against the operator-configured expected revision so a
+    cross-release swap (an approved-looking file from a different release) fails
+    closed instead of silently projecting.
+    """
+
+    source_url: str
+    resolved_ref: str
+    retrieved_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.source_url.strip():
+            raise ValueError("OperatingIntentSourceProvenance.source_url MUST be non-empty")
+        if not self.resolved_ref.strip():
+            raise ValueError("OperatingIntentSourceProvenance.resolved_ref MUST be non-empty")
+        if self.retrieved_at.tzinfo is None:
+            raise ValueError(
+                "OperatingIntentSourceProvenance.retrieved_at MUST be timezone-aware (RFC 3339)"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class OperatingIntentSourceDocument:
+    """One deployment-owned six-intent-type source file: snapshot plus provenance."""
+
+    snapshot: OperatingModelSnapshot
+    provenance: OperatingIntentSourceProvenance
+
+
+def operating_model_snapshot_digest(snapshot: OperatingModelSnapshot) -> str:
+    """Return the canonical ``sha256:...`` content digest of one complete snapshot.
+
+    The digest covers ``source_revision`` plus every object and link (sorted for order
+    independence) and excludes nothing, so any content change - including a swapped,
+    edited, or truncated deployment-owned source file - produces a different digest. Used
+    both by the continuous worker's replay/conflict suppression and by the one-shot
+    deployment-owned operating-intent source binding to detect a cross-release or
+    tampered source before it can be projected.
+    """
+
+    objects = [
+        {
+            "id": item.id,
+            "object_type": item.object_type,
+            "properties": normalize_json_value(item.properties, path="operating_model.object"),
+            "revision": item.revision,
+            "type_ref": (
+                item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
+            ),
+        }
+        for item in sorted(snapshot.objects, key=lambda value: value.id)
+    ]
+    links = [
+        {
+            "link_type": item.link_type,
+            "from_id": item.from_id,
+            "to_id": item.to_id,
+            "properties": normalize_json_value(item.properties, path="operating_model.link"),
+            "type_ref": (
+                item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
+            ),
+        }
+        for item in sorted(
+            snapshot.links,
+            key=lambda value: (value.from_id, value.link_type, value.to_id),
+        )
+    ]
+    encoded = json.dumps(
+        {
+            "source_revision": snapshot.source_revision,
+            "objects": objects,
+            "links": links,
+        },
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
 __all__ = [
+    "REQUIRED_OPERATING_INTENT_OBJECT_TYPES",
     "ContinuousOperatingModelProvider",
+    "OperatingIntentSourceDocument",
+    "OperatingIntentSourceProvenance",
     "OperatingModelProvider",
     "OperatingModelSnapshot",
     "OperatingModelUpdate",
+    "operating_model_snapshot_digest",
 ]

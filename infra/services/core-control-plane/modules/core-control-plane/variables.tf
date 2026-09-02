@@ -233,3 +233,24 @@ variable "scaling" {
   })
 }
 variable "tags" { type = map(string) }
+
+variable "operating_intent_source" {
+  description = "Optional deployment-owned six-type operating-intent source binding: exact pinned revision, content digest, and provenance for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow."
+  type = object({
+    enabled              = optional(bool, false)
+    path                 = optional(string, "")
+    revision             = optional(string, "")
+    sha256               = optional(string, "")
+    expected_counts_json = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = !var.operating_intent_source.enabled || (
+      trimspace(var.operating_intent_source.path) != "" &&
+      trimspace(var.operating_intent_source.revision) != "" &&
+      can(regex("^sha256:[0-9a-f]{64}$", var.operating_intent_source.sha256))
+    )
+    error_message = "Enabled operating_intent_source requires a source path, an exact pinned revision, and a sha256: content digest."
+  }
+}

@@ -6,6 +6,7 @@ import asyncio
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from fdai.shared.providers.ontology_instance import (
@@ -14,7 +15,11 @@ from fdai.shared.providers.ontology_instance import (
     OntologyObjectRecord,
     normalize_json_value,
 )
-from fdai.shared.providers.operating_model import OperatingModelSnapshot
+from fdai.shared.providers.operating_model import (
+    OperatingIntentSourceDocument,
+    OperatingIntentSourceProvenance,
+    OperatingModelSnapshot,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,20 +37,36 @@ class JsonOperatingModelProvider:
         self._config = config
 
     async def load(self) -> OperatingModelSnapshot:
-        content = await asyncio.to_thread(self._read)
-        try:
-            raw = normalize_json_value(json.loads(content), path="operating_model")
-        except (json.JSONDecodeError, RecursionError, OntologyInstanceValidationError) as exc:
-            raise ValueError("operating model file MUST contain bounded canonical JSON") from exc
-        if not isinstance(raw, Mapping):
-            raise ValueError("operating model document MUST be an object")
+        raw = await asyncio.to_thread(
+            _read_bounded_document, self._config.path, self._config.max_bytes
+        )
         return operating_model_snapshot_from_mapping(raw)
 
-    def _read(self) -> str:
-        path = self._config.path
-        if path.stat().st_size > self._config.max_bytes:
-            raise ValueError("operating model file exceeds max_bytes")
-        return path.read_text(encoding="utf-8")
+
+class JsonOperatingIntentSourceProvider:
+    """Load the deployment-owned operating-intent source, provenance included."""
+
+    def __init__(self, *, config: JsonOperatingModelProviderConfig) -> None:
+        self._config = config
+
+    async def load(self) -> OperatingIntentSourceDocument:
+        raw = await asyncio.to_thread(
+            _read_bounded_document, self._config.path, self._config.max_bytes
+        )
+        return operating_intent_source_document_from_mapping(raw)
+
+
+def _read_bounded_document(path: Path, max_bytes: int) -> Mapping[str, object]:
+    if path.stat().st_size > max_bytes:
+        raise ValueError("operating model file exceeds max_bytes")
+    content = path.read_text(encoding="utf-8")
+    try:
+        raw = normalize_json_value(json.loads(content), path="operating_model")
+    except (json.JSONDecodeError, RecursionError, OntologyInstanceValidationError) as exc:
+        raise ValueError("operating model file MUST contain bounded canonical JSON") from exc
+    if not isinstance(raw, Mapping):
+        raise ValueError("operating model document MUST be an object")
+    return raw
 
 
 def _array(value: Mapping[str, object], key: str) -> Sequence[object]:
@@ -66,6 +87,42 @@ def operating_model_snapshot_from_mapping(
         source_revision=_required_string(raw, "source_revision"),
         objects=tuple(_object_record(item) for item in objects),
         links=tuple(_link_record(item) for item in links),
+    )
+
+
+def operating_intent_source_document_from_mapping(
+    raw: Mapping[str, object],
+) -> OperatingIntentSourceDocument:
+    """Parse one deployment-owned operating-intent source document.
+
+    Unlike the generic operating-model file, this format MUST carry a ``provenance``
+    block so the runtime binding can verify exact revision and provenance before
+    projecting any of the six operating-intent ObjectTypes.
+    """
+
+    return OperatingIntentSourceDocument(
+        snapshot=operating_model_snapshot_from_mapping(raw),
+        provenance=_provenance(raw),
+    )
+
+
+def _provenance(raw: Mapping[str, object]) -> OperatingIntentSourceProvenance:
+    value = raw.get("provenance")
+    if not isinstance(value, Mapping):
+        raise ValueError("operating intent source provenance MUST be an object")
+    retrieved_at_raw = value.get("retrieved_at")
+    if not isinstance(retrieved_at_raw, str) or not retrieved_at_raw.strip():
+        raise ValueError("operating intent source provenance.retrieved_at MUST be non-empty")
+    try:
+        retrieved_at = datetime.fromisoformat(retrieved_at_raw)
+    except ValueError as exc:
+        raise ValueError(
+            "operating intent source provenance.retrieved_at MUST be an RFC 3339 timestamp"
+        ) from exc
+    return OperatingIntentSourceProvenance(
+        source_url=_required_string(value, "source_url"),
+        resolved_ref=_required_string(value, "resolved_ref"),
+        retrieved_at=retrieved_at,
     )
 
 
@@ -104,7 +161,11 @@ def _link_record(raw: object) -> OntologyLinkRecord:
 
 
 __all__ = [
+    "JsonOperatingIntentSourceProvider",
     "JsonOperatingModelProvider",
     "JsonOperatingModelProviderConfig",
+    "OperatingIntentSourceDocument",
+    "OperatingIntentSourceProvenance",
+    "operating_intent_source_document_from_mapping",
     "operating_model_snapshot_from_mapping",
 ]

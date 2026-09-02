@@ -95,8 +95,17 @@ async def project_operating_model_snapshot(
     link_types: Sequence[OntologyLinkType],
     status_store: StateStore | None = None,
     snapshot_digest: str | None = None,
+    manifest_key: str = _OPERATING_MODEL_MANIFEST_KEY,
+    status_key: str = OPERATING_MODEL_STATUS_KEY,
 ) -> OperatingModelProjectionResult:
-    """Atomically replace the deployment-owned graph and close its durable manifest."""
+    """Atomically replace the deployment-owned graph and close its durable manifest.
+
+    ``manifest_key``/``status_key`` default to the shared operating-model namespace so
+    every existing caller keeps its current behavior unchanged. A caller that owns a
+    disjoint deployment-owned subgraph (for example the six-type operating-intent
+    source) MUST pass its own distinct pair so its recovery/ownership manifest never
+    collides with another source's.
+    """
 
     if snapshot_digest is not None and (
         not snapshot_digest.startswith("sha256:") or len(snapshot_digest) != 71
@@ -107,7 +116,7 @@ async def project_operating_model_snapshot(
     previous_link_keys: tuple[tuple[str, str, str], ...] = ()
     recovering_interrupted_apply = False
     if status_store is not None:
-        prior_manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+        prior_manifest = await status_store.read_state(manifest_key)
         previous_object_ids, previous_link_keys = _decode_manifest(prior_manifest)
         recovering_interrupted_apply = (
             prior_manifest is not None and prior_manifest.get("status") == "applying"
@@ -132,7 +141,7 @@ async def project_operating_model_snapshot(
         raise RuntimeError("operating model recovery ownership exceeds bounds")
     if status_store is not None:
         await status_store.write_state(
-            _OPERATING_MODEL_MANIFEST_KEY,
+            manifest_key,
             {
                 "schema_version": "1.0.0",
                 "status": "applying",
@@ -153,7 +162,7 @@ async def project_operating_model_snapshot(
     )
     if status_store is not None:
         await status_store.write_state(
-            _OPERATING_MODEL_MANIFEST_KEY,
+            manifest_key,
             {
                 "schema_version": "1.0.0",
                 "status": "projected",
@@ -164,7 +173,7 @@ async def project_operating_model_snapshot(
             },
         )
         await status_store.write_state(
-            OPERATING_MODEL_STATUS_KEY,
+            status_key,
             {
                 "schema_version": "1.0.0",
                 "status": "projected",

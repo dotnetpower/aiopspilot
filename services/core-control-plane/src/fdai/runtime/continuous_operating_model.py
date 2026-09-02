@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 from collections.abc import Mapping, Sequence
 
 from fdai.core.operational_context import OperatingModelProjectionResult
@@ -19,10 +18,11 @@ from fdai.runtime.operating_model import (
 )
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.ontology_instance import OntologyInstanceStore, normalize_json_value
+from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.operating_model import (
     ContinuousOperatingModelProvider,
     OperatingModelUpdate,
+    operating_model_snapshot_digest,
 )
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
@@ -184,45 +184,7 @@ def _revision_key(source_revision: str) -> str:
 
 
 def _snapshot_digest(update: OperatingModelUpdate) -> str:
-    objects = [
-        {
-            "id": item.id,
-            "object_type": item.object_type,
-            "properties": normalize_json_value(item.properties, path="operating_model.object"),
-            "revision": item.revision,
-            "type_ref": (
-                item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
-            ),
-        }
-        for item in sorted(update.snapshot.objects, key=lambda value: value.id)
-    ]
-    links = [
-        {
-            "link_type": item.link_type,
-            "from_id": item.from_id,
-            "to_id": item.to_id,
-            "properties": normalize_json_value(item.properties, path="operating_model.link"),
-            "type_ref": (
-                item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
-            ),
-        }
-        for item in sorted(
-            update.snapshot.links,
-            key=lambda value: (value.from_id, value.link_type, value.to_id),
-        )
-    ]
-    encoded = json.dumps(
-        {
-            "source_revision": update.snapshot.source_revision,
-            "objects": objects,
-            "links": links,
-        },
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+    return operating_model_snapshot_digest(update.snapshot)
 
 
 def _decode_revision_claim(raw: Mapping[str, object]) -> tuple[str, int, str]:
