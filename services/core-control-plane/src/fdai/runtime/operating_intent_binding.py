@@ -11,7 +11,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from fdai.core.operational_context import OperatingIntentSourceBinding
+from fdai.core.operational_context import (
+    OperatingIntentAdmissionExpectation,
+    OperatingIntentSourceBinding,
+)
+
+OPERATING_INTENT_SOURCE_PATH_ENV = "FDAI_OPERATING_INTENT_SOURCE_PATH"
+OPERATING_INTENT_SOURCE_GENERATION_ENV = "FDAI_OPERATING_INTENT_SOURCE_GENERATION"
+_DEFAULT_OPERATING_INTENT_GENERATION = 1
 
 
 def operating_intent_positive_int(values: Mapping[str, str], key: str, default: int) -> int:
@@ -27,6 +34,24 @@ def operating_intent_positive_int(values: Mapping[str, str], key: str, default: 
     if parsed < 1:
         raise RuntimeError(f"{key} MUST be a positive integer")
     return parsed
+
+
+def operating_intent_generation_from_env(values: Mapping[str, str]) -> int:
+    """Return the operator-declared rollout generation of this intent binding.
+
+    Two replicas running different releases can both hold a syntactically valid
+    binding, and neither the file nor the digest says which release is newer. The
+    generation is the only ordering the deployment supplies, so it is what fences a
+    departing replica's revalidation pass from overwriting - or authorizing - the
+    admission of the rollout that replaced it. It defaults to ``1`` so an existing
+    single-generation deployment keeps working without new configuration.
+    """
+
+    return operating_intent_positive_int(
+        values,
+        OPERATING_INTENT_SOURCE_GENERATION_ENV,
+        _DEFAULT_OPERATING_INTENT_GENERATION,
+    )
 
 
 def operating_intent_binding_from_env(values: Mapping[str, str]) -> OperatingIntentSourceBinding:
@@ -63,6 +88,28 @@ def operating_intent_binding_from_env(values: Mapping[str, str]) -> OperatingInt
     )
 
 
+def operating_intent_admission_expectation_from_env(
+    values: Mapping[str, str],
+) -> OperatingIntentAdmissionExpectation | None:
+    """Return what an authority consumer in this process is configured to trust.
+
+    ``None`` means the deployment explicitly configured no operating-intent source,
+    which is the only supported way to keep the pre-existing generic
+    ``FDAI_OPERATING_MODEL_PATH`` behavior. Every other outcome is strict, so a
+    consumer never accepts an admission record written under a binding or rollout
+    generation other than its own - and never accepts a missing record at all.
+    """
+
+    if not values.get(OPERATING_INTENT_SOURCE_PATH_ENV, "").strip():
+        return None
+    binding = operating_intent_binding_from_env(values)
+    return OperatingIntentAdmissionExpectation(
+        expected_revision=binding.expected_revision,
+        expected_sha256=binding.expected_sha256,
+        generation=operating_intent_generation_from_env(values),
+    )
+
+
 def decode_operating_intent_manifest(
     raw: Mapping[str, object] | None,
 ) -> tuple[tuple[str, ...], tuple[tuple[str, str, str], ...]]:
@@ -89,7 +136,11 @@ def decode_operating_intent_manifest(
 
 
 __all__ = [
+    "OPERATING_INTENT_SOURCE_GENERATION_ENV",
+    "OPERATING_INTENT_SOURCE_PATH_ENV",
     "decode_operating_intent_manifest",
+    "operating_intent_admission_expectation_from_env",
     "operating_intent_binding_from_env",
+    "operating_intent_generation_from_env",
     "operating_intent_positive_int",
 ]

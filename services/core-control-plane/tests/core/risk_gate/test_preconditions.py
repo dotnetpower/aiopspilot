@@ -8,6 +8,7 @@ from typing import Any
 from fdai.core.operational_context import (
     OPERATING_INTENT_SOURCE_ADMISSION_KEY,
     OperatingIntentAdmission,
+    OperatingIntentAdmissionExpectation,
     OperatingIntentAdmissionStatus,
     StateStoreOperatingIntentAdmissionReader,
 )
@@ -465,6 +466,8 @@ async def test_change_window_opens_under_a_current_intent_source_admission() -> 
             grants_intent_authority=True,
             source_revision="operating-intent-revision-1",
             snapshot_digest=f"sha256:{'a' * 64}",
+            generation=1,
+            owned_object_ids=frozenset({"window-1"}),
             validated_at=now,
         )
     )
@@ -477,29 +480,182 @@ async def test_change_window_opens_under_a_current_intent_source_admission() -> 
     assert active is True
 
 
+async def test_an_admitted_source_cannot_bless_a_window_it_does_not_own() -> None:
+    """The generic and continuous operating-model paths also project ChangeWindows.
+
+    Neither is covered by the intent source's pin, so an admitted intent source MUST
+    NOT open a maintenance window it never supplied.
+    """
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _open_maintenance_window(now)
+    admission = _StubIntentAdmission(
+        OperatingIntentAdmission(
+            status=OperatingIntentAdmissionStatus.ADMITTED,
+            grants_intent_authority=True,
+            source_revision="operating-intent-revision-1",
+            snapshot_digest=f"sha256:{'a' * 64}",
+            generation=1,
+            owned_object_ids=frozenset({"generic-change-window"}),
+            validated_at=now,
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=admission,
+    ).is_active(target_ref="resource-1", at=now)
+
+    assert active is False
+
+
+async def test_an_unowned_blocking_window_still_blocks() -> None:
+    """Ownership fences opening authority only; refusing to act is never unsafe."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ChangeWindow",
+                    "owned-window",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="maintenance",
+                    effective_from=(now - timedelta(hours=1)).isoformat(),
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "generic-freeze",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="freeze",
+                    effective_from=(now - timedelta(hours=1)).isoformat(),
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+            )
+        )
+    )
+    admission = _StubIntentAdmission(
+        OperatingIntentAdmission(
+            status=OperatingIntentAdmissionStatus.ADMITTED,
+            grants_intent_authority=True,
+            source_revision="operating-intent-revision-1",
+            snapshot_digest=f"sha256:{'a' * 64}",
+            generation=1,
+            owned_object_ids=frozenset({"owned-window"}),
+            validated_at=now,
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=admission,
+    ).is_active(target_ref="resource-1", at=now)
+
+    assert active is False
+
+
+async def test_an_unconfigured_consumer_applies_no_ownership_fence() -> None:
+    """Pre-existing generic behavior survives when no intent source is configured."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _open_maintenance_window(now)
+    provider = OntologyChangeWindowEvidenceProvider(
+        store,  # type: ignore[arg-type]
+        intent_admission=StateStoreOperatingIntentAdmissionReader(
+            InMemoryStateStore(), expectation=None
+        ),
+    )
+
+    assert await provider.is_active(target_ref="resource-1", at=now) is True
+
+
 async def test_change_window_gates_on_the_durable_admission_record() -> None:
     """The deployed wiring reads state, so a stale record must deny end to end."""
 
     now = datetime(2026, 8, 4, 12, tzinfo=UTC)
     store = _open_maintenance_window(now)
     state_store = InMemoryStateStore()
+    expectation = OperatingIntentAdmissionExpectation(
+        expected_revision="operating-intent-revision-1",
+        expected_sha256=f"sha256:{'a' * 64}",
+        generation=1,
+    )
     await state_store.write_state(
         OPERATING_INTENT_SOURCE_ADMISSION_KEY,
         {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "status": "admitted",
+            "binding_generation": 1,
             "source_revision": "operating-intent-revision-1",
             "snapshot_digest": f"sha256:{'a' * 64}",
+            "owned_object_ids": ["window-1"],
             "validated_at": (now - timedelta(seconds=901)).isoformat(),
             "max_age_seconds": 900,
         },
     )
     provider = OntologyChangeWindowEvidenceProvider(
         store,  # type: ignore[arg-type]
-        intent_admission=StateStoreOperatingIntentAdmissionReader(state_store),
+        intent_admission=StateStoreOperatingIntentAdmissionReader(
+            state_store, expectation=expectation
+        ),
     )
 
     assert await provider.is_active(target_ref="resource-1", at=now) is False
     assert (
         await provider.is_active(target_ref="resource-1", at=now - timedelta(seconds=600))
     ) is True
+
+
+async def test_change_window_denies_when_the_bound_admission_row_is_missing() -> None:
+    """A configured consumer with no record has no current proof, so it denies."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    provider = OntologyChangeWindowEvidenceProvider(
+        _open_maintenance_window(now),  # type: ignore[arg-type]
+        intent_admission=StateStoreOperatingIntentAdmissionReader(
+            InMemoryStateStore(),
+            expectation=OperatingIntentAdmissionExpectation(
+                expected_revision="operating-intent-revision-1",
+                expected_sha256=f"sha256:{'a' * 64}",
+                generation=1,
+            ),
+        ),
+    )
+
+    assert await provider.is_active(target_ref="resource-1", at=now) is False
+
+
+async def test_change_window_denies_an_admission_from_another_rollout_generation() -> None:
+    """An old replica's revalidation cannot authorize the rollout that replaced it."""
+
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    state_store = InMemoryStateStore()
+    await state_store.write_state(
+        OPERATING_INTENT_SOURCE_ADMISSION_KEY,
+        {
+            "schema_version": "1.1.0",
+            "status": "admitted",
+            "binding_generation": 1,
+            "source_revision": "operating-intent-revision-1",
+            "snapshot_digest": f"sha256:{'a' * 64}",
+            "owned_object_ids": ["window-1"],
+            "validated_at": now.isoformat(),
+            "max_age_seconds": 900,
+        },
+    )
+    provider = OntologyChangeWindowEvidenceProvider(
+        _open_maintenance_window(now),  # type: ignore[arg-type]
+        intent_admission=StateStoreOperatingIntentAdmissionReader(
+            state_store,
+            expectation=OperatingIntentAdmissionExpectation(
+                expected_revision="operating-intent-revision-1",
+                expected_sha256=f"sha256:{'a' * 64}",
+                generation=2,
+            ),
+        ),
+    )
+
+    assert await provider.is_active(target_ref="resource-1", at=now) is False

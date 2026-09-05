@@ -133,6 +133,9 @@ from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
 )
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
+from fdai.runtime.operating_intent_binding import (
+    operating_intent_admission_expectation_from_env,
+)
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_idempotency_store,
@@ -672,7 +675,10 @@ def _build_control_loop(
             open_actions=StateStoreOpenActionEvidenceProvider(audit_store),
             change_windows=OntologyChangeWindowEvidenceProvider(
                 ontology_instance_store,
-                intent_admission=StateStoreOperatingIntentAdmissionReader(audit_store),
+                intent_admission=StateStoreOperatingIntentAdmissionReader(
+                    audit_store,
+                    expectation=operating_intent_admission_expectation_from_env(os.environ),
+                ),
             ),
         )
         if ontology_instance_store is not None

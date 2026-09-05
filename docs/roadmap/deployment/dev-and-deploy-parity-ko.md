@@ -141,10 +141,10 @@ Narrator 엔드포인트가 없거나 올바르지 않으면 코어 런타임을
 `FDAI_OPERATING_INTENT_SOURCE_PATH` env var를 읽으므로, venue 차이는 설정된 값의 차이일 뿐 코드
 경로가 달라지지 않습니다. [Operating-intent 출처](../architecture/operating-intent-source-ko.md)
 바인딩은 추가로 `FDAI_OPERATING_INTENT_SOURCE_REVISION`, `FDAI_OPERATING_INTENT_SOURCE_SHA256`,
-`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, 선택적 유계 재검증 간격
-`FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS`를 요구하며 `configuration_drift`와 똑같이 Core
-Terraform `operating_intent_source` 변수로 전달합니다. 이 호출부는 이미지에 함께 제공되는 일반
-출처를 기본으로 바인딩하고, 두 venue 모두 하나의 배포 전역 리소스 잠금으로 투영을 직렬화합니다.
+`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, `FDAI_OPERATING_INTENT_SOURCE_GENERATION`,
+선택적 `FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS`를 요구하며 Core Terraform
+`operating_intent_source` 변수로 전달합니다. 속성별 default 덕분에 일부만 재정의해도 함께 제공되는
+일반 바인딩이 유지되고, 두 venue 모두 투영을 직렬화하며 승인을 롤아웃 세대로 울타리 칩니다.
 선택적인 로컬 configuration-baseline 대화는 ignored 산출물 세 개를 `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, `FDAI_CONFIGURATION_OBSERVATION_JSON`으로 연결합니다. Full-stack preparation 이후 Operator API launch에 세 값을 모두 제공합니다. Preparation이 생성된 `.fdai/local-runtime.env`를 교체하므로 해당 파일을 직접 수정하지 않는 것이 좋습니다.
 일부 값만 구성하거나 기준선 무결성 또는 DOCX 다이제스트가 일치하지 않으면 Operator API 시작이 중단되며 호출자는 고정된 범위, 버전, 다이제스트 또는 문서를 바꿀 수 없습니다. 연결이 성공하면 로컬 조립은 같은 맥락을 결정론적 채팅과 GET-only 구성 기준선 패널에 등록합니다.
 패널은 요청마다 관측 출처를 실행하고 연결 부재를 사용 불가로 보고하며 고정본나 cached Azure 상태를 대체 근거로 사용하지 않습니다. 가능한 경우 캠페인 상태를 PostgreSQL에 연결합니다.

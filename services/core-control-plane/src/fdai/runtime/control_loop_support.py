@@ -45,6 +45,9 @@ from fdai.core.workflow import (
 )
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.runtime.operating_intent_binding import (
+    operating_intent_admission_expectation_from_env,
+)
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -121,7 +124,10 @@ def build_workflow_coordinator(
         ChangeWindowWorkflowGuardEvaluator(
             change_windows=OntologyChangeWindowEvidenceProvider(
                 ontology_store,
-                intent_admission=StateStoreOperatingIntentAdmissionReader(audit_store),
+                intent_admission=StateStoreOperatingIntentAdmissionReader(
+                    audit_store,
+                    expectation=operating_intent_admission_expectation_from_env(os.environ),
+                ),
             ),
             fallback=architecture_guard,
         )

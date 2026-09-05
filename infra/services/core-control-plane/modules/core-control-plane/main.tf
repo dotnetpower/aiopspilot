@@ -158,6 +158,7 @@ module "container_app" {
     { name = "FDAI_OPERATING_INTENT_SOURCE_PATH", value = var.operating_intent_source.path },
     { name = "FDAI_OPERATING_INTENT_SOURCE_REVISION", value = var.operating_intent_source.revision },
     { name = "FDAI_OPERATING_INTENT_SOURCE_SHA256", value = var.operating_intent_source.sha256 },
+    { name = "FDAI_OPERATING_INTENT_SOURCE_GENERATION", value = tostring(var.operating_intent_source.generation) },
     ], (!var.operating_intent_source.enabled
     || trimspace(var.operating_intent_source.expected_counts_json) == "") ? [] : [
     { name = "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON", value = var.operating_intent_source.expected_counts_json },

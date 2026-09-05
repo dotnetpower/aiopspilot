@@ -18,6 +18,9 @@ from fdai.core.operational_context import (
 from fdai.core.risk_gate import OntologyChangeWindowEvidenceProvider
 from fdai.delivery.operating_model import JsonOperatingIntentSourceProvider
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
+from fdai.runtime.operating_intent_binding import (
+    operating_intent_admission_expectation_from_env,
+)
 from fdai.runtime.operating_intent_revalidation import (
     OperatingIntentSourceRevalidationWorker,
 )
@@ -203,8 +206,28 @@ def _runtime(
     return runtime
 
 
-async def _admission_status(state_store: InMemoryStateStore, *, now: datetime) -> str:
-    admission = await StateStoreOperatingIntentAdmissionReader(state_store).resolve(now=now)
+def _reader(
+    state_store: InMemoryStateStore,
+    document: Mapping[str, object] | None = None,
+    **overrides: str,
+) -> StateStoreOperatingIntentAdmissionReader:
+    """Build the consumer-side reader the deployed wiring builds from the same env."""
+
+    env = _env(Path("/operating-intent-source.json"), document or _document(), **overrides)
+    return StateStoreOperatingIntentAdmissionReader(
+        state_store,
+        expectation=operating_intent_admission_expectation_from_env(env),
+    )
+
+
+async def _admission_status(
+    state_store: InMemoryStateStore,
+    *,
+    now: datetime,
+    document: Mapping[str, object] | None = None,
+    **overrides: str,
+) -> str:
+    admission = await _reader(state_store, document, **overrides).resolve(now=now)
     return admission.status.value
 
 
@@ -213,10 +236,12 @@ async def _maintenance_authority(
     state_store: InMemoryStateStore,
     *,
     at: datetime,
+    document: Mapping[str, object] | None = None,
+    **overrides: str,
 ) -> bool:
     provider = OntologyChangeWindowEvidenceProvider(
         store,
-        intent_admission=StateStoreOperatingIntentAdmissionReader(state_store),
+        intent_admission=_reader(state_store, document, **overrides),
     )
     return await provider.is_active(target_ref="scope:example", at=at)
 
@@ -690,3 +715,287 @@ async def test_unconfigured_release_fails_closed_when_the_lock_is_unavailable(
     assert await store.get_object("change-window-1") is not None
     assert await _admission_status(state_store, now=now) == "unavailable"
     assert await _maintenance_authority(store, state_store, at=now) is False
+
+
+async def test_a_catalog_validation_failure_quarantines_before_returning(tmp_path: Path) -> None:
+    """A document that passes admission but not projection MUST NOT leave authority up.
+
+    An exactly pinned, complete, currently effective source whose `ChangeWindow` is
+    missing a catalog-required property reaches the projector and fails there. Without
+    an explicit denial the startup path would abort and the background worker would
+    only log, leaving the previous admission live until it expired.
+    """
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    runtime = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+    )
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    assert await runtime.admit(now=fresh_at) is not None
+    assert await _maintenance_authority(store, state_store, at=fresh_at) is True
+
+    invalid = _document()
+    windows = [
+        item
+        for item in invalid["objects"]  # type: ignore[index]
+        if item["object_type"] == "ChangeWindow"
+    ]
+    del windows[0]["properties"]["policy_ref"]
+    _write(path, invalid)
+    invalid_runtime = _runtime(
+        path=path,
+        document=invalid,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+    )
+
+    assert await invalid_runtime.admit(now=fresh_at) is None
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["status"] == "quarantined"
+    assert "projection failed" in str(admission["reason"])
+    assert await _maintenance_authority(store, state_store, at=fresh_at, document=invalid) is False
+    # The previously projected graph is preserved as evidence and history.
+    assert await _all_intent_objects_present(store) is True
+
+
+async def test_an_admission_names_only_the_objects_its_own_source_supplied(
+    tmp_path: Path,
+) -> None:
+    """A global admitted verdict must not bless a window another source projected."""
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    runtime = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+    )
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    await runtime.admit(now=fresh_at)
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert sorted(admission["owned_object_ids"]) == sorted(_INTENT_OBJECT_IDS)
+
+    # A ChangeWindow the generic FDAI_OPERATING_MODEL_PATH snapshot could equally
+    # project is outside this pin, so the same admitted record must not open it.
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="generic-change-window",
+            object_type="ChangeWindow",
+            properties={
+                "id": "generic-change-window",
+                "window_kind": "maintenance",
+                "scope_ref": "scope:generic",
+                "status": "active",
+                "effective_from": _EFFECTIVE_FROM,
+                "effective_to": "2026-09-30T00:00:00+00:00",
+                "policy_ref": "policy:change-window",
+            },
+        )
+    )
+    provider = OntologyChangeWindowEvidenceProvider(
+        store,
+        intent_admission=_reader(state_store),
+    )
+
+    assert await provider.is_active(target_ref="scope:generic", at=fresh_at) is False
+    assert await provider.is_active(target_ref="scope:example", at=fresh_at) is True
+
+
+async def test_a_departing_replica_cannot_overwrite_a_newer_rollout_admission(
+    tmp_path: Path,
+) -> None:
+    """The lock serializes writers; only the generation orders two releases.
+
+    A rolling deployment runs both releases at once. Without this fence the departing
+    replica's next revalidation pass would replace the new rollout's record with its
+    own older pin, and the new replicas would then read an admission for a document
+    they never validated.
+    """
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+
+    new_rollout = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+    )
+    assert await new_rollout.admit(now=fresh_at) is not None
+
+    departing = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+    )
+    await OperatingIntentSourceRevalidationWorker(runtime=departing).run_once(now=fresh_at)
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["binding_generation"] == 2
+    assert (
+        await _admission_status(
+            state_store,
+            now=fresh_at,
+            FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+        )
+        == "admitted"
+    )
+
+
+async def test_a_departing_replica_cannot_quarantine_a_newer_rollout(tmp_path: Path) -> None:
+    """The same fence holds in the denying direction, so a rollout is not DoSed out."""
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+
+    new_rollout = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+    )
+    await new_rollout.admit(now=fresh_at)
+
+    departing = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+        FDAI_OPERATING_INTENT_SOURCE_PATH=str(tmp_path / "absent-source.json"),
+    )
+    await OperatingIntentSourceRevalidationWorker(runtime=departing).run_once(now=fresh_at)
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["status"] == "admitted"
+    assert admission["binding_generation"] == 2
+    # The operator-facing surface also keeps describing the rollout that owns it.
+    status = await state_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
+    assert status is not None
+    assert status["status"] == "projected"
+
+
+async def test_a_newer_rollout_admission_does_not_authorize_an_old_replica(
+    tmp_path: Path,
+) -> None:
+    """An old replica reads a graph the new rollout validated; it must not act on it."""
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    await _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+    ).admit(now=fresh_at)
+
+    assert (
+        await _maintenance_authority(
+            store,
+            state_store,
+            at=fresh_at,
+            FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+        )
+        is False
+    )
+
+
+async def test_a_rolled_back_release_reclaims_an_expired_newer_admission(
+    tmp_path: Path,
+) -> None:
+    """The fence is bounded, so an ordinary rollback is not a permanent authority outage.
+
+    Once the newer generation's record passes its own validity window it can no longer
+    grant authority to anybody. Holding the key past that instant would deny every
+    maintenance decision forever, recoverable only by deleting durable state by hand.
+    """
+
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    await _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+        FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS="60",
+    ).admit(now=fresh_at)
+
+    rolled_back = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+        FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS="60",
+    )
+    still_fenced_at = fresh_at + timedelta(seconds=180)
+    await rolled_back.admit(now=still_fenced_at)
+    fenced = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert fenced is not None
+    assert fenced["binding_generation"] == 2
+
+    recovered_at = fresh_at + timedelta(seconds=181)
+    assert await rolled_back.admit(now=recovered_at) is not None
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["binding_generation"] == 1
+    assert (
+        await _maintenance_authority(
+            store,
+            state_store,
+            at=recovered_at,
+            FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+            FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS="60",
+        )
+        is True
+    )

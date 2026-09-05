@@ -453,21 +453,44 @@ variable "diagnostic_ingest" {
 }
 
 variable "operating_intent_source" {
-  description = "Deployment-owned six-type operating-intent source binding: image path, exact pinned revision, whole-document sha256 digest (provenance included), exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow, and the bounded revalidation interval that keeps admission current after startup. Defaults to the customer-agnostic generic source baked into the Core image at /app/config/operating-intent/generic-source.json; a deployment that owns a reviewed source overrides every field together."
+  description = "Deployment-owned six-type operating-intent source binding: image path, exact pinned revision, whole-document sha256 digest (provenance included), exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow, the rollout generation that fences admission writes across a rolling deployment, and the bounded revalidation interval that keeps admission current after startup. The binding is on by default and pins the customer-agnostic generic source baked into the Core image at /app/config/operating-intent/generic-source.json. Every pinned value lives on its own optional attribute, so tuning one field (for example revalidate_seconds) keeps the shipped binding rather than silently disabling it; a deployment that owns a reviewed source overrides path, revision, sha256, expected_counts_json, and generation together."
   type = object({
-    enabled              = optional(bool, false)
-    path                 = optional(string, "")
-    revision             = optional(string, "")
-    sha256               = optional(string, "")
-    expected_counts_json = optional(string, "")
+    enabled              = optional(bool, true)
+    path                 = optional(string, "/app/config/operating-intent/generic-source.json")
+    revision             = optional(string, "operating-intent-source:generic@1.0.0")
+    sha256               = optional(string, "sha256:a359ad5094e8fca59fb4a2144afdcf471d78c182df1cca1ecbb4e26596b89d6d")
+    expected_counts_json = optional(string, "{\"ArchitectureConstraint\":1,\"ChangeWindow\":1,\"CostObjective\":1,\"Ownership\":1,\"RecoveryObjective\":1,\"ServiceObjective\":1}")
+    generation           = optional(number, 1)
     revalidate_seconds   = optional(number, 0)
   })
-  default = {
-    enabled              = true
-    path                 = "/app/config/operating-intent/generic-source.json"
-    revision             = "operating-intent-source:generic@1.0.0"
-    sha256               = "sha256:a359ad5094e8fca59fb4a2144afdcf471d78c182df1cca1ecbb4e26596b89d6d"
-    expected_counts_json = "{\"ArchitectureConstraint\":1,\"ChangeWindow\":1,\"CostObjective\":1,\"Ownership\":1,\"RecoveryObjective\":1,\"ServiceObjective\":1}"
+  default = {}
+
+  validation {
+    condition = !var.operating_intent_source.enabled || (
+      trimspace(var.operating_intent_source.path) != "" &&
+      trimspace(var.operating_intent_source.revision) != "" &&
+      can(regex("^sha256:[0-9a-f]{64}$", var.operating_intent_source.sha256))
+    )
+    error_message = "Enabled operating_intent_source requires a source path, an exact pinned revision, and a sha256: content digest."
+  }
+
+  validation {
+    condition = (
+      !var.operating_intent_source.enabled ||
+      var.operating_intent_source.path == "/app/config/operating-intent/generic-source.json"
+      ) || (
+      var.operating_intent_source.revision != "operating-intent-source:generic@1.0.0" &&
+      var.operating_intent_source.sha256 != "sha256:a359ad5094e8fca59fb4a2144afdcf471d78c182df1cca1ecbb4e26596b89d6d"
+    )
+    error_message = "An operating_intent_source that replaces the shipped generic path MUST also replace its pinned revision and sha256; a partial override would pin a document the deployment does not supply."
+  }
+
+  validation {
+    condition = (
+      var.operating_intent_source.generation == floor(var.operating_intent_source.generation) &&
+      var.operating_intent_source.generation >= 1
+    )
+    error_message = "operating_intent_source.generation MUST be an integer of 1 or more; raise it whenever the pinned binding changes so a departing replica cannot overwrite the new rollout's admission."
   }
 }
 

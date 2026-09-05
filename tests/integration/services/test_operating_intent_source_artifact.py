@@ -58,8 +58,18 @@ def _pinned_binding_block() -> str:
 
 
 def _pinned(key: str) -> str:
+    """Return one pinned value from the caller's per-attribute default.
+
+    The pins live on ``optional(string, "...")`` rather than in an object-level
+    ``default`` block, because Terraform ignores an object-level default the moment a
+    caller supplies any attribute at all. Reading them from the same place the
+    deployment resolves them keeps this integrity check honest.
+    """
+
     match = re.search(
-        rf'^\s*{re.escape(key)}\s*=\s*"(?P<value>.*)"\s*$', _pinned_binding_block(), re.MULTILINE
+        rf'^\s*{re.escape(key)}\s*=\s*optional\(string, "(?P<value>.*)"\)\s*$',
+        _pinned_binding_block(),
+        re.MULTILINE,
     )
     assert match is not None, f"operating_intent_source default is missing {key}"
     return match.group("value")
@@ -119,7 +129,7 @@ def test_terraform_caller_pins_the_shipped_artifact_exactly() -> None:
     for record in document.snapshot.objects:
         counts[record.object_type] = counts.get(record.object_type, 0) + 1
 
-    assert re.search(r"\benabled\s*=\s*true\b", _pinned_binding_block()) is not None
+    assert re.search(r"\benabled\s*=\s*optional\(bool, true\)", _pinned_binding_block()) is not None
     assert _pinned("path") == _in_image_path()
     assert _pinned("revision") == document.snapshot.source_revision
     assert _pinned("sha256") == operating_intent_source_document_digest(document)
@@ -221,3 +231,43 @@ def test_core_image_config_copy_places_the_artifact_in_a_container() -> None:
 
 def _config_copy_line() -> str:
     return _config_copy_match().group(1)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda raw: raw.update({"annotations": {"note": "unreviewed"}}),
+        lambda raw: raw["provenance"].update({"signature": "unreviewed"}),
+        lambda raw: raw["objects"][0].update({"revision": 7}),
+        lambda raw: raw["objects"][0].update({"type_ref": {"name": "ServiceObjective"}}),
+    ],
+)
+def test_the_shipped_artifact_cannot_grow_a_member_behind_its_pin(mutate) -> None:
+    """The pin is over the whole document, not over a recognized subset of it.
+
+    A lossy parser left the asserted digest unchanged when a member was added at the
+    document, provenance, or object level, so the artifact could change while this
+    integrity check and the Terraform pin both still passed.
+    """
+
+    raw = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+    mutate(raw)
+
+    with pytest.raises(ValueError, match="unknown members"):
+        operating_intent_source_document_from_mapping(raw)
+
+
+def test_editing_any_recognized_value_moves_the_pinned_digest() -> None:
+    original = operating_intent_source_document_digest(_document())
+    for mutate in (
+        lambda raw: raw.update({"source_revision": "operating-intent-source:generic@1.0.1"}),
+        lambda raw: raw["provenance"].update({"source_url": "https://example.invalid/other"}),
+        lambda raw: raw["provenance"].update({"resolved_ref": "generic@9.9.9"}),
+        lambda raw: raw["provenance"].update({"retrieved_at": "2099-01-01T00:00:00+00:00"}),
+        lambda raw: raw["objects"][0]["properties"].update({"freshness_seconds": 1}),
+    ):
+        raw = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        mutate(raw)
+        mutated = operating_intent_source_document_from_mapping(raw)
+
+        assert operating_intent_source_document_digest(mutated) != original

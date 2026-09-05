@@ -14,14 +14,20 @@ Admission is *continuous*, not startup-only. A source that was complete and fres
 startup can later leave its effective interval, exceed its declared freshness, or
 vanish from the deployment mount. Every admission attempt therefore records a bounded,
 self-expiring admission (:mod:`fdai.core.operational_context.operating_intent_admission`)
-that authority consumers gate on; when an attempt fails, the projected graph is kept
-as evidence and history while intent authority is quarantined.
+that authority consumers gate on; when an attempt fails - including a projection or
+ontology-catalog failure - the projected graph is kept as evidence and history while
+intent authority is durably quarantined before the attempt returns.
 
-Manifest inspection, interrupted-apply recovery, and projection all run inside the
-deployment-wide resource lock, on a key disjoint from the continuous operating-model
-worker's. Without it a second replica starting concurrently would read the first
-replica's in-flight ``applying`` manifest as an interrupted apply and delete the
-subgraph out from under it.
+Manifest inspection, interrupted-apply recovery, projection, and the admission write
+all run inside the deployment-wide resource lock, on a key disjoint from the continuous
+operating-model worker's. Without it a second replica starting concurrently would read
+the first replica's in-flight ``applying`` manifest as an interrupted apply and delete
+the subgraph out from under it.
+
+The lock serializes writers but does not order releases, so the admission record is
+additionally fenced by the operator-declared rollout generation: a departing replica
+never overwrites - and so never authorizes or quarantines - the admission of the
+rollout that replaced it.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from fdai.core.operational_context import (
     validate_operating_intent_source_document,
 )
 from fdai.core.operational_context.operating_intent_admission import (
+    MAX_ADMITTED_OBJECT_IDS,
     MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS,
 )
 from fdai.delivery.operating_model import (
@@ -50,8 +57,10 @@ from fdai.delivery.operating_model import (
     JsonOperatingModelProviderConfig,
 )
 from fdai.runtime.operating_intent_binding import (
+    OPERATING_INTENT_SOURCE_PATH_ENV,
     decode_operating_intent_manifest,
     operating_intent_binding_from_env,
+    operating_intent_generation_from_env,
     operating_intent_positive_int,
 )
 from fdai.runtime.operating_model import (
@@ -60,7 +69,10 @@ from fdai.runtime.operating_model import (
 )
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
-from fdai.shared.providers.operating_model import OperatingModelSnapshot
+from fdai.shared.providers.operating_model import (
+    OperatingIntentSourceDocument,
+    OperatingModelSnapshot,
+)
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
@@ -98,11 +110,16 @@ class OperatingIntentSourceRuntime:
     link_types: tuple[OntologyLinkType, ...]
     state_store: StateStore | None
     resource_lock: ResourceLock
+    generation: int = 1
     revalidation_seconds: int = _DEFAULT_REVALIDATION_SECONDS
 
     def __post_init__(self) -> None:
         if self.revalidation_seconds < 1:
             raise ValueError("operating intent source revalidation interval MUST be positive")
+        if isinstance(self.generation, bool) or not isinstance(self.generation, int):
+            raise ValueError("operating intent source generation MUST be an integer")
+        if self.generation < 1:
+            raise ValueError("operating intent source generation MUST be >= 1")
         if self.admission_validity_seconds > MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS:
             raise ValueError(
                 "operating intent source revalidation interval exceeds the admission validity bound"
@@ -125,23 +142,19 @@ class OperatingIntentSourceRuntime:
         Returns the admitted projection result - counts and pinned revision - whenever
         the source is currently admitted, whether this attempt replaced the owned
         subgraph or found the durable manifest already closing exactly this document.
-        Every failure path preserves the durably owned graph and records a denying
-        admission instead of raising, so one bad revalidation neither takes the
-        process down nor leaves stale authority alive.
+        Every failure path preserves the durably owned graph and durably records a
+        denying admission *before* returning, so one bad revalidation neither takes
+        the process down nor leaves stale authority alive until expiry.
         """
 
         try:
             document = await self.provider.load()
-        except (OSError, ValueError) as exc:
-            await self._deny("quarantined", reason=str(exc), now=now)
-            return None
-        try:
             validate_operating_intent_source_document(
                 document,
                 binding=self.binding,
                 now=now,
             )
-        except OperatingIntentSourceError as exc:
+        except (OSError, ValueError, OperatingIntentSourceError) as exc:
             await self._deny("quarantined", reason=str(exc), now=now)
             return None
 
@@ -157,42 +170,64 @@ class OperatingIntentSourceRuntime:
             await self._deny("unavailable", reason=f"resource lock unavailable: {exc}", now=now)
             return None
         async with stack:
-            already_projected = self.state_store is not None and (
-                await operating_model_projection_matches(
-                    status_store=self.state_store,
-                    source_revision=document.snapshot.source_revision,
-                    snapshot_digest=self.binding.expected_sha256,
-                    manifest_key=_OPERATING_INTENT_SOURCE_MANIFEST_KEY,
-                )
-            )
-            result = (
-                OperatingModelProjectionResult(
-                    source_revision=document.snapshot.source_revision,
-                    object_count=len(document.snapshot.objects),
-                    link_count=len(document.snapshot.links),
-                )
-                if already_projected
-                else await project_operating_model_snapshot(
-                    snapshot=document.snapshot,
-                    store=self.store,
-                    object_types=self.object_types,
-                    link_types=self.link_types,
-                    status_store=self.state_store,
-                    snapshot_digest=self.binding.expected_sha256,
-                    manifest_key=_OPERATING_INTENT_SOURCE_MANIFEST_KEY,
-                    status_key=OPERATING_INTENT_SOURCE_STATUS_KEY,
-                )
-            )
-        await self._record_admission(result, now=now)
+            try:
+                result = await self._apply(document)
+            except Exception as exc:  # noqa: BLE001 - any projection defect quarantines
+                # Ontology catalog validation, a malformed durable manifest, and a
+                # store write failure all land here. Each one means the pinned
+                # document did not become the owned graph, so authority is withdrawn
+                # immediately instead of surviving on the previous admission until it
+                # expires - and startup records the denial rather than aborting.
+                _LOGGER.warning("operating_intent_source_projection_failed", exc_info=True)
+                await self._deny("quarantined", reason=f"projection failed: {exc}", now=now)
+                return None
+            await self._record_admission(result, document=document, now=now)
         return result
+
+    async def _apply(
+        self, document: OperatingIntentSourceDocument
+    ) -> OperatingModelProjectionResult:
+        """Project the validated document, or restate what the manifest already closes."""
+
+        already_projected = self.state_store is not None and (
+            await operating_model_projection_matches(
+                status_store=self.state_store,
+                source_revision=document.snapshot.source_revision,
+                snapshot_digest=self.binding.expected_sha256,
+                manifest_key=_OPERATING_INTENT_SOURCE_MANIFEST_KEY,
+            )
+        )
+        if already_projected:
+            return OperatingModelProjectionResult(
+                source_revision=document.snapshot.source_revision,
+                object_count=len(document.snapshot.objects),
+                link_count=len(document.snapshot.links),
+            )
+        return await project_operating_model_snapshot(
+            snapshot=document.snapshot,
+            store=self.store,
+            object_types=self.object_types,
+            link_types=self.link_types,
+            status_store=self.state_store,
+            snapshot_digest=self.binding.expected_sha256,
+            manifest_key=_OPERATING_INTENT_SOURCE_MANIFEST_KEY,
+            status_key=OPERATING_INTENT_SOURCE_STATUS_KEY,
+        )
 
     async def _record_admission(
         self,
         result: OperatingModelProjectionResult,
         *,
+        document: OperatingIntentSourceDocument,
         now: datetime,
     ) -> None:
         """Record the current admission and restate the projection status it backs.
+
+        The record enumerates the object identities this source owns, so a consumer
+        can tell an intent-source ``ChangeWindow`` from one the generic or continuous
+        operating-model path projected. It also carries the rollout generation, which
+        is what lets a reader reject an admission written by a replica of a different
+        release.
 
         The status key is rewritten even when this pass skipped projection, so a
         recovery that follows a quarantine cannot leave the surface reading ``rejected``
@@ -201,17 +236,33 @@ class OperatingIntentSourceRuntime:
 
         if self.state_store is None:
             return
-        await self.state_store.write_state(
+        owned_object_ids = sorted(item.id for item in document.snapshot.objects)
+        if len(owned_object_ids) > MAX_ADMITTED_OBJECT_IDS:
+            await self._deny(
+                "quarantined",
+                reason=(
+                    "operating intent source owns more object identities than one admission "
+                    "record may enumerate"
+                ),
+                now=now,
+            )
+            return
+        written = await self._write_fenced(
             OPERATING_INTENT_SOURCE_ADMISSION_KEY,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "1.1.0",
                 "status": "admitted",
+                "binding_generation": self.generation,
                 "source_revision": result.source_revision,
                 "snapshot_digest": self.binding.expected_sha256,
+                "owned_object_ids": owned_object_ids,
                 "validated_at": now.isoformat(),
                 "max_age_seconds": self.admission_validity_seconds,
             },
+            now=now,
         )
+        if not written:
+            return
         await self.state_store.write_state(
             OPERATING_INTENT_SOURCE_STATUS_KEY,
             {
@@ -228,19 +279,93 @@ class OperatingIntentSourceRuntime:
 
         if self.state_store is None:
             return
-        await self.state_store.write_state(
+        written = await self._write_fenced(
             OPERATING_INTENT_SOURCE_ADMISSION_KEY,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "1.1.0",
                 "status": status,
+                "binding_generation": self.generation,
                 "reason": reason,
                 "validated_at": now.isoformat(),
             },
+            now=now,
         )
+        if not written:
+            return
         await self.state_store.write_state(
             OPERATING_INTENT_SOURCE_STATUS_KEY,
             {"schema_version": "1.0.0", "status": "rejected", "reason": reason},
         )
+
+    async def _write_fenced(
+        self,
+        key: str,
+        value: Mapping[str, object],
+        *,
+        now: datetime,
+    ) -> bool:
+        """Write an admission only while a newer rollout generation currently owns it.
+
+        A rolling deployment runs two releases at once. The departing replica's
+        revalidation worker keeps proving its own older pin, and without this fence it
+        would overwrite the shared record - either authorizing the new rollout with a
+        binding the new replicas never validated, or quarantining a healthy new
+        rollout on its way out. The deployment-wide lock serializes writers but says
+        nothing about which release should win, so the generation does.
+
+        The fence is bounded rather than permanent. A newer generation's record stops
+        proving anything once its own validity window elapses, so from that instant it
+        cannot grant authority to anybody and holding the key would only deny a
+        rolled-back release forever. Yielding then makes an ordinary rollback recover
+        after at most one validity window instead of requiring an operator to delete
+        durable state by hand.
+
+        Returns whether the write happened, so a fenced-out caller also leaves the
+        operator-facing status surface describing the rollout that actually owns it.
+        """
+
+        if self.state_store is None:
+            return False
+        current = await self.state_store.read_state(key)
+        if current is not None and self._newer_generation_is_current(current, now=now):
+            _LOGGER.info(
+                "operating_intent_source_admission_fenced",
+                extra={
+                    "generation": self.generation,
+                    "current_generation": current.get("binding_generation"),
+                },
+            )
+            return False
+        await self.state_store.write_state(key, value)
+        return True
+
+    def _newer_generation_is_current(self, record: Mapping[str, object], *, now: datetime) -> bool:
+        """Return whether ``record`` belongs to a newer generation that is still live."""
+
+        generation = record.get("binding_generation")
+        if (
+            isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or generation <= self.generation
+        ):
+            return False
+        raw_validated_at = record.get("validated_at")
+        if not isinstance(raw_validated_at, str):
+            # A newer generation's record with no usable proof time cannot be aged out
+            # by anyone, so it is treated as live and this older replica stands down.
+            return True
+        try:
+            validated_at = datetime.fromisoformat(raw_validated_at)
+        except ValueError:
+            return True
+        if validated_at.tzinfo is None:
+            return True
+        max_age_seconds = record.get("max_age_seconds")
+        if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int):
+            # A denying record declares no window of its own; bound it by this
+            # replica's so a quarantine from a departed rollout still ages out.
+            max_age_seconds = self.admission_validity_seconds
+        return (now - validated_at).total_seconds() <= max_age_seconds
 
 
 async def bind_operating_intent_source_from_env(
@@ -325,7 +450,7 @@ def build_operating_intent_source_runtime(
 ) -> OperatingIntentSourceRuntime | None:
     """Compose the pinned intent-source runtime, or ``None`` when unconfigured."""
 
-    raw_path = environment.get("FDAI_OPERATING_INTENT_SOURCE_PATH", "").strip()
+    raw_path = environment.get(OPERATING_INTENT_SOURCE_PATH_ENV, "").strip()
     if not raw_path:
         return None
     if store is None:
@@ -355,6 +480,7 @@ def build_operating_intent_source_runtime(
         link_types=tuple(link_types),
         state_store=state_store,
         resource_lock=resource_lock,
+        generation=operating_intent_generation_from_env(environment),
         revalidation_seconds=revalidation_seconds,
     )
 

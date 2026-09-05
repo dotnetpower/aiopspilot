@@ -37,9 +37,11 @@ from .models import (
     SourceFreshness,
 )
 from .operating_intent_admission import (
+    MAX_ADMITTED_OBJECT_IDS,
     MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS,
     OPERATING_INTENT_SOURCE_ADMISSION_KEY,
     OperatingIntentAdmission,
+    OperatingIntentAdmissionExpectation,
     OperatingIntentAdmissionStatus,
     StateStoreOperatingIntentAdmissionReader,
     evaluate_operating_intent_admission,
@@ -62,6 +64,7 @@ from .principal_context import (
 from .projector import OperatingModelProjectionResult, OperatingModelProjector
 
 __all__ = [
+    "MAX_ADMITTED_OBJECT_IDS",
     "MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS",
     "OPERATING_INTENT_SOURCE_ADMISSION_KEY",
     "UNMAPPED_SERVICE_REF",
@@ -89,6 +92,7 @@ __all__ = [
     "OperationalEvidenceSource",
     "OperationalEvidencePrincipalContextProvider",
     "OperatingIntentAdmission",
+    "OperatingIntentAdmissionExpectation",
     "OperatingIntentAdmissionStatus",
     "OperatingIntentSourceBinding",
     "OperatingIntentSourceError",
