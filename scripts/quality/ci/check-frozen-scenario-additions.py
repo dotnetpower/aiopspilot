@@ -42,12 +42,12 @@ def validate_new_version_inventory(
     """Return errors for non-atomic or incomplete newly added scenario versions."""
     added = {path for path in added_paths if _version_for_path(path)}
     corpus = {path for path in corpus_paths if _version_for_path(path)}
-    versions = sorted({_version_for_path(path) for path in added})
+    versions = sorted(
+        {version for path in added if (version := _version_for_path(path)) is not None}
+    )
     errors: list[str] = []
 
     for version in versions:
-        if version is None:
-            continue
         version_paths = {path for path in corpus if _version_for_path(path) == version}
         manifest_path = str(SCENARIO_ROOT / "manifests" / f"{version}.json")
         if manifest_path not in added:
