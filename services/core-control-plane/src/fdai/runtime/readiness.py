@@ -161,7 +161,10 @@ class StartupReadinessRuntime:
     async def refresh_until_stopped(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
             next_expiry = self.state.next_expiry()
-            delay = self._next_refresh_delay(now=_utc_now())
+            now = _utc_now()
+            if next_expiry is not None and next_expiry <= now:
+                self._close_expired_readiness()
+            delay = self._next_refresh_delay(now=now)
             try:
                 await asyncio.wait_for(stop.wait(), timeout=delay)
             except TimeoutError:

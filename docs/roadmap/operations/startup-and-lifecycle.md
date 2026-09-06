@@ -40,6 +40,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Closed guarded processing before the minimum refresh delay when the refresh loop observes already-expired evidence, and made the expiry test wait for the guarded operation explicitly. | `current change`; focused readiness tests and the changed-range regression gate. | Retain deployed degraded-shadow expiry evidence separately. |
 | 2026-08-13 | implemented | Reused each successful T2 cross-check startup proof for later process-local readiness refreshes instead of resampling every five minutes. Failed and concurrent attempts remain retry-safe. | Current change in `startup_model_probe.py` and `test_startup_probe.py`; focused startup probe tests: `18 passed`. | Capture governed deployed-runtime metering evidence and complete the broader lifecycle workflows below. |
 | 2026-08-19 | implemented | Ran deterministic live model resolution before protected Terraform planning, sealed its exact manifests and digests through apply, and added a weekly provider-failure-abstaining draft-PR reconciler. | `current change`; focused lifecycle, protected-plan verifier, Operator narrator, Terraform, and CI security contracts. | Retain a governed reconciler run and complete the independent collector and Human approval workflows. |
 | 2026-08-19 | implemented | Scheduled the verified collector through a configurable Container Apps Job and bound a default-off discovery activation reducer to Norns' inert candidate publication boundary. Missing, stale, failed, duplicate, or unavailable evidence closes the gate with sanitized reason codes; policy disablement never changes the catalog. | `current change`; focused readiness activation, collector Job/CLI, runtime settings, collection/watcher, Norns, bootstrap, and infrastructure checks. | Retain governed collector and activation-transition receipts; complete the independent Human approval workflow. |
@@ -164,8 +165,8 @@ miss lowers the case to Human approval.
 Evidence expires after a budget-owned lifetime: at least five minutes, otherwise twice the maximum
 full-pass duration plus one probe timeout. Refresh starts one full-pass-plus-probe budget before the
 earliest expiry, leaving one probe timeout of freshness after a maximum-duration pass. Already-due
-work waits at least one second to avoid a hot loop; transient failure retries within 15 seconds. At
-the original expiry, processing closes and emits one sanitized warning containing only expired
+work closes processing before the minimum one-second refresh delay avoids a hot loop; transient
+failure retries within 15 seconds. At the original expiry, processing emits one sanitized warning containing only expired
 probe ids until a complete report replaces the evidence. Successful T2 cross-check, audit
 durability, and full-chain proofs receive fresh evidence times without repeating their operation.
 An incomplete full-chain proof waits five minutes before another scan to avoid saturating

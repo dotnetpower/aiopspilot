@@ -360,6 +360,7 @@ async def test_refresh_closes_running_operation_at_evidence_expiry(
     now = datetime.now(UTC)
     cancelled = asyncio.Event()
     evaluation_started = asyncio.Event()
+    operation_started = asyncio.Event()
     stop = asyncio.Event()
 
     class _Coordinator:
@@ -395,16 +396,18 @@ async def test_refresh_closes_running_operation_at_evidence_expiry(
 
     async def operation() -> None:
         try:
+            operation_started.set()
             await asyncio.Event().wait()
         finally:
             cancelled.set()
 
     guarded = asyncio.create_task(runtime.run_when_ready(stop, operation))
+    await asyncio.wait_for(operation_started.wait(), timeout=1.0)
     caplog.set_level("WARNING", logger="fdai.startup")
     refresh = asyncio.create_task(runtime.refresh_until_stopped(stop))
 
-    await asyncio.wait_for(evaluation_started.wait(), timeout=1.0)
     await asyncio.wait_for(cancelled.wait(), timeout=1.0)
+    await asyncio.wait_for(evaluation_started.wait(), timeout=2.0)
     assert runtime.state._blocked_event.is_set()
     assert not runtime.state.is_ready()
     assert caplog.messages.count("startup_readiness_evidence_expired") == 1
