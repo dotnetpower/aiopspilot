@@ -8,6 +8,7 @@ silently keeping one truth in the ledger and publishing another?
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from typing import Any, TypedDict
 
 import pytest
@@ -40,6 +41,10 @@ _PROVENANCE: _Provenance = {
     "correlation_id": "correlation-1",
     "evidence_source_revision": "sha256:feedface",
 }
+
+
+def _safe_identity(value: str) -> str:
+    return f"sha256:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
 
 
 def _finding(
@@ -129,7 +134,7 @@ async def test_posture_report_row_carries_replayable_provenance() -> None:
     row = await ledger.read_latest_posture_report(_SCOPE)
     assert row is not None
     assert row["activity_id"] == _PROVENANCE["activity_id"]
-    assert row["correlation_id"] == _PROVENANCE["correlation_id"]
+    assert row["correlation_id"] == _safe_identity(_PROVENANCE["correlation_id"])
     assert row["evidence_source_revision"] == _PROVENANCE["evidence_source_revision"]
     assert row["evidence_digest"] == write.evidence_digest
     # The digest covers the evidence body only, so provenance never changes it.

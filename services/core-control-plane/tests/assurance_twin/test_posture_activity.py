@@ -59,9 +59,10 @@ def _review(
 
 def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
     scope = "sub/customer-sensitive-scope"
+    correlation_id = "sub/customer-sensitive-correlation"
     activity = build_posture_report_activity(
         _report(_finding(), scope=scope),
-        correlation_id="posture-1",
+        correlation_id=correlation_id,
         freshness=OperationalFreshness.FRESH,
     )
     payload = activity.model_dump(mode="json")
@@ -73,6 +74,7 @@ def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
     assert payload["evidence_count"] == 1
     assert payload["source"] == "assurance-twin:posture"
     assert scope not in json.dumps(payload)
+    assert correlation_id not in json.dumps(payload)
     assert activity.status is OperationalActivityStatus.COMPLETED
     JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
         "agent-operational-activity",
@@ -84,6 +86,7 @@ def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
 def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
     pr_ref = "customer/repository#1"
     review_key = "customer/repository#1:change-a"
+    correlation_id = "customer/repository#1:correlation"
     activity = build_change_review_activity(
         _review(
             _finding(),
@@ -91,7 +94,7 @@ def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
             pr_ref=pr_ref,
             review_key=review_key,
         ),
-        correlation_id="review-1",
+        correlation_id=correlation_id,
         freshness=OperationalFreshness.FRESH,
     )
     payload = activity.model_dump(mode="json")
@@ -102,6 +105,7 @@ def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
     serialized = json.dumps(payload)
     assert pr_ref not in serialized
     assert review_key not in serialized
+    assert correlation_id not in serialized
     JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
         "agent-operational-activity",
         payload,

@@ -335,6 +335,7 @@ class StateStoreAssuranceTwinPostureLedger:
 
         _check_bounded_findings(report.findings)
         _check_bounded_string_list(reason_codes, field="reason_codes")
+        correlation_identity = _privacy_safe_identity(correlation_id)
         key = posture_report_state_key(report.scope)
         body: dict[str, Any] = {
             **report.to_dict(),
@@ -348,7 +349,7 @@ class StateStoreAssuranceTwinPostureLedger:
             _with_provenance(
                 body,
                 activity_id=activity_id,
-                correlation_id=correlation_id,
+                correlation_id=correlation_identity,
                 digest=digest,
                 evidence_source_revision=evidence_source_revision,
             ),
@@ -401,6 +402,7 @@ class StateStoreAssuranceTwinPostureLedger:
 
         _check_bounded_findings(review.findings)
         _check_bounded_string_list(reason_codes, field="reason_codes")
+        correlation_identity = _privacy_safe_identity(correlation_id)
         key = change_review_state_key(review.review_key)
         body = _change_review_body(review, freshness=freshness, reason_codes=reason_codes)
         digest = evidence_body_digest(body)
@@ -410,7 +412,7 @@ class StateStoreAssuranceTwinPostureLedger:
                 **_with_provenance(
                     body,
                     activity_id=activity_id,
-                    correlation_id=correlation_id,
+                    correlation_id=correlation_identity,
                     digest=digest,
                     evidence_source_revision=evidence_source_revision,
                 ),
@@ -426,7 +428,7 @@ class StateStoreAssuranceTwinPostureLedger:
             key=key,
             digest=digest,
             existing=existing,
-            correlation_id=correlation_id,
+            correlation_id=correlation_identity,
             attempts_remaining=_MAX_CONFLICT_CAS_ATTEMPTS,
         )
 
@@ -662,6 +664,17 @@ def _canonical_timestamp(value: str) -> str:
     if parsed.tzinfo is None:
         raise ValueError("assurance twin generated_at MUST include a timezone")
     return parsed.astimezone(UTC).isoformat()
+
+
+def _privacy_safe_identity(value: str) -> str:
+    if not value.strip():
+        raise ValueError("assurance twin correlation_id MUST be non-blank")
+    if len(value) > _MAX_EVIDENCE_SOURCE_REVISION_CHARS:
+        raise ValueError(
+            "assurance twin correlation_id MUST be "
+            f"<= {_MAX_EVIDENCE_SOURCE_REVISION_CHARS} characters"
+        )
+    return f"sha256:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
 
 
 def _stored_digest(existing: Mapping[str, Any] | None) -> str | None:

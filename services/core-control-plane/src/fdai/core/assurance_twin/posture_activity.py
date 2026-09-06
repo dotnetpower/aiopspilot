@@ -72,10 +72,11 @@ def build_posture_report_activity(
     if not correlation_id.strip():
         raise ValueError("posture report activity correlation_id MUST be non-empty")
     status = _status_for(freshness, reason_codes)
+    correlation_identity = _privacy_safe_identity(correlation_id)
     return AgentOperationalActivity(
         schema_version="1.2.0",
-        activity_id=f"assurance-twin.posture-report:{correlation_id}:{status.value}",
-        idempotency_key=f"assurance-twin.posture-report:{correlation_id}:{status.value}",
+        activity_id=f"assurance-twin.posture-report:{correlation_identity}:{status.value}",
+        idempotency_key=f"assurance-twin.posture-report:{correlation_identity}:{status.value}",
         kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
         status=status,
         owner_agent=_OWNER_AGENT,
@@ -84,7 +85,7 @@ def build_posture_report_activity(
         source=_POSTURE_SOURCE,
         freshness=freshness,
         evidence_count=len(report.findings),
-        correlation_id=correlation_id,
+        correlation_id=correlation_identity,
         reason_codes=reason_codes,
     )
 
@@ -106,7 +107,8 @@ def build_change_review_activity(
     if not correlation_id.strip():
         raise ValueError("change review activity correlation_id MUST be non-empty")
     status = _status_for(freshness, reason_codes)
-    review_identity = hashlib.sha256(review.review_key.encode("utf-8")).hexdigest()
+    review_identity = _privacy_safe_identity(review.review_key)
+    correlation_identity = _privacy_safe_identity(correlation_id)
     return AgentOperationalActivity(
         schema_version="1.2.0",
         activity_id=f"assurance-twin.change-review:{review_identity}:{status.value}",
@@ -119,7 +121,7 @@ def build_change_review_activity(
         source=_REVIEW_SOURCE,
         freshness=freshness,
         evidence_count=len(review.findings),
-        correlation_id=correlation_id,
+        correlation_id=correlation_identity,
         reason_codes=reason_codes,
     )
 
@@ -151,6 +153,10 @@ def _parse_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError("assurance-twin activity timestamp MUST include a timezone")
     return parsed
+
+
+def _privacy_safe_identity(value: str) -> str:
+    return f"sha256:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
 
 
 __all__ = [
