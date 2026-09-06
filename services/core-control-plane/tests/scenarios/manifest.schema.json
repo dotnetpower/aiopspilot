@@ -110,6 +110,16 @@
               "required_outcome": {
                 "properties": {"status": {"const": "complete"}},
                 "required": ["status"]
+              },
+              "coverage": {
+                "properties": {
+                  "successful_full_loop": {"minItems": 1},
+                  "unknown_or_deny": {"minItems": 1},
+                  "cross_objective_conflict": {"minItems": 1},
+                  "partial_failure_recovery": {"minItems": 1},
+                  "a3e_or_non_applicability": {"minItems": 1},
+                  "deterministic_replay_with_evidence": {"minItems": 1}
+                }
               }
             }
           }

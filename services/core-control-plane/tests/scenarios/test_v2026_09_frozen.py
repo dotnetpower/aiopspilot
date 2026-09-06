@@ -445,6 +445,28 @@ def test_v1_3_schema_rejects_pack_completion_without_completed_outcome(
     )
 
 
+@pytest.mark.parametrize("capability", tuple(_REQUIRED_OUTCOME_IDS))
+def test_v1_3_schema_rejects_complete_pack_with_empty_coverage(
+    capability: str,
+) -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    pack = manifest["capability_packs"][capability]
+    outcome_evidence = next(
+        evidence for coverage in pack["coverage"].values() for evidence in coverage
+    )
+    pack["status"] = "complete"
+    pack["required_outcome"]["status"] = "complete"
+    pack["required_outcome"]["evidence"] = [outcome_evidence]
+    pack["coverage"] = dict.fromkeys(pack["coverage"], [])
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert {tuple(error.path) for error in errors} >= {
+        ("capability_packs", capability, "coverage", dimension) for dimension in pack["coverage"]
+    }
+
+
 @pytest.mark.parametrize(
     ("capability", "wrong_outcome_id"),
     tuple(
