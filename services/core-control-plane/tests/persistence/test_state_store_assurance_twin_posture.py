@@ -299,6 +299,44 @@ async def test_conflict_is_detected_against_a_row_without_recorded_provenance() 
     assert conflicting.stored_evidence_digest == evidence_body_digest(legacy_body)
 
 
+async def test_legacy_offset_timestamp_replay_does_not_create_a_conflict() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    legacy_body = {
+        "pr_ref": "owner/repo#1",
+        "review_key": "k-1",
+        "verdict": "needs_review",
+        "mode": "shadow",
+        "generated_at": "2026-07-07T00:00:00Z",
+        "freshness": "fresh",
+        "reason_codes": [],
+        "metadata": {},
+        "findings": [],
+    }
+    await store.write_state(
+        change_review_state_key("k-1"),
+        {
+            **legacy_body,
+            **_PROVENANCE,
+            "evidence_digest": evidence_body_digest(legacy_body),
+            "revision": 1,
+        },
+    )
+
+    replay = await ledger.record_change_review(
+        _review("k-1", generated_at="2026-07-07T01:00:00+01:00"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    assert replay.created is False
+    assert replay.conflict is False
+    stored = await store.read_state(change_review_state_key("k-1"))
+    assert stored is not None
+    assert stored["generated_at"] == "2026-07-07T00:00:00Z"
+    assert CONFLICT_MARKER_FIELD not in stored
+
+
 async def test_read_recent_change_reviews_returns_newest_first() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)

@@ -451,6 +451,7 @@ class StateStoreAssuranceTwinPostureLedger:
         """
 
         stored_digest = _stored_digest(existing)
+        stored_comparison_digest = _stored_comparison_digest(existing)
         if _has_conflict_marker(existing):
             return AssuranceTwinLedgerWrite(
                 key=key,
@@ -459,7 +460,7 @@ class StateStoreAssuranceTwinPostureLedger:
                 conflict=True,
                 stored_evidence_digest=stored_digest,
             )
-        if stored_digest == digest:
+        if stored_comparison_digest == digest:
             return await self._confirm_matching_replay(
                 key=key,
                 digest=digest,
@@ -691,6 +692,17 @@ def _stored_digest(existing: Mapping[str, Any] | None) -> str | None:
     if isinstance(recorded, str) and recorded:
         return recorded
     return evidence_body_digest(existing)
+
+
+def _stored_comparison_digest(existing: Mapping[str, Any]) -> str:
+    body = {key: value for key, value in existing.items() if key not in _PROVENANCE_FIELDS}
+    generated_at = body.get("generated_at")
+    if isinstance(generated_at, str):
+        try:
+            body["generated_at"] = _canonical_timestamp(generated_at)
+        except ValueError:
+            pass
+    return evidence_body_digest(body)
 
 
 def _stored_revision(existing: Mapping[str, Any]) -> int:
