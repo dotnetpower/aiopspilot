@@ -29,7 +29,7 @@ the shipped rule catalog + Rego policies + IaC templates verbatim.
 | `expected_decision` | yes | Expected `ControlLoopResult.decision` (`auto` / `hil` / `deny` / `abstain`). |
 | `expected_citing_rule_id_present` | yes | Rule id that MUST appear in the P1 citing set. |
 | `wire_risk_gate` | no (default `false`) | Opt this scenario into the risk-gate path (risk table + `RiskGate`). Set `true` for overlays asserting `hil`/`deny` routing. Left `false` keeps the shadow-PR posture (T0 judge-and-log); wiring the gate globally would fail-close every scenario to HIL because the harness passes no inventory age. |
-| `effect_evidence` | no | Frozen independent effect evidence for the `successful_full_loop` dimension: the pre-dispatch prediction, one authoritative observation produced without the executor receipt, and the `missing` / `stale` / `incomplete` / `conflicting` / `not_yet_recorded` negative cases. Consumed by the MSCP expected-effect provider and independent effect observer the harness binds to the real `ControlLoop`. |
+| `effect_evidence` | no | Frozen independent effect evidence for generic `successful_full_loop` mechanics: the pre-dispatch prediction, one authoritative observation produced without the executor receipt, and the `missing` / `stale` / `incomplete` / `conflicting` / `not_yet_recorded` negative cases. Consumed by the MSCP expected-effect provider and independent effect observer the harness binds to the real `ControlLoop`. This field alone does not satisfy a capability-specific FDAI-CONST-005 outcome. |
 | `note` | no | Human context for the mapping. |
 
 ## Effect evidence fields
@@ -50,3 +50,11 @@ precedes dispatch, the authoritative observation follows it, and the
 
 The overlay never carries an executor receipt, a PR reference, or a dispatch
 outcome: closure has to come from the observation alone.
+
+## Completion boundary
+
+The manifest records each capability-specific FDAI-CONST-005 outcome separately
+under `required_outcome`. Generic replay, failure recovery, conflict, and effect
+evidence can remain nonempty while a pack stays `partial`. A pack becomes
+`complete` only after `required_outcome.status` is `complete` and its evidence
+array cites a passing focused test for the domain outcome.

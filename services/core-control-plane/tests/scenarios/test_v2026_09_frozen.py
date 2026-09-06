@@ -72,6 +72,13 @@ _MACHINE_FIELDS = frozenset(
         "tier",
     }
 )
+_REQUIRED_OUTCOME_IDS = {
+    "sre": "recovery_and_recurrence_closure",
+    "arb_change_safety": "approval_conditions_and_post_change_verification",
+    "finops": "realized_savings_with_reliability_valid",
+    "dr": "data_integrity_and_measured_rto_rpo",
+    "chaos": "human_approved_injection_and_verified_recovery",
+}
 
 
 def _load_scenario_schema() -> dict[str, Any]:
@@ -92,6 +99,16 @@ def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
 
 def _load_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _expected_pack_status(pack: dict[str, Any]) -> str:
+    if not pack["scenario_ids"]:
+        return "missing"
+    required_outcome = pack["required_outcome"]
+    outcome_complete = required_outcome["status"] == "complete" and bool(
+        required_outcome["evidence"]
+    )
+    return "complete" if all(pack["coverage"].values()) and outcome_complete else "partial"
 
 
 def _conflict_id_to_filename(conflict_id: str) -> str:
@@ -385,7 +402,8 @@ def test_capability_coverage_references_owned_scenarios_and_tests() -> None:
     manifest = _load_manifest()
     for pack in manifest["capability_packs"].values():
         scenario_ids = set(pack["scenario_ids"])
-        for evidence_records in pack["coverage"].values():
+        evidence_groups = (*pack["coverage"].values(), pack["required_outcome"]["evidence"])
+        for evidence_records in evidence_groups:
             for evidence in evidence_records:
                 assert evidence["scenario_id"] in scenario_ids
                 assert _test_ref_exists(evidence["test_ref"])
@@ -394,22 +412,76 @@ def test_capability_coverage_references_owned_scenarios_and_tests() -> None:
 def test_complete_pack_requires_every_coverage_dimension() -> None:
     manifest = _load_manifest()
     for pack in manifest["capability_packs"].values():
-        expected_pack_status = (
-            "missing"
-            if not pack["scenario_ids"]
-            else "complete"
-            if all(pack["coverage"].values())
-            else "partial"
-        )
+        expected_pack_status = _expected_pack_status(pack)
         assert pack["status"] == expected_pack_status
         if pack["status"] == "complete":
             assert all(pack["coverage"].values())
+            assert pack["required_outcome"]["status"] == "complete"
+            assert pack["required_outcome"]["evidence"]
     expected_status = (
         "complete"
         if all(pack["status"] == "complete" for pack in manifest["capability_packs"].values())
         else "incomplete"
     )
     assert manifest["status"] == expected_status
+
+
+def test_capability_specific_outcome_is_required_for_completion() -> None:
+    manifest = _load_manifest()
+    for capability, expected_outcome_id in _REQUIRED_OUTCOME_IDS.items():
+        pack = manifest["capability_packs"][capability]
+        required_outcome = pack["required_outcome"]
+        assert required_outcome["id"] == expected_outcome_id
+        expected_outcome_status = "complete" if required_outcome["evidence"] else "missing"
+        assert required_outcome["status"] == expected_outcome_status
+        if required_outcome["status"] == "missing":
+            assert required_outcome["gap"]
+
+
+def test_v2026_09_remains_incomplete_without_required_outcomes() -> None:
+    manifest = _load_manifest()
+
+    assert manifest["status"] == "incomplete"
+    assert {
+        capability: pack["status"] for capability, pack in manifest["capability_packs"].items()
+    } == dict.fromkeys(_REQUIRED_OUTCOME_IDS, "partial")
+    assert {
+        capability: pack["required_outcome"]["status"]
+        for capability, pack in manifest["capability_packs"].items()
+    } == dict.fromkeys(_REQUIRED_OUTCOME_IDS, "missing")
+
+
+def test_nonempty_generic_coverage_cannot_imply_completion() -> None:
+    evidence = {
+        "scenario_id": "example.scenario.001",
+        "test_ref": (
+            "services/core-control-plane/tests/scenarios/"
+            "test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+        ),
+    }
+    pack = {
+        "scenario_ids": ["example.scenario.001"],
+        "coverage": {
+            dimension: [evidence]
+            for dimension in (
+                "successful_full_loop",
+                "unknown_or_deny",
+                "cross_objective_conflict",
+                "partial_failure_recovery",
+                "a3e_or_non_applicability",
+                "deterministic_replay_with_evidence",
+            )
+        },
+        "required_outcome": {
+            "id": "recovery_and_recurrence_closure",
+            "status": "missing",
+            "evidence": [],
+            "gap": "Capability-specific outcome evidence is absent.",
+        },
+    }
+
+    assert all(pack["coverage"].values())
+    assert _expected_pack_status(pack) == "partial"
 
 
 # ---------------------------------------------------------------------------

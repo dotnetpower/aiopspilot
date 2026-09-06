@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/scenario-manifest/1.2.0",
+  "$id": "https://fdai.dev/schemas/scenario-manifest/1.3.0",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "scenario_set_version", "status", "capability_packs"],
   "properties": {
-    "schema_version": {"const": "1.2.0"},
+    "schema_version": {"enum": ["1.2.0", "1.3.0"]},
     "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
     "status": {"enum": ["incomplete", "complete"]},
     "capability_packs": {
@@ -38,13 +38,47 @@
                 "a3e_or_non_applicability": {"$ref": "#/$defs/coverageEvidence"},
                 "deterministic_replay_with_evidence": {"$ref": "#/$defs/coverageEvidence"}
               }
-            }
+            },
+            "required_outcome": {"$ref": "#/$defs/requiredOutcome"}
           }
         }
       }
     }
   },
   "$defs": {
+    "requiredOutcome": {
+      "description": "Capability-specific FDAI-CONST-005 outcome that must be complete before the pack can be complete.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "evidence"],
+      "properties": {
+        "id": {
+          "enum": [
+            "recovery_and_recurrence_closure",
+            "approval_conditions_and_post_change_verification",
+            "realized_savings_with_reliability_valid",
+            "data_integrity_and_measured_rto_rpo",
+            "human_approved_injection_and_verified_recovery"
+          ]
+        },
+        "status": {"enum": ["missing", "complete"]},
+        "evidence": {"$ref": "#/$defs/coverageEvidence"},
+        "gap": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "complete"}}},
+          "then": {"properties": {"evidence": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "missing"}}},
+          "then": {
+            "required": ["gap"],
+            "properties": {"evidence": {"maxItems": 0}}
+          }
+        }
+      ]
+    },
     "coverageEvidence": {
       "type": "array",
       "items": {"$ref": "#/$defs/coverageEvidenceRecord"},
@@ -60,7 +94,23 @@
           "type": "string",
           "pattern": "^services/core-control-plane/tests/.+\\.py::test_[A-Za-z0-9_]+$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
+          "then": {
+            "properties": {
+              "capability_packs": {
+                "patternProperties": {
+                  "^(sre|arb_change_safety|finops|dr|chaos)$": {
+                    "required": ["required_outcome"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

@@ -434,12 +434,11 @@ _A3E_SCENARIO_IDS: dict[str, str] = {
 
 _FULL_LOOP_SCENARIO_ID = "sre.cluster-diagnostics-missing.001"
 
-# One frozen `successful_full_loop` scenario per capability pack. Each one
+# One frozen generic loop-mechanics scenario per capability pack. Each one
 # carries its own `effect_evidence` overlay block (a frozen prediction, an
-# authoritative observation, and the fail-closed negative cases), so
-# parametrizing the full-loop and partial-failure-recovery tests over this
-# map replays the real independent-effect-observation path for ARB and DR
-# instead of only reusing SRE's evidence.
+# authoritative observation, and the fail-closed negative cases). This proves
+# shadow dispatch and effect-verification mechanics only. It does not prove
+# the capability-specific outcomes required by FDAI-CONST-005.
 _FULL_LOOP_SCENARIO_IDS: dict[str, str] = {
     "sre": _FULL_LOOP_SCENARIO_ID,
     "arb_change_safety": "change.vm-managed-identity-missing.004",
@@ -641,10 +640,10 @@ def _unwrap_audit(record: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Successful full loop
+# Generic loop mechanics
 # ---------------------------------------------------------------------------
 #
-# The SRE `successful_full_loop` dimension. The positive case replays the
+# The generic `successful_full_loop` dimension. The positive case replays the
 # frozen `sre.cluster-diagnostics-missing.001` scenario through the real
 # :class:`ControlLoop` and may close as `executed` **only** because an
 # independent authoritative observation matched the pre-dispatch prediction:
@@ -814,7 +813,7 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
     scenario_id: str,
     shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
-    """SRE `successful_full_loop` evidence for `sre.cluster-diagnostics-missing.001`."""
+    """Prove generic shadow-loop closure, not a capability-specific constitutional outcome."""
 
     scenario, overlay, evidence = _full_loop_inputs(scenario_id)
     source = _IndependentEffectEvidence(evidence, evidence["authoritative_observation"])

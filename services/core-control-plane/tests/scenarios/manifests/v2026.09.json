@@ -1,10 +1,10 @@
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "scenario_set_version": "v2026.09",
-  "status": "complete",
+  "status": "incomplete",
   "capability_packs": {
     "sre": {
-      "status": "complete",
+      "status": "partial",
       "scenario_ids": [
         "sre.cluster-diagnostics-missing.001",
         "sre.slo-signal-source-unmapped.002",
@@ -13,6 +13,12 @@
       "conflict_spec_ids": [
         "sre.cross-objective-conflict.v2026-09"
       ],
+      "required_outcome": {
+        "id": "recovery_and_recurrence_closure",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves independently verified SRE recovery and recurrence closure."
+      },
       "coverage": {
         "successful_full_loop": [
           {
@@ -93,7 +99,7 @@
       }
     },
     "arb_change_safety": {
-      "status": "complete",
+      "status": "partial",
       "scenario_ids": [
         "change.drift-manual-portal-edit.003",
         "change.nsg-allow-any-inbound.002",
@@ -105,6 +111,12 @@
       "conflict_spec_ids": [
         "arb_change_safety.cross-objective-conflict.v2026-09"
       ],
+      "required_outcome": {
+        "id": "approval_conditions_and_post_change_verification",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves ARB approval conditions and independently observed post-change verification."
+      },
       "coverage": {
         "successful_full_loop": [
           {
@@ -197,7 +209,7 @@
       }
     },
     "finops": {
-      "status": "complete",
+      "status": "partial",
       "scenario_ids": [
         "finops.cost-signal-unmapped.005",
         "finops.right-size-vm-high-monthly.002",
@@ -208,6 +220,12 @@
       "conflict_spec_ids": [
         "finops.cross-objective-conflict.v2026-09"
       ],
+      "required_outcome": {
+        "id": "realized_savings_with_reliability_valid",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves realized savings while protected reliability objectives remain valid."
+      },
       "coverage": {
         "successful_full_loop": [
           {
@@ -268,7 +286,7 @@
       }
     },
     "dr": {
-      "status": "complete",
+      "status": "partial",
       "scenario_ids": [
         "dr.backup-vault-restore-rehearsal.002",
         "dr.replica-lag-degraded.001",
@@ -279,6 +297,12 @@
       "conflict_spec_ids": [
         "dr.cross-objective-conflict.v2026-09"
       ],
+      "required_outcome": {
+        "id": "data_integrity_and_measured_rto_rpo",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves recovery data integrity with measured RTO and RPO."
+      },
       "coverage": {
         "successful_full_loop": [
           {
@@ -367,7 +391,7 @@
       }
     },
     "chaos": {
-      "status": "complete",
+      "status": "partial",
       "scenario_ids": [
         "dr.chaos-diagnostics-missing.004",
         "dr.chaos-experiment-novel.003",
@@ -376,6 +400,12 @@
       "conflict_spec_ids": [
         "chaos.cross-objective-conflict.v2026-09"
       ],
+      "required_outcome": {
+        "id": "human_approved_injection_and_verified_recovery",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves explicitly human-approved fault injection with continuous stop guards and verified recovery."
+      },
       "coverage": {
         "successful_full_loop": [
           {
