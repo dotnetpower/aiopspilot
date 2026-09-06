@@ -47,9 +47,9 @@
       "owner_docs": ["docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md"],
       "implementation": ["services/core-control-plane/src/fdai/core/verticals", "services/core-control-plane/src/fdai/core/chaos"],
       "schemas": ["services/core-control-plane/tests/scenarios/schema.json", "services/core-control-plane/tests/scenarios/manifest.schema.json"],
-      "tests": ["services/core-control-plane/tests/scenarios/test_frozen.py", "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py"],
-      "runtime_evidence": ["services/core-control-plane/tests/scenarios/manifests/v2026.07.json"],
-      "gap": "Capability accounting is machine-validated and every pack now owns at least one scenario, so none is missing. Coverage remains partial: only deterministic replay is evidenced across packs, plus one unknown-or-deny case for SRE and one A3-E non-applicability case for chaos. SRE also owns the first partial-failure-recovery case, proven by a dedicated test rather than the generic replay. Successful full loop and cross-objective conflict have no evidence in any pack, and the manifest check still proves only that a cited test exists."
+      "tests": ["services/core-control-plane/tests/scenarios/test_frozen.py", "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py", "services/core-control-plane/tests/scenarios/test_v2026_09_frozen.py", "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py"],
+      "runtime_evidence": ["services/core-control-plane/tests/scenarios/manifests/v2026.07.json", "services/core-control-plane/tests/scenarios/manifests/v2026.09.json"],
+      "gap": "The v2026.09 frozen corpus marks all five capability packs complete across the six constitutional dimensions, with manifest integrity checks and deterministic shadow replays through the shipped control loop. Coverage remains partial because the effect observations and arbitration receipts are in-process frozen evidence rather than governed deployed-runtime receipts, and signed objective effects still come from frozen enrichment instead of a shipped rule or planning artifact."
     },
     {
       "id": "FDAI-CONST-006",
