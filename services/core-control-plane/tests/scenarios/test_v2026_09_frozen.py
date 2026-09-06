@@ -159,14 +159,23 @@ _DISPATCH_RECEIPT_KEYS = (
 )
 
 
-def _load_effect_evidence() -> list[tuple[Path, dict[str, Any]]]:
-    """Load every frozen independent effect-evidence block from the overlays."""
+def _load_enrichment_overlays() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every complete enrichment overlay."""
 
-    found: list[tuple[Path, dict[str, Any]]] = []
+    overlays: list[tuple[Path, dict[str, Any]]] = []
     for path in sorted(ENRICHMENT_DIR.glob("*.json")):
         overlay = cast(
             dict[str, Any], _load_json_without_duplicates(path.read_text(encoding="utf-8"))
         )
+        overlays.append((path, overlay))
+    return overlays
+
+
+def _load_effect_evidence() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every frozen independent effect-evidence block from the overlays."""
+
+    found: list[tuple[Path, dict[str, Any]]] = []
+    for path, overlay in _load_enrichment_overlays():
         evidence = overlay.get("effect_evidence")
         if isinstance(evidence, dict):
             found.append((path, cast(dict[str, Any], evidence)))
@@ -384,6 +393,24 @@ def test_capability_manifest_is_schema_valid() -> None:
     schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema).validate(_load_manifest())
+
+
+@pytest.mark.parametrize(
+    "capability",
+    ("sre", "arb_change_safety", "finops", "dr", "chaos"),
+)
+def test_v1_3_manifest_schema_requires_every_capability_outcome(capability: str) -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    del manifest["capability_packs"][capability]["required_outcome"]
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert any(
+        tuple(error.path) == ("capability_packs", capability)
+        and "'required_outcome' is a required property" in error.message
+        for error in errors
+    )
 
 
 def test_capability_manifest_assigns_every_scenario_exactly_once() -> None:
@@ -657,6 +684,32 @@ def test_scenarios_balanced_within_10_percent_of_mean() -> None:
 # ---------------------------------------------------------------------------
 # Customer-agnosticness
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_enrichment_overlays())
+def test_enrichment_overlay_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} enrichment overlay contains customer data: {findings}"
+    guids = _NONZERO_GUID.findall(json.dumps(raw))
+    assert not guids, f"{path.name} enrichment overlay contains customer GUIDs: {guids[:3]}"
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} enrichment overlay has non-ASCII machine fields: {invalid}"
+
+
+def test_enrichment_overlay_scrubber_checks_nested_resource_fields() -> None:
+    overlay = json.loads(json.dumps(_load_enrichment_overlays()[0][1]))
+    overlay["event_payload_resource"]["nested"] = {
+        "tenant_id": _nonzero_test_guid("4"),
+        "endpoint": "https://private.contoso.invalid/resource",
+        "client_secret": "not-a-real-secret",
+    }
+
+    findings = _customer_data_findings(overlay)
+
+    assert any(finding.endswith(":cloud_account_id") for finding in findings)
+    assert any(finding.endswith(":url") for finding in findings)
+    assert any(finding.endswith(":sensitive_value") for finding in findings)
+    assert _NONZERO_GUID.findall(json.dumps(overlay))
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())

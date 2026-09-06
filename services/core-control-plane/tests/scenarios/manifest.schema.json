@@ -94,23 +94,23 @@
           "type": "string",
           "pattern": "^services/core-control-plane/tests/.+\\.py::test_[A-Za-z0-9_]+$"
         }
-      },
-      "allOf": [
-        {
-          "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
-          "then": {
-            "properties": {
-              "capability_packs": {
-                "patternProperties": {
-                  "^(sre|arb_change_safety|finops|dr|chaos)$": {
-                    "required": ["required_outcome"]
-                  }
-                }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
+      "then": {
+        "properties": {
+          "capability_packs": {
+            "patternProperties": {
+              "^(sre|arb_change_safety|finops|dr|chaos)$": {
+                "required": ["required_outcome"]
               }
             }
           }
         }
-      ]
+      }
     }
-  }
+  ]
 }
