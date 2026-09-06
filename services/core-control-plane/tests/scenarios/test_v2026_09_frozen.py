@@ -467,6 +467,37 @@ def test_v1_3_schema_rejects_complete_pack_with_empty_coverage(
     }
 
 
+def test_v1_3_schema_rejects_partial_pack_with_complete_evidence() -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    pack = manifest["capability_packs"]["sre"]
+    outcome_evidence = next(
+        evidence for coverage in pack["coverage"].values() for evidence in coverage
+    )
+    pack["required_outcome"]["status"] = "complete"
+    pack["required_outcome"]["evidence"] = [outcome_evidence]
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert any(tuple(error.path) == ("capability_packs", "sre", "status") for error in errors)
+
+
+def test_v1_3_schema_rejects_incomplete_aggregate_with_complete_packs() -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    for pack in manifest["capability_packs"].values():
+        outcome_evidence = next(
+            evidence for coverage in pack["coverage"].values() for evidence in coverage
+        )
+        pack["status"] = "complete"
+        pack["required_outcome"]["status"] = "complete"
+        pack["required_outcome"]["evidence"] = [outcome_evidence]
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert any(tuple(error.path) == ("status",) for error in errors)
+
+
 @pytest.mark.parametrize(
     ("capability", "wrong_outcome_id"),
     tuple(

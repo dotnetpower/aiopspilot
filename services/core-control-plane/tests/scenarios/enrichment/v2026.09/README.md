@@ -61,7 +61,9 @@ evidence can remain nonempty while a pack stays `partial`. A pack becomes
 focused test for the domain outcome. Manifest schema version 1.3 requires this
 block on every capability pack. The schema also binds each pack to its
 capability-specific outcome ID and prevents pack or aggregate completion before
-the corresponding outcomes are complete.
+the corresponding outcomes are complete. Completion status is derived in both
+directions, so fully evidenced packs and aggregates cannot remain `partial` or
+`incomplete`.
 
 Frozen safety checks scan each complete enrichment overlay recursively, including
 `event_payload_resource`, for customer identifiers, non-example endpoints,

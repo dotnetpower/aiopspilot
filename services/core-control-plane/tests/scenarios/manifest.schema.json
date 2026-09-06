@@ -84,6 +84,25 @@
       "items": {"$ref": "#/$defs/coverageEvidenceRecord"},
       "uniqueItems": true
     },
+    "completeCoverage": {
+      "type": "object",
+      "required": [
+        "successful_full_loop",
+        "unknown_or_deny",
+        "cross_objective_conflict",
+        "partial_failure_recovery",
+        "a3e_or_non_applicability",
+        "deterministic_replay_with_evidence"
+      ],
+      "properties": {
+        "successful_full_loop": {"minItems": 1},
+        "unknown_or_deny": {"minItems": 1},
+        "cross_objective_conflict": {"minItems": 1},
+        "partial_failure_recovery": {"minItems": 1},
+        "a3e_or_non_applicability": {"minItems": 1},
+        "deterministic_replay_with_evidence": {"minItems": 1}
+      }
+    },
     "coverageEvidenceRecord": {
       "type": "object",
       "additionalProperties": false,
@@ -111,17 +130,24 @@
                 "properties": {"status": {"const": "complete"}},
                 "required": ["status"]
               },
-              "coverage": {
-                "properties": {
-                  "successful_full_loop": {"minItems": 1},
-                  "unknown_or_deny": {"minItems": 1},
-                  "cross_objective_conflict": {"minItems": 1},
-                  "partial_failure_recovery": {"minItems": 1},
-                  "a3e_or_non_applicability": {"minItems": 1},
-                  "deterministic_replay_with_evidence": {"minItems": 1}
-                }
-              }
+              "coverage": {"$ref": "#/$defs/completeCoverage"}
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "required_outcome": {
+                "properties": {"status": {"const": "complete"}},
+                "required": ["status"]
+              },
+              "coverage": {"$ref": "#/$defs/completeCoverage"}
+            },
+            "required": ["required_outcome", "coverage"]
+          },
+          "then": {
+            "properties": {"status": {"const": "complete"}},
+            "required": ["status"]
           }
         }
       ]
@@ -227,6 +253,29 @@
                   }
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "capability_packs": {
+                  "properties": {
+                    "sre": {"properties": {"status": {"const": "complete"}}},
+                    "arb_change_safety": {
+                      "properties": {"status": {"const": "complete"}}
+                    },
+                    "finops": {"properties": {"status": {"const": "complete"}}},
+                    "dr": {"properties": {"status": {"const": "complete"}}},
+                    "chaos": {"properties": {"status": {"const": "complete"}}}
+                  },
+                  "required": ["sre", "arb_change_safety", "finops", "dr", "chaos"]
+                }
+              },
+              "required": ["capability_packs"]
+            },
+            "then": {
+              "properties": {"status": {"const": "complete"}},
+              "required": ["status"]
             }
           }
         ]
