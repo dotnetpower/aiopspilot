@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 3b92e399f22e8cbcbddcbb5f271aea0ae8d9cd1b
-translation_revised: 2026-09-05
+translation_source_sha: 9885c9f056a6cc994e103a74fc2162165eadc964
+translation_revised: 2026-09-06
 ---
 # WARA 근거 기반 평가
 
@@ -139,6 +139,8 @@ Framework, FrameworkControl 및 WARA 평가 객체는 `AccessGrant`,
 Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제공합니다. Console은 리소스
 종류, 권고 컨트롤, 영향도, 수명 주기, 제품 그룹 검증, 자동화, 매핑, 적용 가능성, 평가,
 충족 상태 필터를 지원합니다.
+공유 Operator 조립은 관련 없는 읽기 변환 결과를 `/system/data-sources`에 등록할 수 있습니다.
+이 등록은 WARA 출처를 추가하거나 WARA 범위를 넓히거나 shadow 전용 권한을 바꾸지 않습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면

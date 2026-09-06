@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: a2fc6ad4c379f2d3a6d54351fa315c88b50d1cf9
+translation_source_sha: 472d19d15b11964edc6a16f0104c7a019b1f0a44
 translation_revised: 2026-09-06
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -64,6 +64,7 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | in-progress | Assurance Twin 읽기 경로 3개를 Operator Service의 `operational-state` 데이터 출처에 모두 등록했습니다. 이제 `/system/data-sources`가 권위 있는 PostgreSQL 소유자와 사용 불가 이유를 보고하므로, 해당 변환 결과가 구성되지 않았을 때 콘솔이 소유자 없는 읽기를 요청하지 않습니다. | `current change`; Operator Service 조립 및 집중 출처 소유권 테스트 통과. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존해야 합니다. 출처 소유권은 기존 읽기 표면의 상태를 설명할 수 있게 할 뿐입니다. |
 | 2026-09-06 | in-progress | 저장되는 모든 자세 및 검토 `generated_at` 값을 다이제스트 계산과 쓰기 전에 표준 UTC로 정규화했습니다. 이제 같은 시각을 나타내는 서로 다른 오프셋 타임스탬프는 멱등성을 유지하고, 범위가 제한된 검토 조회는 오프셋 차이 때문에 더 최신 시각을 제외하지 않고 문자열 기준 최신순 정렬을 유지할 수 있습니다. | `current change`; `state_store_assurance_twin_posture.py`; 집중 영속성 테스트 31개 통과. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존해야 합니다. 표준 타임스탬프 저장만으로 연결되지 않은 레코더가 운영 검증 완료 상태가 되지는 않습니다. |
 | 2026-09-02 | in-progress | Heimdall이 소유하는 범위 제한 자세/검토 활동 신호(`agent.operational-activity` 스키마 `1.2.0`, `assurance-twin.posture` 종류), 운영 `state_kv` 자세 보고서 및 변경 검토 원장, 읽기 전용 `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 연산, 드릴다운 검토 상세를 갖춘 지역화된 읽기 전용 콘솔 패널을 추가했습니다. | `current change`; 집중 core, Operator API, 콘솔 검사 32개 통과. 콘솔 타입 검사, 빌드, 지역화 카탈로그 일치성 게이트 통과. | 운영 `Inventory` 출처를 연결하고, 선제적 변경 이벤트를 운영 게시자에 연결하고, 수정 제안 연결을 추가합니다. |
 | 2026-09-03 | in-progress | 독립 검토에서 발견한 결함 일곱 건을 보완했습니다. 조립 루트에서 레코더를 Heimdall의 기존 `object.event` 구독 위 책임 주체 트리거에 연결했고, 상충하는 `review_key` 재전달이 진실을 둘로 나누는 대신 명시적인 사용 불가 신호로 실패 시 닫히도록 했으며, 이벤트-보고서 재생을 위해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처를 저장하고 노출했습니다. Operator API와 콘솔은 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치 행을 사용 가능한 결과 대신 명시적 공백으로 보류합니다. `agent-operational-activity` N/N-1 호환성 경계와 재생성한 Python/TypeScript 산출물, 스키마 `1.2.0`을 인식하는 콘솔 디코더를 추가했고, 콘솔 라우팅에서 불투명한 검토 키 식별자를 그대로 보존합니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사 110건과 서비스 호환성 focused 게이트, 계약 생성, 프로젝트 ruff 및 strict mypy, 콘솔 타입 검사와 빌드, 카탈로그 일치/번역/로드맵 추적 게이트가 통과했습니다. | 통제된 실제 런타임 증적은 없습니다. 선제적 Twin 후보 이벤트를 게시하는 상류 구성 요소가 아직 없고 운영 `Inventory` 연결과 수정 제안 연결도 미착수입니다. |
