@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.core.assurance_twin.posture_activity import (
@@ -28,19 +30,26 @@ def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Fi
     )
 
 
-def _report(*findings: Finding) -> object:
+def _report(
+    *findings: Finding,
+    scope: str = "sub/00000000-0000-0000-0000-000000000001",
+) -> object:
     return build_posture_assessment_report(
-        scope="sub/00000000-0000-0000-0000-000000000001",
+        scope=scope,
         generated_at="2026-07-07T00:00:00Z",
         mode=Mode.SHADOW,
         findings=findings,
     )
 
 
-def _review(*findings: Finding) -> IacReview:
+def _review(
+    *findings: Finding,
+    pr_ref: str = "owner/repo#1",
+    review_key: str = "k-1",
+) -> IacReview:
     return IacReview(
-        pr_ref="owner/repo#1",
-        review_key="k-1",
+        pr_ref=pr_ref,
+        review_key=review_key,
         findings=findings,
         verdict="needs_review",
         mode=Mode.SHADOW,
@@ -49,8 +58,9 @@ def _review(*findings: Finding) -> IacReview:
 
 
 def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
+    scope = "sub/customer-sensitive-scope"
     activity = build_posture_report_activity(
-        _report(_finding()),
+        _report(_finding(), scope=scope),
         correlation_id="posture-1",
         freshness=OperationalFreshness.FRESH,
     )
@@ -61,6 +71,8 @@ def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
     assert payload["producer"] == "assurance-twin"
     assert payload["observation_domain"] is None
     assert payload["evidence_count"] == 1
+    assert payload["source"] == "assurance-twin:posture"
+    assert scope not in json.dumps(payload)
     assert activity.status is OperationalActivityStatus.COMPLETED
     JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
         "agent-operational-activity",
@@ -70,8 +82,15 @@ def test_posture_report_activity_is_authority_free_and_schema_valid() -> None:
 
 
 def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
+    pr_ref = "customer/repository#1"
+    review_key = "customer/repository#1:change-a"
     activity = build_change_review_activity(
-        _review(_finding(), _finding(rule="r-2")),
+        _review(
+            _finding(),
+            _finding(rule="r-2"),
+            pr_ref=pr_ref,
+            review_key=review_key,
+        ),
         correlation_id="review-1",
         freshness=OperationalFreshness.FRESH,
     )
@@ -79,7 +98,10 @@ def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
 
     assert payload["execution_authority"] is False
     assert payload["evidence_count"] == 2
-    assert "k-1" in activity.activity_id
+    assert payload["source"] == "assurance-twin:review"
+    serialized = json.dumps(payload)
+    assert pr_ref not in serialized
+    assert review_key not in serialized
     JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
         "agent-operational-activity",
         payload,

@@ -35,6 +35,7 @@ Design invariants
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from typing import Literal
 
@@ -50,7 +51,8 @@ from fdai.shared.providers.iac_review import IacReview
 
 _OWNER_AGENT: Literal["Heimdall"] = "Heimdall"
 _PRODUCER: Literal["assurance-twin"] = "assurance-twin"
-_MAX_SOURCE_CHARS = 128
+_POSTURE_SOURCE = "assurance-twin:posture"
+_REVIEW_SOURCE = "assurance-twin:review"
 
 
 def build_posture_report_activity(
@@ -70,7 +72,6 @@ def build_posture_report_activity(
     if not correlation_id.strip():
         raise ValueError("posture report activity correlation_id MUST be non-empty")
     status = _status_for(freshness, reason_codes)
-    source = _bounded_source(f"assurance-twin:posture:{report.scope}")
     return AgentOperationalActivity(
         schema_version="1.2.0",
         activity_id=f"assurance-twin.posture-report:{correlation_id}:{status.value}",
@@ -80,7 +81,7 @@ def build_posture_report_activity(
         owner_agent=_OWNER_AGENT,
         producer=_PRODUCER,
         observed_at=_parse_timestamp(report.generated_at),
-        source=source,
+        source=_POSTURE_SOURCE,
         freshness=freshness,
         evidence_count=len(report.findings),
         correlation_id=correlation_id,
@@ -105,17 +106,17 @@ def build_change_review_activity(
     if not correlation_id.strip():
         raise ValueError("change review activity correlation_id MUST be non-empty")
     status = _status_for(freshness, reason_codes)
-    source = _bounded_source(f"assurance-twin:review:{review.pr_ref}")
+    review_identity = hashlib.sha256(review.review_key.encode("utf-8")).hexdigest()
     return AgentOperationalActivity(
         schema_version="1.2.0",
-        activity_id=f"assurance-twin.change-review:{review.review_key}:{status.value}",
-        idempotency_key=f"assurance-twin.change-review:{review.review_key}:{status.value}",
+        activity_id=f"assurance-twin.change-review:{review_identity}:{status.value}",
+        idempotency_key=f"assurance-twin.change-review:{review_identity}:{status.value}",
         kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
         status=status,
         owner_agent=_OWNER_AGENT,
         producer=_PRODUCER,
         observed_at=_parse_timestamp(review.generated_at),
-        source=source,
+        source=_REVIEW_SOURCE,
         freshness=freshness,
         evidence_count=len(review.findings),
         correlation_id=correlation_id,
@@ -143,10 +144,6 @@ def _status_for(
             raise ValueError("stale assurance-twin activity MUST include a reason code")
         return OperationalActivityStatus.DEGRADED
     return OperationalActivityStatus.COMPLETED
-
-
-def _bounded_source(value: str) -> str:
-    return value if len(value) <= _MAX_SOURCE_CHARS else value[:_MAX_SOURCE_CHARS]
 
 
 def _parse_timestamp(value: str) -> datetime:
