@@ -70,14 +70,19 @@ def _report(*findings: Finding) -> PostureAssessmentReport:
     )
 
 
-def _review(key: str = "k-1", *findings: Finding, verdict: str = "needs_review") -> IacReview:
+def _review(
+    key: str = "k-1",
+    *findings: Finding,
+    verdict: str = "needs_review",
+    generated_at: str = "2026-07-07T00:00:00Z",
+) -> IacReview:
     return IacReview(
         pr_ref="owner/repo#1",
         review_key=key,
         findings=findings,
         verdict=verdict,
         mode=Mode.SHADOW,
-        generated_at="2026-07-07T00:00:00Z",
+        generated_at=generated_at,
     )
 
 
@@ -174,6 +179,28 @@ async def test_identical_redelivery_under_a_new_correlation_stays_idempotent() -
 
     assert replay.created is False
     assert replay.conflict is False
+
+
+async def test_equivalent_offset_timestamp_redelivery_stays_idempotent() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    first = await ledger.record_change_review(
+        _review("k-1", _finding(), generated_at="2026-07-07T00:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    replay = await ledger.record_change_review(
+        _review("k-1", _finding(), generated_at="2026-07-07T01:00:00+01:00"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    assert replay.created is False
+    assert replay.conflict is False
+    assert replay.evidence_digest == first.evidence_digest
+    rows = await ledger.read_recent_change_reviews(limit=1)
+    assert rows[0]["generated_at"] == "2026-07-07T00:00:00+00:00"
 
 
 async def test_conflicting_redelivery_tombstones_the_row_and_keeps_the_stored_body() -> None:

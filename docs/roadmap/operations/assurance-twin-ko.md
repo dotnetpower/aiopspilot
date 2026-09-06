@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 6a30b2e21fc6ceffca5c848bef1cb104fa052fbb
-translation_revised: 2026-09-03
+translation_source_sha: a2fc6ad4c379f2d3a6d54351fa315c88b50d1cf9
+translation_revised: 2026-09-06
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -64,6 +64,7 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | in-progress | 저장되는 모든 자세 및 검토 `generated_at` 값을 다이제스트 계산과 쓰기 전에 표준 UTC로 정규화했습니다. 이제 같은 시각을 나타내는 서로 다른 오프셋 타임스탬프는 멱등성을 유지하고, 범위가 제한된 검토 조회는 오프셋 차이 때문에 더 최신 시각을 제외하지 않고 문자열 기준 최신순 정렬을 유지할 수 있습니다. | `current change`; `state_store_assurance_twin_posture.py`; 집중 영속성 테스트 31개 통과. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존해야 합니다. 표준 타임스탬프 저장만으로 연결되지 않은 레코더가 운영 검증 완료 상태가 되지는 않습니다. |
 | 2026-09-02 | in-progress | Heimdall이 소유하는 범위 제한 자세/검토 활동 신호(`agent.operational-activity` 스키마 `1.2.0`, `assurance-twin.posture` 종류), 운영 `state_kv` 자세 보고서 및 변경 검토 원장, 읽기 전용 `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 연산, 드릴다운 검토 상세를 갖춘 지역화된 읽기 전용 콘솔 패널을 추가했습니다. | `current change`; 집중 core, Operator API, 콘솔 검사 32개 통과. 콘솔 타입 검사, 빌드, 지역화 카탈로그 일치성 게이트 통과. | 운영 `Inventory` 출처를 연결하고, 선제적 변경 이벤트를 운영 게시자에 연결하고, 수정 제안 연결을 추가합니다. |
 | 2026-09-03 | in-progress | 독립 검토에서 발견한 결함 일곱 건을 보완했습니다. 조립 루트에서 레코더를 Heimdall의 기존 `object.event` 구독 위 책임 주체 트리거에 연결했고, 상충하는 `review_key` 재전달이 진실을 둘로 나누는 대신 명시적인 사용 불가 신호로 실패 시 닫히도록 했으며, 이벤트-보고서 재생을 위해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처를 저장하고 노출했습니다. Operator API와 콘솔은 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치 행을 사용 가능한 결과 대신 명시적 공백으로 보류합니다. `agent-operational-activity` N/N-1 호환성 경계와 재생성한 Python/TypeScript 산출물, 스키마 `1.2.0`을 인식하는 콘솔 디코더를 추가했고, 콘솔 라우팅에서 불투명한 검토 키 식별자를 그대로 보존합니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사 110건과 서비스 호환성 focused 게이트, 계약 생성, 프로젝트 ruff 및 strict mypy, 콘솔 타입 검사와 빌드, 카탈로그 일치/번역/로드맵 추적 게이트가 통과했습니다. | 통제된 실제 런타임 증적은 없습니다. 선제적 Twin 후보 이벤트를 게시하는 상류 구성 요소가 아직 없고 운영 `Inventory` 연결과 수정 제안 연결도 미착수입니다. |
 | 2026-09-03 | in-progress | 두 번째 독립 검토 이후 같은 표면을 바로잡았습니다. 선제적 `object.event`/Huginn 트리거와 Heimdall 및 조립 루트 연결을 제거했습니다. 공격자가 영향을 줄 수 있는 수집 속성은 권위 있는 Twin 근거가 될 수 없기 때문입니다. 신뢰할 수 없는 다른 수집 경로로 대체하지 않았으므로 레코더는 현재 연결되지 않은 상태입니다. 상충하는 `review_key` 재전달은 영속 충돌 표식을 기록해 Operator API와 콘솔이 해당 식별자를 항상 사용 불가로 표시하도록 했습니다. `blocks_action`은 반드시 존재하는 boolean이어야 하며, 값이 없거나 문자열이면 `evidence_malformed` 사용 불가로 표시합니다. 검토 드릴다운을 정확한 질의 값(`/assurance-twin/review?review_key=`, 콘솔 `/assurance-twin?review=`)으로 옮겨 `/`가 포함된 불투명한 키가 정규화 없이 바이트 그대로 왕복하도록 했습니다. `agent-operational-activity` 호환성 행렬 경계를 되돌려, 과거 독립 서비스 실제 증적과 로컬 전환 근거를 다시 표시하지 않고 변경 전 값으로 복원했습니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사와 ruff, strict mypy, 콘솔 타입 검사/빌드, 카탈로그 일치/번역/로드맵 추적/설계 게이트가 통과했습니다. | 신뢰된 생산자가 없어 이 행을 쓰는 구성 요소가 없고, 운영 `Inventory` 연결과 수정 제안 연결은 미착수이며, 통제된 실제 런타임 증적도 없습니다. |

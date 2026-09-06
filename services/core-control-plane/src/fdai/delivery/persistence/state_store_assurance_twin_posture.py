@@ -79,6 +79,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.assurance_twin.report import PostureAssessmentReport
@@ -337,6 +338,7 @@ class StateStoreAssuranceTwinPostureLedger:
         key = posture_report_state_key(report.scope)
         body: dict[str, Any] = {
             **report.to_dict(),
+            "generated_at": _canonical_timestamp(report.generated_at),
             "freshness": freshness,
             "reason_codes": list(reason_codes),
         }
@@ -634,7 +636,7 @@ def _change_review_body(
         "review_key": review.review_key,
         "verdict": review.verdict,
         "mode": review.mode.value,
-        "generated_at": review.generated_at,
+        "generated_at": _canonical_timestamp(review.generated_at),
         "freshness": freshness,
         "reason_codes": list(reason_codes),
         "metadata": dict(review.metadata),
@@ -650,6 +652,16 @@ def _change_review_body(
             for finding in review.findings
         ],
     }
+
+
+def _canonical_timestamp(value: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("assurance twin generated_at MUST be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("assurance twin generated_at MUST include a timezone")
+    return parsed.astimezone(UTC).isoformat()
 
 
 def _stored_digest(existing: Mapping[str, Any] | None) -> str | None:
