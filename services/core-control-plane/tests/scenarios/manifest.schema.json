@@ -40,7 +40,18 @@
               }
             },
             "required_outcome": {"$ref": "#/$defs/requiredOutcome"}
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"status": {"const": "complete"}},
+                "required": ["status"]
+              },
+              "then": {
+                "properties": {"scenario_ids": {"minItems": 1}}
+              }
+            }
+          ]
         }
       }
     }

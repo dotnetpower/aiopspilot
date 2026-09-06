@@ -25,6 +25,45 @@ def _load_contract_module() -> ModuleType:
     return module
 
 
+def _load_frozen_scenario_module() -> ModuleType:
+    script = _REPO_ROOT / "scripts" / "quality" / "ci" / "check-frozen-scenario-additions.py"
+    spec = importlib.util.spec_from_file_location("check_frozen_scenario_additions", script)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load frozen scenario checker: {script}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _new_frozen_version_fixture() -> tuple[set[str], dict[str, object]]:
+    root = "services/core-control-plane/tests/scenarios"
+    version = "v2099.01"
+    paths = {
+        f"{root}/{version}/sre-example.json",
+        f"{root}/enrichment/{version}/sre-example.json",
+        f"{root}/cross-objective/{version}-sre-change.json",
+        f"{root}/manifests/{version}.json",
+    }
+    documents: dict[str, object] = {
+        f"{root}/{version}/sre-example.json": {"id": "sre.example.001"},
+        f"{root}/enrichment/{version}/sre-example.json": {"scenario_id": "sre.example.001"},
+        f"{root}/cross-objective/{version}-sre-change.json": {
+            "id": "conflict.sre-change.001",
+            "scenario_set_version": version,
+        },
+        f"{root}/manifests/{version}.json": {
+            "scenario_set_version": version,
+            "capability_packs": {
+                "sre": {
+                    "scenario_ids": ["sre.example.001"],
+                    "conflict_spec_ids": ["conflict.sre-change.001"],
+                }
+            },
+        },
+    }
+    return paths, documents
+
+
 def test_action_refs_reject_stale_and_unknown_remote_actions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -275,6 +314,64 @@ def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
     assert "--diff-filter=MDRT" in workflow
     assert '--diff-filter=A "$base_sha...HEAD"' in workflow
     assert 'git cat-file -e "$base_sha:$manifest"' in workflow
+    assert "check-frozen-scenario-additions.py" in workflow
+
+
+def test_frozen_scenario_additions_reject_orphan_version_without_atomic_manifest() -> None:
+    module = _load_frozen_scenario_module()
+    paths, documents = _new_frozen_version_fixture()
+    manifest_path = "services/core-control-plane/tests/scenarios/manifests/v2099.01.json"
+
+    errors = module.validate_new_version_inventory(
+        paths - {manifest_path},
+        paths,
+        documents.__getitem__,
+    )
+
+    assert errors == ["v2099.01: new corpus artifacts require an atomically added manifest"]
+
+
+def test_frozen_scenario_additions_accept_complete_atomic_inventory() -> None:
+    module = _load_frozen_scenario_module()
+    paths, documents = _new_frozen_version_fixture()
+
+    assert module.validate_new_version_inventory(paths, paths, documents.__getitem__) == []
+
+
+def test_frozen_scenario_additions_reject_incomplete_manifest_inventory() -> None:
+    module = _load_frozen_scenario_module()
+    paths, documents = _new_frozen_version_fixture()
+    root = "services/core-control-plane/tests/scenarios"
+    extra_scenario = f"{root}/v2099.01/finops-example.json"
+    extra_enrichment = f"{root}/enrichment/v2099.01/finops-example.json"
+    paths.update({extra_scenario, extra_enrichment})
+    documents[extra_scenario] = {"id": "finops.example.002"}
+    documents[extra_enrichment] = {"scenario_id": "finops.example.002"}
+
+    errors = module.validate_new_version_inventory(paths, paths, documents.__getitem__)
+
+    assert errors == ["v2099.01: manifest scenario inventory does not exactly match scenario files"]
+
+
+def test_frozen_scenario_additions_reject_manifest_only_version() -> None:
+    module = _load_frozen_scenario_module()
+    paths, documents = _new_frozen_version_fixture()
+    manifest_path = "services/core-control-plane/tests/scenarios/manifests/v2099.01.json"
+    manifest = documents[manifest_path]
+    assert isinstance(manifest, dict)
+    manifest["capability_packs"] = {}
+
+    errors = module.validate_new_version_inventory(
+        {manifest_path},
+        {manifest_path},
+        documents.__getitem__,
+    )
+
+    assert errors == [
+        "v2099.01: version inventory has no scenario files",
+        "v2099.01: version inventory has no enrichment overlays",
+        "v2099.01: version inventory has no conflict files",
+    ]
 
 
 def test_required_lint_job_enforces_independent_service_boundaries() -> None:

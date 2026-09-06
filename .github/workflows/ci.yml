@@ -570,6 +570,8 @@ jobs:
             exit 1
           fi
           echo "No frozen scenario files were modified."
+          python3 scripts/quality/ci/check-frozen-scenario-additions.py \
+            --base-sha "$base_sha"
 
   db-migrations:
     name: Alembic migrations against pgvector
