@@ -79,7 +79,16 @@ class MixedFamilyAssuranceReviewer:
         }
         if self._tie_breaker is not None:
             evaluator_identities.add(self._tie_breaker.model_identity)
-        if turn.answer_model_identity in evaluator_identities:
+        evaluator_families = {
+            self._first.model_family,
+            self._second.model_family,
+        }
+        if self._tie_breaker is not None:
+            evaluator_families.add(self._tie_breaker.model_family)
+        if (
+            turn.answer_model_identity in evaluator_identities
+            or turn.answer_model_family in evaluator_families
+        ):
             return _inconclusive("answer_model_cannot_self_evaluate"), ()
         if not await self._reserve(turn.turn_id, calls=2):
             return _inconclusive("model_budget_deferred"), ()

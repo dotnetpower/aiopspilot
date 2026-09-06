@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 159dd4782e1455144cb6fb6e3d1c3f38a509ad16
-translation_revised: 2026-09-01
+translation_source_sha: 7d5f0076351b856522df67f8c834a08a68c9e257
+translation_revised: 2026-09-06
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -418,6 +418,13 @@ Bragi는 라우터이지 answerer가 아닙니다. 영어, 한국어, 혼합 언
 추가합니다. Bragi는 같은 identity의 고정 high-signal fact만 비교합니다. 충돌이 없거나 비교할
 수 없는 claim은 T1에서 끝나며, 검증된 구조적 충돌만 예산이 제한된 T2 종합 한 번을 호출할 수
 있습니다. Synthesizer 가용성과 자유 형식 산문 차이는 에스컬레이션을 일으키지 않습니다.
+현재 턴에 스키마로 검증된 의미 라우팅이 이미 있으면 숙의는 임베딩 라우터가 같은 질문을 다시
+해석하지 않고 해당 primary agent와 contributor 집합을 재사용합니다. 숙의는 contributor에서
+primary를 제외하고 중복 peer를 제거하며, 비어 있는 peer 집합은 검증된 primary를 바꾸지 않고
+보충합니다. 이 재사용은 담당, 판단, 승인 또는 실행 권한을 변경하지 않습니다.
+고정 T2 보증 census는 설치된 census 계약과 캠페인 측정을 비교할 수 있도록 선언된
+`t1_semantic` participant 선택 경로를 명시적으로 유지합니다. 모든 T2 종합 결과는 계측 키와
+별도로 정확한 모델 신원 및 계열을 기록합니다.
 
 여러 에이전트가 매칭될 때 승자 선택은 first-match 가 아니라 점수제:
 

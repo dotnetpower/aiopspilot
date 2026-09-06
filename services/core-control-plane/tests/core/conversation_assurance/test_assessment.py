@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fdai.core.conversation_assurance import (
+    AssessmentState,
     AssuranceCriterion,
     AssuranceVerdict,
     ConversationAssuranceCoordinator,
@@ -132,6 +133,175 @@ def test_deterministic_unverified_preserves_exact_reason() -> None:
 
     assert result.verdict is AssuranceVerdict.FAIL
     assert result.reasons == ("verification_failed:unknown_link_type",)
+
+
+async def test_diagnostic_semantic_review_preserves_verification_failure() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+
+    review = await coordinator.review_semantically(
+        _turn(
+            verification_status="unverified",
+            verification_reason_code="provider_evidence_unavailable",
+        )
+    )
+
+    assert review.decision.verdict is AssuranceVerdict.FAIL
+    assert review.decision.reasons == ("verification_failed:provider_evidence_unavailable",)
+    assert len(review.evaluator_outputs) == 2
+    assert review.semantic_review_valid
+    assert first.calls == second.calls == 1
+
+
+async def test_diagnostic_verification_failure_preserves_model_budget_deferral() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(
+            first=first,
+            second=second,
+            budget=InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1)),
+        ),
+        rubric_version="1.0.0",
+    )
+    turn = _turn(
+        verification_status="unverified",
+        verification_reason_code="provider_evidence_unavailable",
+    )
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.verdict is AssuranceVerdict.FAIL
+    assert review.decision.reasons == (
+        "verification_failed:provider_evidence_unavailable",
+        "model_budget_deferred",
+    )
+    assert record.state is AssessmentState.DEFERRED
+    assert first.calls == second.calls == 0
+
+
+async def test_diagnostic_verification_failure_preserves_evaluator_error_hold() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+
+    async def fail(
+        _turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
+        del debate
+        raise RuntimeError("provider unavailable")
+
+    first.evaluate = fail  # type: ignore[method-assign]
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+    turn = _turn(
+        verification_status="unverified",
+        verification_reason_code="provider_evidence_unavailable",
+    )
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.verdict is AssuranceVerdict.FAIL
+    assert review.decision.reasons == (
+        "verification_failed:provider_evidence_unavailable",
+        "evaluator_error:RuntimeError",
+    )
+    assert record.state is AssessmentState.DEFERRED
+
+
+async def test_missing_mixed_family_reviewer_defers_diagnostic() -> None:
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=None,
+        rubric_version="1.0.0",
+    )
+    turn = _turn(
+        verification_status="unverified",
+        verification_reason_code="provider_evidence_unavailable",
+    )
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.reasons == (
+        "verification_failed:provider_evidence_unavailable",
+        "mixed_family_reviewer_unavailable",
+    )
+    assert record.state is AssessmentState.DEFERRED
+
+
+async def test_answer_model_self_review_defers_diagnostic() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+    turn = _turn(answer_model_identity=first.model_identity)
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.reasons == ("answer_model_cannot_self_evaluate",)
+    assert record.state is AssessmentState.DEFERRED
+    assert first.calls == second.calls == 0
+
+
+async def test_answer_model_family_self_review_defers_diagnostic() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+    turn = _turn(
+        answer_model_identity="publisher-c:model-c",
+        answer_model_family=first.model_family,
+    )
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.reasons == ("answer_model_cannot_self_evaluate",)
+    assert record.state is AssessmentState.DEFERRED
+    assert first.calls == second.calls == 0
+
+
+async def test_invalid_semantic_outputs_are_not_marked_valid() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4, confidence=0.84)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+
+    turn = _turn()
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert review.decision.reasons == (
+        "evaluator_confidence_below_threshold",
+        "semantic_review_invalid",
+    )
+    assert not review.semantic_review_valid
+    assert len(review.evaluator_outputs) == 2
+    assert record.state is AssessmentState.DEFERRED
 
 
 async def test_mixed_family_consensus_passes_conservatively() -> None:

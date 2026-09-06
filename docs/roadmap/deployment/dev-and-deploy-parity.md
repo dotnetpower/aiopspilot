@@ -404,6 +404,11 @@ the Azure reviewer only when two distinct model families resolve. PostgreSQL hol
 review and draft state; the production Operator API projects those rows without sharing process memory
 or adding an approval endpoint.
 
+Local semantic-turn preparation derives a stable outbox namespace from the canonical checkout root.
+Concurrent worktrees therefore cannot claim or replay each other's Operator outbox rows even when
+they share the same loopback PostgreSQL instance. Deployment continues to supply its service-owned
+namespace through protected configuration.
+
 Approval decision delivery also keeps one shape across restarts. Production records the signed A1
 decision in PostgreSQL before publishing it, checkpoints delivery attempts, and drains eligible
 undelivered receipts at startup and on a periodic loop. Terminal delivered or abandoned receipts

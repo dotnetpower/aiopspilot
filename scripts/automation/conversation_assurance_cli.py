@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -54,6 +55,7 @@ from scripts.automation.conversation_assurance_qualification import (  # noqa: E
 _MAX_RESPONSE_BYTES = 512 * 1024
 _MAX_TOKEN_BYTES = 16 * 1024
 _STATE_ROOT = Path(".fdai/conversation-assurance")
+_ASSESSMENT_REASON = re.compile(r"^[a-z][A-Za-z0-9_.:-]{0,127}$")
 
 
 class OperatorHttpEvaluator:
@@ -83,6 +85,13 @@ class OperatorHttpEvaluator:
         campaign_id: str,
     ) -> PantheonTurnDiagnostic:
         terminal = await asyncio.to_thread(self._request, case, campaign_id)
+        assessment_state = terminal.get("assessment_state")
+        assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
+        if assessment_state == "deferred":
+            reason = ",".join(assessment_reasons) or "unspecified"
+            raise CampaignHoldError(f"assessment_deferred:{reason}")
+        if assessment_state != "completed":
+            raise CampaignHoldError("assessment_state_unavailable")
         trace_raw = terminal.get("pantheon_trace")
         observed_raw = terminal.get("pantheon_observations")
         reviews_raw = terminal.get("pantheon_semantic_reviews")
@@ -174,6 +183,18 @@ def _terminal_payload(raw: str) -> dict[str, Any]:
     if terminal is None:
         raise CampaignHoldError("terminal_response_missing")
     return terminal
+
+
+def _assessment_reasons(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or len(value) > 16:
+        raise CampaignHoldError("assessment_reasons_invalid")
+    reasons = tuple(value)
+    if any(
+        not isinstance(reason, str) or _ASSESSMENT_REASON.fullmatch(reason) is None
+        for reason in reasons
+    ):
+        raise CampaignHoldError("assessment_reasons_invalid")
+    return reasons
 
 
 def _semantic_reviews(value: object) -> tuple[PantheonSemanticReview, ...]:

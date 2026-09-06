@@ -557,6 +557,14 @@ receipt, and evidence references. The SDK rejects semantic downgrade to N-1 inst
 those fields. Runtime publication and consumption remain service-owned implementations, and the
 Operator bridge supervises distinct terminal-projection and progress topics.
 
+Local preparation gives each checkout a deterministic semantic outbox namespace. Pantheon
+qualification reuses the current verified Bragi route for ordinary deliberation, preserves the
+fixed T2 census route, deduplicates peers, and applies mixed-family semantic review beneath the
+deterministic verification and provider-deferral gates. T2 supplies its exact answer-model identity
+to block self-review. Invalid evaluator outputs never become semantic rubric inputs, and an
+incomplete required or attempted forbidden T2 outcome holds the campaign with validated bounded
+reason codes, without changing agent or execution authority.
+
 Operator continuation lookup materializes result candidates for the exact session and request
 candidates for the exact outbox namespace and principal before joining them by `request_id`. The
 bounded candidate sets preserve lineage checks without expanding the PostgreSQL join across

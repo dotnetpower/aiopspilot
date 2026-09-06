@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
@@ -136,6 +137,28 @@ def test_terminal_parser_requires_done_event() -> None:
 
     with pytest.raises(module.CampaignHoldError, match="terminal_response_missing"):
         module._terminal_payload('event: progress\ndata: {"status":"running"}\n\n')
+
+
+def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:
+    module = _load_module()
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+    evaluator._request = lambda *_args: {  # noqa: SLF001
+        "assessment_state": "deferred",
+        "assessment_reasons": ["evaluator_error:RuntimeError"],
+    }
+    case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
+
+    with pytest.raises(
+        module.CampaignHoldError,
+        match="assessment_deferred:evaluator_error:RuntimeError",
+    ):
+        asyncio.run(evaluator.evaluate(case, campaign_id="campaign-one"))
+
+    assert not (tmp_path / "turns.jsonl").exists()
 
 
 def test_supervisor_dispatch_is_idle_until_an_explicit_start(tmp_path: Path) -> None:

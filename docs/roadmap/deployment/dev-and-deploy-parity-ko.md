@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d49eb828fd744d8a6acf4053d69363822168ec3e
+translation_source_sha: f189dd48452e95e30f02309ea5f51b567e4baa82
 translation_revised: 2026-09-06
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -403,6 +403,11 @@ analyzing, deciding, executing, approving, auditing, 인시던트 및 인계 프
 두 모델 계열이 해석된 경우에만 Azure 검토자를 사용합니다. PostgreSQL은 restart-safe 검토
 및 초안 상태를 보관하며 운영 Operator API는 프로세스 기억을 공유하거나 승인 엔드포인트를
 추가하지 않고 해당 행을 변환 결과합니다.
+
+로컬 semantic-turn 준비는 정식 checkout 루트에서 안정적인 outbox namespace를 파생합니다.
+따라서 여러 worktree가 같은 loopback PostgreSQL을 공유해도 서로의 Operator outbox 행을
+claim하거나 재생할 수 없습니다. 배포는 보호된 구성을 통해 서비스 소유 namespace를 계속
+제공합니다.
 
 Approval 결정 전달도 재시작 전후에 같은 형태를 유지합니다. 운영은 서명된 A1
 결정을 게시하기 전에 PostgreSQL에 기록하고 전달 시도를 체크포인트하며 시작 및 주기적

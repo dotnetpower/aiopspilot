@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e5b98a4c922668fd75ba2ef723c65a51da3588dd
+translation_source_sha: f3d72fa794b5c9ad5def002666c5d6f300e6119a
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -531,6 +531,14 @@ pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실�
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
 게시와 consumption은 service-owned 구현으로 유지되며, Operator bridge는 서로 다른 최종
 projection topic과 progress topic을 감독합니다.
+
+로컬 준비는 각 checkout에 결정론적 semantic outbox namespace를 부여합니다. Pantheon
+qualification은 일반 숙의에서 현재 검증된 Bragi 라우팅을 재사용하고 고정 T2 census 라우팅은
+보존하며 peer 중복을 제거합니다. 결정론적 검증 및 예산 연기 게이트 아래에서 mixed-family 의미
+검토를 적용하고 평가자 오류도 연기 상태로 유지합니다. T2는 정확한 답변 모델 신원을 제공하여
+자체 검토를 차단합니다. 유효하지 않은 평가자 출력은 의미 루브릭 입력이 되지 않으며 완료되지
+않은 필수 T2 또는 시도된 금지 T2 결과는 검증된 범위 제한 사유 코드와 함께 agent 또는 실행
+권한을 변경하지 않고 캠페인을 보류합니다.
 
 Operator continuation 조회는 `request_id`로 결합하기 전에 결과 후보를 정확한 세션으로,
 요청 후보를 정확한 outbox namespace와 principal로 제한하여 materialize합니다. 범위가 제한된

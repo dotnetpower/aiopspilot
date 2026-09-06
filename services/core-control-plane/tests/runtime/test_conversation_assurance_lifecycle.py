@@ -166,6 +166,32 @@ async def test_blind_measurer_requires_verified_answer_in_each_locale() -> None:
     assert await measurer.measure(candidate, _cluster()) is None
 
 
+async def test_blind_measurer_rejects_same_family_answer_review() -> None:
+    reviewer = MixedFamilyAssuranceReviewer(
+        first=_Evaluator("judge-a", "narrator-family"),
+        second=_Evaluator("judge-b", "family-b"),
+        prospective_cost_microusd_per_call=100,
+    )
+    policy_text = "State uncertainty explicitly and abstain instead of guessing."
+    candidate = ChatPolicyCandidate(
+        candidate_id="candidate-same-family",
+        principal_scope="principal-1",
+        cluster_id="cluster-1",
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
+        incumbent_policy_digest=BASE_POLICY_DIGEST,
+        policy_text=policy_text,
+        stage=PolicyStage.SHADOW,
+    )
+    measurer = BilingualBlindPolicyTrialMeasurer(
+        backend=_Backend(),
+        reviewer=reviewer,
+        cost_estimator=lambda _reply: 10,
+    )
+
+    assert await measurer.measure(candidate, _cluster()) is None
+
+
 def test_pricing_estimator_requires_usage_and_catalog_price() -> None:
     estimator = pricing_narrator_cost_estimator(
         PricingTable.from_mapping(
