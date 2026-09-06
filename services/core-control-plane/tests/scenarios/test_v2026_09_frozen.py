@@ -98,7 +98,11 @@ def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
 
 
 def _load_manifest() -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+    return _parse_manifest(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def _parse_manifest(text: str) -> dict[str, Any]:
+    return cast(dict[str, Any], _load_json_without_duplicates(text))
 
 
 def _expected_pack_status(pack: dict[str, Any]) -> str:
@@ -303,7 +307,7 @@ def _string_customer_findings(
             address = ip_address(candidate.strip("[]"))
         except ValueError:
             continue
-        if not address.is_loopback:
+        if not (address.is_loopback or address.is_unspecified):
             findings.append(f"{location}:ip_address")
 
     if normalized_field in {"tenantid", "subscriptionid"} and value != _SYNTHETIC_GUID:
@@ -409,6 +413,60 @@ def test_v1_3_manifest_schema_requires_every_capability_outcome(capability: str)
     assert any(
         tuple(error.path) == ("capability_packs", capability)
         and "'required_outcome' is a required property" in error.message
+        for error in errors
+    )
+
+
+def test_v1_3_schema_rejects_aggregate_completion_with_incomplete_packs() -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    manifest["status"] = "complete"
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert {tuple(error.path) for error in errors if tuple(error.path)[-1:] == ("status",)} >= {
+        ("capability_packs", capability, "status") for capability in _REQUIRED_OUTCOME_IDS
+    }
+
+
+@pytest.mark.parametrize("capability", tuple(_REQUIRED_OUTCOME_IDS))
+def test_v1_3_schema_rejects_pack_completion_without_completed_outcome(
+    capability: str,
+) -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    manifest["capability_packs"][capability]["status"] = "complete"
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert any(
+        tuple(error.path) == ("capability_packs", capability, "required_outcome", "status")
+        for error in errors
+    )
+
+
+@pytest.mark.parametrize(
+    ("capability", "wrong_outcome_id"),
+    tuple(
+        zip(
+            _REQUIRED_OUTCOME_IDS,
+            (*tuple(_REQUIRED_OUTCOME_IDS.values())[1:], tuple(_REQUIRED_OUTCOME_IDS.values())[0]),
+            strict=True,
+        )
+    ),
+)
+def test_v1_3_schema_rejects_mismatched_capability_outcome_id(
+    capability: str,
+    wrong_outcome_id: str,
+) -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    manifest = json.loads(json.dumps(_load_manifest()))
+    manifest["capability_packs"][capability]["required_outcome"]["id"] = wrong_outcome_id
+
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+
+    assert any(
+        tuple(error.path) == ("capability_packs", capability, "required_outcome", "id")
         for error in errors
     )
 
@@ -686,6 +744,52 @@ def test_scenarios_balanced_within_10_percent_of_mean() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_manifest_carries_no_customer_data_or_unsafe_identifiers() -> None:
+    manifest = _load_manifest()
+    findings = _customer_data_findings(manifest)
+    assert not findings, f"manifest contains customer data: {findings}"
+    guids = _NONZERO_GUID.findall(json.dumps(manifest))
+    assert not guids, f"manifest contains customer GUIDs: {guids[:3]}"
+    invalid = _non_ascii_machine_fields(manifest)
+    assert not invalid, f"manifest contains unsafe machine identifiers: {invalid}"
+
+
+def test_manifest_loader_rejects_duplicate_keys() -> None:
+    manifest_text = MANIFEST_PATH.read_text(encoding="utf-8")
+    duplicate_status = '"status": "incomplete",\n  "status": "complete",'
+    manifest_with_duplicate = manifest_text.replace(
+        '"status": "incomplete",',
+        duplicate_status,
+        1,
+    )
+
+    with pytest.raises(ValueError, match="duplicate key"):
+        _parse_manifest(manifest_with_duplicate)
+
+
+def test_manifest_safety_guards_check_nested_outcome_text_and_keys() -> None:
+    manifest = json.loads(json.dumps(_load_manifest()))
+    outcome = manifest["capability_packs"]["sre"]["required_outcome"]
+    outcome["gap"] = (
+        f"Verify tenant {_nonzero_test_guid('5')} at https://private.contoso.invalid/recovery."
+    )
+    outcome["client_secret"] = "not-a-real-secret"
+    outcome["operator@corp"] = "owner"
+    outcome["id"] = "복구_결과"
+
+    findings = _customer_data_findings(manifest)
+    guids = _NONZERO_GUID.findall(json.dumps(manifest))
+    invalid = _non_ascii_machine_fields(manifest)
+
+    assert any(finding.endswith("required_outcome.gap:url") for finding in findings)
+    assert any(
+        finding.endswith("required_outcome.client_secret:sensitive_value") for finding in findings
+    )
+    assert any(finding.endswith("required_outcome.operator@corp:email") for finding in findings)
+    assert guids == [_nonzero_test_guid("5")]
+    assert "capability_packs.sre.required_outcome.id" in invalid
+
+
 @pytest.mark.parametrize(("path", "raw"), _load_enrichment_overlays())
 def test_enrichment_overlay_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
     findings = _customer_data_findings(raw)
@@ -818,6 +922,7 @@ def test_customer_data_scrubber_allows_documented_synthetic_values() -> None:
         "local_endpoint": "https://service.example.local/status",
         "ipv4_endpoint": "http://127.0.0.1:8080/status",
         "ipv6_endpoint": "http://[::1]:8080/status",
+        "test_ref": "services/core-control-plane/tests/example.py::test_example",
         "owner_email": "user@example.com",
         "email_sentence": "Contact user@example.com; then continue.",
         "loopback": "127.0.0.1",

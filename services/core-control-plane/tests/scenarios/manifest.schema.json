@@ -95,6 +95,26 @@
           "pattern": "^services/core-control-plane/tests/.+\\.py::test_[A-Za-z0-9_]+$"
         }
       }
+    },
+    "capabilityPackV13": {
+      "type": "object",
+      "required": ["required_outcome"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "complete"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "required_outcome": {
+                "properties": {"status": {"const": "complete"}},
+                "required": ["status"]
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -103,13 +123,103 @@
       "then": {
         "properties": {
           "capability_packs": {
-            "patternProperties": {
-              "^(sre|arb_change_safety|finops|dr|chaos)$": {
-                "required": ["required_outcome"]
+            "properties": {
+              "sre": {
+                "allOf": [
+                  {"$ref": "#/$defs/capabilityPackV13"},
+                  {
+                    "properties": {
+                      "required_outcome": {
+                        "properties": {
+                          "id": {"const": "recovery_and_recurrence_closure"}
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "arb_change_safety": {
+                "allOf": [
+                  {"$ref": "#/$defs/capabilityPackV13"},
+                  {
+                    "properties": {
+                      "required_outcome": {
+                        "properties": {
+                          "id": {"const": "approval_conditions_and_post_change_verification"}
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "finops": {
+                "allOf": [
+                  {"$ref": "#/$defs/capabilityPackV13"},
+                  {
+                    "properties": {
+                      "required_outcome": {
+                        "properties": {
+                          "id": {"const": "realized_savings_with_reliability_valid"}
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "dr": {
+                "allOf": [
+                  {"$ref": "#/$defs/capabilityPackV13"},
+                  {
+                    "properties": {
+                      "required_outcome": {
+                        "properties": {
+                          "id": {"const": "data_integrity_and_measured_rto_rpo"}
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "chaos": {
+                "allOf": [
+                  {"$ref": "#/$defs/capabilityPackV13"},
+                  {
+                    "properties": {
+                      "required_outcome": {
+                        "properties": {
+                          "id": {"const": "human_approved_injection_and_verified_recovery"}
+                        }
+                      }
+                    }
+                  }
+                ]
               }
             }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {"status": {"const": "complete"}},
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "capability_packs": {
+                  "properties": {
+                    "sre": {"properties": {"status": {"const": "complete"}}},
+                    "arb_change_safety": {
+                      "properties": {"status": {"const": "complete"}}
+                    },
+                    "finops": {"properties": {"status": {"const": "complete"}}},
+                    "dr": {"properties": {"status": {"const": "complete"}}},
+                    "chaos": {"properties": {"status": {"const": "complete"}}}
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   ]
