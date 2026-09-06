@@ -163,6 +163,10 @@ projection applies to every provenance identity string via
 rendered as usable provenance there too, never ``evidence_malformed``.
 """
 
+_ALLOWED_FRESHNESS = frozenset({"fresh", "stale", "unavailable", "unknown"})
+_ALLOWED_REVIEW_VERDICTS = frozenset({"clear", "needs_review", "blocked"})
+_ALLOWED_FINDING_SEVERITIES = frozenset({"low", "medium", "high", "critical"})
+
 #: Provenance fields describe *this* write, not the twin's evidence body, so
 #: they are excluded before the body digest is computed. A redelivery that
 #: differs only in correlation identity therefore still compares equal. The
@@ -229,7 +233,13 @@ def _check_bounded_findings(findings: Sequence[Any]) -> None:
             f"assurance twin findings MUST number <= {_MAX_FINDINGS}, got {len(findings)}"
         )
     for finding in findings:
+        _check_enum("finding severity", finding.severity, _ALLOWED_FINDING_SEVERITIES)
         _check_bounded_string_list(finding.evidence_refs, field="finding evidence_refs")
+
+
+def _check_enum(name: str, value: str, allowed: frozenset[str]) -> None:
+    if value not in allowed:
+        raise ValueError(f"assurance twin {name} is not projectable: {value!r}")
 
 
 def _check_bounded_string_list(items: Sequence[object], *, field: str) -> None:
@@ -333,6 +343,7 @@ class StateStoreAssuranceTwinPostureLedger:
                 fully renderable by the Operator API's projection.
         """
 
+        _check_enum("freshness", freshness, _ALLOWED_FRESHNESS)
         _check_bounded_findings(report.findings)
         _check_bounded_string_list(reason_codes, field="reason_codes")
         correlation_identity = _privacy_safe_identity(correlation_id)
@@ -400,6 +411,8 @@ class StateStoreAssuranceTwinPostureLedger:
                 reachable and fully renderable by the Operator API.
         """
 
+        _check_enum("freshness", freshness, _ALLOWED_FRESHNESS)
+        _check_enum("review verdict", review.verdict, _ALLOWED_REVIEW_VERDICTS)
         _check_bounded_findings(review.findings)
         _check_bounded_string_list(reason_codes, field="reason_codes")
         correlation_identity = _privacy_safe_identity(correlation_id)

@@ -169,6 +169,32 @@ async def test_change_review_write_is_idempotent_by_review_key() -> None:
     assert reviews[0]["findings"][0]["rule_id"] == "r-1"
 
 
+async def test_unprojectable_review_enums_are_rejected_before_write() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    with pytest.raises(ValueError, match="review verdict is not projectable"):
+        await ledger.record_change_review(
+            _review("bad-verdict", verdict="typo"),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+    with pytest.raises(ValueError, match="finding severity is not projectable"):
+        await ledger.record_change_review(
+            _review("bad-severity", _finding(severity="typo")),
+            freshness="fresh",
+            **_PROVENANCE,
+        )
+    with pytest.raises(ValueError, match="freshness is not projectable"):
+        await ledger.record_change_review(
+            _review("bad-freshness"),
+            freshness="typo",
+            **_PROVENANCE,
+        )
+
+    assert await ledger.read_recent_change_reviews() == ()
+
+
 async def test_identical_redelivery_under_a_new_correlation_stays_idempotent() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)
