@@ -75,5 +75,20 @@
       }
     },
     "execution_authority": {"const": false}
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"kind": {"const": "assurance-twin.posture"}},
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "owner_agent": {"const": "Heimdall"},
+          "producer": {"const": "assurance-twin"},
+          "observation_domain": {"type": "null"}
+        }
+      }
+    }
+  ]
 }

@@ -32,6 +32,10 @@ agent or the Console managed-resource execution authority.
 | Agent Activity observation projection | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, focused Operator and Console tests | Started and terminal source state hydrates before live delivery, uses stable activity ids, rejects malformed privacy fields, and displays localized domain labels. |
 | Governed live campaign evidence | in-progress | Local campaign `campaign-20260819t005835689445-9e1850c2`; catalog digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`; authenticated Agent Activity | The retained local campaign completed with all ten sources ready and fresh, no reason codes, and explicit successful-empty states. Equivalent deployed-revision evidence remains open. |
 
+The shared activity schema's Assurance Twin `1.2.0` ownership condition is separate from this
+campaign's `1.1.0` observation-domain contract. It doesn't add a campaign source or widen any
+observation owner, producer, scope, or authority.
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |

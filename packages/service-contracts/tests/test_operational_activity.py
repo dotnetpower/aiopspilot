@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from fdai_service_contracts import (
     AgentOperationalActivity,
+    ContractValidationError,
     JsonSchemaContractValidator,
     ObservationDomain,
     OperationalActivityKind,
@@ -109,7 +110,7 @@ def test_assurance_twin_posture_contract_is_authority_free_and_schema_valid() ->
         owner_agent="Heimdall",
         producer="assurance-twin",
         observed_at=datetime(2026, 1, 1, tzinfo=UTC),
-        source="assurance-twin:posture:subscription",
+        source="assurance-twin:posture",
         freshness=OperationalFreshness.FRESH,
         evidence_count=3,
         correlation_id="posture-report-1",
@@ -123,6 +124,34 @@ def test_assurance_twin_posture_contract_is_authority_free_and_schema_valid() ->
         payload,
         version="1.2.0",
     )
+
+
+def test_assurance_twin_schema_rejects_forged_ownership() -> None:
+    activity = AgentOperationalActivity(
+        schema_version="1.2.0",
+        activity_id="assurance-twin.posture-report:identity:completed",
+        idempotency_key="assurance-twin.posture-report:identity:completed",
+        kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
+        status=OperationalActivityStatus.COMPLETED,
+        owner_agent="Heimdall",
+        producer="assurance-twin",
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        source="assurance-twin:posture",
+        freshness=OperationalFreshness.FRESH,
+    )
+    payload = activity.model_dump(mode="json")
+    payload.update(
+        owner_agent="Njord",
+        producer="inventory-sync-job",
+        observation_domain="cost",
+    )
+
+    with pytest.raises(ContractValidationError):
+        JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+            "agent-operational-activity",
+            payload,
+            version="1.2.0",
+        )
 
 
 def test_assurance_twin_posture_rejects_pre_1_2_0_schema() -> None:
