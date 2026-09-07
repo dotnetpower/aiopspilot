@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from fdai.core.conversation.semantic_gateway_diagnostic_planning import (
+    build_gateway_diagnostic_frame,
     compile_gateway_diagnostic_plan,
 )
 from fdai.core.ontology_platform import (
@@ -43,6 +44,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
 
 NOW = datetime(2026, 9, 6, 12, tzinfo=UTC)
 
@@ -200,6 +202,128 @@ def test_gateway_plan_is_typed_exact_scoped_and_phrase_independent(utterance: st
     assert windows["current_start"] == windows["baseline_end"]
     assert windows["baseline_start"] == (NOW - timedelta(minutes=30)).isoformat()
     assert plan.output_node_ids == (diagnostic.node_id,)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "SRE-AppGW-01 뒤의 Client가 갑자기 느립니다.",
+        "SRE-APIM returns HTTP 500 for a GPT 5.4 service.",
+    ),
+)
+def test_current_sre_diagnostic_builds_default_recent_frame(utterance: str) -> None:
+    target = "SRE-AppGW-01" if "AppGW" in utterance else "SRE-APIM"
+    start = utterance.index(target)
+    result = build_gateway_diagnostic_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent=GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+            secondary_intents=(RESOURCE_CONFIGURATION_FUNCTION_NAME,),
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value=target,
+                    source_start=start,
+                    source_end=start + len(target),
+                ),
+            ),
+            requested_facets=("metrics", "configuration_changes", "default_recent_window"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", f"Resource.name={target}")
+    assert frame.temporal_scope == {}
+    plan = _compile(frame, manifest=_manifest(configuration_bound=True))
+    assert plan is not None
+    assert plan.output_node_ids == (
+        "gateway-diagnostics",
+        "gateway-configuration-changes",
+        "backend-configuration-changes",
+    )
+
+
+def test_gateway_frame_ignores_non_identity_model_resource_label() -> None:
+    utterance = "SRE-APIM returns HTTP 500 for a GPT 5.4 service."
+    gateway = "SRE-APIM"
+    model_label = "GPT 5.4"
+    result = build_gateway_diagnostic_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent=GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+            secondary_intents=(RESOURCE_CONFIGURATION_FUNCTION_NAME,),
+            targets=tuple(
+                SemanticTarget(
+                    kind="resource",
+                    value=value,
+                    source_start=utterance.index(value),
+                    source_end=utterance.index(value) + len(value),
+                )
+                for value in (gateway, model_label)
+            ),
+            requested_facets=("http_500", "metrics", "default_recent_window"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", f"Resource.name={gateway}")
+
+
+def test_gateway_frame_prefers_grounded_gateway_over_extra_exact_resource_words() -> None:
+    utterance = "SRE-APIM returns HTTP 500 for a GPT service and checks API resources."
+    api_start = utterance.index("API", len("SRE-APIM"))
+    targets = (
+        SemanticTarget(
+            kind="resource",
+            value="SRE-APIM",
+            canonical_value="APIManagement",
+            source_start=0,
+            source_end=8,
+        ),
+        SemanticTarget(
+            kind="resource",
+            value="API",
+            canonical_value="Resource",
+            source_start=api_start,
+            source_end=api_start + len("API"),
+        ),
+    )
+    result = build_gateway_diagnostic_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent=GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+            secondary_intents=(RESOURCE_CONFIGURATION_FUNCTION_NAME,),
+            targets=targets,
+            requested_facets=("http_500", "metrics", "default_recent_window"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", "Resource.name=SRE-APIM")
 
 
 @pytest.mark.parametrize(

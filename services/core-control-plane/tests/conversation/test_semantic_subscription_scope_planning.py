@@ -5,12 +5,19 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
 )
+from fdai.core.conversation.semantic_operational_summary_planning import (
+    build_function_backed_summary_frame,
+)
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_frame import build_semantic_frame
+from fdai.core.conversation.semantic_planning_frame_checks import (
+    deterministic_pre_frame_selection,
+)
 from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
@@ -25,6 +32,7 @@ from fdai.core.ontology_platform import (
     QueryManifest,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.service_health_queries import service_health_function_type
 from fdai.core.ontology_platform.subscription_scope_queries import (
     SUBSCRIPTION_SCOPE_FUNCTION_NAME,
     SUBSCRIPTION_SCOPE_MEASURE_CONCEPTS,
@@ -37,7 +45,10 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentTier
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentProposal,
+    SemanticJudgmentTier,
+)
 
 DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 9, 5, 12, tzinfo=UTC)
@@ -54,7 +65,11 @@ class _ManifestProvider:
 
 
 class _FrameModel:
+    def __init__(self) -> None:
+        self.calls = 0
+
     def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        self.calls += 1
         return {
             "operation": "select",
             "subject_constraints": ["current Azure subscription"],
@@ -112,16 +127,150 @@ def _frame() -> SemanticProblemFrame:
     )
 
 
-def _manifest(*, bound: bool = True) -> QueryManifest:
+def test_subscription_scope_summary_rejects_requested_other_subscription() -> None:
+    utterance = "Show subscription other-sub."
+    target = "other-sub"
+    start = utterance.index(target)
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": SUBSCRIPTION_SCOPE_FUNCTION_NAME,
+            "targets": [
+                {
+                    "kind": "subscription",
+                    "value": target,
+                    "canonical_value": None,
+                    "source_start": start,
+                    "source_end": start + len(target),
+                }
+            ],
+            "requested_facets": ["subscription_identity"],
+            "confidence": 0.98,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+
+    result = build_function_backed_summary_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=_manifest().descriptors,
+        inventory_query_language=None,
+    )
+
+    assert result is None
+
+
+def test_service_health_summary_rejects_requested_other_subscription() -> None:
+    utterance = "Show Service Health for subscription prod."
+    target = "prod"
+    start = utterance.index(target)
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.subscription_service_health",
+            "targets": [
+                {
+                    "kind": "subscription",
+                    "value": target,
+                    "canonical_value": None,
+                    "source_start": start,
+                    "source_end": start + len(target),
+                }
+            ],
+            "requested_facets": ["service_health"],
+            "confidence": 0.98,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+
+    result = build_function_backed_summary_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=_manifest().descriptors,
+        inventory_query_language=None,
+    )
+
+    assert result is None
+
+
+def test_subscription_summary_requires_an_accepted_judgment() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": SUBSCRIPTION_SCOPE_FUNCTION_NAME,
+            "targets": [],
+            "requested_facets": ["subscription_identity"],
+            "confidence": 0.4,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+
+    result = deterministic_pre_frame_selection(
+        judgment=judgment,
+        judgment_accepted=False,
+        utterance="Show the current Azure subscription.",
+        context=(),
+        descriptors=_manifest().descriptors,
+    )
+
+    assert result is None
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "utterance"),
+    [
+        (SUBSCRIPTION_SCOPE_FUNCTION_NAME, "Show subscription named prod."),
+        ("query.subscription_service_health", "Show Service Health for the prod subscription."),
+        ("query.subscription_service_health", "고객운영 구독의 Service Health를 보여줘."),
+    ],
+)
+def test_targetless_summary_rejects_named_subscription_in_source(
+    primary_intent: str,
+    utterance: str,
+) -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": primary_intent,
+            "targets": [],
+            "requested_facets": ["subscription"],
+            "confidence": 0.98,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+
+    result = build_function_backed_summary_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=_manifest().descriptors,
+        inventory_query_language=None,
+    )
+
+    assert result is None
+
+
+def _manifest(*, bound: bool = True, include_unrelated: bool = False) -> QueryManifest:
     function = subscription_scope_function_type()
-    release = build_ontology_release(function_types=(function,))
+    functions = (function, service_health_function_type()) if include_unrelated else (function,)
+    release = build_ontology_release(function_types=functions)
     return build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
-        functions=(function,),
-        bound_function_names=(function.name,) if bound else (),
+        functions=functions,
+        bound_function_names=tuple(item.name for item in functions) if bound else (),
     )
 
 
@@ -161,8 +310,9 @@ def test_subscription_scope_plan_requires_bound_function_and_exact_operation() -
     )
 
 
-def test_schema_validated_judgment_precedes_subscription_plan_selection() -> None:
+def test_schema_validated_judgment_builds_subscription_frame_without_frame_model() -> None:
     judgment_model = _JudgmentModel()
+    frame_model = _FrameModel()
     judgment = SemanticJudgmentBoundary(
         profile_id="semantic-planning.test",
         profile_version="1.0.0",
@@ -174,8 +324,8 @@ def test_schema_validated_judgment_precedes_subscription_plan_selection() -> Non
         ),
     )
     service = SemanticPlanningService(
-        model=_FrameModel(),
-        manifests=_ManifestProvider(_manifest()),
+        model=frame_model,
+        manifests=_ManifestProvider(_manifest(include_unrelated=True)),
         verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
         semantic_judgment=judgment,
         now=lambda: NOW,
@@ -190,6 +340,7 @@ def test_schema_validated_judgment_precedes_subscription_plan_selection() -> Non
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert judgment_model.calls == 1
+    assert frame_model.calls == 0
     assert outcome.frame is not None
     assert outcome.frame.output_shape == "subscription_scope_identity"
     assert outcome.plan is not None

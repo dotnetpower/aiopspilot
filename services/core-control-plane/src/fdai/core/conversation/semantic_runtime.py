@@ -279,21 +279,6 @@ class SemanticConversationRuntime:
         )
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
-        if (
-            preflight_result is not None
-            and preflight_result.attempted
-            and preflight_result.failure_kind is not None
-        ):
-            reason = f"conversation_preflight_{preflight_result.failure_kind}"
-            return SemanticTurnResult(
-                disposition="held",
-                reason=reason,
-                planning=SemanticPlanningOutcome(
-                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
-                    reason=reason,
-                    model_observations=preflight_result.observations,
-                ),
-            )
 
         async def verified(question: str) -> SemanticTurnResult:
             return await self._handle_verified(
@@ -311,6 +296,13 @@ class SemanticConversationRuntime:
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
             )
+
+        if (
+            preflight_result is not None
+            and preflight_result.attempted
+            and preflight_result.failure_kind is not None
+        ):
+            return await verified(utterance)
 
         async def evidence(question: str) -> AdaptiveEvidence:
             result = await verified(question)

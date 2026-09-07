@@ -128,7 +128,7 @@ async def test_conversation_preflight_never_fails_over_to_a_second_candidate() -
 
 
 @pytest.mark.asyncio
-async def test_gpt5_conversation_preflight_uses_low_reasoning_effort() -> None:
+async def test_gpt5_conversation_preflight_uses_minimal_reasoning_effort() -> None:
     requests: list[dict[str, object]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -170,7 +170,7 @@ async def test_gpt5_conversation_preflight_uses_low_reasoning_effort() -> None:
         )
 
     assert result is None
-    assert requests[0]["reasoning_effort"] == "low"
+    assert requests[0]["reasoning_effort"] == "minimal"
 
 
 @pytest.mark.asyncio

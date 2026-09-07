@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 88368dc7b7dd4a3abe71f7103a39411677ae64e1
+translation_source_sha: 97180d036212235d0ddfa567e971c79823fc244f
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -73,6 +73,7 @@ catalog 값 필터를 추가하지 않습니다.
 신원은 `Resource.id` 조건식으로 유지합니다. 역할 할당 객체는 전용 IAM 근거 경로에서만 사용할 수
 있습니다. ObjectSet 구체화, 새로 고침 및 증적 발급 실패는 원래 예외를 유지하면서 실패 단계를
 범위가 제한된 진단으로 추가합니다.
+수락된 구독 신원 및 Service Health 판단은 정확한 입력 없는 FunctionType에서 결정론적 프레임과 서버 계획을 구성하므로 전체 온톨로지 스키마가 프레임 모델 경계를 통과하지 않습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

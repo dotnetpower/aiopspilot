@@ -449,10 +449,21 @@ async def test_classifier_outage_does_not_retry_the_request_through_the_legacy_m
     assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
 
 
-async def test_failed_configured_preflight_holds_without_another_model_call() -> None:
+async def test_failed_configured_preflight_falls_back_to_verified_semantic_planning() -> None:
     manifest, _definition = _fixture()
     query_model = QueryModel(frame=_frame(), plan=None)
     adaptive_model = AnswerModel(plan=answer_plan())
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.other",
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
 
     class _FailedPreflight:
         def preflight(self, **_kwargs: object) -> ConversationPreflightResult:
@@ -463,7 +474,15 @@ async def test_failed_configured_preflight_holds_without_another_model_call() ->
             )
 
         def judge(self, **_kwargs: object) -> object:
-            raise AssertionError("failed preflight must not enter semantic judgment")
+            return SimpleNamespace(
+                accepted=True,
+                observations=(),
+                proposal=judgment,
+                receipt=SimpleNamespace(
+                    disposition=SimpleNamespace(value="accepted"),
+                    tier=SimpleNamespace(value="t1"),
+                ),
+            )
 
     runtime = SemanticConversationRuntime(
         planner=query_service(
@@ -481,10 +500,10 @@ async def test_failed_configured_preflight_holds_without_another_model_call() ->
         principal=Principal(id="operator", role=Role.READER),
     )
 
-    assert result.disposition == "held"
-    assert result.reason == "conversation_preflight_malformed"
+    assert result.disposition == "unsupported"
+    assert result.reason != "conversation_preflight_malformed"
     assert adaptive_model.calls == []
-    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+    assert (query_model.frame_calls, query_model.plan_calls) == (1, 1)
 
 
 async def test_general_answer_remains_available_without_an_operational_store() -> None:

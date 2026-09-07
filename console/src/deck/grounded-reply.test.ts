@@ -254,14 +254,12 @@ describe("grounded reply presentation", () => {
 
   it("preserves the server's typed partial-evidence hold", () => {
     const held = {
-      ...verification("ontology-query"),
+      ...verification("server_inventory_graph"),
       status: "unverified" as const,
       reason_code: "semantic_evidence_held",
     };
     const receipt: SemanticProjectionReceipt = {
-      schema_version: "2.0.0",
-      projection_id: "semantic-projection-1",
-      request_id: "semantic-request-1",
+      ...semanticReceipt("incomplete"),
       disposition: "held",
       reason_code: "semantic_evidence_held",
       unavailable_reason: "authoritative_evidence_unavailable",

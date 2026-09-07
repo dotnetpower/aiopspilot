@@ -228,7 +228,7 @@ async def test_an_unobserved_running_status_stays_a_recorded_gap() -> None:
     rows = result["rows"]
     assert isinstance(rows, list)
     assert rows[0]["values"]["running_status"] is None
-    assert rows[0]["values"]["target_state_assessment"] == "observed_not_running"
+    assert rows[0]["values"]["target_state_assessment"] == "not_proven"
 
 
 async def test_no_observed_state_keeps_target_abnormality_unproven() -> None:

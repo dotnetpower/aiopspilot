@@ -153,6 +153,7 @@ export async function askBackendStream(
   });
 
   const tokenQueue: Array<{ readonly delta: string; readonly revision: number }> = [];
+  const pendingTransportDeltas: Array<{ readonly delta: string; readonly revision: number }> = [];
   let queueDone = false;
   let pumpError: unknown = null;
   let queueWake: (() => void) | null = null;
@@ -360,7 +361,7 @@ export async function askBackendStream(
         revision > emittedConfirmedRevision
       ) {
         answerText += delta;
-        enqueueDelta(delta, revision);
+        pendingTransportDeltas.push({ delta, revision });
       }
     } else if (event === "status" || event === "verification") {
       callbacks.onProgress?.({
@@ -391,7 +392,6 @@ export async function askBackendStream(
         answerText = replacement;
         confirmedSegment = undefined;
         pendingRevisions.push({ answer: replacement, revision, status });
-        emitRevision(replacement, revision, status);
       }
     } else if (event === "confirmed") {
       const confirmed = parseConfirmedAnswerSegment(object, revision);
@@ -408,7 +408,6 @@ export async function askBackendStream(
       ) {
         confirmedSegment = confirmed;
         confirmedSegmentCount += 1;
-        emitConfirmed(confirmed);
       }
     } else if (event === "done") {
       doneData = object;
@@ -545,6 +544,59 @@ export async function askBackendStream(
     await flushPump();
     return unavailable("empty stream");
   }
+  if (
+    answerText !== "" &&
+    pendingRevisions.length === 0 &&
+    confirmedSegment === undefined &&
+    terminalAnswer !== answerText
+  ) {
+    discardEmittedDraft();
+    pendingTransportDeltas.length = 0;
+    await flushPump();
+    return unavailable("terminal answer mismatch");
+  }
+  const terminalRevision = pendingRevisions.at(-1);
+  const terminalRevisionValue = typeof done.revision === "number" &&
+    Number.isInteger(done.revision)
+    ? done.revision
+    : null;
+  const canonicalRevision = terminalRevision?.revision ?? confirmedSegment?.revision;
+  const tokenRevision = pendingTransportDeltas.at(-1)?.revision;
+  if (
+    (pendingRevisions.length > 0 || confirmedSegment !== undefined) &&
+    terminalAnswer === null
+  ) {
+    discardEmittedDraft();
+    pendingTransportDeltas.length = 0;
+    await flushPump();
+    return unavailable("terminal canonical answer missing");
+  }
+  if (
+    terminalAnswer !== null &&
+    (
+      (canonicalRevision !== undefined && terminalRevisionValue !== canonicalRevision) ||
+      (
+        canonicalRevision === undefined &&
+        terminalRevisionValue !== null &&
+        tokenRevision !== undefined &&
+        terminalRevisionValue !== tokenRevision
+      ) ||
+      (terminalRevision !== undefined && terminalRevision.answer !== terminalAnswer) ||
+      (
+        confirmedSegment !== undefined &&
+        terminalAnswer !== confirmedSegment.text
+      )
+    )
+  ) {
+    discardEmittedDraft();
+    pendingTransportDeltas.length = 0;
+    await flushPump();
+    return unavailable("terminal canonical answer mismatch");
+  }
+  if (pendingRevisions.length === 0 && confirmedSegment === undefined) {
+    for (const item of pendingTransportDeltas) enqueueDelta(item.delta, item.revision);
+  }
+  pendingTransportDeltas.length = 0;
   callbacks.onValidatedTerminal?.();
   await flushPump();
   if (callbacks.signal?.aborted) return stopped(emittedText);

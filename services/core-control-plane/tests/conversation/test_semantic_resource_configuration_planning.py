@@ -6,6 +6,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.core.conversation.semantic_planning_frame_checks import (
+    deterministic_pre_frame_outcome,
+)
 from fdai.core.conversation.semantic_resource_configuration_planning import (
     RESOURCE_CONFIGURATION_OUTPUT_SHAPE,
     build_resource_configuration_frame,
@@ -152,6 +155,276 @@ def test_last_hour_facet_without_time_target_does_not_build_configuration_frame(
     )
 
     assert result is None
+
+
+def test_gpt_collection_uses_grounded_type_and_recent_default_window() -> None:
+    utterance = "구독에 배포된 GPT 리소스의 변경이 있는지 확인해보자."
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "values": ["llm-model-deployment"],
+                    "value_groups": [
+                        {
+                            "id": "llm-model-deployment",
+                            "terms": ["GPT 리소스"],
+                            "values": ["llm-model-deployment"],
+                        }
+                    ],
+                }
+            },
+        },
+    )
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(),
+            requested_facets=(
+                "configuration_changes",
+                "default_recent_window",
+                "llm-model-deployment",
+                "potential_issues",
+            ),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", "Resource.type=llm-model-deployment")
+    assert frame.temporal_scope == {"lookback_seconds": 3_600}
+
+
+def test_gpt_collection_grounds_type_independently_of_model_source_offsets() -> None:
+    utterance = "구독에 배포된 GPT 리소스의 변경이 있는지 확인해보자."
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "values": ["llm-model-deployment"],
+                    "value_groups": [
+                        {
+                            "id": "llm-model-deployment",
+                            "terms": ["GPT 리소스"],
+                            "values": ["llm-model-deployment"],
+                        }
+                    ],
+                }
+            },
+        },
+    )
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                SemanticTarget(
+                    kind="resource_type_filter",
+                    value="GPT 리소스",
+                    canonical_value="llm-model-deployment",
+                    source_start=0,
+                    source_end=3,
+                ),
+            ),
+            requested_facets=("default_recent_window", "change", "potential-impact"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", "Resource.type=llm-model-deployment")
+    assert frame.temporal_scope == {"lookback_seconds": 3_600}
+
+
+def test_configuration_collection_does_not_use_an_unstated_type_facet() -> None:
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {"type": {"values": ["llm-model-deployment"]}},
+        },
+    )
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(),
+            requested_facets=(
+                "configuration_changes",
+                "default_recent_window",
+                "llm-model-deployment",
+            ),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance="Did any configurations change recently?",
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert result is None
+
+
+def test_configuration_frame_rejects_mixed_exact_and_type_scopes() -> None:
+    utterance = "Compare vm-prod-01 and GPT resources during the last hour."
+    name = "vm-prod-01"
+    resource_type = "GPT resources"
+    time_value = "last hour"
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                {
+                    "kind": "resource",
+                    "value": name,
+                    "canonical_value": "Resource.name",
+                    "source_start": utterance.index(name),
+                    "source_end": utterance.index(name) + len(name),
+                },
+                {
+                    "kind": "resource_type_filter",
+                    "value": resource_type,
+                    "canonical_value": None,
+                    "source_start": utterance.index(resource_type),
+                    "source_end": utterance.index(resource_type) + len(resource_type),
+                },
+                {
+                    "kind": "time_range",
+                    "value": time_value,
+                    "canonical_value": "duration.PT1H",
+                    "source_start": utterance.index(time_value),
+                    "source_end": utterance.index(time_value) + len(time_value),
+                },
+            ),
+            requested_facets=("configuration_changes", "last_hour"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+    )
+
+    assert result is None
+
+
+def test_configuration_frame_rejects_unreported_stated_type_scope() -> None:
+    utterance = "Compare vm-prod-01 and GPT resources during the last hour."
+    name = "vm-prod-01"
+    time_value = "last hour"
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": [
+                        {
+                            "id": "llm-model-deployment",
+                            "terms": ["GPT resources"],
+                            "values": ["llm-model-deployment"],
+                        }
+                    ]
+                }
+            },
+        },
+    )
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                {
+                    "kind": "resource",
+                    "value": name,
+                    "canonical_value": "Resource.name",
+                    "source_start": utterance.index(name),
+                    "source_end": utterance.index(name) + len(name),
+                },
+                {
+                    "kind": "time_range",
+                    "value": time_value,
+                    "canonical_value": "duration.PT1H",
+                    "source_start": utterance.index(time_value),
+                    "source_end": utterance.index(time_value) + len(time_value),
+                },
+            ),
+            requested_facets=("configuration_changes", "last_hour"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert result is None
+
+
+def test_grounded_configuration_type_filter_is_not_forced_to_identity_clarification() -> None:
+    utterance = "Did GPT resources change recently?"
+    target = "GPT resources"
+    start = utterance.index(target)
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_configuration_changes",
+        targets=(
+            {
+                "kind": "resource_type_filter",
+                "value": target,
+                "canonical_value": None,
+                "source_start": start,
+                "source_end": start + len(target),
+            },
+        ),
+        requested_facets=("configuration_changes", "default_recent_window"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + ("a" * 64),
+        bound_incident=False,
+    )
+
+    assert outcome is None
 
 
 def test_arm_id_compiles_as_resource_id() -> None:

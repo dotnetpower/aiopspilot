@@ -20,6 +20,7 @@ const baseURL = process.env.FDAI_E2E_BASE_URL ?? defaultBaseURL;
 const storageState = process.env.FDAI_E2E_STORAGE_STATE;
 const testBearer = process.env.FDAI_E2E_BEARER ?? randomUUID();
 process.env.FDAI_E2E_BEARER = testBearer;
+const isolatedConsumerSuffix = `live-${apiPort}`;
 const outputRoot = path.join(
   process.env.FDAI_PLAYWRIGHT_OUTPUT_ROOT ?? path.join(tmpdir(), "fdai-playwright"),
   "live",
@@ -55,6 +56,10 @@ export default defineConfig({
               `FDAI_E2E_BEARER=${testBearer} ` +
               `FDAI_E2E_OPERATOR_API_PORT=${apiPort} ` +
               `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=${defaultBaseURL} ` +
+              `FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID=operator-semantic-turn-${isolatedConsumerSuffix} ` +
+              `FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID=operator-read-investigation-${isolatedConsumerSuffix} ` +
+              `FDAI_BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ID=operator-background-task-${isolatedConsumerSuffix} ` +
+              `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID=operator-live-stage-${isolatedConsumerSuffix} ` +
               `PYTHONPATH=../services/operator-service/src:../packages/service-contracts/src ` +
               `../.venv/bin/python tests/live-e2e/operator_service.py`,
             url: `http://${loopbackHost}:${apiPort}/healthz`,

@@ -18,6 +18,7 @@ from fdai.core.conversation.conversation_preflight import (
     GeneralKnowledgeSignal,
     OperationalPreflightFamily,
     OperationalSignal,
+    OperationalWindowMode,
     SocialAct,
     SocialResponseNarratorBinding,
     operational_target_is_generic,
@@ -552,6 +553,7 @@ def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> 
             operational_signal=OperationalSignal.EXPLICIT,
             context_dependency=ContextDependency.NONE,
             operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+            operational_window=OperationalWindowMode.PAST_HOUR,
             operational_targets=(
                 SemanticTarget(
                     kind="resource",
@@ -620,6 +622,15 @@ def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> 
             ("resource_collection", "list", "current_state"),
             "query.resource_state_inventory",
         ),
+        (
+            "지금 fdai 가 포함된 리소스 그룹은?",
+            (
+                ("resource_type_filter", "리소스 그룹"),
+                ("resource_name_filter", "fdai"),
+            ),
+            ("resource_collection", "list", "name_filter"),
+            "query.contextual_resources",
+        ),
     ),
 )
 def test_promotes_resource_collection_without_a_second_judgment(
@@ -663,6 +674,116 @@ def test_promotes_resource_collection_without_a_second_judgment(
     assert judgment.execution_authority is False
 
 
+def test_resource_collection_derives_name_filter_facet_from_typed_target() -> None:
+    utterance = "지금 fdai 가 포함된 리소스 그룹은?"
+    targets = tuple(
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for kind, value in (
+            ("resource_type_filter", "리소스 그룹"),
+            ("resource_name_filter", "fdai"),
+        )
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=targets,
+        operational_facets=("resource_collection", "list"),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.contextual_resources"
+    assert judgment.targets == targets
+    assert judgment.requested_facets == ("resource_collection", "list", "name_filter")
+
+
+@pytest.mark.parametrize(
+    ("utterance", "kind", "value", "alias", "canonical"),
+    (
+        (
+            "지금 fdai 가 포함된 리소스 그룹은?",
+            "resource_name_filter",
+            "fdai",
+            "resource_name_filter",
+            "name_filter",
+        ),
+        (
+            "실행중인 mssql 서버 목록",
+            "resource_state_filter",
+            "실행중인",
+            "resource_state_filter",
+            "current_state",
+        ),
+    ),
+)
+def test_resource_collection_canonicalizes_typed_filter_facet_aliases(
+    utterance: str,
+    kind: str,
+    value: str,
+    alias: str,
+    canonical: str,
+) -> None:
+    targets = (
+        SemanticTarget(
+            kind="resource_type_filter",
+            value="리소스 그룹" if kind == "resource_name_filter" else "mssql 서버",
+            source_start=utterance.index(
+                "리소스 그룹" if kind == "resource_name_filter" else "mssql 서버"
+            ),
+            source_end=utterance.index(
+                "리소스 그룹" if kind == "resource_name_filter" else "mssql 서버"
+            )
+            + len("리소스 그룹" if kind == "resource_name_filter" else "mssql 서버"),
+        ),
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        ),
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=targets,
+        operational_facets=("resource_collection", "list", alias),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert canonical in judgment.requested_facets
+    assert alias not in judgment.requested_facets
+
+
 def test_promotes_exact_resource_current_state_without_collection_substitution() -> None:
     utterance = "aks-example-cluster 의 상태"
     target_value = "aks-example-cluster"
@@ -698,6 +819,498 @@ def test_promotes_exact_resource_current_state_without_collection_substitution()
     assert judgment.targets[0].value == target_value
     assert judgment.targets[0].canonical_value == "Resource.name"
     assert judgment.requested_facets == ("current_state",)
+
+
+@pytest.mark.parametrize(
+    ("family", "facets", "expected_intent"),
+    (
+        (
+            OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+            ("subscription",),
+            "query.subscription_scope_identity",
+        ),
+        (
+            OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
+            ("service_health",),
+            "query.subscription_service_health",
+        ),
+    ),
+)
+def test_promotes_targetless_subscription_family_without_full_judgment(
+    family: OperationalPreflightFamily,
+    facets: tuple[str, ...],
+    expected_intent: str,
+) -> None:
+    utterance = "구독 정보 알려줘"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=family,
+        operational_targets=(),
+        operational_facets=facets,
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == expected_intent
+    assert judgment.targets == ()
+    assert judgment.requested_facets == facets
+    assert judgment.execution_authority is False
+
+
+def test_inventory_document_derives_complete_download_facets() -> None:
+    utterance = "구독에 배포된 리소스 상세 정보를 문서화하자."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.INVENTORY_DOCUMENT,
+        operational_targets=(),
+        operational_facets=("resource_inventory", "subscription"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "create.document"
+    assert judgment.targets == ()
+    assert judgment.requested_facets == (
+        "resource_inventory",
+        "subscription",
+        "complete_content",
+        "download",
+    )
+
+
+@pytest.mark.parametrize(
+    ("utterance", "family", "targets", "facets", "expected_intent"),
+    (
+        (
+            "구독에 배포된 GPT 리소스의 변경이 있는지 확인해보자.",
+            OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+            (("resource_type_filter", "GPT 리소스"),),
+            ("configuration_changes", "default_recent_window", "potential_issues"),
+            "query.resource_configuration_changes",
+        ),
+        (
+            "SRE-AppGW-01 뒤의 Client가 갑자기 느립니다.",
+            OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+            (("resource", "SRE-AppGW-01"),),
+            (
+                "application_gateway",
+                "backend",
+                "configuration_changes",
+                "default_recent_window",
+                "latency",
+            ),
+            "query.gateway_diagnostic_evidence",
+        ),
+    ),
+)
+def test_promotes_current_sre_family_with_server_owned_recent_window(
+    utterance: str,
+    family: OperationalPreflightFamily,
+    targets: tuple[tuple[str, str], ...],
+    facets: tuple[str, ...],
+    expected_intent: str,
+) -> None:
+    operational_targets = tuple(
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for kind, value in targets
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=family,
+        operational_targets=operational_targets,
+        operational_facets=facets,
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == expected_intent
+    assert judgment.targets == operational_targets
+    assert judgment.requested_facets == facets
+
+
+def test_configuration_collection_derives_server_owned_recent_window() -> None:
+    utterance = "구독에 배포된 GPT 리소스의 변경이 있는지 확인해보자."
+    target_value = "GPT 리소스"
+    target = SemanticTarget(
+        kind="resource_type_filter",
+        value=target_value,
+        source_start=utterance.index(target_value),
+        source_end=utterance.index(target_value) + len(target_value),
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(target,),
+        operational_facets=("configuration_changes", "gpt"),
+        confidence=0.93,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_configuration_changes"
+    assert judgment.requested_facets == ("configuration_changes", "default_recent_window")
+
+
+def test_configuration_collection_drops_server_owned_subscription_scope() -> None:
+    utterance = (
+        "Check whether deployed GPT resources in the subscription have configuration changes."
+    )
+    type_value = "deployed GPT resources"
+    scope_value = "the subscription"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=scope_value,
+                source_start=utterance.index(scope_value),
+                source_end=utterance.index(scope_value) + len(scope_value),
+            ),
+        ),
+        operational_facets=("configuration_changes", "potential_issues"),
+        confidence=0.94,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.targets == (proposal.operational_targets[0],)
+    assert judgment.requested_facets == (
+        "configuration_changes",
+        "potential_issues",
+        "default_recent_window",
+    )
+
+
+def test_gateway_preflight_drops_generic_model_label_from_resource_targets() -> None:
+    utterance = "SRE-APIM을 통해 GPT 5.4로 연결된 서비스에 500 Error가 발생하고 있어."
+    gateway = "SRE-APIM"
+    model_label = "GPT 5.4"
+    targets = tuple(
+        SemanticTarget(
+            kind="resource",
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for value in (gateway, model_label)
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=targets,
+        operational_facets=(
+            "apim",
+            "configuration_changes",
+            "default_recent_window",
+            "gpt",
+            "http_status",
+            "status_500",
+        ),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.gateway_diagnostic_evidence"
+    assert judgment.targets == (targets[0],)
+    assert judgment.requested_facets == proposal.operational_facets
+
+
+def test_gateway_preflight_canonicalizes_bounded_facet_aliases() -> None:
+    utterance = "SRE-APIM returns HTTP 500 for a GPT 5.4 service."
+    gateway = "SRE-APIM"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=gateway,
+                source_start=utterance.index(gateway),
+                source_end=utterance.index(gateway) + len(gateway),
+            ),
+        ),
+        operational_facets=(
+            "api_management_issue",
+            "gpt_service",
+            "http_500",
+            "metrics",
+            "resource_configuration_changes",
+            "default_recent_window",
+        ),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.gateway_diagnostic_evidence"
+    assert judgment.requested_facets == (
+        "apim",
+        "gpt",
+        "status_500",
+        "configuration_changes",
+        "default_recent_window",
+    )
+
+
+def test_gateway_preflight_derives_server_owned_recent_window() -> None:
+    utterance = "SRE-AppGW-01 뒤의 Client가 갑자기 느립니다."
+    resource = "SRE-AppGW-01"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=resource,
+                source_start=utterance.index(resource),
+                source_end=utterance.index(resource) + len(resource),
+            ),
+        ),
+        operational_facets=("application_gateway", "backend", "latency"),
+        confidence=0.89,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.gateway_diagnostic_evidence"
+    assert judgment.requested_facets == (
+        "application_gateway",
+        "backend",
+        "latency",
+        "default_recent_window",
+    )
+
+
+def test_gateway_preflight_drops_repeated_generic_target_before_span_repair() -> None:
+    utterance = "SRE-AppGW-01 has Backend latency and another Backend change."
+    gateway = "SRE-AppGW-01"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=gateway,
+                source_start=0,
+                source_end=len(gateway),
+            ),
+            SemanticTarget(
+                kind="resource",
+                value="Backend",
+                source_start=0,
+                source_end=len("Backend"),
+            ),
+        ),
+        operational_facets=("application_gateway", "backend", "latency"),
+        confidence=0.9,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.targets == (proposal.operational_targets[0],)
+
+
+def test_gateway_preflight_binds_unique_runtime_identifier_after_generic_target() -> None:
+    utterance = "Clients using SRE-AppGW-01 report latency at the Application Gateway."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="Application Gateway",
+                source_start=50,
+                source_end=69,
+            ),
+        ),
+        operational_facets=("application_gateway", "backend", "latency"),
+        confidence=0.86,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert tuple((target.kind, target.value) for target in judgment.targets) == (
+        ("resource", "SRE-AppGW-01"),
+    )
+
+
+def test_gateway_preflight_derives_recent_window_from_typed_current_error() -> None:
+    utterance = "SRE-APIM returns HTTP 500 for GPT 5.4."
+    gateway = "SRE-APIM"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=gateway,
+                source_start=0,
+                source_end=len(gateway),
+            ),
+            SemanticTarget(
+                kind="model",
+                value="GPT 5.4",
+                source_start=30,
+                source_end=37,
+            ),
+        ),
+        operational_facets=("apim", "gpt", "status_500", "configuration_changes"),
+        confidence=0.91,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.targets == (proposal.operational_targets[0],)
+    assert judgment.requested_facets == (
+        "apim",
+        "gpt",
+        "status_500",
+        "configuration_changes",
+        "default_recent_window",
+    )
 
 
 def test_preflight_operational_judgment_rejects_nonmatching_source_span() -> None:
@@ -810,6 +1423,57 @@ def test_resource_collection_preflight_rejects_filter_inside_exact_resource() ->
     assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
+@pytest.mark.parametrize(
+    ("utterance", "kind", "value"),
+    [
+        ("Show resources matching prod-db.", "resource_type_filter", "prod-db"),
+        (
+            "Show resources matching /subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.Sql/servers/db-example.",
+            "resource_name_filter",
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.Sql/servers/db-example",
+        ),
+    ],
+)
+def test_resource_collection_preflight_rejects_filters_that_are_exact_identities(
+    utterance: str,
+    kind: str,
+    value: str,
+) -> None:
+    start = utterance.index(value)
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind=kind,
+                value=value,
+                source_start=start,
+                source_end=start + len(value),
+            ),
+        ),
+        operational_facets=(
+            "resource_collection",
+            "list",
+            *(("name_filter",) if kind == "resource_name_filter" else ()),
+        ),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
 def test_preflight_operational_judgment_requires_current_provenance_and_confidence() -> None:
     utterance = "Document every resource in the current subscription."
     proposal = ConversationPreflightProposal(
@@ -841,7 +1505,19 @@ def test_preflight_operational_judgment_requires_current_provenance_and_confiden
         )
         is None
     )
-    low_confidence = proposal.model_copy(update={"confidence": 0.89})
+    accepted_confidence = proposal.model_copy(update={"confidence": 0.75})
+    assert (
+        preflight_operational_judgment(
+            replace(
+                result,
+                proposal=accepted_confidence,
+                proposal_digest=content_digest(accepted_confidence.model_dump(mode="json")),
+            ),
+            utterance=utterance,
+        )
+        is not None
+    )
+    low_confidence = proposal.model_copy(update={"confidence": 0.74})
     assert (
         preflight_operational_judgment(
             replace(
@@ -853,6 +1529,117 @@ def test_preflight_operational_judgment_requires_current_provenance_and_confiden
         )
         is None
     )
+
+
+def test_subscription_scope_preflight_rejects_named_alternate_subscription() -> None:
+    utterance = "Show subscription other-sub."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+        operational_facets=("subscription",),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
+@pytest.mark.parametrize(
+    ("utterance", "family", "facets"),
+    [
+        (
+            "Show subscription prod.",
+            OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+            ("subscription",),
+        ),
+        (
+            "Show the Contoso subscription.",
+            OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+            ("subscription",),
+        ),
+        (
+            "Show subscription named service.",
+            OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+            ("subscription",),
+        ),
+        (
+            "Show subscription named current.",
+            OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+            ("subscription",),
+        ),
+        (
+            "prod 구독의 Service Health를 보여줘.",
+            OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
+            ("service_health",),
+        ),
+        (
+            "고객운영 구독의 Service Health를 보여줘.",
+            OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
+            ("service_health",),
+        ),
+    ],
+)
+def test_subscription_preflight_rejects_alphabetic_named_scope(
+    utterance: str,
+    family: OperationalPreflightFamily,
+    facets: tuple[str, ...],
+) -> None:
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=family,
+        operational_facets=facets,
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "Show the current Azure subscription.",
+        "Show the configured Azure subscription status.",
+        "현재 Azure 구독 정보를 보여줘.",
+    ],
+)
+def test_subscription_preflight_allows_generic_azure_scope(utterance: str) -> None:
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY,
+        operational_facets=("subscription",),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is not None
 
 
 def test_preflight_operational_judgment_rejects_false_one_hour_canonicalization() -> None:
@@ -1070,6 +1857,12 @@ def test_preflight_gateway_rejects_generic_product_targets() -> None:
         "우리 게이트웨이",
         "그 APIM service",
         "Azure API Management service.",
+        "API",
+        "Backend Instance",
+        "GPT 5.4",
+        "5.4",
+        "HTTP 500",
+        "500",
     ),
 )
 def test_operational_target_generic_gate_normalizes_qualifiers(value: str) -> None:

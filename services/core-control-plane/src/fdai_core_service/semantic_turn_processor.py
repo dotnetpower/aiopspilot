@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
@@ -485,7 +486,9 @@ class SemanticTurnProcessor:
                 winner = await self._results.get(idempotency_key)
             except Exception as exc:  # noqa: BLE001 - persistence detail must not cross the wire
                 _LOGGER.warning(
-                    "semantic_result_finalize_failed",
+                    "semantic_result_finalize_failed stage=%s failure_type=%s",
+                    failure_stage,
+                    type(exc).__name__,
                     extra={
                         "failure_stage": failure_stage,
                         "failure_type": type(exc).__name__,
@@ -879,15 +882,20 @@ class SemanticTurnProcessor:
             "semantic_result": semantic_result,
         }
         projection["projection_id"] = _semantic_projection_id(projection)
+        encoded_size = len(
+            json.dumps(
+                projection,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        _LOGGER.info(
+            "semantic_projection_prepared encoded_bytes=%d",
+            encoded_size,
+            extra={"encoded_bytes": encoded_size},
+        )
         if extensions is not None and extensions.operational_evidence is not None:
-            encoded_size = len(
-                json.dumps(
-                    projection,
-                    allow_nan=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ).encode("utf-8")
-            )
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
         codec = (
@@ -2623,11 +2631,11 @@ def _render_query_answer(
             projected_rows = (
                 table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
             )
-        for row in projected_rows:
+        for row_index, row in enumerate(projected_rows, start=1):
             candidate_rows: list[dict[str, object]] = [
                 *rows,
                 {
-                    "row_id": row.row_id,
+                    "row_id": (f"resource-{row_index:04d}" if inventory_document else row.row_id),
                     "values": (
                         _inventory_document_row_values(row.values)
                         if inventory_document
@@ -2644,7 +2652,8 @@ def _render_query_answer(
                     evidence_refs=result.evidence_refs,
                 ),
             ]
-            if len(_answer_json(candidate).encode("utf-8")) > 48_000:
+            answer_output_limit = 220_000 if inventory_document else 48_000
+            if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit:
                 break
             rows = candidate_rows
         outputs.append(
@@ -2689,7 +2698,8 @@ def _render_query_answer(
         },
         "outputs": outputs,
     }
-    if len(_answer_json(outputs).encode("utf-8")) > 48_000:
+    answer_output_limit = 220_000 if inventory_document else 48_000
+    if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
     answer = (
         _render_incident_answer(request, outputs[0])
@@ -2781,10 +2791,15 @@ def _inventory_document_row_values(values: Mapping[str, object]) -> dict[str, ob
     projected = _answer_row_values(values)
     properties = values.get("properties")
     if isinstance(properties, Mapping):
-        for field, value in properties.items():
-            if isinstance(field, str) and field and not isinstance(value, Mapping | list):
-                projected.setdefault(field, _redact_answer_scalar(field, value))
-    return projected
+        for field in ("name", "type", "location", "status", "parent_id"):
+            value = properties.get(field)
+            if value is not None and not isinstance(value, Mapping | list):
+                projected[field] = _redact_answer_scalar(field, value)
+    return {
+        field: projected[field]
+        for field in ("name", "type", "location", "status", "parent_id")
+        if field in projected
+    }
 
 
 def _redact_answer_scalar(field: str, value: object) -> object:
@@ -3360,6 +3375,14 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
+    resource_list_answer = _render_resource_list_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+        measure_concepts=measure_concepts,
+    )
+    if resource_list_answer is not None:
+        return resource_list_answer
     empty_answer = _render_generic_empty_query_answer(
         outputs,
         korean=korean,
@@ -3424,6 +3447,109 @@ def _render_general_query_answer(
                     "Exact rows and receipts are available in technical details. "
                     "This result grants no execution authority."
                 )
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_resource_list_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+    measure_concepts: tuple[str, ...],
+) -> str | None:
+    """Render bounded Resource identities instead of only reporting a row count."""
+
+    if (
+        output_shape not in {"resource_list", "property_filtered_resources"}
+        or set(measure_concepts) == {"complete_content", "download"}
+        or len(outputs) != 1
+    ):
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    total = output.get("total_rows")
+    source_complete = output.get("source_complete") is True
+    source_limitation = output.get("source_truncation_reason")
+    if (
+        not isinstance(rows, list)
+        or not rows
+        or not isinstance(total, int)
+        or isinstance(total, bool)
+        or any(not isinstance(row, Mapping) for row in rows)
+    ):
+        return None
+    if source_complete:
+        heading = f"## 일치하는 리소스 {total}개" if korean else f"## {total} matching Resources"
+    else:
+        heading = (
+            f"## 확인 범위에서 일치하는 리소스 {total}개 이상"
+            if korean
+            else f"## At least {total} matching Resources in the checked scope"
+        )
+    lines = [heading, ""]
+    for row in rows:
+        values = row.get("values")
+        if not isinstance(values, Mapping):
+            return None
+        name = _answer_text(values.get("name"), fallback="name unavailable")
+        resource_type = _answer_text(values.get("type"), fallback="type unavailable")
+        details = [
+            value
+            for value in (
+                _answer_text(values.get("location"), fallback=""),
+                _answer_text(values.get("status"), fallback=""),
+            )
+            if value
+        ]
+        suffix = f" - {resource_type}"
+        if details:
+            suffix += f" / {' / '.join(details)}"
+        lines.append(f"- `{_inline_code(name)}`{suffix}")
+    if output.get("display_truncated") is True:
+        lines.extend(
+            [
+                "",
+                (
+                    f"표시 한도에 따라 {len(rows)}개만 표시했습니다. "
+                    "정확한 전체 행은 기술 상세에서 확인하세요."
+                    if korean
+                    else (
+                        f"Displayed {len(rows)} rows within the presentation limit. "
+                        "Technical details retain the same bounded rows and truncation metadata."
+                    )
+                ),
+            ]
+        )
+    if not source_complete:
+        limitation = (
+            source_limitation
+            if isinstance(source_limitation, str) and source_limitation
+            else "source_incomplete"
+        )
+        lines.extend(
+            [
+                "",
+                (
+                    "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
+                    f"제한: `{limitation}`"
+                    if korean
+                    else (
+                        "The source scope is incomplete, so this is not an exhaustive count. "
+                        f"Limitation: `{limitation}`"
+                    )
+                ),
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            (
+                "검증된 읽기 전용 결과이며 실행 권한을 부여하지 않습니다."
+                if korean
+                else "This is a verified read-only result and grants no execution authority."
             ),
         ]
     )
@@ -5370,7 +5496,14 @@ def _semantic_projection_id(projection: Mapping[str, object]) -> str:
     request_id = projection.get("request_id")
     if not isinstance(request_id, str):
         raise ValueError("semantic projection request_id MUST be a string")
-    projection_digest = content_digest(projection)
+    encoded = json.dumps(
+        projection,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    projection_digest = hashlib.sha256(encoded).hexdigest()
     return str(uuid5(_PROJECTION_NAMESPACE, f"{request_id}\0{projection_digest}"))
 
 

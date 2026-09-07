@@ -15,6 +15,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import (
     ObjectPredicate,
@@ -40,6 +41,113 @@ from fdai.core.ontology_platform.resource_configuration_queries import (
 from fdai.core.ontology_platform.resource_configuration_snapshots import (
     RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
 )
+
+from .conversation_preflight import (
+    operational_target_is_exact,
+    operational_target_is_generic,
+    operational_time_is_past_hour,
+)
+from .semantic_planning_frame_core import build_semantic_frame
+from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
+
+
+def build_gateway_diagnostic_frame(
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build one exact gateway frame with a bounded recent default window."""
+
+    if (
+        judgment is None
+        or judgment.primary_intent != GATEWAY_DIAGNOSTIC_FUNCTION_NAME
+        or judgment.action_posture != "advise_only"
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+        or any(
+            intent != RESOURCE_CONFIGURATION_FUNCTION_NAME for intent in judgment.secondary_intents
+        )
+    ):
+        return None
+    allowed_kinds = {
+        "resource",
+        "resource_id",
+        "time_range",
+        "backend",
+        "backend_id",
+        "backend_name",
+        "model",
+    }
+    if any(target.kind not in allowed_kinds for target in judgment.targets):
+        return None
+    exact_resources = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"resource", "resource_id"}
+        and not operational_target_is_generic(target.value)
+        and operational_target_is_exact(target.value)
+    )
+    preferred_resources = tuple(
+        target
+        for target in exact_resources
+        if target.canonical_value not in {None, "Resource", "Resource.id", "Resource.name"}
+    )
+    if len(preferred_resources) == 1:
+        resource = preferred_resources[0]
+    elif len(exact_resources) == 1:
+        resource = exact_resources[0]
+    else:
+        return None
+    if utterance[resource.source_start : resource.source_end] != resource.value:
+        return None
+    times = tuple(target for target in judgment.targets if target.kind == "time_range")
+    if len(times) > 1:
+        return None
+    temporal_scope: dict[str, int] = {}
+    if times:
+        time_target = times[0]
+        if time_target.canonical_value != "duration.PT1H" or not operational_time_is_past_hour(
+            time_target.value
+        ):
+            return None
+        temporal_scope = {"window_seconds": 3_600}
+    requested_targets = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"backend", "backend_id", "backend_name", "model"}
+    )
+    if len(requested_targets) > 1 or (
+        requested_targets and not operational_target_is_exact(requested_targets[0].value)
+    ):
+        return None
+    resource_field = (
+        "id" if resource.kind == "resource_id" or resource.value.startswith("/") else "name"
+    )
+    constraints = ["Resource", f"Resource.{resource_field}={resource.value}"]
+    if requested_targets:
+        target = requested_targets[0]
+        field = {
+            "backend": "id" if target.value.startswith("/") else "name",
+            "backend_id": "id",
+            "backend_name": "name",
+            "model": "model_name",
+        }[target.kind]
+        constraints.append(f"Backend.{field}={target.value}")
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.COMPARE,
+        subject_constraints=tuple(constraints),
+        measure_concepts=(),
+        temporal_scope=temporal_scope,
+        output_shape=SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def compile_gateway_diagnostic_plan(

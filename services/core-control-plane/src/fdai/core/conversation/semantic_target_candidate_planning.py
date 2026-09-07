@@ -111,9 +111,12 @@ def build_stated_resource_filter_frame(
         if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
         else ()
     )
+    if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
+        return None
     filters = stated_value_filters(utterance, descriptors)
     typed_collection = primary_intent in {
         "query.contextual_resources",
+        "query.resource_current_state",
         "query.resource_state_inventory",
     } and (
         (
@@ -125,7 +128,11 @@ def build_stated_resource_filter_frame(
         )
         or (
             bool(filters.get(("Resource", "type")))
-            and any(target.get("kind") == "resource_group" for target in typed_targets)
+            and any(
+                target.get("kind") == "resource_group"
+                or (isinstance(target.get("kind"), str) and target["kind"].endswith("_filter"))
+                for target in typed_targets
+            )
         )
     )
     if (

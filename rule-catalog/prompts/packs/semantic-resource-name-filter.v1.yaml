@@ -1,0 +1,15 @@
+id: semantic-resource-name-filter
+version: 1
+layer: pack
+applies_to:
+  - semantic.judgment
+token_budget: 160
+default_mode: enforce
+body: |-
+  Resource name-fragment objective:
+  - When the operator asks for Resource objects of a stated type whose names contain one explicit free-text fragment, use query.contextual_resources.
+  - Preserve the fragment as one source-grounded resource_name_filter target with canonical_value null and include resource_collection, list, and name_filter facets.
+  - A resource-group type plus a name fragment selects Resource objects of type resource-group by name. It is not a request for Resources contained by one exact named group.
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Separates Resource name-fragment collections from exact parent-group membership.

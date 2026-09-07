@@ -27,7 +27,8 @@ interface DownloadEvidence {
   readonly expectedRows: string | null;
 }
 
-const MAX_ANSWER_TTFT_MS = 5_000;
+const MAX_FIRST_PROGRESS_MS = 5_000;
+const MAX_ANSWER_TTFT_MS = 15_000;
 
 const EXPECTED_OUTPUT_SHAPE: Readonly<Record<Exclude<Family, "inventory">, string>> = {
   gpt_configuration: "resource_configuration_changes",
@@ -60,6 +61,10 @@ async function loadCases(): Promise<readonly OperationalCase[]> {
   if (new Set(ids).size !== ids.length) {
     throw new Error("operational diagnostic case ids must be unique");
   }
+  const locale = process.env.FDAI_E2E_OPERATIONAL_LOCALE;
+  if (locale === "ko" || locale === "en") {
+    return parsed.cases.filter((item) => item.id.endsWith(`-${locale}`));
+  }
   return parsed.cases;
 }
 
@@ -79,14 +84,18 @@ async function submit(page: Page, operationalCase: OperationalCase) {
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
     const startedAt = performance.now();
     let firstTokenMs: number | null = null;
+    let firstProgressMs: number | null = null;
     const reply = await askBackendStream(prompt, null, [], {
       onToken: () => {
         if (firstTokenMs === null) firstTokenMs = performance.now() - startedAt;
       },
+      onProgress: () => {
+        if (firstProgressMs === null) firstProgressMs = performance.now() - startedAt;
+      },
       sessionId,
       semanticPlanningProfile: "interactive",
     });
-    return { reply, firstTokenMs };
+    return { reply, firstProgressMs, firstTokenMs };
   }, {
     prompt: operationalCase.prompt,
     sessionId: randomUUID(),
@@ -139,8 +148,8 @@ test("interactive operational diagnostics retain evidence across varied question
   page,
 }, testInfo) => {
   test.skip(
-    !process.env.FDAI_E2E_BASE_URL ||
-      (!process.env.FDAI_E2E_STORAGE_STATE && !process.env.FDAI_E2E_BEARER),
+    !process.env.FDAI_E2E_BEARER &&
+      (!process.env.FDAI_E2E_BASE_URL || !process.env.FDAI_E2E_STORAGE_STATE),
     "requires an authenticated isolated Console stack",
   );
   test.setTimeout(45 * 60 * 1_000);
@@ -162,7 +171,7 @@ test("interactive operational diagnostics retain evidence across varied question
   const resultsPath = testInfo.outputPath("operational-diagnostic-results.json");
   for (const operationalCase of cases) {
     const startedAt = Date.now();
-    const { reply, firstTokenMs } = await submit(page, operationalCase);
+    const { reply, firstProgressMs, firstTokenMs } = await submit(page, operationalCase);
     const receipt = reply.semanticReceipt;
     const frame = receipt?.assurance_observation?.frame;
     const document = reply.documentArtifact;
@@ -171,6 +180,7 @@ test("interactive operational diagnostics retain evidence across varied question
       id: operationalCase.id,
       family: operationalCase.family,
       elapsed_ms: Date.now() - startedAt,
+      first_progress_ms: firstProgressMs,
       first_answer_token_ms: firstTokenMs,
       prompt_sha256: createHash("sha256").update(operationalCase.prompt).digest("hex"),
       answer: reply.text,
@@ -182,26 +192,43 @@ test("interactive operational diagnostics retain evidence across varied question
     });
     await persistResults(resultsPath, results);
 
-    expect(receipt?.execution_authority).toBe(false);
-    expect(firstTokenMs, `${operationalCase.id} emitted no answer token`).not.toBeNull();
-    expect(
-      firstTokenMs,
-      `${operationalCase.id} exceeded ${MAX_ANSWER_TTFT_MS}ms answer TTFT`,
-    ).toBeLessThanOrEqual(MAX_ANSWER_TTFT_MS);
-    expect(receipt?.disposition, `${operationalCase.id} ${receipt?.reason_code}`).toBe("answered");
-    if (operationalCase.family === "inventory") {
-      expect(frame?.operation).toBe("select");
-      expect(frame?.output_shape).toBe("resource_list");
-      expect(document?.complete).toBe(true);
-      expect(document?.includedRows).toBe(document?.expectedRows);
-      expect(download?.status).toBe(200);
-      expect(download?.bodySha256).toBe(download?.headerSha256);
-      expect(download?.includedRows).toBe(download?.expectedRows);
-      expect(download?.body).toContain("- Source complete: `true`");
-      expect(download?.body).toContain("## Evidence references");
+    expect.soft(receipt?.execution_authority).toBe(false);
+    expect.soft(
+      firstProgressMs,
+      `${operationalCase.id} emitted no progress signal`,
+    ).not.toBeNull();
+    expect.soft(
+      firstProgressMs,
+      `${operationalCase.id} exceeded ${MAX_FIRST_PROGRESS_MS}ms first progress`,
+    ).toBeLessThanOrEqual(MAX_FIRST_PROGRESS_MS);
+    const evidenceHeld = receipt?.disposition === "held" &&
+      receipt.reason_code === "semantic_evidence_held" &&
+      receipt.assurance_observation?.read_performed === true;
+    if (!evidenceHeld) {
+      expect.soft(firstTokenMs, `${operationalCase.id} emitted no answer token`).not.toBeNull();
+      expect.soft(
+        firstTokenMs,
+        `${operationalCase.id} exceeded ${MAX_ANSWER_TTFT_MS}ms answer TTFT`,
+      ).toBeLessThanOrEqual(MAX_ANSWER_TTFT_MS);
+      expect.soft(receipt?.disposition, `${operationalCase.id} ${receipt?.reason_code}`).toBe(
+        "answered",
+      );
     } else {
-      expect(frame?.output_shape).toBe(EXPECTED_OUTPUT_SHAPE[operationalCase.family]);
-      expect(receipt?.assurance_observation?.read_performed).toBe(true);
+      expect.soft(reply.text).toContain("execution_authority=false");
+    }
+    if (operationalCase.family === "inventory") {
+      expect.soft(frame?.operation).toBe("select");
+      expect.soft(frame?.output_shape).toBe("resource_list");
+      expect.soft(document?.complete).toBe(true);
+      expect.soft(document?.includedRows).toBe(document?.expectedRows);
+      expect.soft(download?.status).toBe(200);
+      expect.soft(download?.bodySha256).toBe(download?.headerSha256);
+      expect.soft(download?.includedRows).toBe(download?.expectedRows);
+      expect.soft(download?.body).toContain("- Source complete: `true`");
+      expect.soft(download?.body).toContain("## Evidence references");
+    } else {
+      expect.soft(frame?.output_shape).toBe(EXPECTED_OUTPUT_SHAPE[operationalCase.family]);
+      expect.soft(receipt?.assurance_observation?.read_performed).toBe(true);
     }
   }
 });

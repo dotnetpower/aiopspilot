@@ -16,6 +16,7 @@ from .conversation_preflight import (
     operational_target_is_generic,
     operational_time_is_past_hour,
 )
+from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_frame import (
@@ -232,6 +233,14 @@ def deterministic_pre_frame_outcome(
             target.kind in {"resource", "resource_id"}
             and not operational_target_is_generic(target.value)
             for target in judgment.targets
+        )
+        and not (
+            judgment.primary_intent == "query.resource_configuration_changes"
+            and any(
+                target.kind in {"resource_type_filter", "object_type"}
+                and utterance[target.source_start : target.source_end] == target.value
+                for target in judgment.targets
+            )
         )
     ):
         output_shape = (
@@ -509,6 +518,14 @@ def deterministic_pre_frame_selection(
     if inventory_document is not None:
         proposal, frame = inventory_document
         return proposal, frame, None
+    gateway_diagnostic = build_gateway_diagnostic_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if gateway_diagnostic is not None:
+        proposal, frame = gateway_diagnostic
+        return proposal, frame, None
     resource_configuration = build_resource_configuration_frame(
         judgment=judgment if judgment_accepted else None,
         utterance=utterance,
@@ -536,7 +553,7 @@ def deterministic_pre_frame_selection(
         proposal, frame = named_resource_group
         return proposal, frame, None
     summary = build_function_backed_summary_frame(
-        judgment,
+        judgment if judgment_accepted else None,
         utterance=utterance,
         context=context,
         descriptors=manifest_descriptors or descriptors,

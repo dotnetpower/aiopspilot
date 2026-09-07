@@ -436,9 +436,11 @@ describe("advisory transport parsing", () => {
     expect(reply.verification).toBeUndefined();
     if (scenario !== "valid") {
       expect(visibleText).toBe(reply.text);
-      expect(onRevision).toHaveBeenCalledExactlyOnceWith(
-        "", scenario === "verification" ? 2 : 1, "unverified",
-      );
+      if (scenario === "verification") {
+        expect(onRevision).toHaveBeenCalledExactlyOnceWith("", 2, "unverified");
+      } else {
+        expect(onRevision).toHaveBeenCalledExactlyOnceWith("", 1, "unverified");
+      }
       expect(reply.adaptiveAnswer).toBeUndefined();
       expect(reply.source).toContain("unavailable");
     } else {

@@ -399,7 +399,7 @@ class AzureOpenAISemanticJudgmentModel:
                         call_kind == "conversation-preflight"
                         and "gpt-5" in target.deployment.casefold()
                     ):
-                        body["reasoning_effort"] = "low"
+                        body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     messages = list(prepare_model_messages(body["messages"]).messages)

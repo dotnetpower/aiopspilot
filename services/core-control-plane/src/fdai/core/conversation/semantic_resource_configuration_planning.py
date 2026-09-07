@@ -37,6 +37,7 @@ from fdai.core.ontology_platform.resource_configuration_snapshots import (
 from .conversation_preflight import operational_time_is_past_hour
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
+from .semantic_planning_value_filters import stated_value_filters
 
 RESOURCE_CONFIGURATION_OUTPUT_SHAPE = "resource_configuration_changes"
 _SCOPE_FIELDS = frozenset({"id", "name", "type", "parent_id"})
@@ -64,12 +65,20 @@ def build_resource_configuration_frame(
     ):
         return None
     resource_targets = tuple(target for target in judgment.targets if target.kind == "resource")
-    if len(resource_targets) != 1 or any(
-        target.kind not in {"resource", "time_range"} for target in judgment.targets
+    type_targets = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"resource_type_filter", "object_type"}
+    )
+    if (
+        len(resource_targets) > 1
+        or len(type_targets) > 1
+        or bool(resource_targets and type_targets)
+        or any(
+            target.kind not in {"resource", "time_range", "resource_type_filter", "object_type"}
+            for target in judgment.targets
+        )
     ):
-        return None
-    target = resource_targets[0]
-    if utterance[target.source_start : target.source_end] != target.value:
         return None
     time_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
     lookback_seconds = None
@@ -79,14 +88,45 @@ def build_resource_configuration_frame(
         and operational_time_is_past_hour(time_targets[0].value)
     ):
         lookback_seconds = 3_600
-    if lookback_seconds is None:
+    if len(time_targets) > 1:
+        return None
+    filter_utterance = utterance
+    for target in sorted(resource_targets, key=lambda item: item.source_start, reverse=True):
+        if utterance[target.source_start : target.source_end] != target.value:
+            return None
+        filter_utterance = (
+            filter_utterance[: target.source_start]
+            + (" " * (target.source_end - target.source_start))
+            + filter_utterance[target.source_end :]
+        )
+    type_values = stated_value_filters(
+        filter_utterance,
+        descriptors,
+        allowed_properties=frozenset({"type"}),
+    ).get(("Resource", "type"), ())
+    if resource_targets and type_values:
+        return None
+    target_constraint: str | None = None
+    if len(resource_targets) == 1:
+        target = resource_targets[0]
+        if (
+            utterance[target.source_start : target.source_end] != target.value
+            or lookback_seconds is None
+        ):
+            return None
+        field = "id" if target.value.startswith("/") else "name"
+        target_constraint = f"Resource.{field}={target.value}"
+    else:
+        if len(type_values) != 1:
+            return None
+        target_constraint = f"Resource.type={type_values[0]}"
+        if lookback_seconds is None and not time_targets:
+            lookback_seconds = 3_600
+    if target_constraint is None or lookback_seconds is None:
         return None
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.COMPARE,
-        subject_constraints=(
-            "Resource",
-            f"Resource.{'id' if target.value.startswith('/') else 'name'}={target.value}",
-        ),
+        subject_constraints=("Resource", target_constraint),
         measure_concepts=(),
         temporal_scope={"lookback_seconds": lookback_seconds},
         output_shape=SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES,

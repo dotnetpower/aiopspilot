@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 871b616ac1eaf28aab9061acf49fb6f917b06e64
+translation_source_sha: 45f805d6cf3922b7c4813dc2c0871e6fd4ab8cdc
 translation_revised: 2026-09-07
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -58,7 +58,9 @@ translation_revised: 2026-09-07
 > 명확화 요청을 반환합니다. 요청을 필터 없는 Resource 모음으로 넓히지 않으며 preflight 모델은 조회
 > 피연산자를 만들 수 없습니다. 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
 > 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
-> 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다.
+> 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service
+> Health 조회는 전체 principal 매니페스트를 프레임 모델에 전달하지 않고 정확한 입력 없는
+> FunctionType에서 결정론적 프레임과 서버 계획을 구성합니다.
 > APIM, Application Gateway, backend 또는 GPT 같은 일반 제품 표기는 정확한 신원이 아닙니다.
 > 이 경우 frame 모델 또는 provider I/O 전에 `resource_identity` 명확화를 반환합니다.
 >
@@ -212,6 +214,7 @@ translation_revised: 2026-09-07
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정확한 Resource 현재 상태 질문이 Resource 컬렉션 필터로 축소되지 않도록 수정했습니다. 이제 컬렉션 복구에는 명시적인 컬렉션 카디널리티와 정확한 Resource 대상 없음이 필요하며, 전체 의미 판단 복구는 출처에 기반한 이름 또는 ID를 타입 기반 조건으로 보존합니다. 프로비저닝 성공이 관찰됐지만 런타임 상태가 없으면 실행 중이 아니라는 잘못된 주장 대신 `not_proven`으로 유지합니다. | `current change`, 정확한 이름, 대상 없는 명확화, 컬렉션, preflight 기능군, 현재 상태 프로바이더, Ruff 및 strict mypy 집중 검사 | 공유 CDP 브라우저가 다시 연결되면 인증된 표준 Console에서 정확한 `aks-fdai-chaos` 상태 질문을 다시 확인합니다. |
 | 2026-09-07 | implemented | 운영 Resource visibility를 중앙화해 모델이 제안한 collection plan과 server가 만든 collection plan 모두에서 `authorization.role-assignment`를 제외했습니다. 제외는 모델 operand 검증 뒤 실행되며 명시적 IAM 관계 출력에는 영향을 주지 않습니다. | `current change`; 집중 visibility 및 이름이 지정된 Resource Group 검사. 격리된 production Operator E2E가 `answered`, `semantic_answer_verified`, `resource_list`, 직렬화된 role assignment 행 0개 및 `execution_authority=false`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight와 객체 전용 완전성을 추가하고 로컬 inventory refresh가 구성된 범위와 journal 계보를 보존하도록 했습니다. 범위가 지정된 graph coverage는 활성 범위의 보류 관측을 무시하지 않으면서 관련 없는 테스트 관측을 제외합니다. | `current change`; 집중 preflight, planner, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `target_current_state`를 통해 답변했습니다. | 인증된 표준 Console 근거를 보존합니다. |
 | 2026-09-07 | implemented | 일반 제품 범주를 정확한 운영 신원으로 인정하지 않고 모호하며 대상이 없는 게이트웨이 비교를 frame 계획 전에 종료했습니다. | `current change`; 집중 테스트 238개, 수정 후 Browser Entra F4 trace에서 frame 모델 및 provider 읽기 없음 | 정확한 대상이 있는 F3/F4 근거를 보존합니다. |

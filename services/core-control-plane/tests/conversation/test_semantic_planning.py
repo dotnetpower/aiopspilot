@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_planning import (
     _descriptors_for_judgment,
     _operational_frame_matches_accepted_judgment,
     _plan_node_summary,
+    _preflight_descriptor_intent,
 )
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
 from fdai.core.conversation.semantic_planning_frame_checks import (
@@ -264,6 +265,7 @@ class _JudgmentBoundary:
     def preflight(self, **_kwargs: Any) -> Any:
         return SimpleNamespace(
             observations=(),
+            attempted=False,
             failure_kind=None,
             proposal=None,
         )
@@ -1379,6 +1381,47 @@ def test_resource_group_type_target_is_not_treated_as_named_group_membership(
     assert model.plan_calls == 0
 
 
+def test_resource_group_name_fragment_filters_group_objects_not_members() -> None:
+    utterance = "지금 fdai 가 포함된 리소스 그룹은?"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="fdai",
+                source_start=utterance.index("fdai"),
+                source_end=utterance.index("fdai") + len("fdai"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+
+    assert predicates == [
+        {"property": "name", "operator": "contains", "equals": "fdai"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
 def test_named_resource_group_membership_filters_parent_instead_of_group_type() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_RESOURCE_GROUP_GROUP,),
@@ -2012,12 +2055,24 @@ def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
         ("create.document", {"Resource"}),
         ("query.contextual_resources", {"Resource"}),
         (
+            "query.resource_health_inventory",
+            {"Resource", "query.resource_health_inventory"},
+        ),
+        (
             "query.resource_current_state",
             {"Resource", "query.resource_current_state"},
         ),
         (
             "query.resource_state_inventory",
             {"Resource", "query.resource_state_inventory"},
+        ),
+        (
+            "query.subscription_scope_identity",
+            {"query.subscription_scope_identity"},
+        ),
+        (
+            "query.subscription_service_health",
+            {"query.subscription_service_health"},
         ),
         (
             "query.resource_configuration_changes",
@@ -2053,8 +2108,11 @@ def test_known_operational_judgment_narrows_model_descriptors(
             "query.gateway_diagnostic_evidence",
             "query.resource_configuration_changes",
             "query.resource_current_state",
+            "query.resource_health_inventory",
             "query.resource_state_inventory",
             "query.resource_configuration_snapshot",
+            "query.subscription_scope_identity",
+            "query.subscription_service_health",
             "unrelated-large-capability",
         )
     )
@@ -2074,6 +2132,28 @@ def test_known_operational_judgment_narrows_model_descriptors(
 
     assert {item["name"] for item in selected} == expected_names
     assert "unrelated-large-capability" not in {item["name"] for item in selected}
+
+
+def test_known_preflight_family_selects_compact_descriptors_before_shape_repair() -> None:
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_targets=(),
+        operational_facets=("metrics",),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=DIGEST,
+        proposal_digest=DIGEST,
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert _preflight_descriptor_intent(result) == "query.gateway_diagnostic_evidence"
 
 
 def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:

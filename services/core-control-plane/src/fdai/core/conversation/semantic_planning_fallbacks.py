@@ -10,6 +10,7 @@ from fdai_service_contracts.ontology_query import SemanticOperation, SemanticPro
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .conversation_preflight import operational_target_is_generic
 from .semantic_current_state_planning import normalize_current_state_proposal
 from .semantic_planning_cascade_judgment import (
     _judgment_non_resource_target_clarification,
@@ -171,6 +172,7 @@ def current_state_clarification_fallback(
             if isinstance(target, Mapping)
             and target.get("kind") in {"resource", "resource_id"}
             and isinstance(target.get("value"), str)
+            and not _generic_resource_target(target["value"], descriptors)
             and isinstance(target.get("source_start"), int)
             and isinstance(target.get("source_end"), int)
             and utterance[target["source_start"] : target["source_end"]] == target["value"]
@@ -181,14 +183,21 @@ def current_state_clarification_fallback(
     subject_constraints: tuple[str, ...]
     if len(exact_targets) == 1:
         target = exact_targets[0]
-        if target.get("canonical_value") == "Resource.id" or target["value"].casefold().startswith(
-            "/subscriptions/"
+        if (
+            target.get("kind") == "resource_id"
+            or target.get("canonical_value") == "Resource.id"
+            or target["value"].casefold().startswith("/subscriptions/")
         ):
-            subject_constraints = ("Resource",)
+            subject_constraints = ("Resource", f"Resource.id={target['value']}")
         else:
-            subject_constraints = ("Resource", target["value"])
+            subject_constraints = ("Resource", f"Resource.name={target['value']}")
     else:
         subject_constraints = ("Resource",)
+    normalization_utterance = (
+        ("상태" if any("가" <= character <= "힣" for character in utterance) else "state")
+        if len(exact_targets) > 1
+        else utterance
+    )
     proposal = normalize_current_state_proposal(
         SemanticFrameProposal(
             operation=SemanticOperation.SELECT,
@@ -203,10 +212,44 @@ def current_state_clarification_fallback(
             investigation=None,
             confidence=confidence,
         ),
-        utterance=utterance,
+        utterance=normalization_utterance,
         descriptors=descriptors,
     )
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def _generic_resource_target(
+    value: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    if operational_target_is_generic(value):
+        return True
+    normalized = " ".join(value.casefold().split())
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "object" or descriptor.get("name") != "Resource":
+            continue
+        properties = descriptor.get("properties")
+        if not isinstance(properties, Mapping):
+            continue
+        declaration = properties.get("type")
+        if not isinstance(declaration, Mapping):
+            continue
+        candidates: list[str] = []
+        declared_values = declaration.get("values", ())
+        if isinstance(declared_values, Sequence) and not isinstance(declared_values, (str, bytes)):
+            candidates.extend(value for value in declared_values if isinstance(value, str))
+        groups = declaration.get("value_groups", ())
+        if isinstance(groups, Sequence) and not isinstance(groups, (str, bytes)):
+            for group in groups:
+                if not isinstance(group, Mapping):
+                    continue
+                for key in ("terms", "values"):
+                    values = group.get(key, ())
+                    if isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
+                        candidates.extend(value for value in values if isinstance(value, str))
+        if any(normalized == " ".join(candidate.casefold().split()) for candidate in candidates):
+            return True
+    return False
 
 
 __all__ = [

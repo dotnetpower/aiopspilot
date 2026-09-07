@@ -338,7 +338,13 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
     out = await composer.compose(capability_id="semantic.judgment")
 
     assert base.version == 8
-    assert out.system_text == base.body
+    assert out.system_text.startswith(base.body)
+    assert "Resource name-fragment objective" in out.system_text
+    assert [layer.id for layer in out.layer_manifest] == [
+        "semantic-judgment",
+        "semantic-resource-name-filter",
+        "semantic-sre-diagnostic",
+    ]
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text
 
@@ -352,7 +358,7 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     base = registry.get_base("conversation.preflight")
     out = await composer.compose(capability_id="conversation.preflight")
 
-    assert base.version == 5
+    assert base.version == 6
     assert out.system_text == base.body
     assert out.token_estimate <= base.token_budget
     assert "candidate data only except for bounded general_answer" in out.system_text
@@ -364,6 +370,8 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     assert "source_start is zero-based inclusive" in out.system_text
     assert "conceptual technology comparison" in out.system_text
     assert "resource_type_filter" in out.system_text
+    assert "subscription_scope_identity" in out.system_text
+    assert "subscription_service_health" in out.system_text
     assert "Core binds them only through the current catalog" in out.system_text
     assert "knowledge_signal: explicit" in out.system_text
     assert "Answer directly in at most 320 characters" in out.system_text

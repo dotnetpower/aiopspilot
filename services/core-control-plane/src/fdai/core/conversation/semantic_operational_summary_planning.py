@@ -18,8 +18,13 @@ from fdai.core.ontology_platform.governed_document_queries import (
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.service_health_queries import SERVICE_HEALTH_FUNCTION_NAME
+from fdai.core.ontology_platform.subscription_scope_queries import (
+    SUBSCRIPTION_SCOPE_FUNCTION_NAME,
+    SUBSCRIPTION_SCOPE_MEASURE_CONCEPTS,
+)
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .conversation_preflight import named_subscription_requested
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_resource_state_planning import normalize_resource_state_proposal
@@ -69,8 +74,35 @@ def build_function_backed_summary_frame(
             confidence=judgment.confidence,
         )
         return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    if judgment.primary_intent == SUBSCRIPTION_SCOPE_FUNCTION_NAME:
+        if (
+            SUBSCRIPTION_SCOPE_FUNCTION_NAME not in available_functions
+            or judgment.targets
+            or judgment.secondary_intents
+            or named_subscription_requested(utterance)
+        ):
+            return None
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("current Azure subscription",),
+            measure_concepts=SUBSCRIPTION_SCOPE_MEASURE_CONCEPTS,
+            temporal_scope={},
+            output_shape=SemanticOutputShape.SUBSCRIPTION_SCOPE_IDENTITY,
+            evidence_requirements=(SUBSCRIPTION_SCOPE_FUNCTION_NAME,),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
     if judgment.primary_intent == SERVICE_HEALTH_FUNCTION_NAME:
-        if SERVICE_HEALTH_FUNCTION_NAME not in available_functions:
+        if (
+            SERVICE_HEALTH_FUNCTION_NAME not in available_functions
+            or judgment.targets
+            or judgment.secondary_intents
+            or named_subscription_requested(utterance)
+        ):
             return None
         proposal = _proposal(
             judgment,

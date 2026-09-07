@@ -133,13 +133,44 @@ def test_preflight_routes_general_knowledge_away_from_operational_semantics() ->
     prompts = FileSystemPromptRegistry(_CATALOG)
     prompt = prompts.get_base("conversation.preflight")
 
-    assert prompt.version == 5
+    assert prompt.version == 6
     assert "conceptual technology comparison" in prompt.body
     assert "knowledge_signal: explicit" in prompt.body
     assert "include general_answer" in prompt.body
     assert "For every other route general_answer is null" in prompt.body
     assert "resource_type_filter" in prompt.body
+    assert "subscription_scope_identity" in prompt.body
+    assert "subscription_service_health" in prompt.body
     assert "Core binds them only through the current catalog" in prompt.body
+
+
+def test_semantic_judgment_separates_name_fragments_from_group_membership() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    name_filter = next(
+        item
+        for item in prompts.get_packs("semantic.judgment")
+        if item.id == "semantic-resource-name-filter"
+    )
+
+    assert name_filter.version == 1
+    assert name_filter.default_mode.value == "enforce"
+    assert "resource_name_filter" in name_filter.body
+    assert "not a request for Resources contained by one exact named group" in name_filter.body
+
+
+def test_semantic_judgment_supports_bounded_current_sre_diagnostics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    diagnostic = next(
+        item
+        for item in prompts.get_packs("semantic.judgment")
+        if item.id == "semantic-sre-diagnostic"
+    )
+
+    assert diagnostic.version == 1
+    assert diagnostic.default_mode.value == "enforce"
+    assert "default_recent_window" in diagnostic.body
+    assert "llm-model-deployment" in diagnostic.body
+    assert "Generic Backend Instance, API Management, GPT" in diagnostic.body
 
 
 def test_adaptive_prompts_require_one_coherent_general_answer() -> None:

@@ -541,8 +541,10 @@ function preservesTypedEvidenceHold(
   verification: AnswerVerification,
   semanticReceipt: SemanticProjectionReceipt | undefined,
 ): boolean {
+  const observation = semanticReceipt?.assurance_observation;
   return (
-    verification.authority === "ontology-query" &&
+    verification.authority.trim().length > 0 &&
+    verification.authority !== "unavailable" &&
     verification.checks_completed > 0 &&
     verification.checks_completed <= verification.checks_total &&
     verification.evidence_refs.some((reference) => reference.trim().length > 0) &&
@@ -553,6 +555,9 @@ function preservesTypedEvidenceHold(
     semanticReceipt.reason_code === verification.reason_code &&
     typeof semanticReceipt.plan_digest === "string" &&
     typeof semanticReceipt.execution_receipt_digest === "string" &&
+    observation?.authority_posture === "read_only" &&
+    observation.read_performed === true &&
+    observation.evidence_posture !== "fresh" &&
     semanticReceipt.execution_authority === false
   );
 }

@@ -31,17 +31,26 @@ _MAX_CONTEXT_CHARS = 4_000
 _MAX_PROFILE_BYTES = 16_384
 _MAX_SCHEMA_ATTEMPTS = 2
 _ROUTE_PROMOTION_CONFIDENCE = 0.9
+_OPERATIONAL_ROUTE_PROMOTION_CONFIDENCE = 0.75
 _INVENTORY_FACETS = frozenset(
     {"resource_inventory", "subscription", "complete_content", "download"}
 )
 _RESOURCE_COLLECTION_FACETS = frozenset({"current_state", "list", "resource_collection"})
+_SUBSCRIPTION_SCOPE_FACETS = frozenset({"subscription"})
+_SUBSCRIPTION_SERVICE_HEALTH_FACETS = frozenset({"service_health"})
+_RESOURCE_COLLECTION_FACET_ALIASES = {
+    "resource_name_filter": "name_filter",
+    "resource_state_filter": "current_state",
+}
 _CONFIGURATION_FACETS = frozenset(
     {
         "before_after",
         "capacity_units",
         "configuration_changes",
+        "default_recent_window",
         "historical_coverage",
         "last_hour",
+        "potential_issues",
         "tpm",
     }
 )
@@ -66,8 +75,21 @@ _GATEWAY_FACETS = frozenset(
         "status_503",
         "topology",
         "total_time",
+        "default_recent_window",
     }
 )
+_GATEWAY_FACET_ALIASES = {
+    "api_management": "apim",
+    "api_management_issue": "apim",
+    "gpt_family": "gpt",
+    "gpt_resource_issue": "gpt",
+    "gpt_service": "gpt",
+    "gpt_version": "gpt",
+    "http_429": "status_429",
+    "http_500": "status_500",
+    "http_503": "status_503",
+    "resource_configuration_changes": "configuration_changes",
+}
 _ONE_HOUR_EXPRESSIONS = frozenset(
     {
         "last hour",
@@ -86,6 +108,7 @@ _GENERIC_OPERATIONAL_TARGETS = frozenset(
     {
         "api management",
         "api management service",
+        "api",
         "apim",
         "apim gateway",
         "apim service",
@@ -96,12 +119,16 @@ _GENERIC_OPERATIONAL_TARGETS = frozenset(
         "azure api management service",
         "azure application gateway",
         "backend",
+        "backend instance",
         "backend service",
         "deployment",
         "gateway",
         "gpt",
         "gpt deployment",
         "gpt model",
+        "gpt resource",
+        "gpt resources",
+        "gpt service",
         "model",
         "selected deployment",
         "selected gateway",
@@ -113,6 +140,10 @@ _GENERIC_OPERATIONAL_TARGETS = frozenset(
         "백엔드",
         "애플리케이션 게이트웨이",
     }
+)
+_GENERIC_OPERATIONAL_TARGET_PATTERN = re.compile(
+    r"(?:(?:gpt\s*)?\d+(?:\.\d+)+(?:\s+(?:deployment|model|resource|service))?|"
+    r"(?:http\s*)?[1-5]\d\d)"
 )
 _LOGGER = logging.getLogger(__name__)
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
@@ -134,6 +165,39 @@ _GENERAL_SCOPE_ASSERTION = re.compile(
 _GENERAL_SCOPE_OBJECT = re.compile(
     r"\b(?:resources?|records?|items?|services?)\b|(?:리소스|레코드|항목|서비스)",
     re.IGNORECASE,
+)
+_SUBSCRIPTION_NAME_AFTER = re.compile(
+    r"(?i)\bsubscription\s+(?:named\s+)?([A-Za-z0-9][A-Za-z0-9_.-]*)\b"
+)
+_EXPLICIT_NAMED_SUBSCRIPTION = re.compile(
+    r"(?i)\bsubscription\s+named\s+[A-Za-z0-9][A-Za-z0-9_.-]*\b"
+)
+_SUBSCRIPTION_NAME_BEFORE_KOREAN = re.compile(
+    r"(?i)(?<!\S)([^\s,.;:!?]{1,64})\s+구독(?:의|은|는|이|가|을|를)?"
+)
+_SUBSCRIPTION_NAME_BEFORE = re.compile(
+    r"(?i)\b(?:the\s+)?([A-Za-z0-9][A-Za-z0-9_.-]*)\s+subscription\b"
+)
+_GENERIC_SUBSCRIPTION_WORDS = frozenset(
+    {
+        "azure",
+        "authorized",
+        "configured",
+        "current",
+        "details",
+        "health",
+        "identity",
+        "information",
+        "name",
+        "scope",
+        "service",
+        "state",
+        "status",
+        "있는",
+    }
+)
+_GENERIC_SUBSCRIPTION_SCOPE_FILTERS = frozenset(
+    {"subscription", "the subscription", "current subscription", "구독", "현재 구독"}
 )
 _GENERAL_FORBIDDEN_CLAIMS = (
     re.compile(
@@ -412,8 +476,18 @@ class OperationalPreflightFamily(StrEnum):
     INVENTORY_DOCUMENT = "inventory_document"
     RESOURCE_COLLECTION = "resource_collection"
     RESOURCE_CURRENT_STATE = "resource_current_state"
+    SUBSCRIPTION_SCOPE_IDENTITY = "subscription_scope_identity"
+    SUBSCRIPTION_SERVICE_HEALTH = "subscription_service_health"
     RESOURCE_CONFIGURATION_CHANGES = "resource_configuration_changes"
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
+
+
+class OperationalWindowMode(StrEnum):
+    """Typed temporal posture for one reviewed operational preflight family."""
+
+    NONE = "none"
+    PAST_HOUR = "past_hour"
+    SERVER_RECENT_DEFAULT = "server_recent_default"
 
 
 class ConversationPreflightProposal(QueryContract):
@@ -426,6 +500,7 @@ class ConversationPreflightProposal(QueryContract):
     knowledge_signal: GeneralKnowledgeSignal = GeneralKnowledgeSignal.NONE
     general_answer: GeneralKnowledgeDraft | None = None
     operational_family: OperationalPreflightFamily = OperationalPreflightFamily.NONE
+    operational_window: OperationalWindowMode = OperationalWindowMode.NONE
     operational_targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=4)] = ()
     operational_facets: Annotated[tuple[str, ...], Field(max_length=24)] = ()
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
@@ -441,6 +516,8 @@ class ConversationPreflightProposal(QueryContract):
             raise ValueError("known operational preflight family requires typed details")
         if known_operational and self.operational_signal is not OperationalSignal.EXPLICIT:
             raise ValueError("operational preflight family requires an explicit operational signal")
+        if not known_operational and self.operational_window is not OperationalWindowMode.NONE:
+            raise ValueError("operational preflight window requires a known operational family")
         if len(self.operational_facets) != len(set(self.operational_facets)):
             raise ValueError("operational preflight facets MUST be unique")
         pure_general = (
@@ -742,7 +819,7 @@ def preflight_operational_judgment(
             "context_dependent",
         ),
         (
-            proposal.confidence >= _ROUTE_PROMOTION_CONFIDENCE,
+            proposal.confidence >= _OPERATIONAL_ROUTE_PROMOTION_CONFIDENCE,
             "confidence_below_threshold",
         ),
         (
@@ -762,6 +839,18 @@ def preflight_operational_judgment(
     exact_runtime_spans = runtime_target_spans(utterance)
     normalized_targets: list[SemanticTarget] = []
     for target in proposal.operational_targets:
+        if (
+            proposal.operational_family is OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES
+            and target.kind == "resource_type_filter"
+            and target.value.strip().casefold() in _GENERIC_SUBSCRIPTION_SCOPE_FILTERS
+        ):
+            continue
+        if (
+            proposal.operational_family is OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE
+            and target.kind in {"resource", "backend", "model"}
+            and operational_target_is_generic(target.value)
+        ):
+            continue
         if utterance[target.source_start : target.source_end] != target.value:
             source_start = utterance.find(target.value)
             if source_start < 0 or utterance.find(target.value, source_start + 1) >= 0:
@@ -777,10 +866,14 @@ def preflight_operational_judgment(
                 target.value
             ):
                 return _reject_operational_promotion("unsupported_time_canonicalization")
-        collection_filter = (
-            proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION
-            and target.kind in {"resource_type_filter", "resource_state_filter"}
-        )
+        collection_filter = proposal.operational_family in {
+            OperationalPreflightFamily.RESOURCE_COLLECTION,
+            OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        } and target.kind in {
+            "resource_type_filter",
+            "resource_state_filter",
+            "resource_name_filter",
+        }
         if target.kind not in {
             "resource",
             "time_range",
@@ -788,6 +881,7 @@ def preflight_operational_judgment(
             "model",
             "resource_type_filter",
             "resource_state_filter",
+            "resource_name_filter",
         }:
             return _reject_operational_promotion("unsupported_target_kind")
         if collection_filter and target.canonical_value is not None:
@@ -797,6 +891,21 @@ def preflight_operational_judgment(
             for start, end in exact_runtime_spans
         ):
             return _reject_operational_promotion("collection_filter_overlaps_exact_resource")
+        if (
+            collection_filter
+            and target.kind != "resource_state_filter"
+            and (
+                target.value.casefold().startswith("/subscriptions/")
+                or (
+                    not any(character.isspace() for character in target.value)
+                    and (
+                        "-" in target.value
+                        or any(character.isdigit() for character in target.value)
+                    )
+                )
+            )
+        ):
+            return _reject_operational_promotion("collection_filter_looks_like_exact_resource")
         if (
             target.kind != "time_range"
             and not collection_filter
@@ -817,6 +926,21 @@ def preflight_operational_judgment(
                 }
             )
         normalized_targets.append(target)
+    if (
+        proposal.operational_family is OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE
+        and not any(target.kind == "resource" for target in normalized_targets)
+        and len(exact_runtime_spans) == 1
+    ):
+        source_start, source_end = exact_runtime_spans[0]
+        normalized_targets.append(
+            SemanticTarget(
+                kind="resource",
+                value=utterance[source_start:source_end],
+                canonical_value="Resource.name",
+                source_start=source_start,
+                source_end=source_end,
+            )
+        )
     primary_intent = {
         OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
         OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES: (
@@ -826,53 +950,177 @@ def preflight_operational_judgment(
             "query.gateway_diagnostic_evidence"
         ),
         OperationalPreflightFamily.RESOURCE_CURRENT_STATE: "query.resource_current_state",
+        OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY: (
+            "query.subscription_scope_identity"
+        ),
+        OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH: (
+            "query.subscription_service_health"
+        ),
     }.get(proposal.operational_family)
     target_kinds = tuple(target.kind for target in normalized_targets)
-    facets = frozenset(proposal.operational_facets)
+    facets = frozenset(
+        _RESOURCE_COLLECTION_FACET_ALIASES.get(facet, facet)
+        if proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION
+        else facet
+        for facet in proposal.operational_facets
+    )
+    normalized_operational_facets = proposal.operational_facets
     if proposal.operational_family is OperationalPreflightFamily.INVENTORY_DOCUMENT:
-        family_valid = not target_kinds and facets == _INVENTORY_FACETS
+        family_valid = (
+            not target_kinds
+            and {"resource_inventory", "subscription"} <= facets <= _INVENTORY_FACETS
+        )
+        normalized_operational_facets = (
+            "resource_inventory",
+            "subscription",
+            "complete_content",
+            "download",
+        )
     elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION:
         has_state_filter = target_kinds.count("resource_state_filter") == 1
+        has_name_filter = target_kinds.count("resource_name_filter") == 1
         expected_facets = {"resource_collection", "list"}
         if has_state_filter:
             expected_facets.add("current_state")
+        if has_name_filter:
+            expected_facets.add("name_filter")
         family_valid = (
-            set(target_kinds) <= {"resource_type_filter", "resource_state_filter"}
+            set(target_kinds)
+            <= {"resource_type_filter", "resource_state_filter", "resource_name_filter"}
             and target_kinds.count("resource_type_filter") <= 1
             and target_kinds.count("resource_state_filter") <= 1
+            and target_kinds.count("resource_name_filter") <= 1
             and len(target_kinds) == len(set(target_kinds))
             and bool(target_kinds)
-            and facets == expected_facets
+            and {"resource_collection", "list"} <= facets <= expected_facets
+        )
+        normalized_operational_facets = tuple(
+            facet
+            for facet in ("resource_collection", "list", "name_filter", "current_state")
+            if facet in expected_facets
         )
         primary_intent = (
             "query.resource_state_inventory" if has_state_filter else "query.contextual_resources"
         )
     elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CURRENT_STATE:
         family_valid = target_kinds == ("resource",) and facets == {"current_state"}
-    elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES:
+    elif proposal.operational_family is OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY:
         family_valid = (
-            target_kinds.count("resource") == 1
-            and target_kinds.count("time_range") == 1
-            and len(target_kinds) == 2
-            and not next(
-                target.value.casefold().startswith("/subscriptions/")
-                for target in normalized_targets
-                if target.kind == "resource"
-            )
-            and bool(facets)
-            and facets <= _CONFIGURATION_FACETS
+            not target_kinds
+            and facets == _SUBSCRIPTION_SCOPE_FACETS
+            and not named_subscription_requested(utterance)
         )
-    else:
+    elif proposal.operational_family is OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH:
+        family_valid = (
+            not target_kinds
+            and facets == _SUBSCRIPTION_SERVICE_HEALTH_FACETS
+            and not named_subscription_requested(utterance)
+        )
+    elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES:
+        has_resource = target_kinds.count("resource") == 1
+        has_resource_type = target_kinds.count("resource_type_filter") == 1
+        has_time = target_kinds.count("time_range") == 1
+        configuration_facets = [
+            facet for facet in proposal.operational_facets if facet in _CONFIGURATION_FACETS
+        ]
+        normalized_configuration_facets = frozenset(configuration_facets)
+        if (
+            has_resource_type
+            and not has_time
+            and "default_recent_window" not in normalized_configuration_facets
+        ):
+            configuration_facets.append("default_recent_window")
+        normalized_operational_facets = tuple(configuration_facets)
+        normalized_configuration_facets = frozenset(configuration_facets)
+        family_valid = (
+            (
+                (
+                    has_resource
+                    and not has_resource_type
+                    and has_time
+                    and len(target_kinds) == 2
+                    and not next(
+                        target.value.casefold().startswith("/subscriptions/")
+                        for target in normalized_targets
+                        if target.kind == "resource"
+                    )
+                )
+                or (
+                    has_resource_type
+                    and not has_resource
+                    and target_kinds.count("time_range") <= 1
+                    and len(target_kinds) == 1 + int(has_time)
+                    and (has_time or "default_recent_window" in normalized_configuration_facets)
+                )
+            )
+            and (
+                (
+                    has_time
+                    and proposal.operational_window
+                    in {OperationalWindowMode.NONE, OperationalWindowMode.PAST_HOUR}
+                )
+                or (
+                    not has_time
+                    and (
+                        proposal.operational_window
+                        in {OperationalWindowMode.NONE, OperationalWindowMode.SERVER_RECENT_DEFAULT}
+                        and "default_recent_window" in normalized_configuration_facets
+                    )
+                )
+            )
+            and bool(normalized_configuration_facets - {"default_recent_window", "last_hour"})
+        )
+    elif proposal.operational_family is OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE:
+        has_time = target_kinds.count("time_range") == 1
+        canonical_gateway_facets: list[str] = []
+        for facet in proposal.operational_facets:
+            canonical_facet = _GATEWAY_FACET_ALIASES.get(facet, facet)
+            if (
+                canonical_facet in _GATEWAY_FACETS
+                and canonical_facet not in canonical_gateway_facets
+            ):
+                canonical_gateway_facets.append(canonical_facet)
+        has_current_error_status = any(
+            facet in {"status_429", "status_500", "status_503"}
+            for facet in canonical_gateway_facets
+        )
+        if (
+            not has_time
+            and (
+                proposal.operational_window is OperationalWindowMode.SERVER_RECENT_DEFAULT
+                or has_current_error_status
+            )
+            and "default_recent_window" not in canonical_gateway_facets
+        ):
+            canonical_gateway_facets.append("default_recent_window")
+        has_grounded_gateway_facet = bool(canonical_gateway_facets)
+        normalized_operational_facets = tuple(canonical_gateway_facets)
         family_valid = (
             target_kinds.count("resource") == 1
-            and target_kinds.count("time_range") == 1
+            and target_kinds.count("time_range") <= 1
             and target_kinds.count("backend") <= 1
             and target_kinds.count("model") <= 1
             and target_kinds.count("backend") + target_kinds.count("model") <= 1
             and len(target_kinds) == len(set(target_kinds))
-            and bool(facets)
-            and facets <= _GATEWAY_FACETS
+            and (has_time or "default_recent_window" in canonical_gateway_facets)
+            and (
+                (
+                    has_time
+                    and proposal.operational_window
+                    in {OperationalWindowMode.NONE, OperationalWindowMode.PAST_HOUR}
+                )
+                or (
+                    not has_time
+                    and (
+                        proposal.operational_window is OperationalWindowMode.SERVER_RECENT_DEFAULT
+                        or "default_recent_window" in canonical_gateway_facets
+                    )
+                )
+            )
+            and has_grounded_gateway_facet
         )
+    else:
+        family_valid = False
     if primary_intent is None or not family_valid:
         _LOGGER.info(
             "conversation_preflight_operational_shape_rejected",
@@ -886,7 +1134,7 @@ def preflight_operational_judgment(
     return SemanticJudgmentProposal(
         primary_intent=primary_intent,
         targets=tuple(normalized_targets),
-        requested_facets=proposal.operational_facets,
+        requested_facets=normalized_operational_facets,
         confidence=proposal.confidence,
         ambiguous=False,
         action_posture="advise_only",
@@ -961,7 +1209,9 @@ def operational_target_is_generic(value: str) -> bool:
         normalized = normalized.removeprefix(
             next(prefix for prefix in prefixes if normalized.startswith(prefix))
         )
-    return normalized in _GENERIC_OPERATIONAL_TARGETS
+    return normalized in _GENERIC_OPERATIONAL_TARGETS or (
+        _GENERIC_OPERATIONAL_TARGET_PATTERN.fullmatch(normalized) is not None
+    )
 
 
 def operational_target_is_exact(value: str) -> bool:
@@ -969,6 +1219,17 @@ def operational_target_is_exact(value: str) -> bool:
     return not any(character.isspace() for character in value) and not (
         operational_target_is_generic(value)
     )
+
+
+def named_subscription_requested(utterance: str) -> bool:
+    if _EXPLICIT_NAMED_SUBSCRIPTION.search(utterance) is not None:
+        return True
+    candidates = (
+        *(match.group(1) for match in _SUBSCRIPTION_NAME_AFTER.finditer(utterance)),
+        *(match.group(1) for match in _SUBSCRIPTION_NAME_BEFORE_KOREAN.finditer(utterance)),
+        *(match.group(1) for match in _SUBSCRIPTION_NAME_BEFORE.finditer(utterance)),
+    )
+    return any(candidate.casefold() not in _GENERIC_SUBSCRIPTION_WORDS for candidate in candidates)
 
 
 def operational_time_is_past_hour(value: str) -> bool:
@@ -1040,12 +1301,14 @@ __all__ = [
     "GeneralKnowledgeDraft",
     "GeneralKnowledgeSignal",
     "OperationalPreflightFamily",
+    "OperationalWindowMode",
     "OperationalSignal",
     "SOCIAL_NARRATOR_CAPABILITY_IDS",
     "SocialResponseNarratorBinding",
     "SocialResponseNarratorModel",
     "SocialResponseNarratorResult",
     "SocialAct",
+    "named_subscription_requested",
     "operational_target_is_generic",
     "operational_target_is_exact",
     "operational_time_is_past_hour",

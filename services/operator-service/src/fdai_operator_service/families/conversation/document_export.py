@@ -21,7 +21,7 @@ from fdai_operator_service.postgres_semantic_turn_store import StoredSemanticRes
 _LOGGER = logging.getLogger(__name__)
 _MAX_DOCUMENT_ROWS = 1000
 _MAX_DOCUMENT_COLUMNS = 16
-_MAX_MARKDOWN_BYTES = 192 * 1024
+_MAX_MARKDOWN_BYTES = 768 * 1024
 
 
 class SemanticDocumentStore(Protocol):

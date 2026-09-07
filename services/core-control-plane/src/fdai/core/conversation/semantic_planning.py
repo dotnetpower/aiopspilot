@@ -30,6 +30,7 @@ from .conversation_preflight import (
     DIRECT_SOCIAL_ACTS,
     ContextDependency,
     ConversationPreflightResult,
+    OperationalPreflightFamily,
     OperationalSignal,
     SocialAct,
     preflight_operational_judgment,
@@ -53,6 +54,7 @@ from .semantic_planning_frame_checks import (
 )
 from .semantic_planning_judgment import (
     _descriptors_for_judgment,
+    _descriptors_for_operational_intent,
     _direct_response,
     _is_temporal_comparison,
     _JudgmentDecision,
@@ -117,6 +119,44 @@ _DIRECT_RESPONSE_PROFILE = {
     ),
 }
 _PREFLIGHT_DIRECT_CONFIDENCE = 0.9
+_PREFLIGHT_OPERATIONAL_INTENTS = {
+    OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
+    OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES: (
+        "query.resource_configuration_changes"
+    ),
+    OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE: ("query.gateway_diagnostic_evidence"),
+    OperationalPreflightFamily.RESOURCE_CURRENT_STATE: "query.resource_current_state",
+    OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY: "query.subscription_scope_identity",
+    OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH: "query.subscription_service_health",
+}
+_SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
+    {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+)
+
+
+def _preflight_descriptor_intent(result: ConversationPreflightResult | None) -> str | None:
+    """Select a compact descriptor family without granting preflight authority."""
+
+    if result is None or not result.attempted or result.failure_kind is not None:
+        return None
+    proposal = result.proposal
+    if proposal is None:
+        return None
+    if (
+        proposal.confidence < _PREFLIGHT_DIRECT_CONFIDENCE
+        or proposal.operational_signal is not OperationalSignal.EXPLICIT
+        or proposal.context_dependency is not ContextDependency.NONE
+    ):
+        return None
+    if proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION:
+        return (
+            "query.resource_state_inventory"
+            if any(
+                target.kind == "resource_state_filter" for target in proposal.operational_targets
+            )
+            else "query.contextual_resources"
+        )
+    return _PREFLIGHT_OPERATIONAL_INTENTS.get(proposal.operational_family)
 
 
 class SemanticPlanningService:
@@ -289,6 +329,16 @@ class SemanticPlanningService:
                 limit=_MAX_DESCRIPTORS,
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
+            preflight_intent = _preflight_descriptor_intent(effective_preflight_result)
+            if preflight_intent is not None:
+                descriptors = _descriptors_for_operational_intent(descriptors, preflight_intent)
+                _LOGGER.info(
+                    "semantic_preflight_descriptor_selection_completed",
+                    extra={
+                        "primary_intent": preflight_intent,
+                        "descriptor_count": len(descriptors),
+                    },
+                )
             semantic_judgment = None
             judgment_decision: _JudgmentDecision | None = None
             if self._semantic_judgment is not None:
@@ -400,8 +450,11 @@ class SemanticPlanningService:
                         ),
                     },
                 )
-                if judgment_decision.accepted and judgment_decision.proposal is not None:
-                    semantic_judgment = judgment_decision.proposal.model_dump(mode="json")
+                if judgment_decision.proposal is not None and (
+                    judgment_decision.accepted
+                    or judgment_decision.proposal.primary_intent
+                    in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+                ):
                     descriptors = _descriptors_for_judgment(
                         descriptors,
                         judgment_decision.proposal,
@@ -422,6 +475,8 @@ class SemanticPlanningService:
                             ),
                         },
                     )
+                if judgment_decision.accepted and judgment_decision.proposal is not None:
+                    semantic_judgment = judgment_decision.proposal.model_dump(mode="json")
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
                 judgment_decision.proposal if judgment_decision is not None else None

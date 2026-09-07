@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 
@@ -10,12 +10,10 @@ const AUTHENTICATED_STACK = Boolean(
     (process.env.FDAI_E2E_BASE_URL && (process.env.FDAI_E2E_STORAGE_STATE || LOCAL_CLI_AUTH)),
 );
 const PROMPT = "배포된 llm 모델이 뭐야";
+const MAX_SUBSCRIPTION_MODEL_TOKENS = 5_000;
 
-test("deployed LLM collection reaches verified inventory without identity clarification", async ({
-  page,
-}) => {
+async function prepareAuthenticatedPage(page: Page): Promise<void> {
   test.skip(!AUTHENTICATED_STACK, "requires an authenticated Console stack");
-  test.setTimeout(120_000);
   if (!LOCAL_CLI_AUTH && !process.env.FDAI_E2E_BEARER) {
     await restoreBrowserEntraSessionStorage(page);
   }
@@ -23,7 +21,9 @@ test("deployed LLM collection reaches verified inventory without identity clarif
   await expect(page.locator(".shell")).toBeVisible({ timeout: 30_000 });
   const testBearer = process.env.FDAI_E2E_BEARER;
   await page.route("**/chat/stream", async (route) => {
-    expect(new URL(route.request().url()).port).not.toBe("8010");
+    if (testBearer) {
+      expect(new URL(route.request().url()).port).not.toBe("8010");
+    }
     const authorization = route.request().headers()["authorization"];
     expect(authorization?.startsWith("Bearer ")).toBe(true);
     if (testBearer) {
@@ -34,12 +34,14 @@ test("deployed LLM collection reaches verified inventory without identity clarif
     }
     await route.continue();
   });
+}
 
-  const result = await page.evaluate(async ({ prompt, sessionId }) => {
+async function ask(page: Page, prompt: string) {
+  return page.evaluate(async ({ prompt: question, sessionId }) => {
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
     const startedAt = performance.now();
     let firstTokenMs: number | null = null;
-    const reply = await askBackendStream(prompt, null, [], {
+    const reply = await askBackendStream(question, null, [], {
       onToken: () => {
         if (firstTokenMs === null) firstTokenMs = performance.now() - startedAt;
       },
@@ -52,9 +54,17 @@ test("deployed LLM collection reaches verified inventory without identity clarif
       elapsedMs: performance.now() - startedAt,
     };
   }, {
-    prompt: PROMPT,
+    prompt,
     sessionId: randomUUID(),
   });
+}
+
+test("deployed LLM collection reaches verified inventory without identity clarification", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await prepareAuthenticatedPage(page);
+  const result = await ask(page, PROMPT);
 
   const receipt = result.reply.semanticReceipt;
   const diagnostic = JSON.stringify({
@@ -73,3 +83,132 @@ test("deployed LLM collection reaches verified inventory without identity clarif
   expect(result.firstTokenMs).not.toBeNull();
   expect(result.firstTokenMs).toBeLessThanOrEqual(5_000);
 });
+
+test("subscription identity keeps semantic model usage below the compact budget", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await prepareAuthenticatedPage(page);
+  const result = await ask(page, "구독 정보 알려줘");
+  const receipt = result.reply.semanticReceipt;
+  const totalTokens = result.reply.modelUsage?.total_tokens;
+  const diagnostic = JSON.stringify({
+    source: result.reply.source,
+    verificationStatus: result.reply.verification?.status ?? null,
+    verificationReason: result.reply.verification?.reason_code ?? null,
+    hasSemanticReceipt: receipt !== undefined,
+    totalTokens: totalTokens ?? null,
+    elapsedMs: Math.round(result.elapsedMs),
+  });
+
+  expect(receipt?.execution_authority, diagnostic).toBe(false);
+  expect(receipt?.disposition, diagnostic).toBe("answered");
+  expect(receipt?.assurance_observation?.frame?.output_shape, diagnostic).toBe(
+    "subscription_scope_identity",
+  );
+  expect(receipt?.assurance_observation?.read_performed, diagnostic).toBe(true);
+  expect(totalTokens, diagnostic).toBeDefined();
+  expect(totalTokens, diagnostic).toBeLessThanOrEqual(MAX_SUBSCRIPTION_MODEL_TOKENS);
+});
+
+test("subscription inventory produces one complete document", async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepareAuthenticatedPage(page);
+  const result = await ask(page, "구독에 배포된 리소스 상세 정보를 문서화하자.");
+  const receipt = result.reply.semanticReceipt;
+  const document = result.reply.documentArtifact;
+  const diagnostic = JSON.stringify({
+    source: result.reply.source,
+    disposition: receipt?.disposition ?? null,
+    reason: receipt?.reason_code ?? null,
+    hasDocument: document !== undefined,
+  });
+
+  expect(receipt?.disposition, diagnostic).toBe("answered");
+  expect(receipt?.assurance_observation?.frame?.output_shape, diagnostic).toBe("resource_list");
+  expect(document?.complete, diagnostic).toBe(true);
+  expect(document?.includedRows, diagnostic).toBe(document?.expectedRows);
+});
+
+test("fdai resource-group collection renders names without authorization artifacts", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await prepareAuthenticatedPage(page);
+  const result = await ask(page, "지금 fdai 가 포함된 리소스 그룹은?");
+  const receipt = result.reply.semanticReceipt;
+  const totalTokens = result.reply.modelUsage?.total_tokens;
+  const diagnostic = JSON.stringify({
+    source: result.reply.source,
+    disposition: receipt?.disposition ?? null,
+    reason: receipt?.reason_code ?? null,
+    totalTokens: totalTokens ?? null,
+  });
+
+  expect(receipt?.disposition, diagnostic).toBe("answered");
+  expect(receipt?.assurance_observation?.frame?.output_shape, diagnostic).toBe(
+    "property_filtered_resources",
+  );
+  expect(receipt?.assurance_observation?.read_performed, diagnostic).toBe(true);
+  expect(result.reply.text, diagnostic).toContain("resource-group");
+  expect(result.reply.text, diagnostic).not.toContain("authorization.role-assignment");
+  expect(result.reply.text.toLowerCase(), diagnostic).not.toContain(
+    "microsoft.authorization/roleassignments",
+  );
+  expect(totalTokens, diagnostic).toBeDefined();
+  expect(totalTokens, diagnostic).toBeLessThanOrEqual(MAX_SUBSCRIPTION_MODEL_TOKENS);
+});
+
+test("deployed GPT configuration change uses a type-scoped recent comparison", async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepareAuthenticatedPage(page);
+  const result = await ask(
+    page,
+    "구독에 배포된 GPT 리소스의 변경이 있는지 확인해보자. 변경이 있다면 알려주고 이로 인해 발생될 수 있는 문제를 알려줘",
+  );
+  const receipt = result.reply.semanticReceipt;
+  const diagnostic = JSON.stringify({
+    source: result.reply.source,
+    disposition: receipt?.disposition ?? null,
+    reason: receipt?.reason_code ?? null,
+  });
+
+  expect(receipt?.disposition, diagnostic).toBe("answered");
+  expect(receipt?.assurance_observation?.frame?.output_shape, diagnostic).toBe(
+    "resource_configuration_changes",
+  );
+  expect(receipt?.assurance_observation?.read_performed, diagnostic).toBe(true);
+});
+
+for (const [label, prompt] of [
+  [
+    "AppGW",
+    "SRE-AppGW-01을 통해 서비스를 하고 있는데 갑자기 Client들이 느려짐을 보고하고 있어. AppGW의 상태가 이상한지? Backend Instance 상태가 이상한지 메트릭 기반으로 확인하자. 혹시 Backend 리소스의 변화가 있는지도 확인하자",
+  ],
+  [
+    "APIM/GPT",
+    "SRE-APIM을 통해 GPT 5.4로 연결된 서비스에 500 Error가 발생하고 있어. GPT 리소스의 문제인지 API Management 서비스의 문제인지 메트릭 기반으로 확인하고 APIM 또는 GPT 리소스의 구성 변화가 있는지 확인하자",
+  ],
+] as const) {
+  test(`${label} SRE diagnostic returns evidence or an explicit target gap`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await prepareAuthenticatedPage(page);
+    const result = await ask(page, prompt);
+    const receipt = result.reply.semanticReceipt;
+    const diagnostic = JSON.stringify({
+      source: result.reply.source,
+      disposition: receipt?.disposition ?? null,
+      reason: receipt?.reason_code ?? null,
+    });
+
+    expect(receipt?.assurance_observation?.frame?.output_shape, diagnostic).toBe(
+      "gateway_diagnostic_evidence",
+    );
+    expect(receipt?.assurance_observation?.read_performed, diagnostic).toBe(true);
+    expect(["answered", "held"], diagnostic).toContain(receipt?.disposition);
+    if (receipt?.disposition === "held") {
+      expect(receipt.reason_code, diagnostic).toBe("semantic_evidence_held");
+      expect(result.reply.text, diagnostic).toContain("execution_authority=false");
+    }
+  });
+}

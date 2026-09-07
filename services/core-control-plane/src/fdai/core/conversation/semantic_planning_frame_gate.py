@@ -168,10 +168,12 @@ def _gateway_target_shape_issue(judgment: Any) -> str | None:
     if len(resources) != 1 or not operational_target_is_exact(resources[0].value):
         return "subject"
     times = tuple(target for target in judgment.targets if target.kind == "time_range")
-    if (
-        len(times) != 1
-        or times[0].canonical_value != "duration.PT1H"
-        or not operational_time_is_past_hour(times[0].value)
+    if len(times) > 1 or (
+        times
+        and (
+            times[0].canonical_value != "duration.PT1H"
+            or not operational_time_is_past_hour(times[0].value)
+        )
     ):
         return "temporal_scope"
     backend_targets = tuple(

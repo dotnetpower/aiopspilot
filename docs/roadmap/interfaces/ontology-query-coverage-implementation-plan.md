@@ -46,7 +46,9 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 > collection, and the preflight model cannot invent a query operand. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name
 > segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
-> receives only the descriptors required by that operational family.
+> receives only the descriptors required by that operational family. Subscription identity and
+> Service Health reads build deterministic frames and server plans from their exact no-input
+> FunctionTypes instead of invoking a frame model with the full principal manifest.
 > Generic product labels such as APIM, Application Gateway, backend, or GPT are not exact identities.
 > They produce `resource_identity` clarification before frame-model or provider I/O.
 >
@@ -207,6 +209,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Prevented exact Resource current-state questions from being reduced to Resource collection filters. Collection recovery now requires explicit collection cardinality and no exact Resource target; full-judgment recovery preserves a source-grounded name or ID as a typed constraint. A successful provisioning observation without runtime status now remains `not_proven` instead of becoming a false non-running claim. | `current change`; focused exact-name, targetless clarification, collection, preflight-family, current-state provider, Ruff, and strict mypy checks. | Re-ask the exact `aks-fdai-chaos` state question in the authenticated standard Console after the shared CDP browser reconnects. |
 | 2026-09-07 | implemented | Centralized operational Resource visibility so model-proposed and server-built collection plans both exclude `authorization.role-assignment`. The exclusion runs after model-operand verification and does not affect explicit IAM relationship output. | `current change`; focused visibility and named-resource-group checks; isolated production-Operator E2E returned `answered`, `semantic_answer_verified`, `resource_list`, zero serialized role-assignment rows, and `execution_authority=false`. | Retain the same result through the authenticated standard Console browser. |
 | 2026-09-07 | implemented | Added exact Resource current-state preflight and object-only completeness, and made local inventory refresh preserve configured scope and journal lineage. Scoped graph coverage now ignores unrelated test observations without ignoring pending observations in the active scope. | `current change`; focused preflight, planner, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E answered through `target_current_state`. | Retain authenticated standard-Console evidence. |
 | 2026-09-07 | implemented | Rejected generic product categories as exact operational identities and stopped ambiguous targetless gateway comparisons before frame planning. | `current change`; 238 focused tests; post-fix Browser Entra F4 trace omitted frame-model and provider reads. | Retain exact-target F3/F4 evidence. |

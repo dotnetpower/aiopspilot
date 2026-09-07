@@ -2144,10 +2144,12 @@ def test_temporal_comparison_exact_activity_frame_is_normalized_without_t2() -> 
         {
             "property": "id",
             "operator": "equals",
-            "equals": "aks-example-cluster",
+            "equals": "api-example-prod",
         }
     ]
-    assert outcome.plan.nodes[0].arguments["definition"]["include_relationships"] is False
+    assert (
+        outcome.plan.nodes[0].arguments["definition"].get("include_relationships", False) is False
+    )
     assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_ACTIVITY_FUNCTION_NAME
     assert outcome.plan.nodes[1].arguments["arguments"] == {"lookback_seconds": 604800}
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
@@ -4881,7 +4883,10 @@ def test_exact_named_resource_state_is_not_recovered_as_a_collection() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.frame is not None
     assert outcome.frame.output_shape == "target_current_state"
-    assert outcome.frame.subject_constraints == ("Resource", "aks-example-cluster")
+    assert outcome.frame.subject_constraints == (
+        "Resource",
+        "Resource.name=aks-example-cluster",
+    )
     assert outcome.plan is not None
     assert tuple(node.kind for node in outcome.plan.nodes) == (
         QueryNodeKind.OBJECT_SET,

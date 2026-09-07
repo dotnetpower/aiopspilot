@@ -430,7 +430,9 @@ describe("askBackendStream fallback typewriter", () => {
 
   test("flushes a UTF-8 code point split across network chunks", async () => {
     const prefix = new TextEncoder().encode('event: token\ndata: {"delta":"');
-    const suffix = new TextEncoder().encode('"}\n\nevent: done\ndata: {"answer":"ok","model":"gpt-test"}\n\n');
+    const suffix = new TextEncoder().encode(
+      '"}\n\nevent: done\ndata: {"answer":"한","model":"gpt-test"}\n\n',
+    );
     const glyph = new TextEncoder().encode("한");
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -486,7 +488,7 @@ describe("askBackendStream fallback typewriter", () => {
   test("ignores every frame after the first terminal done event", async () => {
     const body =
       'event: token\ndata: {"seq":1,"delta":"Draft"}\n\n' +
-      'event: done\ndata: {"seq":2,"answer":"Verified answer","model":"gpt-test"}\n\n' +
+      'event: done\ndata: {"seq":2,"answer":"Draft","model":"gpt-test"}\n\n' +
       'event: token\ndata: {"seq":3,"delta":" poisoned"}\n\n' +
       'event: error\ndata: {"seq":4,"detail":"late reset"}\n\n' +
       'event: done\ndata: {"seq":5,"answer":"Replaced answer","model":"other"}\n\n';
@@ -500,7 +502,7 @@ describe("askBackendStream fallback typewriter", () => {
     });
 
     expect(deltas.join("")).toBe("Draft");
-    expect(reply.text).toBe("Verified answer");
+    expect(reply.text).toBe("Draft");
     expect(reply.source).toBe("llm:gpt-test");
   });
 
@@ -532,8 +534,8 @@ describe("askBackendStream fallback typewriter", () => {
     const artifact = {
       source_request_id: sourceRequestId,
       preview_markdown: "# FDAI conversation evidence report",
-      expected_rows: 24,
-      included_rows: 24,
+      expected_rows: 700,
+      included_rows: 700,
       complete: true,
       sha256: "a".repeat(64),
       markdown_url: `/chat/documents/${sourceRequestId}/markdown`,
@@ -554,7 +556,7 @@ describe("askBackendStream fallback typewriter", () => {
     });
 
     expect(reply.documentArtifact).toEqual(expect.objectContaining({
-      includedRows: 24,
+      includedRows: 700,
       complete: true,
       sha256: "a".repeat(64),
     }));
@@ -858,7 +860,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("stopped");
   });
 
-  test("keeps streamed draft text on an explicitly stopped turn", async () => {
+  test("does not release buffered draft text on an explicitly stopped turn", async () => {
     const body =
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n' +
       'event: interrupted\ndata: {"seq":2,"detail":"chat turn interrupted"}\n\n';
@@ -870,8 +872,8 @@ describe("askBackendStream fallback typewriter", () => {
       onToken: (delta) => deltas.push(delta),
     });
 
-    expect(deltas).toEqual(["Draft"]);
-    expect(reply.text).toBe("Draft");
+    expect(deltas).toEqual([]);
+    expect(reply.text).toBe("Stopped before any answer arrived.");
     expect(reply.source).toBe("stopped");
   });
 
@@ -1196,7 +1198,7 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
-  test("emits draft tokens and confirmed segments before the terminal", async () => {
+  test("buffers draft tokens and confirmed segments until the terminal", async () => {
     let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
     const stream = new ReadableStream<Uint8Array>({
       start(startController) {
@@ -1218,7 +1220,6 @@ describe("askBackendStream fallback typewriter", () => {
       onToken: (delta) => calls.push(`token:${delta}`),
       onConfirmed: (segment) => {
         calls.push(`confirmed:${segment.text}`);
-        abortController.abort();
       },
       signal: abortController.signal,
     });
@@ -1230,20 +1231,23 @@ describe("askBackendStream fallback typewriter", () => {
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
     ));
     await waitForStreamTurn();
-    expect(calls).toEqual(["token:Draft"]);
+    expect(calls).toEqual([]);
 
     controller!.enqueue(encoder.encode(
       'event: confirmed\ndata: {"seq":2,"revision":0,"segment_index":0,' +
         '"text":"Draft","status":"consistent","evidence_refs":[]}\n\n',
     ));
     await waitForStreamTurn();
-    expect(calls).toEqual(["token:Draft", "confirmed:Draft"]);
+    expect(calls).toEqual([]);
 
+    controller!.enqueue(encoder.encode(
+      'event: done\ndata: {"seq":3,"revision":0,"answer":"Draft","model":"gpt-test"}\n\n',
+    ));
     controller!.close();
 
     const reply = await replyPromise;
-    expect(calls).toEqual(["token:Draft", "confirmed:Draft"]);
-    expect(reply.source).toBe("stopped");
+    expect(calls).toEqual(["confirmed:Draft"]);
+    expect(reply.source).toBe("llm:gpt-test");
     expect(reply.text).toBe("Draft");
   });
 
@@ -1293,7 +1297,7 @@ describe("askBackendStream fallback typewriter", () => {
       onConfirmed: (segment) => confirmations.push(segment.text),
     });
 
-    expect(confirmations).toEqual(["Draft", "Draft with evidence"]);
+    expect(confirmations).toEqual(["Draft with evidence"]);
     expect(reply.confirmed?.text).toBe("Draft with evidence");
     expect(mod.streamProtocolMetricsSnapshot().confirmedSegments).toBe(
       before.confirmedSegments + 2,
@@ -1326,6 +1330,66 @@ describe("askBackendStream fallback typewriter", () => {
     expect(confirmations).toEqual([]);
     expect(reply.text).toBe("Canonical");
     expect(reply.confirmed).toBeUndefined();
+  });
+
+  test.each([
+    [
+      "revision",
+      'event: revision\ndata: {"seq":1,"revision":1,"answer":"Canonical A",' +
+        '"status":"corrected"}\n\n',
+    ],
+    [
+      "confirmation",
+      'event: confirmed\ndata: {"seq":1,"revision":0,"segment_index":0,' +
+        '"text":"Canonical A","status":"consistent","evidence_refs":[]}\n\n',
+    ],
+  ])("rejects a terminal that conflicts with its %s", async (_name, prefix) => {
+    const body =
+      prefix +
+      'event: done\ndata: {"seq":2,"revision":1,"answer":"Canonical B",' +
+        '"model":"gpt-test"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.source).toBe("unavailable (terminal canonical answer mismatch)");
+    expect(reply.text).not.toContain("Canonical B");
+  });
+
+  test("rejects matching revision text with a mismatched terminal revision", async () => {
+    const body =
+      'event: revision\ndata: {"seq":1,"revision":1,"answer":"Canonical",' +
+        '"status":"corrected"}\n\n' +
+      'event: done\ndata: {"seq":2,"revision":2,"answer":"Canonical",' +
+        '"model":"gpt-test"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.source).toBe("unavailable (terminal canonical answer mismatch)");
+  });
+
+  test("rejects matching token text with a mismatched terminal revision", async () => {
+    const body =
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Canonical"}\n\n' +
+      'event: done\ndata: {"seq":2,"revision":1,"answer":"Canonical",' +
+        '"model":"gpt-test"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const deltas: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas.join("")).not.toContain("Canonical");
+    expect(reply.source).toBe("unavailable (terminal canonical answer mismatch)");
   });
 
   test("fails closed when a terminal stream has a sequence gap", async () => {

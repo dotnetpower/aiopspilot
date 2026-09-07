@@ -450,6 +450,8 @@ types:
       - LLM deployments
       - GPT model
       - GPT models
+      - GPT resource
+      - GPT resources
       - deployed GPT model
       - Global Standard
       - TPM
@@ -459,6 +461,7 @@ types:
       - LLM 배포
       - GPT 모델
       - GPT 모델 목록
+      - GPT 리소스
       - 배포된 GPT 모델
       - 글로벌 표준
     typical_parents: [llm-endpoint]

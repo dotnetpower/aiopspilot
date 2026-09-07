@@ -68,6 +68,7 @@ from fdai_core_service.semantic_turn_processor import (
     _render_partial_causal_answer,
     _render_query_answer,
     _request_digest,
+    _semantic_projection_id,
     _semantic_turn_timing,
     _typed_extension_answer_output,
     incident_next_step_actions,
@@ -1413,7 +1414,7 @@ def test_inventory_document_projection_preserves_rows_and_explicit_limits(
                 "id": f"resource-{index}",
                 "object_type": "Resource",
                 "properties": {
-                    "name": "x" * 2000 if wide else f"example-{index}",
+                    "name": "x" * 10_000 if wide else f"example-{index}",
                     "type": "compute.vm",
                     "parent_id": "example-group",
                     "properties": {"password": "synthetic-value", "nested": {"hidden": True}},
@@ -1468,8 +1469,155 @@ def test_inventory_document_projection_preserves_rows_and_explicit_limits(
     assert "properties" not in values
     assert "password" not in values
     if document_requested:
+        assert "id" not in values
         assert values["type"] == "compute.vm"
         assert values["parent_id"] == "example-group"
+
+
+def test_projection_identity_accepts_wire_valid_payload_larger_than_query_json() -> None:
+    projection = {
+        "request_id": "00000000-0000-0000-0000-000000000000",
+        "payload": {"technical_details": "x" * 70_000},
+    }
+
+    first = _semantic_projection_id(projection)
+    second = _semantic_projection_id(projection)
+
+    assert first == second
+    assert first != _semantic_projection_id(
+        {
+            **projection,
+            "payload": {"technical_details": "y" * 70_000},
+        }
+    )
+
+
+def test_resource_list_answer_names_each_bounded_result() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "resource-group-1",
+                                {
+                                    "name": "rg-fdai-example",
+                                    "type": "resource-group",
+                                    "location": "koreacentral",
+                                    "status": "Enabled",
+                                },
+                            ),
+                        ),
+                        complete=True,
+                        truncation_reason=None,
+                    ),
+                    evidence_refs=("inventory:verified",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resources",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="property_filtered_resources",
+        subject_constraints=("Resource", "fdai"),
+        measure_concepts=("name", "type"),
+    )
+
+    assert answer is not None
+    assert "일치하는 리소스 1개" in answer
+    assert "`rg-fdai-example` - resource-group / koreacentral / Enabled" in answer
+
+
+def test_resource_list_answer_discloses_incomplete_source_scope() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "resource-1",
+                                {"name": "api-example", "type": "container-app"},
+                            ),
+                        ),
+                        complete=False,
+                        truncation_reason="resource_scope_incomplete",
+                    ),
+                    evidence_refs=("inventory:partial",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resources",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="property_filtered_resources",
+        subject_constraints=("Resource",),
+        measure_concepts=("name", "type"),
+    )
+
+    assert answer is not None
+    assert "확인 범위에서 일치하는 리소스 1개 이상" in answer
+    assert "전체 개수로 해석할 수 없습니다" in answer
+    assert "`resource_scope_incomplete`" in answer
+
+
+def test_resource_list_answer_does_not_promise_hidden_complete_rows() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    rows = tuple(
+        QueryRow.from_values(
+            f"resource-{index}",
+            {"name": f"api-{index}", "type": "container-app"},
+        )
+        for index in range(41)
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(rows=rows, complete=True),
+                    evidence_refs=("inventory:verified",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resources",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="property_filtered_resources",
+        subject_constraints=("Resource",),
+        measure_concepts=("name", "type"),
+    )
+
+    assert answer is not None
+    assert "presentation limit" in answer
+    assert "same bounded rows and truncation metadata" in answer
+    assert "exact complete set" not in answer
 
 
 def test_error_activity_answer_separates_windows_gaps_and_causation() -> None:

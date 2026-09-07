@@ -515,7 +515,12 @@ def build_operator_app(
                     "Last-Event-ID",
                     "X-Correlation-ID",
                 ],
-                expose_headers=["X-FDAI-Local-Session"],
+                expose_headers=[
+                    "X-FDAI-Artifact-SHA256",
+                    "X-FDAI-Expected-Rows",
+                    "X-FDAI-Included-Rows",
+                    "X-FDAI-Local-Session",
+                ],
             )
         )
 

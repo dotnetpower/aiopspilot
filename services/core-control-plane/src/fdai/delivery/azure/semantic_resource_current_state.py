@@ -109,7 +109,9 @@ def _target_state_assessment(
 ) -> str:
     if provisioning_status == "Succeeded" and running_status == "Running":
         return "observed_running"
-    if provisioning_status is not None or running_status is not None:
+    if (provisioning_status is not None and provisioning_status != "Succeeded") or (
+        running_status is not None and running_status != "Running"
+    ):
         return "observed_not_running"
     return "not_proven"
 

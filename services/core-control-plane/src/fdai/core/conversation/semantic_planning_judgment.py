@@ -36,8 +36,11 @@ class _JudgmentDecision:
 _OPERATIONAL_DESCRIPTOR_NAMES = {
     "create.document": frozenset({"Resource"}),
     "query.contextual_resources": frozenset({"Resource"}),
+    "query.resource_health_inventory": frozenset({"Resource", "query.resource_health_inventory"}),
     "query.resource_current_state": frozenset({"Resource", "query.resource_current_state"}),
     "query.resource_state_inventory": frozenset({"Resource", "query.resource_state_inventory"}),
+    "query.subscription_scope_identity": frozenset({"query.subscription_scope_identity"}),
+    "query.subscription_service_health": frozenset({"query.subscription_service_health"}),
     "query.resource_configuration_changes": frozenset(
         {
             "Resource",
@@ -186,7 +189,16 @@ def _descriptors_for_judgment(
 ) -> tuple[dict[str, Any], ...]:
     """Narrow known operational families after model-backed intent classification."""
 
-    required = _OPERATIONAL_DESCRIPTOR_NAMES.get(judgment.primary_intent)
+    return _descriptors_for_operational_intent(descriptors, judgment.primary_intent)
+
+
+def _descriptors_for_operational_intent(
+    descriptors: tuple[dict[str, Any], ...],
+    primary_intent: str,
+) -> tuple[dict[str, Any], ...]:
+    """Narrow descriptors for one high-confidence operational intent."""
+
+    required = _OPERATIONAL_DESCRIPTOR_NAMES.get(primary_intent)
     if required is None:
         return descriptors
     selected = tuple(descriptor for descriptor in descriptors if descriptor.get("name") in required)
