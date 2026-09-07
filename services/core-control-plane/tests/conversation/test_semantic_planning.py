@@ -1843,7 +1843,14 @@ def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -
     definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
     assert [
         predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
-    ] == [{"property": "type", "operator": "equals", "equals": "sql-server"}]
+    ] == [
+        {"property": "type", "operator": "equals", "equals": "sql-server"},
+        {
+            "property": "properties",
+            "operator": "contains",
+            "equals": "state_fact_metadata",
+        },
+    ]
     assert outcome.plan.nodes[-1].arguments["arguments"] == {
         "state_concepts": ["resource_state.running"]
     }
