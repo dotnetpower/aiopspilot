@@ -197,6 +197,10 @@ class PostgresInventoryReconciliationGate:
                 failure_code=failure_code,
                 abandoned_attempt=abandoned_attempt,
                 change_demand=change_demand,
+                overlay_open=bool(
+                    int(row["overlay_resource_count"] or 0)
+                    or int(row["overlay_relationship_count"] or 0)
+                ),
             )
             return self._last_decision
         due = inventory_reconciliation_due(
@@ -231,6 +235,7 @@ def adaptive_reconciliation_decision(
     failure_code: str | None,
     abandoned_attempt: bool,
     change_demand: bool,
+    overlay_open: bool = False,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
@@ -257,6 +262,7 @@ def adaptive_reconciliation_decision(
                 failure_age_seconds if failure_age_seconds is not None else age_seconds
             ),
             change_demand=change_demand,
+            overlay_open=overlay_open,
             failure_streak=failure_streak,
             provider_pressure=pressure,
         ),
