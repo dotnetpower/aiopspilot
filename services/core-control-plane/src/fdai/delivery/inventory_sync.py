@@ -14,11 +14,19 @@ import httpx
 
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
-    InventoryProjectionSourceState,
-    InventoryProjectionSourceStatus,
-    InventoryRelationshipCoverage,
-    PromotedInventoryObservation,
-    compute_relationship_coverage,
+    InventoryProjectionSourceState as InventoryProjectionSourceState,
+)
+from fdai.delivery.inventory_sync_models import (
+    InventoryProjectionSourceStatus as InventoryProjectionSourceStatus,
+)
+from fdai.delivery.inventory_sync_models import (
+    InventoryRelationshipCoverage as InventoryRelationshipCoverage,
+)
+from fdai.delivery.inventory_sync_models import (
+    PromotedInventoryObservation as PromotedInventoryObservation,
+)
+from fdai.delivery.inventory_sync_models import (
+    compute_relationship_coverage as compute_relationship_coverage,
 )
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b247ae5536e640dafb5c4d9eec41ec21abb7f88b
+translation_source_sha: 5bc16e6e75e826d0484b96108a2d19e3b6d4b22b
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -581,8 +581,8 @@ Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것
 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure 신호 출처가 Managed
 Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가 제한된 Activity Log 복구
 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 같은 Core 이미지에
-불변 동기화 레코드를 유지하며 장애를 독립적으로 보고하고 지연된 조정을 진행합니다. 모듈 분리는 서비스,
-신원 또는 상태 작성자를 추가하지 않습니다.
+명시적으로 다시 내보낸 불변 동기화 레코드를 유지하며 장애를 독립적으로 보고하고 지연된 조정을
+진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
 
 ## 프로비저닝 후 검증
 
