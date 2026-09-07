@@ -238,6 +238,14 @@ class ResourceChangeFeedResult:
     next_cursor: str
 
 
+@dataclass(frozen=True, slots=True)
+class _HydrationResult:
+    """Mapped records plus every provider identity returned by hydration."""
+
+    records: Mapping[str, ResourceRecord]
+    seen_provider_refs: frozenset[str]
+
+
 class AzureResourceChangeFeed:
     """Poll ``resourcechanges``, hydrate changed resources, and build events."""
 
@@ -325,12 +333,14 @@ class AzureResourceChangeFeed:
             for change in upserts
             if change.arm_type is None or change.arm_type.casefold() in self._arm_to_neutral
         ]
-        hydrated = await self._hydrate([change.arm_id for change in hydration_candidates])
+        hydration = await self._hydrate([change.arm_id for change in hydration_candidates])
         unresolved_hydrations: list[_ChangeRow] = []
         for change in hydration_candidates:
-            record = hydrated.get(change.arm_id.casefold())
+            provider_key = change.arm_id.casefold()
+            record = hydration.records.get(provider_key)
             if record is None:
-                unresolved_hydrations.append(change)
+                if provider_key not in hydration.seen_provider_refs:
+                    unresolved_hydrations.append(change)
                 continue
             events.append(self._upsert_event(change, record=record))
         if unresolved_hydrations:
@@ -432,11 +442,12 @@ class AzureResourceChangeFeed:
             return None
         return self._arm_to_neutral.get(arm_type.casefold())
 
-    async def _hydrate(self, arm_ids: Sequence[str]) -> dict[str, ResourceRecord]:
+    async def _hydrate(self, arm_ids: Sequence[str]) -> _HydrationResult:
         if not arm_ids:
-            return {}
+            return _HydrationResult(records={}, seen_provider_refs=frozenset())
         ordered_unique = list(dict.fromkeys(arm_ids))
         hydrated: dict[str, ResourceRecord] = {}
+        seen_provider_refs: set[str] = set()
         batch_size = self._config.max_hydration_batch
         for start in range(0, len(ordered_unique), batch_size):
             batch = ordered_unique[start : start + batch_size]
@@ -460,12 +471,18 @@ class AzureResourceChangeFeed:
                 max_total_response_bytes=self._config.max_total_response_bytes,
             )
             for row in rows:
+                provider_ref = row.get("id")
+                if isinstance(provider_ref, str) and provider_ref:
+                    seen_provider_refs.add(provider_ref.casefold())
                 mapped = self._map_hydrated_row(row)
                 if mapped is None:
                     continue
                 arm_id_key, record = mapped
                 hydrated[arm_id_key] = record
-        return hydrated
+        return _HydrationResult(
+            records=hydrated,
+            seen_provider_refs=frozenset(seen_provider_refs),
+        )
 
     def _map_hydrated_row(self, row: Mapping[str, Any]) -> tuple[str, ResourceRecord] | None:
         arm_id = row.get("id")

@@ -596,7 +596,7 @@ async def test_unknown_hydrated_type_is_dropped_but_cursor_advances() -> None:
                     change_time="2026-07-10T06:00:00Z",
                     change_type="Update",
                     arm_id=arm_id,
-                    arm_type="Microsoft.Nonexistent/widgets",
+                    arm_type=None,
                 )
             ]
         )

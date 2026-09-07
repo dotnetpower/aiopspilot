@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c1cfe0f97ecc06603cd3568c45a4da9eb2817022
+translation_source_sha: 851e34ab983f4bfa446440c822e7fdf8d16eb9b6
 translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
@@ -71,8 +71,8 @@ translation_revised: 2026-09-07
 정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
-부재를 입증할 때까지 기다립니다. 변경 페이지 또는 재조회가 부분적이면 cursor와 overlay를 모두
-진행하지 않습니다.
+부재를 입증할 때까지 기다립니다. 부분 페이지나 매핑된 대상의 누락은 cursor와 overlay를 진행하지
+않으며, 반환된 미지원 공급자 형식은 명시적인 커버리지 공백으로 유지합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
 mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구

@@ -68,8 +68,8 @@ and tracks every enabled accelerator heartbeat even when positions are unchanged
 ordered oldest first, boundary duplicates are idempotent, and the cursor advances only after every
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
-before proving absence. A partial change page or hydration failure advances neither cursor nor
-overlay.
+before proving absence. A partial page or missing mapped hydration advances neither cursor nor
+overlay; a returned unsupported provider type remains an explicit coverage gap.
 
 The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
 publishes no relationship that the exact hydration and reviewed mapping catalog did not support.
