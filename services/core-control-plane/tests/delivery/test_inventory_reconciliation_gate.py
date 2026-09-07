@@ -305,3 +305,20 @@ def test_reconciliation_gate_tracks_every_enabled_accelerator_cursor() -> None:
         "arg_resource_change_cursor:sub-1",
         "inventory_delta_cursor:sub-1",
     )
+
+
+def test_cursor_lag_beyond_source_freshness_forces_collection() -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=30,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        cursor_lag_seconds=1,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.reason_codes == ("cursor_lag",)

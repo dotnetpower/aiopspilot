@@ -488,6 +488,23 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
             )
             if enabled
         ),
+        cursor_stale_after_seconds=min(
+            (
+                policy.target_freshness_seconds
+                for enabled, policy in (
+                    (
+                        config.resource_change_feed_enabled,
+                        config.collection_policy.source("resourcechanges-delta"),
+                    ),
+                    (
+                        config.recovery_delta_enabled,
+                        config.collection_policy.source("activity-log-delta"),
+                    ),
+                )
+                if enabled
+            ),
+            default=0.0,
+        ),
     )
     due = await reconciliation_gate(config.reconciliation_interval_seconds)
     await _publish_collection_health(

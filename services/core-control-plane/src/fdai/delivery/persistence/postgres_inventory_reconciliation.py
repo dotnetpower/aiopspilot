@@ -56,6 +56,7 @@ class PostgresInventoryReconciliationGate:
         source_policy: SourceCollectionPolicy | None = None,
         cursor_scopes: tuple[str, ...] = (),
         cursor_prefixes: tuple[str, ...] = ("inventory_delta_cursor:",),
+        cursor_stale_after_seconds: float = 0.0,
     ) -> None:
         if change_min_interval_seconds < 1:
             raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
@@ -63,9 +64,12 @@ class PostgresInventoryReconciliationGate:
             raise ValueError("inventory cursor scopes MUST be non-empty strings")
         if any(not prefix.strip() or not prefix.endswith(":") for prefix in cursor_prefixes):
             raise ValueError("inventory cursor prefixes MUST be non-empty namespace prefixes")
+        if cursor_stale_after_seconds < 0:
+            raise ValueError("inventory cursor stale threshold MUST NOT be negative")
         self._config = config
         self._change_min_interval_seconds = change_min_interval_seconds
         self._source_policy = source_policy
+        self._cursor_stale_after_seconds = cursor_stale_after_seconds
         self._cursor_keys = tuple(
             f"{prefix}{scope}"
             for prefix in dict.fromkeys(cursor_prefixes)
@@ -219,6 +223,11 @@ class PostgresInventoryReconciliationGate:
                 change_demand=change_demand,
                 overlay_open=bool(overlay_resource_count or overlay_relationship_count),
                 projection_pending=projection_pending,
+                cursor_lag_seconds=(
+                    max(0.0, float(cursor_lag) - self._cursor_stale_after_seconds)
+                    if cursor_lag is not None
+                    else 0.0
+                ),
             )
             return self._last_decision
         due = inventory_reconciliation_due(
@@ -255,6 +264,7 @@ def adaptive_reconciliation_decision(
     change_demand: bool,
     overlay_open: bool = False,
     projection_pending: bool = False,
+    cursor_lag_seconds: float = 0.0,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
@@ -283,6 +293,7 @@ def adaptive_reconciliation_decision(
             change_demand=change_demand,
             overlay_open=overlay_open,
             projection_pending=projection_pending,
+            cursor_lag_seconds=cursor_lag_seconds,
             failure_streak=failure_streak,
             provider_pressure=pressure,
         ),

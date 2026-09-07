@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a521eb1c2ba987be03c39c589271d18128b6da30
+translation_source_sha: 12853b89e994b10d9e090486b2ce1eb12e86d4a3
 translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
@@ -110,7 +110,7 @@ Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로�
 - 범위가 제한된 jitter, 지수 backoff, circuit-breaker 임계값
 - 공급자 `Retry-After`, quota, 남은 예산 관측
 
-backlog 또는 이벤트 지연이 증가하면 scheduler는 사용할 수 있는 예산을 더 자주 소비합니다.
+backlog, 이벤트 지연 또는 폴링 상태 지연이 증가하면 scheduler는 예산을 더 빨리 사용합니다.
 각 가속기는 장애를 합산 건수로 숨기지 않고 정제된 이유 코드로 보고합니다. HTTP `429`와 공급자
 throttling은 동시성을 줄이고 `Retry-After`를 따르며, 지속적인 사용 불가는 circuit을 열고
 계속 재시도하는 대신 범위가 제한된 probe를 예약합니다.
