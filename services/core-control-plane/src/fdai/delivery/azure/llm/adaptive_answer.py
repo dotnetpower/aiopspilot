@@ -7,12 +7,13 @@ import json
 import logging
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from typing import Any, cast
 
 import httpx
 from azure.core.exceptions import ClientAuthenticationError
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
@@ -127,6 +128,22 @@ class AzureOpenAIAdaptiveModel:
         """
 
         return self._config.escalation is not None
+
+    def for_conversation_tier(
+        self,
+        tier: SemanticConversationModelTier,
+    ) -> AzureOpenAIAdaptiveModel | None:
+        """Select the configured T1 or T2 author and preserve the independent reviewer."""
+
+        if tier is SemanticConversationModelTier.T1:
+            return self
+        if tier is not SemanticConversationModelTier.T2 or self._config.escalation is None:
+            return None
+        return AzureOpenAIAdaptiveModel(
+            identity=self._identity,
+            http_client=self._http,
+            config=replace(self._config, primary=self._config.escalation),
+        )
 
     async def complete(
         self,

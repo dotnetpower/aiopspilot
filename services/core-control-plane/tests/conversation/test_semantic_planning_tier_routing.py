@@ -6,13 +6,19 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.conversation_preflight import (
+    ContextDependency,
     ConversationPreflightBinding,
     ConversationPreflightBoundary,
+    ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalPreflightFamily,
+    OperationalSignal,
+    SocialAct,
     SocialResponseNarratorBinding,
 )
 from fdai.core.conversation.semantic_activity_planning import normalize_activity_proposal
@@ -25,6 +31,7 @@ from fdai.core.conversation.semantic_judgment import (
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_cascade import (
     AGGRESSIVE_T2_ESCALATION_POLICY,
+    SemanticPlanningCascade,
     _judgment_link_subjects,
     _judgment_object_subjects,
     _validate_frame_proposal,
@@ -166,16 +173,34 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
-from fdai_service_contracts.ontology_query import QueryNodeKind, SemanticOperation
+from fdai_service_contracts import SemanticConversationModelTier
+from fdai_service_contracts.ontology_query import QueryNodeKind, SemanticOperation, content_digest
 from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticJudgmentTier,
+    SemanticTarget,
 )
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 ROOT = Path(__file__).resolve().parents[4]
 DIGEST = "sha256:" + ("a" * 64)
 _NAMED_INSTANCE_UTTERANCE = "aks-fdai-observe-lab 클러스터 상태 요약해줘"
+
+
+def test_conversation_model_tier_selects_only_the_requested_planning_model() -> None:
+    t1 = object()
+    t2 = object()
+    cascade = SemanticPlanningCascade(
+        model=cast(Any, t1),
+        escalation_model=cast(Any, t2),
+        verifier=cast(Any, object()),
+        frame_builder=cast(Any, lambda *_args, **_kwargs: None),
+        plan_builder=cast(Any, lambda *_args, **_kwargs: None),
+    )
+
+    assert cascade._planning_models(SemanticConversationModelTier.T1) == (("t1", t1),)
+    assert cascade._planning_models(SemanticConversationModelTier.T2) == (("t2", t2),)
+    assert cascade._planning_models() == (("t1", t1), ("t2", t2))
 
 
 class _ManifestProvider:
@@ -2115,6 +2140,14 @@ def test_temporal_comparison_exact_activity_frame_is_normalized_without_t2() -> 
         QueryNodeKind.OBJECT_SET,
         QueryNodeKind.FUNCTION,
     )
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "id",
+            "operator": "equals",
+            "equals": "aks-example-cluster",
+        }
+    ]
+    assert outcome.plan.nodes[0].arguments["definition"]["include_relationships"] is False
     assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_ACTIVITY_FUNCTION_NAME
     assert outcome.plan.nodes[1].arguments["arguments"] == {"lookback_seconds": 604800}
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
@@ -2368,7 +2401,6 @@ def test_exact_target_current_state_builds_function_read_without_t2(
     assert target_node.arguments["definition"]["predicates"] == [
         {"property": "id", "operator": "equals", "equals": target}
     ]
-    assert target_node.arguments["definition"]["include_relationships"] is False
     assert current_state.depends_on == ("current-state-target",)
     assert current_state.arguments["function_name"] == RESOURCE_CURRENT_STATE_FUNCTION_NAME
     assert current_state.arguments["arguments"] == {}
@@ -4772,6 +4804,89 @@ def test_current_state_judgment_recovery_preserves_current_candidate_scope() -> 
     assert outcome.frame.temporal_scope == {}
     assert outcome.plan is None
     assert outcome.execution_authority is False
+
+
+def test_exact_named_resource_state_is_not_recovered_as_a_collection() -> None:
+    utterance = "aks-example-cluster 의 상태는 "
+
+    class _ExactCurrentStateJudgmentModel:
+        def judge(self, **_kwargs: Any) -> dict[str, object]:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    manifest, _definition = _fixture(
+        include_resource_type=True,
+        function_types=(resource_current_state_function_type(),),
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_ExactCurrentStateJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=_Model(
+            frame=_frame(
+                operation="validate",
+                subject_constraints=["Resource"],
+                output_shape="target_current_state",
+            ),
+            plan={"nodes": [], "output_node_ids": []},
+        ),
+        escalation_model=None,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        semantic_judgment=judgment,
+        now=lambda: NOW,
+    )
+    preflight_proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CURRENT_STATE,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="aks-example-cluster",
+                source_start=0,
+                source_end=len("aks-example-cluster"),
+            ),
+        ),
+        operational_facets=("current_state",),
+        confidence=0.99,
+    )
+    preflight_result = ConversationPreflightResult(
+        proposal=preflight_proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(preflight_proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+        preflight_result=preflight_result,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_current_state"
+    assert outcome.frame.subject_constraints == ("Resource", "aks-example-cluster")
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
 
 
 def test_invalid_targetless_investigation_discovers_candidates_before_t2() -> None:

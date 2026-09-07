@@ -22,6 +22,7 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph_evidence,
 )
 from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
@@ -35,7 +36,10 @@ from .conversation_preflight import (
     DIRECT_SOCIAL_ACTS,
     ContextDependency,
     ConversationPreflightResult,
+    GeneralKnowledgeSignal,
     OperationalSignal,
+    SocialAct,
+    preflight_selects_general_knowledge,
 )
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
 from .semantic_governed_document_planning import document_evidence_mode
@@ -55,6 +59,8 @@ _PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
     "semantic_query_progress_observer",
     default=None,
 )
+_PREFLIGHT_CANCELLATION_GRACE_SECONDS = 1.0
+_PENDING_PREFLIGHT_DRAINS: set[asyncio.Task[None]] = set()
 
 
 @contextmanager
@@ -73,6 +79,72 @@ def _resolve_progress_observer(
     explicit: QueryProgressObserver | None,
 ) -> QueryProgressObserver | None:
     return explicit or _PROGRESS_OBSERVER.get()
+
+
+async def _run_preflight_with_cancellation(
+    planner: SemanticPlanningService,
+    *,
+    utterance: str,
+    prior_turns: tuple[Turn, ...],
+    locale: str,
+    conversation_profile: Mapping[str, str] | None,
+    cancelled: asyncio.Event | None,
+    conversation_model_tier: SemanticConversationModelTier | None,
+) -> ConversationPreflightResult:
+    """Bridge task or request cancellation into the thread-owned provider call."""
+    provider_cancelled = asyncio.Event()
+
+    async def forward_request_cancellation() -> None:
+        if cancelled is None:
+            return
+        await cancelled.wait()
+        provider_cancelled.set()
+
+    def invoke_preflight() -> ConversationPreflightResult:
+        if conversation_model_tier is None:
+            return planner.preflight(
+                utterance=utterance,
+                prior_turns=prior_turns,
+                locale=locale,
+                conversation_profile=conversation_profile,
+                cancelled=provider_cancelled,
+            )
+        return planner.preflight(
+            utterance=utterance,
+            prior_turns=prior_turns,
+            locale=locale,
+            conversation_profile=conversation_profile,
+            cancelled=provider_cancelled,
+            conversation_model_tier=conversation_model_tier,
+        )
+
+    worker = asyncio.create_task(asyncio.to_thread(invoke_preflight))
+    watcher = asyncio.create_task(forward_request_cancellation()) if cancelled is not None else None
+    try:
+        result = await asyncio.shield(worker)
+        if provider_cancelled.is_set():
+            raise asyncio.CancelledError
+        return result
+    except asyncio.CancelledError:
+        provider_cancelled.set()
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(worker),
+                timeout=_PREFLIGHT_CANCELLATION_GRACE_SECONDS,
+            )
+        except TimeoutError:
+
+            async def drain_worker() -> None:
+                await asyncio.gather(worker, return_exceptions=True)
+
+            drain = asyncio.create_task(drain_worker())
+            _PENDING_PREFLIGHT_DRAINS.add(drain)
+            drain.add_done_callback(_PENDING_PREFLIGHT_DRAINS.discard)
+        raise
+    finally:
+        if watcher is not None:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +251,7 @@ class SemanticConversationRuntime:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         progress_observer: QueryProgressObserver | None = None,
         target_agent: str = "Bragi",
         relationship: Mapping[str, object] | None = None,
@@ -192,16 +265,35 @@ class SemanticConversationRuntime:
             else None
         )
         preflight_result = (
-            await asyncio.to_thread(
-                self._planner.preflight,
+            await _run_preflight_with_cancellation(
+                self._planner,
                 utterance=utterance,
                 prior_turns=prior_turns,
                 locale=locale,
                 conversation_profile=conversation_profile,
+                cancelled=cancelled,
+                conversation_model_tier=conversation_model_tier,
             )
             if self._planner is not None
             else None
         )
+        if cancelled is not None and cancelled.is_set():
+            raise asyncio.CancelledError
+        if (
+            preflight_result is not None
+            and preflight_result.attempted
+            and preflight_result.failure_kind is not None
+        ):
+            reason = f"conversation_preflight_{preflight_result.failure_kind}"
+            return SemanticTurnResult(
+                disposition="held",
+                reason=reason,
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                    reason=reason,
+                    model_observations=preflight_result.observations,
+                ),
+            )
 
         async def verified(question: str) -> SemanticTurnResult:
             return await self._handle_verified(
@@ -214,6 +306,7 @@ class SemanticConversationRuntime:
                 bound_resource_context=bound_resource_context,
                 bound_investigation_continuation=bound_investigation_continuation,
                 escalation_policy=escalation_policy,
+                conversation_model_tier=conversation_model_tier,
                 progress_observer=progress_observer,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
@@ -279,14 +372,79 @@ class SemanticConversationRuntime:
             )
 
         proposal = preflight_result.proposal if preflight_result is not None else None
-        preflight_selects_verified = proposal is not None and (
-            proposal.operational_signal
-            in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
-            or (
-                proposal.social_act in DIRECT_SOCIAL_ACTS
-                and proposal.operational_signal is OperationalSignal.NONE
-                and proposal.context_dependency
-                in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+        general_route_eligible = (
+            bound_incident is None
+            and bound_investigation_continuation is None
+            and escalation_policy != NO_T2_ESCALATION_POLICY
+            and (self._adaptive is not None or target_agent == "Bragi")
+        )
+        general_candidate = (
+            general_route_eligible
+            and proposal is not None
+            and proposal.social_act is SocialAct.NONE
+            and proposal.knowledge_signal is GeneralKnowledgeSignal.EXPLICIT
+            and proposal.operational_signal is OperationalSignal.NONE
+            and proposal.context_dependency is ContextDependency.NONE
+        )
+        general_one_shot = general_route_eligible and preflight_selects_general_knowledge(
+            preflight_result,
+            utterance=utterance,
+            locale=locale,
+        )
+        if general_candidate and not general_one_shot:
+            return SemanticTurnResult(
+                disposition="held",
+                reason="general_answer_route_unverified",
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                    reason="general_answer_route_unverified",
+                    model_observations=(
+                        preflight_result.observations if preflight_result is not None else ()
+                    ),
+                ),
+            )
+        if general_one_shot:
+            if proposal is None or proposal.general_answer is None:
+                raise RuntimeError("general answer promotion invariant violated")
+            observations = preflight_result.observations if preflight_result is not None else ()
+            return SemanticTurnResult(
+                disposition="advisory_response",
+                reason="semantic_advisory_response",
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
+                    reason="semantic_advisory_response",
+                    model_observations=observations,
+                ),
+                adaptive_answer=AdaptiveAnswer.model_validate(
+                    {
+                        "answer": proposal.general_answer.answer,
+                        "goals": (
+                            {
+                                "goal_id": "general-knowledge",
+                                "kind": "knowledge",
+                                "required": True,
+                                "status": "answered",
+                            },
+                        ),
+                        "role_agent": target_agent,
+                        "quality_status": "limited",
+                        "refinements": 0,
+                        "execution_authority": False,
+                    }
+                ),
+            )
+        preflight_selects_verified = (
+            proposal is not None
+            and proposal.knowledge_signal is GeneralKnowledgeSignal.NONE
+            and (
+                proposal.operational_signal
+                in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
+                or (
+                    proposal.social_act in DIRECT_SOCIAL_ACTS
+                    and proposal.operational_signal is OperationalSignal.NONE
+                    and proposal.context_dependency
+                    in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+                )
             )
         )
         if preflight_selects_verified:
@@ -307,7 +465,11 @@ class SemanticConversationRuntime:
                 relationship=relationship,
                 read_evidence=evidence,
                 cancelled=cancelled,
-                allow_refinement=escalation_policy != NO_T2_ESCALATION_POLICY,
+                allow_refinement=(
+                    conversation_model_tier is not SemanticConversationModelTier.T1
+                    and escalation_policy != NO_T2_ESCALATION_POLICY
+                ),
+                conversation_model_tier=conversation_model_tier,
             )
             if isinstance(outcome, AdaptiveUnavailable):
                 return SemanticTurnResult(
@@ -397,6 +559,7 @@ class SemanticConversationRuntime:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
@@ -423,6 +586,7 @@ class SemanticConversationRuntime:
             bound_resource_context=bound_resource_context,
             bound_investigation_continuation=bound_investigation_continuation,
             escalation_policy=escalation_policy,
+            conversation_model_tier=conversation_model_tier,
             conversation_profile=conversation_profile,
             preflight_result=preflight_result,
         )

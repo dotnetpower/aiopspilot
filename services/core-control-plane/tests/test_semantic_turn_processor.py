@@ -1863,6 +1863,7 @@ class _Runtime:
         self.bound_resource_contexts: list[BoundResourceContext | None] = []
         self.bound_investigation_continuations: list[BoundInvestigationContinuation | None] = []
         self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
+        self.conversation_model_tiers: list[object | None] = []
         self.target_agents: list[str] = []
         self.relationships: list[Mapping[str, object] | None] = []
 
@@ -1880,6 +1881,7 @@ class _Runtime:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: object | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
         self.calls += 1
@@ -1891,6 +1893,7 @@ class _Runtime:
         self.bound_resource_contexts.append(bound_resource_context)
         self.bound_investigation_continuations.append(bound_investigation_continuation)
         self.escalation_policies.append(escalation_policy)
+        self.conversation_model_tiers.append(conversation_model_tier)
         if self.failure is not None:
             raise self.failure
         if self.wait_for_cancel:
@@ -2040,6 +2043,7 @@ def _request(
     investigation_continuation: dict[str, object] | None = None,
     locale: str = "en",
     planning_profile: str = "interactive",
+    conversation_model_tier: str | None = None,
     include_model_trace: bool = False,
 ) -> dict[str, object]:
     semantic_turn: dict[str, object] = {
@@ -2060,6 +2064,8 @@ def _request(
     }
     if planning_profile != "interactive":
         semantic_turn["planning_profile"] = planning_profile
+    if conversation_model_tier is not None:
+        semantic_turn["conversation_model_tier"] = conversation_model_tier
     if bound_context is not None:
         semantic_turn["bound_context"] = bound_context
     if investigation_continuation is not None:
@@ -2068,7 +2074,9 @@ def _request(
         semantic_turn["include_model_trace"] = True
     return {
         "schema_version": (
-            "1.5.0"
+            "1.7.0"
+            if conversation_model_tier is not None
+            else "1.5.0"
             if investigation_continuation is not None
             or (bound_context is not None and bound_context.get("kind") != "incident")
             else "1.4.0"
@@ -2310,17 +2318,26 @@ async def test_answer_continuity_renders_useful_hold_without_upgrading_status() 
     assert semantic["evidence_refs"] == []
 
 
-async def test_frame_unavailable_is_not_misreported_as_an_evidence_hold() -> None:
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "semantic_frame_unavailable",
+        "conversation_preflight_malformed",
+        "conversation_preflight_provider_unavailable",
+        "general_answer_route_unverified",
+    ],
+)
+async def test_planner_unavailable_is_not_misreported_as_an_evidence_hold(reason: str) -> None:
     projection = _projection(
         await _processor(
-            _Runtime(_runtime_result("held", reason="semantic_frame_unavailable")),
+            _Runtime(_runtime_result("held", reason=reason)),
             answer_continuity_enabled=True,
         ).process(_request())
     )
 
     semantic = projection["semantic_result"]
     assert projection["status"] == "held"
-    assert semantic["reason_code"] == "semantic_frame_unavailable"
+    assert semantic["reason_code"] == reason
     assert semantic["unavailable_reason"] == "semantic_planner_unavailable"
     assert semantic["evidence_refs"] == []
     assert "required FDAI internal component" in semantic["answer"]
@@ -3330,6 +3347,14 @@ async def test_aggressive_t2_setting_is_evaluated_per_interactive_turn() -> None
     assert runtime.escalation_policies == [AGGRESSIVE_T2_ESCALATION_POLICY, None]
 
 
+async def test_conversation_model_tier_is_forwarded_to_the_runtime() -> None:
+    runtime = _Runtime()
+
+    await _processor(runtime).process(_request(conversation_model_tier="t2"))
+
+    assert runtime.conversation_model_tiers == ["t2"]
+
+
 async def test_runtime_settings_lookup_is_bounded_by_the_turn_deadline() -> None:
     runtime = _Runtime()
     settings = _BlockingRuntimeSettings()
@@ -3714,6 +3739,42 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
         assert "model_trace" not in projection["payload"]
     assert projection["semantic_result"]["checks_completed"] == 1
     assert projection["semantic_result"]["execution_authority"] is False
+
+
+async def test_selected_t2_reports_the_answer_author_instead_of_the_reviewer() -> None:
+    def observation(model: str, kind: str) -> SemanticJudgmentObservation:
+        return SemanticJudgmentObservation(
+            model=model,
+            usage={"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10},
+            trace_call={
+                "call_id": kind,
+                "kind": kind,
+                "model": model,
+                "status": "completed",
+                "started_at": "2026-09-07T03:00:00+00:00",
+                "completed_at": "2026-09-07T03:00:00.010000+00:00",
+                "duration_ms": 10,
+                "request": {"messages": [], "sha256": "a" * 64},
+                "response": {"role": "assistant", "content": "{}", "sha256": "b" * 64},
+                "usage": {"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10},
+                "redactions": [],
+            },
+        )
+
+    runtime_result = _runtime_result(
+        "answered",
+        model_observations=(
+            observation("narrator-mini", "conversation-preflight"),
+            observation("gpt-5.6-sol", "adaptive-answer"),
+            observation("narrator-reviewer", "adaptive-review"),
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(runtime_result)).process(_request(conversation_model_tier="t2"))
+    )
+
+    assert projection["payload"]["model"] == "gpt-5.6-sol"
 
 
 @pytest.mark.parametrize("locale", ["en", "ko"])

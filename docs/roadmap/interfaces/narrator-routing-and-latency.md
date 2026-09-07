@@ -82,11 +82,11 @@ invalid, or expired routing data cannot change semantic transport availability o
 healthy model. Health availability remains the semantic bridge's transport readiness, not a
 successful inference or verified answer.
 
-The Console shows `T1` plus the projected deployment in the model badge. Its tooltip distinguishes
-candidate timings, sample counts, and measured, stale, unmeasured, or failed status. An open,
-visible Command Deck polls health every 30 seconds; the browser never runs a model probe. This
-read projection introduces no second writer, cross-service implementation import, database data
-rewrite, or shared decision state.
+The Console keeps the persistent connection badge concise and places deployment identity and
+candidate timing details in its tooltip. The tooltip distinguishes sample counts and measured,
+stale, unmeasured, or failed status. An open, visible Command Deck polls health every 30 seconds;
+the browser never runs a model probe. This read projection introduces no second writer,
+cross-service implementation import, database data rewrite, or shared decision state.
 
 ### Unchanged boundaries and legacy narrator
 
@@ -162,20 +162,34 @@ These presentation studies do not change production prompt capture, permissions,
 
 ## Per-user preference and TTFT
 
-The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and runtime latency
-evidence without endpoints or credentials. Each authenticated principal can use `Auto` routing or
-pin one deployment from the current narrator allowlist. Removed or unavailable preferences fall
-back to `Auto`; the server rejects arbitrary model ids.
+The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and
+runtime latency evidence without endpoints or credentials. Each authenticated principal can use
+`Auto` routing or pin one deployment from the current narrator allowlist. Removed or unavailable
+preferences fall back to `Auto`; the server rejects arbitrary model ids.
 
 Target preferences use explicit revisions. Creation sends revision `0`; later writes match the current
 revision. State and audit commit in one transaction, so concurrent sessions receive `409` instead
 of overwriting each other.
 
 The target streaming router records TTFT when the first non-empty model token arrives. TTFT p50/p95 and
-total-latency p50/p95 use separate rolling windows and include sample counts. Unmeasured TTFT stays
-unavailable. The preference applies only to the T1 narrator. T1 internal judgment, embeddings, and
-all T2 secondary, critic, rubric, and escalation assignments remain system-governed. The T2 primary
-pool is not personalized.
+total-latency p50/p95 use separate rolling windows and include sample counts. Unmeasured TTFT stays unavailable. The account preference applies only to the T1 narrator. T1
+internal judgment, embeddings, and all T2 secondary, critic, rubric, and escalation assignments
+remain system-governed.
+
+The Command Deck also provides a separate per-conversation model selector. `Auto` preserves the
+normal deterministic-first route, `T1` prevents optional T2 refinement for that conversation, and
+`T2` uses the active `t2.reasoner.primary` binding. A pure general-knowledge turn uses that T2
+binding for one compact preflight that classifies and authors the bounded answer together. It does
+not run adaptive plan, review, refine, or verify stages. Operational turns retain the verified T2
+planning and evidence path.
+The selected tier applies to new turns, is cached under the principal-scoped conversation key, and
+is included in the no-authority semantic request. T2 is offered when the sanitized model settings
+projection reports an active primary. The action-quality `quorum_ready` flag does not control this
+conversation choice. Pure general advice has no action authority and does not invoke the operational
+T2 quality pair. Operational T2 still preserves its separately configured independent reviewer.
+The browser cannot submit an arbitrary deployment id, choose that reviewer, or change an in-flight
+turn. An unavailable selected T2 produces an explicit held result instead of silently falling back
+to T1.
 
 Settings > Models also provides a T2 model-policy draft builder. The Operator API projects only
 publisher and family preferences from `rule-catalog/llm-registry.yaml`. Operators can select
@@ -333,6 +347,7 @@ The implementation session reported the following bounded evidence for the curre
 | Legacy periodic narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler and composition tests | The Operator lifecycle owns one immediate-and-periodic loop only with the legacy local Azure narrator, never alongside semantic Kafka. These checks do not validate the new Core mini probe owner. |
 | Vision candidate probes and image-turn routing | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe and image-unavailable tests | Vision candidates have an independent measured probe window. Image turns remain unavailable until a server-owned image resolver supplies validated bounded bytes; text bindings are never borrowed. |
 | Per-user routing preference and runtime latency projection | in-progress | `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `services/operator-service/tests/test_narrator_preferences.py` | The service-local revisioned store keeps one `Auto` or allowlisted deployment per principal, rejects arbitrary model ids, returns a conflict for a stale revision, isolates principals, and degrades a removed deployment to `Auto` without discarding the stored choice. The sanitized projection exposes mode, revision, allowlist, and rolling timing evidence with no endpoint or credential material and declares that T2 bindings are not personalized. Durable persistence, the authenticated Settings route, and the deployment pinning contract remain open. |
+| Per-conversation T1/T2 selection | validated | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py`; `services/core-control-plane/src/fdai/core/conversation/{conversation_preflight,semantic_runtime}.py`; `console/src/deck/conversation-model-selection.ts`; focused contract, Core, Operator, and Console tests; one bounded local live diagnostic | The Command Deck stores `Auto`, `T1`, or `T2` per conversation. Schema 1.7 carries only an allowed tier with `execution_authority=false`. A general T2 turn uses the configured primary for one low-reasoning preflight and returns its bounded answer without adaptive plan/review/refine/verify. The measured local diagnostic completed in 4.286 seconds with `gpt-5.6-sol`; one sample is not an SLA claim. Cross-device server persistence and authenticated visible-browser evidence remain open. |
 | Environment T1/T2 binding drafts and protected planning | implemented | Shared `ModelBindingPolicy`; Operator IAM routes and PostgreSQL adapter; Console Models editor; protected resolver and deploy workflow; focused tests | Owner-only drafts persist with revision and idempotency fences. Assessment and plan requests remain authority-free, bind the active artifact digest, and reach activation only through the protected deployment workflow. Provider and rollback receipts remain open. |
 | Answer-continuity and prompt-ablation settings | implemented | Operator runtime-settings route and PostgreSQL adapter; Core startup snapshot; Console Runtime Policies; focused Core, Operator, and Console checks | Owner changes atomically persist an inert proposal and the revision-fenced Core policy record. Both settings apply after restart, prompt ablation remains subtractive, and continuity changes only held or unsupported presentation. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
@@ -346,6 +361,8 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | validated | Routed a selected T2 general-knowledge turn through one T2 preflight that classifies and authors the bounded answer together. GPT-5 preflight requests use low reasoning effort; adaptive plan/review/refine/verify remain absent from this advisory path. | `current change`; 162 focused preflight/composition checks, Ruff, strict mypy, service-boundary checks, and one local live diagnostic completed as `advisory_response` with `model=gpt-5.6-sol` in 4.286 seconds. | Retain authenticated visible-browser streaming evidence and a measured distribution before making a latency target claim. |
+| 2026-09-07 | implemented | Added a per-conversation `Auto`/`T1`/`T2` selector. T2 uses the configured primary for model-authored conversation stages while preserving the independent reviewer and no-authority request boundary. | `current change`; focused service-contract, Operator, Core routing, Console payload, persistence, localization, typecheck, and build checks. | Retain authenticated visible-browser evidence and add server-side preference persistence if cross-device continuity becomes required. |
 | 2026-09-07 | implemented | Made bounded Core readiness span `core-runtime.log.1` and the current log so rotation between semantic-consumer and heartbeat markers cannot create a false timeout. | `current change`; focused rotation-boundary regression passed. | More than one full 1 MiB rotation remains a bounded unavailable outcome. |
 | 2026-09-07 | implemented | Increased the bounded Core readiness log window to 1 MiB after verbose startup output pushed the semantic-consumer marker outside the former 64 KiB tail. | `current change`; a regression preserves marker ordering across more than 64 KiB of intervening output. | Prefer a structured readiness projection if startup output approaches the new bound. |
 | 2026-09-07 | implemented | Ordered restart readiness so the accepted fresh Pantheon heartbeat must follow the post-launch semantic consumer marker. | `current change`; focused developer-workflow test covers an earlier post-launch heartbeat and a later valid heartbeat. | Retain a bilingual latency distribution. |
@@ -402,6 +419,8 @@ The implementation session reported the following bounded evidence for the curre
 - [x] On startup failure, attempt cleanup for every acquired lifecycle service and report cleanup failures without hiding the original source-revision fence.
 - [ ] Retain one governed proposal-only reconciler run and one deployed Operator startup receipt for the exact source revision.
 - [ ] Retain one exact environment-policy assessment and protected PTU plan/apply/rollback campaign, including independent verification that the runtime loaded the sealed policy and model version.
+- [x] Add a per-conversation `Auto`/`T1`/`T2` selector that sends an allowlisted tier on schema 1.7, uses the configured T2 primary for model-authored stages, and preserves the independent reviewer and `execution_authority=false`.
+- [ ] Retain authenticated visible-browser evidence for T1 to T2 switching, persistence after reload, disabled unavailable state, and explicit T2 provider failure without silent T1 fallback.
 
 ## Related docs
 

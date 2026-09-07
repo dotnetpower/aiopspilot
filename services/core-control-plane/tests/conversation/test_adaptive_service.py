@@ -13,7 +13,10 @@ from fdai.core.conversation.adaptive_models import (
     AdaptivePolicy,
 )
 from fdai.core.conversation.adaptive_prompt import ConversationProfile
-from fdai.core.conversation.adaptive_service import AdaptiveConversationService, AdaptiveDeferred
+from fdai.core.conversation.adaptive_service import (
+    AdaptiveConversationService,
+    AdaptiveDeferred,
+)
 from fdai.core.conversation.model_observation import (
     ConversationModelObservation,
     ConversationModelResponse,

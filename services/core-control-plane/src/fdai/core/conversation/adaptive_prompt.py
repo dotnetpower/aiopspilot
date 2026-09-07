@@ -7,7 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, runtime_checkable
+
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 
 from fdai.core.conversation.model_observation import ConversationModelResponse
 from fdai.shared.contracts.models import LifecycleOwner
@@ -30,6 +32,16 @@ class AdaptiveModel(Protocol):
         escalated: bool = False,
     ) -> ConversationModelResponse | None:
         """Return measured output, or ``None`` when this single attempt is unavailable."""
+
+
+@runtime_checkable
+class ConversationTierSelectableAdaptiveModel(Protocol):
+    """Create an immutable model view for an allowed conversation tier."""
+
+    def for_conversation_tier(
+        self,
+        tier: SemanticConversationModelTier,
+    ) -> AdaptiveModel | None: ...
 
 
 class ConversationRelationshipKind(StrEnum):

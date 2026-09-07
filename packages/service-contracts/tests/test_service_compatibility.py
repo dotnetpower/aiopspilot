@@ -223,7 +223,12 @@ def test_adaptive_wire_negotiates_versions_without_dropping_semantic_fields(
         if item["contract_id"] == contract_id and item["producer_release"] == "N"
     )
     assert contract["compatibility_policy"] == "version-negotiated"
-    assert fixture["schema_version"] == contract["producer_schemas"]["N"]["version"] == "1.6.0"
+    expected_version = "1.7.0" if contract_id == "operator-core-request" else "1.6.0"
+    assert (
+        fixture["schema_version"]
+        == contract["producer_schemas"]["N"]["version"]
+        == expected_version
+    )
     producer = checker._load_symbol(contract["producer_codecs"]["N"])
     consumer = checker._load_symbol(contract["consumer_codecs"]["N"])
     previous = checker._load_symbol(contract["consumer_codecs"]["N-1"])

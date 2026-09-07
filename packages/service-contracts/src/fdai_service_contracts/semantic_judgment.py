@@ -19,6 +19,22 @@ _KOREAN_POLITE_ENDINGS = ("요", "니다", "세요", "까요", "십시오", "죠
 _KOREAN_POLITE_STANDALONES = frozenset({"네", "예"})
 
 
+def is_polite_korean_answer(answer: str) -> bool:
+    """Return whether every sentence uses the shared Korean honorific contract."""
+    sentences = tuple(
+        sentence.strip().rstrip("\"')]} ")
+        for sentence in re.split(
+            r"(?:[!?。！？]+|\.(?=[가-힣])|\.(?=[\"')\]}]*(?:\s|$)))",
+            answer,
+        )
+        if sentence.strip()
+    )
+    return bool(sentences) and all(
+        sentence in _KOREAN_POLITE_STANDALONES or sentence.endswith(_KOREAN_POLITE_ENDINGS)
+        for sentence in sentences
+    )
+
+
 class SemanticDiscourseMode(StrEnum):
     """How the utterance presents the requested meaning."""
 
@@ -91,16 +107,7 @@ class SemanticDirectResponseDraft(QueryContract):
         ):
             raise ValueError("semantic direct response answer MUST NOT contain links or markup")
         if self.locale == "ko":
-            sentences = tuple(
-                sentence.strip().rstrip("\"')]} ")
-                for sentence in re.split(r"[.!?。！？]+", self.answer)
-                if sentence.strip()
-            )
-            if not sentences or any(
-                sentence not in _KOREAN_POLITE_STANDALONES
-                and not sentence.endswith(_KOREAN_POLITE_ENDINGS)
-                for sentence in sentences
-            ):
+            if not is_polite_korean_answer(self.answer):
                 raise ValueError(
                     "Korean semantic direct response MUST use polite honorific endings"
                 )
@@ -255,6 +262,7 @@ class SemanticJudgmentReceipt(QueryContract):
 
 
 __all__ = [
+    "is_polite_korean_answer",
     "SemanticDocumentEvidenceMode",
     "SemanticDirectResponseDraft",
     "SemanticDiscourseMode",

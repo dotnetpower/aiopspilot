@@ -710,6 +710,7 @@ export interface BackendHealth {
 
 export interface StreamCallbacks {
   readonly onToken: (delta: string) => void;
+  readonly onValidatedTerminal?: () => void;
   readonly onProgress?: (progress: VerificationProgress) => void;
   readonly onActivity?: (activity: InvestigationActivity) => void;
   readonly onMilestone?: (milestone: InvestigationMilestone) => void;
@@ -723,6 +724,7 @@ export interface StreamCallbacks {
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
   readonly semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2";
+  readonly conversationModelTier?: "t1" | "t2";
   readonly targetAgent?: string;
   readonly handoverGoalId?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;

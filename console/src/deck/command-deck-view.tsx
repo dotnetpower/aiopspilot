@@ -43,6 +43,10 @@ import { PendingReplyIndicator, RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
 import "./conversation-sidebar.css";
 import { GeneralConversationIntro } from "./general-conversation-intro";
+import type {
+  ConversationModelAvailability,
+  ConversationModelTier,
+} from "./conversation-model-selection";
 
 interface CommandDeckViewProps {
   readonly open: boolean;
@@ -51,6 +55,8 @@ interface CommandDeckViewProps {
   readonly dragging: boolean;
   readonly routeLabel: string;
   readonly health: BackendHealth | null;
+  readonly conversationModelTier: ConversationModelTier;
+  readonly conversationModelAvailability: ConversationModelAvailability;
   readonly client: OperatorApiClient;
   readonly sessionLabel: string | null;
   readonly deckStyle: Record<string, string>;
@@ -99,6 +105,7 @@ interface CommandDeckViewProps {
   readonly onSelectConversation: (conversation: ConversationSummary) => void;
   readonly onTranscriptScroll: () => void;
   readonly onSubmit: (text: string) => void;
+  readonly onConversationModelTier: (tier: ConversationModelTier) => boolean;
   readonly onRegenerate: (turnIndex: number) => void;
   readonly onJumpToLatest: () => void;
   readonly onRunSlashCommand: (input: string) => boolean;
@@ -115,6 +122,8 @@ export function CommandDeckView({
   dragging,
   routeLabel,
   health,
+  conversationModelTier,
+  conversationModelAvailability,
   client,
   sessionLabel,
   deckStyle,
@@ -163,6 +172,7 @@ export function CommandDeckView({
   onSelectConversation,
   onTranscriptScroll,
   onSubmit,
+  onConversationModelTier,
   onRegenerate,
   onJumpToLatest,
   onRunSlashCommand,
@@ -336,6 +346,9 @@ export function CommandDeckView({
             closeLabel={closeLabel}
             sessionLabel={sessionLabel}
             health={health}
+            conversationModelTier={conversationModelTier}
+            conversationModelAvailability={conversationModelAvailability}
+            modelSelectionDisabled={inFlight}
             searchAvailable={!emptyConversation}
             canStartNewConversation={!emptyConversation}
             conversationCount={conversationCount}
@@ -353,6 +366,7 @@ export function CommandDeckView({
             onToggleConversations={() => setShowConversations((visible) => !visible)}
             onSelectLayout={onSelectLayout}
             onClose={onClose}
+            onConversationModelTier={onConversationModelTier}
           />
 
           <div class="sr-only" role="status" aria-live="polite">

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1d5bbfe8706e6eda204187b6e36c9169d471be86
+translation_source_sha: ccebd3176c0bf94568e3a93c2980a27024f06174
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -55,9 +55,10 @@ FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 
 현재 검증된 인벤토리 결과를 문서로 변환합니다.
 응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
 바이너리나 없는 내용을 모델 상태로 해석하지 않습니다.
-Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행하고 명시적 운영 요청의 Adaptive
-설명 계획을 우회하며, 수락된 인벤토리, 구성, 게이트웨이 의도를 검토된 서술자 범위로 축소합니다.
-Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 요청에 64KiB 상한을 적용합니다.
+Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다. 명시적으로 선택한 T2
+연결은 하나의 preflight에서 일반 답변을 분류하고 범위가 제한된 답변을 작성합니다. 명시적 운영
+요청은 Adaptive 설명 계획을 우회하고 검증된 의미 계획을 유지합니다. Azure 의미 계획은 검토된
+서술자 범위와 전체 요청의 64KiB 상한을 적용합니다.
 정확한 F1-F4 형식에서는 preflight가 출처가 결속된 후보 의미를 제공해 직렬 전체 의미 판단 호출 하나를
 제거할 수도 있습니다. Core는 이를 재사용하기 전에 현재 입력 digest, 원문 범위, 확신도, 맥락
 독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다.

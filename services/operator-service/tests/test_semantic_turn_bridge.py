@@ -87,6 +87,15 @@ _DOCUMENT_REQUEST_ID = str(uuid5(_TEST_NAMESPACE, "document-request"))
 _DOCUMENT_SOURCE_REQUEST_ID = str(uuid5(_TEST_NAMESPACE, "document-source"))
 
 
+def test_initial_progress_does_not_claim_every_turn_requires_a_plan() -> None:
+    assert semantic_turn_runtime_module._initial_progress("ko")["planning"] == (
+        "답변 경로를 확인하는 중입니다."
+    )
+    assert semantic_turn_runtime_module._initial_progress("en")["planning"] == (
+        "Determining the answer path."
+    )
+
+
 def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
     return ConversationProposal(
         operation="chat.stream",
@@ -215,6 +224,25 @@ def test_semantic_envelope_forwards_model_trace_opt_in() -> None:
     assert envelope["schema_version"] == "1.5.0"
     semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
     assert semantic_turn["include_model_trace"] is True
+
+
+@pytest.mark.parametrize("tier", ["t1", "t2"])
+def test_semantic_envelope_preserves_conversation_model_tier(tier: str) -> None:
+    envelope = SemanticTurnEnvelopeBuilder().build(
+        _proposal(body={"prompt": "Explain SLOs.", "conversation_model_tier": tier})
+    )
+
+    semantic = cast(dict[str, object], envelope["semantic_turn"])
+    assert envelope["schema_version"] == "1.7.0"
+    assert semantic["conversation_model_tier"] == tier
+    assert semantic["execution_authority"] is False
+
+
+def test_semantic_envelope_rejects_unknown_conversation_model_tier() -> None:
+    with pytest.raises(ValueError, match="conversation_model_tier is unsupported"):
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(body={"prompt": "Explain SLOs.", "conversation_model_tier": "t3"})
+        )
 
 
 def test_semantic_envelope_carries_golden_campaign_no_t2_profile() -> None:
@@ -1716,15 +1744,17 @@ async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
         principal_id="operator-1",
         request_id="request-1",
         after_sequence=0,
+        limit=2,
     )
 
-    assert [result.sequence for result in results] == [1]
+    assert [result.sequence for result in results] == [1, 2]
     statement, parameters = captured[0]
     assert "value ->> 'principal_id' = %(principal_id)s" in statement
     assert "value ->> 'request_id' = %(request_id)s" in statement
     assert "ORDER BY (value ->> 'event_sequence')::bigint" in statement
     assert "(value ->> 'recorded_at')::timestamptz" in statement
-    assert "LIMIT 1" in statement
+    assert "LIMIT %(limit)s" in statement
+    assert parameters["limit"] == 2
     assert parameters["principal_id"] == "operator-1"
     assert parameters["request_id"] == "request-1"
 
@@ -1948,6 +1978,69 @@ async def test_rule_search_result_materializes_atomically_for_owning_principal()
     assert rule_search_projection_key("operator-1", cast(str, query_digest)).endswith(
         hashlib.sha256(f"operator-1\x1f{query_digest}".encode()).hexdigest()
     )
+
+
+async def test_rule_search_identity_conflict_raises_stable_conflict_type() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        return [
+            {
+                "inserted": False,
+                "terminal_closed": False,
+                "value": None,
+                "failure_type": "rule_projection_identity_conflict",
+                "rule_projection_writes": 0,
+            }
+        ]
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {"rule_search": _rule_search_projection()}
+
+    with pytest.raises(
+        SemanticTurnConflictError,
+        match="rule-search projection identity conflicts with durable state",
+    ) as raised:
+        await repository.project(projection=projection)
+
+    assert raised.value.failure_type == "rule_projection_identity_conflict"
+    statement, _parameters = captured[0]
+    normalized_statement = " ".join(statement.split())
+    assert "rule_identity_conflict_result AS" in normalized_statement
+    assert "%(rule_projection_identity_conflict)s::text AS failure_type" in normalized_statement
+    assert "NOT EXISTS (SELECT 1 FROM rule_identity_conflict_result)" in normalized_statement
+
+
+async def test_missing_rule_search_request_still_raises_request_absent() -> None:
+    async def fetch_all(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {"rule_search": _rule_search_projection()}
+
+    with pytest.raises(SemanticTurnRequestAbsentError):
+        await repository.project(projection=projection)
 
 
 async def test_rule_search_projection_read_is_exactly_principal_query_scoped(

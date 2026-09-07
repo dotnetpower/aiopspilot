@@ -17,6 +17,7 @@ from fdai_service_contracts import (
     OperatorRole,
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
+    SemanticConversationModelTier,
     SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticPriorTurn,
@@ -115,6 +116,7 @@ class SemanticTurnEnvelopeBuilder:
             investigation_continuation=investigation_continuation,
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
+            conversation_model_tier=_conversation_model_tier(proposal.body),
             include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
             target_agent=target_agent,
@@ -123,7 +125,9 @@ class SemanticTurnEnvelopeBuilder:
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.6.0"
+            "1.7.0"
+            if semantic_turn.conversation_model_tier is not None
+            else "1.6.0"
             if (
                 "target_agent" in proposal.body
                 or relationship_proof is not None
@@ -221,6 +225,20 @@ def _planning_profile(body: Mapping[str, object]) -> SemanticPlanningProfile:
         return SemanticPlanningProfile(value)
     except ValueError as exc:
         raise ValueError("semantic_planning_profile is unsupported") from exc
+
+
+def _conversation_model_tier(
+    body: Mapping[str, object],
+) -> SemanticConversationModelTier | None:
+    value = body.get("conversation_model_tier")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("conversation_model_tier is unsupported")
+    try:
+        return SemanticConversationModelTier(value)
+    except ValueError as exc:
+        raise ValueError("conversation_model_tier is unsupported") from exc
 
 
 def _deadline(body: Mapping[str, object], requested_at: datetime) -> datetime:

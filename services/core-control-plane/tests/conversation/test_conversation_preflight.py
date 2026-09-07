@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
@@ -12,12 +14,15 @@ from fdai.core.conversation.conversation_preflight import (
     ConversationPreflightBoundary,
     ConversationPreflightProposal,
     ConversationPreflightResult,
+    GeneralKnowledgeDraft,
+    GeneralKnowledgeSignal,
     OperationalPreflightFamily,
     OperationalSignal,
     SocialAct,
     SocialResponseNarratorBinding,
     operational_target_is_generic,
     preflight_operational_judgment,
+    preflight_selects_general_knowledge,
 )
 from fdai.core.conversation.model_observation import (
     ConversationModelObservation,
@@ -85,6 +90,38 @@ class _RaisingModel(_Model):
         raise RuntimeError("provider detail")
 
 
+class _StrictLegacyModel:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def preflight(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+        direct_response_profile: Mapping[str, Any],
+        direct_response_profile_digest: str,
+        schema_repair: tuple[dict[str, str], ...],
+    ) -> object:
+        del (
+            utterance,
+            context,
+            locale,
+            direct_response_profile,
+            direct_response_profile_digest,
+            schema_repair,
+        )
+        self.calls += 1
+        return {
+            "social_act": "greeting",
+            "operational_signal": "none",
+            "context_dependency": "none",
+            "confidence": 0.99,
+            "execution_authority": False,
+        }
+
+
 class _SequenceModel(_Model):
     def __init__(self, results: list[object]) -> None:
         super().__init__(None)
@@ -122,6 +159,316 @@ def test_accepts_locale_bound_direct_social_route_without_response_prose() -> No
     assert result.proposal.operational_signal is OperationalSignal.NONE
     assert result.proposal.context_dependency is ContextDependency.NONE
     assert model.calls == 1
+
+
+def test_legacy_preflight_provider_is_not_passed_cancellation() -> None:
+    model = _StrictLegacyModel()
+    boundary = ConversationPreflightBoundary(
+        binding=ConversationPreflightBinding(
+            model=model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        )
+    )
+
+    result = boundary.classify(
+        utterance="hello",
+        context=(),
+        locale="en",
+        direct_response_profile={"identity": "Bragi"},
+        cancelled=asyncio.Event(),
+    )
+
+    assert result.proposal is not None
+    assert result.failure_kind is None
+    assert model.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("confidence", "selected"),
+    [(0.9, True), (0.89, False)],
+)
+def test_general_knowledge_route_requires_promotion_confidence(
+    confidence: float,
+    selected: bool,
+) -> None:
+    utterance = "Compare blue-green and canary."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.NONE,
+        context_dependency=ContextDependency.NONE,
+        knowledge_signal=GeneralKnowledgeSignal.EXPLICIT,
+        general_answer=GeneralKnowledgeDraft(
+            locale="en",
+            answer="Blue-green swaps environments; canary increases exposure gradually.",
+            profile_digest=DIGEST,
+        ),
+        confidence=confidence,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+        direct_response_profile_digest=DIGEST,
+    )
+
+    assert preflight_selects_general_knowledge(result, utterance=utterance, locale="en") is selected
+
+
+def test_general_knowledge_route_requires_current_input_and_model_provenance() -> None:
+    utterance = "Compare blue-green and canary."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.NONE,
+        context_dependency=ContextDependency.NONE,
+        knowledge_signal=GeneralKnowledgeSignal.EXPLICIT,
+        general_answer=GeneralKnowledgeDraft(
+            locale="en",
+            answer="Blue-green swaps environments; canary increases exposure gradually.",
+            profile_digest=DIGEST,
+        ),
+        confidence=0.99,
+    )
+    valid = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+        direct_response_profile_digest=DIGEST,
+    )
+
+    assert preflight_selects_general_knowledge(valid, utterance=utterance, locale="en")
+    assert not preflight_selects_general_knowledge(
+        replace(valid, input_digest=content_digest({"utterance": "different"})),
+        utterance=utterance,
+        locale="en",
+    )
+    assert not preflight_selects_general_knowledge(
+        replace(valid, prompt_digest=None),
+        utterance=utterance,
+        locale="en",
+    )
+    assert not preflight_selects_general_knowledge(valid, utterance=utterance, locale="ko")
+
+
+def test_boundary_accepts_one_bounded_general_answer_with_the_route() -> None:
+    utterance = "블루-그린과 카나리 배포를 비교해 줘."
+    profile = {"identity": "Bragi", "role": "Narrate without authority."}
+    profile_digest = content_digest(profile)
+    model = _Model(
+        {
+            "social_act": "none",
+            "knowledge_signal": "explicit",
+            "general_answer": {
+                "locale": "ko",
+                "answer": (
+                    "블루-그린은 환경을 한 번에 전환하고 카나리는 트래픽을 점진적으로 확대합니다."
+                ),
+                "profile_digest": profile_digest,
+                "execution_authority": False,
+            },
+            "operational_signal": "none",
+            "context_dependency": "none",
+            "confidence": 0.99,
+            "execution_authority": False,
+        }
+    )
+
+    result = _boundary(model).classify(
+        utterance=utterance,
+        context=(),
+        locale="ko",
+        direct_response_profile=profile,
+    )
+
+    assert preflight_selects_general_knowledge(result, utterance=utterance, locale="ko")
+    assert result.proposal is not None
+    assert result.proposal.general_answer is not None
+    assert result.proposal.general_answer.answer.startswith("블루-그린")
+    assert model.calls == 1
+
+
+def test_mixed_social_and_knowledge_route_does_not_publish_a_preflight_answer() -> None:
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.GREETING,
+        operational_signal=OperationalSignal.NONE,
+        context_dependency=ContextDependency.NONE,
+        knowledge_signal=GeneralKnowledgeSignal.EXPLICIT,
+        confidence=0.99,
+    )
+
+    assert proposal.general_answer is None
+    assert not preflight_selects_general_knowledge(
+        ConversationPreflightResult(proposal=proposal, attempted=True),
+        utterance="Hello, compare blue-green and canary.",
+        locale="en",
+    )
+
+
+def test_general_knowledge_draft_enforces_korean_locale_quality() -> None:
+    with pytest.raises(ValueError, match="polite honorific"):
+        GeneralKnowledgeDraft(
+            locale="ko",
+            answer="This is not Korean.",
+            profile_digest=DIGEST,
+        )
+
+
+def test_general_knowledge_draft_allows_technical_identifiers() -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="en",
+        answer="C#, Node.js, and snake_case use different identifier conventions.",
+        profile_digest=DIGEST,
+    )
+
+    assert "C#" in draft.answer
+    assert "Node.js" in draft.answer
+    assert "snake_case" in draft.answer
+
+
+def test_korean_general_knowledge_allows_dotted_technical_identifiers() -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="ko",
+        answer="Node.js와 C#을 비교해 드립니다.",
+        profile_digest=DIGEST,
+    )
+
+    assert draft.answer == "Node.js와 C#을 비교해 드립니다."
+
+
+def test_general_knowledge_draft_rejects_bare_domains() -> None:
+    with pytest.raises(ValueError, match="MUST NOT contain links"):
+        GeneralKnowledgeDraft(
+            locale="en",
+            answer="See attacker.example for details.",
+            profile_digest=DIGEST,
+        )
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "I verified the current production environment is healthy.",
+        "Your current cluster is running normally.",
+        "Restart the current production service now.",
+        "The live deployment was restarted successfully.",
+        "The service is currently healthy.",
+        "The service was restarted successfully.",
+        "Our service currently runs in production.",
+        "The production service currently is healthy.",
+        "Deploy to production now.",
+        "Restart the service in production now.",
+        "It is healthy in production.",
+        "The cluster looks healthy in production.",
+        "The gateway is healthy.",
+        "It restarted successfully.",
+        "The gateway restarted successfully.",
+        "The backend deployed successfully.",
+        "The database restarted successfully.",
+        "The pod restarted successfully.",
+        "Your production database contains 42 customer records.",
+        "Your current subscription contains 42 resources.",
+        "Your resource group contains 42 resources.",
+        "The prod subscription contains 42 resources.",
+        "Subscription Contoso contains 42 resources.",
+        "Subscription Contoso East contains forty-two resources.",
+        "Resource group prod east has many resources.",
+        "The Contoso East resource group contains forty-two resources.",
+        "The Contoso (East) resource group contains forty-two resources.",
+        "The 운영 resource group contains forty-two resources.",
+        "Subscription Contoso runs 42 services.",
+        "Subscription ASP.NET contains 42 resources.",
+        "Subscription 운영.동부 runs 42 services.",
+        "Resource group prod is running many services.",
+        "The subscription includes forty-two resources.",
+        "제가 현재 운영 환경을 확인했습니다.",
+        "현재 프로덕션 서비스는 정상입니다.",
+        "현재 운영 서비스를 재시작하세요.",
+        "서비스가 현재 정상입니다.",
+        "서비스가 재시작됐습니다.",
+        "서비스는 운영 환경에서 정상입니다.",
+        "프로덕션은 정상입니다.",
+        "게이트웨이는 정상입니다.",
+        "프로덕션 데이터베이스에는 고객 레코드 42개가 있습니다.",
+        "현재 구독에는 리소스 42개가 있습니다.",
+        "해당 리소스 그룹에는 리소스 42개가 있습니다.",
+        "prod 구독에는 리소스 42개가 있습니다.",
+        "리소스 그룹 rg-prod에는 리소스 42개가 있습니다.",
+        "구독 Contoso East에는 리소스 마흔두 개가 있습니다.",
+        "리소스 그룹 prod east에는 여러 리소스가 있습니다.",
+        "Contoso East 구독에는 리소스 마흔두 개가 있습니다.",
+        "Contoso (East) 구독에는 리소스 마흔두 개가 있습니다.",
+    ],
+)
+def test_general_knowledge_draft_rejects_operational_claims(answer: str) -> None:
+    with pytest.raises(ValueError, match="MUST NOT claim operational observation"):
+        GeneralKnowledgeDraft(
+            locale="ko" if answer.endswith(("습니다.", "세요.")) else "en",
+            answer=answer,
+            profile_digest=DIGEST,
+        )
+
+
+def test_general_knowledge_draft_allows_conceptual_health_explanation() -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="en",
+        answer="A liveness probe checks whether a container is healthy enough to keep running.",
+        profile_digest=DIGEST,
+    )
+
+    assert draft.answer.startswith("A liveness probe")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Current caching best practices favor bounded retention.",
+        "Production deployment strategies include blue-green and canary.",
+    ],
+)
+def test_general_knowledge_draft_allows_conceptual_scope_terms(answer: str) -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="en",
+        answer=answer,
+        profile_digest=DIGEST,
+    )
+
+    assert draft.answer == answer
+
+
+def test_general_knowledge_draft_does_not_correlate_unrelated_sentences() -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="en",
+        answer="A subscription is a billing boundary. Containers run services.",
+        profile_digest=DIGEST,
+    )
+
+    assert draft.answer.endswith("Containers run services.")
+
+
+@pytest.mark.parametrize("domain", ["attacker.rs", "attacker.md"])
+def test_general_knowledge_draft_rejects_domain_with_technical_suffix(domain: str) -> None:
+    with pytest.raises(ValueError, match="MUST NOT contain links"):
+        GeneralKnowledgeDraft(
+            locale="en",
+            answer=f"See {domain} for details.",
+            profile_digest=DIGEST,
+        )
+
+
+def test_general_knowledge_draft_allows_backticked_filename() -> None:
+    draft = GeneralKnowledgeDraft(
+        locale="en",
+        answer="Configure the example in `settings.py`.",
+        profile_digest=DIGEST,
+    )
+
+    assert "`settings.py`" in draft.answer
 
 
 def test_social_narrator_uses_only_typed_continuity_and_profile() -> None:
@@ -243,6 +590,79 @@ def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> 
     assert judgment.execution_authority is False
 
 
+@pytest.mark.parametrize(
+    ("utterance", "targets", "facets", "expected_intent"),
+    (
+        (
+            "aks 목록",
+            (("resource_type_filter", "aks"),),
+            ("resource_collection", "list"),
+            "query.contextual_resources",
+        ),
+        (
+            "db 목록",
+            (("resource_type_filter", "db"),),
+            ("resource_collection", "list"),
+            "query.contextual_resources",
+        ),
+        (
+            "배포된 llm 모델이 뭐야",
+            (("resource_type_filter", "배포된 llm 모델"),),
+            ("resource_collection", "list"),
+            "query.contextual_resources",
+        ),
+        (
+            "실행중인 mssql 서버 목록",
+            (
+                ("resource_type_filter", "mssql 서버"),
+                ("resource_state_filter", "실행중인"),
+            ),
+            ("resource_collection", "list", "current_state"),
+            "query.resource_state_inventory",
+        ),
+    ),
+)
+def test_promotes_resource_collection_without_a_second_judgment(
+    utterance: str,
+    targets: tuple[tuple[str, str], ...],
+    facets: tuple[str, ...],
+    expected_intent: str,
+) -> None:
+    operational_targets = tuple(
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for kind, value in targets
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=operational_targets,
+        operational_facets=facets,
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == expected_intent
+    assert judgment.targets == operational_targets
+    assert judgment.execution_authority is False
+
+
 def test_promotes_exact_resource_current_state_without_collection_substitution() -> None:
     utterance = "aks-example-cluster 의 상태"
     target_value = "aks-example-cluster"
@@ -318,6 +738,76 @@ def test_preflight_operational_judgment_rejects_nonmatching_source_span() -> Non
         )
         is None
     )
+
+
+def test_resource_collection_preflight_rejects_exact_resource_target() -> None:
+    utterance = "Show the state of aks-example-cluster."
+    start = utterance.index("aks-example-cluster")
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="aks-example-cluster",
+                canonical_value="Resource.name",
+                source_start=start,
+                source_end=start + len("aks-example-cluster"),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
+def test_resource_collection_preflight_rejects_filter_inside_exact_resource() -> None:
+    utterance = "aks-example-cluster 의 상태는 "
+    type_value = "aks"
+    state_value = "상태"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+            SemanticTarget(
+                kind="resource_state_filter",
+                value=state_value,
+                source_start=utterance.index(state_value),
+                source_end=utterance.index(state_value) + len(state_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list", "current_state"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
 def test_preflight_operational_judgment_requires_current_provenance_and_confidence() -> None:
@@ -653,7 +1143,7 @@ def test_preflight_gateway_requires_explicit_time_target() -> None:
     assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
-def test_malformed_response_falls_through_after_one_attempt() -> None:
+def test_malformed_response_retries_once_then_falls_through() -> None:
     observation = ConversationModelObservation(
         model="preflight-mini",
         usage={"prompt_tokens": 250, "completion_tokens": 40, "total_tokens": 290},
@@ -696,7 +1186,7 @@ def test_model_exception_falls_through_after_one_attempt() -> None:
     assert model.calls == 1
 
 
-def test_schema_repair_removes_classifier_authored_prose() -> None:
+def test_classifier_retries_malformed_schema_once() -> None:
     model = _SequenceModel(
         [
             {
@@ -725,9 +1215,15 @@ def test_schema_repair_removes_classifier_authored_prose() -> None:
     )
 
     assert result.proposal is not None
+    assert result.failure_kind is None
     assert model.calls == 2
     assert model.repairs[0] == ()
-    assert model.repairs[1][0]["path"] == "proposal"
+    assert model.repairs[1] == (
+        {
+            "path": "proposal",
+            "reason": "return every conditionally required field with a schema-valid value",
+        },
+    )
 
 
 def test_classifier_contract_rejects_user_facing_response_prose() -> None:

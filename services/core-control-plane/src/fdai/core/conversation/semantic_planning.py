@@ -7,6 +7,7 @@ execution authority. No phrase, regex, or keyword selects a query capability.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
@@ -19,6 +20,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentDisposition,
     SemanticJudgmentTier,
 )
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
@@ -34,6 +36,7 @@ from .conversation_preflight import (
 )
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
+from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
     ProposalRejectedError,
@@ -68,6 +71,7 @@ from .semantic_planning_models import (
     SemanticDescriptorSelector,
     SemanticDirectResponseIntent,
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
@@ -169,6 +173,7 @@ class SemanticPlanningService:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
     ) -> SemanticPlanningOutcome:
@@ -491,6 +496,7 @@ class SemanticPlanningService:
                     semantic_judgment=semantic_judgment,
                     bound_investigation_continuation=bound_investigation_continuation,
                     escalation_policy=escalation_policy,
+                    conversation_model_tier=conversation_model_tier,
                     observations=model_observations,
                 )
             if frame_result is None:
@@ -624,6 +630,7 @@ class SemanticPlanningService:
                 now=self._now,
                 cascade=self._cascade,
                 escalation_policy=escalation_policy,
+                conversation_model_tier=conversation_model_tier,
                 model_observations=model_observations,
                 anchored_incident_plan_builder=partial(
                     build_anchored_incident_plan,
@@ -642,6 +649,13 @@ class SemanticPlanningService:
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
+            if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
+                verify_frame_plan_alignment(
+                    frame,
+                    plan,
+                    descriptors=manifest.descriptors,
+                    allow_bound_contextual=bound_resource_context is not None,
+                )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info(
                 "semantic_planning_stage_completed",
@@ -744,6 +758,8 @@ class SemanticPlanningService:
         prior_turns: Sequence[Turn],
         locale: str,
         conversation_profile: Mapping[str, str] | None = None,
+        cancelled: asyncio.Event | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
     ) -> ConversationPreflightResult:
         """Classify routing before the optional adaptive explanation path."""
         if self._semantic_judgment is None:
@@ -757,6 +773,8 @@ class SemanticPlanningService:
             context=_bounded_context(prior_turns),
             locale=locale,
             direct_response_profile=response_profile,
+            cancelled=cancelled,
+            conversation_model_tier=conversation_model_tier,
         )
 
 

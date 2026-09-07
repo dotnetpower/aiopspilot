@@ -112,6 +112,7 @@ def build_azure_semantic_judgment_factory(
                 config=AzureOpenAISemanticJudgmentModelConfig(
                     candidates=t2_targets,
                     system_prompt=system_prompt,
+                    preflight_system_prompt=preflight_system_prompt,
                 ),
                 owner_loop=owner_loop,
             )
@@ -143,6 +144,17 @@ def build_azure_semantic_judgment_factory(
                         model=primary,
                         model_config_digest=t1_config_digest,
                         prompt_digest=preflight_prompt_digest,
+                        supports_cancellation=True,
+                    ),
+                    t2_binding=(
+                        ConversationPreflightBinding(
+                            model=escalation,
+                            model_config_digest=t2_config_digest,
+                            prompt_digest=preflight_prompt_digest,
+                            supports_cancellation=True,
+                        )
+                        if escalation is not None
+                        else None
                     ),
                     narrator=(
                         SocialResponseNarratorBinding(

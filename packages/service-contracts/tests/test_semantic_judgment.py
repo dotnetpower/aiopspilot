@@ -209,6 +209,12 @@ def test_direct_response_requires_one_bounded_model_authored_answer() -> None:
             answer="안녕, 난 Bragi야！ 무엇을 도와드릴까요?",
             profile_digest=_DIGEST,
         )
+    with pytest.raises(ValidationError, match="polite honorific endings"):
+        SemanticDirectResponseDraft(
+            locale="ko",
+            answer="안녕 반가워.감사합니다.",
+            profile_digest=_DIGEST,
+        )
 
 
 @pytest.mark.parametrize(

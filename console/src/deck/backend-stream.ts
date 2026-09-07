@@ -49,6 +49,7 @@ import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import { chartArtifactText } from "./rich-parse";
 import { parsePresentationArtifact } from "./presentation-artifact";
 import { normalizeIncidentBinding } from "./conversation-sessions";
+import { conversationReplyModel } from "./conversation-model-selection";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -151,7 +152,7 @@ export async function askBackendStream(
     source: "stopped",
   });
 
-  const tokenQueue: string[] = [];
+  const tokenQueue: Array<{ readonly delta: string; readonly revision: number }> = [];
   let queueDone = false;
   let pumpError: unknown = null;
   let queueWake: (() => void) | null = null;
@@ -171,15 +172,34 @@ export async function askBackendStream(
             queueWake = null;
             continue;
           }
-          let delta = tokenQueue.shift() as string;
+          const queued = tokenQueue.shift();
+          if (
+            queued === undefined ||
+            queued.revision !== lastRevision ||
+            queued.revision <= emittedConfirmedRevision
+          ) {
+            continue;
+          }
+          let delta = queued.delta;
           const queuedBurst = tokenQueue.length > 0;
-          while (tokenQueue.length > 0 && delta.length < 96) {
-            delta += tokenQueue.shift() as string;
+          while (
+            tokenQueue.length > 0 &&
+            tokenQueue[0]?.revision === queued.revision &&
+            delta.length < 96
+          ) {
+            delta += tokenQueue.shift()?.delta ?? "";
           }
           const burstMode = queuedBurst || delta.length > 48;
           const parts = burstMode ? chunksForBurst(delta) : [delta];
           for (const part of parts) {
-            if (callbacks.signal?.aborted || generation !== pumpGeneration) return;
+            if (
+              callbacks.signal?.aborted ||
+              generation !== pumpGeneration ||
+              queued.revision !== lastRevision ||
+              queued.revision <= emittedConfirmedRevision
+            ) {
+              break;
+            }
             emitToken(part);
             const delay = burstMode ? visibleDelay(streamBurstPacer.intervalMs) : 0;
             if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
@@ -190,8 +210,8 @@ export async function askBackendStream(
       }
     })();
   };
-  const enqueueDelta = (delta: string): void => {
-    tokenQueue.push(delta);
+  const enqueueDelta = (delta: string, revision: number): void => {
+    tokenQueue.push({ delta, revision });
     queueWake?.();
   };
   const flushPump = async (): Promise<void> => {
@@ -219,6 +239,7 @@ export async function askBackendStream(
           callbacks.targetAgent,
           callbacks.semanticPlanningProfile,
           callbacks.handoverGoalId,
+          callbacks.conversationModelTier,
         ),
       ),
       signal: callbacks.signal ?? null,
@@ -250,11 +271,35 @@ export async function askBackendStream(
   let protocolError: string | null = null;
   let terminalSeen = false;
   let confirmedSegment: ConfirmedAnswerSegment | undefined;
+  let emittedRevision = -1;
+  let emittedConfirmedRevision = -1;
+  let emittedConfirmedSegmentIndex = -1;
   const pendingRevisions: Array<{
     readonly answer: string;
     readonly revision: number;
     readonly status: AnswerVerificationStatus;
   }> = [];
+  const emitRevision = (
+    answer: string,
+    revision: number,
+    status: AnswerVerificationStatus,
+  ): void => {
+    if (revision <= emittedRevision) return;
+    emittedRevision = revision;
+    callbacks.onRevision?.(answer, revision, status);
+  };
+  const emitConfirmed = (segment: ConfirmedAnswerSegment): void => {
+    if (
+      segment.revision < emittedConfirmedRevision ||
+      (segment.revision === emittedConfirmedRevision &&
+        segment.segmentIndex <= emittedConfirmedSegmentIndex)
+    ) {
+      return;
+    }
+    emittedConfirmedRevision = segment.revision;
+    emittedConfirmedSegmentIndex = segment.segmentIndex;
+    callbacks.onConfirmed?.(segment);
+  };
 
   const handleFrame = (frame: string): void => {
     if (terminalSeen) return;
@@ -309,9 +354,13 @@ export async function askBackendStream(
       : lastRevision;
     if (event === "token") {
       const delta = typeof object.delta === "string" ? object.delta : "";
-      if (delta && revision === lastRevision) {
+      if (
+        delta &&
+        revision === lastRevision &&
+        revision > emittedConfirmedRevision
+      ) {
         answerText += delta;
-        enqueueDelta(delta);
+        enqueueDelta(delta, revision);
       }
     } else if (event === "status" || event === "verification") {
       callbacks.onProgress?.({
@@ -340,17 +389,26 @@ export async function askBackendStream(
       if (replacement !== null && status !== null && revision > lastRevision) {
         lastRevision = revision;
         answerText = replacement;
+        confirmedSegment = undefined;
         pendingRevisions.push({ answer: replacement, revision, status });
+        emitRevision(replacement, revision, status);
       }
     } else if (event === "confirmed") {
       const confirmed = parseConfirmedAnswerSegment(object, revision);
       if (
         confirmed !== null &&
         confirmed.revision === lastRevision &&
-        confirmed.revision > (confirmedSegment?.revision ?? -1)
+        (
+          confirmed.revision > (confirmedSegment?.revision ?? -1) ||
+          (
+            confirmed.revision === confirmedSegment?.revision &&
+            confirmed.segmentIndex > confirmedSegment.segmentIndex
+          )
+        )
       ) {
         confirmedSegment = confirmed;
         confirmedSegmentCount += 1;
+        emitConfirmed(confirmed);
       }
     } else if (event === "done") {
       doneData = object;
@@ -391,7 +449,7 @@ export async function askBackendStream(
   } catch {
     if (callbacks.signal?.aborted) {
       await flushPump();
-      return stopped(answerText);
+      return stopped(emittedText);
     }
     if (answerText === "") {
       await flushPump();
@@ -411,7 +469,7 @@ export async function askBackendStream(
   }
   if (advisoryAnswer && (
     protocolError !== null || errored || interrupted || sequenceGap ||
-    confirmedSegment !== undefined || pendingRevisions.length > 0
+    confirmedSegment !== undefined || pendingRevisions.length > 0 || answerText !== ""
   )) {
     if (sequenceGap) sequenceGapCount += 1;
     discardEmittedDraft();
@@ -441,64 +499,60 @@ export async function askBackendStream(
         : "typed evidence hold receipt invalid",
     );
   }
-  await flushPump();
-  if (callbacks.signal?.aborted) return stopped(emittedText);
-  if (turnInterrupted) return stopped(answerText);
-
-  if (protocolError !== null) {
-    if (emittedText.length === 0) return unavailable(protocolError);
-    partialTerminalCount += 1;
-    return {
-      text: emittedText,
-      citations: snapshotCitations(snapshot),
-      followUps: [],
-      source: `partial (${protocolError})`,
-    };
+  if (callbacks.signal?.aborted) {
+    await flushPump();
+    return stopped(emittedText);
+  }
+  if (turnInterrupted) {
+    await flushPump();
+    return stopped(emittedText);
   }
 
-  if (errorCode === "content_policy_block") return unavailable("blocked by content policy");
-  if (errored && answerText === "") return unavailable("stream error");
+  if (protocolError !== null) {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable(protocolError);
+  }
+
+  if (errorCode === "content_policy_block") {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("blocked by content policy");
+  }
+  if (errored && answerText === "") {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("stream error");
+  }
   if (errored || interrupted) {
-    partialTerminalCount += 1;
+    discardEmittedDraft();
+    await flushPump();
     const why = errored ? "stream error" : "stream interrupted";
-    return {
-      text: answerText,
-      citations: snapshotCitations(snapshot),
-      followUps: [],
-      source: `partial (${why})`,
-    };
+    return unavailable(why);
   }
   if (sequenceGap) {
     sequenceGapCount += 1;
-    partialTerminalCount += 1;
-    const gapDone: Record<string, unknown> = doneData ?? {};
-    const terminalAnswer = typeof gapDone.answer === "string" ? gapDone.answer : "";
-    return {
-      text: terminalAnswer || answerText,
-      citations: snapshotCitations(snapshot),
-      followUps: [],
-      source: "partial (sequence gap)",
-    };
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("sequence gap");
   }
   if (!terminalSeen && answerText !== "") {
-    partialTerminalCount += 1;
-    return {
-      text: answerText,
-      citations: snapshotCitations(snapshot),
-      followUps: [],
-      source: "partial (missing terminal verification)",
-    };
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("missing terminal verification");
   }
-  if (answerText === "" && doneData === null) return unavailable("empty stream");
+  if (answerText === "" && doneData === null) {
+    await flushPump();
+    return unavailable("empty stream");
+  }
+  callbacks.onValidatedTerminal?.();
+  await flushPump();
+  if (callbacks.signal?.aborted) return stopped(emittedText);
   const pendingRevision = pendingRevisions.at(-1);
   if (pendingRevision !== undefined) {
-    callbacks.onRevision?.(
-      pendingRevision.answer,
-      pendingRevision.revision,
-      pendingRevision.status,
-    );
+    emitRevision(pendingRevision.answer, pendingRevision.revision, pendingRevision.status);
   }
-  if (confirmedSegment !== undefined && !advisoryAnswer) callbacks.onConfirmed?.(confirmedSegment);
+  if (confirmedSegment !== undefined && !advisoryAnswer) emitConfirmed(confirmedSegment);
 
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs = typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)
@@ -511,7 +565,11 @@ export async function askBackendStream(
   const finalText = presentationArtifact
     ? canonicalAnswer
     : chartArtifactText(done.chart_artifact) ?? canonicalAnswer;
-  if (finalText === "") return unavailable("upstream returned empty completion");
+  if (finalText === "") {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("upstream returned empty completion");
+  }
   const delegation = parseDelegation(done.delegation);
   const answerPlan = parseAnswerPlan(done.answer_plan);
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
@@ -529,7 +587,7 @@ export async function askBackendStream(
   const intentGraph = parseIntentGraph(done.intent_graph);
   const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
   const conversationBinding = normalizeIncidentBinding(done.conversation_context);
-  const chosen = router?.chose ?? model;
+  const chosen = conversationReplyModel(model, router?.chose, callbacks.conversationModelTier);
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const directResponse = isSemanticDirectResponseSource(explicitSource);
   const source = directResponse
@@ -538,6 +596,20 @@ export async function askBackendStream(
     (latencyMs !== null && latencyMs >= 0 ? `llm:${chosen} · ${latencyMs}ms` : `llm:${chosen}`) +
     tokenSuffix(done.usage)
   );
+  const oneShotGeneralAnswer = advisoryAnswer?.goals.length === 1 &&
+    finalText.length <= 400 &&
+    advisoryAnswer.answer === finalText &&
+    advisoryAnswer.goals[0]?.goal_id === "general-knowledge" &&
+    advisoryAnswer.goals[0]?.kind === "knowledge" &&
+    advisoryAnswer.goals[0]?.status === "answered" &&
+    advisoryAnswer.goals[0]?.required === true &&
+    advisoryAnswer.goals[0]?.evidence_refs.length === 0 &&
+    advisoryAnswer.quality_status === "limited" &&
+    advisoryAnswer.refinements === 0;
+  if (oneShotGeneralAnswer && emittedText === "") {
+    await emitTypewriter(finalText);
+    if (callbacks.signal?.aborted) return stopped(emittedText);
+  }
   const base: Answer & { readonly source: string } = {
     text: finalText,
     citations: directResponse || advisoryAnswer ? [] : citationsForVerification(snapshot, verification),

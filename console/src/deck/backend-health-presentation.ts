@@ -48,12 +48,11 @@ export function backendModel(health: BackendHealth, now = Date.now()): string | 
   return router?.chose.trim() || health.model?.trim() || null;
 }
 
-/** Preserves probing/unavailable labels and never invents a model for older health payloads. */
-export function backendBadgeLabel(health: BackendHealth | null, now = Date.now()): string {
+/** Keeps the persistent badge concise; model identity remains available in the tooltip. */
+export function backendBadgeLabel(health: BackendHealth | null): string {
   if (!health) return t("deck.backend.probing");
   if (!health.available) return t("deck.backend.deterministic");
-  const model = backendModel(health, now);
-  return model ? t("deck.backend.t1Model", { model }) : t("deck.backend.connected");
+  return t("deck.backend.connected");
 }
 
 function measurementStatus(

@@ -8,7 +8,7 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
 from fdai.core.conversation.intent_graph import resolve_execution_authority
@@ -75,7 +75,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_PROJECTION_PRODUCER_V16,
-    OPERATOR_REQUEST_CONSUMER_V16,
+    OPERATOR_REQUEST_CONSUMER_V17,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -128,6 +128,9 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_governed_documents_empty",
 }
 _SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
+    "conversation_preflight_malformed",
+    "conversation_preflight_provider_unavailable",
+    "general_answer_route_unverified",
     "semantic_frame_unavailable",
 }
 
@@ -143,6 +146,12 @@ class _SemanticProjectionExtensions:
     social_act: str | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
     operational_evidence: OperationalEvidenceProjection | None = None
+
+
+class _ObservedModelCall(Protocol):
+    model: str
+    usage: Mapping[str, int] | None
+    trace_call: Mapping[str, object]
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -426,6 +435,7 @@ class SemanticTurnProcessor:
 
         claim_finalized = False
         try:
+            failure_stage = "execute"
             try:
                 if assurance_case_id is None:
                     result, extensions = await self._execute(
@@ -434,6 +444,7 @@ class SemanticTurnProcessor:
                         principal=principal,
                         cancelled=cancelled,
                     )
+                    failure_stage = "projection"
                     try:
                         projection = self._projection(
                             envelope,
@@ -458,18 +469,28 @@ class SemanticTurnProcessor:
                             request_digest=request_digest,
                         )
                 else:
+                    failure_stage = "assurance_projection"
                     projection = await self._pantheon_assurance_projection(
                         envelope,
                         request,
                         case_id=assurance_case_id,
                         request_digest=request_digest,
                     )
+                failure_stage = "result_store_write"
                 created = await self._results.put_if_absent(idempotency_key, projection)
                 if created:
                     claim_finalized = True
                     return projection
+                failure_stage = "result_store_read"
                 winner = await self._results.get(idempotency_key)
-            except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+            except Exception as exc:  # noqa: BLE001 - persistence detail must not cross the wire
+                _LOGGER.warning(
+                    "semantic_result_finalize_failed",
+                    extra={
+                        "failure_stage": failure_stage,
+                        "failure_type": type(exc).__name__,
+                    },
+                )
                 return self._held_projection(
                     envelope,
                     request,
@@ -695,6 +716,8 @@ class SemanticTurnProcessor:
         escalation_policy = await self._escalation_policy(request)
         if escalation_policy is not None:
             runtime_kwargs["escalation_policy"] = escalation_policy
+        if request.conversation_model_tier is not None:
+            runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         return await runtime.handle(
             utterance=request.utterance,
             prior_turns=_prior_turns(request, requested_at=requested_at),
@@ -984,7 +1007,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V16.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V17.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -1637,7 +1660,10 @@ def _semantic_model_extensions(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> _SemanticProjectionExtensions | None:
-    observations = getattr(result.planning, "model_observations", ())
+    observations = cast(
+        Sequence[_ObservedModelCall],
+        getattr(result.planning, "model_observations", ()),
+    )
     social_act = getattr(result.planning, "social_act", None)
     social_act_value = getattr(social_act, "value", None)
     if not observations and not isinstance(social_act_value, str):
@@ -1669,7 +1695,7 @@ def _semantic_model_extensions(
             latency_ms += duration
         calls.append(call)
     return _SemanticProjectionExtensions(
-        model=observations[-1].model,
+        model=_reported_conversation_model(request, observations),
         latency_ms=latency_ms,
         usage=measured_usage,
         model_trace=(
@@ -1684,6 +1710,30 @@ def _semantic_model_extensions(
         ),
         social_act=social_act_value if isinstance(social_act_value, str) else None,
     )
+
+
+def _reported_conversation_model(
+    request: SemanticTurnRequest,
+    observations: Sequence[_ObservedModelCall],
+) -> str:
+    """Report the selected answer author instead of its later independent reviewer."""
+
+    if request.conversation_model_tier is None:
+        return observations[-1].model
+    author_kinds = {
+        "adaptive-plan",
+        "adaptive-answer",
+        "adaptive-refine",
+        "conversation-social-narrator",
+        "semantic-planning-frame",
+        "semantic-planning-plan",
+    }
+    authored = [
+        observation
+        for observation in observations
+        if observation.trace_call.get("kind") in author_kinds
+    ]
+    return (authored[-1] if authored else observations[-1]).model
 
 
 def _merge_projection_extensions(

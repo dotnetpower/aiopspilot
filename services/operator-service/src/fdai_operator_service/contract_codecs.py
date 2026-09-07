@@ -14,6 +14,7 @@ CORE_REQUEST_PRODUCER_V13 = ProducerCodec("operator-core-request", "N", "1.3.0")
 CORE_REQUEST_PRODUCER_V14 = ProducerCodec("operator-core-request", "N", "1.4.0")
 CORE_REQUEST_PRODUCER_V15 = ProducerCodec("operator-core-request", "N", "1.5.0")
 CORE_REQUEST_PRODUCER_V16 = ProducerCodec("operator-core-request", "N", "1.6.0")
+CORE_REQUEST_PRODUCER_V17 = ProducerCodec("operator-core-request", "N", "1.7.0")
 CORE_PROJECTION_CONSUMER_V1 = ConsumerCodec("core-operator-projection", "N-1", ("1.0.0",))
 CORE_PROJECTION_CONSUMER_V11 = ConsumerCodec("core-operator-projection", "N", ("1.0.0", "1.1.0"))
 CORE_PROJECTION_CONSUMER_V12 = ConsumerCodec(
@@ -44,4 +45,5 @@ __all__ = [
     "CORE_REQUEST_PRODUCER_V14",
     "CORE_REQUEST_PRODUCER_V15",
     "CORE_REQUEST_PRODUCER_V16",
+    "CORE_REQUEST_PRODUCER_V17",
 ]

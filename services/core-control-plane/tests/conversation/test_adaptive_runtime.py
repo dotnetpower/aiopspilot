@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import Mapping
+from threading import Event
+from types import SimpleNamespace
 
 import pytest
 from fdai.core.conversation.conversation_preflight import (
     ContextDependency,
     ConversationPreflightProposal,
     ConversationPreflightResult,
+    GeneralKnowledgeDraft,
+    GeneralKnowledgeSignal,
     OperationalSignal,
     SocialAct,
 )
@@ -20,6 +26,7 @@ from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     OntologyQueryNode,
     QueryNodeKind,
+    content_digest,
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
@@ -50,6 +57,44 @@ from tests.conversation.test_semantic_planning import (
 from tests.conversation.test_semantic_planning import (
     _service as query_service,
 )
+
+_MODEL_DIGEST = "sha256:" + ("a" * 64)
+
+
+def _general_preflight_result(
+    proposal: ConversationPreflightProposal,
+    *,
+    utterance: str,
+) -> ConversationPreflightResult:
+    return ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=_MODEL_DIGEST,
+        prompt_digest=_MODEL_DIGEST,
+        direct_response_profile_digest=_MODEL_DIGEST,
+    )
+
+
+def _general_proposal(
+    *,
+    answer: str,
+    locale: str = "en",
+    confidence: float = 0.99,
+) -> ConversationPreflightProposal:
+    return ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.NONE,
+        context_dependency=ContextDependency.NONE,
+        knowledge_signal=GeneralKnowledgeSignal.EXPLICIT,
+        general_answer=GeneralKnowledgeDraft(
+            locale=locale,
+            answer=answer,
+            profile_digest=_MODEL_DIGEST,
+        ),
+        confidence=confidence,
+    )
 
 
 @pytest.mark.parametrize("available", [True, False])
@@ -129,6 +174,185 @@ async def test_general_explanation_does_not_require_query_planning_or_a_provider
         principal=Principal(id="operator", role=Role.READER),
     )
     assert result.disposition == "advisory_response"
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
+async def test_general_knowledge_preflight_keeps_the_adaptive_answer_path() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+    adaptive_model = AnswerModel(
+        answer={
+            "sections": [
+                {
+                    "goal_id": "general-knowledge",
+                    "text": "블루-그린은 일괄 전환하고 카나리는 점진적으로 확대합니다.",
+                }
+            ]
+        }
+    )
+
+    class _GeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            return _general_preflight_result(
+                _general_proposal(
+                    locale="ko",
+                    answer="블루-그린은 일괄 전환하고 카나리는 점진적으로 확대합니다.",
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("general knowledge must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_GeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+        adaptive_service=answer_service(adaptive_model),
+    )
+
+    result = await runtime.handle(
+        utterance="블루-그린 배포와 카나리 배포의 장단점을 비교해 줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        locale="ko",
+    )
+
+    assert result.disposition == "advisory_response"
+    assert result.adaptive_answer is not None
+    assert result.adaptive_answer.goals[0].kind == "knowledge"
+    assert result.adaptive_answer.quality_status == "limited"
+    assert adaptive_model.calls == []
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
+async def test_general_knowledge_cancellation_after_preflight_publishes_no_answer() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+    cancelled = asyncio.Event()
+
+    class _CancellingGeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            cancelled.set()
+            return _general_preflight_result(
+                _general_proposal(
+                    answer="Blue-green swaps environments; canary increases exposure gradually.",
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("cancelled general knowledge must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_CancellingGeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await runtime.handle(
+            utterance="Compare blue-green and canary.",
+            prior_turns=(),
+            principal=Principal(id="operator", role=Role.READER),
+            cancelled=cancelled,
+        )
+
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
+async def test_parent_cancellation_stops_thread_owned_preflight() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+    started = Event()
+    stopped = Event()
+
+    class _BlockingPreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            cancelled = kwargs["cancelled"]
+            assert isinstance(cancelled, asyncio.Event)
+            started.set()
+            while not cancelled.is_set():
+                time.sleep(0.001)
+            stopped.set()
+            return ConversationPreflightResult(
+                proposal=None,
+                attempted=True,
+                failure_kind="provider_unavailable",
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("cancelled preflight must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_BlockingPreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+    )
+    pending = asyncio.create_task(
+        runtime.handle(
+            utterance="Compare blue-green and canary.",
+            prior_turns=(),
+            principal=Principal(id="operator", role=Role.READER),
+        )
+    )
+    assert await asyncio.to_thread(started.wait, 1)
+    pending.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(pending, timeout=1)
+    assert stopped.wait(1)
+
+
+async def test_general_knowledge_does_not_require_an_adaptive_answer_runtime() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+
+    class _GeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            return _general_preflight_result(
+                _general_proposal(
+                    answer="Blue-green swaps environments; canary increases exposure gradually.",
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("general knowledge must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_GeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare blue-green and canary.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "advisory_response"
+    assert result.adaptive_answer is not None
+    assert result.adaptive_answer.answer.startswith("Blue-green")
     assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
 
 
@@ -225,6 +449,44 @@ async def test_classifier_outage_does_not_retry_the_request_through_the_legacy_m
     assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
 
 
+async def test_failed_configured_preflight_holds_without_another_model_call() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+    adaptive_model = AnswerModel(plan=answer_plan())
+
+    class _FailedPreflight:
+        def preflight(self, **_kwargs: object) -> ConversationPreflightResult:
+            return ConversationPreflightResult(
+                proposal=None,
+                attempted=True,
+                failure_kind="malformed",
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("failed preflight must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_FailedPreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+        adaptive_service=answer_service(adaptive_model),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare blue-green and canary.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "held"
+    assert result.reason == "conversation_preflight_malformed"
+    assert adaptive_model.calls == []
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
 async def test_general_answer_remains_available_without_an_operational_store() -> None:
     runtime = SemanticConversationRuntime(
         adaptive_service=answer_service(
@@ -247,6 +509,146 @@ async def test_general_answer_remains_available_without_an_operational_store() -
     assert result.adaptive_answer.goals[1].status == "unavailable"
     assert result.adaptive_answer.goals[1].limitation == "semantic_ontology_store_unavailable"
     assert result.execution is None
+
+
+async def test_general_answer_without_adaptive_profile_is_restricted_to_bragi() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+
+    class _BragiGeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            return _general_preflight_result(
+                _general_proposal(
+                    answer="Blue-green swaps environments; canary increases exposure gradually.",
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise RuntimeError("no verified Odin profile is available")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_BragiGeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare blue-green and canary.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        target_agent="Odin",
+    )
+
+    assert result.disposition == "held"
+    assert result.adaptive_answer is None
+    assert result.reason == "semantic_planning_failed"
+
+
+async def test_low_confidence_general_knowledge_holds_without_adaptive_planning() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=None)
+    adaptive_model = AnswerModel(answer=_draft())
+
+    class _LowConfidenceGeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            return _general_preflight_result(
+                _general_proposal(
+                    answer="Blue-green swaps environments; canary increases exposure gradually.",
+                    confidence=0.89,
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            raise AssertionError("uncertain general knowledge must not enter semantic judgment")
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_LowConfidenceGeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+        adaptive_service=answer_service(adaptive_model),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare blue-green and canary.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "held"
+    assert result.reason == "general_answer_route_unverified"
+    assert adaptive_model.calls == []
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
+async def test_no_t2_campaign_keeps_general_knowledge_on_verified_path() -> None:
+    manifest, definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=query_plan(definition))
+    adaptive_model = AnswerModel(answer=_draft())
+
+    class _GeneralKnowledgePreflight:
+        def preflight(self, **kwargs: object) -> ConversationPreflightResult:
+            utterance = kwargs["utterance"]
+            assert isinstance(utterance, str)
+            return _general_preflight_result(
+                _general_proposal(
+                    answer="Blue-green swaps environments; canary increases exposure gradually.",
+                ),
+                utterance=utterance,
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            return SimpleNamespace(
+                accepted=True,
+                observations=(),
+                proposal=SemanticJudgmentProposal(
+                    primary_intent="read_state",
+                    targets=(),
+                    requested_facets=(),
+                    confidence=0.99,
+                    ambiguous=False,
+                    action_posture="advise_only",
+                    action_subject="none",
+                    authority="candidate_only",
+                    execution_authority=False,
+                ),
+                receipt=SimpleNamespace(
+                    disposition=SimpleNamespace(value="accepted"),
+                    tier=SimpleNamespace(value="t1"),
+                ),
+            )
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_GeneralKnowledgePreflight(),
+        ),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+        adaptive_service=answer_service(adaptive_model),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare blue-green and canary.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        escalation_policy=NO_T2_ESCALATION_POLICY,
+    )
+
+    assert adaptive_model.calls == []
+    assert (query_model.frame_calls, query_model.plan_calls) == (1, 1)
+    assert result.adaptive_answer is None
 
 
 async def test_operational_requests_still_hold_when_the_store_is_missing() -> None:

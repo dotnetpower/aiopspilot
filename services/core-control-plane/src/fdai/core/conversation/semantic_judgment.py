@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -17,6 +18,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentReceipt,
     SemanticJudgmentTier,
 )
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
 from .conversation_preflight import (
@@ -133,6 +135,8 @@ class SemanticJudgmentBoundary:
         context: Sequence[str],
         locale: str,
         direct_response_profile: Mapping[str, Any],
+        cancelled: asyncio.Event | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
     ) -> ConversationPreflightResult:
         """Run the compact social/operational preflight when it is configured."""
 
@@ -143,6 +147,8 @@ class SemanticJudgmentBoundary:
             context=context,
             locale=locale,
             direct_response_profile=direct_response_profile,
+            cancelled=cancelled,
+            conversation_model_tier=conversation_model_tier,
         )
 
     def narrate_social(

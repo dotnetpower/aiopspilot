@@ -4,12 +4,23 @@ import { t } from "../i18n";
 import type { BackendHealth } from "./backend";
 import { BackendBadge, DeckLayoutIcon } from "./command-deck-presenters";
 import type { DeckLayoutMode } from "./command-deck-session";
+import type {
+  ConversationModelAvailability,
+  ConversationModelTier,
+} from "./conversation-model-selection";
+import {
+  conversationModelText,
+  conversationT2Label,
+} from "./conversation-model-i18n";
 
 export function CommandDeckHeader({
   conversationTitle,
   routeLabel,
   sessionLabel,
   health,
+  conversationModelTier,
+  conversationModelAvailability,
+  modelSelectionDisabled,
   searchAvailable,
   canStartNewConversation,
   conversationCount,
@@ -27,12 +38,16 @@ export function CommandDeckHeader({
   onToggleConversations,
   onSelectLayout,
   onClose,
+  onConversationModelTier,
   closeLabel = t("deck.close"),
 }: {
   readonly conversationTitle: string;
   readonly routeLabel: string;
   readonly sessionLabel: string | null;
   readonly health: BackendHealth | null;
+  readonly conversationModelTier: ConversationModelTier;
+  readonly conversationModelAvailability: ConversationModelAvailability;
+  readonly modelSelectionDisabled: boolean;
   readonly searchAvailable: boolean;
   readonly canStartNewConversation: boolean;
   readonly conversationCount: string;
@@ -50,6 +65,7 @@ export function CommandDeckHeader({
   readonly onToggleConversations: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onClose: () => void;
+  readonly onConversationModelTier: (tier: ConversationModelTier) => boolean;
   readonly closeLabel?: string;
 }) {
   return (
@@ -84,6 +100,30 @@ export function CommandDeckHeader({
           </>
         )}
         <BackendBadge health={health} placement="header" />
+        <label class="deck-model-selector">
+          <span class="sr-only">{conversationModelText("label")}</span>
+          <select
+            value={conversationModelTier}
+            disabled={modelSelectionDisabled}
+            aria-label={conversationModelText("label")}
+            title={conversationModelText("hint")}
+            style={{ maxWidth: "164px" }}
+            onChange={(event) => {
+              const accepted = onConversationModelTier(
+                event.currentTarget.value as ConversationModelTier,
+              );
+              if (!accepted) event.currentTarget.value = conversationModelTier;
+            }}
+          >
+            <option value="auto">{conversationModelText("auto")}</option>
+            <option value="t1">{conversationModelText("t1")}</option>
+            <option value="t2" disabled={!conversationModelAvailability.t2Available}>
+              {conversationModelAvailability.t2Available
+                ? conversationT2Label(conversationModelAvailability.t2Label ?? "T2")
+                : conversationModelText("t2Unavailable")}
+            </option>
+          </select>
+        </label>
       </div>
       <div class="deck-header-center">
         {searchAvailable ? <div class="deck-search" role="search">

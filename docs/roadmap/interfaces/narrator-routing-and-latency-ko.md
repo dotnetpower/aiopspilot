@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 9e4ace89f282ff8c98961fcf4dcbf6155979a434
+translation_source_sha: 8b38cfdfc001d1a7a0d37c0b4c1efde727748ce5
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -82,11 +82,11 @@ Operator는 구조와 최신성을 한도 안에서 검증한 뒤에만 이 변�
 없습니다. 상태의 사용 가능 여부는 의미 브리지의 전송 준비 상태를 뜻하며, 추론 성공이나 검증된
 답변을 뜻하지 않습니다.
 
-Console의 모델 배지는 `T1`과 변환 결과의 배포 이름을 표시합니다. 도구 설명은 후보별 처리 시간,
-표본 수 및 측정 완료, 오래됨, 미측정, 실패 상태를 구분합니다. Command Deck이 열려 있고 화면에
-표시되는 동안에만 30초마다 상태를 조회하며, 브라우저는 모델 탐색을 실행하지 않습니다.
-이 읽기 변환 결과는 두 번째 기록 주체, 서비스 간 구현 가져오기, 데이터베이스 데이터 재작성
-또는 공유 결정 상태를 만들지 않습니다.
+Console은 지속적으로 보이는 연결 배지를 간결하게 유지하고 배포 신원과 후보 처리 시간 상세를
+도구 설명에 배치합니다. 도구 설명은 표본 수와 측정 완료, 오래됨, 미측정, 실패 상태를
+구분합니다. Command Deck이 열려 있고 화면에 표시되는 동안에만 30초마다 상태를 조회하며,
+브라우저는 모델 탐색을 실행하지 않습니다. 이 읽기 변환 결과는 두 번째 기록 주체, 서비스 간
+구현 가져오기, 데이터베이스 데이터 재작성 또는 공유 결정 상태를 만들지 않습니다.
 
 ### 유지되는 경계와 기존 서술기
 
@@ -168,11 +168,24 @@ Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표�
 개정 번호와 일치해야 합니다. 상태와 감사 기록은 하나의 트랜잭션에서 커밋되므로, 동시에 진행된
 세션은 서로 덮어쓰지 않고 `409`를 받습니다.
 
-대상 스트리밍 라우터는 비어 있지 않은 첫 모델 토큰이 도착할 때 TTFT를 기록합니다. TTFT p50/p95와 전체
-지연 시간 p50/p95는 각각 별도의 이동 창과 샘플 개수를 씁니다. 측정되지 않은 TTFT는 사용 불가로
-둡니다. 선호 설정은 T1 서술기에만 적용됩니다. T1 내부 판단, 임베딩, 그리고 모든 T2 보조,
-비평자, 평가 기준, 에스컬레이션 배정은 시스템이 통제하는 상태로 남습니다. T2 기본 풀은
-운영자별로 개인화하지 않습니다.
+대상 스트리밍 라우터는 비어 있지 않은 첫 모델 토큰이 도착할 때 TTFT를 기록합니다. TTFT
+p50/p95와 전체 지연 시간 p50/p95는 각각 별도의 이동 창과 샘플 개수를 씁니다. 측정되지 않은
+TTFT는 사용 불가로 둡니다. 계정 선호 설정은 T1 서술기에만 적용됩니다. T1 내부 판단, 임베딩,
+그리고 모든 T2 보조, 비평자, 평가 기준, 에스컬레이션 배정은 시스템이 통제하는 상태로 남습니다.
+
+Command Deck은 별도의 대화별 모델 선택기도 제공합니다. `Auto`는 일반적인 결정론 우선 경로를
+유지하고, `T1`은 해당 대화에서 선택적 T2 개선을 막으며, `T2`는 활성
+`t2.reasoner.primary` 연결을 사용합니다. 순수 일반 지식 턴은 해당 T2 연결을 사용해 분류와
+범위가 제한된 답변 작성을 하나의 간결한 preflight에서 함께 수행합니다. adaptive 계획, 검토,
+개선, 확인 단계는 실행하지 않습니다. 운영 턴은 검증된 T2 계획 및 근거 경로를 유지합니다.
+선택한 등급은 새 턴부터 적용되고,
+principal 범위의 대화 키로 캐시되며, 권한이 없는 의미 요청에 포함됩니다. 정제된 모델 설정
+변환 결과가 활성 기본 모델을 보고하면 T2를 제공합니다. 작업 품질 검사의 `quorum_ready`
+플래그는 이 대화 선택을 통제하지 않습니다. 순수 일반 조언은 작업 권한이 없으며 운영 T2 품질
+검사 짝을 호출하지 않습니다. 운영 T2는 별도로 구성된 독립 검토 모델을 계속 유지합니다.
+브라우저는 임의의 배포 식별자를 제출하거나 해당 검토 모델을 고르거나 진행 중인 턴을 바꿀 수
+없습니다. 선택한 T2를 사용할 수 없으면 T1으로 몰래 전환하지 않고 명시적인 판단 보류 결과를
+반환합니다.
 
 Settings > Models는 T2 모델 정책 초안 작성기도 제공합니다. Operator API는
 `rule-catalog/llm-registry.yaml`의 공급자 및 계열 선호 설정만 보여줍니다. 운영자는 공급자가
@@ -328,6 +341,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 기존 서술기의 주기적 갱신 소유자 | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; 집중 스케줄러 및 조립 테스트 | Operator 수명 주기는 기존 로컬 Azure 서술기에서만 즉시 및 주기적 실행 하나를 소유하며, 의미 Kafka와 함께 실행하지 않습니다. 이 검사는 새 Core mini 탐색 소유자를 검증하지 않습니다. |
 | 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `services/operator-service/tests/test_narrator_preferences.py` | Service-local 개정 번호 기반 저장소는 principal마다 `Auto` 또는 허용된 배포 하나를 유지하고, 임의 모델 id를 거부하며, 오래된 개정 번호에는 충돌을 반환하고, principal을 격리하고, 제거된 배포는 저장된 선택을 버리지 않고 `Auto` 로 저하시킵니다. 정제된 변환 결과는 모드, 개정 번호, 허용 목록, 이동 timing 근거를 endpoint나 credential 없이 노출하며 T2 연결을 개인화하지 않는다고 선언합니다. 영속 저장, 인증된 Settings 경로, 배포 pinning 계약은 남아 있습니다. |
+| 대화별 T1/T2 선택 | validated | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py`; `services/core-control-plane/src/fdai/core/conversation/{conversation_preflight,semantic_runtime}.py`; `console/src/deck/conversation-model-selection.ts`; 집중 계약, Core, Operator 및 Console 검사와 범위가 제한된 로컬 라이브 진단 1회 | Command Deck은 대화별로 `Auto`, `T1`, `T2`를 저장합니다. 스키마 1.7은 허용된 등급만 `execution_authority=false`와 함께 전달합니다. 일반 T2 턴은 낮은 추론 수준의 preflight 1회에 구성된 기본 모델을 사용하고 adaptive 계획/검토/개선/확인 없이 범위가 제한된 답변을 반환합니다. 로컬 진단은 `gpt-5.6-sol`로 4.286초에 완료됐습니다. 표본 1개는 SLA를 입증하지 않습니다. 장치 간 서버 영속성과 인증된 화면 표시 브라우저 근거는 남아 있습니다. |
 | 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
 | 답변 연속성 및 프롬프트 ablation 설정 | implemented | Operator 런타임 설정 경로 및 PostgreSQL 어댑터, Core 시작 스냅샷, 콘솔 런타임 정책, 집중 Core, Operator 및 콘솔 검사 | Owner 변경은 비활성 제안과 리비전으로 보호된 Core 정책 레코드를 하나의 트랜잭션으로 영속화합니다. 두 설정은 재시작 후 적용되고, 프롬프트 ablation은 정보만 줄이며, 연속성은 보류 또는 미지원 표현만 변경합니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
@@ -341,6 +355,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | validated | 선택된 T2 일반 지식 턴이 분류와 범위가 제한된 답변 작성을 하나의 T2 preflight에서 함께 수행하도록 연결했습니다. GPT-5 preflight 요청은 낮은 추론 수준을 사용하며 이 조언 경로에서는 adaptive 계획/검토/개선/확인을 실행하지 않습니다. | `current change`; 집중 preflight/조립 검사 162개, Ruff, strict mypy, 서비스 경계 검사와 로컬 라이브 진단 1회가 4.286초 만에 `model=gpt-5.6-sol`의 `advisory_response`로 완료됐습니다. | 지연 시간 목표를 주장하기 전에 인증된 화면 표시 브라우저 스트리밍 근거와 측정 분포를 보존합니다. |
+| 2026-09-07 | implemented | 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다. T2는 모델이 작성하는 대화 단계에 구성된 기본 모델을 사용하며 독립 검토 모델과 권한 없는 요청 경계를 유지합니다. | `current change`; 집중 서비스 계약, Operator, Core 라우팅, Console 요청 본문, 영속성, 지역화, 타입 검사, 빌드 검사입니다. | 인증된 화면 표시 브라우저 근거를 보존하고 장치 간 연속성이 필요해지면 서버 쪽 선호 설정 영속성을 추가합니다. |
 | 2026-09-07 | implemented | Semantic consumer와 heartbeat marker 사이에 로그가 회전해도 잘못된 timeout이 발생하지 않도록 범위가 제한된 Core readiness가 `core-runtime.log.1`과 현재 로그를 함께 읽습니다. | `current change`; 집중 rotation 경계 회귀 테스트 통과 | 1MiB 전체 회전을 두 번 넘으면 범위가 제한된 사용 불가 결과를 유지합니다. |
 | 2026-09-07 | implemented | 자세한 시작 출력으로 semantic consumer marker가 기존 64KiB tail 밖으로 밀려난 뒤, 범위가 제한된 Core readiness 로그 window를 1MiB로 늘렸습니다. | `current change`; 64KiB를 넘는 중간 출력에서도 marker 순서를 보존하는 회귀 테스트를 추가했습니다. | 시작 출력이 새 상한에 가까워지면 구조화된 readiness projection을 권장합니다. |
 | 2026-09-07 | implemented | 수락하는 새로운 Pantheon heartbeat가 시작 이후 semantic consumer marker보다 뒤에 오도록 재시작 readiness 순서를 결속했습니다. | `current change`; 집중 developer-workflow 테스트에서 시작 이후지만 consumer보다 이른 heartbeat와 이후의 유효한 heartbeat를 확인했습니다. | 이중 언어 지연 분포를 보존합니다. |
@@ -397,6 +413,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 - [x] 시작 실패 시 획득한 모든 수명 주기 서비스의 정리를 시도하고 원래 출처 리비전 경계를 숨기지 않은 채 정리 실패를 보고합니다.
 - [ ] 통제된 제안 전용 조정기 실행 하나와 정확한 출처 리비전에 대한 배포 Operator 시작 영수증 하나를 보존합니다.
 - [ ] 런타임이 봉인된 정책과 모델 버전을 로드했음을 독립 검증하는 근거를 포함해 정확한 환경 정책 평가 및 보호된 PTU 계획, 적용, 롤백 캠페인 하나를 보존합니다.
+- [x] 스키마 1.7에서 허용된 등급을 보내고 모델이 작성하는 단계에 구성된 T2 기본 모델을 사용하며 독립 검토 모델과 `execution_authority=false`를 유지하는 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다.
+- [ ] T1에서 T2로 전환, 새로 고침 후 유지, 사용 불가 시 비활성 상태, T1으로 몰래 전환하지 않는 명시적 T2 프로바이더 실패에 대한 인증된 화면 표시 브라우저 근거를 보존합니다.
 
 ## 관련 문서
 

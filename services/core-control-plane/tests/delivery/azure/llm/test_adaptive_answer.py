@@ -19,6 +19,7 @@ from fdai.delivery.azure.llm.adaptive_answer import (
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle
 from fdai.shared.providers.workload_identity import IdentityToken
+from fdai_service_contracts import SemanticConversationModelTier
 
 SCHEMA = {
     "type": "object",
@@ -129,6 +130,32 @@ async def test_strict_output_keeps_untrusted_prose_out_of_system_and_measures_us
     assert result.observation.usage["total_tokens"] == 54
     assert result.observation.model == "primary"
     assert result.observation.trace_call["kind"] == "adaptive-answer"
+
+
+async def test_t2_conversation_tier_uses_the_configured_escalation_author() -> None:
+    requests: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=_envelope())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        model = AzureOpenAIAdaptiveModel(
+            identity=_Identity(),
+            http_client=client,
+            config=_config(),
+        ).for_conversation_tier(SemanticConversationModelTier.T2)
+        assert model is not None
+        result = await model.complete(
+            stage="answer",
+            system_prompt="Server policy.",
+            payload={"utterance": "Explain the evidence."},
+            schema=SCHEMA,
+        )
+
+    assert result is not None
+    assert result.observation.model == "escalation"
+    assert "/deployments/escalation/" in str(requests[0].url)
 
 
 @pytest.mark.parametrize("valid", [True, False])

@@ -13,6 +13,7 @@ from typing import TypeVar
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAnswer, AdaptiveGoalResult
 from fdai_service_contracts.ontology_query import EvidenceAuthority
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import BaseModel, ValidationError
 
 from .adaptive_call_scope import AdaptiveBudgetExceededError, bind_adaptive_model_budget
@@ -25,7 +26,11 @@ from .adaptive_models import (
     AdaptivePolicy,
     AdaptiveReview,
 )
-from .adaptive_prompt import ConversationProfile, compose_adaptive_prompt
+from .adaptive_prompt import (
+    ConversationProfile,
+    ConversationTierSelectableAdaptiveModel,
+    compose_adaptive_prompt,
+)
 from .adaptive_wait import await_adaptive_call
 from .model_observation import ConversationModelObservation
 
@@ -155,6 +160,7 @@ class AdaptiveConversationService:
         read_evidence: EvidenceReader,
         cancelled: asyncio.Event | None = None,
         allow_refinement: bool = True,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
     ) -> AdaptiveOutcome | AdaptiveUnavailable | AdaptiveDeferred | None:
         """Return advisory output or defer a non-advisory turn to the governed runtime."""
         profile = self._profiles(target_agent, locale, relationship)
@@ -162,6 +168,12 @@ class AdaptiveConversationService:
         if model is None:
             _LOGGER.warning("adaptive_t1_pair_unavailable")
             return AdaptiveUnavailable("adaptive_t1_pair_unavailable", ())
+        if conversation_model_tier is SemanticConversationModelTier.T2:
+            if not isinstance(model, ConversationTierSelectableAdaptiveModel):
+                return AdaptiveUnavailable("conversation_t2_model_unavailable", ())
+            model = model.for_conversation_tier(conversation_model_tier)
+            if model is None:
+                return AdaptiveUnavailable("conversation_t2_model_unavailable", ())
         budget = _Budget(self._policy, clock=self._clock, model=model)
         payload: dict[str, object] = {
             "utterance": utterance,

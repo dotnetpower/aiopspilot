@@ -184,6 +184,13 @@ class SemanticPlanningProfile(StrEnum):
     GOLDEN_CAMPAIGN_NO_T2 = "golden_campaign_no_t2"
 
 
+class SemanticConversationModelTier(StrEnum):
+    """Operator-selected model tier for model-authored conversation stages."""
+
+    T1 = "t1"
+    T2 = "t2"
+
+
 SemanticRoute = Literal[
     "verified_query_plan",
     "semantic_direct_response",
@@ -417,6 +424,7 @@ class SemanticTurnRequest(QueryContract):
     investigation_continuation: SemanticInvestigationContinuation | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
+    conversation_model_tier: SemanticConversationModelTier | None = None
     include_model_trace: bool = False
     cancelled: bool = False
     target_agent: AdaptiveAgentName = "Bragi"
@@ -428,6 +436,11 @@ class SemanticTurnRequest(QueryContract):
     def _relationship_observation_is_unambiguous(self) -> SemanticTurnRequest:
         if self.relationship_proof is not None and self.relationship_unknown_reason is not None:
             raise ValueError("relationship proof and unknown reason MUST be mutually exclusive")
+        if (
+            self.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
+            and self.conversation_model_tier is SemanticConversationModelTier.T2
+        ):
+            raise ValueError("golden campaign planning profile MUST NOT select T2")
         return self
 
 
@@ -893,6 +906,7 @@ __all__ = [
     "SemanticAssurancePathStep",
     "SemanticDirectResponseIntent",
     "SemanticInvestigationContinuation",
+    "SemanticConversationModelTier",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",

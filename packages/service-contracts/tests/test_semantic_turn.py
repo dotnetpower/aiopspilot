@@ -13,6 +13,7 @@ from fdai_service_contracts import (
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticAssuranceObservation,
+    SemanticConversationModelTier,
     SemanticInvestigationContinuation,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
@@ -43,6 +44,38 @@ def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
     principal = request.model_dump(mode="json")["principal"]
     assert isinstance(principal, dict)
     assert "groups" not in principal
+
+
+def test_conversation_model_tier_is_closed_and_has_no_authority() -> None:
+    now = datetime(2026, 9, 7, tzinfo=UTC)
+    request = SemanticTurnRequest(
+        utterance="Use the advanced conversation model.",
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-a",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=1,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+        conversation_model_tier=SemanticConversationModelTier.T2,
+    )
+
+    assert request.conversation_model_tier is SemanticConversationModelTier.T2
+    assert request.execution_authority is False
+    with pytest.raises(ValidationError):
+        SemanticTurnRequest.model_validate(
+            {**request.model_dump(mode="json"), "conversation_model_tier": "t3"}
+        )
+    with pytest.raises(ValidationError, match="MUST NOT select T2"):
+        SemanticTurnRequest.model_validate(
+            {
+                **request.model_dump(mode="json"),
+                "planning_profile": "golden_campaign_no_t2",
+            }
+        )
 
 
 def _projection_payload() -> dict[str, Any]:

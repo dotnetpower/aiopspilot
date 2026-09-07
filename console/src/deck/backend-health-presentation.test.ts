@@ -40,13 +40,15 @@ const health: BackendHealth = { ...legacyHealth, router };
 
 afterEach(() => setLocale("en"));
 
-describe("T1 backend model badge", () => {
-  it("shows the selected deployment, or the configured model on older payloads", () => {
-    expect(backendBadgeLabel(health, now)).toBe("T1 narrator-mini");
-    expect(backendBadgeLabel(legacyHealth)).toBe("T1 configured-mini");
-    expect(backendBadgeLabel({ ...health, model: null }, now)).toBe("T1 narrator-mini");
+describe("backend connection badge", () => {
+  it("shows a concise connection label without exposing the model deployment", () => {
+    expect(backendBadgeLabel(health)).toBe("Chat connected");
+    expect(backendBadgeLabel(legacyHealth)).toBe("Chat connected");
+    expect(backendBadgeLabel({ ...health, model: null })).toBe("Chat connected");
     expect(backendBadgeLabel({ ...legacyHealth, model: null })).toBe("Chat connected");
     expect(backendBadgeLabel({ ...legacyHealth, model: "  " })).toBe("Chat connected");
+    setLocale("ko");
+    expect(backendBadgeLabel(health)).toBe("채팅 연결됨");
   });
 
   it("preserves probing and unavailable states instead of presenting a cached model as ready", () => {
@@ -54,7 +56,7 @@ describe("T1 backend model badge", () => {
     expect(backendBadgeLabel({ ...health, available: false })).toBe("deterministic");
   });
 
-  it("keeps the model label visible in the actual header stylesheet", () => {
+  it("keeps the status label visible in the actual header stylesheet", () => {
     const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
     expect(css).toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: block; }");
     expect(css).not.toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: none; }");
@@ -79,7 +81,7 @@ describe("T1 backend model badge", () => {
     const expires = Date.parse(router.expires_at!);
     expect(backendModel(health, expires - 1)).toBe("narrator-mini");
     expect(backendModel(health, expires)).toBeNull();
-    expect(backendBadgeLabel(health, expires)).toBe("Chat connected");
+    expect(backendBadgeLabel(health)).toBe("Chat connected");
     expect(backendTooltipView(health, expires).model).toBeNull();
     expect(health.model).toBe("configured-mini");
   });
@@ -91,8 +93,7 @@ describe("T1 backend model badge", () => {
     };
     const sampleExpires = Date.parse("2026-09-06T10:01:00Z");
     expect(backendMeasurementExpiry(current.router, now)).toBe(sampleExpires);
-    expect(backendBadgeLabel(current, sampleExpires - 1)).toBe("T1 narrator-mini");
-    expect(backendBadgeLabel(current, sampleExpires)).toBe("Chat connected");
+    expect(backendBadgeLabel(current)).toBe("Chat connected");
     expect(backendTooltipView(current, sampleExpires).model).toBeNull();
   });
 
@@ -105,18 +106,17 @@ describe("T1 backend model badge", () => {
         candidates: [{ ...candidate, status: "stale" as const, measured_at: "2026-09-06T09:50:00Z" }],
       },
     };
-    expect(backendBadgeLabel(current, now)).toBe("T1 narrator-mini");
+    expect(backendBadgeLabel(current)).toBe("Chat connected");
     const view = backendTooltipView(current, now);
     expect(view.router?.reason).not.toBe("Measured latency");
     expect(view.router?.candidates[0]?.p50).toBe("-");
-    expect(backendBadgeLabel(current, Date.parse(router.expires_at!))).toBe("Chat connected");
   });
 
   it("preserves legacy configured/selected models without inventing an expiry", () => {
     const legacyRouter = { chose: router.chose, reason: "latency", candidates: [candidate] };
     const later = Date.parse("2026-09-07T10:00:00Z");
-    expect(backendBadgeLabel(legacyHealth, later)).toBe("T1 configured-mini");
-    expect(backendBadgeLabel({ ...health, router: legacyRouter }, later)).toBe("T1 narrator-mini");
+    expect(backendBadgeLabel(legacyHealth)).toBe("Chat connected");
+    expect(backendBadgeLabel({ ...health, router: legacyRouter })).toBe("Chat connected");
     expect(backendMeasurementExpiry(legacyRouter, later)).toBeNull();
   });
 
@@ -124,8 +124,7 @@ describe("T1 backend model badge", () => {
     const { updated_at: _updated, ...snapshot } = router;
     const current = { ...health, router: snapshot };
     expect(backendMeasurementExpiry(snapshot, now)).toBe(Date.parse(router.expires_at!));
-    expect(backendBadgeLabel(current, now)).toBe("T1 narrator-mini");
-    expect(backendBadgeLabel(current, Date.parse(router.expires_at!))).toBe("Chat connected");
+    expect(backendBadgeLabel(current)).toBe("Chat connected");
   });
 
   it.each(["en", "ko"] as const)("explains independent review and T2 scope in %s", (locale) => {

@@ -14,6 +14,7 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticOperation
 from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
@@ -76,6 +77,7 @@ from .semantic_resource_metric_planning import (
     compile_resource_metric_plan,
 )
 from .semantic_resource_state_planning import compile_resource_state_plan
+from .semantic_resource_visibility import exclude_hidden_operational_resources
 from .semantic_service_health_planning import compile_service_health_plan
 from .semantic_state_transition_planning import compile_resource_state_transition_plan
 from .semantic_subscription_scope_planning import compile_subscription_scope_plan
@@ -128,6 +130,7 @@ def dispatch_semantic_plan(
     now: Callable[[], datetime],
     cascade: SemanticPlanningCascade,
     escalation_policy: SemanticPlanningEscalationPolicy | None,
+    conversation_model_tier: SemanticConversationModelTier | None,
     model_observations: list[SemanticJudgmentObservation],
     anchored_incident_plan_builder: Callable[..., OntologyQueryPlan | None],
     stated_value_filter_plan_builder: Callable[..., OntologyQueryPlan | None],
@@ -581,6 +584,7 @@ def dispatch_semantic_plan(
             manifest=manifest,
             evaluation_time=evaluation_time,
             escalation_policy=escalation_policy,
+            conversation_model_tier=conversation_model_tier,
             observations=model_observations,
         )
     if plan is None:
@@ -662,6 +666,11 @@ def dispatch_semantic_plan(
                 descriptors=descriptors,
                 allowed_properties=allowed_value_filter_properties,
             )
+        plan = exclude_hidden_operational_resources(
+            plan,
+            output_shape=frame.output_shape,
+            descriptors=descriptors,
+        )
         verifier.verify(plan, manifest=manifest)
     return PlanDispatchResult(
         proposal=proposal,

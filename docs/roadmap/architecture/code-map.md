@@ -52,10 +52,10 @@ the carried gateway root. An optional exact backend filter stays in validated sc
 Operator's `document_export.py` renders the same verified inventory result, not a prior
 unrelated turn. Its response envelope can contain binary documents; `t1_model_health.py`
 validates raw projection input and never treats binary or absent content as model health.
-Core conversation routing runs compact preflight on the first turn, bypasses adaptive explanation
-planning for explicit operational requests, and narrows accepted inventory, configuration, and
-gateway intents to reviewed descriptor slices. Azure semantic planning selects the dedicated
-operational frame prompt and enforces the complete 64 KiB request ceiling.
+Core conversation routing runs compact preflight on the first turn. An explicitly selected T2
+binding classifies and authors a bounded general answer in that single preflight, while explicit
+operational requests bypass adaptive explanation planning and retain verified semantic planning.
+Azure semantic planning enforces reviewed descriptor slices and the complete 64 KiB request ceiling.
 For exact F1-F4 shapes, preflight can also supply provenance-bound candidate meaning and remove one
 serial full-judgment call. Core verifies current-input digests, source spans, confidence, context
 independence, family shape, and the principal manifest before reusing it. Other requests keep full
