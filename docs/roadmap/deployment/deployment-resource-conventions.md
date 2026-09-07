@@ -31,6 +31,9 @@ address so Terraform can reconcile that no-op state transition before evaluating
 storage, private endpoint, lifecycle Job, and exact internal ownership-marker targets. During deployer identity migration, the
 module preserves the previous data-owner assignment and adds the stable runner assignment at a
 separate address. Replacing either assignment remains a destructive plan and is blocked.
+The dev operations gateway target set includes that same moved resource-group address before its
+gateway, runtime, identity, and role targets, so a protected image update can reconcile the state
+move without widening to an untargeted destructive plan.
 The protected Console release workflow binds an exact CI-verified Core image, updates the existing
 catalog materialization Job with rollback, runs schema migration, and verifies the selected
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the
@@ -73,6 +76,7 @@ enabling self-review or administrator bypass.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Added the application resource group's moved address to the dev operations gateway target set after an exact protected Core image plan was blocked by Terraform's moved-instance coverage check. | `current change`; failed non-mutating plan `34145167117`, `deploy-dev.yml`, and 58 focused workflow contract tests | Generate a new zero-destroy protected plan and retain its exact apply receipt. |
 | 2026-09-07 | implemented | Removed append-only apply receipts from the 24-hour protected-plan cleanup allowlist after OI-16 proved that deleting the durable fallback breaks certification once the GitHub artifact expires. The exact OI-15 receipt was recovered from its Storage version and verified against the recorded content digest before restoration. | `current change`; failed certification `34044794294`; recovered receipt digest `sha256:3fe1b7d77ed4511c9e88283bae9798a8e74e2c79fc502e234fe36477d736cade`; focused cleanup checks. | Publish the retention fix, require exact-revision CI and image evidence, then dispatch a fresh independently approved certification campaign. |
 | 2026-09-07 | implemented | Admitted the exact internal resource-group ownership marker required by the moved-address target while continuing to reject every external resource-group change. | `current change`; zero-destroy protected plan `34043795578`; `enforce_plan_scope.py`; focused plan-scope checks. | Publish the guard, require exact-revision CI and image evidence, and retain a successful protected plan before certification. |
 | 2026-09-07 | implemented | Changed the operational-history deployer role transition from replacement to an additive assignment that preserves the previous principal. Any later retirement remains destructive and blocked from the certification plan. | `current change`; failed protected plan `34042602702`; `deploy-dev.yml`; case-history module; focused Terraform, deployment workflow, destructive-guard, and plan-scope checks. | Produce a fresh zero-destroy protected plan before any certification campaign, then retire the legacy principal only through a separate reviewed plan. |
