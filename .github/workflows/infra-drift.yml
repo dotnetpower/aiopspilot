@@ -166,7 +166,8 @@ jobs:
                   --event-topic "$event_topic" \
                     --pipeline-stage-topic "$pipeline_stage_topic" \
                     --pantheon-object-topic "$pantheon_object_topic" \
-              | python3 scripts/deployment/service/materialize_tfvars.py \
+              | MODEL_ENDPOINTS_JSON="{}" \
+                python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
                   --output "$temp_root/$service.tfvars.json"

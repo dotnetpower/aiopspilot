@@ -125,6 +125,7 @@ def test_workflow_plans_every_production_root() -> None:
     assert "TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}" in workflow
     assert "scripts/deployment/service/hydrate_database_host.py" in workflow
     assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
+    assert 'MODEL_ENDPOINTS_JSON="{}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
