@@ -20,6 +20,7 @@ from fdai.delivery.inventory_sync import (
     PromotedInventoryObservation,
     _ObservationAccumulator,
     _validate_resource_state_enrichment,
+    classify_inventory_failure,
     compute_relationship_coverage,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
@@ -1211,3 +1212,31 @@ async def test_failure_classification_drives_fallback(
         ]
     )
     assert result.failures[0].code is code
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (
+            ValueError("inventory candidate contains a link with a missing endpoint"),
+            "dangling_relationship_endpoint",
+        ),
+        (
+            ValueError("inventory candidate violates contains parent cardinality"),
+            "ambiguous_containment_parent",
+        ),
+        (
+            RuntimeError("inventory resource 'private-id' has conflicting duplicates"),
+            "conflicting_resource_duplicate",
+        ),
+    ],
+)
+def test_failure_classifier_redacts_internal_contract_details(
+    error: Exception,
+    message: str,
+) -> None:
+    failure = classify_inventory_failure(error)
+
+    assert failure.code is InventoryFailureCode.INVALID_DATA
+    assert failure.message == message
+    assert "private-id" not in failure.message

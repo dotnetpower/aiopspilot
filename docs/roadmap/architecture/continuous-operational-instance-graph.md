@@ -108,7 +108,7 @@ Each source has a validated policy rather than one global interval. The policy i
 - provider `Retry-After`, quota, and remaining-budget observations.
 
 When backlog or event lag grows, the scheduler consumes available budget more frequently. Each
-accelerator reports degradation independently instead of hiding it in a combined count. HTTP `429`
+accelerator reports degradation with redacted reason codes instead of hiding it in a combined count. HTTP `429`
 and provider throttling reduce concurrency and honor `Retry-After`; persistent unavailability opens
 the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the

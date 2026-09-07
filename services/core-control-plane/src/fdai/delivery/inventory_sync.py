@@ -560,6 +560,12 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
 
     message = type(exc).__name__
     code = InventoryFailureCode.SOURCE_UNAVAILABLE
+    internal_reason = _internal_inventory_failure_reason(exc)
+    if internal_reason is not None:
+        return InventoryAttemptFailure(
+            code=InventoryFailureCode.INVALID_DATA,
+            message=internal_reason,
+        )
     if isinstance(exc, InventoryStreamError):
         code = InventoryFailureCode.PARTIAL
         message = str(exc)
@@ -583,6 +589,28 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
         elif isinstance(exc, (ValueError, TypeError)):
             code = InventoryFailureCode.INVALID_DATA
     return InventoryAttemptFailure(code=code, message=message[:200])
+
+
+def _internal_inventory_failure_reason(exc: Exception) -> str | None:
+    """Classify reviewed invariant failures without retaining target identifiers."""
+    text = str(exc)
+    exact = {
+        "inventory candidate contains a link with a missing endpoint": (
+            "dangling_relationship_endpoint"
+        ),
+        "inventory candidate violates contains parent cardinality": (
+            "ambiguous_containment_parent"
+        ),
+    }
+    if reason := exact.get(text):
+        return reason
+    if (
+        isinstance(exc, RuntimeError)
+        and text.startswith("inventory resource ")
+        and text.endswith(" has conflicting duplicates")
+    ):
+        return "conflicting_resource_duplicate"
+    return None
 
 
 def _validate_enrichment(
