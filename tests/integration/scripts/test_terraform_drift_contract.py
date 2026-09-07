@@ -75,6 +75,13 @@ def _platform_state(*, missing_address: str | None = None) -> dict[str, Any]:
             "address": 'module.event_bus.azurerm_eventhub.topic["fdai.pantheon.objects"]',
             "values": {"name": "fdai.pantheon.objects"},
         },
+        {
+            "address": "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
+            "values": {
+                "name": "oai-example",
+                "endpoint": "https://oai-example.openai.azure.com/",
+            },
+        },
     ]
     return {
         "values": {
@@ -125,7 +132,11 @@ def test_workflow_plans_every_production_root() -> None:
     assert "TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}" in workflow
     assert "scripts/deployment/service/hydrate_database_host.py" in workflow
     assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
-    assert 'MODEL_ENDPOINTS_JSON="{}"' in workflow
+    assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in workflow
+    assert "resolved_models_digest=" in workflow
+    assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in workflow
+    assert "resolved_model_args+=(--model-binding-transition)" in workflow
+    assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
@@ -192,6 +203,7 @@ def test_stored_platform_inputs_preserve_pre_refresh_service_bindings(
     assert drift.stored_platform_inputs(_platform_state()) == {
         "database_host": "postgres.example.com",
         "event_topic": "fdai.change.events",
+        "model_endpoints": {"azure-openai:oai-example": "https://oai-example.openai.azure.com"},
         "pantheon_object_topic": "fdai.pantheon.objects",
         "pipeline_stage_topic": "fdai.pipeline.stages",
     }

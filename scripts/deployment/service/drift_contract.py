@@ -113,7 +113,7 @@ def stored_bootstrap_inputs(payload: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, str]:
+def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     """Read service planning inputs from pre-refresh platform state JSON."""
     values = payload.get("values")
     root = values.get("root_module") if isinstance(values, dict) else None
@@ -141,7 +141,7 @@ def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, str]:
             "fdai.pantheon.objects",
         ),
     }
-    resolved: dict[str, str] = {}
+    resolved: dict[str, Any] = {}
     for key, (address, attribute, expected) in resources.items():
         resource = _resource_at_address(root, address)
         resource_values = resource.get("values")
@@ -151,6 +151,39 @@ def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, str]:
         if expected is not None and value != expected:
             raise DriftContractError(f"platform state has unexpected {key}")
         resolved[key] = value
+    model_endpoints: dict[str, str] = {}
+    for address, reference_prefix, hostname_suffix, required in (
+        (
+            "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
+            "azure-openai:",
+            ".openai.azure.com",
+            True,
+        ),
+        (
+            "module.llm_foundry_partner[0].azurerm_cognitive_account.partner",
+            "azure-foundry:",
+            ".services.ai.azure.com",
+            False,
+        ),
+    ):
+        try:
+            resource = _resource_at_address(root, address)
+        except LookupError:
+            if required:
+                raise DriftContractError(
+                    "platform state is missing the primary model account"
+                ) from None
+            continue
+        resource_values = resource.get("values")
+        name = resource_values.get("name") if isinstance(resource_values, dict) else None
+        endpoint = resource_values.get("endpoint") if isinstance(resource_values, dict) else None
+        expected_endpoint = (
+            f"https://{name}{hostname_suffix}" if isinstance(name, str) and name else None
+        )
+        if not isinstance(endpoint, str) or endpoint.rstrip("/").lower() != expected_endpoint:
+            raise DriftContractError("platform state contains an invalid model endpoint")
+        model_endpoints[f"{reference_prefix}{name}"] = endpoint.rstrip("/")
+    resolved["model_endpoints"] = dict(sorted(model_endpoints.items()))
     return resolved
 
 
