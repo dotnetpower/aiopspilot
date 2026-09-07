@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ec16d7a6d0eae6765c40fc39c58833a8d45bed0f
+translation_source_sha: a716f88bcb9aee6d0f7aeb0bf2a683939178027a
 translation_revised: 2026-09-07
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -580,8 +580,8 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
 Settings 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure
 신호 출처가 Managed Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가
-제한된 Activity Log 복구 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 원본 또는 온톨로지
-변환 오류가 발생하면 실패합니다. 1분 스케줄러는 정상 간격 전에 대기 중인 작업을 다시
+제한된 Activity Log 복구 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 가속기 장애를
+독립적으로 보고하고 온톨로지 오류가 발생하면 실패합니다. 1분 스케줄러는 대기 작업을 다시
 시도합니다.
 
 ## 프로비저닝 후 검증

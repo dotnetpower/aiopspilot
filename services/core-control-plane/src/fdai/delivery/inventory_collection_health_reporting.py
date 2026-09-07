@@ -21,6 +21,7 @@ def build_scheduled_collection_health_projection(
     *,
     health_state: InventoryReconciliationHealthState | None,
     decision: CollectionScheduleDecision | None,
+    accelerator_degraded: bool = False,
 ) -> dict[str, Any] | None:
     """Return one aggregate health projection when both scheduled inputs exist."""
 
@@ -43,6 +44,8 @@ def build_scheduled_collection_health_projection(
         gaps.append(CollectionCoverageGap.SNAPSHOT_INCOMPLETE)
     if health_state.newer_failure:
         gaps.append(CollectionCoverageGap.SOURCE_UNAVAILABLE)
+    if accelerator_degraded and CollectionCoverageGap.SOURCE_UNAVAILABLE not in gaps:
+        gaps.append(CollectionCoverageGap.SOURCE_UNAVAILABLE)
     return build_inventory_collection_health_projection(
         InventoryCollectionHealthInput(
             source_alias=policy.source_id,
@@ -57,7 +60,11 @@ def build_scheduled_collection_health_projection(
             max_staleness_seconds=policy.max_staleness_seconds,
             visible_resource_count=health_state.resource_count,
             visible_relationship_count=health_state.relationship_count,
-            coverage_complete=health_state.coverage_complete and not health_state.newer_failure,
+            coverage_complete=(
+                health_state.coverage_complete
+                and not health_state.newer_failure
+                and not accelerator_degraded
+            ),
             coverage_gaps=tuple(gaps),
             provider_pressure=health_state.provider_pressure,
             retry_after_seconds=None,

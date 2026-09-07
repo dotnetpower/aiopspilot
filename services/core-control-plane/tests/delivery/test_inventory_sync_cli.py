@@ -30,6 +30,7 @@ from fdai.delivery.inventory_scheduler import (
 )
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
+    ChangeStreamDrainResult,
     _build_kubernetes_enricher,
     _build_ontology_observer,
     _build_sources,
@@ -534,7 +535,9 @@ async def test_change_stream_failure_degrades_without_stopping_the_tick(
         "fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed_unavailable
     )
 
-    assert await _drain_change_stream(config) is None
+    result = await _drain_change_stream(config)
+    assert result.published == 0
+    assert result.unavailable_sources == ("resourcechanges", "activity_log")
 
 
 async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -562,7 +565,9 @@ async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.Monkey
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _record)
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _record_feed)
 
-    assert await _drain_change_stream(config) == 0
+    result = await _drain_change_stream(config)
+    assert result.published == 0
+    assert result.unavailable_sources == ()
     assert called is False
     assert feed_called is False
 
@@ -586,7 +591,9 @@ async def test_change_stream_sums_both_accelerators_when_both_succeed(
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _recovery)
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
 
-    assert await _drain_change_stream(config) == 8
+    result = await _drain_change_stream(config)
+    assert result.published == 8
+    assert result.unavailable_sources == ()
 
 
 async def test_change_stream_one_failure_does_not_mask_the_other_success(
@@ -610,7 +617,9 @@ async def test_change_stream_one_failure_does_not_mask_the_other_success(
     )
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
 
-    assert await _drain_change_stream(config) == 5
+    result = await _drain_change_stream(config)
+    assert result.published == 5
+    assert result.unavailable_sources == ("activity_log",)
 
 
 async def test_change_stream_invokes_resource_change_feed_before_recovery_delta(
@@ -635,7 +644,9 @@ async def test_change_stream_invokes_resource_change_feed_before_recovery_delta(
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _recovery)
 
-    assert await _drain_change_stream(config) == 0
+    result = await _drain_change_stream(config)
+    assert result.published == 0
+    assert result.unavailable_sources == ()
     assert call_order == ["resource_change_feed", "recovery_delta"]
 
 
@@ -657,7 +668,7 @@ async def test_not_due_tick_flushes_service_readiness_status(
     monkeypatch.setattr(InventoryJobConfig, "from_env", lambda **_: config)
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli._drain_change_stream",
-        AsyncMock(return_value=0),
+        AsyncMock(return_value=ChangeStreamDrainResult(published=0)),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.PostgresInventoryReconciliationGate",

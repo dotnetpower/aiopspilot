@@ -130,6 +130,19 @@ class InventoryJobResult:
     active: bool
 
 
+@dataclass(frozen=True, slots=True)
+class ChangeStreamDrainResult:
+    """Sanitized per-source outcome for one bounded accelerator drain."""
+
+    published: int
+    unavailable_sources: tuple[str, ...] = ()
+
+    @property
+    def degraded(self) -> bool:
+        """Return whether any enabled accelerator was unavailable."""
+        return bool(self.unavailable_sources)
+
+
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
@@ -460,7 +473,7 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         dsn=config.dsn,
         freshness_budget_seconds=config.freshness_budget_seconds,
     )
-    published = await _drain_change_stream(config)
+    drain = await _drain_change_stream(config)
     reconciliation_gate = PostgresInventoryReconciliationGate(
         config=snapshot_config,
         change_min_interval_seconds=config.change_min_interval_seconds,
@@ -472,25 +485,22 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         config,
         health_state=reconciliation_gate.last_health_state,
         decision=reconciliation_gate.last_decision,
+        accelerator_degraded=drain.degraded,
     )
     if not due:
         _LOGGER.info(
             "inventory_reconciliation_not_due",
             extra={
                 "interval_seconds": config.reconciliation_interval_seconds,
-                "change_records_published": published if published is not None else 0,
-                "change_stream_available": published is not None,
+                "change_records_published": drain.published,
+                "change_stream_available": not drain.degraded,
+                "unavailable_sources": drain.unavailable_sources,
             },
         )
-        print(
-            "inventory reconciliation not due; "
-            + (
-                f"change records published {published}"
-                if published is not None
-                else "change stream unavailable"
-            ),
-            flush=True,
-        )
+        message = f"inventory reconciliation not due; change records published {drain.published}"
+        if drain.degraded:
+            message += f"; unavailable sources {','.join(drain.unavailable_sources)}"
+        print(message, flush=True)
         return config
     result = await run(config)
     if result.active:
@@ -517,6 +527,7 @@ async def _publish_collection_health(
     *,
     health_state: InventoryReconciliationHealthState | None,
     decision: CollectionScheduleDecision | None,
+    accelerator_degraded: bool = False,
 ) -> None:
     """Persist one sanitized aggregate projection for principal-gated reads."""
 
@@ -524,6 +535,7 @@ async def _publish_collection_health(
         config,
         health_state=health_state,
         decision=decision,
+        accelerator_degraded=accelerator_degraded,
     )
     if projection is None:
         return
@@ -532,22 +544,30 @@ async def _publish_collection_health(
     )
 
 
-async def _drain_change_stream(config: InventoryJobConfig) -> int | None:
+async def _drain_change_stream(config: InventoryJobConfig) -> ChangeStreamDrainResult:
     """Drain the read-only change accelerators without stopping completeness scans.
 
     The bounded ARG resourcechanges accelerator runs first - it is the
     lower-latency freshness hint - followed by the Activity Log recovery
     delta fallback/audit source. Each degrades independently: a source
     that is disabled or raises does not mask the other's success. The
-    combined result is `None` only when both are unavailable (disabled
-    counts as `0`, not unavailable), otherwise it is the sum of whatever
-    each source actually published."""
+    The result preserves both the published count and which enabled sources
+    were unavailable. Disabled sources count as available no-ops."""
 
     resource_change_result = await _try_resource_change_feed(config)
     recovery_delta_result = await _try_recovery_delta(config)
-    if resource_change_result is None and recovery_delta_result is None:
-        return None
-    return (resource_change_result or 0) + (recovery_delta_result or 0)
+    unavailable = tuple(
+        source
+        for source, result in (
+            ("resourcechanges", resource_change_result),
+            ("activity_log", recovery_delta_result),
+        )
+        if result is None
+    )
+    return ChangeStreamDrainResult(
+        published=(resource_change_result or 0) + (recovery_delta_result or 0),
+        unavailable_sources=unavailable,
+    )
 
 
 async def _try_resource_change_feed(config: InventoryJobConfig) -> int | None:

@@ -107,10 +107,10 @@ Each source has a validated policy rather than one global interval. The policy i
 - bounded jitter, exponential backoff, and a circuit-breaker threshold;
 - provider `Retry-After`, quota, and remaining-budget observations.
 
-When backlog or event lag grows, the scheduler consumes available budget more frequently. When the
-graph is current and churn is low, it increases the interval within the maximum staleness objective.
-HTTP `429` and provider throttling reduce concurrency and honor `Retry-After`. Persistent
-unavailability opens the circuit and schedules a bounded probe instead of retrying continuously.
+When backlog or event lag grows, the scheduler consumes available budget more frequently. Each
+accelerator reports degradation independently instead of hiding it in a combined count. HTTP `429`
+and provider throttling reduce concurrency and honor `Retry-After`; persistent unavailability opens
+the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
 last-attempt age and treats overlay rows, tombstones, or an open projection watermark as pending.
 Change demand or maximum staleness therefore cannot be deferred because a failure time is absent.
