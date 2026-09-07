@@ -16,32 +16,9 @@ renders only evidence and verified limitations.
 
 ![Design at a glance. The main stages are Text, screen, image, document, Bounded context resolver, T1 mini-model intent graph, Deterministic graph validator, Available capability binding, T2 reasoner retry, Read task DAG, Evidence ledger, Claim verification, Bragi presentation.](../../diagrams/generated/fdai-roadmap-interfaces-hierarchical-conversation-planning-01.en.svg)
 
-The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to
-the current principal and deployment. The validator blocks unknown capabilities, cycles,
-unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation
-draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only
-when the T1 model or provider is unavailable and the active typed policy permits that exact stage.
-Schema, build, manifest, and frame-plan verification failures terminate as clarification,
-unsupported, or held without T2. A valid T1 clarification, action draft, scope denial, or
-evidence-execution hold also never spends T2 capacity. Golden campaign requests select the separate
-`golden_campaign_no_t2` profile, so provider unavailability cannot trigger a campaign fallback.
+The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to the current principal and deployment. The validator blocks unknown capabilities, cycles, unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only when the T1 model or provider is unavailable and the active typed policy permits that exact stage. Schema, build, manifest, and frame-plan verification failures terminate as clarification, unsupported, or held without T2. A valid T1 clarification, action draft, scope denial, or evidence-execution hold also never spends T2 capacity. Golden campaign requests select the separate `golden_campaign_no_t2` profile, so provider unavailability cannot trigger a campaign fallback.
 
-An Owner can enable aggressive read-only T2 recovery from Runtime policies. The setting defaults
-on in development for local demonstrations and off in staging and production until promoted with
-measured assurance evidence. It is read for each interactive turn, so changing it does not require
-a Core restart.
-When enabled, Core gives the configured T2 planner one bounded retry after T1 cannot produce a
-usable frame or plan. Eligible clarification is a typed Resource identity, subject, or measure hold;
-server-bound scope and purpose holds are excluded. The retry receives only compact typed recovery
-context: the failed stage, trigger, and safe validation reason. It does not receive provider output
-or hidden reasoning. The deterministic frame and plan verifier remains mandatory. If T2 still
-requires clarification, Core returns the original T1 clarification rather than a lower-confidence
-guess; a later plan failure remains an honest unavailable result. Action drafts, scope and
-authorization denials, `golden_campaign_no_t2`, evidence
-verification, and execution authority remain unchanged. The request profile is evaluated before the
-runtime setting, so `golden_campaign_no_t2` always wins. T2 may produce a better verified read plan,
-but it cannot invent a resource identity, relationship, or evidence item to avoid an honest
-limitation. Each turn records the effective setting and escalation trigger in operational logs.
+An Owner can enable aggressive read-only T2 recovery from Runtime policies. The setting defaults on in development for local demonstrations and off in staging and production until promoted with measured assurance evidence. It is read for each interactive turn, so changing it does not require a Core restart. When enabled, Core gives the configured T2 planner one bounded retry after T1 cannot produce a usable frame or plan. Eligible clarification is a typed Resource identity, subject, or measure hold; server-bound scope and purpose holds are excluded. The retry receives only compact typed recovery context: the failed stage, trigger, and safe validation reason. It does not receive provider output or hidden reasoning. The deterministic frame and plan verifier remains mandatory. If T2 still requires clarification, Core returns the original T1 clarification rather than a lower-confidence guess; a later plan failure remains an honest unavailable result. Action drafts, scope and authorization denials, `golden_campaign_no_t2`, evidence verification, and execution authority remain unchanged. The request profile is evaluated before the runtime setting, so `golden_campaign_no_t2` always wins. T2 may produce a better verified read plan, but it cannot invent a resource identity, relationship, or evidence item to avoid an honest limitation. Each turn records the effective setting and escalation trigger in operational logs.
 
 A compact T1 conversation preflight runs before manifest loading and full semantic judgment. It sees
 the utterance, locale, bounded recent context, and trusted Bragi profile, but no ontology capability
