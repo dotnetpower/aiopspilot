@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c8a0caf80e178473f12d2e4716d11cd08b35953d
+translation_source_sha: 95be89a9cd309baaaacf23eef2ff51bb3da9e2df
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -217,15 +217,9 @@ optional package 카탈로그를 해석하므로 새 경로가 누락된 English
 필요한 모든 LinkType 증적을 결속합니다. `conversation_preflight_answer_safety.py`와 `conversation_preflight_targets.py`는 모델 답변 안전성과 정확한 대상, 시간 및 구독 범위 검증을 분리하고, `semantic_planning_preflight.py`와 `semantic_target_candidate_constants.py`는 간결한 서술자 선택과 타입 기반 대상 후보 집합을 소유합니다. Gateway plan은 권한이 있는 같은 진단 유형 이름을 수집하고 `semantic_target_suggestions.py`는 대상을 다시 결속하지 않고 후보 순위를 정합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
-신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
-ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
-다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
-대상이 없는 최근 상태 계획은 Resource 범위를 매니페스트에 선언되고 검토된 운영 상태 경로가 있는
-유형으로 좁히며 상태 사실 메타데이터를 요구합니다. ObjectSet 서비스는 범위가 제한된 텍스트 값
-집합을 온톨로지 저장소 조회 하나에 전달하므로 원본 세대와 완전성을 한 번만 평가합니다. 상태 전이
-함수는 Resource마다 두 시간축 기준으로 가장 최근 전이 하나를 유지하고 Console 변환 결과는 인벤토리
-권한 입력을 보존합니다. 원본이 불완전하면 빈 목록이나 추정 목록이 아니라 타입 기반 근거 보류로
-유지합니다.
+신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
+대상이 없는 최근 상태 계획은 Resource 범위를 매니페스트에 선언되고 검토된 운영 상태 경로와 상태 사실 메타데이터가 있는 유형으로 좁힙니다. ObjectSet 서비스는 범위가 제한된 유형 집합을 온톨로지 저장소 조회 하나에 전달하므로 원본 세대와 완전성을 한 번만 평가합니다.
+상태 전이 함수는 Resource마다 두 시간축 기준으로 가장 최근 전이 하나를 유지하고 Console 변환 결과는 인벤토리 권한 입력을 보존합니다. 원본이 불완전하면 빈 목록이나 추정 목록이 아니라 타입 기반 근거 보류로 유지합니다.
 검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 생성기를 통해 잔여 `frame` 모델을 우회합니다. 문서 초안 작성은 초안 전용이며 인증된 principal의 직전 검증 결과에 원본을 바인딩합니다. 관리형 문서 근거 계획은 스키마로 검증된 근거 모드에서만 `query.governed_documents`를 컴파일합니다. 판독기는 제한된 발췌문을 반환하기 전에 정확한 principal, 그룹, 컬렉션, 목적, 정책, 리비전, 수명 주기 및 완전성을 다시 검증합니다. 필수 또는 명시적 근거가 없으면 안전하게 보류하고, 선택적 근거 실패는 독립 운영 근거가 있는 경우에만 부분 답변으로 명확히 표시합니다. 문서 텍스트는 신뢰하지 않으며 지시 또는 실행 권한을 부여하지 않습니다.
 Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
 레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.

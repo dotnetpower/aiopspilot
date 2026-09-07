@@ -211,15 +211,9 @@ identity claim.
 Validated `Document` judgments and exact named resource-group membership bypass the residual frame model through deterministic builders. Document drafting remains draft-only and binds its source to the authenticated principal's preceding verified result. Governed-document evidence planning separately compiles `query.governed_documents` only from a schema-validated evidence mode. Its reader revalidates the exact principal, groups, collection, purpose, policy, revision, lifecycle, and completeness before returning bounded excerpts. Required or explicit evidence fails closed; optional failure can produce only a labeled partial answer backed by independent operational evidence. Document text remains untrusted and grants no instruction or execution authority.
 The Core package pins the Snappy codec used by Kafka consumers so compressed EventBus records do
 not pass readiness and then terminate a required runtime task.
-Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
-relationship inclusion by default, and the default remains absent from legacy serialized
-definitions so replay digests do not change.
-Targetless recent-state plans narrow Resource scope to manifest-declared types with reviewed
-operational-state paths and require state-fact metadata. The ObjectSet service pushes the bounded
-text value set into one ontology-store query so source generation and completeness are evaluated
-once. The transition function keeps one latest bitemporal edge per Resource and the Console
-projection preserves its inventory authority input. An incomplete source remains a typed evidence
-hold rather than an empty or guessed Resource list.
+Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain relationship inclusion by default, and the default remains absent from legacy serialized definitions so replay digests do not change.
+Targetless recent-state plans narrow Resource scope to manifest-declared types with reviewed operational-state paths and state-fact metadata. The ObjectSet service pushes the bounded type set into one ontology-store query so source generation and completeness are evaluated once.
+The transition function keeps one latest bitemporal edge per Resource, and the Console projection preserves its inventory authority input. An incomplete source remains a typed evidence hold rather than an empty or guessed Resource list.
 Semantic judgment uses strict structured output, and a first-turn operational read avoids the
 social preflight while direct social candidates and context-bearing turns remain independently
 confirmed.
