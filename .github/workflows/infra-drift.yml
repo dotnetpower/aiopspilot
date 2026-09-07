@@ -5,6 +5,11 @@ name: infra-drift
 # protected deploy plans, so incomplete dispatch inputs cannot propose deletes.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/infra-drift.yml"
+      - "scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
   workflow_dispatch:
@@ -29,6 +34,7 @@ concurrency:
 jobs:
   drift:
     if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]

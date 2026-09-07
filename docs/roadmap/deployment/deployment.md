@@ -174,9 +174,11 @@ prod topology so shadow evaluation is representative.
   independent service roots, and the bootstrap root for each environment. Refresh-only planning
   compares live resources with the last applied state and cannot interpret missing dispatch-only
   feature inputs as deletion intent. Protected deploy plans separately compare code and deployment
-  configuration with state. The root contract uses distinct backend keys and resolves service images
-  from pre-refresh state, so an out-of-band image change remains visible. Missing state, missing
-  inputs, unreadable evidence, and detected drift all fail the run; drift is never silently applied.
+  configuration with state. A change to the drift workflow or its state parser also starts this
+  read-only check on `main`, which validates the detector without a separate dispatch. The root
+  contract uses distinct backend keys and resolves service images from pre-refresh state, so an
+  out-of-band image change remains visible. Missing state, missing inputs, unreadable evidence, and
+  detected drift all fail the run; drift is never silently applied.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
   [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set); the
   inventory renders the CSP-neutral contracts in [csp-neutrality.md](../architecture/csp-neutrality.md)):

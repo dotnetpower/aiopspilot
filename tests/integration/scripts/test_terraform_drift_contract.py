@@ -125,6 +125,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Plan independent service roots" in workflow
     assert "Plan bootstrap root" in workflow
     assert workflow.count("-refresh-only") == 3
+    assert '"scripts/deployment/service/drift_contract.py"' in workflow
+    assert "github.event_name == 'push' && github.ref == 'refs/heads/main'" in workflow
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
     assert "drift_contract.py \\\n            platform-inputs" in workflow

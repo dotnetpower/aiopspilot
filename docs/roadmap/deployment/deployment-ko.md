@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: aadc77c7ae4433c215ca35103e3a9e5130e041a1
+translation_source_sha: 216804eacdabf6d0c2f186dfa0489be4675b7484
 translation_revised: 2026-09-07
 ---
 
@@ -173,10 +173,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - **표류 감지**: 환경별로 예약된 읽기 전용 새로 고침 계획은 이전 방식 platform 루트, 독립
   서비스 루트 5개, 초기화 루트를 모두 검사합니다. 새로 고침 전용 계획은 라이브 리소스와 마지막
   적용 상태를 비교하며, 전달 시점에만 사용하는 기능 입력 누락을 삭제 의도로 해석하지 않습니다.
-  보호된 배포 계획은 코드 및 배포 구성과 상태의 차이를 별도로 확인합니다. 루트 계약은 서로 다른
-  백엔드 키를 사용하고 새로 고침 전 상태에서 서비스 이미지를 해석하므로 대역 외 이미지 변경도
-  드러납니다. 상태나 입력이 없거나 근거를 읽을 수 없거나 표류가 발견되면 실행이 실패합니다.
-  표류는 자동으로 적용되지 않습니다.
+  보호된 배포 계획은 코드 및 배포 구성과 상태의 차이를 별도로 확인합니다. 표류 workflow 또는
+  상태 파서가 변경되면 `main`에서도 이 읽기 전용 검사를 시작하므로 별도 전달 없이 감지기를
+  검증할 수 있습니다. 루트 계약은 서로 다른 백엔드 키를 사용하고 새로 고침 전 상태에서 서비스
+  이미지를 해석하므로 대역 외 이미지 변경도 드러납니다. 상태나 입력이 없거나 근거를 읽을 수
+  없거나 표류가 발견되면 실행이 실패합니다. 표류는 자동으로 적용되지 않습니다.
 - 프로비저닝 리소스 - **최소 비용 효율 세트** (전체 인벤토리 + 티어 결정은
   [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set);
   인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md) 의 CSP-중립 계약을 렌더링):
