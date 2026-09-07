@@ -1038,10 +1038,9 @@ class PostgresFamilyStore:
             raise ValueError("instance directory limit MUST be in [1, 200]")
         pattern = f"%{_escape_like(search.strip())}%" if search is not None else None
         rows = await self._fetch_all(
-            "SELECT resource_id, resource_type, props, last_seen "
-            "FROM inventory_snapshot_resource "
-            "WHERE snapshot_id = %(snapshot_id)s "
-            "AND resource_type <> ALL(%(unselectable_types)s) "
+            _EFFECTIVE_RESOURCES_CTE + "SELECT resource_id, resource_type, props, last_seen "
+            "FROM effective_resources "
+            "WHERE resource_type <> ALL(%(unselectable_types)s) "
             "AND (%(pattern)s::text IS NULL "
             "OR COALESCE(props ->> 'name', '') ILIKE %(pattern)s ESCAPE '\\' "
             "OR resource_type ILIKE %(pattern)s ESCAPE '\\' "

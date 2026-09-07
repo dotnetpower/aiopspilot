@@ -13,9 +13,9 @@ browser-side operational verdict.
 
 ## Design at a glance
 
-The existing instance reader supplies Resource properties from one immutable active inventory
-generation. The Operator Service projects these properties into three independent recorded-state
-axes. Both Console screens consume the same versioned shape.
+The instance directory and detail merge ordered realtime changes over one active generation.
+Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
+Resource properties into three independent axes that both Console screens consume.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

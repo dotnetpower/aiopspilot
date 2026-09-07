@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: dc87005c8561147a37c999ad8b9fa156945f6a57
+translation_source_sha: b83d8a6489df884ede40dd652f3dd8d5edd689b0
 translation_revised: 2026-09-07
 ---
 # 기록된 리소스 상태
@@ -15,9 +15,9 @@ translation_revised: 2026-09-07
 
 ## 설계 요약
 
-기존 인스턴스 읽기 구성요소가 현재의 불변 인벤토리 세대에서 Resource 속성을 제공합니다.
-Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표현합니다.
-두 Console 화면은 같은 버전의 데이터 형태를 사용합니다.
+인스턴스 목록과 상세 정보는 현재 세대 위에 순서가 보장된 실시간 변경을 병합합니다.
+기록 상태 페이지는 불변 상태와 세대 경계를 유지합니다. Operator Service는 Resource 속성을
+두 Console 화면이 사용하는 독립적인 세 가지 구분으로 표현합니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

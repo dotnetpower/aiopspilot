@@ -822,3 +822,32 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
         assert "LEFT JOIN inventory_realtime_link overlay" in link_query
         assert "NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay" not in link_query
         assert "removed.change_kind='delete'" in link_query
+
+
+async def test_instance_directory_uses_the_same_realtime_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[str] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        return []
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    await store.read_inventory_instances(
+        snapshot_id="generation-1",
+        search=None,
+        limit=10,
+    )
+
+    assert len(statements) == 1
+    assert "FROM effective_resources" in statements[0]
+    assert "snapshot.props || overlay.props" in statements[0]
+    assert "removed.change_kind='delete'" in statements[0]
