@@ -588,14 +588,10 @@ backstop; its policy targets a six-hour healthy interval while the minute schedu
 
 ## Verification After Provisioning
 
-Post-provision verification (adapter reachability, canary round-trip, shadow correctness) is
-defined in the [post-deploy smoke test contract](../operations/operating-and-verification.md#post-deploy-smoke-test-contract).
-A protected apply also reads back the independently scheduled Inventory Job when it is enabled.
-The apply succeeds only when the inventory container is successfully provisioned and uses the exact
-digest-pinned Core image selected by the protected plan. This prevents a stale collector from
-continuing to publish change hints while complete graph reconciliation repeatedly fails.
-A failing verification aborts the promotion and rolls traffic back
-([deployment.md#release-and-rollback](deployment.md#release-and-rollback)).
+Post-provision verification covers adapter reachability, canary round-trip, shadow correctness, and
+readback of any enabled Inventory Job. The [smoke test contract](../operations/operating-and-verification.md#post-deploy-smoke-test-contract) fails the apply when the
+inventory container is not successfully provisioned on the plan's exact digest-pinned Core image,
+preventing stale collection; any failed verification aborts promotion and triggers [rollback](deployment.md#release-and-rollback).
 
 ## Cost-Efficiency Principles
 
