@@ -1,8 +1,8 @@
 name: infra-drift
 
-# Scheduled drift detection: run `terraform plan` against the live remote state
-# on the self-hosted VNet runner and fail (a visible signal) when the real
-# infrastructure has drifted from code. Detection only - never applies.
+# Scheduled drift detection: run refresh-only Terraform plans against live
+# remote state on the self-hosted VNet runner. Desired code changes stay in
+# protected deploy plans, so incomplete dispatch inputs cannot propose deletes.
 
 on:
   schedule:
@@ -104,7 +104,9 @@ jobs:
       - name: Plan legacy root
         id: legacy_drift
         continue-on-error: true
-        run: terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+        run: >-
+          terraform plan -refresh-only -input=false -lock-timeout=300s
+          -detailed-exitcode
 
       - name: Plan independent service roots
         id: service_drift
@@ -187,6 +189,7 @@ jobs:
                   --output "$temp_root/$service.tfvars.json"
             set +e
             terraform -chdir="$terraform_root" plan \
+              -refresh-only \
               -input=false \
               -lock-timeout=5m \
               -detailed-exitcode \
@@ -246,7 +249,7 @@ jobs:
           runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
-          terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+          terraform plan -refresh-only -input=false -lock-timeout=300s -detailed-exitcode
 
       - name: Enforce complete drift evidence
         if: always()

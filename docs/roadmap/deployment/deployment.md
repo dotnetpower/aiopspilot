@@ -40,6 +40,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Separated scheduled out-of-band drift detection from desired-state deployment planning. Every drift root now uses a refresh-only plan, so missing dispatch-only feature inputs cannot render enabled resources as deletion candidates. | `current change`; `.github/workflows/infra-drift.yml` and focused drift workflow contract tests | Retain one exact protected run showing deletion-free refresh plans; use protected deploy plans for unapplied code and configuration changes. |
 | 2026-09-07 | implemented | Added an explicit single-maintainer dev policy that validates a no-review Environment while retaining exact-plan and runtime safety gates. | `current change`; focused verifier and deployment workflow tests | Retain one successful direct dev apply and post-apply projection readback. |
 | 2026-09-05 | validated | Completed the first bot-requested protected Core service apply with a distinct human Environment approval, successful health and peer-isolation checks, and independent image and identity readback. | PR #455; plan `33965356996`; request `33965478498`; apply `33965498775`; Issue #454 | Keep the path non-production, exact-plan-bound, and subject to the protected Environment policy. |
 | 2026-09-05 | implemented | Added a non-production, bot-owned Core service apply request that verifies the exact successful plan run, unexpired artifact, image digest, commit, and Environment policy before dispatch. | `current change`; protected-operation workflow, request validator, and focused valid and fail-closed tests | Capture the first distinct-requester Environment approval and successful Core service apply receipt in Issue #454. |
@@ -169,11 +170,13 @@ prod topology so shadow evaluation is representative.
   check no later than the earliest evidence expiry, closes processing before reevaluation, and
   keeps the prior report for diagnosis. Programming errors still propagate after readiness closes,
   and only a complete successful refresh reopens processing.
-- **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
-  independent service roots, and the bootstrap root for each environment. The root contract uses
-  distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image
-  change remains visible. Missing state, missing inputs, unreadable evidence, and detected drift all
-  fail the run; drift is never silently auto-applied to prod.
+- **Drift detection**: a scheduled read-only refresh plan covers the legacy platform root, the five
+  independent service roots, and the bootstrap root for each environment. Refresh-only planning
+  compares live resources with the last applied state and cannot interpret missing dispatch-only
+  feature inputs as deletion intent. Protected deploy plans separately compare code and deployment
+  configuration with state. The root contract uses distinct backend keys and resolves service images
+  from pre-refresh state, so an out-of-band image change remains visible. Missing state, missing
+  inputs, unreadable evidence, and detected drift all fail the run; drift is never silently applied.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
   [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set); the
   inventory renders the CSP-neutral contracts in [csp-neutrality.md](../architecture/csp-neutrality.md)):
