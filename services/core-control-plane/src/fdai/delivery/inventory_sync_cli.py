@@ -48,6 +48,7 @@ from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionEnricher,
     InventoryPromotionObserver,
+    InventoryPromotionObserverError,
     InventoryPromotionRecovery,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
@@ -612,14 +613,17 @@ async def _main(argv: list[str]) -> None:
         config = await _load_job_config()
         try:
             await _run_due_once(config)
-        except InventorySourcesExhaustedError as exc:
+        except (InventorySourcesExhaustedError, InventoryPromotionObserverError) as exc:
             if not loop:
                 raise
+            failure_codes = (
+                tuple(failure.code.value for failure in exc.failures)
+                if isinstance(exc, InventorySourcesExhaustedError)
+                else ("ontology_projection_failed",)
+            )
             _LOGGER.warning(
                 "inventory_reconciliation_loop_tick_failed",
-                extra={
-                    "failure_codes": tuple(failure.code.value for failure in exc.failures),
-                },
+                extra={"failure_codes": failure_codes},
             )
             print("inventory reconciliation failed; retry scheduled", flush=True)
         if not loop:

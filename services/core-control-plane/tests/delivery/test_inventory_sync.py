@@ -14,6 +14,7 @@ import pytest
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceState,
     InventoryProjectionSourceStatus,
+    InventoryPromotionObserverError,
     InventoryRelationshipCoverage,
     InventoryStreamError,
     InventorySyncCoordinator,
@@ -1183,12 +1184,13 @@ async def test_observer_failure_is_visible_without_reverting_promotion() -> None
     async def _explode(observation: PromotedInventoryObservation) -> None:
         raise RuntimeError("derived projection unavailable")
 
-    with pytest.raises(RuntimeError, match="derived projection unavailable"):
+    with pytest.raises(InventoryPromotionObserverError, match="observer failed") as error:
         await InventorySyncCoordinator(store=store, promotion_observer=_explode).run(
             [_source("arg", _Inventory([InventoryBatch(final=True)]))]
         )
 
     assert store.promoted == ["attempt-1"]
+    assert isinstance(error.value.__cause__, RuntimeError)
     assert isinstance(InventoryStreamError("example"), RuntimeError)
 
 

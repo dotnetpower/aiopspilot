@@ -114,8 +114,8 @@ the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
 last-attempt age and treats overlay rows, tombstones, or an open projection watermark as pending.
 Change demand or maximum staleness therefore cannot be deferred because a failure time is absent.
-The local long-running loop records exact all-source exhaustion and retries after the configured
-loop interval. A one-shot job also fails when source collection or the promoted ontology projection
+The local long-running loop records typed source or projection failure and retries after its
+configured interval. A one-shot job also fails when source collection or the promoted ontology projection
 fails, while retaining the authoritative inventory generation for bounded recovery on the next tick.
 
 Configuration supplies deployment values. Repository defaults and tests define safe bounds, not a

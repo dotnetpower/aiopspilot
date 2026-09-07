@@ -223,6 +223,10 @@ class InventoryStreamError(RuntimeError):
     """An inventory stream violated its atomic-fence contract."""
 
 
+class InventoryPromotionObserverError(RuntimeError):
+    """The authoritative snapshot advanced but its derived projection failed."""
+
+
 class InventorySyncCoordinator:
     """Stage one source at a time and promote only a complete stream."""
 
@@ -366,12 +370,14 @@ class InventorySyncCoordinator:
             return
         try:
             await self._observer(observation)
-        except Exception:
+        except Exception as exc:
             _LOG.exception(
                 "inventory_promotion_observer_failed",
                 extra={"generation": observation.generation},
             )
-            raise
+            raise InventoryPromotionObserverError(
+                "inventory promotion observer failed after authoritative promotion"
+            ) from exc
 
     async def _stage_stream(
         self,
@@ -805,6 +811,7 @@ def _content_addressed_revision(value: str, prefix: str) -> bool:
 __all__ = [
     "InventoryProjectionSourceState",
     "InventoryProjectionSourceStatus",
+    "InventoryPromotionObserverError",
     "InventoryRelationshipCoverage",
     "InventoryStreamError",
     "InventoryPromotionEnricher",

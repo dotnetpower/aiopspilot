@@ -28,7 +28,10 @@ from fdai.delivery.inventory_scheduler import (
     CollectionScheduleDecision,
     ProviderPressure,
 )
-from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.inventory_sync import (
+    InventoryPromotionObserverError,
+    PromotedInventoryObservation,
+)
 from fdai.delivery.inventory_sync_cli import (
     ChangeStreamDrainResult,
     _build_kubernetes_enricher,
@@ -702,6 +705,40 @@ async def test_loop_retries_after_all_inventory_sources_fail(
         attempts += 1
         if attempts == 1:
             raise InventorySourcesExhaustedError(())
+        raise StopLoopError
+
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._load_job_config",
+        AsyncMock(return_value=config),
+    )
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli._run_due_once", run_tick)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.asyncio.sleep", AsyncMock())
+
+    with pytest.raises(StopLoopError):
+        await _main(["--loop"])
+
+    assert attempts == 2
+
+
+async def test_loop_retries_after_ontology_projection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    attempts = 0
+
+    class StopLoopError(RuntimeError):
+        pass
+
+    async def run_tick(_config: InventoryJobConfig) -> InventoryJobConfig:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise InventoryPromotionObserverError("projection failed")
         raise StopLoopError
 
     monkeypatch.setattr(
