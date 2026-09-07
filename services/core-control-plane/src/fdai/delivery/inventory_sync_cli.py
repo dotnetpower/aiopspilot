@@ -479,6 +479,14 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         change_min_interval_seconds=config.change_min_interval_seconds,
         source_policy=config.snapshot_policy(config.source_order[0]),
         cursor_scopes=config.scopes,
+        cursor_prefixes=tuple(
+            prefix
+            for enabled, prefix in (
+                (config.resource_change_feed_enabled, "arg_resource_change_cursor:"),
+                (config.recovery_delta_enabled, "inventory_delta_cursor:"),
+            )
+            if enabled
+        ),
     )
     due = await reconciliation_gate(config.reconciliation_interval_seconds)
     await _publish_collection_health(

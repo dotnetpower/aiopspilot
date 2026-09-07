@@ -64,7 +64,7 @@ consumers can remain active while safe-to-retry cursor and reconciliation tasks 
 ### Private-safe change acceleration
 
 The private deployment profile polls Azure Resource Graph `resourcechanges` with a durable cursor
-and records a successful-poll heartbeat even when its position is unchanged. Each bounded page is
+and tracks every enabled accelerator heartbeat even when positions are unchanged. Each bounded page is
 ordered oldest first, boundary duplicates are idempotent, and the cursor advances only after every
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation

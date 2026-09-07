@@ -55,16 +55,21 @@ class PostgresInventoryReconciliationGate:
         change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
         source_policy: SourceCollectionPolicy | None = None,
         cursor_scopes: tuple[str, ...] = (),
+        cursor_prefixes: tuple[str, ...] = ("inventory_delta_cursor:",),
     ) -> None:
         if change_min_interval_seconds < 1:
             raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
         if any(not scope.strip() for scope in cursor_scopes):
             raise ValueError("inventory cursor scopes MUST be non-empty strings")
+        if any(not prefix.strip() or not prefix.endswith(":") for prefix in cursor_prefixes):
+            raise ValueError("inventory cursor prefixes MUST be non-empty namespace prefixes")
         self._config = config
         self._change_min_interval_seconds = change_min_interval_seconds
         self._source_policy = source_policy
         self._cursor_keys = tuple(
-            f"inventory_delta_cursor:{scope}" for scope in dict.fromkeys(cursor_scopes)
+            f"{prefix}{scope}"
+            for prefix in dict.fromkeys(cursor_prefixes)
+            for scope in dict.fromkeys(cursor_scopes)
         )
         self._last_decision: CollectionScheduleDecision | None = None
         self._last_health_state: InventoryReconciliationHealthState | None = None

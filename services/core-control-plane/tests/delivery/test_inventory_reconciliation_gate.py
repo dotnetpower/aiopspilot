@@ -10,12 +10,16 @@ from fdai.delivery.inventory_source_policy import (
     SourceCollectionPolicy,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    PostgresInventoryReconciliationGate,
     _pending_resource_count,
     _projection_pending,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
     inventory_reconciliation_due,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
 )
 
 
@@ -285,3 +289,19 @@ def test_pending_ontology_projection_forces_collection() -> None:
 
     assert decision.action is CollectionScheduleAction.COLLECT
     assert decision.reason_codes == ("projection_pending",)
+
+
+def test_reconciliation_gate_tracks_every_enabled_accelerator_cursor() -> None:
+    gate = PostgresInventoryReconciliationGate(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://example"),
+        cursor_scopes=("sub-1",),
+        cursor_prefixes=(
+            "arg_resource_change_cursor:",
+            "inventory_delta_cursor:",
+        ),
+    )
+
+    assert gate._cursor_keys == (  # noqa: SLF001 - exact durable-key contract
+        "arg_resource_change_cursor:sub-1",
+        "inventory_delta_cursor:sub-1",
+    )
