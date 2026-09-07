@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9e9dd997b6195ea48ca0cbd15556391d30bff71c
+translation_source_sha: 3c591c2225c490bcbc9464ab4b9502a3801b0f65
 translation_revised: 2026-09-08
 ---
 # 코드 맵
@@ -177,13 +177,12 @@ PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세�
 코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
 부분적이거나 사용할 수 없는 관측을 표시합니다.
 Inventory 변경 수집은 타입이 지정된 `inventory_observation.py` 계약을 사용하고 overlay를 현재
-조회 경로로 유지하면서 추가 전용 PostgreSQL 원장에 이중 기록합니다. 원장 replay는 작업 상태를
-분리하고 완전성 검사에 projection watermark를 제공합니다. 범위가 제한된
-`postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
+조회 경로로 유지하면서 추가 전용 PostgreSQL 원장에 이중 기록합니다.
+`postgres_inventory_projection_checkpoints.py`는 전체 범위 보존 경계와 활성 범위 그래프 checkpoint를 분리하며, `inventory_ontology_state.py`는 세대에 결속된 상태를 검증합니다.
+범위가 제한된 `postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
 content, coverage, freshness 및 watermark가 동일할 때만 active generation을 migration합니다.
-로컬 authoritative refresh는 구성된 구독 범위를 기록하고 승격된 snapshot을 observation journal에
-추가한 뒤 ontology projection을 전진시킵니다. 완전성 검사는 active scope의 pending 관측을
-유지하면서 관련 없는 테스트 scope를 제외합니다.
+로컬 authoritative refresh는 구성된 구독 범위를 기록하고 승격된 snapshot을 추가한 뒤 ontology projection을 전진시킵니다.
+완전성 검사는 정확한 활성 checkpoint를 사용하며 관련 없는 범위는 보존 및 replay를 위해 대기 상태로 유지합니다.
 `operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,

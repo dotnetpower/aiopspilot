@@ -20,7 +20,6 @@ import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from enum import StrEnum
 
 from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
@@ -30,6 +29,11 @@ from fdai.core.ontology_platform.inventory_projection import (
 from fdai.delivery.inventory_sync import (
     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
     PromotedInventoryObservation,
+)
+from fdai.runtime.inventory_ontology_state import (
+    InventoryOntologyProjectionResult,
+    InventoryOntologyProjectionStatus,
+    InventoryProjectionCheckpoints,
 )
 from fdai.shared.providers.inventory_observation import (
     InventoryObservationProjectionJournal,
@@ -52,29 +56,6 @@ _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 _REVISION_READ_BATCH_SIZE = 1_000
 
 _LOG = logging.getLogger(__name__)
-
-
-class InventoryOntologyProjectionStatus(StrEnum):
-    """Availability of the latest promoted inventory projection attempt."""
-
-    AVAILABLE = "available"
-    UNAVAILABLE = "unavailable"
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryOntologyProjectionResult:
-    """Counts and coverage for one applied generation."""
-
-    generation: str
-    ontology_release_digest: str
-    status: InventoryOntologyProjectionStatus
-    object_count: int
-    link_count: int
-    complete: bool
-    relationship_complete: bool
-    dropped_reasons: tuple[str, ...]
-    journal_high_watermark: int | None = None
-    projection_high_watermark: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,43 +112,24 @@ class InventoryOntologyProjector:
     ) -> InventoryOntologyProjectionResult:
         """Serialize and atomically replace the owned subgraph for one generation."""
 
-        if (journal_high_watermark is None) != (projection_high_watermark is None):
-            raise ValueError("inventory ontology journal watermarks MUST be supplied together")
-        if (active_scope_projection_watermark is None) != (not active_scope_refs):
-            raise ValueError(
-                "inventory ontology active-scope checkpoint and scopes MUST be supplied together"
-            )
-        if (
-            journal_high_watermark is not None
-            and projection_high_watermark is not None
-            and projection_high_watermark > journal_high_watermark
-        ):
-            raise ValueError("inventory ontology projection watermark exceeds journal")
-        if active_scope_projection_watermark is not None and (
-            journal_high_watermark is None
-            or active_scope_projection_watermark > journal_high_watermark
-        ):
-            raise ValueError("inventory ontology active-scope checkpoint exceeds journal")
-        if active_scope_refs != tuple(sorted(set(active_scope_refs))):
-            raise ValueError("inventory ontology active scopes MUST be unique and ordered")
+        checkpoints = InventoryProjectionCheckpoints(
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
+            active_scope_projection_watermark=active_scope_projection_watermark,
+            active_scope_refs=active_scope_refs,
+        )
         async with self._local_lock:
             if self._projection_lock is None:
                 return await self._apply_locked(
                     observation,
-                    journal_high_watermark=journal_high_watermark,
-                    projection_high_watermark=projection_high_watermark,
-                    active_scope_projection_watermark=active_scope_projection_watermark,
-                    active_scope_refs=active_scope_refs,
+                    checkpoints=checkpoints,
                     fail_before_incomplete_status=fail_before_incomplete_status,
                     allow_legacy_identity_migration=allow_legacy_identity_migration,
                 )
             async with self._projection_lock.acquire(_PROJECTION_LOCK_ID):
                 return await self._apply_locked(
                     observation,
-                    journal_high_watermark=journal_high_watermark,
-                    projection_high_watermark=projection_high_watermark,
-                    active_scope_projection_watermark=active_scope_projection_watermark,
-                    active_scope_refs=active_scope_refs,
+                    checkpoints=checkpoints,
                     fail_before_incomplete_status=fail_before_incomplete_status,
                     allow_legacy_identity_migration=allow_legacy_identity_migration,
                 )
@@ -176,10 +138,7 @@ class InventoryOntologyProjector:
         self,
         observation: PromotedInventoryObservation,
         *,
-        journal_high_watermark: int | None,
-        projection_high_watermark: int | None,
-        active_scope_projection_watermark: int | None,
-        active_scope_refs: tuple[str, ...],
+        checkpoints: InventoryProjectionCheckpoints,
         fail_before_incomplete_status: bool,
         allow_legacy_identity_migration: bool,
     ) -> InventoryOntologyProjectionResult:
@@ -189,6 +148,8 @@ class InventoryOntologyProjector:
             OntologyInstanceValidationError: a projected object is already owned
                 by a different projection.
         """
+        journal_high_watermark = checkpoints.journal_high_watermark
+        projection_high_watermark = checkpoints.projection_high_watermark
         projection = build_inventory_ontology_projection(
             generation=observation.generation,
             resources=observation.resources,
@@ -312,14 +273,9 @@ class InventoryOntologyProjector:
             INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
             INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
         }
-        if active_scope_projection_watermark is not None:
-            state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY] = {
-                "schema_version": "1.0.0",
-                "generation": projection.generation,
-                "scope_refs": list(active_scope_refs),
-                "journal_high_watermark": journal_high_watermark,
-                "projection_high_watermark": active_scope_projection_watermark,
-            }
+        active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
+        if active_scope_state is not None:
+            state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY] = active_scope_state
         atomic_replace = getattr(self._store, "replace_subgraph_with_state", None)
         if callable(atomic_replace):
             await atomic_replace(
@@ -350,10 +306,10 @@ class InventoryOntologyProjector:
                 INVENTORY_ONTOLOGY_STATUS_KEY,
                 status_state,
             )
-            if active_scope_projection_watermark is not None:
+            if active_scope_state is not None:
                 await self._status_store.write_state(
                     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
-                    state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY],
+                    active_scope_state,
                 )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:

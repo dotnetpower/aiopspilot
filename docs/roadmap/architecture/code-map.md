@@ -165,13 +165,13 @@ name-or-tag filtering, and time-bounded evidence requests distinct. The Core que
 provider completeness and reason codes, while the Operator presentation and Console dashboard keep
 partial or unavailable observations visible instead of substituting generic inventory rows.
 Inventory change ingestion uses the typed `inventory_observation.py` contract and dual-writes the
-append-only PostgreSQL journal while the overlay remains the current read path. Journal replay keeps
-operation status separate and exposes projection watermarks to completeness checks. The bounded
-`postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py` migrate
-the active generation only when its content, coverage, freshness, and watermarks remain identical.
+append-only PostgreSQL journal while the overlay remains the current read path.
+`postgres_inventory_projection_checkpoints.py` separates the all-scope retention fence from the active-scope graph checkpoint, and `inventory_ontology_state.py` validates its generation-bound state.
+The bounded `postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py`
+migrate the active generation only when content, coverage, freshness, and watermarks remain identical.
 The local authoritative refresh records the configured subscription scope and appends the promoted
-snapshot to the observation journal before advancing the ontology projection. Completeness checks
-ignore unrelated test scopes while retaining pending observations in the active scope.
+snapshot before advancing ontology projection. Completeness checks use the exact active checkpoint
+while unrelated scopes remain pending for retention and replay.
 `operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob

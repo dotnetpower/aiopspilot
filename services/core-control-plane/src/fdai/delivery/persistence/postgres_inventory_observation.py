@@ -22,6 +22,12 @@ from fdai.delivery.persistence.postgres_inventory_observation_records import (
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
     snapshot_records as _snapshot_records,
 )
+from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
+    active_scope_projection_watermark as _active_scope_projection_watermark,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
+    global_projection_watermark as _global_projection_watermark,
+)
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     MAX_ACTIVE_PROJECTION_OBSERVATIONS,
     InventoryProjectionReplayInput,
@@ -493,66 +499,6 @@ class PostgresInventoryObservationJournal:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
-
-
-async def _active_scope_projection_watermark(
-    connection: psycopg.AsyncConnection[Any],
-    *,
-    high_watermark: int,
-    generation: str,
-    snapshot_started_at: datetime,
-    scope_refs: tuple[str, ...],
-) -> int:
-    """Find the contiguous current-graph fence for the active snapshot scopes."""
-
-    if not scope_refs:
-        raise ValueError("active inventory snapshot scopes MUST NOT be empty")
-    cursor = await connection.execute(
-        "SELECT COALESCE(MIN(watermark) - 1, %s) AS projection_watermark "
-        "FROM inventory_observation_journal "
-        "WHERE scope_ref=ANY(%s::text[]) "
-        "AND NOT (source_revision=%s OR effective_at<=%s)",
-        (
-            high_watermark,
-            list(scope_refs),
-            generation,
-            snapshot_started_at,
-        ),
-    )
-    row = await cursor.fetchone()
-    if row is None:
-        raise RuntimeError("inventory observation projection watermark is unavailable")
-    return int(row["projection_watermark"])
-
-
-async def _global_projection_watermark(
-    connection: psycopg.AsyncConnection[Any],
-    *,
-    high_watermark: int,
-    current_projection: int,
-    generation: str,
-    snapshot_started_at: datetime,
-    scope_refs: tuple[str, ...],
-) -> int:
-    """Preserve the contiguous all-scope fence used by retention and replay."""
-
-    cursor = await connection.execute(
-        "SELECT COALESCE(MIN(watermark) - 1, %s) AS projection_watermark "
-        "FROM inventory_observation_journal "
-        "WHERE watermark>%s AND NOT (source_revision=%s OR ("
-        "effective_at<=%s AND scope_ref=ANY(%s::text[])))",
-        (
-            high_watermark,
-            current_projection,
-            generation,
-            snapshot_started_at,
-            list(scope_refs),
-        ),
-    )
-    row = await cursor.fetchone()
-    if row is None:
-        raise RuntimeError("inventory observation projection watermark is unavailable")
-    return max(current_projection, int(row["projection_watermark"]))
 
 
 async def advance_ontology_projection(

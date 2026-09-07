@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: afdc22e279d3930fe28f6a8e8b190ed6a2ffa931
+translation_source_sha: a6f2d7ca72cd0f7b78a71dad48cce3fcf2ea67c5
 translation_revised: 2026-09-08
 ---
 # 지속형 운영 인스턴스 그래프
@@ -61,8 +61,7 @@ translation_revised: 2026-09-08
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
 
-지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다.
-이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
+지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
 
 현재 그래프 checkpoint는 활성 스냅샷 세대와 정확한 범위 집합에 결속됩니다. 완전한 프로바이더 스냅샷은 같은 범위의 해당 세대 및 시작 시각 이전 관측을 포함하므로 연속된 checkpoint는 해당 범위만 탐색합니다.
 비활성 범위 관측은 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
@@ -382,7 +381,7 @@ binding을
 | 타입 지정 rollup | implemented | `semantic_rollup*.py`, `inventory_rollup.py`, 집중 integration 검사 | 사실별 집계와 범위 계약은 구현되고 로컬에서 검증됐습니다. |
 | 영속 정규화 관측 이력 | implemented | `inventory_observation.py`, `operational_history_lifecycle.py`, `postgres_inventory_observation*.py`, `postgres_observation_lifecycle.py`, `20260907_core_oi16_certification_support.py`까지의 Core migration, 타입 지정 replay 및 원본 범위 검사 | OI-13과 OI-14는 정확한 객체 및 관계 관측, 수명 인스턴스 신원, 지연 correction partition, 결정론적 correction 종료, case 또는 legal-hold pin을 보존합니다. 대기 중인 correction은 원본 완전성을 낮추며 보정된 base partition은 purge 전에 더 최신 checkpoint를 요구합니다. |
 | 운영 archive 및 제한된 이력 purge | validated | `operational_history_archive.py`, Azure Blob artifact adapter, PostgreSQL lifecycle store와 database purge gate, 배포 policy loader, lifecycle planner와 고정 schedule, OI-16 synthetic campaign runner, 보호 workflow, required CI `34058713875`, 공급망 실행 `34058973580`, 계획 `34059171071`, 요청 `34059338073`, 승인된 campaign `34059357427`, 저장된 증적 `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e` | 정확한 리비전 `80b5892aa176e4a71eb2b3448982825b526d175b`에서 운영 scenario 13개가 모두 사유 코드 없이 통과했습니다. Campaign은 복원한 영속 OI-15 증적, 정확한 attested image, 완전한 active projection 이행, 독립적인 database restart 효과, 추가 전용 PostgreSQL 증적 및 비공개 merged artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`를 검증했습니다. 범위는 `synthetic/oi16-certification/`으로 유지했으며 일반 관측 보존과 production 리소스는 변경하지 않았습니다. |
-| 활성 범위 변환 결과와 읽기 전용 부분 답변 | implemented | `postgres_inventory_observation.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, 집중 영속성 및 대화 테스트 | 세대에 결속된 checkpoint는 정확한 활성 범위만 탐색하고 비활성 범위의 보존 이력은 별도 대기 상태로 유지합니다. 불완전한 정확한 대상 조회는 검증된 행과 제한 사항 및 복구 안내를 반환하며, 안전하지 않은 부분 집합은 계속 판단을 보류합니다. |
+| 활성 범위 변환 결과와 읽기 전용 부분 답변 | implemented | `postgres_inventory_{observation,projection_checkpoints}.py`, `inventory_ontology{,_state}.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, 집중 영속성 및 대화 테스트 | 세대에 결속된 checkpoint는 정확한 활성 범위만 탐색하고 비활성 범위의 보존 이력은 별도 대기 상태로 유지합니다. 불완전한 정확한 대상 조회는 검증된 행과 제한 사항 및 복구 안내를 반환하며, 안전하지 않은 부분 집합은 계속 판단을 보류합니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
 | Runtime-call 근거 binding | implemented | `runtime_calls.yaml`, `runtime_call_projection.py`, `runtime_call_telemetry.py`, `delivery/azure/runtime_call_telemetry.py`, `runtime_call_inventory.py`, `inventory_projection.py`, inventory single-writer 및 집중 endpoint 검사 | 인증된 producer는 정확한 envelope identity를 독립된 credential lineage에 결속합니다. Azure query는 두 runtime table을 모두 요구하고 unavailable, redacted, malformed row coverage를 보존합니다. 부분 candidate가 하나라도 있으면 batch는 incomplete입니다. 검토된 `runtime_calls` LinkType을 projection contract에 등록하여 verified endpoint 방향과 Resource cardinality가 current 및 historical projection에서 유지됩니다. 인증된 runtime 근거는 열려 있습니다. |
 | Authorization 및 PostgreSQL role 근거 | implemented | `postgres_role_evidence.py`, `arg_relationships.py`, 집중 principal redaction 및 authorization scope 검사 | Database role은 content-addressed reference를 사용하는 별도의 principal-safe projection으로 유지되며 Resource 또는 Link 형태를 만들지 않습니다. 모델링되지 않은 role-assignment child scope는 `authorization_child_scope_unmodeled`를 보존하고 추론된 edge가 되지 않습니다. |
@@ -394,6 +393,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 활성 범위 checkpoint 검증, 직렬화 및 PostgreSQL 조회를 전용 런타임 및 영속성 모듈로 분리하면서 checkpoint와 답변 동작은 변경하지 않았습니다. | `current change`, 집중 검사 729개와 Ruff, strict mypy 및 800줄 구조 게이트가 통과했습니다. | checkpoint 동작을 확장할 때 두 전용 모듈을 구조 상한 아래로 유지합니다. |
 | 2026-09-08 | implemented | 현재 그래프 checkpoint를 정확한 활성 스냅샷 범위에 결속하여 비활성 범위에서 보존된 관측이 활성 변환 결과를 고정하지 않도록 했습니다. 읽기 전용 대화는 안전한 부분 집합을 일반 거절로 대체하지 않고 검증된 부분 결과를 먼저 제시한 뒤 제한 사항과 재시도 안내를 추가합니다. | `current change`, 집중 인벤토리 영속성, 원본 범위, 변환 결과 연결, 의미 런타임 및 이중 언어 답변 검사 729개가 통과했고 Ruff와 strict mypy도 통과했습니다. | 통합 및 배포 근거는 별도로 보존합니다. 활성 범위의 스냅샷 이후 관측은 reconciliation이 따라잡을 때까지 완전성을 계속 낮춥니다. |
 | 2026-09-07 | validated | 영속 OI-15 증적 보존, 추가 방식 배포자 역할 이행, certification scenario 영속화, 정확한 실행 로그 선택 및 범위가 제한된 Activity Log 전파를 수정한 뒤 OI-16 보호 운영 certification을 완료했습니다. 독립 승인을 받은 campaign은 scenario 13개를 모두 통과하고 추가 전용 certification 증적을 저장했습니다. | Source `80b5892aa176e4a71eb2b3448982825b526d175b`, required CI `34058713875`, 공급망 `34058973580`, destroy 없는 계획 `34059171071`, bot 요청 `34059338073`, 승인된 campaign `34059357427`, 증적 `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e`, 비공개 artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`입니다. | Production 보존은 변경하지 않고 이후 certification 주장에는 새 exact-revision campaign을 요구합니다. |
 | 2026-09-06 | implemented | 완전한 활성 프로바이더 스냅샷을 이전 근거를 대체하는 범위 경계로 적용하도록 저장소 pressure의 변환 지연 계산을 수정했습니다. Pressure query는 스냅샷이 `full_provider_scope`, 최신 변환 완전성 및 현재 매니페스트와 같은 세대를 선언할 때만 정확한 활성 scope에서 스냅샷 시작 시각 이전의 레코드를 제외합니다. 현재 세대 행은 매니페스트 journal watermark로 계속 제한하고 이후 행, scope 밖 행, null scope 행 및 certification 이외의 행은 대기 상태로 유지합니다. | `current change`, 집중 pressure 읽기 및 campaign fixture 테스트 37개가 통과했고 Ruff 및 strict mypy 검사도 통과했습니다. Exact-image 프로바이더 refresh가 매니페스트와 일치하고 관계 범위가 완전한 스키마 `1.3.0` 활성 세대를 생성했습니다. 제안 query를 해당 세대에 읽기 전용으로 실행해 변환 지연 5를 측정했으며 정책 한도 1000 미만이었습니다. | 수정된 exact image를 게시하고 attest한 뒤 가져오고, 독립 승인을 받은 새 campaign이 13/13을 통과해야 certification을 저장합니다. |
