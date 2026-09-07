@@ -320,12 +320,23 @@ class AzureResourceChangeFeed:
                 continue  # ARM type outside the vocabulary - drop, don't fail closed.
             events.append(self._tombstone_event(change, resource_type=resource_type))
 
-        hydrated = await self._hydrate([change.arm_id for change in upserts])
-        for change in upserts:
+        hydration_candidates = [
+            change
+            for change in upserts
+            if change.arm_type is None or change.arm_type.casefold() in self._arm_to_neutral
+        ]
+        hydrated = await self._hydrate([change.arm_id for change in hydration_candidates])
+        unresolved_hydrations: list[_ChangeRow] = []
+        for change in hydration_candidates:
             record = hydrated.get(change.arm_id.casefold())
             if record is None:
-                continue  # Resource vanished (or type unmapped) before hydration - benign skip.
+                unresolved_hydrations.append(change)
+                continue
             events.append(self._upsert_event(change, record=record))
+        if unresolved_hydrations:
+            raise ArgResourceChangeError(
+                "resourcechanges hydration did not resolve every mapped upsert"
+            )
 
         next_cursor = _encode_cursor(newest[0], newest[1])
         return ResourceChangeFeedResult(events=tuple(events), next_cursor=next_cursor)
