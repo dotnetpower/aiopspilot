@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: d02b42137a08c2686f913eea978d8dc546d1bc38
+translation_source_sha: 45a888a5f178159b7361751877a9dc7bfa736a1c
 translation_revised: 2026-09-07
 ---
 
@@ -38,6 +38,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은
   해당 digest를 연결하며 이미지를 promote하거나 재구축하지 않습니다.
+- 예약된 Inventory Job을 보호된 플랫폼 경로에서 유지합니다. 적용 후 작업 흐름은 Job을 다시
+  읽고 인벤토리 컨테이너가 계획에서 선택한 정확한 다이제스트로 고정된 Core 이미지를 사용하지
+  않으면 중단합니다.
 - 배포 호스트에서 모든 비공개 엔드포인트로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
   운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요. 그 환경의
   Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.

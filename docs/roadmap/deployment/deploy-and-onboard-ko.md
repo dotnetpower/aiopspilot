@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6bc0951cf39b4754a687957743f2e1881568e6fc
+translation_source_sha: 5e3dae7313c6bc365b9e3e916bb4b7294265b6c0
 translation_revised: 2026-09-07
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -588,7 +588,12 @@ Settings 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하�
 
 프로비저닝 후 검증(어댑터 도달성, canary 왕복, shadow 정확성)은
 [배포 후 smoke 테스트 계약](../operations/operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)
-에 정의. 실패한 검증은 승격을 중단하고 트래픽 롤백
+에 정의되어 있습니다.
+승인된 적용은 독립적으로 예약된 Inventory Job이 활성화되어 있으면 해당 Job도 다시 읽습니다.
+인벤토리 컨테이너가 성공적으로 프로비저닝되고 보호된 계획이 선택한 정확한 다이제스트로 고정된 Core
+이미지를 사용할 때만 적용이 성공합니다. 이 검증은 오래된 수집기가 변경 힌트를 계속
+게시하는 동안 전체 그래프 조정이 반복해서 실패하는 상황을 방지합니다.
+실패한 검증은 승격을 중단하고 트래픽을 롤백합니다
 ([deployment-ko.md#release-and-rollback](deployment-ko.md#release-and-rollback)).
 
 ## 비용 효율 원칙

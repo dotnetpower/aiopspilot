@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 6bc0951cf39b4754a687957743f2e1881568e6fc }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5e3dae7313c6bc365b9e3e916bb4b7294265b6c0 }]
 ---
 
 # Deploy Quickstart
@@ -42,6 +42,9 @@ Terraform remains an expert path.
   Document Processing Worker, and Isolated Executor image attestations for the
   selected source revision. Exact apply binds those digests and never promotes
   or rebuilds an image.
+- Keep the scheduled Inventory Job on the protected platform path. After apply,
+  the workflow reads the Job back and stops if its inventory container does not
+  use the exact digest-pinned Core image selected by the plan.
 - Network access from the deployment host to every private endpoint. In a
   private-only environment, run Terraform from the VNet-connected deployment
   runner rather than an operator workstation. A Premium registry in that
