@@ -474,6 +474,9 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         dsn=config.dsn,
         freshness_budget_seconds=config.freshness_budget_seconds,
     )
+    collection_policy = config.collection_policy
+    if collection_policy is None:
+        raise RuntimeError("inventory collection policy is unavailable")
     drain = await _drain_change_stream(config)
     reconciliation_gate = PostgresInventoryReconciliationGate(
         config=snapshot_config,
@@ -494,11 +497,11 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
                 for enabled, policy in (
                     (
                         config.resource_change_feed_enabled,
-                        config.collection_policy.source("resourcechanges-delta"),
+                        collection_policy.source("resourcechanges-delta"),
                     ),
                     (
                         config.recovery_delta_enabled,
-                        config.collection_policy.source("activity-log-delta"),
+                        collection_policy.source("activity-log-delta"),
                     ),
                 )
                 if enabled

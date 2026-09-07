@@ -118,7 +118,7 @@ The local long-running loop records typed source, projection, or pending-replay 
 configured interval. A one-shot job also fails when source collection or the promoted ontology projection
 fails, while retaining the authoritative inventory generation for bounded recovery on the next tick.
 
-Configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
+Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.
 
 ### Convergence and deletion
