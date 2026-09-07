@@ -101,6 +101,21 @@ async def test_stale_or_truncated_evidence_never_reaches_ingress() -> None:
     assert ingress.payloads == []
 
 
+async def test_inventory_projection_cannot_write_through_as_live_evidence() -> None:
+    ingress = _Ingress()
+    writer = InventoryLiveEvidenceWriter(ingress=ingress)
+
+    receipt = await writer.publish(
+        resource=_resource(),
+        evidence=_evidence(authority="inventory.resource_state"),
+        ontology_release_digest=_RELEASE,
+    )
+
+    assert receipt.published is False
+    assert receipt.reason_code == "live_evidence_source_not_independent"
+    assert ingress.payloads == []
+
+
 async def test_duplicate_live_receipt_reuses_observation_identity() -> None:
     ingress = _Ingress()
     writer = InventoryLiveEvidenceWriter(ingress=ingress)

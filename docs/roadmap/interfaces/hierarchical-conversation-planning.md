@@ -52,8 +52,8 @@ including a repeated greeting after earlier turns.
 
 The preflight also runs on the first turn. An explicit or context-dependent operational signal
 enters the verified semantic path without paying for the adaptive explanation planner first. A
-mixed request remains adaptive so its knowledge and operational goals stay separate. For three
-reviewed families, preflight can propose source-grounded targets and bounded facets. Core reuses that
+mixed request remains adaptive so its knowledge and operational goals stay separate. For reviewed
+families, including one exact Resource current-state request, preflight can propose source-grounded targets and bounded facets. Core reuses that
 proposal only when the turn is explicit, context-independent, at least 0.90 confidence, bound to the
 current utterance and proposal digests, and valid for the family-specific shape. One-hour targets
 also require an explicitly past source expression; directionless or future wording retains full
@@ -176,6 +176,7 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Added an exact Resource current-state preflight family, isolated its object-only completeness from unrelated relationship and scope-test journal gaps, and aligned the local authoritative refresh with configured scope and journal watermarks. | `current change`; focused preflight, planning, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E returned `answered` and `semantic_answer_verified`. | Retain the same result through the authenticated standard Console browser. |
 | 2026-09-07 | implemented | Added provenance-bound F1-F4 candidate meaning to compact preflight so an exact, explicit, context-independent request can skip one serial full semantic-judgment call. Added confidence, source-span, one-hour, family-shape, and Resource identity checks; all other requests retain full judgment. | `current change`; 177 focused conversation, prompt-registry, and adapter tests, targeted Ruff, and strict mypy passed. | Retain standard-stack answer-token TTFT and complete evidence outcomes for F1-F4. |
 | 2026-09-07 | implemented | Ran compact preflight on the first turn, bypassed adaptive explanation planning for explicit and contextual operational requests, and narrowed known operational families to their reviewed descriptor slices after full semantic judgment. | `current change`; 579 focused adaptive and semantic-planning tests passed; selected source passed strict mypy. | Measure first-token latency on one coherent standard-stack SHA and add verified progressive segments for compound reads that still exceed five seconds. |
 | 2026-09-06 | implemented | Revalidated the complete 11-commit testing-hardening range after the final fixes. The diff-scoped gate and direct non-database integration contracts passed without weakening required or optional document evidence behavior. | `current change`; `make test-changed DIFF=6ca4a6bd3...HEAD` passed 4,129 tests with 3 database-dependent skips and 12,568 deselections; 56 direct semantic roundtrip, composition, and judgment-assurance integration tests passed; the focused 711 RAG, 385 Operator, and 67 Console checks remained green. | Run the database-dependent integration slice only with a dedicated local FDAI PostgreSQL DSN. Retain authenticated cross-service and complete provider-owned index-generation receipts before reporting production readiness. |

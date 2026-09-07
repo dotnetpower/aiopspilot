@@ -243,6 +243,43 @@ def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> 
     assert judgment.execution_authority is False
 
 
+def test_promotes_exact_resource_current_state_without_collection_substitution() -> None:
+    utterance = "aks-example-cluster 의 상태"
+    target_value = "aks-example-cluster"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CURRENT_STATE,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=target_value,
+                source_start=0,
+                source_end=len(target_value),
+            ),
+        ),
+        operational_facets=("current_state",),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_current_state"
+    assert judgment.targets[0].value == target_value
+    assert judgment.targets[0].canonical_value == "Resource.name"
+    assert judgment.requested_facets == ("current_state",)
+
+
 def test_preflight_operational_judgment_rejects_nonmatching_source_span() -> None:
     utterance = "actual-appgw latency"
     result = ConversationPreflightResult(

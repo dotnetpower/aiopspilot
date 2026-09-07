@@ -627,6 +627,13 @@ def dispatch_semantic_plan(
         if execution_time.tzinfo is None:
             raise ValueError("semantic execution cutoff MUST be timezone-aware")
         plan = _refresh_object_set_cutoffs(plan, execution_time=execution_time)
+        allowed_value_filter_properties = (
+            frozenset()
+            if frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
+            else frozenset({"parent_id"})
+            if "parent_id" in frame.measure_concepts
+            else None
+        )
         plan, grounded = ground_stated_value_filters(
             plan,
             utterance=utterance,
@@ -637,12 +644,11 @@ def dispatch_semantic_plan(
                 in {
                     SemanticOutputShape.RESOURCE_STATE_LIST,
                     SemanticOutputShape.RESOURCE_TARGET_CANDIDATES,
+                    SemanticOutputShape.TARGET_CURRENT_STATE,
                 }
                 else frame.subject_constraints
             ),
-            allowed_properties=(
-                frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
-            ),
+            allowed_properties=allowed_value_filter_properties,
         )
         if grounded:
             _LOGGER.info(
@@ -654,9 +660,7 @@ def dispatch_semantic_plan(
                 plan,
                 utterance=utterance,
                 descriptors=descriptors,
-                allowed_properties=(
-                    frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
-                ),
+                allowed_properties=allowed_value_filter_properties,
             )
         verifier.verify(plan, manifest=manifest)
     return PlanDispatchResult(

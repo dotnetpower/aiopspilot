@@ -173,6 +173,46 @@ def test_malformed_observation_watermark_state_lowers_source_completeness() -> N
     assert complete is False
 
 
+def test_unrelated_observation_watermark_gap_does_not_lower_source_completeness() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        pending_observation=False,
+        journal_high_watermark=100,
+        ontology_projection_watermark=10,
+        pending_tombstones=0,
+    )
+
+    assert complete is True
+    assert generation == "generation-2"
+
+
+def test_active_scope_observation_gap_lowers_source_completeness() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        pending_observation=True,
+        journal_high_watermark=100,
+        ontology_projection_watermark=10,
+        pending_tombstones=0,
+    )
+
+    assert complete is False
+    assert generation == "generation-2"
+
+
 def test_pending_correction_partition_lowers_source_completeness() -> None:
     complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
         active_generation="generation-2",

@@ -166,6 +166,7 @@ class OperationalPreflightFamily(StrEnum):
 
     NONE = "none"
     INVENTORY_DOCUMENT = "inventory_document"
+    RESOURCE_CURRENT_STATE = "resource_current_state"
     RESOURCE_CONFIGURATION_CHANGES = "resource_configuration_changes"
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
 
@@ -482,6 +483,19 @@ def preflight_operational_judgment(
             return _reject_operational_promotion("unsupported_target_kind")
         if target.kind != "time_range" and not operational_target_is_exact(target.value):
             return _reject_operational_promotion("generic_target_identity")
+        if (
+            proposal.operational_family is OperationalPreflightFamily.RESOURCE_CURRENT_STATE
+            and target.kind == "resource"
+        ):
+            target = target.model_copy(
+                update={
+                    "canonical_value": (
+                        "Resource.id"
+                        if target.value.casefold().startswith("/subscriptions/")
+                        else "Resource.name"
+                    )
+                }
+            )
         normalized_targets.append(target)
     primary_intent = {
         OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
@@ -491,11 +505,14 @@ def preflight_operational_judgment(
         OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE: (
             "query.gateway_diagnostic_evidence"
         ),
+        OperationalPreflightFamily.RESOURCE_CURRENT_STATE: "query.resource_current_state",
     }.get(proposal.operational_family)
     target_kinds = tuple(target.kind for target in normalized_targets)
     facets = frozenset(proposal.operational_facets)
     if proposal.operational_family is OperationalPreflightFamily.INVENTORY_DOCUMENT:
         family_valid = not target_kinds and facets == _INVENTORY_FACETS
+    elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CURRENT_STATE:
+        family_valid = target_kinds == ("resource",) and facets == {"current_state"}
     elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES:
         family_valid = (
             target_kinds.count("resource") == 1

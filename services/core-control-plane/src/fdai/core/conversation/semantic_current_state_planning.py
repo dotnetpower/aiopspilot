@@ -151,6 +151,7 @@ def compile_target_current_state_plan(
         purpose=purpose,
         limit=2,
         freshness_seconds=freshness_seconds,
+        include_relationships=False,
     )
     nodes = (
         OntologyQueryNode(

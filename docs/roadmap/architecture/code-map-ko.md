@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8a52881d133955f56c546ea6a0fc95365a43f235
+translation_source_sha: 1d5bbfe8706e6eda204187b6e36c9169d471be86
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -61,6 +61,9 @@ Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 �
 정확한 F1-F4 형식에서는 preflight가 출처가 결속된 후보 의미를 제공해 직렬 전체 의미 판단 호출 하나를
 제거할 수도 있습니다. Core는 이를 재사용하기 전에 현재 입력 digest, 원문 범위, 확신도, 맥락
 독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다.
+정확한 Resource 현재 상태 preflight는 전체 이름 또는 Resource ID 하나를
+`query.resource_current_state`에 결속합니다. 결과 ObjectSet은 관계를 제외하며 식별자 안에서 찾은
+catalog 값 필터를 추가하지 않습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
@@ -168,6 +171,9 @@ Inventory 변경 수집은 타입이 지정된 `inventory_observation.py` 계약
 분리하고 완전성 검사에 projection watermark를 제공합니다. 범위가 제한된
 `postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
 content, coverage, freshness 및 watermark가 동일할 때만 active generation을 migration합니다.
+로컬 authoritative refresh는 구성된 구독 범위를 기록하고 승격된 snapshot을 observation journal에
+추가한 뒤 ontology projection을 전진시킵니다. 완전성 검사는 active scope의 pending 관측을
+유지하면서 관련 없는 테스트 scope를 제외합니다.
 `operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,

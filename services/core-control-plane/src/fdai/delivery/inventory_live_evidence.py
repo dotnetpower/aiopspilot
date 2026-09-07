@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -21,6 +22,8 @@ from fdai.shared.providers.read_investigation import (
     ReadToolLimits,
     ResolvedResource,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class InventoryObservationIngress(Protocol):
@@ -62,6 +65,8 @@ class InventoryLiveEvidenceWriter:
         _digest(ontology_release_digest, "ontology_release_digest")
         if evidence.resource_ref != resource.resource_ref:
             return _receipt("resource_mismatch")
+        if evidence.authority == "inventory.resource_state":
+            return _receipt("live_evidence_source_not_independent")
         if (
             evidence.status is not EvidenceStatus.MATCHED
             or evidence.freshness is not EvidenceFreshness.LIVE
@@ -176,12 +181,20 @@ class InventoryGraphLiveRefreshProvider:
             name=name,
             resource_type=resource_type,
         )
-        attempt = await self._provider.get_resource_state(resource, limits=self._limits)
-        receipt = await self._writer.publish(
-            resource=resource,
-            evidence=attempt.evidence,
-            ontology_release_digest=secured.receipt.ontology_release.digest,
-        )
+        try:
+            attempt = await self._provider.get_resource_state(resource, limits=self._limits)
+        except ValueError:
+            _LOGGER.warning("inventory_graph_refresh_failed", extra={"stage": "provider"})
+            raise
+        try:
+            receipt = await self._writer.publish(
+                resource=resource,
+                evidence=attempt.evidence,
+                ontology_release_digest=secured.receipt.ontology_release.digest,
+            )
+        except ValueError:
+            _LOGGER.warning("inventory_graph_refresh_failed", extra={"stage": "write_through"})
+            raise
         return receipt.published
 
 

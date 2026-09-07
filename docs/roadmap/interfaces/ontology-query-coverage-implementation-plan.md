@@ -31,8 +31,8 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 > projection. This behavior does not add lexical or regular-expression routing: natural-language
 > intent still requires schema-validated model judgment.
 >
-> **Operational preflight judgment:** For three reviewed shapes covering F1-F4, compact T1
-> preflight can provide provenance-bound candidate meaning and avoid a second serial judgment call.
+> **Operational preflight judgment:** For reviewed shapes covering F1-F4 and one exact Resource
+> current-state request, compact T1 preflight can provide provenance-bound candidate meaning and avoid a second serial judgment call.
 > Core accepts it only for an explicit, context-independent request with at least 0.90 confidence,
 > exact current-utterance spans, supported one-hour canonicalization, a family-specific target and
 > facet shape, and the ordinary principal manifest. Any mismatch retains full semantic judgment.
@@ -194,6 +194,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Added exact Resource current-state preflight and object-only completeness, and made local inventory refresh preserve configured scope and journal lineage. Scoped graph coverage now ignores unrelated test observations without ignoring pending observations in the active scope. | `current change`; focused preflight, planner, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E answered through `target_current_state`. | Retain authenticated standard-Console evidence. |
 | 2026-09-07 | implemented | Rejected generic product categories as exact operational identities and stopped ambiguous targetless gateway comparisons before frame planning. | `current change`; 238 focused tests; post-fix Browser Entra F4 trace omitted frame-model and provider reads. | Retain exact-target F3/F4 evidence. |
 | 2026-09-07 | implemented | Added schema-validated, provenance-bound F1-F4 preflight meaning with fail-closed source, confidence, context, time, family-shape, and Resource identity checks. | `current change`; 177 focused conversation, prompt-registry, and adapter tests, targeted Ruff, and strict mypy passed. | Retain standard-stack answer-token TTFT and complete evidence receipts. |
 | 2026-09-01 | implemented | Completed the VPN-routed exact-source canary after bounding semantic judgment variants for change correlation and Resource activity. All ten cases passed, including service-Agent ownership, service current health, change correlation, and bounded Resource activity. The runtime used the private Foundry endpoint through the VPN without granting execution authority. | Source `31002f3db70649ceb6844dc8ea59798ba7aa4d13`; source-bound local ledger digest `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`; exact result 10/10. The stop marker and existing question, evaluation, and regression ledgers retained their original SHA-256 digests after the run. | Propose, but do not start, a 20-case bilingual campaign over the same ten expectations. Keep the 100-case campaign disabled. |

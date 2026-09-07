@@ -60,6 +60,9 @@ For exact F1-F4 shapes, preflight can also supply provenance-bound candidate mea
 serial full-judgment call. Core verifies current-input digests, source spans, confidence, context
 independence, family shape, and the principal manifest before reusing it. Other requests keep full
 semantic judgment.
+Exact Resource current-state preflight binds one complete name or Resource ID to
+`query.resource_current_state`. The resulting ObjectSet excludes relationships and does not add
+catalog value filters found inside the identifier.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
@@ -173,6 +176,9 @@ append-only PostgreSQL journal while the overlay remains the current read path. 
 operation status separate and exposes projection watermarks to completeness checks. The bounded
 `postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py` migrate
 the active generation only when its content, coverage, freshness, and watermarks remain identical.
+The local authoritative refresh records the configured subscription scope and appends the promoted
+snapshot to the observation journal before advancing the ontology projection. Completeness checks
+ignore unrelated test scopes while retaining pending observations in the active scope.
 `operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: fde83b3bad405157071db8943f89a23a9c847e6b
+translation_source_sha: d67d8e18ef97b3570efe8d437dfb2a50e7090a0c
 translation_revised: 2026-09-07
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -44,7 +44,7 @@ translation_revised: 2026-09-07
 > 도착한 경쟁 변환 결과를 무시합니다. 이 동작은 어휘 또는 정규식 라우팅을 추가하지 않습니다.
 > 자연어 의도는 계속 스키마로 검증된 모델 판단을 거쳐야 합니다.
 >
-> **운영 preflight 의미 판단:** F1-F4를 포함하는 검토된 세 가지 형식에서는 Compact T1
+> **운영 preflight 의미 판단:** F1-F4와 정확한 Resource 현재 상태 요청 하나를 포함하는 검토된 형식에서는 Compact T1
 > preflight가 출처가 결속된 후보 의미를 제공해 두 번째 직렬 의미 판단 호출을 생략할 수 있습니다.
 > Core는 명시적이고 맥락과 독립적인 요청, 0.90 이상의 확신도, 현재 발화의 정확한 원문 범위,
 > 지원되는 한 시간 정규화, 유형별 대상 및 facet 형식, 기존 principal 매니페스트를 모두 확인한
@@ -201,6 +201,7 @@ translation_revised: 2026-09-07
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight와 객체 전용 완전성을 추가하고 로컬 inventory refresh가 구성된 범위와 journal 계보를 보존하도록 했습니다. 범위가 지정된 graph coverage는 활성 범위의 보류 관측을 무시하지 않으면서 관련 없는 테스트 관측을 제외합니다. | `current change`; 집중 preflight, planner, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `target_current_state`를 통해 답변했습니다. | 인증된 표준 Console 근거를 보존합니다. |
 | 2026-09-07 | implemented | 일반 제품 범주를 정확한 운영 신원으로 인정하지 않고 모호하며 대상이 없는 게이트웨이 비교를 frame 계획 전에 종료했습니다. | `current change`; 집중 테스트 238개, 수정 후 Browser Entra F4 trace에서 frame 모델 및 provider 읽기 없음 | 정확한 대상이 있는 F3/F4 근거를 보존합니다. |
 | 2026-09-07 | implemented | 스키마로 검증되고 출처가 결속된 F1-F4 preflight 의미를 추가하고 원문, 확신도, 맥락, 시간, 유형별 형식 및 Resource 신원 검사를 안전하게 실패하도록 적용했습니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 답변 token TTFT와 완전한 근거 증적을 보존합니다. |
 | 2026-09-01 | 구현됨 | 변경 상관관계와 Resource 활동의 의미 판단 변형을 제한한 뒤 VPN 경로 exact-source canary를 완료했습니다. 서비스-Agent 담당 관계, 서비스 현재 상태, 변경 상관관계 및 제한된 Resource 활동을 포함한 사례 10개가 모두 통과했습니다. 런타임은 실행 권한을 부여하지 않고 VPN을 통해 프라이빗 Foundry 엔드포인트를 사용했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 로컬 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10. 실행 후 중지 표식과 기존 질문, 평가 및 회귀 원장은 원래 SHA-256 다이제스트를 유지했습니다. | 같은 기대 항목 10개에 대한 이중 언어 20개 캠페인을 제안하되 시작하지 않습니다. 100개 캠페인은 계속 비활성화합니다. |

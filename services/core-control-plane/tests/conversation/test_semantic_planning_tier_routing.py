@@ -2368,6 +2368,7 @@ def test_exact_target_current_state_builds_function_read_without_t2(
     assert target_node.arguments["definition"]["predicates"] == [
         {"property": "id", "operator": "equals", "equals": target}
     ]
+    assert target_node.arguments["definition"]["include_relationships"] is False
     assert current_state.depends_on == ("current-state-target",)
     assert current_state.arguments["function_name"] == RESOURCE_CURRENT_STATE_FUNCTION_NAME
     assert current_state.arguments["arguments"] == {}

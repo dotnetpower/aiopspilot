@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 38aae36548cd94af148f9ecb6891b3bc31d3345e
+translation_source_sha: a5c122c894d82091bda09e09050fcf0c2a787456
 translation_revised: 2026-09-07
 ---
 
@@ -53,8 +53,8 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의존적인 운영 신호는 Adaptive 설명
 플래너 비용을 먼저 지불하지 않고 검증된 의미 경로로 들어갑니다. 혼합 요청은 지식 목표와 운영 목표를
-분리하기 위해 Adaptive 경로를 유지합니다. 검토된 세 가지 유형에서는 preflight가 원문에 결속된
-대상과 범위가 제한된 facet을 제안할 수 있습니다. Core는 요청이 명시적이고 맥락과 독립적이며 확신도가
+분리하기 위해 Adaptive 경로를 유지합니다. 정확한 Resource 현재 상태 요청을 포함한 검토된
+유형에서는 preflight가 원문에 결속된 대상과 범위가 제한된 facet을 제안할 수 있습니다. Core는 요청이 명시적이고 맥락과 독립적이며 확신도가
 0.90 이상일 때만 이 제안을 재사용합니다. 또한 현재 발화 및 제안 digest와 일치하고 유형별 형식이
 유효해야 합니다. 한 시간 대상은 과거를 명시하는 원문 표현도 필요합니다. 방향이 없거나 미래를
 나타내는 문구는 전체 의미 판단을 유지합니다. F2는 결정론적 compiler가
@@ -169,6 +169,7 @@ window를 수락하지 않고 전체 의미 판단에서 요청 기간을 해석
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight 유형을 추가하고, 객체 전용 완전성을 관련 없는 관계 및 `scope-test` journal 공백과 분리했으며, 로컬 authoritative refresh의 구성 범위와 journal watermark를 정렬했습니다. | `current change`; 집중 preflight, 계획, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `answered`와 `semantic_answer_verified`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | Compact preflight에 출처가 결속된 F1-F4 후보 의미를 추가해 정확하고 명시적이며 맥락과 독립적인 요청이 직렬 전체 의미 판단 호출 하나를 생략할 수 있게 했습니다. 확신도, 원문 범위, 한 시간, 유형별 형식 및 Resource 신원 검사를 추가했고 다른 모든 요청은 전체 의미 판단을 유지합니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 F1-F4의 답변 token TTFT와 완전한 근거 결과를 보존합니다. |
 | 2026-09-07 | implemented | 첫 번째 턴에서 Compact preflight를 실행하고, 명시적 및 맥락 의존 운영 요청이 Adaptive 설명 계획을 우회하도록 했으며, 전체 의미 판단 뒤 알려진 운영 유형을 검토된 서술자 범위로 축소했습니다. | `current change`; Adaptive 및 의미 계획 집중 테스트 579개가 통과했고 선택한 소스가 strict mypy를 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 첫 토큰 지연 시간을 측정하고 5초를 넘는 복합 읽기에 검증된 점진 구간을 추가합니다. |
 | 2026-09-06 | implemented | 마지막 수정 뒤 테스트 하드닝 커밋 11개의 전체 범위를 다시 검증했습니다. Diff 범위 gate와 database가 필요 없는 직접 통합 계약은 필수 또는 선택적 문서 근거 동작을 약화하지 않고 통과했습니다. | `current change`; `make test-changed DIFF=6ca4a6bd3...HEAD`에서 4,129개 테스트가 통과했고 database 의존 테스트 3개를 건너뛰었으며 12,568개를 선택에서 제외했습니다. 의미 턴 왕복, 조립, 판단 assurance 직접 통합 테스트 56개가 통과했습니다. 집중 RAG 711개, Operator 385개, Console 67개 검사도 계속 통과했습니다. | Database 의존 통합 범위는 전용 로컬 FDAI PostgreSQL DSN으로만 실행합니다. 운영 준비 상태를 보고하기 전에 인증된 서비스 간 증적과 프로바이더가 소유하는 완전한 인덱스 세대 증적을 보존합니다. |
