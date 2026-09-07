@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ad49c6aef40b6b958c655789f59dfaa658ddbc91
+translation_source_sha: 498815ffc29c5af3b4ba834527a167a2efa1a3f3
 translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
@@ -66,9 +66,9 @@ translation_revised: 2026-09-07
 
 ### 비공개 네트워크 변경 가속
 
-비공개 배포 프로필은 내구성 있는 타임스탬프 및 변경 ID cursor로 Azure Resource Graph
-`resourcechanges`를 폴링합니다. 범위가 제한된 각 페이지는 오래된 항목부터 정렬하고 경계에서
-중복된 행은 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤에만 cursor를
+비공개 배포 프로필은 내구성 있는 cursor로 Azure Resource Graph `resourcechanges`를 폴링하고
+위치가 그대로여도 성공한 폴링의 상태 신호를 기록합니다. 범위가 제한된 각 페이지는 오래된 항목부터
+정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
 부재를 입증할 때까지 기다립니다. 변경 페이지 또는 재조회가 부분적이면 cursor와 overlay를 모두

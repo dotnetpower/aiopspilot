@@ -27,6 +27,7 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -947,11 +948,17 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
             event_bus=event_bus,
             topic="inventory.events",
             scope=_SCOPE,
+            clock=lambda: datetime(2026, 7, 10, 6, 1, tzinfo=UTC),
         )
     finally:
         await client.aclose()
 
     assert "strcmp(tostring(id), 'c1') > 0" in seen_cursors[0]
+    saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
+    assert saved == {
+        "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_polled_at": "2026-07-10T06:01:00+00:00",
+    }
 
 
 @pytest.mark.asyncio

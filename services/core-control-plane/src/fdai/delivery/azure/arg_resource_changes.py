@@ -70,7 +70,7 @@ Safety / cost invariants
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
@@ -623,6 +623,7 @@ async def forward_arg_resource_changes(
     topic: str,
     scope: str,
     deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
+    clock: Callable[[], datetime] | None = None,
 ) -> int:
     """Publish one bounded ``resourcechanges`` poll and advance its cursor.
 
@@ -651,8 +652,16 @@ async def forward_arg_resource_changes(
         raise RuntimeError("resource change feed poll exceeded its deadline") from exc
     if result is None:
         raise RuntimeError("resource change feed poll produced no result")
-    if result.next_cursor != cursor:
-        await state_store.write_state(cursor_key, {"cursor": result.next_cursor})
+    polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
+    if polled_at.tzinfo is None:
+        raise RuntimeError("resource change feed clock MUST be timezone-aware")
+    await state_store.write_state(
+        cursor_key,
+        {
+            "cursor": result.next_cursor,
+            "last_polled_at": polled_at.astimezone(UTC).isoformat(),
+        },
+    )
     return len(result.events)
 
 
