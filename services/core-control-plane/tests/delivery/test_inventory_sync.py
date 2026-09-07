@@ -250,12 +250,13 @@ async def test_failed_recovery_blocks_new_inventory_attempt() -> None:
     async def recover() -> None:
         raise RuntimeError("pending projection unavailable")
 
-    with pytest.raises(RuntimeError, match="pending projection unavailable"):
+    with pytest.raises(InventoryPromotionObserverError, match="recovery failed") as error:
         await InventorySyncCoordinator(
             store=store,
             pre_run_recovery=recover,
         ).run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
 
+    assert isinstance(error.value.__cause__, RuntimeError)
     assert store.batches == {}
     assert store.promoted == []
 

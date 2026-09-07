@@ -271,7 +271,12 @@ class InventorySyncCoordinator:
 
     async def _run_locked(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if self._pre_run_recovery is not None:
-            await self._pre_run_recovery()
+            try:
+                await self._pre_run_recovery()
+            except Exception as exc:
+                raise InventoryPromotionObserverError(
+                    "pending inventory projection recovery failed"
+                ) from exc
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)

@@ -584,7 +584,7 @@ The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do n
 Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
 signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
 until an approved push transport is available. The adaptive Inventory Job tracks each enabled
-accelerator, reports failures independently, and retries typed pending ontology work each minute.
+accelerator, reports failures independently, and retries typed ontology replay work each minute.
 
 ## Verification After Provisioning
 
