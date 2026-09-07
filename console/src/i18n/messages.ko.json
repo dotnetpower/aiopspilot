@@ -9,6 +9,13 @@
     "console": "콘솔",
     "devMode": "개발 모드"
   },
+  "dataMode": {
+    "label": "Dashboard 데이터 모드",
+    "sample": "Sample",
+    "live": "Live",
+    "bannerTitle": "예시 데이터",
+    "bannerBody": "예시 화면 전용이며 운영 근거가 아닙니다. 지원하지 않는 경로는 Live 상태를 유지합니다."
+  },
   "browserNotifications": {
     "label": "알림",
     "off": "알림 켜기",
@@ -2777,6 +2784,10 @@
         "invalidQuery": "Query 검증 실패",
         "visionUnverified": "이미지 해석",
         "unsupportedClaim": "근거 없는 claim",
+        "staleEvidence": "오래된 근거",
+        "partialEvidence": "불완전한 근거",
+        "conflictingEvidence": "충돌하는 근거",
+        "evidenceUnavailable": "근거 사용 불가",
         "unverified": "검증되지 않음"
       },
       "verificationLabel": {
@@ -2796,6 +2807,10 @@
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
         "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",
         "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
+        "staleEvidence": "근거가 오래되었습니다. 이 답변을 신뢰하기 전에 다시 조회해 주세요{claims}",
+        "partialEvidence": "근거가 불완전합니다. 조회 범위를 넓히거나 누락된 출처를 기다려 주세요{claims}",
+        "conflictingEvidence": "근거가 서로 충돌합니다. 이 답변으로 조치하기 전에 불일치를 해소해 주세요{claims}",
+        "evidenceUnavailable": "근거를 사용할 수 없습니다. 권위 있는 출처가 복구된 후 다시 시도해 주세요{claims}",
         "unverified": "검증을 완료하지 못함{claims}",
         "scope": {
           "currentScreen": "현재 화면",
@@ -2815,7 +2830,11 @@
       "stageDetail": {
         "manifestSourcesAvailable": "manifest source {available}/{total}개 사용 가능",
         "reference": "근거 reference {count}개",
-        "references": "근거 reference {count}개"
+        "references": "근거 reference {count}개",
+        "staleEvidence": "근거가 오래되었습니다",
+        "partialEvidence": "근거가 불완전합니다",
+        "conflictingEvidence": "근거가 서로 충돌합니다",
+        "evidenceUnavailable": "근거를 사용할 수 없습니다"
       },
       "side": {
         "read": "조회",

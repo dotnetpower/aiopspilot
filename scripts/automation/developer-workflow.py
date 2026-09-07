@@ -63,6 +63,7 @@ UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.1
 LOCAL_SERVICE_NAMES = (
     "core-runtime",
     "console-frontend",
+    "manual-studio",
     "operator-api",
     "document-ingestion-api",
     "document-processing-worker",

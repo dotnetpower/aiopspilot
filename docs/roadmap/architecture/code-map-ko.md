@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ccebd3176c0bf94568e3a93c2980a27024f06174
+translation_source_sha: a7fe458b200b2a677e1b24372925ef2e021ee7ce
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -39,6 +39,9 @@ translation_revised: 2026-09-07
   Document Ingestion API 계획만 수락합니다. 전환 플래그는 결합된 Core 바인딩을 포함해 봉인된
   모드에서 도출하며 서비스 tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
+- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
+  및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
+  결과를 명시적으로 선택할 수 있습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
@@ -65,6 +68,11 @@ Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다
 정확한 Resource 현재 상태 preflight는 전체 이름 또는 Resource ID 하나를
 `query.resource_current_state`에 결속합니다. 결과 ObjectSet은 관계를 제외하며 식별자 안에서 찾은
 catalog 값 필터를 추가하지 않습니다.
+운영 Resource 모음은 결정론적 계획 또는 모델 계획 뒤에 서버 소유 표시 규칙 하나를 적용합니다.
+카탈로그에 결속되지 않은 필터는 전체 Resource로 범위를 넓히지 않고 명확화를 요청하며, 정확한 ARM
+신원은 `Resource.id` 조건식으로 유지합니다. 역할 할당 객체는 전용 IAM 근거 경로에서만 사용할 수
+있습니다. ObjectSet 구체화, 새로 고침 및 증적 발급 실패는 원래 예외를 유지하면서 실패 단계를
+범위가 제한된 진단으로 추가합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

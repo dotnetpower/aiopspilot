@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { loadConfig } from "../config";
+import type { ConsoleDataMode } from "../console-data-mode";
+import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
+import {
+  agentStreamDescriptor,
+  useAgentStream,
+} from "../hooks/use-agent-stream";
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import { useLiveStream } from "../hooks/use-live-stream";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import {
   liveSelectionState,
   makeInitialState,
+  POOL_SIZE,
   reducer,
   type FilterKind,
 } from "./live.model";
@@ -15,12 +22,27 @@ import {
   type LiveRouteUpdate,
   type LiveViewMode,
 } from "./live.panels";
+import {
+  LIVE_OBSERVATION_LIMIT,
+  mergeLiveObservations,
+  type LiveObservationLoadState,
+} from "./live.observations";
 import { useLiveViewModel } from "./live.view-model";
+import {
+  OPERATIONS_SAMPLE_LIVE_EVENTS,
+  OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP,
+  OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT,
+  OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
+  OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
+  OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
+  sampleLiveEvents,
+} from "./operations.sample";
 
 export { liveTraceHref } from "./live.ticker";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 export const LIVE_BACKLOG_CAP = 1_000;
@@ -45,18 +67,31 @@ export function drainLiveBacklog(
   return { drained: backlog.slice(0, count), remaining: backlog.slice(count) };
 }
 
-export function LiveRoute({ client }: Props) {
+export function LiveRoute({ client, dataMode }: Props) {
   const initialRoute = currentRoute();
-  const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
+  const [state, dispatch] = useReducer(
+    reducer,
+    undefined,
+    () => makeInitialState(
+      dataMode === "sample" ? OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT : POOL_SIZE,
+    ),
+  );
   const [tickerPaused, setTickerPaused] = useState(false);
   const [viewMode, setViewMode] = useState<LiveViewMode>(
     initialRoute.search.get("view") === "queue" ? "queue" : "flow",
   );
   const [frozenObserved, setFrozenObserved] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
+  const [observations, setObservations] = useState<
+    readonly AgentOperationalActivityMessage[]
+  >([]);
+  const [observationLoadState, setObservationLoadState] =
+    useState<LiveObservationLoadState>("loading");
+  const [observationError, setObservationError] = useState<string | null>(null);
   const pausedRef = useRef(false);
   const frozenObservedRef = useRef(0);
   const pendingEventsRef = useRef<LiveStageEvent[]>([]);
+  const pendingObservationsRef = useRef<AgentOperationalActivityMessage[]>([]);
 
   const updateRoute = ({
     eventId = state.selectedEventId,
@@ -70,6 +105,7 @@ export function LiveRoute({ client }: Props) {
         event: eventId,
         filter: filter === "all" ? null : filter,
         view: view === "flow" ? null : view,
+        data: dataMode === "sample" ? "sample" : null,
       },
     }));
   };
@@ -81,6 +117,7 @@ export function LiveRoute({ client }: Props) {
         event: eventId,
         filter: state.filter === "all" ? null : state.filter,
         view: viewMode === "flow" ? null : viewMode,
+        data: dataMode === "sample" ? "sample" : null,
       },
     }));
   };
@@ -113,8 +150,9 @@ export function LiveRoute({ client }: Props) {
     return `${base.replace(/\/$/, "")}/live/stream`;
   }, []);
 
-  const { status, lastError, source: streamSource } = useLiveStream({
+  const stream = useLiveStream({
     url,
+    enabled: dataMode === "live",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => {
       const next = appendLiveBacklog(pendingEventsRef.current, event);
@@ -125,6 +163,92 @@ export function LiveRoute({ client }: Props) {
       }
     },
   });
+  const status = dataMode === "sample" ? "open" : stream.status;
+  const lastError = dataMode === "sample" ? null : stream.lastError;
+  const streamSource = dataMode === "sample" ? "synthetic-dev" : stream.source;
+  const observationDescriptor = useMemo(agentStreamDescriptor, []);
+  const observationStream = useAgentStream({
+    url: observationDescriptor.url,
+    enabled: dataMode === "live",
+    getAuthorizationHeader: client.authorizationHeader,
+    onEvent: (event) => {
+      if (event.type !== "agent.operational-activity") return;
+      if (pausedRef.current) {
+        pendingObservationsRef.current = [
+          ...mergeLiveObservations(pendingObservationsRef.current, [event]),
+        ];
+        frozenObservedRef.current += 1;
+        return;
+      }
+      setObservationLoadState("ready");
+      setObservationError(null);
+      setObservations((current) => mergeLiveObservations(current, [event]));
+    },
+  });
+
+  useEffect(() => {
+    if (dataMode !== "live") {
+      setObservations([]);
+      setObservationLoadState("unavailable");
+      setObservationError(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setObservationLoadState("loading");
+    setObservationError(null);
+    void client.listAgentActivity(LIVE_OBSERVATION_LIMIT)
+      .then((page) => {
+        if (cancelled) return;
+        setObservations((current) => mergeLiveObservations(current, page.items));
+        setObservationLoadState(
+          page.source.includes("unavailable") ? "unavailable" : "ready",
+        );
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setObservationLoadState("error");
+        setObservationError(error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, dataMode]);
+
+  useEffect(() => {
+    if (dataMode !== "sample") return undefined;
+    dispatch({ kind: "batch", events: OPERATIONS_SAMPLE_LIVE_EVENTS });
+    dispatch({ kind: "seed-rate", now: Date.now(), per_tier_per_second: 1 });
+    let nextEvent = OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT;
+    const stageHandles = new Set<number>();
+    const enqueue = (event: LiveStageEvent) => {
+      const next = appendLiveBacklog(pendingEventsRef.current, event);
+      pendingEventsRef.current = [...next.backlog];
+      if (next.dropped > 0) setDroppedFrames((current) => current + next.dropped);
+      if (pausedRef.current) frozenObservedRef.current += 1;
+    };
+    const scheduleLoop = () => {
+      for (let eventOffset = 0; eventOffset < OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP; eventOffset += 1) {
+        const events = sampleLiveEvents(nextEvent + eventOffset, 1);
+        events.forEach((event, stageIndex) => {
+          const stageHandle = window.setTimeout(() => {
+            stageHandles.delete(stageHandle);
+            enqueue(event);
+          }, eventOffset * 250 + stageIndex * OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS);
+          stageHandles.add(stageHandle);
+        });
+      }
+      nextEvent += OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP;
+    };
+    scheduleLoop();
+    const loopHandle = window.setInterval(
+      scheduleLoop,
+      OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
+    );
+    return () => {
+      window.clearInterval(loopHandle);
+      stageHandles.forEach((handle) => window.clearTimeout(handle));
+    };
+  }, [dataMode]);
 
   useEffect(() => {
     const handle = window.setInterval(() => {
@@ -155,6 +279,9 @@ export function LiveRoute({ client }: Props) {
   const togglePause = () => {
     if (tickerPaused) {
       pausedRef.current = false;
+      setObservations((current) =>
+        mergeLiveObservations(current, pendingObservationsRef.current));
+      pendingObservationsRef.current = [];
       setTickerPaused(false);
     } else {
       pausedRef.current = true;
@@ -220,6 +347,11 @@ export function LiveRoute({ client }: Props) {
       tickerPaused={tickerPaused}
       frozenObserved={frozenObserved}
       droppedFrames={droppedFrames}
+      observations={observations}
+      observationLoadState={observationLoadState}
+      observationStreamStatus={observationStream.status}
+      observationStreamSource={observationStream.source}
+      observationError={observationError}
       viewMode={viewMode}
       selectionState={selectionState}
       selectedTile={selectedTile}

@@ -36,6 +36,8 @@ import {
   panelRecord,
   panelString,
 } from "./panel-decode";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { sampleLlmCost } from "./llm-cost.sample";
 
 /**
  * LLM usage panel. Fetches ``GET /kpi/llm-cost`` and renders measured
@@ -110,7 +112,7 @@ function csvCell(value: string | number): string {
   return `"${safe.replaceAll('"', '""')}"`;
 }
 
-interface Response {
+export interface LlmCostResponse {
   readonly source: string;
   readonly range_start: string | null;
   readonly range_end: string | null;
@@ -135,6 +137,7 @@ interface Response {
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 export function tokenShare(part: number, total: number): number | null {
@@ -156,15 +159,24 @@ export function usageTrendPoints(rows: readonly Summary[]): string | null {
   }).join(" ");
 }
 
-export function LlmCostRoute({ client }: Props) {
+export function LlmCostRoute({ client, dataMode }: Props) {
   const [range, setRange] = useState<LlmUsageRange>(() =>
-    llmUsageRangeFromSearch(currentRoute().search, new Date())
+    llmUsageRangeFromSearch(
+      currentRoute().search,
+      dataMode === "sample" ? new Date("2026-09-01T00:00:00Z") : new Date(),
+    )
   );
-  const [state, setState] = useState<AsyncState<Response>>({ status: "loading" });
+  const [state, setState] = useState<AsyncState<LlmCostResponse>>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
+    if (dataMode === "sample") {
+      setState({ status: "ready", data: sampleLlmCost(range) });
+      return () => {
+        cancelled = true;
+      };
+    }
     (async () => {
       try {
         const data = decodeLlmCost(await client.panel<unknown>(
@@ -189,11 +201,16 @@ export function LlmCostRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client, range.from, range.to]);
+  }, [client, dataMode, range.from, range.to]);
 
   const changeRange = (next: LlmUsageRange) => {
     setRange(next);
-    replaceRouteState(routeHref("llm-cost", { params: llmUsageRangeSearchParams(next) }));
+    replaceRouteState(routeHref("llm-cost", {
+      params: {
+        ...llmUsageRangeSearchParams(next),
+        data: dataMode === "sample" ? "sample" : null,
+      },
+    }));
   };
 
   return (
@@ -211,7 +228,7 @@ export function LlmCostRoute({ client }: Props) {
   );
 }
 
-export function decodeLlmCost(value: unknown): Response {
+export function decodeLlmCost(value: unknown): LlmCostResponse {
   const root = panelRecord(value, "LLM cost");
   const decodeSummary = (value: unknown, label: string): Summary => {
     const summary = panelRecord(value, label);
@@ -300,7 +317,7 @@ function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
   ];
 }
 
-function LlmCostBody({ data, range }: { readonly data: Response; readonly range: LlmUsageRange }) {
+function LlmCostBody({ data, range }: { readonly data: LlmCostResponse; readonly range: LlmUsageRange }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
   const compact = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 2 });
   const auditContext = Object.fromEntries(currentRoute().search.entries());
@@ -433,7 +450,7 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
   );
 }
 
-function TokenComposition({ data, auditHref, locale }: { readonly data: Response; readonly auditHref: string; readonly locale: string }) {
+function TokenComposition({ data, auditHref, locale }: { readonly data: LlmCostResponse; readonly auditHref: string; readonly locale: string }) {
   const inputShare = tokenShare(data.total.prompt_tokens, data.total.total_tokens);
   const outputShare = tokenShare(data.total.completion_tokens, data.total.total_tokens);
   return (

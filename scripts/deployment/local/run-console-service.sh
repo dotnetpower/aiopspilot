@@ -64,6 +64,11 @@ case "$service" in
     source_root="console/src"
     project_file="console/package.json"
     ;;
+  manual-studio)
+    env_file=""
+    source_root="tools/manual-studio"
+    project_file="tools/manual-studio/package.json"
+    ;;
   *)
     echo "Unsupported local Console service: $service" >&2
     exit 2
@@ -74,6 +79,11 @@ if [[ "$service" == "operator-channel-edge" ]]; then
   bash "$repo_root/scripts/deployment/local/prepare-channel-edge-env.sh"
 fi
 
+if [[ "$service" == "core-runtime" ]]; then
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/deployment/local/check-local-prompt-source.py"
+fi
+
 if [[ "$service" == "console-frontend" ]]; then
   digest_inputs=(
     "$source_root"
@@ -82,6 +92,12 @@ if [[ "$service" == "console-frontend" ]]; then
     console/package-lock.json
     console/vite.config.ts
     console/tsconfig.json
+    scripts/deployment/local/run-console-service.sh
+  )
+elif [[ "$service" == "manual-studio" ]]; then
+  digest_inputs=(
+    "$source_root"
+    "$project_file"
     scripts/deployment/local/run-console-service.sh
   )
 else
@@ -194,7 +210,15 @@ case "$service" in
       VITE_LOCAL_AZURE_CLI_AUTH=0
       VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
       VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
+      VITE_MANUAL_STUDIO_URL=http://127.0.0.1:5474
       npm --prefix "$repo_root/console" run dev -- --port 5273 --strictPort
+    )
+    ;;
+  manual-studio)
+    service_command=(
+      env
+      PORT=5474
+      npm --prefix "$repo_root/tools/manual-studio" run dev
     )
     ;;
 esac

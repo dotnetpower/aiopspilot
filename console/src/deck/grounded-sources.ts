@@ -14,8 +14,14 @@
  * rich-content.tsx consume these builders.
  */
 
-import type { AnswerPlanningMetadata, AnswerVerification, DelegationMetadata } from "./backend";
+import type {
+  AnswerPlanningMetadata,
+  AnswerVerification,
+  DelegationMetadata,
+  SemanticProjectionReceipt,
+} from "./backend";
 import type { Citation } from "./citations";
+import { evidencePostureIssueKind, type EvidencePostureIssueKind } from "./verification-presentation";
 
 const MAX_MODEL_DESCRIPTOR_CHARS = 128;
 const MAX_SOURCE_DETAIL_CHARS = 160;
@@ -74,6 +80,15 @@ export interface TraceStage {
   readonly detailKey?: string;
   readonly detailParams?: Readonly<Record<string, string | number>>;
 }
+
+export type GroundingAttentionIssueKind = EvidencePostureIssueKind | "partialEvidence";
+
+const GROUNDING_STAGE_DETAIL: Readonly<Record<GroundingAttentionIssueKind, string>> = {
+  staleEvidence: "Grounding evidence is stale",
+  partialEvidence: "Grounding evidence is incomplete",
+  conflictingEvidence: "Grounding evidence conflicts",
+  evidenceUnavailable: "Grounding evidence is unavailable",
+};
 
 export function groundingAgents(
   delegation: DelegationMetadata | undefined,
@@ -290,6 +305,7 @@ export function groundingStages(input: {
   readonly sources: readonly GroundedSource[];
   readonly source: string | undefined;
   readonly verification: AnswerVerification | undefined;
+  readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly agents: readonly string[];
   readonly handoff?: {
     readonly from: string;
@@ -348,27 +364,40 @@ export function groundingStages(input: {
     });
   }
   const verification = input.verification;
+  const groundingIssue = groundingAttentionIssueKind(verification, input.semanticReceipt);
   if (verification) {
     const refs = verification.evidence_refs.length;
     const manifest = verification.evidence_manifest;
     const incompleteManifest = manifest?.complete === false;
-    if (refs > 0 || incompleteManifest) {
+    const countedManifestDetail = incompleteManifest;
+    const postureOnlyGroundingIssue = groundingIssue === "partialEvidence" && countedManifestDetail
+      ? null
+      : groundingIssue;
+    const groundDetailKey = postureOnlyGroundingIssue
+      ? `deck.grounded.stageDetail.${postureOnlyGroundingIssue}`
+      : incompleteManifest
+        ? "deck.grounded.stageDetail.manifestSourcesAvailable"
+        : refs === 1
+          ? "deck.grounded.stageDetail.reference"
+          : "deck.grounded.stageDetail.references";
+    const groundDetailParams = postureOnlyGroundingIssue
+      ? null
+      : incompleteManifest
+        ? { available: manifest.entries.length, total: manifest.source_entry_count }
+        : { count: refs };
+    if (refs > 0 || incompleteManifest || groundingIssue !== null) {
       stages.push({
         action: "ground",
         label: "Bound answer to evidence",
-        detail: incompleteManifest
-          ? `${manifest.entries.length}/${manifest.source_entry_count} manifest sources available`
-          : `${refs} reference${refs === 1 ? "" : "s"}`,
-        detailKey: incompleteManifest
-          ? "deck.grounded.stageDetail.manifestSourcesAvailable"
-          : refs === 1
-            ? "deck.grounded.stageDetail.reference"
-            : "deck.grounded.stageDetail.references",
-        detailParams: incompleteManifest
-          ? { available: manifest.entries.length, total: manifest.source_entry_count }
-          : { count: refs },
+        detail: postureOnlyGroundingIssue
+          ? GROUNDING_STAGE_DETAIL[postureOnlyGroundingIssue]
+          : incompleteManifest
+            ? `${manifest.entries.length}/${manifest.source_entry_count} manifest sources available`
+            : `${refs} reference${refs === 1 ? "" : "s"}`,
+        detailKey: groundDetailKey,
         side: "ground",
-        status: incompleteManifest ? "attention" : "complete",
+        status: groundingIssue || incompleteManifest ? "attention" : "complete",
+        ...(groundDetailParams ? { detailParams: groundDetailParams } : {}),
       });
     }
     if (verification.checks_total > 0) {
@@ -377,9 +406,19 @@ export function groundingStages(input: {
         label: "Checked answer",
         detail: `${verification.checks_completed}/${verification.checks_total} checks`,
         side: "verify",
-        status: verification.status === "unverified" ? "attention" : "complete",
+        status: verification.status === "unverified" || groundingIssue !== null
+          ? "attention"
+          : "complete",
       });
     }
   }
   return stages;
+}
+
+export function groundingAttentionIssueKind(
+  verification: AnswerVerification | undefined,
+  semanticReceipt: SemanticProjectionReceipt | undefined,
+): GroundingAttentionIssueKind | null {
+  return evidencePostureIssueKind(semanticReceipt)
+    ?? (verification?.evidence_manifest?.complete === false ? "partialEvidence" : null);
 }

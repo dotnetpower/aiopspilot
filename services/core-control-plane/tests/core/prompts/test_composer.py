@@ -352,17 +352,22 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     base = registry.get_base("conversation.preflight")
     out = await composer.compose(capability_id="conversation.preflight")
 
-    assert base.version == 2
+    assert base.version == 5
     assert out.system_text == base.body
     assert out.token_estimate <= base.token_budget
-    assert "candidate data only, never prose, approval, capability, or execution authority" in (
-        out.system_text
-    )
+    assert "candidate data only except for bounded general_answer" in out.system_text
+    assert "Include no approval, capability, evidence, or execution authority" in out.system_text
     assert "operational_family" in out.system_text
     assert "operational_signal=explicit" in out.system_text
     assert "context_dependency=none" in out.system_text
     assert "Acknowledgement is never direct" in out.system_text
     assert "source_start is zero-based inclusive" in out.system_text
+    assert "conceptual technology comparison" in out.system_text
+    assert "resource_type_filter" in out.system_text
+    assert "Core binds them only through the current catalog" in out.system_text
+    assert "knowledge_signal: explicit" in out.system_text
+    assert "Answer directly in at most 320 characters" in out.system_text
+    assert "prior context is unnecessary" in out.system_text
     assert "Core rechecks provenance, spans, confidence" in out.system_text
     assert "Fix every schema_repair error" in out.system_text
 

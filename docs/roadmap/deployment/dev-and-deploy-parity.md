@@ -56,28 +56,29 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### Fixed workspace ports
-Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs independently on `5474` for local development and stays separate from the authenticated Console full stack.
+Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
+on `5474` and starts with the authenticated Console full stack so the in-product help library is
+available without a separate command.
+
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch or `design mocks: serve (5373)` task |
 | Console SPA | `http://localhost:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
+| Manual Studio | `http://127.0.0.1:5474` | `Console Web: Full Stack` or `console: start full stack` task |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Document Ingestion API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-The `Console Web: Full Stack` compound starts the five independently packaged backend services and
-the Console SPA. The generic Console build loads `/fdai-config.js` before its module entry and ships
-an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
+The `Console Web: Full Stack` compound starts the five independently packaged backend services, the
+Console SPA, and Manual Studio. The generic Console build loads `/fdai-config.js` before its module
+entry and ships an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
 with schema-validated public HTTPS and Entra bindings; unknown fields and a second tenant rewrite
 fail closed. Local launches still import only service-owned distributions, and the local Isolated
 Executor remains a durable shadow consumer without managed-resource identity. The compound doesn't
 start static design mocks or fixture applications.
 
-The task-backed `console: start full stack` supervisor additionally starts the continuous inventory
-reconciliation and observation campaign modes from the Core distribution. Local readiness and the
-10-minute watchdog include both jobs, so a stopped inventory producer makes the stack unavailable
-and triggers bounded recovery instead of leaving Live connected without new control-loop input.
+The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Local readiness and the 10-minute watchdog include all three processes, so a stopped help library or inventory producer makes the stack unavailable and triggers bounded recovery.
 
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
@@ -96,7 +97,7 @@ The `database_host_binding` deployment mode changes only the deployed service's 
 
 Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly from the trusted primary checkout so setup never competes with editor initialization. The task verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs `start-console-services.sh`. Preparation first validates all service-migration branches and write ownership. It then restores runtime PostgreSQL on port `5432`, the isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV before it evaluates eight ordered stage fingerprints: Console dependencies, local migrations, runtime environment, authoritative inventory, Settings projections, catalog projections, service environments, and Entra redirects. A stage is reused from its exact inputs and required outputs without requiring an already-running application stack. Database-backed stages also include the local PostgreSQL volume identity, so recreated volumes cannot inherit stale file markers. A missing or changed dependency stage runs frozen `uv sync` for every Python workspace package and lockfile-backed `npm ci`; it also requires the independently packaged worker and Executor entry points before the stage can be reused. Dependency repair finishes before the supervisor starts any service process, so package reconciliation cannot become an implicit application launch. Each external command runs through `run-bounded-command.py`, which streams output and latches either its total or no-progress deadline once. The runner keeps signaling the complete child process group even when its direct child exits first, sends `SIGTERM` at expiration, and escalates to `SIGKILL` after the declared grace period. `--force` invalidates every stage.
 
-The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, but the VS Code task remains active until the supervisor emits exactly one terminal `ready` or `failed` event. The complete readiness gate defaults to 60 seconds and has a 65-second outer process-group deadline. Every child exit, readiness failure, signal, or managed-lock failure before readiness emits `failed` and returns nonzero. Duplicate explicit starts run concurrently through the managed lock and fingerprint reuse path instead of being silently ignored. The schema-valid `silent` overflow policy applies only after the two-instance ceiling is reached and never opens an interactive prompt. `console: wait full stack ready` is a separate ten-second diagnostic after a successful start, not a second startup phase. Its text mode emits the wait budget before polling; JSON mode remains one machine-readable document. The Core and Operator recovery tasks apply the same named-service readiness check and emit terminal markers instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
+The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, but the VS Code task remains active until the supervisor emits exactly one terminal `ready` or `failed` event. The complete readiness gate defaults to 60 seconds and has a 65-second outer process-group deadline. Every child exit, readiness failure, signal, or managed-lock failure before readiness emits `failed` and returns nonzero. Duplicate explicit starts run concurrently through the managed lock and fingerprint reuse path instead of being silently ignored. The schema-valid `silent` overflow policy applies only after the two-instance ceiling is reached and never opens an interactive prompt. `console: wait full stack ready` is a separate ten-second diagnostic after a successful start, not a second startup phase. Its text mode emits the wait budget before polling; JSON mode remains one machine-readable document. The Core launcher rejects modified or untracked active prompt files so local answers cannot silently use a different prompt than the checked-in revision. A deliberate prompt-development run can opt in with `FDAI_LOCAL_ALLOW_DIRTY_PROMPTS=1`; standard startup remains closed. The Core and Operator recovery tasks apply the same named-service readiness check and emit terminal markers instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
 
 The ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
@@ -352,8 +353,7 @@ file creation when they differ. Both profiles execute the same explicitly typed 
 derives a non-identifying consumer instance hash from the local user and host so concurrent developers never join the same Event Hubs Kafka
 consumer group. Automation can set `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20 characters
 when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups use that instance, while deployed Operator
-request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The Live stage hub retains
-at most 256 accepted frames for 60 seconds and replays them in observed order to a new subscriber. The Agent hub retains one latest
+request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The Live stage hub retains at most 256 accepted frames for 60 seconds and replays them in observed order to a new subscriber. The Agent hub retains one latest
 validated `agent.state` event per agent and seeds those values while registering each new subscriber under the same lock. These bounded
 process-local snapshots hydrate a refresh without polling, but they are not durable history replay and disappear when the Operator process
 restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently

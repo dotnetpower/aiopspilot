@@ -8,6 +8,7 @@ import {
   makeInitialState,
   matchesFilter,
   pickSlot,
+  reducer,
 } from "./live.model";
 import { appendLiveBacklog, drainLiveBacklog, liveTraceHref } from "./live";
 import {
@@ -16,8 +17,89 @@ import {
   compareLiveTiles,
   liveControlState,
 } from "./live.tiles";
+import {
+  liveObservationPresentation,
+  mergeLiveObservations,
+} from "./live.observations";
 
 describe("live event selection", () => {
+  test("merges authoritative observation activity by id and newest timestamp", () => {
+    const base = {
+      type: "agent.operational-activity",
+      schema_version: "1.1.0",
+      idempotency_key: "observation:one",
+      kind: "observation",
+      status: "completed",
+      owner_agent: "Heimdall",
+      producer: "observation-campaign-job",
+      observation_domain: "metrics",
+      source: "metrics",
+      freshness: "fresh",
+      evidence_count: 2,
+      duration_ms: 12,
+      correlation_id: "campaign-1",
+      reason_codes: [],
+      execution_authority: false,
+    } as const;
+    const started = {
+      ...base,
+      activity_id: "observation:one:started",
+      idempotency_key: "observation:one:started",
+      status: "started" as const,
+      observed_at: "2026-09-07T03:00:00Z",
+    };
+    const completed = {
+      ...base,
+      activity_id: "observation:one:completed",
+      idempotency_key: "observation:one:completed",
+      observed_at: "2026-09-07T03:01:00Z",
+    };
+    const newer = {
+      ...base,
+      activity_id: "observation:two",
+      idempotency_key: "observation:two",
+      correlation_id: "campaign-2",
+      observed_at: "2026-09-07T03:02:00Z",
+    };
+
+    expect(
+      mergeLiveObservations([started], [completed, newer, newer], 2)
+        .map((item) => item.activity_id),
+    ).toEqual(["observation:two", "observation:one:completed"]);
+    expect(() => mergeLiveObservations([], [], 0)).toThrow("positive integer");
+  });
+
+  test("keeps streamed items visible when durable history is unavailable", () => {
+    expect(liveObservationPresentation("unavailable", "open", 1)).toBe("items");
+    expect(liveObservationPresentation("unavailable", "open", 0)).toBe("waiting");
+    expect(liveObservationPresentation("unavailable", "closed", 0)).toBe("unavailable");
+  });
+
+  test("supports a larger Sample-only pool without changing the default", () => {
+    expect(makeInitialState().tiles).toHaveLength(12);
+    expect(makeInitialState(30).tiles).toHaveLength(30);
+    expect(() => makeInitialState(0)).toThrow("positive integer");
+  });
+
+  test("seeds a distributed three-event-per-second history", () => {
+    const now = Date.parse("2026-09-01T09:00:00Z");
+    const state = reducer(makeInitialState(30), {
+      kind: "seed-rate",
+      now,
+      per_tier_per_second: 1,
+    });
+
+    expect(state.ratePings).toHaveLength(180);
+    expect(state.rateBuckets.t0.slice(0, 4)).toEqual([2, 1, 1, 2]);
+    expect(state.rateBuckets.t1.slice(0, 4)).toEqual([1, 1, 2, 0]);
+    expect(state.rateBuckets.t2.slice(0, 4)).toEqual([0, 1, 0, 1]);
+    expect(
+      state.rateBuckets.t0.reduce((sum, value) => sum + value, 0)
+      + state.rateBuckets.t1.reduce((sum, value) => sum + value, 0)
+      + state.rateBuckets.t2.reduce((sum, value) => sum + value, 0),
+    ).toBe(180);
+  });
+
   test("links a recent outcome to correlation-scoped Trace evidence", () => {
     expect(liveTraceHref("corr-1")).toBe("/trace?correlation=corr-1");
   });

@@ -35,7 +35,10 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
-from .semantic_target_identity import exact_target_from_constraints
+from .semantic_target_identity import (
+    exact_resource_target_from_constraints,
+    exact_target_from_constraints,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _GENERIC_RESOURCE_OUTPUTS = frozenset(
@@ -129,22 +132,21 @@ def compile_target_current_state_plan(
         or not _has_current_state_function(manifest.descriptors)
     ):
         return None
-    target_name = exact_target_from_constraints(
+    target = exact_resource_target_from_constraints(
         frame.subject_constraints,
         utterance=utterance,
         descriptors=manifest.descriptors,
     )
-    identity_property = _resource_identity_property(manifest.descriptors)
-    if target_name is None or identity_property is None:
+    if target is None:
         return None
     as_of = evaluation_time.astimezone(UTC)
     target_definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         predicates=(
             ObjectPredicate(
-                property=identity_property,
+                property=target.property_name,
                 operator=ObjectPredicateOperator.EQUALS,
-                equals=target_name,
+                equals=target.value,
             ),
         ),
         as_of=as_of,
@@ -198,18 +200,6 @@ def compile_target_current_state_plan(
         plan_digest=content_digest(body),
     )
     return verifier.verify(plan, manifest=manifest)
-
-
-def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str | None:
-    selected = tuple(
-        descriptor
-        for descriptor in descriptors
-        if descriptor.get("kind") == "object" and descriptor.get("name") == "Resource"
-    )
-    if len(selected) != 1 or not isinstance(selected[0].get("properties"), Mapping):
-        return None
-    properties = selected[0]["properties"]
-    return next((name for name in ("name", "display_name", "id") if name in properties), None)
 
 
 def _has_current_state_function(descriptors: tuple[dict[str, Any], ...]) -> bool:

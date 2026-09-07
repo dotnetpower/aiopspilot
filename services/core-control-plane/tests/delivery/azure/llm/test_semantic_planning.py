@@ -200,7 +200,18 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     ]
 
 
-async def test_known_operational_intent_uses_compact_frame_prompt() -> None:
+@pytest.mark.parametrize(
+    "primary_intent",
+    (
+        "query.gateway_diagnostic_evidence",
+        "query.contextual_resources",
+        "query.resource_current_state",
+        "query.resource_state_inventory",
+    ),
+)
+async def test_known_operational_intent_uses_compact_frame_prompt(
+    primary_intent: str,
+) -> None:
     captured: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -228,7 +239,7 @@ async def test_known_operational_intent_uses_compact_frame_prompt() -> None:
             principal_role="reader",
             purpose="operations-review",
             semantic_judgment={
-                "primary_intent": "query.gateway_diagnostic_evidence",
+                "primary_intent": primary_intent,
                 "authority": "candidate_only",
                 "execution_authority": False,
             },

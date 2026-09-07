@@ -203,12 +203,15 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         status = statuses[status_value]
     except KeyError as exc:
         raise ValueError("observation status is not terminal") from exc
-    try:
-        freshness = OperationalFreshness(
-            _text(value.get("freshness"), "observation freshness", maximum=32)
-        )
-    except ValueError as exc:
-        raise ValueError("observation freshness is unsupported") from exc
+    if status is OperationalActivityStatus.STARTED:
+        freshness = OperationalFreshness.UNKNOWN
+    else:
+        try:
+            freshness = OperationalFreshness(
+                _text(value.get("freshness"), "observation freshness", maximum=32)
+            )
+        except ValueError as exc:
+            raise ValueError("observation freshness is unsupported") from exc
     reasons = _string_tuple(value.get("reason_codes"), "observation reason codes")
     return AgentOperationalActivity(
         schema_version="1.1.0",
@@ -225,11 +228,7 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
             else _timestamp(value.get("completed_at"), "observation completed_at")
         ),
         source=source_id,
-        freshness=(
-            OperationalFreshness.UNKNOWN
-            if status is OperationalActivityStatus.STARTED
-            else freshness
-        ),
+        freshness=freshness,
         evidence_count=_count(value, "evidence_count"),
         duration_ms=_optional_count(value, "duration_ms"),
         correlation_id=campaign_id,

@@ -246,7 +246,7 @@ async def test_builds_distinct_stage_prompts_from_one_common_base_without_networ
     assert tuple(dependencies.stage_prompts) == ADAPTIVE_STAGES
     assert len(set(dependencies.stage_prompts.values())) == len(ADAPTIVE_STAGES)
     for stage, text in dependencies.stage_prompts.items():
-        version = 3 if stage == "plan" else 1
+        version = {"plan": 4, "answer": 2, "review": 2}.get(stage, 1)
         assert dependencies.layer_ids[stage] == (
             "adaptive-common.v1",
             f"adaptive-{stage}.v{version}",
@@ -259,16 +259,15 @@ async def test_builds_distinct_stage_prompts_from_one_common_base_without_networ
             json.loads(prompt.split("\n\n")[-1])["server_profile"]["role_directive"]
             == dependencies.profile.role_directive
         )
-    assert "mixed social" in dependencies.stage_prompts["answer"]
+    assert "Blend social acknowledgement" in dependencies.stage_prompts["answer"]
     assert "prompt injection" in dependencies.stage_prompts["review"]
     assert "single explicitly authorized T2" in dependencies.stage_prompts["refine"]
     assert "route legacy" in dependencies.stage_prompts["plan"]
     assert "environment_example" in dependencies.stage_prompts["plan"]
     assert (
-        "A greeting plus a general explanation request is adaptive"
-        in (dependencies.stage_prompts["plan"])
+        "a greeting must not erase the substantive question" in dependencies.stage_prompts["plan"]
     )
-    assert "only when requested or directly relevant" in dependencies.stage_prompts["plan"]
+    assert "requested or is directly relevant" in dependencies.stage_prompts["plan"]
     assert "supported_goal_ids" in dependencies.stage_prompts["review"]
     assert dependencies.refinement_available is True
     assert dependencies.profile_resolver("Odin", "ko", None).agent == "Odin"

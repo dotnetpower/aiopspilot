@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { AnswerVerification } from "./backend";
+import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 import {
+  evidencePostureIssueKind,
   unverifiedDetailLabel,
   verificationIssueKind,
   verificationPrimaryLabel,
@@ -16,6 +17,36 @@ function verification(reasonCode: string | null): AnswerVerification {
     failed_claim_ids: [],
     reason_code: reasonCode,
     claims: [],
+  };
+}
+
+function semanticReceipt(
+  evidence_posture: "fresh" | "stale" | "incomplete" | "conflicting" | "unavailable",
+): SemanticProjectionReceipt {
+  return {
+    schema_version: "2.0.0",
+    projection_id: "projection-1",
+    request_id: "request-1",
+    disposition: "answered",
+    reason_code: "query_completed",
+    execution_authority: false,
+    assurance_observation: {
+      schema_version: "1.0.0",
+      frame: null,
+      capabilities: [],
+      object_types: [],
+      link_types: [],
+      function_types: [],
+      ontology_paths: [],
+      fact_kinds: [],
+      limitation_kinds: [],
+      claim_kinds: [],
+      evidence_posture,
+      authority_posture: "read_only",
+      read_performed: true,
+      observation_digest: "sha256:obs",
+      execution_authority: false,
+    },
   };
 }
 
@@ -38,6 +69,7 @@ describe("verification presentation", () => {
       "visionUnverified",
       "Image interpretation",
     ],
+    ["conversation_preflight_malformed", "plannerUnavailable", "Semantic planning unavailable"],
   ] as const)("maps %s to %s", (reason, kind, label) => {
     const value = verification(reason);
     expect(verificationIssueKind(reason)).toBe(kind);
@@ -63,5 +95,17 @@ describe("verification presentation", () => {
     const value = verification("prior_result_set_truncated");
     expect(value.status).toBe("unverified");
     expect(unverifiedDetailLabel(value, "")).toBe("Required conversation context is missing");
+  });
+
+  it("surfaces stale evidence posture on verified replies", () => {
+    const value: AnswerVerification = {
+      ...verification(null),
+      status: "consistent",
+      reason_code: null,
+    };
+
+    expect(evidencePostureIssueKind(semanticReceipt("stale"))).toBe("staleEvidence");
+    expect(verificationPrimaryLabel(value, semanticReceipt("stale"))).toBe("Stale evidence");
+    expect(verificationPrimaryLabel(value, semanticReceipt("fresh"))).toBe("Consistent");
   });
 });

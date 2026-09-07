@@ -146,6 +146,8 @@ the exact ResourceTypes whose ARM type is supported:
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
 - Ontology directory and exploration records expose the same additive `states` field from the
   ontology-owned current Resource state.
+- The Ontology Instances graph reserves its reviewed viewport height even when a result contains
+  only a few nodes, so recorded-state details do not collapse the inspection surface.
 - An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
   Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
   raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.

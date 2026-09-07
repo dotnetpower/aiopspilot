@@ -86,6 +86,7 @@ def build_stated_resource_filter_frame(
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Build a filtered collection from one source-grounded judgment facet."""
 
@@ -104,23 +105,71 @@ def build_stated_resource_filter_frame(
         or any(not isinstance(facet, str) for facet in raw_facets)
     ):
         return None
-    filters = stated_value_filters(utterance, descriptors)
-    if not filters.get(("Resource", "type")):
-        return None
     targets = semantic_judgment.get("targets")
-    target_values = (
-        [
-            target["value"]
-            for target in targets
-            if isinstance(target, Mapping)
-            and isinstance(target.get("kind"), str)
-            and (target["kind"] == "affected_target" or target["kind"].endswith("_filter"))
-            and isinstance(target.get("value"), str)
-            and target.get("canonical_value") is None
-        ]
+    typed_targets = (
+        tuple(target for target in targets if isinstance(target, Mapping))
         if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
-        else []
+        else ()
     )
+    filters = stated_value_filters(utterance, descriptors)
+    typed_collection = primary_intent in {
+        "query.contextual_resources",
+        "query.resource_state_inventory",
+    } and (
+        (
+            {"resource_collection", "list"} <= set(raw_facets)
+            and any(
+                target.get("kind") in {"resource_type_filter", "resource_state_filter"}
+                for target in typed_targets
+            )
+        )
+        or (
+            bool(filters.get(("Resource", "type")))
+            and any(target.get("kind") == "resource_group" for target in typed_targets)
+        )
+    )
+    if (
+        not typed_collection
+        and query_target_cardinality(utterance, inventory_query_language)
+        is not QueryTargetCardinality.COLLECTION
+    ):
+        return None
+    if not filters.get(("Resource", "type")):
+        if not any(target.get("kind") == "resource_type_filter" for target in typed_targets):
+            return None
+        korean = any("가" <= character <= "힣" for character in utterance)
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.RESOURCE_LIST,
+            evidence_requirements=(),
+            unresolved_terms=("resource_filter_meaning",),
+            clarification_requirements=(ClarificationRequirement.SUBJECT,),
+            clarification=(
+                "요청한 리소스 범위가 유형, 이름 포함, 또는 관계 기준인지 알려주세요?"
+                if korean
+                else "Should the resource scope use a type, a name fragment, or a relationship?"
+            ),
+            investigation=None,
+            confidence=float(semantic_judgment.get("confidence", 0.0)),
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    target_values = [
+        target["value"]
+        for target in typed_targets
+        if isinstance(target.get("kind"), str)
+        and (
+            target["kind"] == "affected_target"
+            or (
+                target["kind"].endswith("_filter")
+                and target["kind"] not in {"resource_type_filter", "resource_state_filter"}
+            )
+        )
+        and isinstance(target.get("value"), str)
+        and target.get("canonical_value") is None
+    ]
     unique_target_values = tuple(
         dict.fromkeys(
             value for value in target_values if utterance.casefold().count(value.casefold()) == 1
@@ -131,11 +180,10 @@ def build_stated_resource_filter_frame(
         if len(unique_target_values) == 1
         else stated_subject_fragment(utterance, raw_facets, descriptors)
     )
-    if fragment is None:
-        return None
+    subject_constraints = ("Resource",) if fragment is None else ("Resource", fragment)
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
-        subject_constraints=("Resource", fragment),
+        subject_constraints=subject_constraints,
         measure_concepts=("name", "type"),
         temporal_scope={},
         output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,

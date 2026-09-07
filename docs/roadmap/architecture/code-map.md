@@ -36,6 +36,9 @@ and owning designs. Use it instead of the retired top-level application tree.
   bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
   from its sealed mode, including combined Core bindings; service tfvars cannot replace ownership or approval.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
+- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
+  Operations routes can opt into explicit Sample projections that remain read-only, generic, and
+  visibly separate from operational evidence.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
@@ -63,6 +66,11 @@ semantic judgment.
 Exact Resource current-state preflight binds one complete name or Resource ID to
 `query.resource_current_state`. The resulting ObjectSet excludes relationships and does not add
 catalog value filters found inside the identifier.
+Operational Resource collections apply one server-owned visibility rule after deterministic or
+model planning. Unbound catalog filters clarify instead of widening to all Resources, exact ARM
+identities remain `Resource.id` predicates, and role-assignment objects stay available only to
+their dedicated IAM evidence paths. ObjectSet materialization, refresh, and receipt failures retain
+their original exception while adding the bounded failing-stage diagnostic.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

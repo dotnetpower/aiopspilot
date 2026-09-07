@@ -1050,6 +1050,16 @@ _RESOURCE_GROUP_GROUP = PropertyValueGroup(
     values=("resource-group",),
     terms=("resource group", "resource groups", "리소스 그룹", "리소스그룹"),
 )
+_AKS_GROUP = PropertyValueGroup(
+    id="kubernetes-cluster",
+    values=("kubernetes-cluster",),
+    terms=("aks", "kubernetes cluster"),
+)
+_LLM_DEPLOYMENT_GROUP = PropertyValueGroup(
+    id="llm-model-deployment",
+    values=("llm-model-deployment",),
+    terms=("deployed LLM", "배포된 LLM"),
+)
 _VM_GROUP = PropertyValueGroup(
     id="compute-vm",
     values=("compute.vm",),
@@ -1059,6 +1069,11 @@ _POSTGRES_GROUP = PropertyValueGroup(
     id="postgresql-server",
     values=("postgresql-server",),
     terms=("postgres", "postgres db", "postgresql"),
+)
+_SQL_SERVER_GROUP = PropertyValueGroup(
+    id="sql-server",
+    values=("sql-server",),
+    terms=("mssql server", "mssql 서버", "sql server"),
 )
 
 
@@ -1314,6 +1329,54 @@ def test_stated_value_narrows_an_existence_predicate_to_the_declared_value() -> 
     predicates = _grounded_predicates(model, manifest, "현재구독의 리소스그룹 모두 알려줘")
 
     assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+
+
+@pytest.mark.parametrize(
+    ("utterance", "target_value"),
+    (
+        ("리소스그룹 목록", "리소스그룹"),
+        ("List resource groups", "resource groups"),
+    ),
+)
+def test_resource_group_type_target_is_not_treated_as_named_group_membership(
+    utterance: str,
+    target_value: str,
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    target_start = utterance.casefold().index(target_value.casefold())
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value=utterance[target_start : target_start + len(target_value)],
+                source_start=target_start,
+                source_end=target_start + len(target_value),
+            ),
+        ),
+        requested_facets=("name", "type"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
 
 
 def test_named_resource_group_membership_filters_parent_instead_of_group_type() -> None:
@@ -1615,6 +1678,255 @@ def test_verified_inventory_preflight_skips_full_semantic_judgment() -> None:
     assert model.frame_calls == model.plan_calls == 0
 
 
+def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_SQL_SERVER_GROUP,),
+        include_resource_state=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "실행 중인 mssql 서버 목록"
+    type_value = "mssql 서버"
+    state_value = "실행 중"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+            SemanticTarget(
+                kind="resource_state_filter",
+                value=state_value,
+                source_start=utterance.index(state_value),
+                source_end=utterance.index(state_value) + len(state_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list", "current_state"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None and outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [{"property": "type", "operator": "equals", "equals": "sql-server"}]
+    assert outcome.plan.nodes[-1].arguments["arguments"] == {
+        "state_concepts": ["resource_state.running"]
+    }
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_type_collection_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "aks 목록"
+    target_value = "aks"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=utterance.index(target_value),
+                source_end=utterance.index(target_value) + len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "kubernetes-cluster",
+        }
+    ]
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "fdai 관련 리소스 목록은"
+    target_value = "fdai"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("verified preflight should reach deterministic clarification")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=0,
+                source_end=len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.plan is None
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("resource_filter_meaning",)
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_deployed_llm_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(groups=(_LLM_DEPLOYMENT_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "배포된 llm 모델이 뭐야"
+    target_value = "배포된 llm 모델"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=utterance.index(target_value),
+                source_end=utterance.index(target_value) + len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "llm-model-deployment",
+        }
+    ]
+    assert model.frame_calls == model.plan_calls == 0
+
+
 @pytest.mark.parametrize(
     "updates",
     (
@@ -1698,6 +2010,15 @@ def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
     "primary_intent,expected_names",
     (
         ("create.document", {"Resource"}),
+        ("query.contextual_resources", {"Resource"}),
+        (
+            "query.resource_current_state",
+            {"Resource", "query.resource_current_state"},
+        ),
+        (
+            "query.resource_state_inventory",
+            {"Resource", "query.resource_state_inventory"},
+        ),
         (
             "query.resource_configuration_changes",
             {
@@ -1713,6 +2034,8 @@ def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
                 "routes_to",
                 "query.gateway_diagnostic_evidence",
                 "query.resource_configuration_changes",
+                "query.resource_current_state",
+                "query.resource_state_inventory",
                 "query.resource_configuration_snapshot",
             },
         ),
@@ -1729,6 +2052,8 @@ def test_known_operational_judgment_narrows_model_descriptors(
             "routes_to",
             "query.gateway_diagnostic_evidence",
             "query.resource_configuration_changes",
+            "query.resource_current_state",
+            "query.resource_state_inventory",
             "query.resource_configuration_snapshot",
             "unrelated-large-capability",
         )
@@ -4061,6 +4386,7 @@ def test_stated_subtype_wins_over_its_broader_category_group() -> None:
         "Show the deployed LLMs.",
         "List the GPT models.",
         "배포된 LLM 목록을 보여줘.",
+        "배포된 llm 모델이 뭐야",
         "GPT 모델 목록을 알려줘.",
     ),
 )
@@ -4073,6 +4399,7 @@ def test_llm_inventory_phrases_select_model_deployment_instances(utterance: str)
                 (
                     "deployed LLMs",
                     "GPT models",
+                    "배포된 LLM",
                     "배포된 LLM 목록",
                     "GPT 모델 목록",
                 )

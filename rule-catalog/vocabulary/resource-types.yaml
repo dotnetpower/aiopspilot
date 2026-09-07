@@ -330,7 +330,7 @@ types:
     category: database
     description: Logical SQL server that hosts SQL-family databases and owns their endpoint.
     azure_arm_type: Microsoft.Sql/servers
-    query_terms: [sql server, sql servers, logical sql server, sql 서버]
+    query_terms: [sql server, sql servers, logical sql server, mssql server, mssql servers, sql 서버, mssql 서버]
     typical_parents: [resource-group]
   - id: sql-database
     category: database

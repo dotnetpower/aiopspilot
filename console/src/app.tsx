@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { lazy, Suspense } from "preact/compat";
 import { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
@@ -31,16 +31,25 @@ import {
   currentRoute,
   installNavigationListener,
   migrateLegacyHash,
+  navigate,
   panelPath,
   shouldReplaceUnmatchedRoute,
 } from "./router";
 import { withStartupTransportRetry } from "./bootstrap-retry";
+import {
+  consoleDataMode,
+  consoleDataModeHref,
+  readConsoleDataMode,
+  supportsSampleData,
+  writeConsoleDataMode,
+} from "./console-data-mode";
 
 interface AppState {
   readonly status: "loading" | "starting" | "ready" | "access-error" | "error";
   readonly config?: ConsoleConfig;
   readonly auth?: AuthContext;
   readonly client?: OperatorApiClient;
+  readonly sampleClient?: OperatorApiClient;
   readonly iamSelf?: IamSelfStatus;
   readonly error?: string;
 }
@@ -92,6 +101,8 @@ export function App() {
     typeof window === "undefined" ? "/overview" : `${window.location.pathname}${window.location.search}`,
   );
   const [localDevBypass, setLocalDevBypass] = useState(readLocalAuthBypass);
+  const preferredDataModeRef = useRef(readConsoleDataMode());
+  const [preferredDataMode, setPreferredDataMode] = useState(preferredDataModeRef.current);
 
   useEffect(() => {
     migrateLegacyHash();
@@ -107,7 +118,22 @@ export function App() {
       );
     }
     const syncRoute = () => {
-      setPanelId(currentPanelId());
+      let route = currentRoute();
+      if (supportsSampleData(route.panelId)) {
+        if (route.search.get("data") === "sample") {
+          preferredDataModeRef.current = "sample";
+          writeConsoleDataMode("sample");
+          setPreferredDataMode("sample");
+        } else if (preferredDataModeRef.current === "sample") {
+          window.history.replaceState(
+            window.history.state,
+            "",
+            consoleDataModeHref("sample", window.location.pathname, window.location.search),
+          );
+          route = currentRoute();
+        }
+      }
+      setPanelId(route.panelId);
       setRouteKey(`${window.location.pathname}${window.location.search}`);
     };
     syncRoute();
@@ -201,6 +227,44 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      state.status !== "ready" ||
+      state.sampleClient !== undefined ||
+      !supportsSampleData(panelId) ||
+      (
+        preferredDataMode !== "sample" &&
+        currentRoute().search.get("data") !== "sample"
+      )
+    ) return undefined;
+    const { config, auth } = state;
+    if (config === undefined || auth === undefined) return undefined;
+    let cancelled = false;
+    void import("./routes/operations.sample")
+      .then(({ operationsSampleResponse }) => {
+        if (cancelled) return;
+        setState((current) => current.status !== "ready" || current.sampleClient !== undefined
+          ? current
+          : {
+              ...current,
+              sampleClient: new OperatorApiClient(config, auth, {
+                sampleResponse: operationsSampleResponse,
+              }),
+            });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setState({
+            status: "error",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [panelId, preferredDataMode, state]);
+
   if (state.status === "loading") {
     const loadingPanel = panelForId(panelId);
     return (
@@ -257,7 +321,7 @@ export function App() {
     );
   }
 
-  const { auth, client } = state;
+  const { auth, client, sampleClient } = state;
   if (!auth || !client) {
     return <div class="empty error">{t("console.internalStateMissing")}</div>;
   }
@@ -299,6 +363,8 @@ export function App() {
 
   const panel = panelForId(panelId);
   const PanelComponent = panel.component;
+  const route = currentRoute();
+  const dataMode = consoleDataMode(panel.id, route.search, preferredDataMode);
 
   return (
     <ViewContextProvider
@@ -313,6 +379,16 @@ export function App() {
         activePanelId={panel.id}
         auth={auth}
         client={client}
+        dataMode={dataMode}
+        onDataModeChange={(mode) => {
+          preferredDataModeRef.current = mode;
+          writeConsoleDataMode(mode);
+          setPreferredDataMode(mode);
+          navigate(
+            consoleDataModeHref(mode, window.location.pathname, window.location.search),
+            true,
+          );
+        }}
         {...(state.iamSelf ? { iamSelf: state.iamSelf } : {})}
         {...(
           auth.devMode
@@ -328,7 +404,17 @@ export function App() {
       >
         <PanelErrorBoundary key={routeKey}>
           <Suspense fallback={<PanelLoading title={panel.label} subtitle={panel.subtitle} />}>
-            <PanelComponent client={client} auth={auth} />
+            {dataMode === "sample" ? sampleClient === undefined ? (
+              <PanelLoading title={panel.label} subtitle={panel.subtitle} />
+            ) : (
+              <PanelComponent
+                client={sampleClient}
+                auth={auth}
+                dataMode={dataMode}
+              />
+            ) : (
+              <PanelComponent client={client} auth={auth} dataMode={dataMode} />
+            )}
           </Suspense>
         </PanelErrorBoundary>
       </Shell>

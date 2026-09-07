@@ -19,6 +19,9 @@ import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { supportsSampleData } from "../console-data-mode";
+import { DataModeControl } from "./data-mode-control";
 
 const AccountMenu = lazy(async () => {
   const module = await import("./account-menu");
@@ -30,6 +33,8 @@ interface ShellProps {
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly iamSelf?: IamSelfStatus;
+  readonly dataMode: ConsoleDataMode;
+  readonly onDataModeChange: (mode: ConsoleDataMode) => void;
   readonly children: ComponentChildren;
   readonly onExitLocalSession?: () => void;
 }
@@ -39,6 +44,8 @@ export function Shell({
   auth,
   client,
   iamSelf,
+  dataMode,
+  onDataModeChange,
   children,
   onExitLocalSession,
 }: ShellProps) {
@@ -69,7 +76,7 @@ export function Shell({
   }, []);
 
   return (
-    <div class="shell">
+    <div class={`shell ${dataMode === "sample" ? "shell-sample-mode" : ""}`}>
       <header class="topbar">
         <a class="brand-lockup" href={panelPath("dashboard")} aria-label={t("shell.home")}>
           <img
@@ -82,6 +89,9 @@ export function Shell({
           <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
+          {supportsSampleData(activePanelId) ? (
+            <DataModeControl mode={dataMode} onChange={onDataModeChange} />
+          ) : null}
           <IncidentAttention
             client={client}
             principalId={auth.account?.homeAccountId ?? null}
@@ -118,6 +128,12 @@ export function Shell({
           ) : null}
         </div>
       </header>
+      {dataMode === "sample" ? (
+        <div class="sample-mode-banner" role="status">
+          <strong>{t("dataMode.bannerTitle")}</strong>
+          <span>{t("dataMode.bannerBody")}</span>
+        </div>
+      ) : null}
       <div class="shell-body">
         <NavigationTitleProvider
           activePanelId={activePanelId}

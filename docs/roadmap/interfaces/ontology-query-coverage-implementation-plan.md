@@ -29,25 +29,38 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 > authentication is unavailable. Operator accepts only one authoritative terminal result per
 > request, records timeout holds at the actual fallback time, and ignores a later competing
 > projection. This behavior does not add lexical or regular-expression routing: natural-language
-> intent still requires schema-validated model judgment.
+> intent still requires schema-validated model judgment. If preflight returns malformed structured
+> output, Core makes one schema-repair attempt with the validation reason before returning the typed
+> unavailable outcome.
 >
-> **Operational preflight judgment:** For reviewed shapes covering F1-F4 and one exact Resource
-> current-state request, compact T1 preflight can provide provenance-bound candidate meaning and avoid a second serial judgment call.
+> **Operational preflight judgment:** For reviewed shapes covering F1-F4, current Resource
+> collections, and one exact Resource current-state request, compact T1
+> preflight can provide provenance-bound candidate meaning and avoid a second serial judgment call.
 > Core accepts it only for an explicit, context-independent request with at least 0.90 confidence,
 > exact current-utterance spans, supported one-hour canonicalization, a family-specific target and
 > facet shape, and the ordinary principal manifest. Any mismatch retains full semantic judgment.
+> A Resource collection proposal can carry one source-grounded subtype or category filter and one
+> current-state filter without canonical operands. Core binds those phrases through the current
+> ontology value domains and inventory-state catalog. An absent or ambiguous binding retains full
+> judgment or returns a typed clarification; it never broadens the request to an unfiltered Resource
+> collection, and the preflight model cannot invent a query operand. Exact Azure Resource Manager
+> identities remain `Resource.id equals` predicates instead of being reduced to the final name
+> segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
+> receives only the descriptors required by that operational family.
 > Generic product labels such as APIM, Application Gateway, backend, or GPT are not exact identities.
 > They produce `resource_identity` clarification before frame-model or provider I/O.
 >
-> **Named resource-group membership:** When model judgment classifies a request for members of one
+> **Operational Resource visibility:** Every Resource collection applies one server-owned visibility
+> rule after deterministic or model planning. It excludes `authorization.role-assignment` from
+> operator-selectable Resource results while preserving that object for IAM relationship evidence.
+> An explicit IAM or RBAC question uses its dedicated evidence path. When model judgment classifies a
+> request for members of one
 > exact named resource group, Core builds the verified `Resource.parent_id` frame before model frame
 > proposal. It compiles the exact group name into a bounded `parent_id contains` predicate. It does not
 > substitute the resource-group object itself or reinterpret the group noun as
 > `Resource.type=resource-group`. A `query.resource_current_state` judgment carrying a
 > `resource_group` target is rejected as an incompatible typed combination and retried before
-> planning. Generic group membership excludes `authorization.role-assignment`, which remains an
-> ontology resource for IAM evidence but is not an operator-selectable Azure resource-group member.
-> An explicit IAM or RBAC question uses its dedicated evidence path instead.
+> planning.
 >
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
@@ -182,7 +195,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 | Targetless Resource subtype candidate contract | validated | `semantic_target_candidate_planning.py`; `inventory_query_language.py`; `inventory-query-language.yaml`; focused planning cohort (`204 passed`); authenticated Korean Console matrix | Core converts a singular subtype request without one exact identity into one secured type-filtered ObjectSet and preserves `execution_authority=false`. The schema-validated cardinality signal cannot select a FunctionType, collection always wins over singular, and exact identities bypass candidate reduction. Eight current-source SRE example first turns completed as verified list or candidate answers with every hard-zero presentation counter at zero. Exact-target capability completion remains open. |
 | Kubernetes workload target selection and assessment | implemented | Kubernetes rollout, Pod recovery, and Resource event-history planners and FunctionTypes; reviewed metric semantics; provider readers; focused checks; authenticated targetless and exact-target Console receipts | Reviewed terms ground S12 and S1 targets. Exact Deployment and Pod plans verify ownership and same-UID restart deltas, preserve `source_incomplete`, and keep cause and execution authority false. A descriptor-advertised `resource_event.kubernetes` frame compiles the existing two-node plan only when its typed judgment duration equals the bounded frame lookback. When one source-grounded Resource name is present, the server plan preserves it as an additional exact predicate rather than widening to the complete Resource type. The Function can use a receipt-bound UID selector for one exact current child; missing or mismatched identity remains incomplete before provider I/O. Explicit cluster scope remains the only deleted-object history path. The answer names observed rows, source completeness, and the exact limitation; `source_retention_unverified` explicitly states that zero rows do not prove historical absence. Authenticated execution reached the exact Event Function and rendered `source_unavailable`, so successful provider access and durable retention remain open. |
 | Exact-target metric series and presentation | validated | `semantic_resource_metric_planning.py`; `resource_metric_queries.py`; `wire_semantic_query.py`; `presentation_artifact_v2.py`; focused checks; authenticated standard-port Console and Browser evidence | The explicit visualization request used `target_resource_metric_series` and `query.resource_metric_series` without T2. The FunctionType returned 20/20 complete endpoint and min/max envelope rows from 1085 source samples with `display_truncated=false`, and Operator compiled the verified time-series block plus exact-values fallback. Aggregate requests remain on `query.resource_metric_inventory`, and the result grants no execution authority. |
-| Explicit filtered-resource grounding | implemented | `semantic_planning_value_filters.py`; `test_semantic_planning.py`; focused planner checks (`27 passed`) | Core preserves every catalog-declared value filter stated in the utterance and one exact free-text subject carried by the frame. It only adds narrowing predicates, requires the subject to occur verbatim in the utterance, and grants no execution authority. |
+| Explicit filtered-resource grounding | implemented | `semantic_planning_value_filters.py`; `semantic_resource_visibility.py`; focused planning and visibility checks | Core preserves every catalog-declared value filter stated in the utterance and one exact free-text subject carried by the frame. It only adds narrowing predicates, requires the subject to occur verbatim in the utterance, and grants no execution authority. Every operational Resource collection excludes `authorization.role-assignment` through one server-owned post-verification filter, while explicit IAM relationship queries retain their dedicated evidence path. |
 | Exact-target health evidence assessment | validated | `semantic_health_planning.py`; `resource_health_assessment_queries.py`; production semantic composition; focused checks and authenticated Console receipt | The semantic runtime corrects a preserved read-only health frame only when one exact target and explicit evidence or health-axis wording are present. Core compiles seven bounded nodes and a deterministic assessment FunctionType. Incomplete readiness, application work, dependency, process restart, memory, log, or freshness evidence remains an explicit limitation and cannot be reported as healthy. The same-question runtime completed 7/7 nodes and 13/13 evidence checks with no T2 or unrelated rows. |
 | Exact-target request-error and Activity Log correlation | validated | `semantic_error_activity_planning.py`; `resource_error_activity_correlation_queries.py`; Azure metric and read-investigation providers; focused checks and authenticated Console receipt | Core compiles one exact Resource read, equal baseline/current `request.errors` windows, the same-window Activity Log read, and a deterministic no-cause reducer. Complete zero remains distinct from missing evidence, co-occurrence never becomes causation, and no model-authored provider command or execution authority is accepted. The post-restart same-question run completed 5/5 nodes and 11/11 evidence checks; Activity Log returned a verified zero while the unavailable request-error mapping remained an explicit gap. |
 | Typed extension answer projection | implemented | `semantic_turn_processor.py`; focused Core processor tests | Verified `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, and `CausalEvidenceJoin` outputs render as bounded summaries with exact digests, completeness, counts, limitations, and `execution_authority=false`. Raw provider payloads remain excluded and evidence references continue through the existing receipt path. |
@@ -194,6 +207,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Centralized operational Resource visibility so model-proposed and server-built collection plans both exclude `authorization.role-assignment`. The exclusion runs after model-operand verification and does not affect explicit IAM relationship output. | `current change`; focused visibility and named-resource-group checks; isolated production-Operator E2E returned `answered`, `semantic_answer_verified`, `resource_list`, zero serialized role-assignment rows, and `execution_authority=false`. | Retain the same result through the authenticated standard Console browser. |
 | 2026-09-07 | implemented | Added exact Resource current-state preflight and object-only completeness, and made local inventory refresh preserve configured scope and journal lineage. Scoped graph coverage now ignores unrelated test observations without ignoring pending observations in the active scope. | `current change`; focused preflight, planner, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E answered through `target_current_state`. | Retain authenticated standard-Console evidence. |
 | 2026-09-07 | implemented | Rejected generic product categories as exact operational identities and stopped ambiguous targetless gateway comparisons before frame planning. | `current change`; 238 focused tests; post-fix Browser Entra F4 trace omitted frame-model and provider reads. | Retain exact-target F3/F4 evidence. |
 | 2026-09-07 | implemented | Added schema-validated, provenance-bound F1-F4 preflight meaning with fail-closed source, confidence, context, time, family-shape, and Resource identity checks. | `current change`; 177 focused conversation, prompt-registry, and adapter tests, targeted Ruff, and strict mypy passed. | Retain standard-stack answer-token TTFT and complete evidence receipts. |

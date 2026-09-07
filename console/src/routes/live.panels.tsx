@@ -1,6 +1,8 @@
 import { Tooltip } from "../components/tooltip";
 import { PageHeader } from "../components/ui";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
+import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
+import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import {
   observationSourceLabel,
   type ObservationSource,
@@ -25,6 +27,10 @@ import {
   StackBar,
 } from "./live.tiles";
 import type { LiveViewModel } from "./live.view-model";
+import {
+  LiveObservations,
+  type LiveObservationLoadState,
+} from "./live.observations";
 
 export type LiveViewMode = "queue" | "flow";
 
@@ -43,6 +49,11 @@ export function LivePanels({
   tickerPaused,
   frozenObserved,
   droppedFrames,
+  observations,
+  observationLoadState,
+  observationStreamStatus,
+  observationStreamSource,
+  observationError,
   viewMode,
   selectionState,
   selectedTile,
@@ -58,6 +69,11 @@ export function LivePanels({
   readonly tickerPaused: boolean;
   readonly frozenObserved: number;
   readonly droppedFrames: number;
+  readonly observations: readonly AgentOperationalActivityMessage[];
+  readonly observationLoadState: LiveObservationLoadState;
+  readonly observationStreamStatus: AgentStreamStatus;
+  readonly observationStreamSource: ObservationSource;
+  readonly observationError: string | null;
   readonly viewMode: LiveViewMode;
   readonly selectionState: LiveSelectionState;
   readonly selectedTile: TileState | null;
@@ -96,6 +112,8 @@ export function LivePanels({
   const gateGradient = view.gateTotal > 0
     ? `conic-gradient(var(--gate-auto) 0 ${gateAutoEnd}%, var(--gate-hil) ${gateAutoEnd}% ${gateHilEnd}%, var(--gate-abstain) ${gateHilEnd}% ${gateAbstainEnd}%, var(--gate-deny) ${gateAbstainEnd}% 100%)`
     : "var(--bg)";
+  const isSample = streamSource === "synthetic-dev";
+  const statusLabel = isSample ? t("live.status.sample") : t(`live.status.${displayStatus}`);
 
   return (
     <div class="live" data-filter={state.filter}>
@@ -134,7 +152,7 @@ export function LivePanels({
           </span>
           <div class={`live-status live-status-${displayStatus === "awaitingSource" ? "awaiting-source" : displayStatus}`}>
             <span class="live-status-dot" />
-            <span>{t(`live.status.${displayStatus}`)}</span>
+            <span>{statusLabel}</span>
             {lastError ? <span class="muted"> · {lastError}</span> : null}
           </div>
         </div>}
@@ -145,14 +163,18 @@ export function LivePanels({
         <span><strong>{t("live.scope.source")}</strong><code>GET /live/stream</code></span>
         <span><strong>{t("live.scope.evidence")}</strong>{observationSourceLabel(streamSource)}</span>
         <span class="live-scope-warning">
-          {view.streamOpen ? t("live.scope.observed") : t("live.scope.notReady")}
+          {isSample
+            ? t("live.scope.sample")
+            : view.streamOpen
+              ? t("live.scope.observed")
+              : t("live.scope.notReady")}
         </span>
       </section>
 
       <section class="live-health" aria-label={t("live.health.label")}>
         <div>
           <span>{t("live.health.stream")}</span>
-          <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>{t(`live.status.${displayStatus}`)}</strong>
+          <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>{statusLabel}</strong>
         </div>
         <div>
           <span>{t("live.health.lastEvent")}</span>
@@ -171,6 +193,16 @@ export function LivePanels({
           </strong>
         </div>
       </section>
+
+      {streamSource === "synthetic-dev" ? null : (
+        <LiveObservations
+          items={observations}
+          loadState={observationLoadState}
+          streamStatus={observationStreamStatus}
+          streamSource={observationStreamSource}
+          error={observationError}
+        />
+      )}
 
       <section
         class={`live-attention ${view.streamOpen && view.attentionTotal > 0 ? "live-attention-active" : view.streamOpen ? "live-attention-calm" : "live-attention-unavailable"}`}
@@ -330,16 +362,18 @@ export function LivePanels({
               <span>{view.emptyState}</span>
             </div>
           ) : null}
-          {[...view.populatedTiles]
-            .sort((left, right) => compareLiveTiles(left, right, state.now))
-            .map((tile) => (
+          {state.tiles.map((tile, slotIndex) => (
             <LiveTile
-              key={tile.event_id}
+              key={`slot-${slotIndex}`}
               tile={tile}
               filter={state.filter}
-              selected={tile.event_id === state.selectedEventId}
+              selected={tile?.event_id === state.selectedEventId}
               now={state.now}
-              onClick={() => selectEvent(tile.event_id === state.selectedEventId ? null : tile.event_id)}
+              onClick={tile
+                ? () => selectEvent(
+                    tile.event_id === state.selectedEventId ? null : tile.event_id,
+                  )
+                : undefined}
             />
           ))}
         </section>

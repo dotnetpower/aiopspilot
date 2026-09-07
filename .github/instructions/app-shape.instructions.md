@@ -58,7 +58,7 @@ The layers communicate through the event bus and git, not direct in-process call
 
 ## Local Console Port Contract (MUST)
 
-- [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the local `Console Web: Full Stack` topology: console SPA `5273`, Operator API `8010`, Document Ingestion API `8011`, Document Processing Worker health `8012`, and isolated Executor health `8013`; the compound MUST start all five independently packaged backend services and the SPA.
+- [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the local `Console Web: Full Stack` topology: console SPA `5273`, Manual Studio `5474`, Operator API `8010`, Document Ingestion API `8011`, Document Processing Worker health `8012`, and isolated Executor health `8013`; the compound MUST start all five independently packaged backend services, the SPA, and Manual Studio.
   It MUST NOT restore a co-host, retired top-level package, or fixture gateway.
 - Live or full-stack Console validation MUST target the standard `http://localhost:5273` SPA origin and the `127.0.0.1:8010` Operator API listener. The frontend process remains bound to IPv4 loopback; `localhost` is the canonical browser origin so OAuth cache, conversation state, response preferences, and screen context do not split across loopback hostnames. When an authenticated Browser Entra page is shared with the agent, the agent MUST verify that page's origin, rendered Console shell, and signed-in state, then reuse its browser context before seeking a separate Playwright storage-state artifact. If no authenticated context is available, obtain one through the approved interactive sign-in flow; never weaken authentication or request secrets.
 - The isolated Playwright harness and any ad hoc alternate ports are test-only environments. They MUST NOT be reported as Browser Entra full-stack evidence or substituted merely because a standard port is occupied. Diagnose the owner of the occupied port and preserve an already-running standard full stack unless the user explicitly requests a different topology.
@@ -74,6 +74,14 @@ The layers communicate through the event bus and git, not direct in-process call
   `VITE_DEV_MODE=1`, and
   synthetic fixtures are pytest/mock-only and MUST NOT be used by the VS Code full-stack profile.
 - Interactive local routes MUST NOT seed or synthesize audit rows, Incidents, Approvals, agent activity, live control-loop frames, findings, inventory, scope, blast-radius graphs, scheduler runs, cost records, promotion evidence, security assessments, or Process runs.
+- The Overview Dashboard and analysis routes plus every route registered in the Operations group
+  MAY expose one explicit operator-selected `Sample` presentation mode. It MUST default to `Live`,
+  use dedicated URL and tab-session state, label the entire page as sample data that is not
+  operational evidence, use only generic deterministic fixtures, and never activate from an empty
+  or failed live response. Sample mode MUST use a GET-only fixture boundary, block or remove
+  mutation controls, and MUST NOT mix with live values, create runtime records, acquire a provider
+  token, or grant authority. Unsupported interactive routes remain authoritative-only, and
+  selecting one hides Sample presentation without changing its live data.
 - A local panel MUST read its authoritative Azure-backed source. When the corresponding FDAI
   Azure data plane is not deployed, not configured, unreachable, or unauthorized, the panel
   MUST render unavailable or an explicitly sourced empty state. It MUST NOT substitute demo

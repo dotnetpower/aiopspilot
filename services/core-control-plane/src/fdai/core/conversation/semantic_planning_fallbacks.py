@@ -164,10 +164,35 @@ def current_state_clarification_fallback(
         or state_target_count > 1
     ):
         return None
+    exact_targets = (
+        tuple(
+            target
+            for target in targets
+            if isinstance(target, Mapping)
+            and target.get("kind") in {"resource", "resource_id"}
+            and isinstance(target.get("value"), str)
+            and isinstance(target.get("source_start"), int)
+            and isinstance(target.get("source_end"), int)
+            and utterance[target["source_start"] : target["source_end"]] == target["value"]
+        )
+        if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
+        else ()
+    )
+    subject_constraints: tuple[str, ...]
+    if len(exact_targets) == 1:
+        target = exact_targets[0]
+        if target.get("canonical_value") == "Resource.id" or target["value"].casefold().startswith(
+            "/subscriptions/"
+        ):
+            subject_constraints = ("Resource",)
+        else:
+            subject_constraints = ("Resource", target["value"])
+    else:
+        subject_constraints = ("Resource",)
     proposal = normalize_current_state_proposal(
         SemanticFrameProposal(
             operation=SemanticOperation.SELECT,
-            subject_constraints=("Resource",),
+            subject_constraints=subject_constraints,
             measure_concepts=(),
             temporal_scope={},
             output_shape=SemanticOutputShape.TARGET_CURRENT_STATE,

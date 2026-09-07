@@ -46,6 +46,7 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
+from .semantic_planning_value_filters import stated_value_filters
 from .semantic_target_identity import exact_target_from_constraints
 
 _ACTION_DRAFT_TEMPORAL_SCOPE = {
@@ -358,9 +359,11 @@ def build_named_resource_group_membership_frame(
     ):
         return None
     target = judgment.targets[0]
+    target_type_filters = stated_value_filters(target.value, descriptors)
     if (
         target.kind != "resource_group"
         or utterance[target.source_start : target.source_end] != target.value
+        or "resource-group" in target_type_filters.get(("Resource", "type"), ())
     ):
         return None
     resolved = SemanticFrameProposal(

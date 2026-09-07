@@ -9,6 +9,13 @@
     "console": "Console",
     "devMode": "dev mode"
   },
+  "dataMode": {
+    "label": "Dashboard data mode",
+    "sample": "Sample",
+    "live": "Live",
+    "bannerTitle": "Sample data",
+    "bannerBody": "Sample presentation only - not operational evidence. Unsupported routes remain Live."
+  },
   "browserNotifications": {
     "label": "Alerts",
     "off": "Enable alerts",
@@ -2777,6 +2784,10 @@
         "invalidQuery": "Invalid query",
         "visionUnverified": "Image interpretation",
         "unsupportedClaim": "Unsupported claim",
+        "staleEvidence": "Stale evidence",
+        "partialEvidence": "Partial evidence",
+        "conflictingEvidence": "Conflicting evidence",
+        "evidenceUnavailable": "Evidence unavailable",
         "unverified": "Unverified"
       },
       "verificationLabel": {
@@ -2796,6 +2807,10 @@
         "invalidQuery": "The read query failed strict validation{claims}",
         "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",
         "unsupportedClaim": "One or more claims are not supported by evidence{claims}",
+        "staleEvidence": "Grounding evidence is stale; refresh the read before trusting this answer{claims}",
+        "partialEvidence": "Grounding evidence is incomplete; widen the read or wait for the missing sources{claims}",
+        "conflictingEvidence": "Grounding evidence conflicts; resolve the disagreement before acting on this answer{claims}",
+        "evidenceUnavailable": "Grounding evidence is unavailable; retry after the authoritative source recovers{claims}",
         "unverified": "Verification could not be completed{claims}",
         "scope": {
           "currentScreen": "the current screen",
@@ -2815,7 +2830,11 @@
       "stageDetail": {
         "manifestSourcesAvailable": "{available}/{total} manifest sources available",
         "reference": "{count} evidence reference",
-        "references": "{count} evidence references"
+        "references": "{count} evidence references",
+        "staleEvidence": "Grounding evidence is stale",
+        "partialEvidence": "Grounding evidence is incomplete",
+        "conflictingEvidence": "Grounding evidence conflicts",
+        "evidenceUnavailable": "Grounding evidence is unavailable"
       },
       "side": {
         "read": "retrieve",

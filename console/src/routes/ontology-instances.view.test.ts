@@ -162,8 +162,9 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).not.toContain("<title>");
   });
 
-  it("gives the canvas the viewport instead of a fixed box", () => {    expect(styles).toMatch(
-      /\.ontology-instance-graph-scroll\s*\{[^}]*max-height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
+  it("keeps the graph viewport tall when its canvas content is short", () => {
+    expect(styles).toMatch(
+      /\.ontology-instance-graph-scroll\s*\{[^}]*height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
     );
     expect(graphModelSource).toContain("const INSTANCE_MAX_ROWS = 10;");
     expect(graphModelSource).toContain("const INSTANCE_SCOPE_DIRECT_LIMIT = 7;");

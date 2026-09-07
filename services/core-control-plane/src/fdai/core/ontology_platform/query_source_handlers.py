@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass
 
@@ -36,6 +37,8 @@ from .query_gateway import (
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_values import QueryRow, QueryTable
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class SecuredObjectSetNodeHandler:
     """Materialize one ACL- and purpose-scoped ObjectSet as a bounded table."""
@@ -67,22 +70,34 @@ class SecuredObjectSetNodeHandler:
         if dependencies:
             raise ValueError("object_set node MUST NOT consume dependency results")
         definition = ObjectSetDefinition.model_validate(node.arguments.get("definition"))
-        secured = await self._gateway.materialize(
-            definition,
-            projection_request=self._request,
-        )
-        if self._graph_refresher is not None:
-            secured = await self._graph_refresher.refresh(
-                definition=definition,
+        try:
+            secured = await self._gateway.materialize(
+                definition,
                 projection_request=self._request,
-                secured=secured,
             )
+        except ValueError:
+            _LOGGER.warning("secured_object_set_failed", extra={"stage": "materialize"})
+            raise
+        if self._graph_refresher is not None:
+            try:
+                secured = await self._graph_refresher.refresh(
+                    definition=definition,
+                    projection_request=self._request,
+                    secured=secured,
+                )
+            except ValueError:
+                _LOGGER.warning("secured_object_set_failed", extra={"stage": "refresh"})
+                raise
         if self._receipt_authority is not None:
-            await _issue_secured_result(
-                self._receipt_authority,
-                secured,
-                provider=self._decision_evidence,
-            )
+            try:
+                await _issue_secured_result(
+                    self._receipt_authority,
+                    secured,
+                    provider=self._decision_evidence,
+                )
+            except ValueError:
+                _LOGGER.warning("secured_object_set_failed", extra={"stage": "receipt"})
+                raise
         table = _secured_query_table(secured)
         return QueryNodeResult(
             value=table,

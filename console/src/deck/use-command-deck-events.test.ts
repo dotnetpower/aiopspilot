@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolveDeckOpenSession, shouldDeferDeckOpen } from "./use-command-deck-events";
-import { resolveConversationSummary } from "./use-command-deck-submit";
+import {
+  resolveConversationSummary,
+  synchronizeConversationSummary,
+} from "./use-command-deck-submit";
 import type { ConversationSummary } from "./conversation-sessions";
 
 const source = readFileSync(
@@ -146,6 +149,32 @@ describe("resolveConversationSummary", () => {
 
     expect(resolveConversationSummary([stale], new Map([[bound.key, bound]]), bound.key))
       .toEqual(bound);
+  });
+
+  it("updates session metadata before publishing a bound summary", () => {
+    const bound: ConversationSummary = {
+      key: "user:scope:conversation:first",
+      label: "Pod restart",
+      kind: "screen-thread",
+      originPath: "/overview",
+      originLabel: "Dashboard",
+      createdAt: "2026-08-04T00:00:00Z",
+      updatedAt: "2026-08-04T00:00:01Z",
+      binding: {
+        kind: "incident",
+        incidentId: "INC-1",
+        correlationId: "corr-1",
+      },
+    };
+    const metadata = { current: new Map<string, ConversationSummary>() };
+    let seenDuringUpdate: ConversationSummary | undefined;
+
+    synchronizeConversationSummary(metadata, bound, (summary) => {
+      expect(summary).toEqual(bound);
+      seenDuringUpdate = metadata.current.get(bound.key);
+    });
+
+    expect(seenDuringUpdate).toEqual(bound);
   });
 });
 

@@ -31,12 +31,10 @@ from .semantic_planning_value_filters import (
     stated_subject_fragment,
     stated_value_filters,
 )
+from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .session import Principal
 
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
-
-
-_RESOURCE_GROUP_MEMBER_EXCLUDED_TYPES = ("authorization.role-assignment",)
 
 
 def build_inventory_document_plan(
@@ -222,7 +220,7 @@ def build_stated_value_filter_plan(
                 "operator": "not_equals",
                 "equals": resource_type,
             }
-            for resource_type in _RESOURCE_GROUP_MEMBER_EXCLUDED_TYPES
+            for resource_type in OPERATIONAL_RESOURCE_EXCLUDED_TYPES
         )
     predicates.extend(
         {"property": property_name, "operator": "exists"}

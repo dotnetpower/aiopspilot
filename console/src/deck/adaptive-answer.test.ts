@@ -41,6 +41,33 @@ function terminal() {
   };
 }
 
+function oneShotTerminal() {
+  const answer: AdaptiveAnswer = {
+    answer: "Blue-green swaps environments; canary increases exposure gradually.",
+    goals: [{
+      goal_id: "general-knowledge",
+      kind: "knowledge",
+      status: "answered",
+      required: true,
+      evidence_refs: [],
+      limitation: null,
+    }],
+    role_agent: "Bragi",
+    quality_status: "limited",
+    refinements: 0,
+    execution_authority: false,
+  };
+  return {
+    seq: 1,
+    revision: 0,
+    status: "advisory_response",
+    source: "semantic-advisory-response",
+    answer: answer.answer,
+    adaptive_answer: answer,
+    execution_authority: false,
+  };
+}
+
 function draftTerminal(requestId = `00000000-0000-4000-8000-${"0".repeat(11)}1`) {
   return {
     ...terminal(),
@@ -400,7 +427,10 @@ describe("advisory transport parsing", () => {
     let visibleText = "";
     const onRevision = vi.fn((text: string) => { visibleText = text; });
     const reply = await askBackendStream("Explain SLOs.", snapshot, [], {
-      onToken: (text) => { visibleText += text; }, onRevision,
+      onToken: (text) => {
+        visibleText += text;
+      },
+      onRevision,
     });
     expect(reply.citations).toEqual([]);
     expect(reply.verification).toBeUndefined();
@@ -417,5 +447,85 @@ describe("advisory transport parsing", () => {
       expect(reply.text).toBe(adaptive().answer);
       expect(reply.semanticReceipt).toBeUndefined();
     }
+  });
+
+  it("streams a bounded one-shot answer after terminal validation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      const done = { ...oneShotTerminal(), request_id: request.request_id };
+      return new Response(`event: done\ndata: ${JSON.stringify(done)}\n\n`, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }));
+    const { askBackendStream, fallbackTypewriter } = await import("./backend");
+    fallbackTypewriter.intervalMs = 0;
+    const streamed: string[] = [];
+    const callbackOrder: string[] = [];
+    const reply = await askBackendStream("Compare rollout strategies.", snapshot, [], {
+      onValidatedTerminal: () => callbackOrder.push("validated"),
+      onToken: (text) => {
+        callbackOrder.push("token");
+        streamed.push(text);
+      },
+    });
+
+    expect(streamed.length).toBeGreaterThan(1);
+    expect(streamed.join("")).toBe(reply.text);
+    expect(callbackOrder[0]).toBe("validated");
+    expect(reply.adaptiveAnswer?.goals[0]?.goal_id).toBe("general-knowledge");
+  });
+
+  it("does not typewriter-pace an oversized advisory terminal", async () => {
+    const longAnswer = "bounded concept ".repeat(40);
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      const base = oneShotTerminal();
+      const done = {
+        ...base,
+        request_id: request.request_id,
+        answer: longAnswer,
+        adaptive_answer: { ...base.adaptive_answer, answer: longAnswer },
+      };
+      return new Response(`event: done\ndata: ${JSON.stringify(done)}\n\n`, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }));
+    const { askBackendStream, fallbackTypewriter } = await import("./backend");
+    fallbackTypewriter.intervalMs = 12;
+    const streamed: string[] = [];
+    const reply = await askBackendStream("Explain broadly.", snapshot, [], {
+      onToken: (text) => streamed.push(text),
+    });
+
+    expect(reply.text).toBe(longAnswer);
+    expect(streamed).toEqual([]);
+  });
+
+  it("rejects token frames before an advisory terminal", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      const done = { ...terminal(), seq: 2, request_id: request.request_id };
+      return new Response(
+        `event: token\ndata: ${JSON.stringify({ seq: 1, revision: 0, delta: "untrusted" })}\n\n` +
+        `event: done\ndata: ${JSON.stringify(done)}\n\n`,
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    }));
+    const { askBackendStream, fallbackTypewriter } = await import("./backend");
+    fallbackTypewriter.intervalMs = 0;
+    const deltas: string[] = [];
+    const revisions: string[] = [];
+    const reply = await askBackendStream("Explain SLOs.", snapshot, [], {
+      onToken: (delta) => deltas.push(delta),
+      onRevision: (answer) => revisions.push(answer),
+    });
+
+    expect(reply.source).toBe("unavailable (invalid advisory stream)");
+    expect(reply.adaptiveAnswer).toBeUndefined();
+    expect(deltas.join("")).toBe(reply.text);
+    expect(deltas.join("")).not.toContain("untrusted");
+    expect(revisions.at(-1)).toBe("");
   });
 });

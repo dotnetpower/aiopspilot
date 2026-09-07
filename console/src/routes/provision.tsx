@@ -31,9 +31,12 @@ import type {
 import { useProvisionStream } from "../hooks/use-provision-stream";
 import { t } from "./i18n/provision";
 import "./provision.css";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { OPERATIONS_SAMPLE_PROVISION_EVENTS } from "./operations.sample";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 interface ProvisionSourceState {
@@ -254,7 +257,7 @@ function statusLabel(status: ProvisionConnectionStatus): string {
   }
 }
 
-export function ProvisionRoute({ client }: Props) {
+export function ProvisionRoute({ client, dataMode }: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [source, setSource] = useState<ProvisionSourceState>({
     status: "loading",
@@ -263,6 +266,13 @@ export function ProvisionRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    if (dataMode === "sample") {
+      setSource({ status: "ready", reason: null });
+      for (const event of OPERATIONS_SAMPLE_PROVISION_EVENTS) dispatch(event);
+      return () => {
+        cancelled = true;
+      };
+    }
     client.dataSources()
       .then((payload) => {
         if (!cancelled) setSource(provisionSourceState(payload));
@@ -278,7 +288,7 @@ export function ProvisionRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, dataMode]);
 
   const url = useMemo(() => {
     const cfg = loadConfig();
@@ -287,12 +297,14 @@ export function ProvisionRoute({ client }: Props) {
     return `${base.replace(/\/$/, "")}/provision/stream`;
   }, []);
 
-  const { status, lastError } = useProvisionStream({
+  const stream = useProvisionStream({
     url,
-    enabled: source.status === "ready",
+    enabled: dataMode === "live" && source.status === "ready",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => dispatch(event),
   });
+  const status = dataMode === "sample" ? "open" : stream.status;
+  const lastError = dataMode === "sample" ? null : stream.lastError;
 
   const stageFraction =
     state.stagesCompleted !== null && state.stagesTotal

@@ -14,9 +14,11 @@ import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/governance";
+import type { ConsoleDataMode } from "../console-data-mode";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 export async function loadHilQueueState(
@@ -39,7 +41,7 @@ export async function loadHilQueueState(
   }
 }
 
-export function HilQueueRoute({ client }: Props) {
+export function HilQueueRoute({ client, dataMode }: Props) {
   const [query, setQuery] = useState(() => currentRoute().search.get("q") ?? "");
   const [serverQuery, setServerQuery] = useState(query.trim());
   const [state, setState] = useState<AsyncState<HilQueueData>>({
@@ -81,7 +83,14 @@ export function HilQueueRoute({ client }: Props) {
         }
       />
       <AsyncBoundary state={state} resourceLabel={t("approvals.resource")}>
-        {(data) => <HilBody data={data} query={query} onQueryChange={setQuery} />}
+        {(data) => (
+          <HilBody
+            data={data}
+            query={query}
+            dataMode={dataMode}
+            onQueryChange={setQuery}
+          />
+        )}
       </AsyncBoundary>
     </div>
   );
@@ -96,10 +105,12 @@ interface HilQueueData {
 function HilBody({
   data,
   query,
+  dataMode,
   onQueryChange,
 }: {
   readonly data: HilQueueData;
   readonly query: string;
+  readonly dataMode: ConsoleDataMode;
   readonly onQueryChange: (value: string) => void;
 }) {
   const { items, total, detailLevel } = data;
@@ -113,7 +124,12 @@ function HilBody({
   const truncated = total > items.length;
   const updateQuery = (value: string): void => {
     onQueryChange(value);
-    replaceRouteState(routeHref("hil-queue", { params: { q: value || null } }));
+    replaceRouteState(routeHref("hil-queue", {
+      params: {
+        q: value || null,
+        data: dataMode === "sample" ? "sample" : null,
+      },
+    }));
   };
   usePublishViewContext(
     () => ({

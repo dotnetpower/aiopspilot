@@ -1697,11 +1697,11 @@ def _initial_progress(locale: str) -> dict[str, str]:
     if locale.casefold().startswith("ko"):
         return {
             "accepted": "질문을 수락했습니다.",
-            "planning": "검증된 조사 계획을 기다리는 중입니다.",
+            "planning": "답변 경로를 확인하는 중입니다.",
         }
     return {
         "accepted": "Semantic request accepted.",
-        "planning": "Waiting for a verified semantic plan.",
+        "planning": "Determining the answer path.",
     }
 
 

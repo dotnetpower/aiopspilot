@@ -121,10 +121,51 @@ def test_adaptive_plan_routes_current_operational_diagnostics_to_verified_semant
     packs = prompts.get_packs("conversation.adaptive.plan")
     adaptive = next(item for item in packs if item.id == "adaptive-plan")
 
-    assert adaptive.version == 3
-    assert "answer depends on current environment evidence as operational" in adaptive.body
-    assert "Current subscription inventory and its downloadable document" in adaptive.body
+    assert adaptive.version == 4
+    assert "answer as operational only when it depends on current environment evidence" in (
+        adaptive.body
+    )
+    assert "Current subscription inventory and its download" in adaptive.body
     assert "Route them to legacy with no knowledge goal" in adaptive.body
+
+
+def test_preflight_routes_general_knowledge_away_from_operational_semantics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    prompt = prompts.get_base("conversation.preflight")
+
+    assert prompt.version == 5
+    assert "conceptual technology comparison" in prompt.body
+    assert "knowledge_signal: explicit" in prompt.body
+    assert "include general_answer" in prompt.body
+    assert "For every other route general_answer is null" in prompt.body
+    assert "resource_type_filter" in prompt.body
+    assert "Core binds them only through the current catalog" in prompt.body
+
+
+def test_adaptive_prompts_require_one_coherent_general_answer() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    plan = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.plan")
+        if item.id == "adaptive-plan"
+    )
+    answer = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.answer")
+        if item.id == "adaptive-answer"
+    )
+    review = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.review")
+        if item.id == "adaptive-review"
+    )
+
+    assert (plan.version, answer.version, review.version) == (4, 2, 2)
+    assert "unique goal_id, kind, bounded question, and required boolean" in plan.body
+    assert "exact matching goal_id" in plan.body
+    assert "do not repeat an introduction, agent self-label, evidence disclaimer" in plan.body
+    assert "General knowledge does not require a warning" in answer.body
+    assert "inconsistent non-polite Korean endings" in review.body
 
 
 def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:

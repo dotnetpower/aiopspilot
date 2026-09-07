@@ -53,6 +53,9 @@ _COMPACT_OPERATIONAL_INTENTS = frozenset(
         "create.document",
         "query.gateway_diagnostic_evidence",
         "query.resource_configuration_changes",
+        "query.resource_current_state",
+        "query.resource_state_inventory",
+        "query.contextual_resources",
     }
 )
 _ProposalT = TypeVar("_ProposalT", bound=BaseModel)

@@ -449,7 +449,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(deltas.join("")).toBe("한");
   });
 
-  test("labels tokens followed by an error frame as a partial answer", async () => {
+  test("retracts streamed tokens followed by an error frame", async () => {
     const body =
       'event: token\ndata: {"delta":"Partial answer"}\n\n' +
       'event: error\ndata: {"detail":"upstream reset"}\n\n';
@@ -457,10 +457,16 @@ describe("askBackendStream fallback typewriter", () => {
     const mod = await import("./backend");
     mod.fallbackTypewriter.intervalMs = 0;
 
-    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    const deltas: string[] = [];
+    const revisions: string[] = [];
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+      onRevision: (answer) => revisions.push(answer),
+    });
 
-    expect(reply.text).toBe("Partial answer");
-    expect(reply.source).toBe("partial (stream error)");
+    expect(revisions).toContain("");
+    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.source).toBe("unavailable (stream error)");
   });
 
   test("discards partial text when a structured content-policy error arrives", async () => {
@@ -852,6 +858,23 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("stopped");
   });
 
+  test("keeps streamed draft text on an explicitly stopped turn", async () => {
+    const body =
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n' +
+      'event: interrupted\ndata: {"seq":2,"detail":"chat turn interrupted"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const deltas: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas).toEqual(["Draft"]);
+    expect(reply.text).toBe("Draft");
+    expect(reply.source).toBe("stopped");
+  });
+
   test("does not infer ontology guidance when an empty stream ends in error", async () => {
     const body = 'event: error\ndata: {"detail":"upstream reset"}\n\n';
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
@@ -1058,7 +1081,7 @@ describe("askBackendStream fallback typewriter", () => {
       },
     });
 
-    expect(deltas.join("")).toBe("Unsupported draft");
+    expect(deltas).toEqual([]);
     expect(progress).toEqual([
       "evidence_resolving",
       "generating",
@@ -1081,8 +1104,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(revisions).toEqual([
       { answer: "Verified canonical answer", revision: 1, status: "corrected" },
     ]);
-    expect(callbackOrder.at(-1)).toBe("revision");
-    expect(callbackOrder.slice(0, -1).every((item) => item === "token")).toBe(true);
+    expect(callbackOrder).toEqual(["revision"]);
     expect(reply.text).toBe("Verified canonical answer");
     expect(reply.verification).toEqual({
       status: "corrected",
@@ -1146,7 +1168,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.verification?.reason_code).toBe("malformed_verification_artifact");
   });
 
-  test("reduces branch lifecycle and confirms only after stream completion", async () => {
+  test("reduces branch lifecycle and surfaces confirmed segments", async () => {
     const body = [
       'event: branch\ndata: {"seq":1,"revision":0,"branch_id":"req:tool",' +
         '"branch_kind":"tool","parent_branch_id":null,"status":"running",' +
@@ -1167,11 +1189,62 @@ describe("askBackendStream fallback typewriter", () => {
       onConfirmed: (segment) => calls.push(`confirmed:${segment.status}`),
     });
 
-    expect(calls).toEqual(["branch:running", "token", "confirmed:consistent"]);
+    expect(calls).toEqual(["branch:running", "confirmed:consistent"]);
     expect(reply.confirmed?.text).toBe("Draft");
     expect(mod.streamProtocolMetricsSnapshot().confirmedSegments).toBe(
       before.confirmedSegments + 1,
     );
+  });
+
+  test("emits draft tokens and confirmed segments before the terminal", async () => {
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      start(startController) {
+        controller = startController;
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      })),
+    );
+    const mod = await import("./backend");
+    const encoder = new TextEncoder();
+    const calls: string[] = [];
+    const abortController = new AbortController();
+    const replyPromise = mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => calls.push(`token:${delta}`),
+      onConfirmed: (segment) => {
+        calls.push(`confirmed:${segment.text}`);
+        abortController.abort();
+      },
+      signal: abortController.signal,
+    });
+    const waitForStreamTurn = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+
+    controller!.enqueue(encoder.encode(
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
+    ));
+    await waitForStreamTurn();
+    expect(calls).toEqual(["token:Draft"]);
+
+    controller!.enqueue(encoder.encode(
+      'event: confirmed\ndata: {"seq":2,"revision":0,"segment_index":0,' +
+        '"text":"Draft","status":"consistent","evidence_refs":[]}\n\n',
+    ));
+    await waitForStreamTurn();
+    expect(calls).toEqual(["token:Draft", "confirmed:Draft"]);
+
+    controller!.close();
+
+    const reply = await replyPromise;
+    expect(calls).toEqual(["token:Draft", "confirmed:Draft"]);
+    expect(reply.source).toBe("stopped");
+    expect(reply.text).toBe("Draft");
   });
 
   test("ignores a conflicting confirmed frame with the same revision", async () => {
@@ -1201,6 +1274,32 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
+  test("accepts later confirmed segments from the same revision", async () => {
+    const body = [
+      'event: confirmed\ndata: {"seq":1,"revision":0,"segment_index":0,' +
+        '"text":"Draft","status":"consistent","evidence_refs":[]}\n\n',
+      'event: confirmed\ndata: {"seq":2,"revision":0,"segment_index":1,' +
+        '"text":"Draft with evidence","status":"consistent","evidence_refs":[]}\n\n',
+      'event: done\ndata: {"seq":3,"revision":0,"answer":"Draft with evidence",' +
+        '"model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const confirmations: string[] = [];
+    const before = mod.streamProtocolMetricsSnapshot();
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+    });
+
+    expect(confirmations).toEqual(["Draft", "Draft with evidence"]);
+    expect(reply.confirmed?.text).toBe("Draft with evidence");
+    expect(mod.streamProtocolMetricsSnapshot().confirmedSegments).toBe(
+      before.confirmedSegments + 2,
+    );
+  });
+
   test("ignores token and confirmed frames from a stale revision", async () => {
     const body = [
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
@@ -1223,7 +1322,7 @@ describe("askBackendStream fallback typewriter", () => {
       onConfirmed: (segment) => confirmations.push(segment.text),
     });
 
-    expect(deltas).toEqual(["Draft"]);
+    expect(deltas).toEqual([]);
     expect(confirmations).toEqual([]);
     expect(reply.text).toBe("Canonical");
     expect(reply.confirmed).toBeUndefined();
@@ -1240,11 +1339,11 @@ describe("askBackendStream fallback typewriter", () => {
 
     const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
 
-    expect(reply.source).toBe("partial (sequence gap)");
+    expect(reply.source).toBe("unavailable (sequence gap)");
     expect(reply.verification).toBeUndefined();
     const after = mod.streamProtocolMetricsSnapshot();
     expect(after.sequenceGaps).toBe(before.sequenceGaps + 1);
-    expect(after.partialTerminals).toBe(before.partialTerminals + 1);
+    expect(after.partialTerminals).toBe(before.partialTerminals);
   });
 
   test.each([
@@ -1288,7 +1387,7 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
-  test("fails closed on malformed JSON after preserving only emitted text", async () => {
+  test("fails closed on malformed JSON without releasing buffered text", async () => {
     const body = [
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
       'event: done\ndata: {"seq":2,"answer":\n\n',
@@ -1298,14 +1397,19 @@ describe("askBackendStream fallback typewriter", () => {
     const mod = await import("./backend");
     const before = mod.streamProtocolMetricsSnapshot();
 
-    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
 
-    expect(reply.text).toBe("Draft");
-    expect(reply.source).toBe("partial (malformed stream frame)");
+    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.source).toBe("unavailable (malformed stream frame)");
+    expect(deltas.join("")).toBe(reply.text);
+    expect(deltas.join("")).not.toContain("Draft");
     expect(reply.verification).toBeUndefined();
     const after = mod.streamProtocolMetricsSnapshot();
     expect(after.protocolErrors).toBe(before.protocolErrors + 1);
-    expect(after.partialTerminals).toBe(before.partialTerminals + 1);
+    expect(after.partialTerminals).toBe(before.partialTerminals);
   });
 
   test("keeps a direct greeting free of snapshot citations and query metadata", async () => {

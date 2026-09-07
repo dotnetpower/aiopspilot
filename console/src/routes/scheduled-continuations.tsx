@@ -18,15 +18,32 @@ import {
   type ScheduledContinuationPayload,
   UserContextRequestError,
 } from "../user-context-client";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { OPERATIONS_SAMPLE_CONTINUATIONS } from "./operations.sample";
 
 interface ContinuationResponse {
   readonly continuations: readonly ScheduledContinuationPayload[];
 }
 
-export function ScheduledContinuationsRoute({ client: _client }: { readonly client: OperatorApiClient }) {
+export function ScheduledContinuationsRoute({
+  client: _client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}) {
   const [state, setState] = useState<AsyncState<ContinuationResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
+    if (dataMode === "sample") {
+      setState({
+        status: "ready",
+        data: { continuations: OPERATIONS_SAMPLE_CONTINUATIONS },
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     fetchUserContext()
       .then((context) => {
         if (!cancelled) setState({
@@ -43,7 +60,7 @@ export function ScheduledContinuationsRoute({ client: _client }: { readonly clie
         });
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [dataMode]);
   return <div class="stack"><PageHeader title={t("route.scheduledContinuations")} subtitle={t("nav.panelSub.scheduledContinuations")} /><AsyncBoundary state={state} resourceLabel={t("evidence.continuations.resource")}>{(data) => <ContinuationBody data={data} />}</AsyncBoundary></div>;
 }
 

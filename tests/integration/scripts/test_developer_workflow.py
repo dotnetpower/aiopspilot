@@ -407,8 +407,8 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 8
-    assert result["ready_count"] == 6
+    assert result["service_count"] == 9
+    assert result["ready_count"] == 7
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
@@ -455,7 +455,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
     assert _git(repo, "add", "example.txt").returncode == 0
     assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
     (repo / ".fdai").mkdir()
-    barrier = threading.Barrier(5)
+    barrier = threading.Barrier(6)
     seen: list[str] = []
     lock = threading.Lock()
 
@@ -472,10 +472,11 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         process_records=[],
     )
 
-    assert len(seen) == 5
+    assert len(seen) == 6
     assert [item["name"] for item in result["services"]] == [
         "core-runtime",
         "console-frontend",
+        "manual-studio",
         "operator-api",
         "document-ingestion-api",
         "document-processing-worker",
@@ -524,10 +525,25 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
 
     assert frontend["command"] == ("npm run dev -- --host 127.0.0.1 --port 5273 --strictPort")
     assert frontend["serverReadyAction"]["uriFormat"] == "http://localhost:5273"
+    assert frontend["env"]["VITE_MANUAL_STUDIO_URL"] == "http://127.0.0.1:5474"
     assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[0] == (
         "console-frontend",
         "http://localhost:5273/",
     )
+    assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[1] == (
+        "manual-studio",
+        "http://127.0.0.1:5474/catalog.json",
+    )
+    manual_studio = next(
+        item for item in launch["configurations"] if item["name"] == "Console Web: Manual Studio"
+    )
+    assert manual_studio["command"] == "npm run dev"
+    assert manual_studio["cwd"] == "${workspaceFolder}/tools/manual-studio"
+    assert manual_studio["env"]["PORT"] == "5474"
+    full_stack = next(
+        item for item in launch["compounds"] if item["name"] == "Console Web: Full Stack"
+    )
+    assert "Console Web: Manual Studio" in full_stack["configurations"]
 
 
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
@@ -636,7 +652,7 @@ def test_local_service_wait_retries_until_the_complete_topology_is_ready(
     reports = iter(
         (
             {"status": "warning", "unavailable_services": ["operator-api"]},
-            {"status": "ok", "ready_count": 8, "service_count": 8, "unavailable_services": []},
+            {"status": "ok", "ready_count": 9, "service_count": 9, "unavailable_services": []},
         )
     )
     clock = iter((0.0, 0.0, 0.25))
@@ -666,8 +682,8 @@ def test_local_services_command_fails_for_an_incomplete_topology(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 3,
-            "ready_count": 7,
-            "service_count": 8,
+            "ready_count": 8,
+            "service_count": 9,
             "status": "warning",
             "unavailable_services": ["operator-api"],
         },
@@ -690,10 +706,10 @@ def test_local_services_json_omits_text_progress(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 1,
-            "ready_count": 8,
+            "ready_count": 9,
             "read_only": True,
             "schema_version": 1,
-            "service_count": 8,
+            "service_count": 9,
             "status": "ok",
             "unavailable_services": [],
         },
@@ -711,8 +727,8 @@ def test_local_services_report_can_scope_readiness_to_core_runtime(
         module,
         "_local_services_diagnostic",
         lambda _root: {
-            "ready_count": 7,
-            "service_count": 8,
+            "ready_count": 8,
+            "service_count": 9,
             "services": [
                 {"name": "core-runtime", "ready": False},
                 {"name": "operator-api", "ready": True},

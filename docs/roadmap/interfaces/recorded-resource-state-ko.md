@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 87681dd231e7b4dbb7707a3af0b764f585928e1d
+translation_source_sha: dc87005c8561147a37c999ad8b9fa156945f6a57
 translation_revised: 2026-09-07
 ---
 # 기록된 리소스 상태
@@ -145,6 +145,8 @@ ResourceType을 선언합니다.
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
 - 온톨로지 디렉터리와 탐색 기록도 온톨로지가 소유하는 현재 Resource 상태에서 같은 `states` 필드를
   제공합니다.
+- 온톨로지 인스턴스 그래프는 결과 노드가 적어도 검토된 뷰포트 높이를 유지하므로 기록된 상태의
+  세부 정보를 확인하는 영역이 축소되지 않습니다.
 - `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환
   결과는 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용하며 원시 프로바이더 속성, 태그,
   속도 제한 근거 경로 및 자격 증명은 서버에 유지합니다.

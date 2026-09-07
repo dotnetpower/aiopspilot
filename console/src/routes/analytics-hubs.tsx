@@ -12,6 +12,7 @@ import {
 import { getLocale } from "../i18n";
 import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
+import type { ConsoleDataMode } from "../console-data-mode";
 import { formatShare } from "./dashboard.model";
 import { useAnalyticsData, type AnalyticsData } from "./analytics-data";
 import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
@@ -25,7 +26,10 @@ import {
   type OutcomeKey,
 } from "./operating-outcomes";
 
-interface Props { readonly client: OperatorApiClient }
+interface Props {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}
 
 export function measuredTierValue(
   values: Readonly<Record<string, number>>,
@@ -101,8 +105,8 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
   );
 }
 
-export function OperatingOutcomesRoute({ client }: Props) {
-  const state = useAnalyticsData(client);
+export function OperatingOutcomesRoute({ client, dataMode }: Props) {
+  const state = useAnalyticsData(client, { dataMode });
   const segment = currentRoute().segments[0];
   const active: OutcomeKey | null = segment === undefined
     ? "auto-resolution"
@@ -140,8 +144,8 @@ function OutcomeBody({ data, active }: { readonly data: AnalyticsData; readonly 
   return <OperatingOutcomeBody data={data} active={active} />;
 }
 
-export function ControlAssuranceRoute({ client }: Props) {
-  const state = useAnalyticsData(client, { includeGates: true });
+export function ControlAssuranceRoute({ client, dataMode }: Props) {
+  const state = useAnalyticsData(client, { includeGates: true, dataMode });
   const guardKey = currentRoute().search.get("guard");
   return (
     <div class="stack analytics-route">
@@ -160,8 +164,8 @@ export function ControlAssuranceRoute({ client }: Props) {
   );
 }
 
-export function VerticalOutcomesRoute({ client }: Props) {
-  const state = useAnalyticsData(client);
+export function VerticalOutcomesRoute({ client, dataMode }: Props) {
+  const state = useAnalyticsData(client, { dataMode });
   return (
     <div class="stack analytics-route">
       <PageHeader title={t("analytics.verticals.title")} subtitle={t("analytics.verticals.subtitle")} />
@@ -187,8 +191,8 @@ export function indicatorMeterPercent(value: number | null, baseline: number | n
   return Math.min(100, Math.max(0, Math.round((value / baseline) * 100)));
 }
 
-export function TrustRoutingRoute({ client }: Props) {
-  const state = useAnalyticsData(client);
+export function TrustRoutingRoute({ client, dataMode }: Props) {
+  const state = useAnalyticsData(client, { dataMode });
   const segment = currentRoute().segments[0]?.toLowerCase();
   const indicatorParam = currentRoute().search.get("indicator");
   const indicator = indicatorParam === null

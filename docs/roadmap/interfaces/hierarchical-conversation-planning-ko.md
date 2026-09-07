@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: a5c122c894d82091bda09e09050fcf0c2a787456
+translation_source_sha: 1a9ab295c753f4cfa030686ded3810deb1901597
 translation_revised: 2026-09-07
 ---
 
@@ -62,12 +62,25 @@ preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의
 Gateway preflight 재사용도 과거 1시간 target 하나를 명시해야 합니다. 그렇지 않으면 compiler 기본
 window를 수락하지 않고 전체 의미 판단에서 요청 기간을 해석합니다.
 
-혼합, 맥락 의존, 모호함, 낮은 확신도, 오래됨, 잘못된 형식 또는 지원되지 않는 preflight는 모두 전체
-의미 판단으로 계속 진행됩니다. 의미가 검증된 preflight 또는 전체 의미 판단 중 어느 경로에서
-생성되었든, Core는 구독 인벤토리 문서, Resource 구성 비교, 게이트웨이 진단에 필요한 최소한의 검토된
+혼합, 맥락 의존, 모호함, 확신도가 낮은 운영, 오래됨 또는 지원되지 않는 preflight 제안은 전체 의미
+판단으로 계속 진행됩니다. 구성된 preflight의 형식이 잘못됐거나 사용할 수 없으면 다른 모델 호출 없이
+보류하며, 확신도가 낮은 순수 일반 경로도 보류합니다. 의미가 검증된 preflight 또는 전체 의미 판단 중
+어느 경로에서 생성되었든, Core는 구독 인벤토리 문서, Resource 구성 비교, 게이트웨이 진단에 필요한 최소한의 검토된
 서술자만 모델에 전달합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. 서술자 축소는
 기능이나 권한을 부여하지 않습니다. 선택한 모든 선언은 정확한 principal 매니페스트에서 오며 결과
 계획은 기존 검증기를 그대로 통과해야 합니다.
+
+답변이 현재 환경 근거에 의존하지 않는 일반 설명, 개념적인 기술 비교 및 일반 권고는 one-shot 지식
+경로를 사용합니다. 한 번의 preflight 모델 호출이 타입 기반 `knowledge_signal`과 범위가 제한된
+`general_answer`를 함께 작성합니다. Core는 신뢰도, 현재 입력 및 제안 digest, 모델 및 프롬프트
+출처, 프로필 digest, 로캘, 권한 없음 필드를 검증한 뒤 답변을 게시합니다. 이 경로는 Adaptive 계획,
+Adaptive 답변, 독립 검토, 보강, 검증, T2, 온톨로지 조회 또는 프로바이더 읽기를 실행하지 않습니다.
+형식이 잘못됐거나 사용할 수 없는 preflight는 스키마 수정이나 두 번째 모델 호출 없이 보류합니다.
+독립 검토를 수행하지 않으므로 답변은 `quality_status=limited`를 표시하고 운영 검증을 주장할 수
+없습니다. 클라우드 운영 용어가 포함됐다는 이유만으로 운영 질문이 되지는 않습니다. 일반 지식과
+현재 환경 요청이 섞인 경우에만 Adaptive 다중 목표 경로를 유지합니다.
+Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시합니다. 모든 턴이 의미 계획이나 조사
+계획을 기다린다고 주장하지 않습니다.
 
 알려진 운영 유형은 범용 의미 frame 프롬프트 대신 전용 544토큰 frame 프롬프트를 사용합니다.
 스키마를 포함한 전체 system 및 user 요청에는 64KiB의 고정 상한을 적용합니다. Core는 프롬프트나
@@ -89,12 +102,15 @@ window를 수락하지 않고 전체 의미 판단에서 요청 기간을 해석
 이는 서로 배타적인 채팅 모드가 아니라 별도의 답변 목표입니다. 스키마로 검증된 모델이 전체 발화와
 제한된 이전 대화에서 목표를 선택합니다. 진입 모드, 키워드, 선택한 에이전트는 경로나 실행 권한을
 부여하지 않습니다. 순수 운영 질문, 결정 대기, 인시던트에 연결된 요청은 기존 검증 경로를 유지합니다.
+맥락과 독립적인 순수 일반 지식은 위 one-shot 경로를 통해 다중 목표 플래너 전에 종료됩니다.
 
 적응형 경로는 별도의 `advisory_response` 최종 응답 계약을 사용합니다. 일반 지식에 운영 조회 증적을
 만들어 붙이지 않습니다. 각 목표는 종류, 필수 여부, 답변 상태, 서버가 소유한 근거 참조를 기록합니다.
 선택적 예시를 찾지 못해도 일반 설명은 유지하며 필수 운영 근거가 없으면 해당 목표를 명시적으로
 보류합니다. 환경 예시는 기존 사용자 범위의 검증된 조회 런타임만 사용합니다. 버전 두 개만으로
 블루-그린 배포를 단정하지 않으며 구성 사실을 실행 사실로 취급하지 않습니다.
+순수 지식 섹션은 하나의 일관된 답변으로 구성합니다. 목표마다 에이전트 메모나 운영 근거 경고를
+반복하지 않으며 한국어 섹션은 일관된 존댓말 종결을 사용합니다.
 
 `1.6.0` 요청과 변환 결과 계약은 `additive-ignore-unknown`이 아닌 `version-negotiated`
 호환성을 사용하며 담당 관계와 자문 근거의 조건부 검증을 유지합니다.
@@ -149,8 +165,9 @@ window를 수락하지 않고 전체 의미 판단에서 요청 기간을 해석
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 적응형 설명과 검증된 예시 | implemented | `current change`; 집중 Python 검사 653개, Console 검사 209개, 격리된 합성 브라우저 시나리오 10개 통과 | 일반 지식과 운영 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 실제 모델 품질과 배포 근거는 별도입니다. |
-| Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v2.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 집중 대화, prompt 및 adapter 테스트 177개 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 명시적 운영 턴과 맥락 의존 운영 턴은 Adaptive 설명 계획을 우회하고 혼합 턴은 유지합니다. 정확하고 명시적이며 맥락과 독립적인 운영 형식 세 가지는 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. 이 schema는 사용자 대상 문장이나 실행 권한을 전달할 수 없습니다. |
+| 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
+| One-shot 일반 지식 | validated | `conversation-preflight.v5.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
+| Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v5.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 프롬프트 계약 검사 및 인증된 영어/한국어 비교 턴 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 지식, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 맥락과 독립적인 일반 지식은 one-shot 답변 경로를 선택하고 현재 환경 질문은 검증된 경로나 Adaptive 근거 경로를 유지합니다. 검토된 운영 형식은 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. |
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. 출처가 결속된 F1-F4 preflight 의미는 별도의 전체 의미 판단 호출을 생략할 수 있고, 다른 모든 요청은 이 호출을 유지합니다. 수락된 인벤토리 문서, 구성 변경, 게이트웨이 진단 판단은 모델에 전달하는 서술자를 각각 검토된 선언 1개, 3개, 5개로 축소하고 64KiB 요청 상한이 있는 전용 544토큰 frame 계약을 사용합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. |
 | Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |

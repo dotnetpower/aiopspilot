@@ -291,6 +291,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "inventory-reconciliation",
         "observation-campaign",
         "console-frontend",
+        "manual-studio",
     )
     for service_name in managed_services:
         assert f"  {service_name}\n" in supervisor_script
@@ -320,6 +321,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert service_script.index('--only "$service"') < service_script.index(
         'write_task_marker "ready"'
     )
+    assert "PORT=5474" in service_script
+    assert "tools/manual-studio" in service_script
     for service_name in (*managed_services, "operator-channel-edge"):
         assert service_name in service_script
 

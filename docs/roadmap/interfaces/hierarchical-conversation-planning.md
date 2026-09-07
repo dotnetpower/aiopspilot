@@ -62,13 +62,28 @@ because its deterministic compiler filters `Resource.name`.
 Gateway preflight reuse also requires one explicit past-hour target; otherwise full judgment must
 resolve the requested interval instead of accepting the compiler's default window.
 
-Every other mixed, contextual, ambiguous, low-confidence, stale, malformed, or unsupported
-preflight continues to full semantic judgment. Whether meaning came from verified preflight or full
-judgment, Core narrows model-facing descriptors to the minimum reviewed set for subscription
+Mixed, contextual, ambiguous, low-confidence operational, stale, and unsupported preflight
+proposals continue to full semantic judgment. A malformed or unavailable configured preflight is
+held without another model call, and a low-confidence pure general route is also held. Whether
+meaning came from verified preflight or full judgment, Core narrows model-facing descriptors to the minimum reviewed set for subscription
 inventory documents, Resource configuration comparisons, or gateway diagnostics. Unknown families
 retain the complete-manifest fallback. Descriptor narrowing never grants capability or authority;
 every selected declaration still comes from the exact principal manifest and the resulting plan
 still passes the ordinary verifier.
+
+General explanations, conceptual technology comparisons, and general recommendations use a
+one-shot knowledge path when their answer does not depend on current environment evidence. A typed
+`knowledge_signal` and bounded `general_answer` are authored together by one preflight model call.
+Core validates confidence, current-input and proposal digests, model and prompt provenance, profile
+digest, locale, and no-authority fields before publishing the answer. This path does not run
+adaptive planning, adaptive answering, independent review, refinement, verification, T2, ontology
+queries, or provider reads. A malformed or unavailable preflight is held without schema repair or a
+second model call. Because the answer is not independently reviewed, it reports
+`quality_status=limited` and cannot claim operational verification.
+Cloud-operations terminology alone does not make a question operational. Mixed knowledge and
+current-environment requests retain the adaptive multi-goal path.
+The Operator's initial progress label says it is determining the answer path; it does not claim
+that every turn is waiting for a semantic or investigation plan.
 
 Known operational families use a dedicated 544-token frame prompt instead of the general semantic
 frame prompt. Their complete schema-inclusive system and user request has a 64 KiB hard ceiling.
@@ -92,6 +107,8 @@ Required knowledge goals cannot select an operational-only route unless a govern
 pending decision explicitly owns the handoff. Contradictory plans stop before operational queries.
 Conversation entry mode, keywords, and the selected agent never grant a route or execution authority.
 Pure operational, pending-decision, and incident-bound requests retain the existing verified path.
+Pure, context-independent general knowledge terminates before this multi-goal planner through the
+one-shot path above.
 
 The adaptive path has a distinct `advisory_response` terminal contract. It does not manufacture
 an operational query receipt for general knowledge. Each goal records its kind, requirement,
@@ -99,6 +116,8 @@ answer status, and server-owned evidence references. Missing optional examples l
 explanation usable; missing required operational evidence remains an explicit held goal.
 Environment examples use only the ordinary principal-scoped verified read runtime. A pair of
 versions alone is not proof of blue-green deployment, and configuration is not proof of execution.
+Pure knowledge sections form one coherent answer. They do not repeat agent memos or operational
+evidence warnings for each goal, and Korean sections use consistent polite honorific endings.
 
 The `1.6.0` request and projection contracts use `version-negotiated` compatibility, not
 `additive-ignore-unknown`: conditional relationship and advisory evidence checks stay enforced.
@@ -156,8 +175,9 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Adaptive explanations and verified examples | implemented | `current change`; 653 focused Python checks, 209 Console checks, and 10 isolated synthetic browser scenarios passed | General/operational goals, fixed-role prompts, expiring relationship proofs, independent review, bounded refinement, and replay-safe presentation are connected. Live model quality and deployment evidence remain separate. |
-| Compact conversation preflight and social narrator | implemented | `conversation-preflight.v2.yaml`; `conversation-social-narrator.v1.yaml`; act-specific enforce packs; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py); 177 focused conversation, prompt, and adapter tests | A temperature-zero classifier runs on the first turn and separates greeting, self-introduction, explicit thanks, farewell, acknowledgement, operational, mixed, operational-context, and social-continuity turns before manifest loading. Explicit and contextual operational turns bypass adaptive explanation planning; mixed turns retain it. Three exact, explicit, context-independent operational shapes can also supply provenance-bound candidate judgment fields. Its schema cannot carry user-facing prose or execution authority. |
+| Adaptive explanations and verified examples | implemented | `adaptive-plan.v4.yaml`; `adaptive-answer.v2.yaml`; `adaptive-review.v2.yaml`; focused prompt and runtime checks; authenticated Browser Entra comparison turns | Mixed knowledge/operational goals, fixed-role prompts, expiring relationship proofs, independent review, bounded refinement, and replay-safe presentation are connected. Pure general knowledge bypasses these multi-stage operations. |
+| One-shot general knowledge | validated | `conversation-preflight.v5.yaml`; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py); focused checks; ten-pass independent reviews; authenticated Korean Browser Entra turns | One confident, current-input- and profile-bound preflight call classifies and authors the bounded answer. Warmed UI variants completed in 3.321, 4.210, 4.319, and 4.691 seconds, each with one `narrator-gpt-5-4-mini` call and no plan, adaptive answer, review, refinement, verification, T2, ontology, or provider read. Output reports limited, no-authority quality. |
+| Compact conversation preflight and social narrator | implemented | `conversation-preflight.v5.yaml`; `conversation-social-narrator.v1.yaml`; act-specific enforce packs; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py); prompt contract checks and authenticated English/Korean comparison turns | A temperature-zero classifier runs on the first turn and separates greeting, self-introduction, explicit thanks, farewell, general knowledge, acknowledgement, operational, mixed, operational-context, and social-continuity turns before manifest loading. Context-independent general knowledge selects the one-shot answer path; current-environment questions retain verified or adaptive evidence paths. Reviewed operational shapes can also supply provenance-bound candidate judgment fields. |
 | Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. Provenance-bound F1-F4 preflight meaning can skip the separate full-judgment call; every other request retains it. Accepted inventory-document, configuration-change, and gateway-diagnostic judgments narrow model-facing descriptors to 1, 3, and 5 reviewed declarations respectively and use the dedicated 544-token frame contract with a 64 KiB request ceiling. Unknown families retain the complete-manifest fallback. |
 | Owner-controlled aggressive T2 recovery | implemented | `conversation.t2_escalation.aggressive_enabled`; Runtime Settings projection; semantic-turn processor; 640 focused backend checks; Console model test, typecheck, production build, and authenticated Settings save | Development interactive read turns default to one bounded T2 recovery for eligible T1 clarification, unavailability, or rejected frame and plan proposals. Staging and production default off pending promotion evidence. The setting is evaluated per turn without a restart, the original clarification is preserved when T2 remains ambiguous, and Golden campaigns, actions, authorization, evidence verification, and execution authority cannot be widened. |
 | Model-backed social direct response | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py); [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py); [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py); focused model-routing, usage, redaction, and stream tests | The compact preflight authors direct text for eligible context-independent social turns. Core validates confidence, binding, context dependency, response locale, trusted profile digest, and bounded text before preserving it. Mixed, contextual, pending-decision, ambiguous, bound, and failed preflight cases use full semantic judgment. Direct responses retain measured model usage and identity without a fixed success template or lexical fallback. |

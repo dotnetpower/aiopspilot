@@ -338,7 +338,7 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 0;
-  padding: 3.5%;
+  padding: 24px 32px;
   border: 2px solid #0f6cbd;
   border-radius: 5px;
   background: #fbfdff;
@@ -347,7 +347,7 @@
 .executive-sovereign-boundary > header {
   display: grid;
   gap: 2px;
-  padding-bottom: 3%;
+  padding-bottom: 12px;
   border-bottom: 1px solid #c5dff2;
 }
 
@@ -358,8 +358,8 @@
 .executive-sovereign-controls {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 3%;
-  padding: 3.5% 0;
+  gap: 10px;
+  padding: 16px 0;
 }
 
 .executive-sovereign-controls article {
@@ -367,7 +367,7 @@
   grid-template-columns: auto 1fr;
   align-content: center;
   gap: 2px 5%;
-  padding: 3.5%;
+  padding: 14px;
   border: 1px solid #d8dce3;
   border-radius: 4px;
   background: white;
@@ -381,7 +381,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3%;
-  padding-top: 3%;
+  padding-top: 12px;
   border-top: 1px solid #c5dff2;
 }
 

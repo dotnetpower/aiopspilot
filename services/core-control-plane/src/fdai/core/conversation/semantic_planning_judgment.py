@@ -35,6 +35,9 @@ class _JudgmentDecision:
 
 _OPERATIONAL_DESCRIPTOR_NAMES = {
     "create.document": frozenset({"Resource"}),
+    "query.contextual_resources": frozenset({"Resource"}),
+    "query.resource_current_state": frozenset({"Resource", "query.resource_current_state"}),
+    "query.resource_state_inventory": frozenset({"Resource", "query.resource_state_inventory"}),
     "query.resource_configuration_changes": frozenset(
         {
             "Resource",
@@ -48,6 +51,8 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
             "routes_to",
             "query.gateway_diagnostic_evidence",
             "query.resource_configuration_changes",
+            "query.resource_current_state",
+            "query.resource_state_inventory",
             "query.resource_configuration_snapshot",
         }
     ),

@@ -144,7 +144,8 @@
         "VITE_DEV_MODE": "0",
         "VITE_LOCAL_LOGIN_PROMPT": "0",
         "VITE_OPERATOR_API_BASE_URL": "http://127.0.0.1:8010",
-        "VITE_INGESTION_API_BASE_URL": "http://127.0.0.1:8011"
+        "VITE_INGESTION_API_BASE_URL": "http://127.0.0.1:8011",
+        "VITE_MANUAL_STUDIO_URL": "http://127.0.0.1:5474"
       },
       "serverReadyAction": {
         "pattern": "Local:\\s+(https?://\\S+)",
@@ -154,6 +155,20 @@
       "presentation": {
         "group": "1-fullstack",
         "order": 6
+      }
+    },
+    {
+      "name": "Console Web: Manual Studio",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/tools/manual-studio",
+      "env": {
+        "PORT": "5474"
+      },
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 7
       }
     }
   ],
@@ -167,7 +182,8 @@
         "Console Web: Document Ingestion API",
         "Console Web: Document Processing Worker",
         "Console Web: Isolated Executor",
-        "Console Web: Frontend"
+        "Console Web: Frontend",
+        "Console Web: Manual Studio"
       ],
       "stopAll": true,
       "presentation": {
