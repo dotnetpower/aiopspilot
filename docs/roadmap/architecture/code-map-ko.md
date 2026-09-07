@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3ffcc783510aeface7f88cc1a30c26877cd6c5e5
+translation_source_sha: 372f06f24fe395737152037e7d3e38bfd8dbe120
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -214,10 +214,7 @@ optional package 카탈로그를 해석하므로 새 경로가 누락된 English
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
 다중 pair 관계 계획 및 조회를 소유합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
-필요한 모든 LinkType 증적을 결속합니다. `conversation_preflight_answer_safety.py`와
-`conversation_preflight_targets.py`는 모델 답변 안전성과 정확한 대상, 시간 및 구독 범위 검증을
-분리합니다. `semantic_planning_preflight.py`는 간결한 서술자 선택을 소유하고
-`semantic_target_candidate_constants.py`는 타입 기반 대상 후보 집합을 소유합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
+필요한 모든 LinkType 증적을 결속합니다. `conversation_preflight_answer_safety.py`와 `conversation_preflight_targets.py`는 모델 답변 안전성과 정확한 대상, 시간 및 구독 범위 검증을 분리하고, `semantic_planning_preflight.py`와 `semantic_target_candidate_constants.py`는 간결한 서술자 선택과 타입 기반 대상 후보 집합을 소유합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
