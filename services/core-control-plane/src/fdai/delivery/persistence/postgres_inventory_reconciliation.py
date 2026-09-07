@@ -128,7 +128,9 @@ class PostgresInventoryReconciliationGate:
                 "(SELECT count(*) FROM inventory_snapshot_link l WHERE l.snapshot_id="
                 "(SELECT id FROM active)) END AS relationship_count, "
                 "(SELECT count(*) FROM inventory_realtime_resource) AS overlay_resource_count, "
-                "(SELECT count(*) FROM inventory_realtime_link) AS overlay_relationship_count"
+                "(SELECT count(*) FROM inventory_realtime_link) AS overlay_relationship_count, "
+                "(SELECT count(*) FROM inventory_observation_pending_tombstone) "
+                "AS pending_tombstone_count"
             )
             row = await cursor.fetchone()
             if row is None:
@@ -169,6 +171,11 @@ class PostgresInventoryReconciliationGate:
         )
         resource_count = row["resource_count"]
         relationship_count = row["relationship_count"]
+        overlay_resource_count = _pending_resource_count(
+            overlay_resource_count=int(row["overlay_resource_count"] or 0),
+            pending_tombstone_count=int(row["pending_tombstone_count"] or 0),
+        )
+        overlay_relationship_count = int(row["overlay_relationship_count"] or 0)
         cursor_count = int(cursor_health["cursor_count"] or 0) if cursor_health else 0
         cursor_lag = cursor_health["cursor_lag_seconds"] if cursor_health else None
         cursor_complete = bool(self._cursor_keys) and cursor_count == len(self._cursor_keys)
@@ -179,8 +186,8 @@ class PostgresInventoryReconciliationGate:
             relationship_count=(
                 int(relationship_count) if relationship_count is not None else None
             ),
-            overlay_resource_count=int(row["overlay_resource_count"] or 0),
-            overlay_relationship_count=int(row["overlay_relationship_count"] or 0),
+            overlay_resource_count=overlay_resource_count,
+            overlay_relationship_count=overlay_relationship_count,
             cursor_lag_seconds=float(cursor_lag) if cursor_lag is not None else None,
             cursor_complete=cursor_complete,
             coverage_complete=row["active_started_at"] is not None,
@@ -197,10 +204,7 @@ class PostgresInventoryReconciliationGate:
                 failure_code=failure_code,
                 abandoned_attempt=abandoned_attempt,
                 change_demand=change_demand,
-                overlay_open=bool(
-                    int(row["overlay_resource_count"] or 0)
-                    or int(row["overlay_relationship_count"] or 0)
-                ),
+                overlay_open=bool(overlay_resource_count or overlay_relationship_count),
             )
             return self._last_decision
         due = inventory_reconciliation_due(
@@ -282,6 +286,17 @@ def _provider_pressure(
             ProviderPressure.THROTTLED if failure_code == "throttled" else ProviderPressure.TIMEOUT
         )
     return ProviderPressure.HEALTHY
+
+
+def _pending_resource_count(
+    *,
+    overlay_resource_count: int,
+    pending_tombstone_count: int,
+) -> int:
+    """Combine visible overlay rows with deletes awaiting complete reconciliation."""
+    if overlay_resource_count < 0 or pending_tombstone_count < 0:
+        raise ValueError("inventory pending resource counts MUST NOT be negative")
+    return overlay_resource_count + pending_tombstone_count
 
 
 def has_unreconciled_change(

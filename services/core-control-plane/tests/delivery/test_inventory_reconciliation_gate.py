@@ -10,6 +10,7 @@ from fdai.delivery.inventory_source_policy import (
     SourceCollectionPolicy,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    _pending_resource_count,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
@@ -250,3 +251,10 @@ def test_adaptive_gate_collects_when_realtime_overlay_is_open() -> None:
     assert decision.action is CollectionScheduleAction.COLLECT
     assert decision.due_in_seconds == 0
     assert decision.reason_codes == ("overlay_open",)
+
+
+def test_pending_tombstones_open_reconciliation_demand() -> None:
+    assert _pending_resource_count(overlay_resource_count=2, pending_tombstone_count=3) == 5
+
+    with pytest.raises(ValueError, match="MUST NOT be negative"):
+        _pending_resource_count(overlay_resource_count=0, pending_tombstone_count=-1)
