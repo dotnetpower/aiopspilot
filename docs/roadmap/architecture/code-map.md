@@ -214,6 +214,12 @@ not pass readiness and then terminate a required runtime task.
 Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
 relationship inclusion by default, and the default remains absent from legacy serialized
 definitions so replay digests do not change.
+Targetless recent-state plans narrow Resource scope to manifest-declared types with reviewed
+operational-state paths and require state-fact metadata. The ObjectSet service pushes the bounded
+text value set into one ontology-store query so source generation and completeness are evaluated
+once. The transition function keeps one latest bitemporal edge per Resource and the Console
+projection preserves its inventory authority input. An incomplete source remains a typed evidence
+hold rather than an empty or guessed Resource list.
 Semantic judgment uses strict structured output, and a first-turn operational read avoids the
 social preflight while direct social candidates and context-bearing turns remain independently
 confirmed.

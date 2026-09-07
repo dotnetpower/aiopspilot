@@ -277,6 +277,13 @@ describe("grounded reply presentation", () => {
     ].join("\n");
 
     expect(primaryAnswerText(answer, held, receipt)).toBe(answer);
+    expect(
+      primaryAnswerText(
+        answer,
+        { ...held, reason_code: "semantic_evidence_incomplete" },
+        { ...receipt, reason_code: "semantic_evidence_incomplete" },
+      ),
+    ).toBe(answer);
     expect(primaryAnswerText("unverified streamed draft", held)).toBe(
       "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
     );

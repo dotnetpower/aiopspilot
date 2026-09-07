@@ -32,6 +32,7 @@ const SOURCE_UNAVAILABLE_REASONS = new Set([
   "ordinal_resource_no_longer_observed",
   "semantic_deadline_exceeded",
   "semantic_evidence_held",
+  "semantic_evidence_incomplete",
   "semantic_result_store_unavailable",
   "semantic_runtime_unavailable",
   "semantic_transport_unavailable",

@@ -37,6 +37,7 @@ async def _query_objects(
     object_types: Sequence[str],
     object_ids: Sequence[str],
     property_equals: Mapping[str, Any] | None,
+    property_text_in: Mapping[str, Sequence[str]] | None,
     limit: int,
     include_relationships: bool,
 ) -> OntologyGraphSnapshot:
@@ -52,6 +53,21 @@ async def _query_objects(
         normalized = normalize_json_value(property_equals, path="property_equals")
         params.append(canonical_json_mapping(normalized, path="property_equals")[1])
         clauses.append("properties @> %s::jsonb")
+    if property_text_in:
+        if len(property_text_in) > 4:
+            raise ValueError("property_text_in MUST contain at most four properties")
+        for key, values in sorted(property_text_in.items()):
+            if (
+                not key
+                or len(key) > 256
+                or not values
+                or len(values) > 64
+                or len(set(values)) != len(values)
+                or any(not value or len(value) > 256 for value in values)
+            ):
+                raise ValueError("property_text_in MUST contain bounded unique text values")
+            clauses.append("properties ->> %s = ANY(%s::text[])")
+            params.extend((key, list(values)))
     where: sql.Composable
     if clauses:
         where = sql.SQL("WHERE ") + sql.SQL(" AND ").join(map(sql.SQL, clauses))

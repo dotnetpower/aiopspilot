@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.state_transitions import (
     StateTransitionBatch,
     StateTransitionCoverage,
     StateTransitionLane,
+    select_recent_distinct_transitions,
     state_at,
 )
 
@@ -20,14 +21,15 @@ NOW = datetime(2026, 9, 2, 9, 0, tzinfo=UTC)
 
 def _transition(
     *,
+    subject_ref: str = "resource-a",
     from_state: str = "running",
     to_state: str = "deallocated",
     effective_at: datetime = NOW,
     recorded_at: datetime = NOW + timedelta(seconds=5),
 ) -> OperationalStateTransition:
     return OperationalStateTransition.create(
-        idempotency_key=f"resource-a:power:{effective_at.isoformat()}",
-        subject_ref="resource-a",
+        idempotency_key=f"{subject_ref}:power:{effective_at.isoformat()}",
+        subject_ref=subject_ref,
         subject_type="Resource",
         state_type="resource.power_state",
         from_state=from_state,
@@ -43,7 +45,7 @@ def _transition(
         producer_version="1.0.0",
         freshness_ceiling_seconds=600,
         completeness_basis_points=10_000,
-        evidence_refs=("evidence:resource-a",),
+        evidence_refs=(f"evidence:{subject_ref}",),
     )
 
 
@@ -157,3 +159,17 @@ def test_state_at_uses_transition_id_as_equal_time_tie_breaker() -> None:
     )
 
     assert forward == reverse == expected
+
+
+def test_recent_distinct_transitions_returns_latest_resource_rows() -> None:
+    transitions = (
+        _transition(subject_ref="resource-a", effective_at=NOW - timedelta(minutes=4)),
+        _transition(subject_ref="resource-b", effective_at=NOW - timedelta(minutes=1)),
+        _transition(subject_ref="resource-a", effective_at=NOW),
+        _transition(subject_ref="resource-c", effective_at=NOW - timedelta(minutes=2)),
+    )
+
+    selected = select_recent_distinct_transitions(transitions, limit=2)
+
+    assert tuple(item.subject_ref for item in selected) == ("resource-a", "resource-b")
+    assert selected[0].effective_at == NOW

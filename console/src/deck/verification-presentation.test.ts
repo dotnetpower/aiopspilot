@@ -83,6 +83,7 @@ describe("verification presentation", () => {
     ["ordinal_requery_truncated", "sourceUnavailable"],
     ["ordinal_query_invalid_result", "sourceUnavailable"],
     ["semantic_evidence_held", "sourceUnavailable"],
+    ["semantic_evidence_incomplete", "sourceUnavailable"],
     ["semantic_deadline_exceeded", "sourceUnavailable"],
     ["semantic_result_store_unavailable", "sourceUnavailable"],
     ["semantic_runtime_unavailable", "plannerUnavailable"],

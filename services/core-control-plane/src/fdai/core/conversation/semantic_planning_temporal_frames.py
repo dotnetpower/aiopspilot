@@ -23,6 +23,7 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
+from .semantic_state_transition_planning import recent_resource_state_change_limit
 
 
 def build_historical_topology_clarification(
@@ -82,6 +83,8 @@ def build_resource_activity_clarification(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Preserve bounded Resource activity until one exact target is supplied."""
 
+    if recent_resource_state_change_limit(judgment) is not None:
+        return None
     if (
         judgment is None
         or judgment.action_posture != "advise_only"

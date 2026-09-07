@@ -487,6 +487,10 @@ def project_intent_graph_evidence(evidence: IntentGraphEvidence) -> dict[str, An
             projected["evidence_refs"] = list(receipt.evidence_refs)
         if receipt.authority is not None:
             projected["authority"] = receipt.authority.value
+        if receipt.authority_inputs:
+            projected["authority_inputs"] = [
+                authority.value for authority in receipt.authority_inputs
+            ]
         goals.append(projected)
     return {
         "schema_version": 2,

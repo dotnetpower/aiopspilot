@@ -133,7 +133,7 @@ def test_preflight_routes_general_knowledge_away_from_operational_semantics() ->
     prompts = FileSystemPromptRegistry(_CATALOG)
     prompt = prompts.get_base("conversation.preflight")
 
-    assert prompt.version == 6
+    assert prompt.version == 8
     assert "conceptual technology comparison" in prompt.body
     assert "knowledge_signal: explicit" in prompt.body
     assert "include general_answer" in prompt.body
@@ -141,6 +141,9 @@ def test_preflight_routes_general_knowledge_away_from_operational_semantics() ->
     assert "resource_type_filter" in prompt.body
     assert "subscription_scope_identity" in prompt.body
     assert "subscription_service_health" in prompt.body
+    assert "recent_resource_state_changes" in prompt.body
+    assert "operational_result_limit" in prompt.body
+    assert "operational status or state changes are excluded" in prompt.body
     assert "Core binds them only through the current catalog" in prompt.body
 
 

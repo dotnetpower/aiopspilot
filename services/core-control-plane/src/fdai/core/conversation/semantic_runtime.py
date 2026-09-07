@@ -713,7 +713,11 @@ def _query_output_incomplete(
     if (
         frame is None
         or plan is None
-        or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
+        or frame.output_shape
+        not in {
+            SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
+            SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
+        }
     ):
         return False
     document_node_ids = {

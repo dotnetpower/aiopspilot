@@ -1004,6 +1004,65 @@ def test_configuration_collection_derives_server_owned_recent_window() -> None:
     assert judgment.requested_facets == ("configuration_changes", "default_recent_window")
 
 
+def test_recent_resource_state_collection_promotes_without_target() -> None:
+    utterance = "최근 상태가 변경된 리소스 5개만 알려줄래?"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(),
+        operational_facets=("recently_changed", "resource_count", "limit_5"),
+        operational_result_limit=5,
+        confidence=0.97,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_change_activity"
+    assert judgment.targets == ()
+    assert judgment.requested_facets == (
+        "recently_changed",
+        "resource_count",
+        "default_recent_window",
+        "limit_5",
+    )
+
+
+def test_recent_resource_state_collection_requires_typed_count() -> None:
+    utterance = "최근 상태가 변경된 리소스 5개만 알려줄래?"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(),
+        operational_facets=("recently_changed", "resource_count", "limit_N"),
+        confidence=0.97,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
 def test_configuration_collection_drops_server_owned_subscription_scope() -> None:
     utterance = (
         "Check whether deployed GPT resources in the subscription have configuration changes."

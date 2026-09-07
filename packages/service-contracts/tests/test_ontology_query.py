@@ -275,7 +275,8 @@ def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
         status=TaskStatus.COMPLETED,
         duration_ms=10,
         evidence_refs=("metric-receipt:1",),
-        authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        authority=EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
+        authority_inputs=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
         started_at=NOW,
         completed_at=NOW + timedelta(milliseconds=10),
     )
@@ -299,7 +300,8 @@ def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
     assert graph_projection["goals"][0]["arguments"] == {"metric_concept": "request.volume"}
     assert evidence_projection["schema_version"] == 2
     assert evidence_projection["goals"][0]["status"] == "completed"
-    assert evidence_projection["goals"][0]["authority"] == "server_operational_metrics"
+    assert evidence_projection["goals"][0]["authority"] == "server_operational_state_history"
+    assert evidence_projection["goals"][0]["authority_inputs"] == ["server_inventory_graph"]
     assert "reason" not in evidence_projection["goals"][0]
 
     invalid_goal = goal.model_copy(update={"goal_id": "request.series"})

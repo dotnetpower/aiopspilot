@@ -88,6 +88,10 @@ from fdai.core.conversation.semantic_runtime import (
     _current_relationship_mapping_unavailable,
     _query_output_incomplete,
 )
+from fdai.core.conversation.semantic_state_transition_planning import (
+    build_recent_resource_state_transition_frame,
+    compile_resource_state_transition_plan,
+)
 from fdai.core.conversation.semantic_target_candidate_planning import (
     build_non_resource_target_clarification,
     normalize_decision_outcome_relationship,
@@ -98,6 +102,7 @@ from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -149,6 +154,10 @@ from fdai.core.ontology_platform.resource_metric_queries import (
     RESOURCE_METRIC_SERIES_FUNCTION_NAME,
     resource_metric_function_type,
     resource_metric_series_function_type,
+)
+from fdai.core.ontology_platform.state_transitions import (
+    RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
+    resource_state_transitions_function_type,
 )
 from fdai.delivery.golden_question_dataset import load_golden_question_dataset
 from fdai.rule_catalog.schema.inventory_query_language import (
@@ -535,6 +544,7 @@ def _fixture(
         properties={
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "secret": PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.OWNER),
+            "properties": PropertyDecl(type=PropertyType.OBJECT),
             **(
                 {"type": PropertyDecl(type=PropertyType.STRING, required=True)}
                 if include_resource_type
@@ -3017,6 +3027,115 @@ def test_current_state_without_exact_target_requests_korean_clarification() -> N
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_recent_resource_changes_build_deterministic_collection_frame() -> None:
+    manifest, _definition = _fixture(
+        include_resource_type=True, function_types=(resource_state_transitions_function_type(),)
+    )
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "targets": [],
+            "requested_facets": ["recently_changed", "resource_count", "limit_5"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_recent_resource_state_transition_frame(
+        judgment,
+        utterance="최근 상태가 변경된 리소스 5개만 알려줄래?",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"lookback_seconds": 3600}
+    assert frame.measure_concepts == ("resource_state.observed",)
+    assert frame.output_shape == "resource_state_transitions"
+    assert proposal.evidence_requirements == ("server_recent_default", "result_limit.5")
+    assert frame.execution_authority is False
+    plan = compile_resource_state_transition_plan(
+        frame=frame,
+        utterance="최근 상태가 변경된 리소스 5개만 알려줄래?",
+        manifest=manifest,
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        evaluation_time=NOW,
+        purpose="operations-review",
+    )
+    assert plan is not None
+    function_node = plan.nodes[1]
+    scope_definition = ObjectSetDefinition.model_validate(plan.nodes[0].arguments["definition"])
+    assert scope_definition.predicates[-1] == ObjectPredicate(
+        property="properties",
+        operator=ObjectPredicateOperator.CONTAINS,
+        equals="state_fact_metadata",
+    )
+    assert function_node.arguments["function_name"] == RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
+    assert function_node.arguments["arguments"]["result_limit"] == 5
+    assert function_node.arguments["arguments"]["latest_first"] is True
+    assert function_node.arguments["arguments"]["distinct_subjects"] is True
+
+
+def test_recent_resource_changes_plan_before_frame_model() -> None:
+    manifest, _definition = _fixture(
+        include_resource_type=True,
+        function_types=(resource_state_transitions_function_type(),),
+    )
+    model = _Model(
+        frame=_frame(operation="action_draft", output_shape="action_draft"),
+        plan=None,
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.resource_change_activity",
+        "targets": [],
+        "requested_facets": ["recently_changed", "resource_count", "limit_5"],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="최근 상태가 변경된 리소스 5개만 알려줄래?",
+        locale="ko",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_transitions"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"]["result_limit"] == 5
+    assert (model.frame_calls, model.plan_calls) == (0, 0)
+    assert outcome.execution_authority is False
+
+
 def test_resource_activity_clarification_accepts_typed_duration_target() -> None:
     judgment = SemanticJudgmentProposal.model_validate(
         {
@@ -5228,7 +5347,7 @@ def test_current_relationship_mapping_holds_an_empty_endpoint() -> None:
     assert _current_relationship_mapping_unavailable(planning, populated_execution) is False
 
 
-def test_incomplete_output_holds_only_contextual_resource_plans() -> None:
+def test_incomplete_output_holds_required_collection_plans() -> None:
     manifest, definition = _fixture()
     service = SemanticPlanningService(
         model=_Model(frame=_frame(), plan=_plan(definition)),
@@ -5265,6 +5384,13 @@ def test_incomplete_output_holds_only_contextual_resource_plans() -> None:
         ),
     )
     assert _query_output_incomplete(contextual_planning, execution) is True
+    transition_planning = replace(
+        planning,
+        frame=planning.frame.model_copy(
+            update={"output_shape": SemanticOutputShape.RESOURCE_STATE_TRANSITIONS}
+        ),
+    )
+    assert _query_output_incomplete(transition_planning, execution) is True
 
 
 def test_declaration_frame_without_exact_measure_fails_closed_without_t2() -> None:

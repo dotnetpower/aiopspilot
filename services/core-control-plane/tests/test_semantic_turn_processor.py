@@ -969,6 +969,8 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
                     {
                         "row_id": "transition-1",
                         "values": {
+                            "subject_ref": "resource-a",
+                            "subject_name": "api-prod",
                             "effective_at": NOW.isoformat(),
                             "from_state": "running",
                             "to_state": "deallocated",
@@ -994,6 +996,7 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
     )
 
     assert answer.startswith("## Observed resource state transitions")
+    assert "`api-prod`:" in answer
     assert "`running` -> `deallocated`" in answer
     assert "Displayed transitions: 1 of 25" in answer
     assert "`snapshot_interval_only`" in answer
@@ -5140,6 +5143,25 @@ async def test_current_relationship_mapping_hold_preserves_typed_reason_and_evid
     assert semantic["reason_code"] == "semantic_current_relationship_mapping_unavailable"
     assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
     assert semantic["evidence_refs"] == ["ontology-function:relationships"]
+
+
+async def test_incomplete_query_hold_preserves_completed_receipts() -> None:
+    runtime_result = _runtime_result("answered")
+    held = replace(
+        runtime_result,
+        disposition="held",
+        reason="semantic_evidence_incomplete",
+    )
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request(locale="ko")))
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
+    assert semantic["checks_completed"] == semantic["checks_total"] == 1
+    assert semantic["evidence_refs"] == ["inventory:evidence-1"]
+    assert "현재 authoritative evidence로는 요청한 결론을 결정할 수 없습니다" in semantic["answer"]
 
 
 async def test_s3_execution_hold_projects_recovery_continuation() -> None:

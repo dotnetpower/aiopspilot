@@ -1807,6 +1807,7 @@ def _project_execution_hold(
                 "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
+                "semantic_evidence_incomplete",
             }
         )
         or not execution.receipts
@@ -1834,6 +1835,7 @@ def _project_execution_hold(
                 "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
+                "semantic_evidence_incomplete",
             }
             else "semantic_evidence_held"
         ),
@@ -1875,7 +1877,13 @@ def _projected_execution_evidence_matches(
         "failed",
         "cancelled",
     } or (
-        result.reason == "semantic_current_relationship_mapping_unavailable"
+        result.reason
+        in {
+            "semantic_current_relationship_mapping_unavailable",
+            "semantic_evidence_authority_conflict",
+            "semantic_evidence_authority_missing",
+            "semantic_evidence_incomplete",
+        }
         and evidence_status == "completed"
     )
     if (
@@ -3936,12 +3944,14 @@ def _render_state_transition_answer(
         )
         lines = [heading, ""]
         for row in rows[:20]:
+            subject = row.get("subject_name") or row.get("subject_ref") or "리소스 미확인"
             lines.append(
                 "- "
-                f"{row.get('effective_at') or '시각 미확인'} - "
+                f"`{subject}`: "
                 f"`{row.get('from_state') or 'unknown'}` -> "
                 f"`{row.get('to_state') or 'unknown'}` "
-                f"({row.get('state_type') or '상태 유형 미확인'})"
+                f"({row.get('effective_at') or '시각 미확인'}, "
+                f"{row.get('state_type') or '상태 유형 미확인'})"
             )
         lines.append(f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`")
         if unresolved:
@@ -3967,12 +3977,14 @@ def _render_state_transition_answer(
     )
     lines = [heading, ""]
     for row in rows[:20]:
+        subject = row.get("subject_name") or row.get("subject_ref") or "resource unavailable"
         lines.append(
             "- "
-            f"{row.get('effective_at') or 'time unavailable'} - "
+            f"`{subject}`: "
             f"`{row.get('from_state') or 'unknown'}` -> "
             f"`{row.get('to_state') or 'unknown'}` "
-            f"({row.get('state_type') or 'state type unavailable'})"
+            f"({row.get('effective_at') or 'time unavailable'}, "
+            f"{row.get('state_type') or 'state type unavailable'})"
         )
     lines.append(f"- Source completeness: `{'complete' if complete else 'incomplete'}`")
     if unresolved:

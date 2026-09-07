@@ -98,6 +98,7 @@ from .semantic_planning_models import (
 )
 from .semantic_planning_support import _clarification, _outcome
 from .semantic_resource_configuration_planning import build_resource_configuration_frame
+from .semantic_state_transition_planning import build_recent_resource_state_transition_frame
 
 
 def deterministic_pre_frame_outcome(
@@ -534,6 +535,14 @@ def deterministic_pre_frame_selection(
     )
     if resource_configuration is not None:
         proposal, frame = resource_configuration
+        return proposal, frame, None
+    recent_state_changes = build_recent_resource_state_transition_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if recent_state_changes is not None:
+        proposal, frame = recent_state_changes
         return proposal, frame, None
     document_draft = _build_document_draft_frame(
         judgment=judgment,

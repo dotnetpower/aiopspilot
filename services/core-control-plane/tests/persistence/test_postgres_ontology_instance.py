@@ -143,6 +143,10 @@ async def test_postgres_ontology_round_trip_and_traversal() -> None:
     selected = await store.query_objects(
         object_types=("ReviewCheck",), property_equals={"status": "blocked"}
     )
+    selected_in = await store.query_objects(
+        object_types=("ReviewCheck",),
+        property_text_in={"status": ("blocked", "ready")},
+    )
     root_limited = await store.traverse(root_ids=(check_id, review_id), limit=1)
     exact_root_limit = await store.traverse(root_ids=(check_id,), limit=1)
     deduplicated_roots = await store.traverse(
@@ -153,6 +157,7 @@ async def test_postgres_ontology_round_trip_and_traversal() -> None:
     assert {item.id for item in graph.objects} == {review_id, check_id}
     assert len(graph.links) == 1
     assert any(item.id == check_id for item in selected.objects)
+    assert any(item.id == check_id for item in selected_in.objects)
     assert [item.id for item in root_limited.objects] == [check_id]
     assert root_limited.truncated is True
     assert [item.id for item in exact_root_limit.objects] == [check_id]

@@ -16,6 +16,7 @@ from fdai.core.conversation.conversation_preflight import (
     ConversationPreflightResult,
     OperationalPreflightFamily,
     OperationalSignal,
+    OperationalWindowMode,
     SocialAct,
 )
 from fdai.core.conversation.coordinator import ConversationCoordinator, CoordinatorConfig
@@ -993,6 +994,7 @@ def _typed_fixture(
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "type": PropertyDecl(type=PropertyType.STRING, required=True),
             "name": PropertyDecl(type=PropertyType.STRING),
+            "properties": PropertyDecl(type=PropertyType.OBJECT),
             **({"parent_id": PropertyDecl(type=PropertyType.STRING)} if include_parent_id else {}),
         },
     )
@@ -1718,6 +1720,62 @@ def test_verified_inventory_preflight_skips_full_semantic_judgment() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.frame is not None
     assert outcome.frame.output_shape == "resource_list"
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_recent_state_change_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_state_transitions=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "최근 상태가 변경된 리소스 5개만 알려줄래?"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_facets=(
+            "recently_changed",
+            "resource_count",
+            "default_recent_window",
+            "limit_5",
+        ),
+        operational_result_limit=5,
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_transitions"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"]["result_limit"] == 5
     assert model.frame_calls == model.plan_calls == 0
 
 
