@@ -89,6 +89,31 @@ def _availability_properties(
     }
 
 
+def _provisioning_properties(
+    state: str,
+    *,
+    at: datetime,
+    generation: str,
+) -> dict[str, object]:
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-resource-graph",
+        source_revision=generation,
+        effective_at=at,
+        recorded_at=at,
+        evidence_cutoff=at,
+        freshness_ceiling_seconds=600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=(f"inventory-generation:{generation}",),
+    )
+    return {
+        "provisioningState": state,
+        "state_fact_metadata": {"provisioningState": metadata.to_mapping()},
+    }
+
+
 def _observation_metadata() -> LinkObservationMetadata:
     return LinkObservationMetadata(
         state_fact=StateFactMetadata(
@@ -336,6 +361,59 @@ async def test_relationship_gap_still_records_independent_availability_state() -
     assert transition.state_type == "resource.availability_state"
     assert (transition.from_state, transition.to_state) == ("available", "degraded")
     assert transition_writer.batches[0].coverage[0].limitation == "snapshot_interval_only"
+
+
+async def test_provisioning_state_without_property_evidence_does_not_emit_transition() -> None:
+    previous_at = RECORDED_AT - timedelta(minutes=5)
+    previous = OntologyObjectRecord(
+        id="vault-1",
+        object_type="Resource",
+        properties={
+            "id": "vault-1",
+            "type": "secret-store",
+            "properties": _provisioning_properties(
+                "Creating",
+                at=previous_at,
+                generation="snapshot-0",
+            ),
+        },
+    )
+    transition_writer = _TransitionWriter()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=_Writer(),
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader(()),
+        transition_writer=transition_writer,
+        current_state_reader=_CurrentStateReader(
+            (previous,),
+            source_generation="snapshot-0",
+        ),
+    )
+
+    await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="vault-1",
+                    type="secret-store",
+                    props=_provisioning_properties(
+                        "Succeeded",
+                        at=RECORDED_AT,
+                        generation="snapshot-1",
+                    ),
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=RECORDED_AT,
+            state_base_generation="snapshot-0",
+            state_base_generation_checked=True,
+        )
+    )
+
+    assert transition_writer.batches == []
 
 
 async def test_unchanged_health_fact_advances_coverage_when_cutoff_moves() -> None:

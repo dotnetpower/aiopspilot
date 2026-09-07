@@ -621,10 +621,10 @@ coverage record. A transition binds `from_state`, `to_state`, effective time, re
 evidence cutoff, source identity and revision, producer version, freshness, completeness,
 conflicts, and evidence references. Replayed idempotency keys are no-ops only for identical content.
 
-The inventory promotion path records `resource.operational_state` changes. It deliberately marks
-the interval as `initial_state_only` or `snapshot_interval_only`; complete reconciliation snapshots
-do not prove that an intermediate transition never occurred. A future continuous source can raise
-coverage only with an exact retained watermark and complete interval evidence.
+The inventory path records operational and availability changes only with property-level evidence.
+Provisioning remains current-state only until it carries equivalent provenance. Every interval is
+`initial_state_only` or `snapshot_interval_only`; complete snapshots cannot prove that no intermediate
+transition occurred, and only exact retained watermarks can raise that coverage.
 
 ## Related docs
 

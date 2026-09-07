@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1202ba20cf81cb2bec6404895e2e48d67fde2375
+translation_source_sha: 246931408ae7c827e1bcd494f087652197c380e6
 translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
@@ -625,10 +625,10 @@ Event Hubs는 관측을 전달하고 OpenTelemetry는 진단을 보고하며, �
 신원과 개정, 생산자 버전, 최신성, 완전성, 충돌, 근거 참조를 결합합니다. 다시 전달된 멱등성
 키는 콘텐츠가 같을 때만 변경 없는 처리로 끝납니다.
 
-인벤토리 승격 경로는 `resource.operational_state` 변경을 기록합니다. 이 경로는 구간을
-`initial_state_only` 또는 `snapshot_interval_only`로 표시합니다. 완전한 조정 스냅샷도 중간
-상태 전이가 없었다는 사실을 증명하지 못합니다. 향후 지속형 원본은 정확히 보존된 워터마크와
-완전한 구간 근거가 있을 때만 커버리지를 높일 수 있습니다.
+인벤토리 경로는 속성 수준 근거가 있는 운영 및 가용성 변경만 기록합니다. 프로비저닝은 같은
+출처 정보가 생길 때까지 현재 상태로만 유지합니다. 모든 구간은 `initial_state_only` 또는
+`snapshot_interval_only`이며, 완전한 스냅샷도 중간 전이 부재를 증명하지 못합니다. 정확히
+보존된 워터마크만 해당 커버리지를 높일 수 있습니다.
 
 ## 관련 문서
 
