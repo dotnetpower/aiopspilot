@@ -358,7 +358,7 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     base = registry.get_base("conversation.preflight")
     out = await composer.compose(capability_id="conversation.preflight")
 
-    assert base.version == 6
+    assert base.version == 8
     assert out.system_text == base.body
     assert out.token_estimate <= base.token_budget
     assert "candidate data only except for bounded general_answer" in out.system_text
