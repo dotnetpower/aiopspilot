@@ -90,6 +90,10 @@ from .semantic_service_health_answer import (
 from .semantic_subscription_scope_answer import (
     render_subscription_scope_answer as _render_subscription_scope_answer,
 )
+from .semantic_target_suggestions import (
+    observed_resource_name_candidates,
+    resource_name_suggestions,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
@@ -1931,6 +1935,11 @@ def _render_execution_hold_answer(
     if causal_answer is not None:
         return causal_answer
     hypotheses = _held_hypothesis_lines(result, korean=korean)
+    target_suggestions = _render_target_name_suggestions(
+        result,
+        execution,
+        korean=korean,
+    )
     if korean:
         return "\n".join(
             [
@@ -1944,6 +1953,11 @@ def _render_execution_hold_answer(
                 "- 완료되지 않은 가설은 `supported` 또는 `refuted`로 승격하지 않고 "
                 "`unresolved`로 유지합니다.",
                 *(["", "## 가설 상태", "", *hypotheses] if hypotheses else []),
+                *(
+                    ["", "## 유사한 리소스 이름", "", *target_suggestions]
+                    if target_suggestions
+                    else []
+                ),
                 "",
                 "## 제한 사항",
                 "",
@@ -1973,6 +1987,11 @@ def _render_execution_hold_answer(
             "- Incomplete hypotheses remain `unresolved`; they are not promoted to "
             "`supported` or `refuted`.",
             *(["", "## Hypothesis status", "", *hypotheses] if hypotheses else []),
+            *(
+                ["", "## Similar resource names", "", *target_suggestions]
+                if target_suggestions
+                else []
+            ),
             "",
             "## Limitations",
             "",
@@ -1988,6 +2007,91 @@ def _render_execution_hold_answer(
             "",
             "`execution_authority=false`",
         ]
+    )
+
+
+def _render_target_name_suggestions(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+    *,
+    korean: bool,
+) -> list[str]:
+    """Explain an unresolved exact name and offer evidence-backed candidates."""
+
+    reasons = {
+        receipt.reason
+        for receipt in execution.receipts
+        if receipt.reason in {"entity_resolution_empty", "entity_resolution_incomplete"}
+    }
+    frame = result.planning.frame
+    if not reasons or frame is None:
+        return []
+    requested_name = next(
+        (
+            constraint.removeprefix("Resource.name=")
+            for constraint in frame.subject_constraints
+            if constraint.startswith("Resource.name=")
+        ),
+        None,
+    )
+    if not requested_name:
+        return []
+    suggestions = resource_name_suggestions(requested_name, execution)
+    exact_message = (
+        f"- 요청한 정확한 이름 `{requested_name}`은 검증된 범위에서 해석되지 않았습니다."
+        if korean
+        else (
+            f"- The exact requested name `{requested_name}` was not resolved in the verified scope."
+        )
+    )
+    if not suggestions:
+        candidates = observed_resource_name_candidates(
+            execution,
+            requested_name=requested_name,
+        )
+        no_match = (
+            "- 충분히 유사한 이름은 없습니다. 다음은 같은 진단 유형에서 관측된 후보입니다."
+            if korean
+            else (
+                "- No sufficiently similar name was found. These candidates were observed "
+                "for the same resource type."
+            )
+        )
+        if not candidates:
+            unavailable = (
+                "- 제안할 수 있는 검증된 gateway 후보도 없습니다."
+                if korean
+                else "- No verified gateway candidate is available to suggest."
+            )
+            return [exact_message, no_match, unavailable]
+        candidate_lines = [
+            f"- 같은 진단 유형 후보: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+            if korean
+            else f"- Same diagnostic-family candidate: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+            for item in candidates
+        ]
+        return [exact_message, no_match, *candidate_lines, _candidate_selection_message(korean)]
+    candidate_lines = [
+        (
+            f"- 제안: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+        )
+        for item in suggestions
+    ]
+    return [exact_message, *candidate_lines, _candidate_selection_message(korean)]
+
+
+def _candidate_selection_message(korean: bool) -> str:
+    return (
+        "- 이름을 자동으로 바꾸지 않았습니다. 위 후보가 맞으면 정확한 이름을 선택해 "
+        "다시 요청하세요."
+        if korean
+        else (
+            "- The target was not changed automatically. If a candidate is correct, select its "
+            "exact name and retry."
+        )
     )
 
 

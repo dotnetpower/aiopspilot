@@ -251,6 +251,59 @@ def test_current_sre_diagnostic_builds_default_recent_frame(utterance: str) -> N
     )
 
 
+def test_gateway_diagnostic_collects_type_scoped_name_candidates_off_output_path() -> None:
+    utterance = "SRE-AppGW-01 뒤의 Client가 갑자기 느립니다."
+    target = "SRE-AppGW-01"
+    result = build_gateway_diagnostic_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent=GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+            secondary_intents=(),
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value=target,
+                    source_start=utterance.index(target),
+                    source_end=utterance.index(target) + len(target),
+                ),
+            ),
+            requested_facets=("application_gateway", "latency", "default_recent_window"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.evidence_requirements == (
+        "resource_candidate_type.api-gateway",
+        "resource_candidate_type.network.application-gateway",
+    )
+    plan = _compile(frame)
+    assert plan is not None
+    candidate = next(node for node in plan.nodes if node.node_id == "gateway-name-candidates-1")
+    assert candidate.kind is QueryNodeKind.OBJECT_SET
+    assert candidate.arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "api-gateway",
+        }
+    ]
+    assert candidate.node_id not in plan.output_node_ids
+    second_candidate = next(
+        node for node in plan.nodes if node.node_id == "gateway-name-candidates-2"
+    )
+    assert second_candidate.arguments["definition"]["predicates"][0]["equals"] == (
+        "network.application-gateway"
+    )
+
+
 def test_gateway_frame_ignores_non_identity_model_resource_label() -> None:
     utterance = "SRE-APIM returns HTTP 500 for a GPT 5.4 service."
     gateway = "SRE-APIM"

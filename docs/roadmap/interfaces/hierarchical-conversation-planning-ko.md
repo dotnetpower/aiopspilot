@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 197647cfa452a9a4a084ec35ef036d2d1779b3f5
+translation_source_sha: d6c2d6e9b2cce7a8414b0d5e4c8bdd7e4f052112
 translation_revised: 2026-09-07
 ---
 
@@ -61,6 +61,10 @@ preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의
 `Resource.name`으로 필터링하므로 ARM 리소스 ID가 아니라 배포 이름만 허용합니다.
 Gateway preflight 재사용은 명시된 과거 1시간 target을 검증하거나, 현재 증상 요청에 대해 서버가
 소유하는 인접 15분 비교 구간을 사용합니다.
+정확한 Resource 이름을 해석할 수 없으면 plan은 타입 기반 frame에서 이미 확인한 Resource 유형만
+대상으로 독립 후보 읽기를 실행할 수 있습니다. Core는 권한이 있는 관측 이름을 결정론적으로
+정렬하고 최종 처리를 근거 보류로 유지합니다. 범위가 제한된 이름을 제안할 수 있지만 운영자가 새로
+선택하기 전에는 후보를 대체하거나 선택하거나 다시 시도하지 않습니다.
 
 혼합, 맥락 의존, 모호함, 확신도가 낮은 운영, 오래됨 또는 지원되지 않는 preflight 제안은 전체 의미
 판단으로 계속 진행됩니다. 구성된 preflight의 형식이 잘못됐거나 사용할 수 없으면 다른 모델 호출 없이

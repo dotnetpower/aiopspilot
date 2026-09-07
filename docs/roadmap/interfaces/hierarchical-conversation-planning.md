@@ -38,6 +38,10 @@ judgment. F2 accepts a deployment name, not an ARM resource ID,
 because its deterministic compiler filters `Resource.name`.
 Gateway preflight reuse validates an explicit past-hour target or uses the server-owned adjacent
 15-minute comparison windows for a current-symptom request.
+When an exact Resource name cannot be resolved, a plan may run an independent candidate read only
+for Resource types already established by the typed frame. Core ranks the authorized observed names
+deterministically and keeps the terminal as an evidence hold. It can suggest bounded names, but it
+never substitutes, selects, or retries a candidate without a new operator choice.
 
 Mixed, contextual, ambiguous, low-confidence operational, stale, and unsupported preflight
 proposals continue to full semantic judgment. A malformed or unavailable configured preflight is

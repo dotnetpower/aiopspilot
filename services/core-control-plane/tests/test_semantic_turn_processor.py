@@ -67,6 +67,7 @@ from fdai_core_service.semantic_turn_processor import (
     _render_general_query_answer,
     _render_partial_causal_answer,
     _render_query_answer,
+    _render_target_name_suggestions,
     _request_digest,
     _semantic_projection_id,
     _semantic_turn_timing,
@@ -4387,6 +4388,45 @@ async def test_target_candidates_answer_names_verified_choices_in_korean() -> No
     assert "app-worker" in answer
     assert "정확한 이름 또는 리소스 ID" in answer
     assert "execution_authority=false" in answer
+
+
+def test_execution_hold_suggests_similar_resource_without_rebinding() -> None:
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="held",
+        results=MappingProxyType(
+            {
+                "gateway-name-candidates-1": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "candidate-1",
+                                {
+                                    "name": "SRE-AppGW-02",
+                                    "type": "network.application-gateway",
+                                },
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("inventory:candidate-1",),
+                )
+            }
+        ),
+        receipts=(SimpleNamespace(reason="entity_resolution_empty"),),
+        output_node_ids=(),
+    )
+    result = SimpleNamespace(
+        planning=SimpleNamespace(
+            frame=SimpleNamespace(subject_constraints=("Resource", "Resource.name=SRE-AppGW-01"))
+        )
+    )
+
+    lines = _render_target_name_suggestions(result, execution, korean=True)
+
+    assert "`SRE-AppGW-01`" in lines[0]
+    assert any("`SRE-AppGW-02`" in line for line in lines)
+    assert any("자동으로 바꾸지 않았습니다" in line for line in lines)
 
 
 async def test_incident_evidence_answer_reports_missing_recorded_rca() -> None:

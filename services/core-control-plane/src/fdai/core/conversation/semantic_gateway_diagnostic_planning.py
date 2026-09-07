@@ -50,6 +50,10 @@ from .conversation_preflight import (
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 
+_CANDIDATE_TYPE_REQUIREMENT_PREFIX = "resource_candidate_type."
+_GATEWAY_CANDIDATE_TYPES = ("api-gateway", "network.application-gateway")
+_MAX_GATEWAY_NAME_CANDIDATES = 64
+
 
 def build_gateway_diagnostic_frame(
     *,
@@ -140,7 +144,10 @@ def build_gateway_diagnostic_frame(
         measure_concepts=(),
         temporal_scope=temporal_scope,
         output_shape=SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE,
-        evidence_requirements=(),
+        evidence_requirements=tuple(
+            f"{_CANDIDATE_TYPE_REQUIREMENT_PREFIX}{resource_type}"
+            for resource_type in _GATEWAY_CANDIDATE_TYPES
+        ),
         unresolved_terms=(),
         clarification_requirements=(),
         clarification=None,
@@ -237,6 +244,31 @@ def compile_gateway_diagnostic_plan(
             depends_on=(root_id,),
         ),
     ]
+    for index, resource_type in enumerate(
+        _candidate_resource_types(frame.evidence_requirements),
+        start=1,
+    ):
+        candidate_definition = ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+            predicates=(
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals=resource_type,
+                ),
+            ),
+            as_of=known_at,
+            purpose=purpose,
+            limit=_MAX_GATEWAY_NAME_CANDIDATES,
+            include_relationships=False,
+        )
+        nodes.append(
+            _node(
+                f"gateway-name-candidates-{index}",
+                QueryNodeKind.OBJECT_SET,
+                {"definition": candidate_definition.model_dump(mode="json")},
+            )
+        )
     arguments: dict[str, object] = dict(windows.arguments())
     bindings = {root_id: "query_result", backend_id: "backend_query_result"}
     if requested_filter is not None:
@@ -307,6 +339,17 @@ def compile_gateway_diagnostic_plan(
             plan_digest=content_digest(body),
         ),
         manifest=manifest,
+    )
+
+
+def _candidate_resource_types(requirements: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            requirement.removeprefix(_CANDIDATE_TYPE_REQUIREMENT_PREFIX)
+            for requirement in requirements
+            if requirement.startswith(_CANDIDATE_TYPE_REQUIREMENT_PREFIX)
+            and requirement != _CANDIDATE_TYPE_REQUIREMENT_PREFIX
+        )
     )
 
 
