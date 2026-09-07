@@ -53,6 +53,7 @@ jobs:
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
       TF_VAR_runner_vm_size: Standard_D4ds_v5
+      TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
     steps:
@@ -124,19 +125,13 @@ jobs:
           trap 'rm -rf -- "$temp_root"' EXIT
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$temp_root/all-services.json"
           chmod 600 "$temp_root/all-services.json"
-          database_host="$(terraform output -raw postgres_fqdn)"
-          event_topic="$(
-            terraform output -json event_bus_topics \
-              | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
-          )"
-          pipeline_stage_topic="$(
-            terraform output -json event_bus_auxiliary_topics \
-              | jq -er '[.[] | select(. == "fdai.pipeline.stages")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical pipeline-stage topic") end'
-          )"
-          pantheon_object_topic="$(
-            terraform output -json event_bus_topics \
-              | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
-          )"
+          terraform -chdir=infra show -json >"$temp_root/platform-state.json"
+          platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-inputs --state-json "$temp_root/platform-state.json")"
+          database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
+          event_topic="$(jq -er '.event_topic' <<<"$platform_inputs")"
+          pipeline_stage_topic="$(jq -er '.pipeline_stage_topic' <<<"$platform_inputs")"
+          pantheon_object_topic="$(jq -er '.pantheon_object_topic' <<<"$platform_inputs")"
           roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
             --environment "$ENVIRONMENT")"
           service_count="$(jq '[.[] | select(.kind == "service")] | length' \

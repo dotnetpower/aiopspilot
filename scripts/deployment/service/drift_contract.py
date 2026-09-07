@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve production Terraform roots and pre-refresh service image inputs."""
+"""Resolve production Terraform roots and pre-refresh planning inputs."""
 
 from __future__ import annotations
 
@@ -113,6 +113,47 @@ def stored_bootstrap_inputs(payload: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, str]:
+    """Read service planning inputs from pre-refresh platform state JSON."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    resources: dict[str, tuple[str, str, str | None]] = {
+        "database_host": (
+            "module.state_store.azurerm_postgresql_flexible_server.primary",
+            "fqdn",
+            None,
+        ),
+        "event_topic": (
+            'module.event_bus.azurerm_eventhub.topic["fdai.change.events"]',
+            "name",
+            "fdai.change.events",
+        ),
+        "pipeline_stage_topic": (
+            'module.event_bus.azurerm_eventhub.auxiliary["fdai.pipeline.stages"]',
+            "name",
+            "fdai.pipeline.stages",
+        ),
+        "pantheon_object_topic": (
+            'module.event_bus.azurerm_eventhub.topic["fdai.pantheon.objects"]',
+            "name",
+            "fdai.pantheon.objects",
+        ),
+    }
+    resolved: dict[str, str] = {}
+    for key, (address, attribute, expected) in resources.items():
+        resource = _resource_at_address(root, address)
+        resource_values = resource.get("values")
+        value = resource_values.get(attribute) if isinstance(resource_values, dict) else None
+        if not isinstance(value, str) or not value or "\n" in value:
+            raise DriftContractError(f"platform state is missing required {key}")
+        if expected is not None and value != expected:
+            raise DriftContractError(f"platform state has unexpected {key}")
+        resolved[key] = value
+    return resolved
+
+
 def _resource_at_address(module: dict[str, Any], address: str) -> dict[str, Any]:
     resources = module.get("resources", [])
     if not isinstance(resources, list):
@@ -163,7 +204,7 @@ def _object(path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    """Print drift coordinates or one stored service image for workflow use."""
+    """Print drift coordinates or stored planning inputs for workflow use."""
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
     roots = commands.add_parser("roots")
@@ -175,6 +216,8 @@ def main() -> int:
     image.add_argument("--state-json", type=Path, required=True)
     bootstrap = commands.add_parser("bootstrap-inputs")
     bootstrap.add_argument("--state-json", type=Path, required=True)
+    platform = commands.add_parser("platform-inputs")
+    platform.add_argument("--state-json", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == "roots":
@@ -187,8 +230,10 @@ def main() -> int:
                     repository=args.repository,
                 )
             )
-        else:
+        elif args.command == "bootstrap-inputs":
             print(json.dumps(stored_bootstrap_inputs(_object(args.state_json)), sort_keys=True))
+        else:
+            print(json.dumps(stored_platform_inputs(_object(args.state_json)), sort_keys=True))
     except (
         DriftContractError,
         LookupError,
