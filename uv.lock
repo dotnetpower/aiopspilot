@@ -990,6 +990,7 @@ source = { editable = "services/core-control-plane" }
 dependencies = [
     { name = "aiokafka" },
     { name = "alembic" },
+    { name = "azure-core" },
     { name = "croniter" },
     { name = "cryptography" },
     { name = "fdai-github-app-auth" },
@@ -1012,6 +1013,7 @@ dependencies = [
 requires-dist = [
     { name = "aiokafka", specifier = ">=0.12,<0.13" },
     { name = "alembic", specifier = ">=1.13,<2" },
+    { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "croniter", specifier = ">=6,<7" },
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "fdai-github-app-auth", editable = "packages/github-app-auth" },

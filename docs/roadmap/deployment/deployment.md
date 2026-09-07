@@ -242,8 +242,9 @@ prod topology so shadow evaluation is representative.
   runs also build all images. Each selected build blocks on HIGH/CRITICAL Trivy findings, emits a
   CycloneDX **SBOM**, publishes the verified image to GHCR on `main`/release, and writes GitHub
   build-provenance and SBOM attestations. The Dockerfile base is pinned by **digest** and runs as uid
-  65532. Deployment verifies the attestation and digest before rollout; an unattested image is
-  rejected.
+  65532. The Core image builder cold-imports the production bootstrap after installing the service
+  wheel, so a missing direct runtime dependency blocks publication. Deployment verifies the
+  attestation and digest before rollout; an unattested image is rejected.
 - **Artifact registry**: images and their SBOM/attestations are retained with an explicit
   retention policy so any prod revision can be traced and re-verified.
 - **ACR handoff**: upstream GHCR is the generic build-evidence registry. A fork that requires

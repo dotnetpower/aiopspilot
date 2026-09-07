@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 216804eacdabf6d0c2f186dfa0489be4675b7484
-translation_revised: 2026-09-07
+translation_source_sha: 8cb940f6f9bfaf58989dc5a43ffdcec880c8f47c
+translation_revised: 2026-09-08
 ---
 
 # 배포(배포)
@@ -241,8 +241,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   수동 실행도 모든 이미지를 빌드합니다. 선택된 각 빌드는 HIGH/CRITICAL Trivy 발견 사항을
   차단하고 CycloneDX **SBOM**을 생성합니다. `main`/release에서는 검증된 이미지를 GHCR에
   publish하고 GitHub build-provenance/SBOM 증명을 기록합니다. Dockerfile base는
-  **다이제스트**로 고정되고 uid 65532로 실행됩니다. 배포는 롤아웃 전에 증명과 다이제스트를
-  검증하며 unattested 이미지를 차단합니다.
+  **다이제스트**로 고정되고 uid 65532로 실행됩니다. Core 이미지 빌더는 서비스 wheel 설치 후
+  운영 부트스트랩을 cold import하여 직접 런타임 의존성이 없으면 게시를 차단합니다. 배포는
+  롤아웃 전에 증명과 다이제스트를 검증하며 unattested 이미지를 차단합니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/증명을 명시적 보존 정책으로 유지하여 어떤
   prod 개정 번호도 추적·재검증 가능.
 - **ACR 인계**: 업스트림 GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는
