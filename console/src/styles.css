@@ -7811,8 +7811,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay-mode-floating .deck-header,
 .deck-overlay-mode-dock .deck-header {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: "title actions window";
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "title model actions window";
   gap: 8px;
   padding: 10px 12px;
 }
@@ -7917,10 +7917,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  grid-template-areas: "title center actions window";
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "title model center actions window";
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -7933,6 +7933,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-header-title {
   grid-area: title;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -7946,7 +7947,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1.2;
 }
 .deck-header-conversation-title {
-  max-width: 280px;
+  max-width: clamp(220px, 30vw, 420px);
   overflow: hidden;
   color: var(--fg);
   font-size: 13.5px;
@@ -7962,11 +7963,32 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-items: center;
 }
 .deck-header-glyph svg { display: block; }
+.deck-model-selector {
+  grid-area: model;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.deck-model-selector select {
+  min-width: 112px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 4px 28px 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.deck-model-selector select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .deck-header-actions {
   grid-area: actions;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .deck-header-action {
   position: relative;
@@ -8043,6 +8065,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg-muted);
   font: inherit;
   font-size: 11px;
+  min-height: 32px;
+  box-sizing: border-box;
   padding: 2px 9px;
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease;
@@ -8124,17 +8148,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   grid-area: window;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-left: 2px;
-  padding-left: 10px;
+  padding-left: 8px;
   border-left: 1px solid var(--border);
 }
 .deck-close {
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 7px;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
@@ -8201,6 +8225,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-source-status {
   display: inline-flex;
   align-items: center;
+  min-height: 32px;
+  box-sizing: border-box;
   gap: 5px;
   padding: 3px 7px;
   border: 1px solid var(--border);
@@ -8452,7 +8478,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  padding: 8px 54px 8px 8px;
+  padding: 8px 76px 8px 8px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -8467,10 +8493,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-conversation-remove {
   position: absolute;
-  right: 29px;
+  right: 38px;
   top: 50%;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   transform: translateY(-50%);
   border: 0;
@@ -8489,10 +8515,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-conversation-remove:focus-visible { outline: 2px solid var(--accent); opacity: 1; }
 .deck-conversation-favorite {
   position: absolute;
-  right: 5px;
+  right: 4px;
   top: 50%;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   transform: translateY(-50%);
   border: 0;
@@ -9198,11 +9224,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: min(100%, 900px);
   min-height: 100%;
   margin: 0 auto;
-  padding: 16px 42px 28px;
+  padding: 24px 42px 32px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 .deck-overlay-mode-workspace {
   --deck-reading-width: var(--cs-deck-reading-width);
@@ -9784,14 +9810,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: flex;
   flex-direction: column;
 }
-/* User question: a right-aligned rounded bubble (chat style). Only the body
- * carries the fill, so the timestamp/foot sits outside the bubble. */
+/* User question: a right-aligned rounded bubble within the shared reading axis.
+ * The recorded time stays inside the bubble footer. */
 .deck-turn-operator {
-  align-self: flex-end;
-  max-width: min(100%, 560px);
+  align-self: center;
+  width: min(100%, var(--deck-reading-width, var(--cs-deck-reading-width)));
+  max-width: var(--deck-reading-width, var(--cs-deck-reading-width));
   align-items: flex-end;
 }
 .deck-turn-operator .deck-turn-body {
+  max-width: min(100%, var(--cs-deck-user-width));
+  box-sizing: border-box;
+  border: 1px solid color-mix(in oklab, var(--fg) 8%, var(--border));
   padding: 9px 15px;
   /* Sent-message shape: rounded except the bottom-right, which tucks in so the
      bubble reads as the operator's outgoing message. */
@@ -9898,8 +9928,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay-mode-workspace .deck-turn-deck,
 .deck-overlay-mode-workspace .deck-turn-activity,
-.deck-overlay-mode-workspace .deck-progress-note {
+.deck-overlay-mode-workspace .deck-progress-note,
+.deck-overlay-mode-workspace .deck-rt-turn {
   width: min(100%, var(--deck-reading-width));
+  max-width: var(--deck-reading-width);
+  align-self: center;
 }
 .deck-overlay-mode-workspace .deck-turn-deck:has(.deck-presentation-table[data-layout="wide"]) {
   width: min(100%, 1080px);
@@ -9938,12 +9971,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Timestamp: shown quietly beneath each message instead of in the header. */
 .deck-turn-foot {
   display: flex;
-  margin-top: 4px;
+  margin-top: 7px;
 }
-.deck-turn-operator .deck-turn-foot { justify-content: flex-end; }
 .deck-turn-deck .deck-turn-foot { justify-content: flex-start; }
 .deck-turn-head {
   min-width: 0;
+  min-height: 22px;
+  margin-bottom: 8px;
 }
 .deck-turn-head > .tooltip-anchor {
   flex: 0 1 auto;
@@ -9971,6 +10005,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-turn-agent-icon {
   width: 16px;
   height: 16px;
+  flex: 0 0 auto;
   background-color: var(--accent);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -10003,8 +10038,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay {
   font-family: var(--font-sans);
+  font-synthesis: none;
   font-kerning: normal;
-  text-rendering: optimizeLegibility;
+  font-optical-sizing: auto;
+  text-rendering: auto;
+}
+.deck-overlay button,
+.deck-overlay input,
+.deck-overlay select,
+.deck-overlay textarea {
+  font-family: inherit;
 }
 .deck-turn.is-investigation-flow {
   position: relative;
@@ -10036,7 +10079,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-progress-note-derived { margin-bottom: 8px; }
 .deck-progress-note-body {
   min-width: 0;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: color-mix(in oklab, var(--accent) 2%, var(--bg-elevated));
@@ -10203,7 +10246,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   to { opacity: 1; transform: none; }
 }
 .deck-investigation-head {
-  padding: 1px 3px 8px 1px;
+  min-height: 36px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
   border: 0;
   background: transparent;
   cursor: default;
@@ -10262,7 +10310,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-badge {
   margin-left: auto;
-  padding: 2px 7px;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--bg);
@@ -10274,7 +10326,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-readonly {
   flex: 0 0 auto;
-  padding: 2px 6px;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--success) 8%, var(--bg));
   color: var(--success);
@@ -11123,7 +11179,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-rt-mode {
   flex: 0 0 auto;
-  padding: 2px 6px;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--tier-t0, #4dab7a) 8%, transparent);
   color: var(--tier-t0, #27734f);
@@ -11134,7 +11194,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   white-space: nowrap;
 }
 
-.deck-rt-stages { list-style: none; margin: 0; padding: 4px 5px 1px; }
+.deck-rt-stages { list-style: none; margin: 0; padding: 7px 8px 5px; }
 .deck-rt-stage {
   opacity: 1;
   transform: none;
@@ -11171,7 +11231,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-stage-copy {
   min-width: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   overflow: hidden;
 }
@@ -11198,18 +11258,30 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-side {
   white-space: nowrap;
   align-self: center;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--fg-muted) 14%, transparent);
   color: var(--fg-muted);
 }
 .deck-rt-side-read { background: color-mix(in oklab, var(--accent) 14%, transparent); color: var(--accent); }
 .deck-rt-side-route { background: color-mix(in oklab, var(--tier-t1, #4f9fa5) 16%, transparent); color: var(--tier-t1, #4f9fa5); }
-.deck-rt-check { justify-self: center; color: var(--tier-t0, #4dab7a); font-weight: 700; }
+.deck-rt-check {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  color: var(--tier-t0, #4dab7a);
+  font-weight: 700;
+}
 .deck-rt-sources {
   margin: 5px 6px 8px;
   padding: 6px 5px 0;
@@ -11321,7 +11393,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 /* Grounded reply (deck/grounded-reply.tsx) - the streamed answer, the
  * "Grounded on N sources" pill, and the expandable citation slot. */
-.deck-gr { display: flex; flex-direction: column; gap: 5px; }
+.deck-gr { display: flex; flex-direction: column; gap: 8px; }
 .deck-llm-escalation {
   margin-top: 4px;
   border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--border));
@@ -11399,8 +11471,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px 7px;
-  margin-top: 3px;
+  gap: 6px 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
 }
 /* In the one-line footer the verification chip drops its box and reads as a
    plain colored mark + word, so it packs tightly next to the tools + pill. */
@@ -11448,6 +11522,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: inline-flex;
   width: fit-content;
   align-items: center;
+  min-height: 24px;
+  box-sizing: border-box;
   gap: 6px;
   margin-top: 8px;
   padding: 4px 8px;
@@ -11688,7 +11764,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 .deck-turn-time {
   font-size: 11px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+.deck-turn-inline-time {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in oklab, var(--border) 58%, transparent);
 }
 .deck-turn-line {
   margin: 0 0 4px;
@@ -12753,10 +12838,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-invoke-kbd { display: none; }
   .deck-backend-invoke { margin-left: auto; }
   .deck-header {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: 120px minmax(0, 1fr) 94px 44px;
     grid-template-areas:
-      "title actions window"
-      "headline headline headline";
+      "title title actions window"
+      "model headline headline headline";
     gap: 6px 10px;
     padding: 6px 12px;
   }
@@ -12764,7 +12849,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-header-title {
     grid-area: title;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow: hidden;
     gap: 5px;
   }
   .deck-header-center {
@@ -12773,15 +12859,28 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }
+  .deck-header-actions { justify-content: flex-end; }
+  .deck-header-route { display: none; }
+  .deck-backend-header .deck-backend-label { display: none !important; }
+  .deck-model-selector select {
+    width: 120px;
+    max-width: 120px !important;
+  }
   .deck-layout-controls { display: none; }
   .deck-header-action { width: 44px; height: 44px; }
   .deck-window-controls {
+    width: 44px;
     gap: 0;
     margin-left: 0;
     padding-left: 0;
     border-left: 0;
   }
   .deck-search { width: 100%; min-width: 0; }
+  .deck-search {
+    height: 46px;
+    box-sizing: border-box;
+    padding-block: 0;
+  }
   .deck-search input { min-height: 44px; }
   .deck-search button { width: 44px; height: 44px; }
   .deck-close { width: 44px; height: 44px; padding: 11px; }

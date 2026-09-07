@@ -170,6 +170,11 @@ screen context. Route navigation never retargets an open floating conversation. 
 not navigate to its creation screen. After a sent turn, the composer returns to the transcript bottom.
 The header separates conversation identity from context and keeps search and history compact.
 Screen context remains a hint: the server still owns evidence, authorization, and execution checks.
+The workspace aligns operator and Bragi turns to one 840 px reading axis while keeping the operator
+bubble right-aligned inside that axis. Korean and Latin text share one synthesized-font-free stack,
+recorded time stays inside the operator bubble, and operational stages use stable icon, label,
+status, and check columns. Desktop controls keep a 32 px target; mobile controls keep a 44 px touch
+target and arrange identity, model selection, search, history, and window actions in two rows.
 
 Conversation history restores its entry mode from structured conversation identifiers and metadata,
 not from the operator's question. Principal and route normalization plus namespace decoding are a

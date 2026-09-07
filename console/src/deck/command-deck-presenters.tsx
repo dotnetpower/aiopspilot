@@ -644,6 +644,9 @@ export function TurnBubble({
             {turn.text.split("\n").map((line, index) => (
               <p key={index} class="deck-turn-line">{line}</p>
             ))}
+            <div class="deck-turn-inline-time">
+              <TurnRecordedTime turn={turn} />
+            </div>
           </div>
         </>
       )}
@@ -674,7 +677,7 @@ export function TurnBubble({
           captureEnabled
         />
       ) : null}
-      {!isInvestigationFlow || isInvestigationFinalAnswer ? (
+      {isDeck && (!isInvestigationFlow || isInvestigationFinalAnswer) ? (
         <div class="deck-turn-foot cs-deck-turn-foot">
           <TurnRecordedTime turn={turn} />
         </div>

@@ -227,6 +227,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-input:focus-visible {");
     expect(styles).toMatch(/\.deck-source-readiness \{[^}]*font-size: 12px;/s);
     expect(presenters).toContain('class="deck-turn-time muted"');
+    expect(presenters).toContain('class="deck-turn-inline-time"');
+    expect(presenters).toContain("isDeck && (!isInvestigationFlow || isInvestigationFinalAnswer)");
     expect(presenters).toContain("dateTime={turn.recordedAt}");
     expect(presenters).toContain("presentationTimestamp(");
     expect(styles).toContain(".deck-verification.is-unverified.is-sourceUnavailable");
@@ -265,7 +267,7 @@ describe("Command Deck workspace hierarchy", () => {
   });
 
   test("aligns answers, structured evidence, and the composer to one calm reading measure", () => {
-    expect(sharedStyles).toContain("--cs-deck-reading-width: 780px;");
+    expect(sharedStyles).toContain("--cs-deck-reading-width: 840px;");
     expect(styles).toContain("--deck-reading-width: var(--cs-deck-reading-width);");
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \{[^}]*inset: var\(--header-height\) 0 0 var\(--rail-width, 88px\);[^}]*width: auto;[^}]*height: auto;[^}]*min-width: 0;[^}]*min-height: 0;/s);
     expect(styles).toMatch(
@@ -273,6 +275,9 @@ describe("Command Deck workspace hierarchy", () => {
     );
     expect(styles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-turn-deck,[\s\S]*?width: min\(100%, var\(--deck-reading-width\)\);/,
+    );
+    expect(styles).toMatch(
+      /\.deck-turn-operator \{[^}]*align-self: center;[^}]*width: min\(100%, var\(--deck-reading-width, var\(--cs-deck-reading-width\)\)\);/s,
     );
     expect(styles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-composer-inner \{[^}]*width: min\(100%, calc\(var\(--deck-reading-width\) \+ 120px\)\);/s,
@@ -288,6 +293,26 @@ describe("Command Deck workspace hierarchy", () => {
       /\.deck-presentation-table \{[^}]*width: 100%;[^}]*max-width: 100%;/s,
     );
     expect(tableModule).toContain('class="deck-presentation-table-wrap"');
+  });
+
+  test("keeps unscaled font metrics and aligned operational controls", () => {
+    expect(styles).toMatch(
+      /\.deck-overlay \{[^}]*font-family: var\(--font-sans\);[^}]*font-synthesis: none;[^}]*font-optical-sizing: auto;[^}]*text-rendering: auto;/s,
+    );
+    expect(styles).toMatch(/\.deck-transcript-inner \{[^}]*gap: 20px;/s);
+    expect(styles).toMatch(
+      /\.deck-overlay button,[\s\S]*?\.deck-overlay textarea \{[^}]*font-family: inherit;/s,
+    );
+    expect(styles).toMatch(
+      /\.deck-header-action \{[^}]*width: 32px;[^}]*height: 32px;/s,
+    );
+    expect(styles).toMatch(/\.deck-close \{[^}]*width: 32px;[^}]*height: 32px;/s);
+    expect(styles).toMatch(/\.deck-model-selector select \{[^}]*min-height: 32px;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-head \{[^}]*min-height: 44px;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-stage \{[^}]*min-height: 36px;/s);
+    expect(styles).toMatch(
+      /\.deck-rt-side \{[^}]*min-height: 22px;[^}]*display: inline-flex;[^}]*align-items: center;/s,
+    );
     expect(tableModule).toContain("data-layout={layout}");
     expect(structuredStyles).toMatch(
       /\.deck-presentation-table\[data-layout="wide"\] \{[^}]*min-width: 960px;[^}]*table-layout: auto;/s,
@@ -355,7 +380,7 @@ describe("Command Deck workspace hierarchy", () => {
 
   test("keeps mobile header and composer compact", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title actions window"\s*"headline headline headline";/,
+      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title title actions window"\s*"model headline headline headline";/,
     );
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-header-action \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(

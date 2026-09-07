@@ -100,32 +100,32 @@ export function CommandDeckHeader({
           </>
         )}
         <BackendBadge health={health} placement="header" />
-        <label class="deck-model-selector">
-          <span class="sr-only">{conversationModelText("label")}</span>
-          <Tooltip content={conversationModelText("hint")}>
-            <select
-              value={conversationModelTier}
-              disabled={modelSelectionDisabled}
-              aria-label={conversationModelText("label")}
-              style={{ maxWidth: "164px" }}
-              onChange={(event) => {
-                const accepted = onConversationModelTier(
-                  event.currentTarget.value as ConversationModelTier,
-                );
-                if (!accepted) event.currentTarget.value = conversationModelTier;
-              }}
-            >
-              <option value="auto">{conversationModelText("auto")}</option>
-              <option value="t1">{conversationModelText("t1")}</option>
-              <option value="t2" disabled={!conversationModelAvailability.t2Available}>
-                {conversationModelAvailability.t2Available
-                  ? conversationT2Label(conversationModelAvailability.t2Label ?? "T2")
-                  : conversationModelText("t2Unavailable")}
-              </option>
-            </select>
-          </Tooltip>
-        </label>
       </div>
+      <label class="deck-model-selector">
+        <span class="sr-only">{conversationModelText("label")}</span>
+        <Tooltip content={conversationModelText("hint")}>
+          <select
+            value={conversationModelTier}
+            disabled={modelSelectionDisabled}
+            aria-label={conversationModelText("label")}
+            style={{ maxWidth: "164px" }}
+            onChange={(event) => {
+              const accepted = onConversationModelTier(
+                event.currentTarget.value as ConversationModelTier,
+              );
+              if (!accepted) event.currentTarget.value = conversationModelTier;
+            }}
+          >
+            <option value="auto">{conversationModelText("auto")}</option>
+            <option value="t1">{conversationModelText("t1")}</option>
+            <option value="t2" disabled={!conversationModelAvailability.t2Available}>
+              {conversationModelAvailability.t2Available
+                ? conversationT2Label(conversationModelAvailability.t2Label ?? "T2")
+                : conversationModelText("t2Unavailable")}
+            </option>
+          </select>
+        </Tooltip>
+      </label>
       <div class="deck-header-center">
         {searchAvailable ? <div class="deck-search" role="search">
           <span class="deck-search-icon" aria-hidden="true">⌕</span>
