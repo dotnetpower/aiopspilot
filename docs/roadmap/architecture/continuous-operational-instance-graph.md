@@ -120,6 +120,8 @@ fails, while retaining the authoritative inventory generation for bounded recove
 
 Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.
+The coordinator imports immutable promoted-observation and relationship-coverage records from a
+focused delivery module. This separation changes neither single-writer ownership nor promotion authority.
 
 ### Convergence and deletion
 

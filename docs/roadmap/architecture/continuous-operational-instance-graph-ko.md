@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 50810a81ef25860e70d08d73f2a91718ff123578
-translation_revised: 2026-09-07
+translation_source_sha: 71caab6922ae21b8d6d44d6901d0a06af3b4182e
+translation_revised: 2026-09-08
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -123,6 +123,8 @@ tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유�
 
 검증된 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.
+조정기는 승격된 관측과 관계 범위의 불변 레코드를 전용 전달 모듈에서 가져옵니다. 이 분리는
+단일 작성자 소유권이나 승격 권한을 변경하지 않습니다.
 
 ### 수렴과 삭제
 

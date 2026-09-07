@@ -580,11 +580,11 @@ Every event is stamped with an **idempotency key at ingress** so a replay is a n
 MUST be reachable and covered by the [alert-routing contract](../operations/operating-and-verification.md#alert-routing)
 before enforce is enabled anywhere.
 
-The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
-Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
-signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
-until an approved push transport is available. The adaptive Inventory Job tracks each enabled
-accelerator from validated policy, reports failures independently, and advances overdue reconciliation.
+The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event Hubs
+local authentication only to satisfy a Diagnostic Settings export. When the selected Azure signal source
+cannot publish with managed identity, use the bounded Activity Log recovery reader until an approved push
+transport is available. The adaptive Inventory Job reads validated policy before each coordinator run,
+keeps immutable synchronization records in the same Core image, reports failures independently, and advances overdue reconciliation. The module split adds no service, identity, or state writer.
 
 ## Verification After Provisioning
 

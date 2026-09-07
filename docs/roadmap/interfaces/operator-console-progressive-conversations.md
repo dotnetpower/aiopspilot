@@ -175,6 +175,7 @@ bubble right-aligned inside that axis. Korean and Latin text share one synthesiz
 recorded time stays inside the operator bubble, and operational stages use stable icon, label,
 status, and check columns. Desktop controls keep a 32 px target; mobile controls keep a 44 px touch
 target and arrange identity, model selection, search, history, and window actions in two rows.
+Turn groups retain a 20 px vertical gap so the shared reading axis remains visually scannable.
 
 Conversation history restores its entry mode from structured conversation identifiers and metadata,
 not from the operator's question. Principal and route normalization plus namespace decoding are a

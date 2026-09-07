@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 06b9a655da5f47f9ea4af001fd63dee460b1ccd1
-translation_revised: 2026-09-07
+translation_source_sha: b247ae5536e640dafb5c4d9eec41ec21abb7f88b
+translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -577,12 +577,12 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 해야 하며 어디에서든 강제 적용이 활성화되기 전에
 [경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)이 커버해야 함.
 
-Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
-Settings 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure
-신호 출처가 Managed Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가
-제한된 Activity Log 복구 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 활성화된 각 가속기를
-검증된 정책으로 추적하고 장애를 독립적으로 보고하며 온톨로지 오류가 발생하면 실패합니다. 스케줄러는 지연된 조정을 다시
-시도합니다.
+Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. Diagnostic Settings
+내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure 신호 출처가 Managed
+Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가 제한된 Activity Log 복구
+읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 같은 Core 이미지에
+불변 동기화 레코드를 유지하며 장애를 독립적으로 보고하고 지연된 조정을 진행합니다. 모듈 분리는 서비스,
+신원 또는 상태 작성자를 추가하지 않습니다.
 
 ## 프로비저닝 후 검증
 

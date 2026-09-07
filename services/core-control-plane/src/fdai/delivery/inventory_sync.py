@@ -7,14 +7,19 @@ import logging
 import socket
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Protocol, cast
 
 import httpx
 
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
+from fdai.delivery.inventory_sync_models import (
+    InventoryProjectionSourceState,
+    InventoryProjectionSourceStatus,
+    InventoryRelationshipCoverage,
+    PromotedInventoryObservation,
+    compute_relationship_coverage,
+)
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -56,152 +61,6 @@ DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
 DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
 MAX_ATTEMPT_DEADLINE_SECONDS = 1740.0
 _RUN_LOCK_ID = "inventory-sync-coordinator"
-
-
-@dataclass(frozen=True, slots=True)
-class PromotedInventoryObservation:
-    """One promoted snapshot handed to a derived read model.
-
-    ``generation`` is the promoted snapshot identity. ``complete`` is ``False``
-    when accumulation hit its ceiling, so a consumer cannot read absence from a
-    truncated observation.
-    """
-
-    generation: str
-    resources: tuple[ResourceRecord, ...]
-    links: tuple[LinkRecord, ...]
-    complete: bool
-    relationship_drops: tuple[RelationshipDrop, ...] = ()
-    recorded_at: datetime | None = None
-    source_states: tuple[InventoryProjectionSourceState, ...] = ()
-    state_base_generation: str | None = None
-    state_base_generation_checked: bool = False
-
-
-class InventoryProjectionSourceStatus(StrEnum):
-    """Availability of one independently collected projection source."""
-
-    AVAILABLE = "available"
-    UNAVAILABLE = "unavailable"
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryProjectionSourceState:
-    """Principal-safe source state retained with one promoted generation."""
-
-    source: str
-    status: InventoryProjectionSourceStatus
-    observed_at: datetime | None
-    reason: str | None
-    coverage: Mapping[str, int] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if not self.source.strip() or len(self.source) > 128:
-            raise ValueError("inventory projection source MUST be bounded non-empty text")
-        if self.observed_at is not None and self.observed_at.tzinfo is None:
-            raise ValueError("inventory projection source observed_at MUST be timezone-aware")
-        if self.status is InventoryProjectionSourceStatus.AVAILABLE:
-            if self.observed_at is None or self.reason is not None:
-                raise ValueError("available inventory projection source MUST have only observed_at")
-        elif self.observed_at is not None or not self.reason or len(self.reason) > 128:
-            raise ValueError("unavailable inventory projection source MUST have only a reason")
-        if any(
-            not isinstance(key, str) or not isinstance(value, int) or value < 0
-            for key, value in self.coverage.items()
-        ):
-            raise ValueError("inventory projection source coverage MUST contain counts")
-
-    def to_metadata(self) -> dict[str, object]:
-        """Return a sanitized generation metadata record."""
-
-        metadata: dict[str, object] = {
-            "source": self.source,
-            "status": self.status.value,
-            "observed_at": self.observed_at.isoformat() if self.observed_at is not None else None,
-            "reason": self.reason,
-        }
-        if self.coverage:
-            metadata["coverage"] = dict(sorted(self.coverage.items()))
-        return metadata
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryRelationshipCoverage:
-    """Exact counted disposition of every candidate ontology relationship instance.
-
-    A candidate is either a materialized link or a relationship drop reported
-    against the same promoted observation. ``total_candidates`` MUST equal the
-    sum of ``materialized``, ``reviewed_unavailable``, and ``unclassified``.
-    ``complete`` is ``True`` only when no candidate remains unclassified and
-    the promoted observation itself is complete; a truncated generation keeps
-    coverage incomplete even when every reviewed disposition is otherwise
-    final.
-    """
-
-    materialized: int
-    reviewed_unavailable: int
-    unclassified: int
-    total_candidates: int
-    complete: bool
-
-    def __post_init__(self) -> None:
-        for field_name, value in (
-            ("materialized", self.materialized),
-            ("reviewed_unavailable", self.reviewed_unavailable),
-            ("unclassified", self.unclassified),
-            ("total_candidates", self.total_candidates),
-        ):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(
-                    f"inventory relationship coverage {field_name} MUST be a non-negative count"
-                )
-        if self.total_candidates != (
-            self.materialized + self.reviewed_unavailable + self.unclassified
-        ):
-            raise ValueError(
-                "inventory relationship coverage total_candidates MUST equal its counted parts"
-            )
-        if self.complete and self.unclassified != 0:
-            raise ValueError(
-                "inventory relationship coverage complete MUST be false with unclassified drops"
-            )
-
-    def to_metadata(self) -> dict[str, object]:
-        """Return the sanitized generation metadata record for this coverage."""
-
-        return {
-            "total_candidates": self.total_candidates,
-            "materialized": self.materialized,
-            "reviewed_unavailable": self.reviewed_unavailable,
-            "unclassified": self.unclassified,
-            "complete": self.complete,
-        }
-
-
-def compute_relationship_coverage(
-    observation: PromotedInventoryObservation,
-) -> InventoryRelationshipCoverage:
-    """Count every candidate ontology relationship instance in one promoted observation.
-
-    Materialized links are the promoted, verified graph edges. A relationship
-    drop reviewed with an ``unavailable_reason`` is a known-absent candidate;
-    a drop without one is unclassified and keeps coverage incomplete.
-    """
-
-    materialized = len(observation.links)
-    reviewed_unavailable = sum(
-        1 for drop in observation.relationship_drops if drop.unavailable_reason is not None
-    )
-    unclassified = sum(
-        1 for drop in observation.relationship_drops if drop.unavailable_reason is None
-    )
-    return InventoryRelationshipCoverage(
-        materialized=materialized,
-        reviewed_unavailable=reviewed_unavailable,
-        unclassified=unclassified,
-        total_candidates=materialized + reviewed_unavailable + unclassified,
-        complete=unclassified == 0 and observation.complete,
-    )
 
 
 #: Receives one promoted observation after the active pointer moves. The sink

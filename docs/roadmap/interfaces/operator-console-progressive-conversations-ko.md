@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: b0a18a972f874e889bcb3fab7f93c5ba928a105b
-translation_revised: 2026-09-07
+translation_source_sha: ade8884c8bc38399bc4ff8c55a1936ec6068c69d
+translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -173,6 +173,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 시간은 운영자 말풍선 안에 표시합니다. 운영 단계는 아이콘, 레이블, 상태 및 확인 열을 안정적으로
 유지합니다. 데스크톱 컨트롤은 32px 영역을 사용하고 모바일 컨트롤은 44px 터치 영역을 유지하면서
 대화 신원, 모델 선택, 검색, 이력 및 창 동작을 두 행에 배치합니다.
+턴 그룹은 20px 세로 간격을 유지해 공유 읽기 축을 쉽게 훑어볼 수 있게 합니다.
 
 대화 이력은 운영자의 질문이 아니라 구조화된 대화 식별자와 메타데이터에서 진입 모드를 복원합니다.
 사용자 및 경로 정규화와 네임스페이스 해석은 의미 라우팅 기준 목록의 검토된 `retain` 경계입니다.
