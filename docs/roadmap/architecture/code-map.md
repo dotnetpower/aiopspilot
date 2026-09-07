@@ -204,7 +204,11 @@ plan dispatch, anchored-incident and stated-value-filter plan construction, judg
 frame construction, facets, evidence-specific investigation normalization, typed multi-pair
 relationship planning, and queries while preserving public imports, deterministic gate order, and
 read-only authority. `semantic_planning_judgment.py` and `semantic_planning_frame_gate.py` isolate judgment consumption and ordered frame gates, while `semantic_query_runtime_composition.py` owns the runtime availability result. Typed Rule traces bind the exact Rule declaration and all required LinkType
-receipts before answering. Service-to-Agent ownership uses one exact-release, principal-scoped
+receipts before answering. `conversation_preflight_answer_safety.py` and
+`conversation_preflight_targets.py` isolate model-answer safety from exact target, time, and
+subscription-scope validation. `semantic_planning_preflight.py` owns compact descriptor selection,
+and `semantic_target_candidate_constants.py` owns the typed target-candidate sets.
+Service-to-Agent ownership uses one exact-release, principal-scoped
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.

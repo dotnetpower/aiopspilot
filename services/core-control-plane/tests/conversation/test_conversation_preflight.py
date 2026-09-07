@@ -1313,6 +1313,55 @@ def test_gateway_preflight_derives_recent_window_from_typed_current_error() -> N
     )
 
 
+def test_gateway_preflight_normalizes_gateway_kind_and_generic_filters() -> None:
+    utterance = "SRE-APIM reports HTTP 500 for GPT 5.4; compare APIM and GPT."
+    gateway = "SRE-APIM"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(
+            SemanticTarget(
+                kind="gateway",
+                value=gateway,
+                source_start=utterance.index(gateway),
+                source_end=utterance.index(gateway) + len(gateway),
+            ),
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="APIM service",
+                source_start=utterance.index("APIM", len(gateway)),
+                source_end=utterance.index("APIM", len(gateway)) + len("APIM service"),
+            ),
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="GPT",
+                source_start=utterance.rindex("GPT"),
+                source_end=utterance.rindex("GPT") + len("GPT"),
+            ),
+        ),
+        operational_facets=("apim", "gpt", "status_500", "configuration_changes"),
+        confidence=0.91,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert tuple((target.kind, target.value) for target in judgment.targets) == (
+        ("resource", gateway),
+    )
+
+
 def test_preflight_operational_judgment_rejects_nonmatching_source_span() -> None:
     utterance = "actual-appgw latency"
     result = ConversationPreflightResult(

@@ -171,6 +171,7 @@ async def test_gpt5_conversation_preflight_uses_minimal_reasoning_effort() -> No
 
     assert result is None
     assert requests[0]["reasoning_effort"] == "minimal"
+    assert requests[0]["max_completion_tokens"] == 768
 
 
 @pytest.mark.asyncio

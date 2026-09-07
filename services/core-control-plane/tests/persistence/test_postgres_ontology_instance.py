@@ -171,7 +171,10 @@ async def test_postgres_inventory_coverage_scopes_reconciliation_markers() -> No
     )
     try:
         await connection.execute(
-            "CREATE TEMP TABLE inventory_snapshot (id TEXT PRIMARY KEY, scopes JSONB NOT NULL)"
+            "CREATE TEMP TABLE inventory_snapshot ("
+            "id TEXT PRIMARY KEY, scopes JSONB NOT NULL, "
+            "metadata JSONB NOT NULL DEFAULT '{}'::jsonb, "
+            "started_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
         await connection.execute(
             "CREATE TEMP TABLE inventory_active "

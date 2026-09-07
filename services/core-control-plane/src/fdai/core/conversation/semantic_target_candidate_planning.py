@@ -39,44 +39,11 @@ from .semantic_planning_models import (
 )
 from .semantic_planning_value_filters import stated_subject_fragment, stated_value_filters
 from .semantic_resource_state_planning import resource_collection_definition
-
-_TARGET_SCOPED_OUTPUTS = frozenset(
-    {
-        SemanticOutputShape.CAUSAL_EVIDENCE,
-        SemanticOutputShape.INVENTORY_IMPACT,
-        SemanticOutputShape.TARGET_ACTIVITY,
-        SemanticOutputShape.TARGET_CURRENT_STATE,
-        SemanticOutputShape.TARGET_ERROR_ACTIVITY_CORRELATION,
-        SemanticOutputShape.TARGET_HEALTH_ASSESSMENT,
-        SemanticOutputShape.TARGET_INGRESS_CONFIGURATION,
-        SemanticOutputShape.TARGET_RESOURCE_METRIC,
-        SemanticOutputShape.TARGET_RESOURCE_METRIC_SERIES,
-        SemanticOutputShape.TEMPORAL_COMPARISON,
-        SemanticOutputShape.TOPOLOGY_GRAPH,
-    }
-)
-_CANDIDATE_RESOLVABLE_REQUIREMENTS = frozenset(
-    {
-        ClarificationRequirement.MEASURE,
-        ClarificationRequirement.RESOURCE_IDENTITY,
-        ClarificationRequirement.SUBJECT,
-    }
-)
-_TARGET_BOUND_OPERATING_INTENT_TYPES = frozenset(
-    {
-        "ArchitectureConstraint",
-        "ChangeWindow",
-        "CostObjective",
-        "Ownership",
-        "RecoveryObjective",
-        "ServiceObjective",
-    }
-)
-_DECISION_OUTCOME_LINEAGE_TYPES = (
-    "DecisionCase",
-    "ActionOption",
-    "ActionRun",
-    "ObservedOutcome",
+from .semantic_target_candidate_constants import (
+    CANDIDATE_RESOLVABLE_REQUIREMENTS,
+    DECISION_OUTCOME_LINEAGE_TYPES,
+    TARGET_BOUND_OPERATING_INTENT_TYPES,
+    TARGET_SCOPED_OUTPUTS,
 )
 
 
@@ -266,7 +233,7 @@ def build_non_resource_target_clarification(
     subject_types = _non_resource_object_subjects(proposal.subject_constraints, descriptors)
     subject_types = _expand_operating_intent_subjects(subject_types, descriptors)
     allow_unknown_cardinality = bool(
-        _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(subject_types)
+        TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(subject_types)
     )
     if (
         cardinality is QueryTargetCardinality.COLLECTION
@@ -311,7 +278,7 @@ def _expand_operating_intent_subjects(
     descriptors: tuple[dict[str, Any], ...],
 ) -> tuple[str, ...]:
     selected = set(subject_types)
-    if not _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(selected) and selected != {
+    if not TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(selected) and selected != {
         "BusinessService"
     }:
         return subject_types
@@ -323,7 +290,7 @@ def _expand_operating_intent_subjects(
         if (
             isinstance(source_type, str)
             and isinstance(target_type, str)
-            and target_type in _TARGET_BOUND_OPERATING_INTENT_TYPES
+            and target_type in TARGET_BOUND_OPERATING_INTENT_TYPES
             and (source_type in selected or target_type in selected)
         ):
             selected.update((source_type, target_type))
@@ -358,7 +325,7 @@ def resource_target_candidates_apply_to_utterance(
         return False
     if cardinality is QueryTargetCardinality.SINGULAR:
         return True
-    if frame.output_shape in _TARGET_SCOPED_OUTPUTS:
+    if frame.output_shape in TARGET_SCOPED_OUTPUTS:
         return True
     residual_subject = stated_subject_fragment(
         utterance,
@@ -384,7 +351,7 @@ def resource_target_candidates_apply_to_proposal(
         return False
     if cardinality is QueryTargetCardinality.SINGULAR:
         return True
-    if proposal.output_shape in _TARGET_SCOPED_OUTPUTS:
+    if proposal.output_shape in TARGET_SCOPED_OUTPUTS:
         return True
     if ClarificationRequirement.RESOURCE_IDENTITY in proposal.clarification_requirements:
         return True
@@ -439,7 +406,7 @@ def resolve_resource_target_candidates(
     requirements = frozenset(proposal.clarification_requirements)
     target_scoped = (
         cardinality is QueryTargetCardinality.SINGULAR
-        or frame.output_shape in _TARGET_SCOPED_OUTPUTS
+        or frame.output_shape in TARGET_SCOPED_OUTPUTS
         or (residual_subject is not None and bool(frame.measure_concepts))
         or bool(
             requirements
@@ -451,7 +418,7 @@ def resolve_resource_target_candidates(
     )
     if not target_scoped:
         return proposal, frame
-    if not requirements <= _CANDIDATE_RESOLVABLE_REQUIREMENTS:
+    if not requirements <= CANDIDATE_RESOLVABLE_REQUIREMENTS:
         return proposal, frame
     filters = stated_value_filters(utterance, descriptors)
     if not filters.get(("Resource", "type")):
@@ -584,7 +551,7 @@ def normalize_decision_outcome_relationship(
     korean = re.search(r"[가-힣]", utterance) is not None
     resolved = proposal.model_copy(
         update={
-            "subject_constraints": (*_DECISION_OUTCOME_LINEAGE_TYPES, *target_constraints),
+            "subject_constraints": (*DECISION_OUTCOME_LINEAGE_TYPES, *target_constraints),
             "temporal_scope": {"kind": "historical"},
             "unresolved_terms": ("DecisionCase identity",) if needs_target else (),
             "clarification_requirements": (

@@ -43,6 +43,7 @@ _MAX_CANDIDATES = 8
 _MAX_PROMPT_CHARS = 32_768
 _MAX_REQUEST_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
+_MAX_PREFLIGHT_TOKENS = 768
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
     {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
 )
@@ -225,7 +226,7 @@ class AzureOpenAISemanticJudgmentModel:
                 proposal_schema=ConversationPreflightProposal.model_json_schema(),
                 system_prompt=self._config.preflight_system_prompt,
                 call_kind="conversation-preflight",
-                max_tokens=min(self._config.max_tokens, 512),
+                max_tokens=min(self._config.max_tokens, _MAX_PREFLIGHT_TOKENS),
                 temperature=0.0,
                 timeout_seconds=self._config.timeout_seconds,
                 allow_candidate_failover=False,

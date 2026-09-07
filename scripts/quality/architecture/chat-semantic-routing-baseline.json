@@ -261,6 +261,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_answer_safety.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains bounded link and operational-claim rejection for model-authored general answers without selecting intent, capability, or authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/grounded_answer_validation.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -356,6 +363,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains evidence-specific normalization after structured semantic judgment and exact source-span validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_judgment.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains typed descriptor, machine reason, and enum validation after model-backed semantic judgment.",
       "issue": 252
     },
     {

@@ -477,7 +477,7 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     terminal = events[-1]
     semantic_result = cast(dict[str, object], terminal.data["semantic_result"])
     assert terminal.data["status"] == "answered"
-    assert cast(str, terminal.data["answer"]).startswith("## Verified result")
+    assert cast(str, terminal.data["answer"]).startswith("## 1 matching Resources")
     assert "```json" not in cast(str, terminal.data["answer"])
     trajectory = cast(dict[str, object], terminal.data["trajectory_detail"])
     activities = cast(list[dict[str, object]], trajectory["activities"])

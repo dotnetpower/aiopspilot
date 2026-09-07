@@ -7,7 +7,7 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 ## Catalog summary
 
 - Catalog version: `1.1.0`
-- Source digest: `sha256:a7536615178b54d4f1d4183fa2ea3773304de4a418f14791e995e4826a082882`
+- Source digest: `sha256:36b5a29a18a984a4bd6d274bc7b8bbc312bfb1f03fe3f0a6ca3939d067e4d0d7`
 - Logical questions: 350
 - Source counts: `candidate` 250, `console` 5, `golden` 35, `manual` 60
 
@@ -420,8 +420,8 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 
 | Source file | SHA-256 |
 |-------------|---------|
-| `console/src/i18n/messages.en.json` | `sha256:609796244038901fa69cb501c1111c81bfb0ecc0d35c1f09b2d3aab3b92f27fc` |
-| `console/src/i18n/messages.ko.json` | `sha256:977cd3abc7dc2c79c1a41ac0985dbeac4f88fd6fcbeb8eed1e2805a5afa45c2f` |
+| `console/src/i18n/messages.en.json` | `sha256:5f6f4b5d318890138c7604d74da29da2e1ea16f731ce47cd40c2af83c90d6bc4` |
+| `console/src/i18n/messages.ko.json` | `sha256:fab10b9c3b0c7479617b11e2b217819692bc3bd50a0f7606362f007214a9b886` |
 | `docs/internals/browser-session-test-prompts-q001-q120.md` | `sha256:771a25718973a16969744e6dc4b32f9914f28815c0c3e3b92936eff5d58dbaea` |
 | `eval/golden-dataset/coverage.json` | `sha256:daaf037ba6f489612e3488030a9764d576f43d4c67e178640ba5e3a10c8fcd77` |
 | `eval/golden-dataset/expectations.json` | `sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c` |
