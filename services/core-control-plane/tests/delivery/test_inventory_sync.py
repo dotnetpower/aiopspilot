@@ -1176,16 +1176,17 @@ async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:
     assert observed == []
 
 
-async def test_observer_failure_leaves_the_promotion_intact() -> None:
+async def test_observer_failure_is_visible_without_reverting_promotion() -> None:
     store = _Store()
 
     async def _explode(observation: PromotedInventoryObservation) -> None:
         raise RuntimeError("derived projection unavailable")
 
-    result = await InventorySyncCoordinator(store=store, promotion_observer=_explode).run(
-        [_source("arg", _Inventory([InventoryBatch(final=True)]))]
-    )
-    assert result.source == "arg"
+    with pytest.raises(RuntimeError, match="derived projection unavailable"):
+        await InventorySyncCoordinator(store=store, promotion_observer=_explode).run(
+            [_source("arg", _Inventory([InventoryBatch(final=True)]))]
+        )
+
     assert store.promoted == ["attempt-1"]
     assert isinstance(InventoryStreamError("example"), RuntimeError)
 

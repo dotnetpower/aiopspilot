@@ -371,6 +371,7 @@ class InventorySyncCoordinator:
                 "inventory_promotion_observer_failed",
                 extra={"generation": observation.generation},
             )
+            raise
 
     async def _stage_stream(
         self,

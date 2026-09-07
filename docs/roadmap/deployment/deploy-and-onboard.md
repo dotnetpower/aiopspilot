@@ -583,8 +583,8 @@ before enforce is enabled anywhere.
 The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
 Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
 signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
-until an approved push transport is available. The adaptive Inventory Job remains the completeness
-backstop; its policy targets a six-hour healthy interval while the minute scheduler checks deltas.
+until an approved push transport is available. The adaptive Inventory Job fails on source or
+ontology-projection errors; the minute scheduler retries pending work before the healthy interval.
 
 ## Verification After Provisioning
 
