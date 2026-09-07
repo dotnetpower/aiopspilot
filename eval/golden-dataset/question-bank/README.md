@@ -14,17 +14,18 @@ operator-facing domains, independent readiness axes, and one deterministic drift
 | [`question-bank.source.yaml`](./question-bank.source.yaml) | Source registry, domain mappings, Console mappings, defaults, and 50 operator candidates. |
 | [`question-bank.source.schema.json`](./question-bank.source.schema.json) | Strict schema for the authoring source. |
 | [`operator-question-expansion.source.yaml`](./operator-question-expansion.source.yaml) | Two hundred additional bilingual operator candidates grouped by the 12 supplied operational categories. |
+| [`current-resource-sre-questions.source.yaml`](./current-resource-sre-questions.source.yaml) | Fifty bilingual, read-only SRE questions covering 19 generic Azure resource types in a current inventory. |
 | [`question-expansion.source.schema.json`](./question-expansion.source.schema.json) | Strict schema for an external candidate source. |
 | [`question-bank.json`](./question-bank.json) | Generated machine-readable inventory of Golden, manual, Console, and candidate questions. |
 | [`question-bank.schema.json`](./question-bank.schema.json) | Strict schema for the generated inventory. |
 | [`review-catalog.md`](./review-catalog.md) | Generated bilingual view for human review. |
 
-The materialized inventory contains 352 logical questions:
+The materialized inventory contains 400 logical questions:
 
 - 35 reviewed Golden expectations;
 - 60 bilingual pairs formed from Q001-Q120;
-- 7 Console starter questions;
-- 250 operator candidates across seven domains, including Cost and FinOps.
+- 5 Console starter questions;
+- 300 operator candidates across seven domains, including 50 current-resource SRE questions.
 
 ## Source ownership
 
@@ -39,6 +40,7 @@ The registry is federated rather than duplicating existing source text:
 | [`messages.en.json`](../../../console/src/i18n/messages.en.json) and [`messages.ko.json`](../../../console/src/i18n/messages.ko.json) | Console starter wording. |
 | [`question-bank.source.yaml`](./question-bank.source.yaml) | Cross-source mappings, baseline operator candidates, and external candidate-source registration. |
 | [`operator-question-expansion.source.yaml`](./operator-question-expansion.source.yaml) | The 200-question operational expansion. |
+| [`current-resource-sre-questions.source.yaml`](./current-resource-sre-questions.source.yaml) | The 50-question current-resource SRE set. |
 
 This boundary avoids a second editable copy of reviewed questions. The generated inventory records
 the SHA-256 digest of every input so changes on any source surface require regeneration.
