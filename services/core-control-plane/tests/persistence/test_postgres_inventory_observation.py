@@ -12,7 +12,9 @@ from fdai.delivery.persistence import postgres_inventory_observation as observat
 from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
+    _active_scope_projection_watermark,
     _append_records,
+    _global_projection_watermark,
     _retained_generation_watermark,
     _snapshot_recovery_observation,
 )
@@ -113,6 +115,78 @@ async def test_retained_generation_watermark_includes_confirmation_rows() -> Non
         == 23
     )
     assert connection.params == ("snapshot-1", "snapshot:snapshot-1")
+
+
+async def test_active_scope_projection_watermark_ignores_inactive_scope_rows() -> None:
+    class _ScopeWatermarkConnection:
+        def __init__(self) -> None:
+            self.query = ""
+            self.params: object = None
+
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            self.query = query
+            self.params = params
+            return _Cursor([{"projection_watermark": 41}])
+
+    connection = _ScopeWatermarkConnection()
+
+    result = await _active_scope_projection_watermark(
+        connection,  # type: ignore[arg-type]
+        high_watermark=50,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 41
+    assert "scope_ref=ANY(%s::text[])" in connection.query
+    assert connection.params == (
+        50,
+        ["scope-current"],
+        "snapshot-current",
+        NOW,
+    )
+
+
+async def test_active_scope_projection_watermark_rejects_empty_scope() -> None:
+    with pytest.raises(ValueError, match="scopes MUST NOT be empty"):
+        await _active_scope_projection_watermark(
+            _Connection({}),  # type: ignore[arg-type]
+            high_watermark=50,
+            generation="snapshot-current",
+            snapshot_started_at=NOW,
+            scope_refs=(),
+        )
+
+
+async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> None:
+    class _GlobalWatermarkConnection:
+        def __init__(self) -> None:
+            self.params: object = None
+
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            self.params = params
+            return _Cursor([{"projection_watermark": 14}])
+
+    connection = _GlobalWatermarkConnection()
+
+    result = await _global_projection_watermark(
+        connection,  # type: ignore[arg-type]
+        high_watermark=50,
+        current_projection=14,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 14
+    assert connection.params == (
+        50,
+        14,
+        "snapshot-current",
+        NOW,
+        ["scope-current"],
+    )
 
 
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:

@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 95be89a9cd309baaaacf23eef2ff51bb3da9e2df
-translation_revised: 2026-09-07
+translation_source_sha: 9e9dd997b6195ea48ca0cbd15556391d30bff71c
+translation_revised: 2026-09-08
 ---
 # 코드 맵
 
@@ -71,8 +71,8 @@ catalog 값 필터를 추가하지 않습니다.
 운영 Resource 모음은 결정론적 계획 또는 모델 계획 뒤에 서버 소유 표시 규칙 하나를 적용합니다.
 카탈로그에 결속되지 않은 필터는 전체 Resource로 범위를 넓히지 않고 명확화를 요청하며, 정확한 ARM
 신원은 `Resource.id` 조건식으로 유지합니다. 역할 할당 객체는 전용 IAM 근거 경로에서만 사용할 수
-있습니다. ObjectSet 구체화, 새로 고침 및 증적 발급 실패는 원래 예외를 유지하면서 실패 단계를
-범위가 제한된 진단으로 추가합니다.
+있습니다. ObjectSet 실패는 기존 예외와 범위가 제한된 단계 진단을 유지합니다. 불완전한 읽기 전용 Resource 및 상태 전이 결과는 검증된 범위의 행과 제한 사항 및 재시도 안내를 제시합니다.
+신원, 권한, 충돌 또는 안전한 부분 집합이 없는 결과는 계속 판단을 보류합니다.
 수락된 구독 신원 및 Service Health 판단은 정확한 입력 없는 FunctionType에서 결정론적 프레임과 서버 계획을 구성하므로 전체 온톨로지 스키마가 프레임 모델 경계를 통과하지 않습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.

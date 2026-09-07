@@ -125,6 +125,8 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
             return_value=SimpleNamespace(
                 journal_high_watermark=7,
                 projection_high_watermark=7,
+                active_scope_projection_watermark=7,
+                active_scope_refs=("scope-1",),
             )
         ),
         mark_ontology_projected=AsyncMock(),
@@ -957,6 +959,8 @@ async def test_ontology_observer_publishes_durable_topology_history(
     assert projector.construction_kwargs["freshness_ceiling_seconds"] == 21_600
     ontology_store.sync_catalog.assert_awaited_once()
     projector.apply.assert_awaited_once()
+    assert projector.apply.await_args.kwargs["active_scope_projection_watermark"] == 7
+    assert projector.apply.await_args.kwargs["active_scope_refs"] == ("scope-1",)
 
 
 async def test_ontology_observer_does_not_advance_projection_after_history_failure(

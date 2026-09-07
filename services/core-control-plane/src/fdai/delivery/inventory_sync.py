@@ -65,6 +65,7 @@ _LOG = logging.getLogger(__name__)
 #: degrades to an explicitly incomplete observation instead of exhausting memory.
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
+INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY = "inventory-ontology:active-scope-checkpoint"
 DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
 DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
 MAX_ATTEMPT_DEADLINE_SECONDS = 1740.0

@@ -33,9 +33,11 @@ class _CoverageCursor:
 class _CoverageConnection:
     def __init__(self) -> None:
         self.statement = ""
+        self.params: object = None
 
-    async def execute(self, statement: str) -> _CoverageCursor:
+    async def execute(self, statement: str, params: object = None) -> _CoverageCursor:
         self.statement = statement
+        self.params = params
         return _CoverageCursor()
 
 
@@ -259,6 +261,8 @@ async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None
     assert complete is True
     assert generation == "generation-2"
     assert "jsonb_array_elements_text(snapshot.scopes)" in connection.statement
+    assert connection.params == ("inventory-ontology:active-scope-checkpoint",)
+    assert "active_checkpoint.value->'scope_refs'=snapshot.scopes" in connection.statement
     assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (
         connection.statement
     )

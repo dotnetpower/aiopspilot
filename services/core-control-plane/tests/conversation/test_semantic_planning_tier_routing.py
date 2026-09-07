@@ -5390,7 +5390,7 @@ def test_incomplete_output_holds_required_collection_plans() -> None:
             update={"output_shape": SemanticOutputShape.RESOURCE_STATE_TRANSITIONS}
         ),
     )
-    assert _query_output_incomplete(transition_planning, execution) is True
+    assert _query_output_incomplete(transition_planning, execution) is False
 
 
 def test_declaration_frame_without_exact_measure_fails_closed_without_t2() -> None:

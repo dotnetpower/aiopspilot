@@ -8,6 +8,7 @@ from typing import Any
 
 import psycopg
 
+from fdai.delivery.inventory_sync import INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 
@@ -41,8 +42,12 @@ async def resource_graph_source_coverage(
         "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope) "
         "AS pending_reconciliation, "
         "EXISTS (SELECT 1 FROM inventory_observation_journal AS pending "
-        "WHERE pending.watermark>COALESCE("
-        "(observation_watermarks.value->>'ontology_projection_watermark')::bigint, 0) "
+        "WHERE pending.watermark>CASE WHEN "
+        "active_checkpoint.value->>'generation'=active.snapshot_id "
+        "AND active_checkpoint.value->'scope_refs'=snapshot.scopes "
+        "THEN COALESCE((active_checkpoint.value->>'projection_high_watermark')::bigint, 0) "
+        "ELSE COALESCE("
+        "(observation_watermarks.value->>'ontology_projection_watermark')::bigint, 0) END "
         "AND pending.scope_ref IN ("
         "SELECT value FROM jsonb_array_elements_text(snapshot.scopes)) "
         "AND NOT (pending.source_revision=active.snapshot_id "
@@ -53,9 +58,12 @@ async def resource_graph_source_coverage(
         "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
         "LEFT JOIN state_kv AS observation_watermarks "
         "ON observation_watermarks.key='inventory-observation:watermarks' "
+        "LEFT JOIN state_kv AS active_checkpoint "
+        "ON active_checkpoint.key=%s "
         "LEFT JOIN state_kv AS storage_pressure "
         "ON storage_pressure.key='operational-history:storage-pressure' "
-        "WHERE active.singleton=TRUE"
+        "WHERE active.singleton=TRUE",
+        (INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,),
     )
     row = await cursor.fetchone()
     if row is None:

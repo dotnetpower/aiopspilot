@@ -3947,7 +3947,7 @@ def _render_state_transition_answer(
             if unresolved
             else "## 검증된 상태 전이 없음"
             if complete
-            else "## 상태 전이 확인 불가"
+            else "## 확인 범위에서 검증된 상태 전이 없음"
         )
         lines = [heading, ""]
         for row in rows[:20]:
@@ -3960,6 +3960,12 @@ def _render_state_transition_answer(
                 f"({row.get('effective_at') or '시각 미확인'}, "
                 f"{row.get('state_type') or '상태 유형 미확인'})"
             )
+        if not rows and not unresolved:
+            lines.append(
+                "- 검증된 전체 조회 범위에서 상태 전이를 찾지 못했습니다."
+                if complete
+                else "- 현재 확인 가능한 범위에서는 검증된 상태 전이를 찾지 못했습니다."
+            )
         lines.append(f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`")
         if unresolved:
             lines.append(f"- 미확정 상태 전이 근거: {unresolved}건")
@@ -3971,6 +3977,18 @@ def _render_state_transition_answer(
             )
         if isinstance(limitation, str) and limitation:
             lines.append(f"- 제한 사항: `{limitation}`")
+        if not complete:
+            lines.extend(
+                [
+                    "",
+                    "## 안내",
+                    "",
+                    "- 표시된 항목은 검증됐지만 원본 범위가 불완전하므로 전체 최신 목록으로 "
+                    "해석할 수 없습니다.",
+                    "- 인벤토리 조정과 상태 전이 범위 확인이 완료된 뒤 같은 범위에서 다시 "
+                    "조회하세요.",
+                ]
+            )
         lines.extend(["", "`execution_authority=false`"])
         return "\n".join(lines)
     heading = (
@@ -3980,7 +3998,7 @@ def _render_state_transition_answer(
         if unresolved
         else "## No verified state transitions"
         if complete
-        else "## Resource state transitions unavailable"
+        else "## No verified state transitions in scope"
     )
     lines = [heading, ""]
     for row in rows[:20]:
@@ -3993,6 +4011,12 @@ def _render_state_transition_answer(
             f"({row.get('effective_at') or 'time unavailable'}, "
             f"{row.get('state_type') or 'state type unavailable'})"
         )
+    if not rows and not unresolved:
+        lines.append(
+            "- No state transitions were found in the complete verified scope."
+            if complete
+            else "- No verified state transitions were found in the currently available scope."
+        )
     lines.append(f"- Source completeness: `{'complete' if complete else 'incomplete'}`")
     if unresolved:
         lines.append(f"- Unresolved transition evidence: {unresolved}")
@@ -4004,6 +4028,18 @@ def _render_state_transition_answer(
         )
     if isinstance(limitation, str) and limitation:
         lines.append(f"- Limitation: `{limitation}`")
+    if not complete:
+        lines.extend(
+            [
+                "",
+                "## Guidance",
+                "",
+                "- Displayed items are verified, but incomplete source scope means this is not the "
+                "complete latest list.",
+                "- Retry the same scope after inventory reconciliation and transition coverage "
+                "catch up.",
+            ]
+        )
     lines.extend(["", "This result is read-only and has `execution_authority=false`."])
     return "\n".join(lines)
 
@@ -4337,23 +4373,29 @@ def _render_generic_empty_query_answer(
             ]
         else:
             lines = [
-                "## 일치하는 관측 근거 없음" if complete else "## 근거가 충분하지 않음",
+                (
+                    "## 일치하는 관측 근거 없음"
+                    if complete
+                    else "## 확인 범위에서 일치하는 항목 없음"
+                ),
                 "",
                 (
                     "- 검증된 조회 범위에서 일치하는 행이 반환되지 않았습니다."
                     if complete
-                    else "- 반환된 행은 없지만 원본 근거가 완전하지 않아 부재를 판단할 수 없습니다."
+                    else "- 현재 확인 가능한 범위에서는 일치하는 항목을 찾지 못했습니다."
                 ),
             ]
-        if limitations:
-            lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
-        lines.extend(
-            [
-                "- 행 0개는 검증된 조회 범위를 벗어난 실제 리소스의 부재를 증명하지 않습니다.",
-                "",
-                "`execution_authority=false`",
-            ]
-        )
+        if not complete:
+            lines.extend(["", "## 안내", ""])
+            if limitations:
+                lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
+            lines.extend(
+                [
+                    "- 원본 범위가 아직 완전하지 않으므로 전체 범위에 항목이 없다는 뜻은 아닙니다.",
+                    "- 원본 동기화와 변환 결과 처리가 완료된 뒤 같은 범위에서 다시 조회하세요.",
+                ]
+            )
+        lines.extend(["", "`execution_authority=false`"])
         return "\n".join(lines)
     if output_shape == "resource_state_list":
         lines = [
@@ -4370,27 +4412,29 @@ def _render_generic_empty_query_answer(
         ]
     else:
         lines = [
-            "## No matching observed evidence" if complete else "## Evidence is insufficient",
+            (
+                "## No matching observed evidence"
+                if complete
+                else "## No matching items in the verified scope"
+            ),
             "",
             (
                 "- The verified query scope returned no matching rows."
                 if complete
-                else (
-                    "- No rows were returned, but incomplete source evidence cannot establish "
-                    "absence."
-                )
+                else "- No matching items were found in the currently verified scope."
             ),
         ]
-    if limitations:
-        lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
-    lines.extend(
-        [
-            "- Zero rows do not prove that no real resources exist outside the "
-            "verified query scope.",
-            "",
-            "`execution_authority=false`",
-        ]
-    )
+    if not complete:
+        lines.extend(["", "## Guidance", ""])
+        if limitations:
+            lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
+        lines.extend(
+            [
+                "- The source scope is incomplete, so this does not establish global absence.",
+                "- Retry the same scope after source synchronization and projection catch up.",
+            ]
+        )
+    lines.extend(["", "`execution_authority=false`"])
     return "\n".join(lines)
 
 

@@ -54,8 +54,8 @@ catalog value filters found inside the identifier.
 Operational Resource collections apply one server-owned visibility rule after deterministic or
 model planning. Unbound catalog filters clarify instead of widening to all Resources, exact ARM
 identities remain `Resource.id` predicates, and role-assignment objects stay available only to
-their dedicated IAM evidence paths. ObjectSet materialization, refresh, and receipt failures retain
-their original exception while adding the bounded failing-stage diagnostic. Accepted subscription identity and Service Health judgments build deterministic frames and server plans from their exact no-input FunctionTypes, so the complete ontology schema never crosses a frame-model boundary.
+their dedicated IAM evidence paths. ObjectSet failures retain their exception and bounded stage diagnostic. Incomplete read-only Resource and state-transition results present verified scoped rows with limitation and retry guidance; identity, authority, conflict, and no-safe-subset outcomes remain held.
+Accepted subscription identity and Service Health judgments build deterministic frames and server plans from their exact no-input FunctionTypes, so the complete ontology schema never crosses a frame-model boundary.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

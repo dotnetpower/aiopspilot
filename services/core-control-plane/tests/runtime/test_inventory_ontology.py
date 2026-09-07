@@ -11,7 +11,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.inventory_sync import (
+    INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
+    PromotedInventoryObservation,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.inventory_ontology import (
     INVENTORY_ONTOLOGY_MANIFEST_KEY,
@@ -209,6 +212,8 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
         journal_high_watermark=7,
         projection_high_watermark=6,
+        active_scope_projection_watermark=7,
+        active_scope_refs=("scope-1",),
     )
 
     assert journal.calls == []
@@ -219,6 +224,14 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
     assert manifest is not None
     assert manifest["journal_high_watermark"] == 7
     assert manifest["projection_high_watermark"] == 6
+    checkpoint = await status.read_state(INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY)
+    assert checkpoint == {
+        "schema_version": "1.0.0",
+        "generation": "snapshot-watermark",
+        "scope_refs": ["scope-1"],
+        "journal_high_watermark": 7,
+        "projection_high_watermark": 7,
+    }
 
 
 def _observation(

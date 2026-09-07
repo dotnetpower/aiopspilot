@@ -281,6 +281,10 @@ def _build_ontology_observer(
                         observation,
                         journal_high_watermark=journal_append.journal_high_watermark,
                         projection_high_watermark=journal_append.projection_high_watermark,
+                        active_scope_projection_watermark=(
+                            journal_append.active_scope_projection_watermark
+                        ),
+                        active_scope_refs=journal_append.active_scope_refs,
                     )
                 except Exception as exc:  # noqa: BLE001 - independent derived read model
                     failures.append(("projection_failed", exc))

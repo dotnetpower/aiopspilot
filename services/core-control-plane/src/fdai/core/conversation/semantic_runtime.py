@@ -707,17 +707,13 @@ def _query_output_incomplete(
     planning: SemanticPlanningOutcome,
     execution: QueryPlanExecution,
 ) -> bool:
-    """Hold a completed DAG when its authoritative output is explicitly incomplete."""
+    """Hold only collection shapes that cannot safely present a verified partial result."""
     frame = planning.frame
     plan = planning.plan
     if (
         frame is None
         or plan is None
-        or frame.output_shape
-        not in {
-            SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
-            SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
-        }
+        or frame.output_shape is not SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
     ):
         return False
     document_node_ids = {

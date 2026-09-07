@@ -173,7 +173,7 @@ def test_impact_answer_separates_observed_scope_inference_and_gaps() -> None:
     ("complete", "reason", "expected_heading"),
     (
         (True, None, "일치하는 관측 근거 없음"),
-        (False, "source_incomplete", "근거가 충분하지 않음"),
+        (False, "source_incomplete", "확인 범위에서 일치하는 항목 없음"),
     ),
 )
 def test_generic_empty_answer_does_not_claim_zero_row_verification(
@@ -202,9 +202,11 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
 
     assert expected_heading in answer
     assert "전체 0개 행 중 0개를 검증했습니다" not in answer
-    assert "행 0개는" in answer
     if reason:
         assert "`source_incomplete`" in answer
+        assert "## 안내" in answer
+        assert "전체 범위에 항목이 없다는 뜻은 아닙니다" in answer
+        assert "같은 범위에서 다시 조회하세요" in answer
     else:
         assert "근거 한계:" not in answer
 
@@ -1053,6 +1055,8 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
     assert "`running` -> `deallocated`" in answer
     assert "Displayed transitions: 1 of 25" in answer
     assert "`snapshot_interval_only`" in answer
+    assert "## Guidance" in answer
+    assert "not the complete latest list" in answer
     assert "`execution_authority=false`" in answer
 
 
@@ -1095,6 +1099,34 @@ def test_state_transition_answer_does_not_promote_untrusted_edge() -> None:
     assert answer.startswith("## Resource state transition evidence unresolved")
     assert "`running` -> `deallocated`" not in answer
     assert "Unresolved transition evidence: 1" in answer
+
+
+def test_incomplete_empty_state_transition_leads_with_scoped_result_and_guidance() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-state-transitions",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": False,
+                "source_truncation_reason": "coverage_pending",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_state_transitions",
+        measure_concepts=("resource_state.deallocated",),
+    )
+
+    assert answer.startswith("## 확인 범위에서 검증된 상태 전이 없음")
+    assert "현재 확인 가능한 범위에서는 검증된 상태 전이를 찾지 못했습니다" in answer
+    assert "`coverage_pending`" in answer
+    assert "## 안내" in answer
+    assert "같은 범위에서 다시 조회하세요" in answer
 
 
 def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
@@ -4385,8 +4417,9 @@ async def test_incomplete_zero_row_projection_does_not_claim_absence() -> None:
 
     semantic = projection["semantic_result"]
     assert semantic["disposition"] == "answered"
-    assert "incomplete source evidence cannot establish absence" in semantic["answer"]
-    assert "no real resources exist" in semantic["answer"]
+    assert "No matching items in the verified scope" in semantic["answer"]
+    assert "does not establish global absence" in semantic["answer"]
+    assert "Retry the same scope" in semantic["answer"]
     output = projection["payload"]["technical_details"]["outputs"][0]
     assert output["returned_rows"] == output["total_rows"] == 0
     assert output["source_complete"] is False
