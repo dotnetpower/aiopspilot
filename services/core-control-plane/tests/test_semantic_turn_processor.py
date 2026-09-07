@@ -236,6 +236,59 @@ def test_resource_state_empty_answer_leads_with_the_requested_result() -> None:
     assert "`execution_authority=false`" in answer
 
 
+def test_resource_state_answer_lists_verified_names_and_observed_states() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-state-filter",
+                "rows": [
+                    {
+                        "row_id": "resource-state-0001",
+                        "values": {
+                            "name": "database-a",
+                            "type": "mysql-server",
+                            "observed_state": "Stopped",
+                            "state_concept": "resource_state.stopped",
+                            "source_observed_at": "2026-09-08T00:01:00+00:00",
+                            "inventory_read_at": "2026-09-08T00:02:00+00:00",
+                            "execution_authority": False,
+                        },
+                    },
+                    {
+                        "row_id": "resource-state-0002",
+                        "values": {
+                            "name": "database-b",
+                            "type": "sql-database",
+                            "observed_state": "Paused",
+                            "state_concept": "resource_state.paused",
+                            "source_observed_at": "2026-09-08T00:01:30+00:00",
+                            "inventory_read_at": "2026-09-08T00:02:00+00:00",
+                            "execution_authority": False,
+                        },
+                    },
+                ],
+                "returned_rows": 2,
+                "total_rows": 2,
+                "source_complete": False,
+                "source_truncation_reason": "resource_state_evidence_incomplete",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_state_list",
+    )
+
+    assert answer.startswith("## 관측된 리소스 상태")
+    assert "`database-a`: `Stopped` (`mysql-server`" in answer
+    assert "`database-b`: `Paused` (`sql-database`" in answer
+    assert "근거 완전성: `incomplete`" in answer
+    assert "`resource_state_evidence_incomplete`" in answer
+    assert "`execution_authority=false`" in answer
+
+
 def test_governed_document_answer_renders_exact_citation_and_escapes_text() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

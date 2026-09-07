@@ -192,6 +192,7 @@ def compile_resource_state_plan(
         descriptors=manifest.descriptors,
         evaluation_time=evaluation_time,
         purpose=purpose,
+        require_operational_state_metadata=True,
     )
     nodes = (
         OntologyQueryNode(

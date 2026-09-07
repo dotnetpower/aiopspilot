@@ -3341,7 +3341,12 @@ def test_typed_subscription_state_query_uses_observed_resource_state(
             "property": "type",
             "operator": "equals",
             "equals": "postgresql-server",
-        }
+        },
+        {
+            "property": "properties",
+            "operator": "contains",
+            "equals": "state_fact_metadata",
+        },
     ]
     assert outcome.plan.nodes[1].arguments["arguments"] == {
         "state_concepts": [RESOURCE_STATE_OBSERVED_CONCEPT]

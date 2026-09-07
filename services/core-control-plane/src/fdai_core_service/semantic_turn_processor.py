@@ -3472,6 +3472,13 @@ def _render_general_query_answer(
     )
     if current_state_answer is not None:
         return current_state_answer
+    resource_state_answer = _render_resource_state_list_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if resource_state_answer is not None:
+        return resource_state_answer
     declaration_count_answer = _render_ontology_declaration_count_answer(
         outputs,
         korean=korean,
@@ -4200,6 +4207,78 @@ def _render_ontology_declaration_count_answer(
                 else (
                     "Each value is the distinct declaration count from the manifest. "
                     "This result grants no execution authority."
+                )
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_resource_state_list_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render verified collection state rows without reducing them to a count."""
+
+    if output_shape != "resource_state_list" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    raw_rows = output.get("rows")
+    if not isinstance(raw_rows, list) or not raw_rows:
+        return None
+    rows: list[Mapping[str, object]] = []
+    for raw_row in raw_rows:
+        if not isinstance(raw_row, Mapping):
+            return None
+        values = raw_row.get("values")
+        if (
+            not isinstance(values, Mapping)
+            or not isinstance(values.get("name"), str)
+            or not values["name"].strip()
+            or not isinstance(values.get("type"), str)
+            or not values["type"].strip()
+            or not isinstance(values.get("observed_state"), str)
+            or not values["observed_state"].strip()
+            or not isinstance(values.get("source_observed_at"), str)
+            or not values["source_observed_at"].strip()
+            or values.get("execution_authority") is not False
+        ):
+            return None
+        rows.append(values)
+    complete = output.get("source_complete") is True
+    limitation = output.get("source_truncation_reason")
+    lines = [
+        "## 관측된 리소스 상태" if korean else "## Observed resource states",
+        "",
+    ]
+    for row in rows:
+        name = row["name"]
+        resource_type = row["type"]
+        state = row["observed_state"]
+        observed_at = row["source_observed_at"]
+        lines.append(
+            f"- `{name}`: `{state}` (`{resource_type}`, 관측 {observed_at})"
+            if korean
+            else f"- `{name}`: `{state}` (`{resource_type}`, observed {observed_at})"
+        )
+    lines.append(
+        f"- 근거 완전성: `{'complete' if complete else 'incomplete'}`"
+        if korean
+        else f"- Evidence completeness: `{'complete' if complete else 'incomplete'}`"
+    )
+    if isinstance(limitation, str) and limitation:
+        lines.append(f"- 제한 사항: `{limitation}`" if korean else f"- Limitation: `{limitation}`")
+    lines.extend(
+        [
+            "",
+            (
+                "표시된 행은 검증된 관측 근거에만 해당합니다. `execution_authority=false`"
+                if korean
+                else (
+                    "Displayed rows are limited to verified observed evidence. "
+                    "`execution_authority=false`"
                 )
             ),
         ]

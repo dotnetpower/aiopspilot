@@ -290,6 +290,12 @@ principal Context provider bind as one pair. Core admits the exact bundle and Co
 before Operator persistence and presentation. Any identity, evidence, graph, citation,
 contradiction, or budget failure holds the response; the path adds no provider read or authority.
 
+Collection state reads consume the canonical `state` property together with its
+`state_fact_metadata.state` entry. The retained flat metadata form remains readable for replay.
+Broad state ObjectSets first select manifest-declared Resource types with reviewed operational-state
+paths and observed state metadata. When source coverage is incomplete, verified matching rows may
+remain visible with incomplete posture, but an empty result never establishes absence.
+
 The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
 providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve
 the canonical function arguments with each invocation receipt. The observer accepts a finding only

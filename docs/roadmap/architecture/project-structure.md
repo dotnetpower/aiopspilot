@@ -419,7 +419,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   every seam so it runs standalone; a fork replaces only the seams it needs.
 - **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an
   `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles,
-  independent review, shared provider budgets, and the verified evidence reader remain required.
+  independent review, shared provider budgets, and the verified evidence reader remain required. Collection Resource-state planning and state-fact decoding remain deterministic Core ontology-platform responsibilities; presentation only consumes their verified rows.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
   freshness is evaluated against the current evaluation clock with bounded age and future skew,

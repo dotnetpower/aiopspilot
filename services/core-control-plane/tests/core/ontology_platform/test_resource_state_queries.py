@@ -63,12 +63,16 @@ def _resource(
     state: str | None,
     *,
     observed_at: datetime | None = None,
+    legacy_flat_metadata: bool = False,
 ) -> OntologyObjectRecord:
     provider: dict[str, object] = {}
     if state is not None:
         provider["state"] = state
     if observed_at is not None:
-        provider[STATE_FACT_METADATA_PROPERTY] = _state_fact(observed_at=observed_at)
+        state_fact = _state_fact(observed_at=observed_at)
+        provider[STATE_FACT_METADATA_PROPERTY] = (
+            state_fact if legacy_flat_metadata else {"state": state_fact}
+        )
     return OntologyObjectRecord(
         id=f"resource-{name}",
         object_type="Resource",
@@ -160,7 +164,7 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
-    assert declaration.version == "1.1.0"
+    assert declaration.version == "1.1.1"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
         RESOURCE_STATE_QUERY_CONCEPTS
     )
@@ -219,6 +223,27 @@ async def test_state_function_returns_every_recognized_observed_state() -> None:
     ]
 
 
+async def test_state_function_accepts_legacy_flat_state_metadata() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource(
+                    "database-a",
+                    "Stopped",
+                    observed_at=observed_at,
+                    legacy_flat_metadata=True,
+                ),
+            )
+        ),
+        concepts=("resource_state.stopped",),
+    )
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert [row["values"]["name"] for row in rows] == ["database-a"]
+
+
 async def test_state_function_prefers_concrete_filter_over_observed_sentinel() -> None:
     observed_at = NOW - timedelta(minutes=5)
     result = await _invoke(
@@ -270,7 +295,7 @@ async def test_state_function_preserves_matches_but_marks_missing_state_incomple
     assert len(rows) == 1
 
 
-async def test_state_function_rejects_an_incomplete_secured_scope() -> None:
+async def test_state_function_preserves_verified_matches_from_incomplete_scope() -> None:
     observed_at = NOW - timedelta(minutes=5)
     result = await _invoke(
         _query_result(
@@ -280,8 +305,8 @@ async def test_state_function_rejects_an_incomplete_secured_scope() -> None:
         concepts=("resource_state.stopped",),
     )
 
-    assert result == {
-        "complete": False,
-        "rows": [],
-        "truncation_reason": "resource_scope_incomplete",
-    }
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "resource_scope_incomplete"
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert [row["values"]["name"] for row in rows] == ["database-a"]

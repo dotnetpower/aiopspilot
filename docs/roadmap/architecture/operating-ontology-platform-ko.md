@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7d9ab9f090b872275312402b44a96cec594a88bd
-translation_revised: 2026-09-07
+translation_source_sha: 556e3b401c45d74465e16a7da2c908f113aec997
+translation_revised: 2026-09-08
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -285,6 +285,12 @@ signed planner FunctionType identity를 `planner_ref`에 보존하고, 해당 li
 제공자를 하나의 쌍으로 바인딩합니다. Core는 Operator 저장과 표시 전에 정확한 번들과 Context
 메타데이터를 승인합니다. 신원, 근거, 그래프, 인용, 모순 또는 예산 문제가 있으면 응답을
 보류하며, 이 경로는 프로바이더 읽기 또는 권한을 추가하지 않습니다.
+
+컬렉션 상태 읽기는 정본 `state` 속성과 해당 `state_fact_metadata.state` 항목을 함께 사용합니다.
+재실행을 위해 유지하는 이전 평면 메타데이터 형식도 읽을 수 있습니다. 범위가 넓은 상태 ObjectSet은
+먼저 매니페스트에 선언되고 검토된 운영 상태 경로와 관측 상태 메타데이터가 있는 Resource 유형을
+선택합니다. 원본 범위가 불완전하면 검증된 일치 행을 불완전 상태로 표시할 수 있지만 빈 결과로
+부재를 판단하지 않습니다.
 
 진단 런타임은 Kubernetes 집약기 22개를 exact-release `derive` 함수로 등록합니다.
 실제 운영 프로바이더는 `diagnostic-evaluation` 용도에서 Heimdall로 레지스트리를 호출하고 각 호출
