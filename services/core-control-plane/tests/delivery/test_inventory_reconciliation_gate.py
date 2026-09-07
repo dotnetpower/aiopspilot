@@ -11,6 +11,7 @@ from fdai.delivery.inventory_source_policy import (
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     _pending_resource_count,
+    _projection_pending,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
@@ -258,3 +259,29 @@ def test_pending_tombstones_open_reconciliation_demand() -> None:
 
     with pytest.raises(ValueError, match="MUST NOT be negative"):
         _pending_resource_count(overlay_resource_count=0, pending_tombstone_count=-1)
+
+
+def test_pending_ontology_projection_forces_collection() -> None:
+    assert (
+        _projection_pending(
+            {
+                "journal_high_watermark": 5,
+                "ontology_projection_watermark": 4,
+            }
+        )
+        is True
+    )
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=30,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        projection_pending=True,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.reason_codes == ("projection_pending",)

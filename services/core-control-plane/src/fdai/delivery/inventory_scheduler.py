@@ -37,6 +37,7 @@ class CollectionScheduleState:
     cursor_lag_seconds: float = 0.0
     overlay_open: bool = False
     change_demand: bool = False
+    projection_pending: bool = False
     critical: bool = False
     operator_requested: bool = False
     stable_cycles: int = 0
@@ -141,8 +142,8 @@ def _healthy_decision(
     if state.operator_requested:
         reasons.append("operator_requested")
         interval = float(policy.min_poll_interval_seconds)
-    elif state.change_demand:
-        reasons.append("change_demand")
+    elif state.projection_pending or state.change_demand:
+        reasons.append("projection_pending" if state.projection_pending else "change_demand")
         interval = float(policy.min_poll_interval_seconds)
     elif state.overlay_open or state.cursor_lag_seconds > 0:
         reasons.append("cursor_lag" if state.cursor_lag_seconds > 0 else "overlay_open")
@@ -169,7 +170,12 @@ def _healthy_decision(
     elif state.evidence_age_seconds >= policy.max_staleness_seconds:
         reasons.append("maximum_staleness")
         due_in = _remaining(last_attempt_age, float(policy.min_poll_interval_seconds))
-    elif state.change_demand or state.overlay_open or state.cursor_lag_seconds > 0:
+    elif (
+        state.projection_pending
+        or state.change_demand
+        or state.overlay_open
+        or state.cursor_lag_seconds > 0
+    ):
         due_in = _remaining(last_attempt_age, interval)
     else:
         due_in = max(0.0, interval - state.evidence_age_seconds)
@@ -274,7 +280,12 @@ def _wait(
 
 def _priority(policy: SourceCollectionPolicy, state: CollectionScheduleState) -> int:
     priority = policy.priority.base
-    if state.change_demand or state.overlay_open or state.cursor_lag_seconds > 0:
+    if (
+        state.projection_pending
+        or state.change_demand
+        or state.overlay_open
+        or state.cursor_lag_seconds > 0
+    ):
         priority += policy.priority.changed_boost
     if state.evidence_age_seconds is None or (
         state.evidence_age_seconds >= policy.target_freshness_seconds

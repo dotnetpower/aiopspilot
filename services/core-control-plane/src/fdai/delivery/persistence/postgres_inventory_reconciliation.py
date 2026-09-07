@@ -143,6 +143,11 @@ class PostgresInventoryReconciliationGate:
                 ),
             )
             markers = await marker_cursor.fetchall()
+            watermark_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s",
+                ("inventory-observation:watermarks",),
+            )
+            watermark_row = await watermark_cursor.fetchone()
             if self._cursor_keys:
                 cursor_health_cursor = await connection.execute(
                     "SELECT count(*) AS cursor_count, "
@@ -178,6 +183,9 @@ class PostgresInventoryReconciliationGate:
         overlay_relationship_count = int(row["overlay_relationship_count"] or 0)
         cursor_count = int(cursor_health["cursor_count"] or 0) if cursor_health else 0
         cursor_lag = cursor_health["cursor_lag_seconds"] if cursor_health else None
+        projection_pending = _projection_pending(
+            watermark_row["value"] if watermark_row is not None else None
+        )
         cursor_complete = bool(self._cursor_keys) and cursor_count == len(self._cursor_keys)
         self._last_health_state = InventoryReconciliationHealthState(
             measured_at=datetime.now(tz=UTC),
@@ -205,6 +213,7 @@ class PostgresInventoryReconciliationGate:
                 abandoned_attempt=abandoned_attempt,
                 change_demand=change_demand,
                 overlay_open=bool(overlay_resource_count or overlay_relationship_count),
+                projection_pending=projection_pending,
             )
             return self._last_decision
         due = inventory_reconciliation_due(
@@ -240,6 +249,7 @@ def adaptive_reconciliation_decision(
     abandoned_attempt: bool,
     change_demand: bool,
     overlay_open: bool = False,
+    projection_pending: bool = False,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
@@ -267,6 +277,7 @@ def adaptive_reconciliation_decision(
             ),
             change_demand=change_demand,
             overlay_open=overlay_open,
+            projection_pending=projection_pending,
             failure_streak=failure_streak,
             provider_pressure=pressure,
         ),
@@ -297,6 +308,27 @@ def _pending_resource_count(
     if overlay_resource_count < 0 or pending_tombstone_count < 0:
         raise ValueError("inventory pending resource counts MUST NOT be negative")
     return overlay_resource_count + pending_tombstone_count
+
+
+def _projection_pending(value: object) -> bool:
+    """Return whether accepted observations remain outside the ontology fence."""
+    if value is None:
+        return False
+    if not isinstance(value, Mapping):
+        raise ValueError("inventory observation watermark state MUST be an object")
+    journal = value.get("journal_high_watermark", 0)
+    projection = value.get("ontology_projection_watermark", 0)
+    if (
+        not isinstance(journal, int)
+        or isinstance(journal, bool)
+        or journal < 0
+        or not isinstance(projection, int)
+        or isinstance(projection, bool)
+        or projection < 0
+        or projection > journal
+    ):
+        raise ValueError("inventory observation watermark state is invalid")
+    return journal > projection
 
 
 def has_unreconciled_change(

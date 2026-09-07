@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b22d02d34d6129c8aae63b94879cff93aa747d31
+translation_source_sha: adf27c28035c05afd20d36740f17db34853190c3
 translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
@@ -115,7 +115,7 @@ backlog 또는 이벤트 지연이 증가하면 scheduler는 사용할 수 있�
 throttling은 동시성을 줄이고 `Retry-After`를 따릅니다. 지속적인 사용 불가는 circuit을 열고
 계속 재시도하는 대신 범위가 제한된 probe를 예약합니다.
 더 최신의 실패 시도가 없으면 스케줄러는 활성 스냅샷 완료 후 경과 시간을 마지막 시도 후
-경과 시간으로 사용하고 오버레이 행이나 미확정 삭제 표식을 조정 대기로 처리합니다. 따라서
+경과 시간으로 사용하고 오버레이 행, 삭제 표식, 열린 변환 워터마크를 조정 대기로 처리합니다.
 변경 수요 또는 최대 노후 상태가 실패 시간 부재로 계속 연기되지 않습니다.
 로컬 장기 실행 루프는 모든 원본이 실패한 상황을 명시적으로 기록하고 구성된 루프 간격 후에
 다시 시도합니다. 일회성 예약 작업은 계속 실패하므로 조정기가 실패한 시도를 관측하고 통제할

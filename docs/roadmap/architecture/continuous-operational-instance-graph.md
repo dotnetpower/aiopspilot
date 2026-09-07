@@ -112,7 +112,7 @@ graph is current and churn is low, it increases the interval within the maximum 
 HTTP `429` and provider throttling reduce concurrency and honor `Retry-After`. Persistent
 unavailability opens the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
-last-attempt age and treats overlay rows or unconfirmed tombstones as pending reconciliation.
+last-attempt age and treats overlay rows, tombstones, or an open projection watermark as pending.
 Change demand or maximum staleness therefore cannot be deferred because a failure time is absent.
 The local long-running loop records exact all-source exhaustion and retries after the configured
 loop interval. A one-shot scheduled job still fails so its orchestrator can observe and govern the
