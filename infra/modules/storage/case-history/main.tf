@@ -83,7 +83,7 @@ resource "azurerm_role_assignment" "terraform_runner_data_owner" {
 
 resource "azurerm_role_assignment" "runtime_data_contributor" {
   scope                = azurerm_storage_account.case_history.id
-  role_definition_name = "Storage Blob Data Contributor"
+  role_definition_name = var.runtime_role_definition_name
   principal_id         = var.runtime_principal_id
 }
 
@@ -97,6 +97,14 @@ resource "azurerm_storage_container" "case_history" {
     azurerm_role_assignment.deployer_data_owner,
     azurerm_role_assignment.terraform_runner_data_owner,
   ]
+}
+
+resource "azurerm_storage_container_immutability_policy" "case_history" {
+  count = var.immutability_period_days > 0 ? 1 : 0
+
+  storage_container_resource_manager_id = azurerm_storage_container.case_history.resource_manager_id
+  immutability_period_in_days           = var.immutability_period_days
+  locked                                = false
 }
 
 resource "azurerm_monitor_diagnostic_setting" "case_history_blob" {

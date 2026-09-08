@@ -2269,7 +2269,7 @@ jobs:
             --file apply-receipt.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
           candidate="$RUNNER_TEMP/deployment-apply-artifact"
-          container_url="$(terraform output -raw operational_history_container_url 2>/dev/null || true)"
+          container_url="$(terraform output -raw decision_evidence_container_url 2>/dev/null || true)"
           if [[ -n "$container_url" ]]; then
             python3 ../scripts/deployment/azure/prepare_decision_evidence_candidate.py \
               --plan-metadata plan-metadata.json --preflight-evidence plan-preflight-evidence.json \
