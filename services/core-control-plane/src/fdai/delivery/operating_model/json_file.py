@@ -56,6 +56,19 @@ class JsonOperatingIntentSourceProvider:
         return operating_intent_source_document_from_mapping(raw)
 
 
+class _DuplicateJsonKeyError(ValueError):
+    pass
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJsonKeyError(f"duplicate JSON object key {key!r}")
+        result[key] = value
+    return result
+
+
 def _read_bounded_document(path: Path, max_bytes: int) -> Mapping[str, object]:
     with path.open("rb") as stream:
         content_bytes = stream.read(max_bytes + 1)
@@ -63,11 +76,15 @@ def _read_bounded_document(path: Path, max_bytes: int) -> Mapping[str, object]:
         raise ValueError("operating model file exceeds max_bytes")
     try:
         raw = normalize_json_value(
-            json.loads(content_bytes.decode("utf-8")),
+            json.loads(
+                content_bytes.decode("utf-8"),
+                object_pairs_hook=_unique_json_object,
+            ),
             path="operating_model",
         )
     except (
         UnicodeDecodeError,
+        _DuplicateJsonKeyError,
         json.JSONDecodeError,
         RecursionError,
         OntologyInstanceValidationError,

@@ -36,6 +36,7 @@ The dedicated source accepts only the six operating-intent ObjectTypes; any othe
 whole document instead of expanding this source's graph ownership.
 The adapter reads no more than `max_bytes + 1` bytes from one open file handle, so a replacement or
 growth between a metadata check and content read cannot bypass the configured size bound.
+JSON object keys must also be unique; a duplicate key cannot be collapsed before canonical hashing.
 
 The binding is **on by default**: the Core image ships an approved generic source at
 `/app/config/operating-intent/generic-source.json`, and the Terraform caller pins that path,
@@ -154,6 +155,7 @@ racing.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Rejected duplicate JSON object keys before normalization so last-write-wins parsing cannot hide raw document changes from the canonical digest. | `current change`; focused duplicate-key regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Replaced the separate file-size check and unbounded text read with one bounded binary read, closing the replacement/growth race. | `current change`; focused stale-stat regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Replaced raw exception persistence and logging with bounded reason codes and exception-type-only diagnostics. | `current change`; focused validation, lock, and projection failure regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Required the durable manifest's complete object and link inventory to match the pinned document before reusing a prior projection. | `current change`; focused manifest-corruption regression. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |

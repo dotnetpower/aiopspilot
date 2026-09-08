@@ -92,6 +92,17 @@ async def test_json_provider_rejects_excessive_parser_nesting(tmp_path: Path) ->
         await provider.load()
 
 
+async def test_json_provider_rejects_duplicate_object_keys(tmp_path: Path) -> None:
+    path = tmp_path / "operating-model.json"
+    path.write_text(
+        '{"source_revision":"revision-1","source_revision":"revision-2","objects":[],"links":[]}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="bounded canonical JSON"):
+        await JsonOperatingModelProvider(config=JsonOperatingModelProviderConfig(path=path)).load()
+
+
 async def test_json_provider_rejects_duplicate_link_identity(tmp_path: Path) -> None:
     path = tmp_path / "operating-model.json"
     link = {
