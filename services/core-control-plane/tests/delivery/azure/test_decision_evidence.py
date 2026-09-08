@@ -433,3 +433,32 @@ async def test_blob_admission_provider_returns_none_for_missing_record() -> None
         )
 
     assert resolved is None
+
+
+async def test_blob_admission_provider_degrades_on_storage_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    receipt = _receipt()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(403)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureBlobDecisionEvidenceAdmissionProvider(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            identity=_Identity(token_audience="https://storage.azure.com/"),
+            http_client=client,
+            clock=lambda: _NOW + timedelta(minutes=3),
+        )
+        resolved = await provider.admit(
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+        )
+
+    assert resolved is None
+    assert "decision_evidence_admission_storage_unavailable" in caplog.messages
