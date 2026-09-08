@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: a9f8d5489d627ef3355256f736db3490dc81c906
+translation_source_sha: c1c73db49ce46a384cde6491e5cea909c2cf0a6c
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 같은 값 비노출 RBAC 및 비공개 네트워크 조건을 유지하면서 runner에 따라 달라지는 일반 리소스 조회를 API 버전을 지정한 직접 ARM REST 읽기로 교체했습니다. | 실패한 작업 흐름 `34213551618`, 값을 노출하지 않은 직접 ARM REST 상태 검사, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 일반 ARM 리소스 응답이 고유한 태그 기반 Key Vault 목록 결과에서 이미 얻은 vault URI를 생략하므로 정확한 ARM 상태 검증을 RBAC와 공개 네트워크 접근으로 제한했습니다. | 실패한 작업 흐름 `34212885604`, 값을 노출하지 않은 직접 필드 비교, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 지원되지 않는 Key Vault CLI `show --id` 상태 조회를 정확한 API 버전을 지정한 ARM 리소스 읽기로 교체했습니다. | 실패한 작업 흐름 `34212165849`, 값을 노출하지 않은 직접 ARM 상태 검사, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 목록 응답에 RBAC 및 공개 네트워크 상태 필드가 포함되지 않으므로 비공개 vault 선택을 태그 기반 목록 조회와 정확한 리소스 재확인으로 분리했습니다. | 실패한 작업 흐름 `34211312612`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
