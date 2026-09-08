@@ -88,6 +88,7 @@ def _source_run() -> dict[str, object]:
         "id": _RUN_ID,
         "run_attempt": _RUN_ATTEMPT,
         "head_sha": _COMMIT,
+        "head_branch": "main",
         "path": ".github/workflows/deploy-dev.yml",
         "event": "workflow_dispatch",
         "status": "completed",
@@ -121,6 +122,24 @@ def test_builds_five_non_authorizing_proofs(
 def test_rejects_source_run_mismatch(verifier: ModuleType, tmp_path: Path) -> None:
     source_run = _source_run()
     source_run["head_sha"] = "f" * 40
+
+    with pytest.raises(verifier.DeploymentDecisionEvidenceError, match="source deployment run"):
+        verifier.build_deployment_decision_evidence(
+            evidence_dir=_evidence_dir(tmp_path),
+            source_run=source_run,
+            expected_commit_sha=_COMMIT,
+            expected_run_id=_RUN_ID,
+            expected_run_attempt=_RUN_ATTEMPT,
+            evaluated_at=_NOW,
+        )
+
+
+def test_rejects_source_run_from_non_main_branch(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    source_run = _source_run()
+    source_run["head_branch"] = "feature/untrusted"
 
     with pytest.raises(verifier.DeploymentDecisionEvidenceError, match="source deployment run"):
         verifier.build_deployment_decision_evidence(
