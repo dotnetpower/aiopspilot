@@ -332,7 +332,11 @@ def _project_ontology_evidence_health(value: object) -> SemanticAssuranceClaims:
         return SemanticAssuranceClaims()
     facts = {"evidence.completeness", "evidence.freshness"}
     conflicts = row.get("conflicts")
-    if isinstance(conflicts, list) and all(isinstance(item, str) for item in conflicts):
+    if (
+        isinstance(conflicts, list)
+        and conflicts
+        and all(isinstance(item, str) for item in conflicts)
+    ):
         facts.add("evidence.conflicts")
     source = row.get("source")
     if isinstance(source, Mapping):

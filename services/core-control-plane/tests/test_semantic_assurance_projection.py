@@ -508,6 +508,40 @@ def test_project_semantic_assurance_entails_evidence_health_claims() -> None:
     assert observation.evidence_posture == "incomplete"
 
 
+def test_empty_evidence_conflict_list_does_not_claim_a_conflict() -> None:
+    result = _function_result(
+        function_name="query.ontology_evidence_health",
+        value={
+            "rows": [
+                {
+                    "row_id": "evidence-health:Resource",
+                    "values": {
+                        "ontology_release_digest": _DIGEST,
+                        "object_type": "Resource",
+                        "availability": "available",
+                        "source": {
+                            "generation": "generation-1",
+                            "observed_at": "2026-08-22T00:00:00+00:00",
+                        },
+                        "freshness_state": "current",
+                        "complete": False,
+                        "conflicts": [],
+                        "execution_authority": False,
+                        "mutation_authority": False,
+                    },
+                }
+            ],
+            "complete": False,
+            "truncation_reason": "source_incomplete",
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert "evidence.conflicts" not in observation.fact_kinds
+    assert observation.evidence_posture == "incomplete"
+
+
 def test_project_semantic_assurance_entails_incident_claims_and_gaps() -> None:
     result = _function_result(
         function_name="query.incident_evidence",

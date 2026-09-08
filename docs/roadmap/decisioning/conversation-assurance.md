@@ -44,6 +44,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Stopped an empty evidence-conflict array from creating the `evidence.conflicts` fact used by secondary Console warnings. | `current change`; focused semantic assurance projection checks passed 21 tests. | Retain authenticated mixed-posture evidence separately. |
 | 2026-09-08 | implemented | Bound displayed assessment detail to the stored question and answer digests, preferred the assessed Pantheon answer over its generic terminal fallback, and aligned text limits with the 16,384-character assessment contract. | `current change`; focused assurance reader checks passed 5 tests. | Retain authenticated detail evidence separately. |
 | 2026-09-08 | implemented | Required the semantic terminal result to carry the same authenticated principal as its owning request before assessment detail can expose answer text. | `current change`; focused assurance reader checks passed 4 tests. | Retain authenticated cross-principal denial evidence separately. |
 | 2026-09-08 | implemented | Exposed completed, deferred, and disputed assessment lifecycle states as a dedicated localized Console column instead of presenting every row as completed. | `current change`; focused Conversation assurance and catalog checks passed 11 tests, Console typecheck passed, and catalog parity passed. | Validate representative lifecycle rows in an authenticated Browser Entra session. |
