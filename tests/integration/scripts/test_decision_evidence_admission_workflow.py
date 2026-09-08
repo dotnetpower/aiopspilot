@@ -19,6 +19,7 @@ def test_workflow_is_exact_revision_and_source_run_bound() -> None:
     assert "actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" in _WORKFLOW
     assert '[[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]' in _WORKFLOW
     assert "deployment-apply-receipt-${PLAN_ID}" in _WORKFLOW
+    assert "--policy config/decision-evidence-deployment-policy.json" in _WORKFLOW
 
 
 def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
