@@ -133,7 +133,10 @@ def build_bootstrap_plan(
         requires_initial_identity=(llm_mode == LlmMode.AZURE or identity_requests.any_requested),
         consumer_requires_workload_identity=(venue is not None and uses_workload_identity(venue)),
         github_change_feed_enabled=github_credentials_configured(environment),
-        chatops_enabled=bool(environment.get("FDAI_CHATOPS_WEBHOOK_URL")),
+        chatops_enabled=bool(
+            environment.get("FDAI_CHATOPS_WEBHOOK_URL")
+            or environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL")
+        ),
         email_enabled=bool(environment.get("FDAI_EMAIL_ENDPOINT")),
         auxiliary_kafka_bootstrap_servers=auxiliary_bootstrap or None,
         pantheon_object_topic=environment.get(

@@ -652,6 +652,7 @@ def _clear_chatops_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "FDAI_TEAMS_APPROVAL_TEAM_ID",
         "FDAI_TEAMS_APPROVAL_CHANNEL_ID",
         "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "FDAI_TEAMS_BOT_MI_CLIENT_ID",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -662,6 +663,10 @@ def _set_teams_approval_destination(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(
         "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
         "https://smba.example.com/v3/conversations/approval-channel/activities",
+    )
+    monkeypatch.setenv(
+        "FDAI_TEAMS_BOT_MI_CLIENT_ID",
+        "00000000-0000-0000-0000-000000000042",
     )
 
 
@@ -1461,6 +1466,7 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
         default_container(app_config),
         http_client=httpx.AsyncClient(),
         identity=_TeamsWorkloadIdentity(),
+        hil_identity=_TeamsWorkloadIdentity(),
         mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
     )
     assert loop._hil_resume_coordinator is not None
@@ -1468,6 +1474,24 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     supervisor = loop._hil_resume_coordinator.escalation_supervisor
     assert supervisor is not None
     assert supervisor.policy.mode is Mode.SHADOW
+
+
+def test_build_control_loop_does_not_reuse_execution_identity_for_hil(
+    monkeypatch: pytest.MonkeyPatch,
+    app_config: AppConfig,
+) -> None:
+    monkeypatch.setenv("FDAI_CHATOPS_WEBHOOK_URL", "https://example.com/webhook")
+    _set_teams_approval_destination(monkeypatch)
+    from fdai.__main__ import _build_control_loop
+    from fdai.composition import default_container
+
+    with pytest.raises(RuntimeError, match="requires a workload identity"):
+        _build_control_loop(
+            default_container(app_config),
+            http_client=httpx.AsyncClient(),
+            identity=_TeamsWorkloadIdentity(),
+            mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+        )
 
 
 def test_semantic_router_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:

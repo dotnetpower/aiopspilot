@@ -119,29 +119,38 @@ variable "teams_notification_binding" {
 variable "teams_approval_destination" {
   description = "Optional group-connected Teams destination and Bot activity endpoint for A1."
   type = object({
-    team_id      = string
-    channel_id   = string
-    activity_url = string
+    team_id              = string
+    channel_id           = string
+    activity_url         = string
+    identity_resource_id = string
+    identity_client_id   = string
   })
   default = {
-    team_id      = ""
-    channel_id   = ""
-    activity_url = ""
+    team_id              = ""
+    channel_id           = ""
+    activity_url         = ""
+    identity_resource_id = ""
+    identity_client_id   = ""
   }
   validation {
     condition = length(compact([
       var.teams_approval_destination.team_id,
       var.teams_approval_destination.channel_id,
       var.teams_approval_destination.activity_url,
+      var.teams_approval_destination.identity_resource_id,
+      var.teams_approval_destination.identity_client_id,
       ])) == 0 || (
       length(compact([
         var.teams_approval_destination.team_id,
         var.teams_approval_destination.channel_id,
         var.teams_approval_destination.activity_url,
-      ])) == 3 &&
-      startswith(var.teams_approval_destination.activity_url, "https://")
+        var.teams_approval_destination.identity_resource_id,
+        var.teams_approval_destination.identity_client_id,
+      ])) == 5 &&
+      startswith(var.teams_approval_destination.activity_url, "https://") &&
+      startswith(var.teams_approval_destination.identity_resource_id, "/subscriptions/")
     )
-    error_message = "Teams approval team_id, channel_id, and HTTPS activity_url must be configured together."
+    error_message = "Teams approval team_id, channel_id, HTTPS activity_url, identity_resource_id, and identity_client_id must be configured together."
   }
 }
 

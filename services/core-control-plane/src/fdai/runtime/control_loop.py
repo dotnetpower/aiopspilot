@@ -249,6 +249,7 @@ def _build_control_loop(
     tool_receipt_observer: ToolReceiptObserver | None = None,
     symptom_index: SymptomIndex | None = None,
     identity: WorkloadIdentity | None = None,
+    hil_identity: WorkloadIdentity | None = None,
     response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
     effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
     current_reuse_verifier: CurrentReuseVerifier | None = None,
@@ -587,13 +588,13 @@ def _build_control_loop(
     # the immutable Container; absent either source, the side path abstains.
 
     # HIL approval round-trip (Notify-on-decision step B). Opt-in: only
-    # when a HIL channel is configured (``FDAI_CHATOPS_WEBHOOK_URL``)
+    # when a HIL channel is configured
     # does the loop park a HIL-routed action and push an A1 approval
     # card. Absent -> ``None`` so the loop records the HIL verdict and
     # stops at the persisted queue (backward-compatible). Parking never
     # turns a HIL verdict into an execution - the coordinator holds the
     # no-self-approval + idempotency invariants.
-    hil_channel = _build_hil_channel(http_client, identity)
+    hil_channel = _build_hil_channel(http_client, hil_identity)
     approval_load_policy = _load_approval_load_policy(catalog_root)
     escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
     escalation_supervisor = (

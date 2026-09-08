@@ -23,11 +23,12 @@ module "container_app" {
   name     = var.name
   platform = var.platform
   image    = var.image
-  identity_ids = concat(
+  identity_ids = distinct(concat(
     [var.identity.resource_id],
     var.identity.extra_resource_ids,
     var.rca_reader_identity.resource_id == "" ? [] : [var.rca_reader_identity.resource_id],
-  )
+    var.teams_approval_destination.identity_resource_id == "" ? [] : [var.teams_approval_destination.identity_resource_id],
+  ))
   registry_identity_id = var.identity.resource_id
   command              = ["fdai-core-control-plane"]
   args                 = []
@@ -122,6 +123,7 @@ module "container_app" {
     { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },
     { name = "FDAI_TEAMS_APPROVAL_ACTIVITY_URL", value = var.teams_approval_destination.activity_url },
+    { name = "FDAI_TEAMS_BOT_MI_CLIENT_ID", value = var.teams_approval_destination.identity_client_id },
     ], !var.observation_context.enabled ? [] : [
     { name = "FDAI_OHL_OBSERVATION_SIGNING_SEED", secret_name = "ohl-observation-signing-seed" },
     { name = "FDAI_OHL_OBSERVER_IDENTITY", value = "observer:heimdall:azure-container-apps" },

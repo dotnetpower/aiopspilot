@@ -237,6 +237,15 @@ async def build_core_runtime(
         plan.requires_channel_http_client or gitops_delivery_requested
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
+    hil_identity = None
+    if environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip():
+        if resources.http_client is None:  # pragma: no cover - guarded by the bootstrap plan
+            raise RuntimeError("Teams approval Bot delivery requires an HTTP client")
+        hil_identity = _build_runtime_workload_identity(
+            resources.http_client,
+            client_id_env="FDAI_TEAMS_BOT_MI_CLIENT_ID",
+            require_client_id=True,
+        )
     if plan.github_change_feed_enabled and resources.http_client is not None:
         container = _attach_runtime_github_change_feed(
             container,
@@ -467,6 +476,7 @@ async def build_core_runtime(
         tool_receipt_observer=incident_runtime.observe_tool_receipt,
         symptom_index=symptom_index,
         identity=identity,
+        hil_identity=hil_identity,
         execution_identities=_build_vertical_execution_identities(
             http_client=resources.http_client,
         ),

@@ -324,7 +324,23 @@ def _stewardship_adoption_plan(
         ]
     )
     if service == "core-control-plane":
-        after_environment.append({"name": "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "value": "true"})
+        after_environment.extend(
+            [
+                {"name": "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "value": "true"},
+                {
+                    "name": "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+                    "value": (
+                        "https://smba.example.com/v3/conversations/approval-channel/activities"
+                    ),
+                },
+                {"name": "FDAI_TEAMS_APPROVAL_CHANNEL_ID", "value": "approval-channel"},
+                {"name": "FDAI_TEAMS_APPROVAL_TEAM_ID", "value": "approval-team"},
+                {
+                    "name": "FDAI_TEAMS_BOT_MI_CLIENT_ID",
+                    "value": "00000000-0000-0000-0000-000000000042",
+                },
+            ]
+        )
     else:
         after_environment.extend(
             [
@@ -1456,6 +1472,30 @@ def test_plan_guard_rejects_unrelated_stewardship_adoption_drift(
         guard.validate_plan(
             plan,
             service="document-ingestion-api",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_rejects_stewardship_adoption_without_complete_teams_bot(
+    guard: ModuleType,
+) -> None:
+    plan = _stewardship_adoption_plan(
+        guard,
+        service="core-control-plane",
+        auth_mode="github_app",
+    )
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment[:] = [
+        item for item in after_environment if item["name"] != "FDAI_TEAMS_BOT_MI_CLIENT_ID"
+    ]
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
             environment="dev",
             image_ref="image",
         )

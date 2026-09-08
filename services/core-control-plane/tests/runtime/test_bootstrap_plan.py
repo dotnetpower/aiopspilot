@@ -139,7 +139,12 @@ def test_bootstrap_plan_rejects_diagnostic_stream_without_consumer() -> None:
 
 @pytest.mark.parametrize(
     "environment_key",
-    ["FDAI_GITOPS_TOKEN", "FDAI_CHATOPS_WEBHOOK_URL", "FDAI_EMAIL_ENDPOINT"],
+    [
+        "FDAI_GITOPS_TOKEN",
+        "FDAI_CHATOPS_WEBHOOK_URL",
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "FDAI_EMAIL_ENDPOINT",
+    ],
 )
 def test_bootstrap_plan_identifies_each_http_channel(environment_key: str) -> None:
     plan = build_bootstrap_plan(

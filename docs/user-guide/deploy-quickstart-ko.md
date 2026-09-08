@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 1d9107b9901fc18fe20bddd89ee5f47563142f65
+translation_source_sha: 48c6da35ae5713793931daa984f34772a0252cc1
 translation_revised: 2026-09-09
 ---
 
@@ -66,8 +66,8 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
   적용하세요. Edge identity에는 executor role을 부여하지 않습니다.
-- A1 승인을 사용하려면 그룹 연결 Teams 팀, 채널 및 HTTPS Bot 액티비티 endpoint를 함께
-  구성하거나 Slack 워크스페이스와 사용자-Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
+- A1 승인을 사용하려면 그룹 연결 Teams 팀, 채널, HTTPS Bot activity endpoint 및 전용 Bot
+  관리 ID를 함께 구성하거나 Slack과 Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
   Key Vault 또는 로컬 전용 배포 입력에 보관합니다. 채널 권한 구성이 없거나 일부뿐이면 승인을
   사용할 수 없으며 Incoming Webhook으로 대체하지 않습니다.
 - 교차 테넌트 SharePoint 인제스트를 사용하려면 Microsoft 365 테넌트에 애플리케이션을

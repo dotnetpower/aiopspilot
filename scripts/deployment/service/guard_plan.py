@@ -111,6 +111,10 @@ _CORE_STEWARDSHIP_ENVIRONMENT = frozenset(
         "FDAI_GITOPS_OWNER",
         "FDAI_GITOPS_REPO",
         "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED",
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "FDAI_TEAMS_APPROVAL_CHANNEL_ID",
+        "FDAI_TEAMS_APPROVAL_TEAM_ID",
+        "FDAI_TEAMS_BOT_MI_CLIENT_ID",
     }
 )
 _INGESTION_STEWARDSHIP_ENVIRONMENT = frozenset(
@@ -964,6 +968,22 @@ def _stewardship_auth_adoption(
         }
     )
     if any(values[name] != ("1", None) and values[name] != ("true", None) for name in flag_names):
+        return None
+    if contract.service == "core-control-plane" and (
+        values["FDAI_TEAMS_APPROVAL_ACTIVITY_URL"][1] is not None
+        or not isinstance(values["FDAI_TEAMS_APPROVAL_ACTIVITY_URL"][0], str)
+        or not values["FDAI_TEAMS_APPROVAL_ACTIVITY_URL"][0].startswith("https://")
+        or any(
+            values[name][1] is not None
+            or not isinstance(values[name][0], str)
+            or not values[name][0]
+            for name in (
+                "FDAI_TEAMS_APPROVAL_CHANNEL_ID",
+                "FDAI_TEAMS_APPROVAL_TEAM_ID",
+                "FDAI_TEAMS_BOT_MI_CLIENT_ID",
+            )
+        )
+    ):
         return None
     if auth_names == _STATIC_GITHUB_AUTH_ENVIRONMENT:
         if values["FDAI_GITOPS_TOKEN"] != (None, "stewardship-gitops-token"):

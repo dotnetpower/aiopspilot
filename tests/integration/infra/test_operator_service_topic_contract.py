@@ -58,6 +58,8 @@ def test_approval_team_channel_is_separate_from_role_groups_and_shared_with_core
         assert environment_name in _MODULE
         assert environment_name in core
     assert "FDAI_TEAMS_APPROVAL_ACTIVITY_URL" in core
+    assert "FDAI_TEAMS_BOT_MI_CLIENT_ID" in core
+    assert "var.teams_approval_destination.identity_resource_id" in core
     assert (
         "var.rbac.approvers_group_id"
         not in _MODULE.split(

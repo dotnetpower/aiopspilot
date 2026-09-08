@@ -81,9 +81,11 @@ variable "stewardship_gitops" {
 
 variable "teams_approval_destination" {
   type = object({
-    team_id      = string
-    channel_id   = string
-    activity_url = string
+    team_id              = string
+    channel_id           = string
+    activity_url         = string
+    identity_resource_id = string
+    identity_client_id   = string
   })
 }
 variable "database" {

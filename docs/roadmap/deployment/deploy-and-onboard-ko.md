@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ffda9f74747ebfe120a372bcee8bd07bdeede0b9
+translation_source_sha: 243c8141bb8083311765e37d878e6cc2ee542506
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -324,7 +324,7 @@ Event Hubs Kafka를 계속 요구합니다.
   Entra ID P1에서 이용 가능
   ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
 - **Azure Bot (Free 계층, 미프로비저닝)** - Teams Adaptive 카드 채널을 선택한 다운스트림
-  배포가 별도로 제공합니다. 업스트림 Terraform은 signed 웹훅 경계만 배포합니다.
+  배포가 제공합니다. 서비스 Terraform은 전용 ID와 endpoint를 받지만 Bot은 만들지 않습니다.
 - **서명된 HIL 웹훅** - 운영은 CI 시크릿으로 URL과 32자 이상의 HMAC 시크릿을
   제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
   콜백 시크릿만 전달합니다. 그룹 연결 승인 팀과 채널은 Core와 Operator가 공유하는 별도 배포 슬롯이며 RBAC 그룹 id는 역할 배정에만 사용합니다.
@@ -537,7 +537,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. Shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
 | `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). 시작 시 바인딩되며, 비어 있거나 없으면 전체 카탈로그를 유지합니다. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
-| `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` / `FDAI_TEAMS_APPLICATION_ID` / `FDAI_TEAMS_TENANT_ID` / `FDAI_TEAMS_APPROVAL_TEAM_ID` / `FDAI_TEAMS_APPROVAL_CHANNEL_ID` / `FDAI_TEAMS_APPROVAL_ACTIVITY_URL` / `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON` / `FDAI_TEAMS_JWKS_URL` / `FDAI_TEAMS_PRINCIPAL_MAP_JSON` / `FDAI_SLACK_TEAM_ID` / `FDAI_SLACK_PRINCIPAL_MAP_JSON` | env + KV 참조 | 배포 | 사람 승인 콜백에는 PostgreSQL, Kafka, 범위가 제한된 워크플로 시간 초과 및 내부 Slack 중계용 공유 HMAC 비밀이 필요합니다. Teams에는 완전한 Bot 애플리케이션, 테넌트, 그룹 연결 팀/채널 액티비티 endpoint, 서비스 토큰 신뢰 입력 및 주체 매핑이 필요합니다. Slack은 워크스페이스와 주체 매핑이 완전하면 독립 운영할 수 있습니다. 일부 구성은 사용할 수 없습니다. |
+| `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` / `FDAI_TEAMS_APPLICATION_ID` / `FDAI_TEAMS_TENANT_ID` / `FDAI_TEAMS_APPROVAL_TEAM_ID` / `FDAI_TEAMS_APPROVAL_CHANNEL_ID` / `FDAI_TEAMS_APPROVAL_ACTIVITY_URL` / `FDAI_TEAMS_BOT_MI_CLIENT_ID` / `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON` / `FDAI_TEAMS_JWKS_URL` / `FDAI_TEAMS_PRINCIPAL_MAP_JSON` / `FDAI_SLACK_TEAM_ID` / `FDAI_SLACK_PRINCIPAL_MAP_JSON` | env + KV 참조 | 배포 | 사람 승인 콜백에는 PostgreSQL, Kafka, 범위가 제한된 워크플로 시간 초과 및 내부 Slack 중계용 공유 HMAC 비밀이 필요합니다. Teams에는 완전한 Bot 애플리케이션, 테넌트, 그룹 연결 팀/채널 activity endpoint, 전용 Bot 관리 ID, 서비스 토큰 신뢰 입력 및 주체 매핑이 필요합니다. Slack은 워크스페이스와 주체 매핑이 완전하면 독립 운영할 수 있습니다. 일부 구성은 사용할 수 없습니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 영속 결정 보낼 편지함이 사용하는 Event Hubs Kafka 엔드포인트입니다. 토픽 기본값은 `fdai.hil.decisions`입니다. Operator는 먼저 영속화하고 정확한 결정 필드를 게시한 뒤 브로커 수락 후에만 전달 완료로 표시합니다. Core는 같은 토픽을 소비하고 재개와 실행을 소유합니다. |
 | `FDAI_NOTIFICATION_RECEIPT_SECRET` / `FDAI_NOTIFICATION_RECEIPT_TOPIC` | env + KV 참조 | 배포 | 게시 자동화가 서명하는 게시 접수 콜백을 인증합니다. 토픽은 기존 기본 물리 토픽에 multiplex되는 고정 논리 이름 `fdai.notifications.delivery-receipts`이며, 다른 값을 설정하면 시작이 차단됩니다. 시크릿에는 PostgreSQL, 의미 전송 계층의 물리 토픽 및 구성된 Kafka 접수 전송이 필요합니다. 시크릿이 없으면 ingress는 바인딩된 상태로 닫혀 있으므로 서명되지 않은 콜백은 조용히 버려지지 않고 거부됩니다. 결과적인 `delivered` 또는 `retryable_failed` 전이는 Core만 적용합니다. |
 | `FDAI_TEAMS_NOTIFICATION_ENDPOINT` / `FDAI_NOTIFICATION_BINDINGS_JSON` | env + KV 참조 | 배포 | `enable_teams_notification_delivery`와 `teams_notification_binding`이 A2/A4 Teams 전달을 활성화할 때만 Terraform이 함께 공급합니다. Console에서 endpoint를 저장하거나 테스트해도 설정되지 않습니다. 컨트롤 플레인은 endpoint 시크릿에 읽기 전용 권한만 가지며 초기 `unconfigured` placeholder는 시작 시 거부합니다. |

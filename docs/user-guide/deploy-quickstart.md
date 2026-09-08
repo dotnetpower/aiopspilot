@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: ffda9f74747ebfe120a372bcee8bd07bdeede0b9 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 243c8141bb8083311765e37d878e6cc2ee542506 }]
 ---
 
 # Deploy Quickstart
@@ -76,8 +76,8 @@ Terraform remains an expert path.
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
   Operator service `enable` plan. The edge identity receives no executor role.
-- To enable A1 approval, configure the group-connected Teams team, channel, and HTTPS Bot activity
-  endpoint together, or configure the Slack workspace and user-to-Entra mapping together. Keep
+- To enable A1 approval, configure the group-connected Teams team, channel, HTTPS Bot activity
+  endpoint, and dedicated Bot managed identity together, or configure Slack and its Entra mapping. Keep
   mapping values and signing inputs in Key Vault or local-only deployment inputs. Missing or partial
   channel authority leaves approval unavailable; it never falls back to an Incoming Webhook.
 - To enable cross-tenant SharePoint intake, register an application in the Microsoft 365 tenant and
