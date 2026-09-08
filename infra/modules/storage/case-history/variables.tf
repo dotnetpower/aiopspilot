@@ -32,6 +32,34 @@ variable "runtime_principal_id" {
   type        = string
 }
 
+variable "runtime_role_definition_name" {
+  description = "Blob data-plane role granted to the runtime principal."
+  type        = string
+  default     = "Storage Blob Data Contributor"
+
+  validation {
+    condition = contains(
+      ["Storage Blob Data Reader", "Storage Blob Data Contributor"],
+      var.runtime_role_definition_name,
+    )
+    error_message = "runtime_role_definition_name MUST be Reader or Contributor."
+  }
+}
+
+variable "immutability_period_days" {
+  description = "Optional time-based WORM period for the container."
+  type        = number
+  default     = 0
+
+  validation {
+    condition = (
+      var.immutability_period_days == 0 ||
+      (var.immutability_period_days >= 1 && var.immutability_period_days <= 365)
+    )
+    error_message = "immutability_period_days MUST be 0 or in [1, 365]."
+  }
+}
+
 variable "log_analytics_workspace_id" {
   description = "Log Analytics workspace receiving case-history Blob access diagnostics."
   type        = string
@@ -86,8 +114,11 @@ variable "version_retention_days" {
   default = 90
 
   validation {
-    condition     = var.version_retention_days >= var.soft_delete_retention_days
-    error_message = "version_retention_days MUST be >= soft_delete_retention_days."
+    condition = (
+      var.version_retention_days >= var.soft_delete_retention_days &&
+      var.version_retention_days >= var.immutability_period_days
+    )
+    error_message = "version_retention_days MUST cover soft delete and immutability."
   }
 }
 
