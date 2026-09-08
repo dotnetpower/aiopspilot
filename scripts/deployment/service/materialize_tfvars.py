@@ -63,6 +63,33 @@ def _https_origin(value: object) -> str:
     return endpoint
 
 
+def _https_container_url(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise TfvarsError("decision evidence container URL is missing")
+    url = value.strip().rstrip("/")
+    try:
+        parsed = urlsplit(url)
+        parsed.port  # noqa: B018
+    except ValueError as exc:
+        raise TfvarsError(
+            "decision evidence container URL must identify one HTTPS container"
+        ) from exc
+    segments = tuple(segment for segment in parsed.path.split("/") if segment)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or len(segments) != 1
+        or "\\" in url
+        or any(character.isspace() for character in url)
+    ):
+        raise TfvarsError("decision evidence container URL must identify one HTTPS container")
+    return url
+
+
 def _candidate_endpoints(payload: dict[str, Any], key: str) -> set[str]:
     candidates = payload.get(key, [])
     if not isinstance(candidates, list):
@@ -341,6 +368,7 @@ def select_tfvars(
     web_search_requested: bool = False,
     web_search_allowed_domains: list[str] | None = None,
     stewardship_gitops: dict[str, Any] | None = None,
+    decision_evidence_container_url: str = "",
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -397,6 +425,14 @@ def select_tfvars(
         )
     elif stewardship_gitops is not None:
         raise TfvarsError("stewardship GitOps binding is valid only for Core or document ingestion")
+    if decision_evidence_container_url:
+        if service != "core-control-plane":
+            raise TfvarsError(
+                "decision evidence container binding is valid only for core-control-plane"
+            )
+        materialized["decision_evidence_container_url"] = _https_container_url(
+            decision_evidence_container_url
+        )
     return materialized
 
 
@@ -490,6 +526,10 @@ def main() -> int:
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
             stewardship_gitops=_optional_object_environment("STEWARDSHIP_GITOPS_JSON"),
+            decision_evidence_container_url=os.environ.get(
+                "DECISION_EVIDENCE_CONTAINER_URL",
+                "",
+            ),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:

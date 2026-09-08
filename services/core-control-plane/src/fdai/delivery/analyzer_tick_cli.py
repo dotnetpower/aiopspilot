@@ -60,6 +60,7 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
+    StateStoreDecisionEvidenceAdmissionProvider,
 )
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
@@ -458,6 +459,27 @@ def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
     )
 
 
+def build_decision_evidence_admission_provider() -> (
+    StateStoreDecisionEvidenceAdmissionProvider | None
+):
+    """Bind the durable admission lookup used by target selection."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        _LOGGER.warning(
+            "analyzer_decision_evidence_unavailable",
+            extra={"reason": "state_store_dsn_absent"},
+        )
+        return None
+    return StateStoreDecisionEvidenceAdmissionProvider(
+        store=PostgresStateStore(
+            config=PostgresStateStoreConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
+        )
+    )
+
+
 def build_analyzer_coordinator(metric_provider: MetricProvider) -> InvestigationCoordinator:
     """Compose every production analyzer this venue can actually ground.
 
@@ -488,6 +510,7 @@ async def run_once() -> AnalyzerJobReport:
         store=build_inventory_projection(),
         now=datetime.now(tz=UTC),
         max_discovered=max_discovered,
+        decision_evidence=build_decision_evidence_admission_provider(),
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets

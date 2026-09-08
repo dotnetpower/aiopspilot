@@ -401,6 +401,7 @@ def build_operational_readiness_event_handler(
     feasibility_probes: Sequence[FeasibilityProbe],
     event_validator: EventValidator,
     state_store: StateStore,
+    decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     best_practices: Sequence[BestPractice] = (),
     checklist_evidence: ChecklistEvidenceProvider | None = None,
 ) -> OperationalReadinessEventHandler | None:
@@ -423,6 +424,7 @@ def build_operational_readiness_event_handler(
             mode=mode,
             best_practices=best_practices,
             checklist_evidence=checklist_evidence,
+            decision_evidence=decision_evidence,
         ),
     )
 

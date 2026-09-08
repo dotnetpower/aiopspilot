@@ -128,6 +128,51 @@ def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> N
     assert payload["environments"]["dev"]["core-control-plane"]["llm"] == {"endpoint": "stale"}
 
 
+def test_binds_private_decision_evidence_container_for_core(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "platform": {},
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        decision_evidence_container_url="https://example.com/operational-history/",
+    )
+
+    assert selected["decision_evidence_container_url"] == (
+        "https://example.com/operational-history"
+    )
+
+
+def test_rejects_decision_evidence_container_for_other_service(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "platform": {},
+                }
+            }
+        }
+    }
+
+    with pytest.raises(tfvars.TfvarsError, match="valid only for core-control-plane"):
+        tfvars.select_tfvars(
+            payload,
+            service="operator-service",
+            environment="dev",
+            decision_evidence_container_url="https://example.com/operational-history",
+        )
+
+
 def test_derives_foundry_endpoint_from_authoritative_platform_map(tfvars: ModuleType) -> None:
     foundry_ref = "azure-foundry:aif-fdai-models"
     foundry_endpoint = "https://aif-fdai-models.services.ai.azure.com"

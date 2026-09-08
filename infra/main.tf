@@ -1353,6 +1353,43 @@ module "operational_history_storage" {
   tags = merge(local.tags, { "fdai:component" = "operational-history" })
 }
 
+# Decision-evidence admissions use a dedicated immutable container. The runtime
+# can read but cannot mint, overwrite, or delete records.
+module "decision_evidence_storage" {
+  count  = var.enable_operational_history ? 1 : 0
+  source = "./modules/storage/case-history"
+
+  name = substr(
+    "st${var.workload}de${local.acr_suffix}${local.storage_unique_suffix}", 0, 24
+  )
+  resource_group_name           = module.resource_group.name
+  location                      = var.region
+  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  runtime_principal_id          = module.identity.principal_id
+  runtime_role_definition_name  = "Storage Blob Data Reader"
+  log_analytics_workspace_id    = module.log_analytics.workspace_id
+  container_name                = "decision-evidence"
+  replication_type              = var.operational_history_replication_type
+  public_network_access_enabled = !var.enable_private_networking
+  soft_delete_retention_days    = var.operational_history_soft_delete_retention_days
+  version_retention_days        = var.operational_history_version_retention_days
+  immutability_period_days      = 90
+  private_link_access = var.enable_private_networking ? {
+    defender_storage_data_scanner = {
+      endpoint_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Security/datascanners/StorageDataScanner"
+      endpoint_tenant_id   = var.tenant_id
+    }
+  } : {}
+  tags = merge(local.tags, { "fdai:component" = "decision-evidence" })
+}
+
+resource "azurerm_role_assignment" "decision_evidence_inventory_reader" {
+  count                = var.enable_operational_history ? 1 : 0
+  scope                = module.decision_evidence_storage[0].id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = module.inventory_identity.principal_id
+}
+
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).
 # Only when private networking is on; this is what lets a VNet-resident deploy
 # host (CI runner / jumpbox) and the VNet-integrated Container App reach the
@@ -1456,6 +1493,45 @@ resource "azurerm_private_endpoint" "operational_history_blob" {
     precondition {
       condition     = var.enable_case_history
       error_message = "Operational-history private networking reuses the required case-history Blob private DNS zone."
+    }
+  }
+}
+
+resource "azurerm_private_endpoint" "decision_evidence_blob" {
+  count               = var.enable_operational_history && var.enable_private_networking ? 1 : 0
+  name                = "pe-de-blob-${var.workload}${local.full_suffix}"
+  location            = var.region
+  resource_group_name = module.resource_group.name
+  subnet_id = format(
+    "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/snet-pe",
+    data.azurerm_client_config.current.subscription_id,
+    module.resource_group.name,
+    "vnet-${var.workload}${local.full_suffix}",
+  )
+  tags = merge(local.tags, { "fdai:component" = "decision-evidence" })
+
+  private_service_connection {
+    name                           = "pe-de-blob-${var.workload}${local.full_suffix}-psc"
+    private_connection_resource_id = module.decision_evidence_storage[0].id
+    subresource_names              = ["blob"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name = "default"
+    private_dns_zone_ids = [
+      format(
+        "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net",
+        data.azurerm_client_config.current.subscription_id,
+        module.resource_group.name,
+      )
+    ]
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_case_history
+      error_message = "Decision-evidence private networking reuses the required case-history Blob private DNS zone."
     }
   }
 }

@@ -64,6 +64,7 @@ class DecisionEvidenceReadinessResult:
     reason: DecisionEvidenceReadinessReason
     receipt_digest: str
     verification_bundle_digest: str | None = None
+    verification_bundle: DecisionEvidenceVerificationBundle | None = None
     admission: DecisionEvidenceAdmission | None = None
     rejection_details: tuple[str, ...] = ()
     execution_authority: Literal[False] = False
@@ -76,11 +77,18 @@ class DecisionEvidenceReadinessResult:
             raise ValueError("decision evidence readiness eligibility mismatched its reason")
         if self.eligible != (self.admission is not None):
             raise ValueError("decision evidence readiness admission mismatched eligibility")
+        if self.eligible != (self.verification_bundle is not None):
+            raise ValueError("decision evidence readiness bundle mismatched eligibility")
         if self.admission is not None and (
             self.admission.receipt_digest != self.receipt_digest
             or self.admission.verification_bundle_digest != self.verification_bundle_digest
         ):
             raise ValueError("decision evidence readiness admission mismatched result digests")
+        if self.verification_bundle is not None and (
+            self.verification_bundle.receipt_digest != self.receipt_digest
+            or self.verification_bundle.bundle_digest != self.verification_bundle_digest
+        ):
+            raise ValueError("decision evidence readiness bundle mismatched result digests")
 
 
 class DecisionEvidenceReadinessGate:
@@ -400,6 +408,7 @@ def _evaluate_bundle(
         reason=DecisionEvidenceReadinessReason.VERIFIED,
         receipt_digest=receipt.receipt_digest,
         verification_bundle_digest=bundle.bundle_digest,
+        verification_bundle=bundle,
         admission=DecisionEvidenceAdmission(
             receipt_digest=receipt.receipt_digest,
             verification_bundle_digest=bundle.bundle_digest,

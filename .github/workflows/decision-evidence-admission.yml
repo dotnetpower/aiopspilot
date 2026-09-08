@@ -1,0 +1,303 @@
+name: decision-evidence-admission
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Protected environment that produced the deployment evidence."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      commit_sha:
+        description: "Exact protected-main commit used by the source deployment."
+        type: string
+        required: true
+      source_run_id:
+        description: "Successful deploy-dev workflow run id."
+        type: string
+        required: true
+      source_run_attempt:
+        description: "Successful deploy-dev workflow run attempt."
+        type: string
+        required: true
+      plan_id:
+        description: "Exact protected plan id consumed by the source deployment."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: decision-evidence-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  verify-retain-attest:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/decision-evidence-admission.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact evidence controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Verify exact source and input shape
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          PLAN_ID: ${{ inputs.plan_id }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
+          git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+
+      - name: Authenticate deploy-runner identity
+        env:
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          az login --identity --client-id "$DEPLOY_RUNNER_CLIENT_ID" --allow-no-subscriptions \
+            --output none
+          az account set --subscription "$ARM_SUBSCRIPTION_ID"
+          "$GITHUB_WORKSPACE/scripts/deployment/azure/verify-azure-context.sh"
+
+      - name: Download exact source candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          PLAN_ID: ${{ inputs.plan_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" \
+            > "$RUNNER_TEMP/source-run.json"
+          gh run download "$SOURCE_RUN_ID" \
+            --attempt "$SOURCE_RUN_ATTEMPT" \
+            --name "deployment-apply-receipt-${PLAN_ID}" \
+            --dir "$RUNNER_TEMP/source-evidence"
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Verify deployment evidence and build proof inputs
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          set -euo pipefail
+          evaluated_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          export UV_CACHE_DIR="$RUNNER_TEMP/uv-cache"
+          uv run --frozen --package fdai-core-control-plane \
+            python scripts/deployment/azure/deployment_decision_evidence.py \
+              --evidence-dir "$RUNNER_TEMP/source-evidence" \
+              --source-run-json "$RUNNER_TEMP/source-run.json" \
+              --commit-sha "$TARGET_COMMIT_SHA" \
+              --run-id "$SOURCE_RUN_ID" \
+              --run-attempt "$SOURCE_RUN_ATTEMPT" \
+              --evaluated-at "$evaluated_at" \
+              --policy config/decision-evidence-deployment-policy.json \
+              --output-dir "$RUNNER_TEMP/decision-evidence-inputs"
+          uv run --frozen --package fdai-core-control-plane \
+            python scripts/deployment/azure/decision_evidence_bundle.py \
+              --receipt "$RUNNER_TEMP/decision-evidence-inputs/receipt.json" \
+              --requirement "$RUNNER_TEMP/decision-evidence-inputs/requirement.json" \
+              --authentication-proof \
+                "$RUNNER_TEMP/decision-evidence-inputs/authentication-proof.json" \
+              --readback-proofs "$RUNNER_TEMP/decision-evidence-inputs/readback-proofs.json" \
+              --evaluated-at "$evaluated_at" \
+              --policy config/decision-evidence-deployment-policy.json \
+              --output-bundle "$RUNNER_TEMP/decision-evidence-inputs/bundle.json" \
+              --output-record "$RUNNER_TEMP/decision-evidence-inputs/admission-record.json"
+
+      - name: Attest governed decision evidence
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ runner.temp }}/decision-evidence-inputs/admission-record.json
+
+      - name: Retain attested immutable decision evidence records
+        run: |
+          set -euo pipefail
+          inputs="$RUNNER_TEMP/decision-evidence-inputs"
+          readarray -t coordinates < <(python3 - "$inputs" <<'PY'
+          import json
+          import sys
+          from urllib.parse import urlsplit
+
+          root = sys.argv[1]
+          url = open(f"{root}/container-url.txt", encoding="utf-8").read().strip()
+          parsed = urlsplit(url)
+          host = parsed.hostname or ""
+          account = host.split(".", 1)[0]
+          container = parsed.path.strip("/")
+          receipt = json.load(open(f"{root}/receipt.json", encoding="utf-8"))
+          bundle = json.load(open(f"{root}/bundle.json", encoding="utf-8"))
+          record = json.load(open(f"{root}/admission-record.json", encoding="utf-8"))
+          if not account or not container:
+              raise SystemExit("decision evidence storage coordinates are invalid")
+          print(account)
+          print(container)
+          print(receipt["receipt_digest"].removeprefix("sha256:"))
+          print(bundle["bundle_digest"].removeprefix("sha256:"))
+          print(record["lookup_digest"].removeprefix("sha256:"))
+          PY
+          )
+          [[ "${#coordinates[@]}" -eq 5 ]]
+          account="${coordinates[0]}"
+          container="${coordinates[1]}"
+          receipt_digest="${coordinates[2]}"
+          bundle_digest="${coordinates[3]}"
+          lookup_digest="${coordinates[4]}"
+
+          retain() {
+            local source="$1"
+            local name="$2"
+            local replay_mode="${3:-exact}"
+            local digest
+            digest="$(sha256sum "$source" | cut -d' ' -f1)"
+            if az storage blob exists \
+                --account-name "$account" \
+                --container-name "$container" \
+                --name "$name" \
+                --auth-mode login --only-show-errors --query exists -o tsv \
+                | grep -qx true; then
+              stored_digest="$(az storage blob show \
+                --account-name "$account" \
+                --container-name "$container" \
+                --name "$name" \
+                --auth-mode login --only-show-errors \
+                --query 'metadata.fdaisha256' -o tsv)"
+              az storage blob download \
+                --account-name "$account" \
+                --container-name "$container" \
+                --name "$name" \
+                --file "$RUNNER_TEMP/existing-decision-evidence.json" \
+                --auth-mode login --overwrite --only-show-errors --output none
+              downloaded_digest="$(
+                sha256sum "$RUNNER_TEMP/existing-decision-evidence.json" | cut -d' ' -f1
+              )"
+              [[ "$stored_digest" == "$downloaded_digest" ]] || {
+                echo "decision evidence immutable metadata collision" >&2
+                exit 1
+              }
+              if cmp -s "$source" "$RUNNER_TEMP/existing-decision-evidence.json"; then
+                rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
+                return
+              fi
+              if [[ "$replay_mode" == "stable-lookup" ]] && python3 - \
+                  "$source" "$RUNNER_TEMP/existing-decision-evidence.json" <<'PY'
+          import json
+          import sys
+          from datetime import UTC, datetime
+
+          candidate = json.load(open(sys.argv[1], encoding="utf-8"))
+          existing = json.load(open(sys.argv[2], encoding="utf-8"))
+          fields = ("evidence_digest", "scope_digest", "purpose_id", "source_revision")
+          same_lookup = (
+              candidate.get("lookup_digest") == existing.get("lookup_digest")
+              and all(
+                  candidate.get("admission", {}).get(field)
+                  == existing.get("admission", {}).get(field)
+                  for field in fields
+              )
+          )
+          valid_until = datetime.fromisoformat(
+              existing.get("admission", {}).get("valid_until", "")
+          )
+          if valid_until.tzinfo is None:
+              raise SystemExit(1)
+          raise SystemExit(0 if same_lookup and datetime.now(UTC) <= valid_until else 1)
+          PY
+              then
+                rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
+                return
+              fi
+              {
+                echo "decision evidence immutable record collision" >&2
+                exit 1
+              }
+            fi
+            az storage blob upload \
+              --account-name "$account" \
+              --container-name "$container" \
+              --name "$name" \
+              --file "$source" \
+              --metadata "fdaisha256=$digest" \
+              --auth-mode login --overwrite false --only-show-errors \
+              --content-type application/json --output none
+          }
+
+          retain "$inputs/authentication-proof.json" \
+            "decision-evidence/v1/authentication/${receipt_digest}.json"
+          retain "$inputs/readback-proofs.json" \
+            "decision-evidence/v1/readback/${receipt_digest}.json"
+          retain "$inputs/requirement.json" \
+            "decision-evidence/v1/requirements/${receipt_digest}.json"
+          retain "$inputs/bundle.json" \
+            "decision-evidence/v1/bundles/${bundle_digest}.json"
+          retain "$inputs/admission-record.json" \
+            "decision-evidence/v1/admissions/${lookup_digest}.json" stable-lookup
+
+      - name: Upload portable decision evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: governed-decision-evidence-${{ inputs.source_run_id }}-${{ inputs.source_run_attempt }}
+          path: |
+            ${{ runner.temp }}/decision-evidence-inputs
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Report governed decision evidence
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/decision-evidence-inputs" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import sys
+
+          root, summary_path = sys.argv[1:]
+          receipt = json.load(open(f"{root}/receipt.json", encoding="utf-8"))
+          bundle = json.load(open(f"{root}/bundle.json", encoding="utf-8"))
+          with open(summary_path, "a", encoding="utf-8") as summary:
+              summary.write("### Governed decision evidence\n")
+              summary.write(f"- Receipt digest: `{receipt['receipt_digest']}`\n")
+              summary.write(f"- Bundle digest: `{bundle['bundle_digest']}`\n")
+              summary.write("- Execution authority: `false`\n")
+              summary.write("- Promotion authority: `false`\n")
+          PY
