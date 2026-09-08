@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a873b30b3d1910a148262687add6721f0908ae95
+translation_source_sha: da3714ab8d9830f96baffb682074abf3ebea7377
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -124,7 +124,8 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 실행합니다. 병합된 브랜치의 중간 상위 커밋은 실행 가능한 워크플로 출처가 아닙니다.
 재시도가 이미 게시된 승인 조회에 도달하면 근거, 범위, 목적 및 출처 개정이 계속 일치하는
 최초의 최신 기록만 재사용합니다. 만료되었거나 다른 기록은 충돌로 유지되며 새 출처 근거가
-필요합니다.
+필요합니다. 저장소 워크플로 계약은 포함된 비교 프로그램을 비롯한 전체 보존 셸 블록의
+구문을 검사합니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
