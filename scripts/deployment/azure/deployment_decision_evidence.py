@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import stat
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -302,11 +303,11 @@ def _validate_deployment_records(
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_FILE_BYTES:
-        raise DeploymentDecisionEvidenceError(f"{path.name} MUST be a bounded regular file")
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raw = json.loads(
+            _read_bounded(path, maximum=_MAX_FILE_BYTES, label=path.name).decode("utf-8")
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise DeploymentDecisionEvidenceError(f"{path.name} is invalid JSON") from exc
     if not isinstance(raw, dict):
         raise DeploymentDecisionEvidenceError(f"{path.name} MUST contain an object")
@@ -314,11 +315,21 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _load_container_url(path: Path) -> str:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > 2048:
-        raise DeploymentDecisionEvidenceError(
-            "decision evidence container URL MUST be a bounded regular file"
+    try:
+        value = (
+            _read_bounded(
+                path,
+                maximum=2048,
+                label="decision evidence container URL",
+            )
+            .decode("utf-8")
+            .strip()
+            .rstrip("/")
         )
-    value = path.read_text(encoding="utf-8").strip().rstrip("/")
+    except UnicodeDecodeError as exc:
+        raise DeploymentDecisionEvidenceError(
+            "decision evidence container URL is not valid UTF-8"
+        ) from exc
     parsed = urlsplit(value)
     segments = tuple(segment for segment in parsed.path.split("/") if segment)
     if (
@@ -334,6 +345,21 @@ def _load_container_url(path: Path) -> str:
             "decision evidence container URL MUST identify one HTTPS container"
         )
     return value
+
+
+def _read_bounded(path: Path, *, maximum: int, label: str) -> bytes:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise DeploymentDecisionEvidenceError(f"{label} MUST be a bounded regular file") from exc
+    with os.fdopen(descriptor, "rb") as stream:
+        metadata = os.fstat(stream.fileno())
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum:
+            raise DeploymentDecisionEvidenceError(f"{label} MUST be a bounded regular file")
+        content = stream.read(maximum + 1)
+    if len(content) > maximum:
+        raise DeploymentDecisionEvidenceError(f"{label} MUST be a bounded regular file")
+    return content
 
 
 def _required_text(raw: dict[str, Any], field: str) -> str:
