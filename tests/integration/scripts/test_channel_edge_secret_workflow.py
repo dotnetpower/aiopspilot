@@ -12,8 +12,10 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in workflow
     assert "Checkout protected workflow verifier" in workflow
     assert "workflow-path: .github/workflows/deploy-channel-edge-secrets.yml" in workflow
-    assert "install-pinned-github-cli.sh" in workflow
     assert "the exact commit does not have a successful required CI check" in workflow
+    assert "https://api.github.com/repos/" in workflow
+    assert '"Authorization": "Bearer " + os.environ["GITHUB_TOKEN"]' in workflow
+    assert "install-pinned-github-cli.sh" not in workflow
     assert "login-deploy-identity.sh" in workflow
     assert "exactly one development Key Vault must match the FDAI tags" in workflow
     assert "az keyvault show" in workflow

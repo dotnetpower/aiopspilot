@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9cbff62754d8f7055607c3889dea84830b79e101
+translation_source_sha: 0249520229963ceae5e5300159c53e560f1227f7
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 채널 비밀 초기 구성에서 runner 실행 중 GitHub CLI 다운로드를 제거하고 작업 흐름 토큰을 메모리에서만 사용하는 범위가 제한된 Python 검사 실행 조회로 교체했습니다. | 실패한 작업 흐름 `34214928124`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner에서 거부된 일반 ARM REST 조회를 고유한 태그 기반 선택에서 파생한 지원되는 Key Vault 이름 및 구독 읽기로 교체했습니다. | 실패한 작업 흐름 `34214223069`, 값을 노출하지 않은 직접 Key Vault 이름 기반 상태 검사, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 같은 값 비노출 RBAC 및 비공개 네트워크 조건을 유지하면서 runner에 따라 달라지는 일반 리소스 조회를 API 버전을 지정한 직접 ARM REST 읽기로 교체했습니다. | 실패한 작업 흐름 `34213551618`, 값을 노출하지 않은 직접 ARM REST 상태 검사, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 일반 ARM 리소스 응답이 고유한 태그 기반 Key Vault 목록 결과에서 이미 얻은 vault URI를 생략하므로 정확한 ARM 상태 검증을 RBAC와 공개 네트워크 접근으로 제한했습니다. | 실패한 작업 흐름 `34212885604`, 값을 노출하지 않은 직접 필드 비교, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
