@@ -31,8 +31,9 @@ instead of remaining blocked behind a failed worker until the request deadline. 
 the turn held rather than raising an untyped transport error.
 Core-owned partial indexes support the Operator claim ordering and principal-plus-request replay
 cursor on the shared `state_kv` table. They change no state or delivery authority.
-At Core processing start, a content-free log separates durable queue delay from remaining request
-deadline. Expired backlog therefore no longer appears to be model or semantic-planning latency.
+At Core processing start, a content-free log and the persisted turn timing separate durable queue
+delay from remaining request deadline and semantic planning. Expired backlog therefore no longer
+appears to be model or semantic-planning latency.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
 ordinary semantic turn checks its model audience within five seconds and returns a typed hold before
 planning when authentication cannot be verified. Operator persists the first terminal result as

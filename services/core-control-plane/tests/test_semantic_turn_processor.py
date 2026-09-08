@@ -2688,16 +2688,18 @@ def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> N
             ),
         ),
         completed_at=NOW + timedelta(seconds=10),
+        processing_started_at=NOW + timedelta(seconds=2),
     )
 
     assert timing["duration_ms"] == 10_000
     phases = cast(list[dict[str, object]], timing["phases"])
     assert [phase["phase"] for phase in phases] == [
+        "durable_queue",
         "semantic_plan",
         "evidence",
         "generation",
     ]
-    assert [phase["duration_ms"] for phase in phases] == [8_000, 272, 1_728]
+    assert [phase["duration_ms"] for phase in phases] == [2_000, 6_000, 272, 1_728]
     assert sum(cast(int, phase["duration_ms"]) for phase in phases) == timing["duration_ms"]
 
 

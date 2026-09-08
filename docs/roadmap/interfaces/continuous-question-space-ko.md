@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 628fcf399104fbc667de8d7aac7b75944792a82f
+translation_source_sha: 0530efe7d7047ce2f5c489fe1c38c637ae0989d8
 translation_revised: 2026-09-08
 ---
 # 지속형 질문 공간
@@ -33,8 +33,9 @@ translation_revised: 2026-09-08
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.
 Core 소유 부분 인덱스는 공용 `state_kv` 테이블에서 Operator claim 정렬과
 principal 및 request 범위 replay cursor를 지원합니다. 상태나 전달 권한은 변경하지 않습니다.
-Core 처리를 시작할 때 콘텐츠가 없는 로그가 영속 큐 지연과 남은 요청 deadline을 분리합니다.
-따라서 만료된 backlog가 모델 또는 의미 계획 지연으로 보이지 않습니다.
+Core 처리를 시작할 때 콘텐츠가 없는 로그와 영속 turn timing이 영속 큐 지연을 남은 요청
+deadline 및 의미 계획과 분리합니다. 따라서 만료된 backlog가 모델 또는 의미 계획 지연으로
+보이지 않습니다.
 모델 ID만 사용할 수 없을 때는 프로세스 준비 상태가 의미 consumer를 계속 실행합니다. 일반 의미
 turn은 5초 이내에 모델 대상을 확인하고 인증을 검증할 수 없으면 계획 전에 타입이 지정된 보류
 결과를 반환합니다. Operator는 먼저 도착한 최종 결과 하나를 권위 있는 결과로 영속화하고, 시간

@@ -96,6 +96,7 @@ from .semantic_target_suggestions import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
 _ROLE_ORDER = (
@@ -293,6 +294,9 @@ class SemanticTurnProcessor:
         """Return one canonical v1.2 projection or reject invalid boundary input."""
 
         envelope, request, requested_at = _decode_request(payload)
+        processing_started_at = _aware_utc(self._now(), field="semantic processor clock")
+        timed_envelope = dict(envelope)
+        timed_envelope[_PROCESSING_STARTED_AT_FIELD] = processing_started_at.isoformat()
         principal = _principal(request)
         assurance_case_id = _pantheon_assurance_case_id(request.purpose)
         if request.purpose != self._purpose and assurance_case_id is None:
@@ -302,13 +306,13 @@ class SemanticTurnProcessor:
         request_digest = _request_digest(envelope, request)
         if request.cancelled or (cancelled is not None and cancelled.is_set()):
             return self._held_projection(
-                envelope,
+                timed_envelope,
                 request,
                 request_digest=request_digest,
                 reason_code="semantic_request_cancelled",
                 disposition="cancelled",
             )
-        now = _aware_utc(self._now(), field="semantic processor clock")
+        now = processing_started_at
         deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
         remaining = (deadline - now).total_seconds()
         _LOGGER.info(
@@ -326,7 +330,7 @@ class SemanticTurnProcessor:
             raise SemanticTurnRejectedError("semantic_deadline_too_far")
         if remaining <= 0:
             return self._held_projection(
-                envelope,
+                timed_envelope,
                 request,
                 request_digest=request_digest,
                 reason_code="semantic_deadline_exceeded",
@@ -334,7 +338,7 @@ class SemanticTurnProcessor:
 
         operation_task = asyncio.create_task(
             self._process_idempotent(
-                envelope=envelope,
+                envelope=timed_envelope,
                 request=request,
                 requested_at=requested_at,
                 principal=principal,
@@ -358,7 +362,7 @@ class SemanticTurnProcessor:
                 operation_task.cancel()
                 await asyncio.gather(operation_task, return_exceptions=True)
                 return self._held_projection(
-                    envelope,
+                    timed_envelope,
                     request,
                     request_digest=request_digest,
                     reason_code="semantic_request_cancelled",
@@ -368,7 +372,7 @@ class SemanticTurnProcessor:
                 operation_task.cancel()
                 await asyncio.gather(operation_task, return_exceptions=True)
                 return self._held_projection(
-                    envelope,
+                    timed_envelope,
                     request,
                     request_digest=request_digest,
                     reason_code="semantic_deadline_exceeded",
@@ -860,6 +864,7 @@ class SemanticTurnProcessor:
                 envelope=envelope,
                 result=result,
                 completed_at=recorded_at,
+                processing_started_at=_processing_started_at(envelope),
             ),
         }
         if extensions is not None:
@@ -1556,6 +1561,7 @@ def _semantic_turn_timing(
     envelope: Mapping[str, object],
     result: ContractSemanticTurnResult,
     completed_at: datetime,
+    processing_started_at: datetime | None = None,
 ) -> dict[str, object]:
     """Partition the request-to-projection interval into contiguous observed phases."""
 
@@ -1571,27 +1577,40 @@ def _semantic_turn_timing(
     )
     if completed_at < requested_at:
         requested_at = completed_at
+    processing_started_at = min(
+        max(processing_started_at or requested_at, requested_at),
+        completed_at,
+    )
 
     evidence_bounds = _semantic_evidence_bounds(result.intent_graph_evidence)
     phases: list[dict[str, object]] = []
+    if processing_started_at > requested_at:
+        phases.append(
+            _semantic_timing_phase(
+                "durable_queue",
+                requested_at,
+                processing_started_at,
+                status="completed",
+            )
+        )
     if evidence_bounds is None:
         phases.append(
             _semantic_timing_phase(
                 "semantic_plan",
-                requested_at,
+                processing_started_at,
                 completed_at,
                 status="completed",
             )
         )
     else:
         evidence_start, evidence_end, evidence_completed = evidence_bounds
-        evidence_start = min(max(evidence_start, requested_at), completed_at)
+        evidence_start = min(max(evidence_start, processing_started_at), completed_at)
         evidence_end = min(max(evidence_end, evidence_start), completed_at)
         phases.extend(
             (
                 _semantic_timing_phase(
                     "semantic_plan",
-                    requested_at,
+                    processing_started_at,
                     evidence_start,
                     status="completed",
                 ),
@@ -1616,6 +1635,17 @@ def _semantic_turn_timing(
         "duration_ms": _elapsed_milliseconds(requested_at, completed_at),
         "phases": phases,
     }
+
+
+def _processing_started_at(envelope: Mapping[str, object]) -> datetime | None:
+    value = envelope.get(_PROCESSING_STARTED_AT_FIELD)
+    if not isinstance(value, str):
+        return None
+    parsed = _aware_utc(
+        datetime.fromisoformat(value.replace("Z", "+00:00")),
+        field="semantic processing_started_at",
+    )
+    return parsed.replace(microsecond=(parsed.microsecond // 1000) * 1000)
 
 
 def _semantic_evidence_bounds(
