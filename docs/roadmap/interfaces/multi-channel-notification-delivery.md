@@ -394,7 +394,7 @@ Provider-specific bounds are narrower than the shared envelope where required:
 | Provider | Provider payload contract |
 |----------|---------------------------|
 | Teams | Adaptive Card envelope, 250-character title, 3000-character body, 28 KB total payload, and a `rendering: truncated` fact when provider-specific text truncation occurs |
-| Slack | Block Kit envelope, 150-character header, 3000-character section, 40 KB total payload, escaped fact values, and read-only Markdown links instead of interactive action blocks |
+| Slack | Block Kit envelope, 150-character header, 3000-character section, at most 10 facts per section, 40 KB total payload, escaped fact values, and read-only Markdown links instead of interactive action blocks |
 
 Both renderers preserve `correlation_id`, `audit_id`, and sorted bounded metadata. This lets a caller
 carry canonical incident ids and the `Huginn -> Forseti -> Thor -> Vidar` responsibility order

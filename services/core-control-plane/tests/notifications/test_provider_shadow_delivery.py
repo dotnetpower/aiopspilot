@@ -116,6 +116,19 @@ def test_slack_renderer_uses_read_only_links_and_escapes_facts() -> None:
     assert "https://example.com/runbook" in rendered
 
 
+def test_slack_renderer_chunks_fields_to_provider_limit() -> None:
+    envelope = render_presentation(
+        _message(metadata={f"key-{index}": f"value-{index}" for index in range(16)}),
+        channel_id="slack-ops",
+    )
+
+    payload = _payload_json(render_slack_payload(envelope).body)
+    field_sections = [block["fields"] for block in payload["blocks"] if "fields" in block]
+
+    assert [len(fields) for fields in field_sections] == [10, 8]
+    assert sum(len(fields) for fields in field_sections) == 18
+
+
 @pytest.mark.parametrize(
     ("channel_kind", "renderer"),
     [

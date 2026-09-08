@@ -35,6 +35,7 @@ from ._rendering import truncate_with_marker
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 10.0
 _MAX_HEADER_CHARS: Final[int] = 150
 _MAX_SECTION_CHARS: Final[int] = 3000
+_MAX_FIELDS_PER_SECTION: Final[int] = 10
 _MAX_PAYLOAD_BYTES: Final[int] = 40 * 1024
 _CONTENT_TYPE: Final[str] = "application/json"
 
@@ -162,8 +163,13 @@ def _block_kit(message: NotificationPresentationEnvelope) -> dict[str, object]:
             for key, value in sorted(message.metadata.items())
         ),
     ]
-    if fields:
-        blocks.append({"type": "section", "fields": fields})
+    for start in range(0, len(fields), _MAX_FIELDS_PER_SECTION):
+        blocks.append(
+            {
+                "type": "section",
+                "fields": fields[start : start + _MAX_FIELDS_PER_SECTION],
+            }
+        )
     if message.links:
         links = "\n".join(
             f"<{link.url.replace('|', '%7C')}|{_escape_slack_text(link.label)}>"

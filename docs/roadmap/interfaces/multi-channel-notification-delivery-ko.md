@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 6f5048d7c9666a18dd7b7f90f82c54f8b998e74b
+translation_source_sha: 0609955bfadb7bce92c97aa877c730199f2a35e3
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -390,7 +390,7 @@ Teams와 Slack은 두 모드에서 동일한 순수 공급자 렌더러를 사�
 | 공급자 | 공급자 payload 계약 |
 |--------|---------------------|
 | Teams | Adaptive Card 묶음, 제목 250자, 본문 3000자, 전체 payload 28 KB, 공급자별 텍스트 축약이 발생하면 `rendering: truncated` 사실 항목 |
-| Slack | Block Kit 묶음, 머리글 150자, 섹션 3000자, 전체 payload 40 KB, 이스케이프 처리한 사실 값, 대화형 작업 블록 대신 읽기 전용 Markdown 링크 |
+| Slack | Block Kit 묶음, 머리글 150자, 섹션 3000자, 섹션당 사실 항목 최대 10개, 전체 페이로드 40 KB, 이스케이프 처리한 사실 값, 대화형 작업 블록 대신 읽기 전용 Markdown 링크 |
 
 두 렌더러는 `correlation_id`, `audit_id`, 정렬된 범위 제한 메타데이터를 보존합니다. 따라서 호출자는
 `NotificationMessage`에 공급자별 필드를 추가하지 않고도 표준 인시던트 id와

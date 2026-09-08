@@ -39,6 +39,7 @@ and resumable work for
 | 2026-09-09 | implemented | Hardened both shadow recorders to reject one stable record id carrying different bounded content instead of silently preserving a conflicting first write. | `current change`; focused provider-shadow conflict tests. | Continue the bounded channel-adapter critique campaign. |
 | 2026-09-09 | implemented | Rejected duplicate keys at every depth of the notification binding JSON so a later authority or endpoint field cannot silently replace the reviewed value. | `current change`; focused binding parser regression test. | Continue the bounded channel-adapter critique campaign. |
 | 2026-09-09 | implemented | Bounded one notification binding map to 64 entries before adapter or readiness construction. | `current change`; focused binding-count regression test. | Continue the bounded channel-adapter critique campaign. |
+| 2026-09-09 | implemented | Split Slack facts into deterministic groups of at most 10 so the shared metadata ceiling cannot produce an invalid Block Kit section. | `current change`; focused Slack provider-limit regression test. | Continue the bounded channel-adapter critique campaign. |
 
 ### Remaining work
 
