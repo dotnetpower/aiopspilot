@@ -193,6 +193,16 @@ jobs:
                 --name "$name" \
                 --auth-mode login --only-show-errors --query exists -o tsv \
                 | grep -qx true; then
+              stored_digest="$(az storage blob show \
+                --account-name "$account" \
+                --container-name "$container" \
+                --name "$name" \
+                --auth-mode login --only-show-errors \
+                --query 'metadata."fdai-sha256"' -o tsv)"
+              [[ "$stored_digest" == "$digest" ]] || {
+                echo "decision evidence immutable metadata collision" >&2
+                exit 1
+              }
               az storage blob download \
                 --account-name "$account" \
                 --container-name "$container" \
