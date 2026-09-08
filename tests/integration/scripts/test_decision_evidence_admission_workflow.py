@@ -107,6 +107,12 @@ def test_deploy_workflow_emits_fixed_candidate_artifact() -> None:
     assert "name: deployment-apply-receipt-${{ inputs.plan_id }}" in _DEPLOY
     assert "terraform output -raw decision_evidence_container_url" in _DEPLOY
     assert "retention-days: 90" in _DEPLOY
+    for target in (
+        "-target=module.decision_evidence_storage[0]",
+        "-target=azurerm_private_endpoint.decision_evidence_blob[0]",
+        "-target=azurerm_role_assignment.decision_evidence_inventory_reader[0]",
+    ):
+        assert target in _DEPLOY
     for name in (
         "plan-metadata.json",
         "preflight-evidence.json",
