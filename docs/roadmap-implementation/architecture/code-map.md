@@ -71,6 +71,7 @@ title: Archived Code Map Implementation Ledger
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Extracted admission-bound change-window provider construction from the oversized control-loop composition root into shared runtime support. | `current change`; focused workflow, execution-port, LOC, and static checks. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Enforced strict lowercase hexadecimal SHA-256 syntax for operating-intent configured bindings and durable admission records. | `current change`; focused binding and admission regressions. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Restricted the deployment-owned operating-intent source to its exact six ObjectTypes after review found it could project unrelated graph objects. | `current change`; focused source-admission regression test. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Hardened operating-intent authority against future-dated durable admissions after review found that a negative age could extend authority. | `current change`; focused admission regression test. | Retain one governed deployed operating-intent receipt. |

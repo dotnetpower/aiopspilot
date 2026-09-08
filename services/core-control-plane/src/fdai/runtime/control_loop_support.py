@@ -44,13 +44,28 @@ from fdai.core.workflow import (
     WorkflowTriggerIndex,
 )
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
-from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.runtime.operating_intent_binding import (
     operating_intent_admission_expectation_from_env,
 )
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+
+
+def build_operating_intent_change_window_provider(
+    ontology_store: Any,
+    audit_store: Any,
+) -> OntologyChangeWindowEvidenceProvider:
+    """Bind change-window reads to the process's exact intent admission expectation."""
+
+    return OntologyChangeWindowEvidenceProvider(
+        ontology_store,
+        intent_admission=StateStoreOperatingIntentAdmissionReader(
+            audit_store,
+            expectation=operating_intent_admission_expectation_from_env(os.environ),
+        ),
+    )
 
 
 async def pending_index_writer(store: Any, approval_id: str) -> None:
@@ -122,12 +137,9 @@ def build_workflow_coordinator(
     )
     inner_guard: WorkflowContextualGuardEvaluator | WorkflowGuardEvaluator = (
         ChangeWindowWorkflowGuardEvaluator(
-            change_windows=OntologyChangeWindowEvidenceProvider(
+            change_windows=build_operating_intent_change_window_provider(
                 ontology_store,
-                intent_admission=StateStoreOperatingIntentAdmissionReader(
-                    audit_store,
-                    expectation=operating_intent_admission_expectation_from_env(os.environ),
-                ),
+                audit_store,
             ),
             fallback=architecture_guard,
         )

@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: 76a2a70e100a888cad50799154128e7f2522e8f6
+translation_source_sha: c19b032db4073ee00d6374ab86600f82c9752476
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -134,7 +134,7 @@ worker의 키와도 분리되어 있습니다. 시작 경로도 같은 잠금을
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 구현 상태 및 남은 작업 | [Operating-intent source](operating-intent-source.md#implementation-status) |
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/operating-intent-source.md) |
 | 이 출처가 채우는 운영 온톨로지 | [운영 온톨로지](operating-ontology-ko.md) |
 | 동일한 env 바인딩의 로컬·배포 동등성 | [dev-and-deploy-parity](../deployment/dev-and-deploy-parity-ko.md) |
 | 모듈 위치 | [코드 지도](code-map-ko.md) |

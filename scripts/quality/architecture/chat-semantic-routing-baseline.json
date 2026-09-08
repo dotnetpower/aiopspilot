@@ -443,6 +443,20 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/operational_context/operating_intent_admission.py",
+      "disposition": "retain",
+      "owner": "operating-intent-source",
+      "reason": "Retains exact machine admission status, digest, generation, ownership, and time validation without interpreting natural language.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/operational_context/operating_intent_source.py",
+      "disposition": "retain",
+      "owner": "operating-intent-source",
+      "reason": "Retains deterministic source revision, provenance, ObjectType, count, and freshness validation over structured records.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/python_task/shell_validator.py",
       "disposition": "retain",
       "owner": "python-task",
