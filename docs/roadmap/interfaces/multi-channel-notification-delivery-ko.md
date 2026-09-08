@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 49721524da2cf307c0f93e449e77ac841ddb27a6
+translation_source_sha: 8df8dceb151157c41bbf689473d7060b11303843
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -76,9 +76,9 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
   "teams-ops-primary": {
     "kind": "teams_workflow",
     "enabled": true,
+    "mode": "shadow",
     "trust_tiers": ["a2_operational_alert"],
-    "auth_mode": "workload_identity",
-    "endpoint_env": "FDAI_TEAMS_OPS_PRIMARY_ENDPOINT"
+    "auth_mode": "workload_identity"
   },
   "email-oncall": {
     "kind": "acs_email",
@@ -96,6 +96,10 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
   시점에 건너뛸 채널이 아니라 배포 결함입니다.
 - **`enabled: false`는 명시적 제외입니다.** 모든 대상 집합에서 제거되며 dispatch 기록에
   드러납니다.
+- **`mode: "shadow"`는 전송 없이 렌더링하고 기록합니다.** Teams와 Slack shadow 바인딩에는
+  엔드포인트나 HTTP 클라이언트가 필요하지 않습니다. `mode: "enforce"`는 공급자 엔드포인트가
+  필요하며 기존 런타임 동작을 유지합니다. 이전 버전과의 호환성을 위해 `mode`를 생략하면
+  `enforce`가 기본값입니다.
 - **Trust tier는 바인딩 단위로 유지합니다.** 요약 전용 채널은 A2 호출 트래픽을 받지 않습니다.
 
 ### URL만 사용하는 초기 설정
@@ -369,6 +373,26 @@ presentation이 부분 콘텐츠를 전송하는 대신 결정론적으로 fallb
 반복된 fan-out `dispatch()` 호출이 이미 종료된 대상을 재전송하지 않으면서도 호출마다 정확히 하나의
 감사 항목을 계속 기록함, 그리고 같은 `correlation_id + audit_id + category`로 직접 반복 호출한
 `send()`가 정확히 하나의 항목을 기록하고 같은 `provider_message_id`를 반환함.
+
+### 8.4 Teams와 Slack 공급자 렌더링
+
+Teams와 Slack은 두 모드에서 동일한 순수 공급자 렌더러를 사용합니다. enforce 어댑터는 메시지를
+`render_presentation`에 통과시키고 공급자 payload를 렌더링한 다음 전송을 호출합니다. shadow
+어댑터는 같은 두 렌더링 단계를 수행하지만, 변경할 수 없는 공급자 payload를
+`StateStoreShadowDeliveryRecorder`를 통해 저장하며 HTTP 호출을 수행하지 않습니다.
+
+공급자에 더 엄격한 제한이 필요하면 공유 묶음보다 좁은 제한을 적용합니다.
+
+| 공급자 | 공급자 payload 계약 |
+|--------|---------------------|
+| Teams | Adaptive Card 묶음, 제목 250자, 본문 3000자, 전체 payload 28 KB, 공급자별 텍스트 축약이 발생하면 `rendering: truncated` 사실 항목 |
+| Slack | Block Kit 묶음, 머리글 150자, 섹션 3000자, 전체 payload 40 KB, 이스케이프 처리한 사실 값, 대화형 작업 블록 대신 읽기 전용 Markdown 링크 |
+
+두 렌더러는 `correlation_id`, `audit_id`, 정렬된 범위 제한 메타데이터를 보존합니다. 따라서 호출자는
+`NotificationMessage`에 공급자별 필드를 추가하지 않고도 표준 인시던트 id와
+`Huginn -> Forseti -> Thor -> Vidar` 책임 순서를 전달할 수 있습니다. 안정적인 shadow 기록은
+일반 묶음과 정확한 공급자 JSON 바이트를 포함합니다. 다른 범위 제한 콘텐츠에 같은 기록 id를
+재사용하면 최초 기록 근거를 덮어쓰지 않고 실패합니다.
 
 ## 관련 문서
 

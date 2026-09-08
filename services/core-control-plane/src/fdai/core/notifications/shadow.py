@@ -53,8 +53,10 @@ from fdai.shared.providers.notifications.base import (
     TrustTier,
 )
 from fdai.shared.providers.notifications.presentation import (
+    NotificationPayloadRenderer,
     NotificationPresentationEnvelope,
     PresentationLimits,
+    RenderedNotificationPayload,
     render_presentation,
 )
 
@@ -95,6 +97,7 @@ class ShadowDeliveryRecord:
     envelope: NotificationPresentationEnvelope
     recorded_at: datetime
     audit_id: str | None = None
+    rendered_payload: RenderedNotificationPayload | None = None
 
 
 @runtime_checkable
@@ -148,6 +151,7 @@ class ShadowNotificationChannel:
     channel_id: str
     trust_tiers: frozenset[TrustTier]
     recorder: ShadowDeliveryRecorder
+    payload_renderer: NotificationPayloadRenderer | None = None
     limits: PresentationLimits = field(default_factory=PresentationLimits)
     clock: Callable[[], datetime] = field(default=_utc_now)
 
@@ -164,6 +168,9 @@ class ShadowNotificationChannel:
         timezone-aware timestamp this service records.
         """
         envelope = render_presentation(message, channel_id=self.channel_id, limits=self.limits)
+        rendered_payload = (
+            self.payload_renderer(envelope) if self.payload_renderer is not None else None
+        )
         recorded_at = self.clock()
         if recorded_at.tzinfo is None:
             raise ValueError("shadow delivery clock MUST return a timezone-aware datetime")
@@ -178,6 +185,7 @@ class ShadowNotificationChannel:
                 envelope=envelope,
                 recorded_at=recorded_at,
                 audit_id=message.audit_id,
+                rendered_payload=rendered_payload,
             )
         )
         return DeliveryReceipt(

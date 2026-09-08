@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 97b003be42e7129ed905da1696f0a660acc28b41
-translation_revised: 2026-09-08
+translation_source_sha: ac0c3bbd20e8374083bf50e75c1e714da3d3b220
+translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
 
@@ -569,9 +569,11 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
 - 시크릿은 주입된 프로바이더를 통해 읽으며, 가져오기 시점 전역 읽기 절대 금지, 로그·감사·에러
   메시지에 절대 쓰지 않습니다.
 - A2/A4 아웃바운드 알림 조립은 `FDAI_NOTIFICATION_BINDINGS_JSON`에서 이름이 있는 바인딩을
-  해석합니다. 엔드포인트와 자격 증명 필드는 배포 시크릿 프로바이더가 채우는 환경 변수 이름만
-  지정합니다. 활성화했지만 불완전한 바인딩은 시작을 실패시키며, `core/notifications`에는
-  프로바이더 중립 어댑터와 영속 전달 저장소만 전달합니다.
+  해석합니다. 명시적인 `mode: shadow` Teams 또는 Slack 바인딩은 enforce 모드와 동일한 순수
+  공급자 렌더러를 사용하고, 변경할 수 없는 공급자 페이로드를 주입된 `StateStore`를 통해 기록하며,
+  엔드포인트나 HTTP 클라이언트를 해석하지 않습니다. Enforce 바인딩은 기존 엔드포인트와 자격 증명
+  환경 변수 참조를 유지하며 구성이 불완전하면 시작을 실패시킵니다. `core/notifications`에는
+  공급자 중립 어댑터와 영속 전달 저장소만 전달합니다.
 - 포크는 `core/` 편집 없이 자체 설정과 secret-store 레이어를 공급합니다.
 - 기능 플래그는 신규 능력이 **shadow-mode** (judge-and-log only)로 출시되도록 게이팅하고,
   액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.

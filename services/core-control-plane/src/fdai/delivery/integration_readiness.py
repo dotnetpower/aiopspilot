@@ -28,6 +28,8 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
+from fdai.shared.providers.notifications import ChannelMode
+
 if TYPE_CHECKING:
     from fdai.delivery.notifications.bindings import NotificationBindingSpec
     from fdai.shared.providers.notifications import TrustTier
@@ -280,7 +282,8 @@ def _teams_tier_row(
     unresolved = [
         spec
         for spec in enabled
-        if spec.endpoint_env is None or endpoint_is_placeholder(env.get(spec.endpoint_env, ""))
+        if spec.mode is ChannelMode.ENFORCE
+        and (spec.endpoint_env is None or endpoint_is_placeholder(env.get(spec.endpoint_env, "")))
     ]
     if unresolved:
         return integration_row(
@@ -290,7 +293,62 @@ def _teams_tier_row(
             ready=False,
             reason="an activated binding has no saved endpoint value yet",
         )
-    return integration_row(key, source=SOURCE_CORE, configured=True, ready=True)
+    mode = "shadow" if all(spec.mode is ChannelMode.SHADOW for spec in enabled) else "enabled"
+    return integration_row(
+        key,
+        source=SOURCE_CORE,
+        configured=True,
+        ready=True,
+        mode=mode,
+    )
+
+
+def notification_channel_capability_projections(
+    env: Mapping[str, str],
+) -> tuple[dict[str, object], ...]:
+    """Project each Teams or Slack binding without exposing endpoint values."""
+
+    from fdai.delivery.notifications import (
+        NotificationBindingKind,
+        default_notification_bindings_from_env,
+        parse_notification_bindings,
+    )
+    from fdai.shared.providers.notifications import (
+        ChannelCapabilityState,
+        ChannelMode,
+    )
+
+    raw = env.get(
+        "FDAI_NOTIFICATION_BINDINGS_JSON", ""
+    ).strip() or default_notification_bindings_from_env(env)
+    if not raw:
+        return ()
+    try:
+        specs = parse_notification_bindings(raw)
+    except ValueError:
+        return ()
+    rows: list[dict[str, object]] = []
+    for spec in specs:
+        if spec.kind not in {
+            NotificationBindingKind.TEAMS_WORKFLOW,
+            NotificationBindingKind.SLACK_WEBHOOK,
+        }:
+            continue
+        configured = spec.mode is ChannelMode.SHADOW or (
+            spec.endpoint_env is not None
+            and not endpoint_is_placeholder(env.get(spec.endpoint_env, ""))
+        )
+        state = ChannelCapabilityState(
+            channel_id=spec.channel_id,
+            available=configured,
+            enabled=spec.enabled,
+            configured=configured,
+            mode=spec.mode,
+        )
+        row = state.to_readiness_row(source=SOURCE_CORE)
+        row["kind"] = spec.kind.value
+        rows.append(row)
+    return tuple(rows)
 
 
 def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object]:
@@ -318,6 +376,8 @@ def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object
         specs = parse_notification_bindings(raw)
         enabled = tuple(spec for spec in specs if spec.enabled)
         for spec in enabled:
+            if spec.mode is ChannelMode.SHADOW:
+                continue
             required_env_names = [spec.endpoint_env]
             if spec.kind is NotificationBindingKind.ACS_EMAIL:
                 required_env_names.extend((spec.sender_address_env, spec.recipient_addresses_env))
@@ -338,11 +398,17 @@ def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object
         row = invalid_configuration("notification-bindings", source=SOURCE_CORE)
         row.update({"binding_count": 0, "enabled_count": 0})
         return row
+    mode = (
+        "shadow"
+        if enabled and all(spec.mode is ChannelMode.SHADOW for spec in enabled)
+        else "enabled"
+    )
     row = integration_row(
         "notification-bindings",
         source=SOURCE_CORE,
         configured=True,
         ready=True,
+        mode=mode,
     )
     row.update({"binding_count": len(specs), "enabled_count": len(enabled)})
     return row
@@ -356,6 +422,7 @@ def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
     into different readiness vocabularies.
     """
     a2_row, a4_row = teams_notification_projections(env)
+    channel_rows = notification_channel_capability_projections(env)
     email = required_configuration(
         "email",
         (
@@ -415,6 +482,7 @@ def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
         a4_row,
         teams_a3_conversation_projection(env),
         notification_bindings_projection(env),
+        *channel_rows,
         email,
         gitops,
         jira,
@@ -471,6 +539,7 @@ __all__ = [
     "integration_row",
     "invalid_configuration",
     "notification_bindings_projection",
+    "notification_channel_capability_projections",
     "required_configuration",
     "teams_a1_callback_projection",
     "teams_a1_send_projection",

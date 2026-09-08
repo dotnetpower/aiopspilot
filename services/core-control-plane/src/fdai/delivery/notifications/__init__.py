@@ -33,9 +33,18 @@ from .receipt import (
     NotificationDeliveryReceiptApplier,
     NotificationReceiptRejectedError,
 )
-from .slack import SlackWebhookChannel, SlackWebhookConfig
+from .shadow_recorder import (
+    ShadowDeliveryConflictError,
+    StateStoreShadowDeliveryRecorder,
+)
+from .slack import SlackWebhookChannel, SlackWebhookConfig, render_slack_payload
 from .sms import AzureCommunicationSmsChannel, AzureCommunicationSmsConfig
-from .teams import TeamsWebhookChannel, TeamsWebhookConfig, TeamsWorkflowAuthMode
+from .teams import (
+    TeamsWebhookChannel,
+    TeamsWebhookConfig,
+    TeamsWorkflowAuthMode,
+    render_teams_payload,
+)
 from .webhook import GenericWebhookChannel, GenericWebhookConfig
 
 __all__ = [
@@ -54,10 +63,14 @@ __all__ = [
     "PagerDutyEventsV2Config",
     "SlackWebhookChannel",
     "SlackWebhookConfig",
+    "ShadowDeliveryConflictError",
     "StateStoreHilEscalationSink",
+    "StateStoreShadowDeliveryRecorder",
     "TeamsWebhookChannel",
     "TeamsWebhookConfig",
     "TeamsWorkflowAuthMode",
     "default_notification_bindings_from_env",
     "parse_notification_bindings",
+    "render_slack_payload",
+    "render_teams_payload",
 ]

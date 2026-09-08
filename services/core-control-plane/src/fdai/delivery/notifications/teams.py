@@ -26,11 +26,20 @@ from fdai.shared.providers.notifications.base import (
     Severity,
     TrustTier,
 )
+from fdai.shared.providers.notifications.presentation import (
+    NotificationPresentationEnvelope,
+    RenderedNotificationPayload,
+    render_presentation,
+)
 
 from ._http import truncate
+from ._rendering import truncate_with_marker
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 10.0
 _MAX_PAYLOAD_BYTES: Final[int] = 28 * 1024
+_MAX_TITLE_CHARS: Final[int] = 250
+_MAX_BODY_CHARS: Final[int] = 3000
+_CONTENT_TYPE: Final[str] = "application/json"
 
 
 class TeamsWorkflowAuthMode(StrEnum):
@@ -93,15 +102,8 @@ class TeamsWebhookChannel:
         return self._config.trust_tiers
 
     async def send(self, message: NotificationMessage) -> DeliveryReceipt:
-        payload = _adaptive_card(message)
-        encoded = json.dumps(
-            payload,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        if len(encoded) > _MAX_PAYLOAD_BYTES:
-            raise ChannelDeliveryError(f"Teams Workflow payload exceeds {_MAX_PAYLOAD_BYTES} bytes")
-        headers = {"Content-Type": "application/json"}
+        payload = render_teams_payload(render_presentation(message, channel_id=self.channel_id))
+        headers = {"Content-Type": payload.content_type}
         if self._config.auth_mode is TeamsWorkflowAuthMode.WORKLOAD_IDENTITY:
             token_provider = self._token_provider
             if token_provider is None:
@@ -111,7 +113,7 @@ class TeamsWebhookChannel:
                 raise ChannelDeliveryError("Teams Workflow token provider returned an empty token")
             headers["Authorization"] = f"Bearer {token}"
 
-        response = await self._post_with_retry(encoded, headers)
+        response = await self._post_with_retry(payload.body, headers)
         provider_message_id = response.headers.get("x-ms-workflow-run-id") or message.correlation_id
         return DeliveryReceipt(
             channel_kind=ChannelKind.TEAMS,
@@ -159,39 +161,68 @@ class TeamsWebhookChannel:
         raise RuntimeError("Teams Workflow retry loop exited without a response")
 
 
-def _adaptive_card(message: NotificationMessage) -> dict[str, object]:
+def render_teams_payload(
+    envelope: NotificationPresentationEnvelope,
+) -> RenderedNotificationPayload:
+    """Render a bounded envelope into an immutable Teams Workflows payload."""
+
+    encoded = json.dumps(
+        _adaptive_card(envelope),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if len(encoded) > _MAX_PAYLOAD_BYTES:
+        raise ChannelDeliveryError(f"Teams Workflow payload exceeds {_MAX_PAYLOAD_BYTES} bytes")
+    return RenderedNotificationPayload(content_type=_CONTENT_TYPE, body=encoded)
+
+
+def _adaptive_card(message: NotificationPresentationEnvelope) -> dict[str, object]:
     """Wrap ``message`` in a minimal Adaptive Card envelope.
 
     Kept intentionally small - Teams accepts the ``TextBlock`` +
     ``FactSet`` + ``ActionSet`` primitives universally, so a fork can
     override this without changing the adapter.
     """
+    title, title_truncated = truncate_with_marker(message.title, limit=_MAX_TITLE_CHARS)
+    body_text, body_truncated = truncate_with_marker(
+        message.body_markdown,
+        limit=_MAX_BODY_CHARS,
+    )
     body: list[dict[str, object]] = [
         {
             "type": "TextBlock",
             "size": "Medium",
             "weight": "Bolder",
-            "text": message.title,
+            "text": title,
             "color": _severity_color(message.severity),
         },
         {
             "type": "TextBlock",
             "wrap": True,
-            "text": message.body_markdown,
+            "text": body_text,
         },
     ]
-    if message.audit_id or message.correlation_id:
+    facts: list[dict[str, str]] = [
+        *(
+            [{"title": "correlation_id", "value": message.correlation_id}]
+            if message.correlation_id
+            else []
+        ),
+        *([{"title": "audit_id", "value": message.audit_id}] if message.audit_id else []),
+        *({"title": key, "value": value} for key, value in sorted(message.metadata.items())),
+    ]
+    truncated_fields = [
+        name
+        for name, truncated in (("title", title_truncated), ("body", body_truncated))
+        if truncated
+    ]
+    if truncated_fields:
+        facts.append({"title": "rendering", "value": f"truncated: {', '.join(truncated_fields)}"})
+    if facts:
         body.append(
             {
                 "type": "FactSet",
-                "facts": [
-                    {"title": "correlation_id", "value": message.correlation_id},
-                    *(
-                        [{"title": "audit_id", "value": message.audit_id}]
-                        if message.audit_id
-                        else []
-                    ),
-                ],
+                "facts": facts,
             }
         )
     actions: list[dict[str, object]] = [
@@ -230,4 +261,5 @@ __all__ = [
     "TeamsWebhookChannel",
     "TeamsWebhookConfig",
     "TeamsWorkflowAuthMode",
+    "render_teams_payload",
 ]
