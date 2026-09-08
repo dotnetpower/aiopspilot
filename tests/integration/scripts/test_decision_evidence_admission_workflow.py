@@ -17,7 +17,10 @@ _DEPLOY = (_ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8
 def test_workflow_is_exact_revision_and_source_run_bound() -> None:
     assert "workflow-path: .github/workflows/decision-evidence-admission.yml" in _WORKFLOW
     assert 'git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main' in _WORKFLOW
-    assert 'git rev-list --first-parent origin/main | grep -Fqx "$TARGET_COMMIT_SHA"' in (_WORKFLOW)
+    assert (
+        'git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null'
+        in _WORKFLOW
+    )
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in _WORKFLOW
     assert "actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" in _WORKFLOW
     assert '[[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]' in _WORKFLOW
@@ -51,6 +54,23 @@ def test_retention_shell_block_is_valid_bash() -> None:
     result = subprocess.run(
         ["/bin/bash", "-n"],
         input=step["run"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_first_parent_check_consumes_the_complete_stream() -> None:
+    command = (
+        'set -euo pipefail; target="$(git rev-parse origin/main)"; '
+        'git rev-list --first-parent origin/main | grep -Fx "$target" >/dev/null'
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed shell validates workflow semantics
+        ["/bin/bash", "-c", command],
+        cwd=_ROOT,
         text=True,
         capture_output=True,
         check=False,
