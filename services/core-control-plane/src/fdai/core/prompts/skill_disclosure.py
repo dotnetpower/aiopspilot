@@ -26,6 +26,7 @@ from fdai.core.skills import (
 from fdai.core.skills.bundle_catalog import (
     ResolvedSkillBundle,
     SkillBundleCatalog,
+    SkillBundleRejectionReason,
     SkillBundleResolutionError,
 )
 from fdai.core.skills.bundle_manifest import SkillBundleTrustVerifier
@@ -90,18 +91,31 @@ def compose_skill_disclosure(
         except SkillAccessError as exc:
             records.append(_rejected_record("load_skill", name, exc))
             continue
+        rendered_skill = (
+            f'<skill name="{escape(loaded.descriptor.name, quote=True)}" '
+            f'version="{escape(loaded.descriptor.version, quote=True)}" '
+            f'trusted="true">\n{loaded.body}</skill>'
+        )
+        if len(rendered_skill) > remaining_body_chars:
+            records.append(
+                _rejected_record(
+                    "load_skill",
+                    name,
+                    SkillAccessError(
+                        SkillRejectionReason.BODY_BUDGET_EXCEEDED,
+                        replay=loaded.replay,
+                    ),
+                )
+            )
+            continue
         layers.append(
             SkillDisclosureLayer(
                 id=f"skill:{loaded.descriptor.name}",
                 layer=PromptLayer.SKILL_BODY,
-                body=(
-                    f'<skill name="{escape(loaded.descriptor.name, quote=True)}" '
-                    f'version="{escape(loaded.descriptor.version, quote=True)}" '
-                    f'trusted="true">\n{loaded.body}</skill>'
-                ),
+                body=rendered_skill,
             )
         )
-        remaining_body_chars -= len(loaded.body)
+        remaining_body_chars -= len(rendered_skill)
         records.append(_selected_record(loaded.replay))
 
     for name in request.selected_bundle_names:
@@ -133,16 +147,27 @@ def compose_skill_disclosure(
         except SkillBundleResolutionError as exc:
             bundle_records.append(_rejected_bundle_record(bundle_catalog, name, exc))
             continue
+        rendered_bundle = _render_skill_bundle(resolved_bundle)
+        if len(rendered_bundle) > remaining_body_chars:
+            bundle_records.append(
+                _rejected_bundle_record(
+                    bundle_catalog,
+                    name,
+                    SkillBundleResolutionError(
+                        SkillBundleRejectionReason.BUDGET_EXCEEDED,
+                        bundle_name=name,
+                    ),
+                )
+            )
+            continue
         layers.append(
             SkillDisclosureLayer(
                 id=f"skill-bundle:{name}",
                 layer=PromptLayer.SKILL_BUNDLE,
-                body=_render_skill_bundle(resolved_bundle),
+                body=rendered_bundle,
             )
         )
-        remaining_body_chars -= len(resolved_bundle.instruction or "") + sum(
-            len(member.body) for member in resolved_bundle.members
-        )
+        remaining_body_chars -= len(rendered_bundle)
         bundle_records.append(_selected_bundle_record(resolved_bundle))
 
     if request.reference_selection is not None:

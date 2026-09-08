@@ -798,7 +798,7 @@
     "services/core-control-plane/src/fdai/core/prompts/__init__.py": "c1e3f5252fb5d3521fd9f7bafe89be64f182acffbba52b3cab9ac534fd6be32a",
     "services/core-control-plane/src/fdai/core/prompts/composer.py": "61c4d62758e827b4e1b9ee83bda865f764826a6824068bef604c020ab8a1e1e7",
     "services/core-control-plane/src/fdai/core/prompts/registry.py": "c5e8b32ed25a6cd0b4e14afd594309e787048891759d75cde461c4302c96351a",
-    "services/core-control-plane/src/fdai/core/prompts/skill_disclosure.py": "11e521c41ae53483aa82f31e4a6d3c3d4a96aa2cc6de8aeed4056c309fc3be87",
+    "services/core-control-plane/src/fdai/core/prompts/skill_disclosure.py": "698b29b2fa5e691bccde96423fa08f059c273a078b27d8a793d8b6bb2d126b5b",
     "services/core-control-plane/src/fdai/core/prompts/testing.py": "206442d27c08ac3bacca8b231a6adeab91cc846dd55762d9734754b0eef44f87",
     "services/core-control-plane/src/fdai/core/prompts/types.py": "a9018fbfccfd272630749796d89b5f192347e6da140a32a118edba3d2cbf06b4",
     "services/core-control-plane/src/fdai/core/python_task/__init__.py": "663a90359e0a8e9e6a7a4b3522080dd40008754820e85bb5a0e9c7239f19ad07",

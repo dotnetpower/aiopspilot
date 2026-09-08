@@ -199,3 +199,41 @@ def test_bundle_selection_is_explicit_bounded_and_never_auto_selected() -> None:
     )
     assert no_selection.bundle_records == ()
     assert not any(layer.layer is PromptLayer.SKILL_BUNDLE for layer in no_selection.layers)
+
+
+def test_rendered_skill_and_bundle_wrappers_count_toward_body_budget() -> None:
+    skills = _skills()
+    bundles = _bundles(skills)
+    selected_skill = compose_skill_disclosure(
+        catalog=skills,
+        verifier=_SkillVerifier(),
+        request=SkillDisclosureRequest(
+            agent="Bragi",
+            available_tools=frozenset({"query_inventory", "query_log"}),
+            query="inventory evidence",
+            selected_skill_names=("inventory-evidence",),
+            body_budget_chars=len("COMPLETE-INVENTORY-BODY"),
+        ),
+    )
+    selected_bundle = compose_skill_disclosure(
+        catalog=skills,
+        verifier=_SkillVerifier(),
+        request=SkillDisclosureRequest(
+            agent="Bragi",
+            available_tools=frozenset({"query_inventory", "query_log"}),
+            query="incident evidence",
+            selected_bundle_names=("incident-evidence-pack",),
+            body_budget_chars=(
+                len("BUNDLE-INSTRUCTION")
+                + len("COMPLETE-INVENTORY-BODY")
+                + len("COMPLETE-LOG-BODY")
+            ),
+        ),
+        bundle_catalog=bundles,
+        bundle_verifier=_BundleVerifier(),
+    )
+
+    assert not any(layer.layer is PromptLayer.SKILL_BODY for layer in selected_skill.layers)
+    assert selected_skill.records[0].rejection_reason == "skill_body_budget_exceeded"
+    assert not any(layer.layer is PromptLayer.SKILL_BUNDLE for layer in selected_bundle.layers)
+    assert selected_bundle.bundle_records[0].rejection_reason == "skill_bundle_budget_exceeded"

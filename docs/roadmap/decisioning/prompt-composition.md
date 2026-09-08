@@ -115,6 +115,7 @@ baseline retained here is two earlier turns at 51.431 and 53.841 seconds; no new
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Counted rendered skill and bundle XML wrappers against the prompt body budget and rejected an over-budget selection before assembly. | `current change`; focused skill disclosure checks passed 8 tests. | Retain runtime prompt-size observations separately. |
 | 2026-09-06 | implemented | Completed ten measured latency-improvement rounds across adaptive planning, schema preparation, review budgets, display, and terminal delivery. | Round commits and combined gate recorded above; fixed-provider-clock comparisons preserve exact answer and quality outcomes. | Retain an authorized real-provider before/after comparison before claiming an end-to-end speedup. |
 | 2026-09-06 | implemented | Removed the mandatory T2 reviewer from ordinary adaptive composition. Distinct configured T1 narrator models author and review; only an optional T2 primary refines, and malformed or unavailable escalation does not disable T1. Unbound provider schema support uses application-side JSON validation. | `current change`; 115 focused composition, transport, schema, budget, runtime, and prompt-registry tests passed; strict mypy passed for both modified source modules. The comparison regression exercises real composition and transport with mocked models and no operational query. | Retain an explicitly authorized live-question receipt before claiming actual answer quality. Strict no-T2 campaign behavior and operational quality gates are unchanged. |
 | 2026-09-06 | implemented | Completed fixed-role and relationship composition with independently reviewed answers and provider-budget propagation. Operational catalog failure no longer disables an independently valid general-answer service. | `current change`; 20 composition checks and 653 connected Python checks passed; 11 focused critique reviews are recorded in hierarchical conversation planning. | Live model quality and promotion evidence require separate authorization. |
@@ -319,6 +320,9 @@ Capability declarations separately show the deterministic operator request path;
 
 - **Three stages:** the bounded index contains metadata only; `load_skill` returns one complete selected `SKILL.md`; `read_skill_reference` returns one declared support artifact. `list_skills` and `describe_skill` are also Reader operations and never change lifecycle.
 - **Signed artifact manifest:** YAML front matter covers identity, version, provenance, body digest, required tools, allowed agents, and content-addressed references. Unsafe paths, undeclared or partial files, symlink-shaped metadata, digest mismatch, and configured budget overflow fail closed.
+- **Rendered body budget:** complete skill and bundle XML wrappers count toward the same body
+  character ceiling as the reviewed Markdown. A wrapper that would exceed the remaining budget is
+  rejected before it enters the effective prompt.
 - **Eligibility and replay:** every load rechecks enabled state, tool availability, agent allowlist, stored bytes, publisher signature, and reference digests. Prompt replay records operation, skill
   name, version, body/raw digests, reference digest, selected/rejected status, and rejection reason.
 - **Progressive prompt:** the index precedes selected bodies and references. A body is trusted reviewed instruction only after verification; a reference stays untrusted data. Existing
