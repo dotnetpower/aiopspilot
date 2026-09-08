@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Preserved retained assessment deep links beyond the bounded list window by querying the exact principal-scoped detail endpoint. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated old-assessment evidence separately. |
 | 2026-09-08 | implemented | Added monotonic request tracking to Conversation assurance list refreshes so out-of-order responses cannot restore stale data. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated repeated-refresh evidence separately. |
 | 2026-09-08 | implemented | Preserved the validated assessment identity in bounded browser-local transcript serialization and parsing so answer review remains correlated after session restoration. | `current change`; focused transcript and session checks passed 42 tests, and Console typecheck passed. | Retain authenticated reload evidence separately. |
 | 2026-09-08 | implemented | Included primary and secondary evidence-posture warnings in the grounded-source button's accessible name. | `current change`; focused grounded-reply checks passed 23 tests. | Retain authenticated assistive-technology validation separately. |

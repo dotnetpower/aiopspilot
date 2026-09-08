@@ -20,6 +20,8 @@ Browser-local transcript replay validates and retains an authoritative assessmen
 terminal answer supplies one, while PostgreSQL remains the conversation system of record.
 Conversation assurance list refreshes accept only the latest in-flight response, so a slower earlier
 read cannot replace a newer principal-scoped projection.
+A valid content-addressed assessment link can read its principal-scoped detail directly even when
+the assessment is older than the bounded list projection.
 
 ## Dependency-direction gate
 

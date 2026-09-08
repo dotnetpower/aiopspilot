@@ -44,6 +44,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Allowed a valid retained assessment deep link to query the principal-scoped detail endpoint even when the assessment is older than the bounded 200-row list projection. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated old-assessment evidence separately. |
 | 2026-09-08 | implemented | Added monotonic request tracking to Conversation assurance refreshes so an older response cannot overwrite a newer assessment list. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated repeated-refresh evidence separately. |
 | 2026-09-08 | implemented | Derived the Console assessment lifecycle state from a principal-scoped dispute record so an assessment with an append-only dispute no longer appears completed. | `current change`; focused assurance reader checks passed 5 tests. | Retain authenticated dispute-submission evidence separately. |
 | 2026-09-08 | implemented | Stopped an empty evidence-conflict array from creating the `evidence.conflicts` fact used by secondary Console warnings. | `current change`; focused semantic assurance projection checks passed 21 tests. | Retain authenticated mixed-posture evidence separately. |

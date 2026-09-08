@@ -31,6 +31,7 @@ const REASONS = [
   "inappropriate_abstention",
   "language_quality",
 ] as const;
+const ASSESSMENT_ID = /^conversation-assessment:[0-9a-f]{64}$/;
 
 export function ConversationAssuranceRoute({
   client,
@@ -103,9 +104,10 @@ export function selectedAssessmentId(
   current: string | null,
 ): string | null {
   if (requestedTurn !== null) {
-    return data.assessments.find(
+    const listed = data.assessments.find(
       (item) => item.assessment_id === requestedTurn || item.turn_id === requestedTurn,
-    )?.assessment_id ?? null;
+    )?.assessment_id;
+    return listed ?? (ASSESSMENT_ID.test(requestedTurn) ? requestedTurn : null);
   }
   if (current !== null && data.assessments.some((item) => item.assessment_id === current)) {
     return current;
@@ -139,7 +141,6 @@ function AssuranceBody({
 }) {
   const evidenceState = data.summary.total === 0 ? "insufficient-sample" : "measured";
   const href = `${routeHref("conversation-assurance")}#assessments`;
-  const selected = data.assessments.find((item) => item.assessment_id === selectedId) ?? null;
   return (
     <div class="stack">
       <div class="governance-readonly-banner">
@@ -158,7 +159,7 @@ function AssuranceBody({
       <AssessmentDetail
         auth={auth}
         client={client}
-        assessment={selected}
+        assessmentId={selectedId}
         requestedUnavailable={requestedAssessmentUnavailable(requestedAssessment, selectedId)}
         onRefresh={onRefresh}
       />
@@ -224,21 +225,21 @@ function AssessmentTable({ assessments, onSelect }: { readonly assessments: read
   return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.state")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td><StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
 }
 
-function AssessmentDetail({ auth, client, assessment, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessment: AssuranceAssessment | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
+function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessmentId: string | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
   const [detail, setDetail] = useState<AsyncState<AssuranceDetailPayload> | null>(null);
   useEffect(() => {
-    if (assessment === null) { setDetail(null); return; }
+    if (assessmentId === null) { setDetail(null); return; }
     let cancelled = false;
     setDetail({ status: "loading" });
-    client.panel<unknown>(`/conversation-assurance/${encodeURIComponent(assessment.assessment_id)}`)
+    client.panel<unknown>(`/conversation-assurance/${encodeURIComponent(assessmentId)}`)
       .then((value) => { if (!cancelled) setDetail({ status: "ready", data: decodeAssuranceDetail(value) }); })
       .catch((error: unknown) => { if (!cancelled) setDetail({ status: "error", message: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
-  }, [assessment?.assessment_id, client]);
+  }, [assessmentId, client]);
   if (requestedUnavailable) {
     return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={() => void onRefresh()}>{t("assurance.refreshAssessments")}</button></section>;
   }
-  if (assessment === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
+  if (assessmentId === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
   return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
 }
 

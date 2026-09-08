@@ -58,6 +58,8 @@ describe("conversation assurance contracts", () => {
 
     expect(selectedAssessmentId(data, "turn-1", null)).toBe("assessment-1");
     expect(selectedAssessmentId(data, "assessment-1", null)).toBe("assessment-1");
+    const retained = `conversation-assessment:${"a".repeat(64)}`;
+    expect(selectedAssessmentId(data, retained, null)).toBe(retained);
     expect(selectedAssessmentId(data, "turn-missing", "assessment-1")).toBeNull();
     expect(selectedAssessmentId(data, null, null)).toBe("assessment-1");
   });

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 79ffadf5828161e5de6f86b5fee6ad63b2e8fb4f
+translation_source_sha: 5c8552d86ac3d2af9c3bec1390542126aa3c7e43
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -25,6 +25,8 @@ WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 �
 PostgreSQL은 계속 대화 기록 시스템으로 유지됩니다.
 대화 보증 목록 새로고침은 가장 최신 요청의 응답만 수락하므로 느린 이전 읽기가 더 최신인
 principal 범위 변환 결과를 바꿀 수 없습니다.
+유효한 내용 주소 기반 평가 링크는 평가가 범위가 제한된 목록 변환 결과보다 오래되어도
+principal 범위 상세를 직접 읽을 수 있습니다.
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
