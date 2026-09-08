@@ -291,7 +291,7 @@ their private endpoints and read-only binding, and the independently declared ro
 re-dispatched by the bot-owned protected-operation workflow so the maintainer remains a distinct Environment
 approver. Stable resource IDs and the versionless Key Vault secret URI exclude unrelated compute drift. The
 deploy UAMI assignment is additive; if it exists outside Terraform state, the plan imports it only after its
-storage scope, principal, and role match. Replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan.
+storage scope, principal, and role match. Scoped post-apply skips unrelated inventory-image drift; replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan.
 The local parity profile starts the same five service packages against loopback PostgreSQL and
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed

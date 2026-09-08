@@ -1569,14 +1569,15 @@ jobs:
             echo "post-apply Terraform state is not converged." >&2
             exit 1
           fi
-          inventory_job="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"
-          az containerapp job show --resource-group "$(terraform output -raw resource_group_name)" \
-            --name "$inventory_job" --output json > "$RUNNER_TEMP/inventory-job.json"
-          uv run --frozen --package fdai-core-control-plane python \
-            ../scripts/deployment/azure/verify_job_image.py \
-            --job "$RUNNER_TEMP/inventory-job.json" --container inventory \
-            --expected-image "$TF_VAR_core_image"
-
+          if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then
+            inventory_job="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"
+            az containerapp job show --resource-group "$(terraform output -raw resource_group_name)" \
+              --name "$inventory_job" --output json > "$RUNNER_TEMP/inventory-job.json"
+            uv run --frozen --package fdai-core-control-plane python \
+              ../scripts/deployment/azure/verify_job_image.py \
+              --job "$RUNNER_TEMP/inventory-job.json" --container inventory \
+              --expected-image "$TF_VAR_core_image"
+          fi
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         env:
