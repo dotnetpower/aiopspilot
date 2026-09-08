@@ -93,6 +93,7 @@ def _evidence(
         scenario_id="scenario-trace-1",
         window_bucket="2026-09-09T00:00Z",
         observed_at=_NOW + timedelta(seconds=4),
+        confidence=0.8,
         affected_items=affected_items,
         evidence_refs=(f"telemetry:cause:{cause.value}",),
     )
@@ -256,6 +257,7 @@ def test_trace_cause_evidence_is_bounded_and_unique() -> None:
             scenario_id="scenario-trace-1",
             window_bucket="2026-09-09T00:00Z",
             observed_at=_NOW,
+            confidence=0.8,
             affected_items=("agent",),
             evidence_refs=(),
         )
@@ -271,6 +273,7 @@ def test_trace_cause_evidence_rejects_whitespace_and_canonicalizes_order() -> No
         scenario_id="scenario-trace-1",
         window_bucket="2026-09-09T00:00Z",
         observed_at=_NOW,
+        confidence=0.8,
         affected_items=("agent->api-gateway", "application->agent"),
         evidence_refs=("telemetry:z", "telemetry:a"),
     )
@@ -303,3 +306,28 @@ def test_trace_cause_evidence_cannot_replay_across_scope_or_time(
 
     assert result.outcome is RcaOutcome.ABSTAINED
     assert result.reason == "trace_cause_evidence_scope_mismatch"
+
+
+def test_trace_cause_confidence_is_bounded_by_evidence_and_t1_ceiling() -> None:
+    cause = replace(
+        _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
+        confidence=0.95,
+    )
+
+    grounded = analyze_trace_continuity_cause(
+        _result(missing_hop="agent"),
+        cause_evidence=(cause,),
+    )
+    held = analyze_trace_continuity_cause(
+        _result(missing_hop="agent"),
+        cause_evidence=(cause,),
+        min_confidence=0.9,
+    )
+
+    assert grounded.hypothesis is not None
+    assert grounded.hypothesis.confidence == 0.85
+    assert held.outcome is RcaOutcome.ABSTAINED
+    assert held.reason == "confidence_0.85_below_min_0.90"
+
+    with pytest.raises(ValueError, match="confidence MUST be finite"):
+        replace(cause, confidence=float("nan"))

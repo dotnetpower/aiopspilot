@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -44,6 +45,7 @@ class TraceCauseEvidence:
     scenario_id: str
     window_bucket: str
     observed_at: datetime
+    confidence: float
     affected_items: tuple[str, ...]
     evidence_refs: tuple[str, ...]
 
@@ -57,6 +59,8 @@ class TraceCauseEvidence:
                 raise ValueError(f"trace cause {name} MUST be bounded non-empty text")
         if self.observed_at.tzinfo is None:
             raise ValueError("trace cause observed_at MUST be timezone-aware")
+        if not math.isfinite(self.confidence) or not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("trace cause confidence MUST be finite and in [0, 1]")
         if not 1 <= len(self.affected_items) <= _MAX_AFFECTED_ITEMS:
             raise ValueError(
                 f"trace cause affected_items MUST contain 1 to {_MAX_AFFECTED_ITEMS} items"
@@ -112,7 +116,7 @@ def analyze_trace_continuity_cause(
     hypothesis = RootCauseHypothesis(
         tier=RcaTier.T1,
         cause=_cause_text(selected),
-        confidence=0.9,
+        confidence=min(0.85, selected.confidence),
         citations=citations,
         cause_domain=_cause_domain(selected.cause),
         evidence_refs=tuple(citation.ref for citation in citations),
