@@ -23,6 +23,12 @@ def test_workflow_is_exact_revision_and_source_run_bound() -> None:
     )
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in _WORKFLOW
     assert "actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" in _WORKFLOW
+    assert (
+        _WORKFLOW.count("actions/runs/$SOURCE_RUN_ID\" \\\n              --jq '.run_attempt'") == 2
+    )
+    assert "source workflow attempt changed before artifact download" in _WORKFLOW
+    assert "source workflow attempt changed during artifact download" in _WORKFLOW
+    assert '--attempt "$SOURCE_RUN_ATTEMPT"' not in _WORKFLOW
     assert '[[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]' in _WORKFLOW
     assert "deployment-apply-receipt-${PLAN_ID}" in _WORKFLOW
     assert "--policy config/decision-evidence-deployment-policy.json" in _WORKFLOW
@@ -57,6 +63,22 @@ def test_retention_shell_block_is_valid_bash() -> None:
         for item in steps
         if item.get("name") == "Retain attested immutable decision evidence records"
     )
+
+    result = subprocess.run(
+        ["/bin/bash", "-n"],
+        input=step["run"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_download_shell_block_is_valid_bash() -> None:
+    workflow = yaml.safe_load(_WORKFLOW)
+    steps = workflow["jobs"]["verify-retain-attest"]["steps"]
+    step = next(item for item in steps if item.get("name") == "Download exact source candidate")
 
     result = subprocess.run(
         ["/bin/bash", "-n"],
