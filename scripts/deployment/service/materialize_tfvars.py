@@ -27,7 +27,7 @@ _CHANNEL_EDGE_SECRET_NAMES = {
     "slack_bot_token_secret_id": "fdai-channel-edge-slack-bot-token",
     "slack_principal_map_secret_id": "fdai-channel-edge-slack-principal-map",
 }
-_AZURE_SUBSCRIPTION_ID = re.compile(
+_AZURE_GUID = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
@@ -180,7 +180,7 @@ def _channel_edge_secret_id(value: object, *, expected_name: str) -> tuple[str, 
         len(segments) != 11
         or segments[0] != ""
         or segments[1].lower() != "subscriptions"
-        or _AZURE_SUBSCRIPTION_ID.fullmatch(segments[2]) is None
+        or _AZURE_GUID.fullmatch(segments[2]) is None
         or segments[3].lower() != "resourcegroups"
         or not segments[4]
         or segments[5].lower() != "providers"
@@ -248,6 +248,28 @@ def materialize_operator_channel_edge(
     }
 
 
+def _operator_channel_edge_identity(binding: dict[str, Any]) -> dict[str, str]:
+    if set(binding) != {"client_id", "principal_id", "resource_id"}:
+        raise TfvarsError("operator channel edge identity binding has unexpected keys")
+    client_id = binding.get("client_id")
+    principal_id = binding.get("principal_id")
+    resource_id = binding.get("resource_id")
+    if (
+        not isinstance(client_id, str)
+        or _AZURE_GUID.fullmatch(client_id) is None
+        or not isinstance(principal_id, str)
+        or _AZURE_GUID.fullmatch(principal_id) is None
+        or not isinstance(resource_id, str)
+        or not resource_id.lower().startswith("/subscriptions/")
+        or not resource_id.lower().endswith("-channel-edge")
+    ):
+        raise TfvarsError("operator channel edge identity binding is invalid")
+    return {
+        "edge_resource_id": resource_id,
+        "edge_client_id": client_id,
+    }
+
+
 def materialize_core_llm(
     resolved_models: dict[str, Any],
     *,
@@ -310,6 +332,7 @@ def select_tfvars(
     service: str,
     environment: str,
     operator_channel_edge_enabled: bool | None = None,
+    operator_channel_edge_identity: dict[str, Any] | None = None,
     operator_channel_edge_provider: dict[str, Any] | None = None,
     resolved_models: dict[str, Any] | None = None,
     resolved_models_digest: str = "",
@@ -348,6 +371,14 @@ def select_tfvars(
             raise TfvarsError("operator tfvars must contain a channel_edge object")
         else:
             channel_edge["enabled"] = operator_channel_edge_enabled
+        if operator_channel_edge_enabled:
+            identity = materialized.get("identity")
+            if not isinstance(identity, dict):
+                raise TfvarsError("operator tfvars must contain an identity object")
+            if operator_channel_edge_identity is not None:
+                identity.update(_operator_channel_edge_identity(operator_channel_edge_identity))
+            if not identity.get("edge_resource_id") or not identity.get("edge_client_id"):
+                raise TfvarsError("operator channel edge identity binding is missing")
     if resolved_models is not None:
         if service != "core-control-plane":
             raise TfvarsError("resolved model binding is valid only for core-control-plane")
@@ -442,6 +473,11 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             operator_channel_edge_enabled=edge_enabled,
+            operator_channel_edge_identity=(
+                _optional_object_environment("OPERATOR_CHANNEL_EDGE_IDENTITY_JSON")
+                if edge_enabled
+                else None
+            ),
             operator_channel_edge_provider=(
                 _optional_object_environment("OPERATOR_CHANNEL_EDGE_PROVIDER_JSON")
                 if edge_enabled

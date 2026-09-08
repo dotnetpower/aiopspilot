@@ -2820,6 +2820,12 @@ def test_tfvars_materializes_bounded_slack_channel_edge_provider(
             "dev": {
                 "operator-service": {
                     "name": "ca-example-dev-operator-api",
+                    "identity": {
+                        "runtime_resource_id": "runtime-resource",
+                        "runtime_client_id": "00000000-0000-0000-0000-000000000001",
+                        "command_resource_id": "command-resource",
+                        "command_client_id": "00000000-0000-0000-0000-000000000002",
+                    },
                 }
             }
         }
@@ -2830,6 +2836,15 @@ def test_tfvars_materializes_bounded_slack_channel_edge_provider(
         service="operator-service",
         environment="dev",
         operator_channel_edge_enabled=True,
+        operator_channel_edge_identity={
+            "resource_id": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000"
+                "/resourceGroups/example/providers/Microsoft.ManagedIdentity"
+                "/userAssignedIdentities/id-example-channel-edge"
+            ),
+            "client_id": "00000000-0000-0000-0000-000000000003",
+            "principal_id": "00000000-0000-0000-0000-000000000004",
+        },
         operator_channel_edge_provider=provider,
     )
 
@@ -2862,6 +2877,8 @@ def test_tfvars_materializes_bounded_slack_channel_edge_provider(
             "memory": "1Gi",
         },
     }
+    assert selected["identity"]["edge_resource_id"].endswith("-channel-edge")
+    assert selected["identity"]["edge_client_id"] == "00000000-0000-0000-0000-000000000003"
     assert "channel_edge" not in payload["environments"]["dev"]["operator-service"]
 
 
@@ -2915,6 +2932,7 @@ def test_tfvars_rejects_invalid_channel_edge_provider_binding(
                     "dev": {
                         "operator-service": {
                             "name": "ca-example-dev-operator-api",
+                            "identity": {},
                         }
                     }
                 }
@@ -2922,7 +2940,36 @@ def test_tfvars_rejects_invalid_channel_edge_provider_binding(
             service="operator-service",
             environment="dev",
             operator_channel_edge_enabled=True,
+            operator_channel_edge_identity={
+                "resource_id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000"
+                    "/resourceGroups/example/providers/Microsoft.ManagedIdentity"
+                    "/userAssignedIdentities/id-example-channel-edge"
+                ),
+                "client_id": "00000000-0000-0000-0000-000000000003",
+                "principal_id": "00000000-0000-0000-0000-000000000004",
+            },
             operator_channel_edge_provider=provider,
+        )
+
+
+def test_tfvars_rejects_missing_channel_edge_identity_binding(tfvars: ModuleType) -> None:
+    with pytest.raises(tfvars.TfvarsError, match="identity binding is missing"):
+        tfvars.select_tfvars(
+            {
+                "environments": {
+                    "dev": {
+                        "operator-service": {
+                            "name": "ca-example-dev-operator-api",
+                            "identity": {},
+                            "channel_edge": {"enabled": False},
+                        }
+                    }
+                }
+            },
+            service="operator-service",
+            environment="dev",
+            operator_channel_edge_enabled=True,
         )
 
 

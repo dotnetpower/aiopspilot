@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 36c94b773636e173f6160a762e4b3c0ccde18aac
+translation_source_sha: 3eb64addae07cafc5bd2828dd967aee0595038be
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 활성화 계획 중에 권위 있는 플랫폼 상태 출력의 Operator channel-edge 워크로드 신원을 구체화했습니다. 서비스 구체화 도구는 정확한 리소스, 클라이언트 및 principal 식별자 형태만 수락하고 전용 리소스 및 클라이언트 식별자 없이 활성 edge가 생성되지 않게 합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
 | 2026-09-08 | implemented | 고정된 버전 없는 Key Vault 비밀 리소스 식별자 4개와 Slack 작업 영역 식별자 하나만 받는 마스킹되고 범위가 제한된 Operator channel-edge 프로바이더 결속을 추가했습니다. 서비스 구체화 도구는 배포 이름과 닫힌 Slack 전용 기본값을 파생하고, 키 변경, 고정 이름 변경 및 vault 간 참조를 차단하며, 암호화된 기본 tfvars는 변경하지 않습니다. | `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
 | 2026-09-08 | implemented | 명시적인 channel-edge 활성화 또는 비활성화 전환을 계획 guard에만 전달하지 않고 Terraform 계획 전에 서비스 tfvars 구체화에도 결속했습니다. | 실패한 서비스 계획 `34222085011`, `current change`, 집중 서비스 작업 흐름 테스트 | 완전한 프로바이더 결속으로 Operator 활성화 계획을 다시 실행하고 guard를 통과한 생성 전용 결과를 보존합니다. |
 | 2026-09-08 | implemented | Channel-edge 신원과 해당 ACR, 의미 Event Hubs, Operator DSN 및 프로바이더와 주체 비밀 범위 4개만 대상으로 하는 전용 platform 계획 대상 집합을 추가했습니다. | `current change`, platform 작업 흐름 계약 테스트 | 삭제가 없는 계획과 단독 유지관리자 직접 개발 적용을 실행한 뒤 Operator 워크로드를 활성화합니다. |

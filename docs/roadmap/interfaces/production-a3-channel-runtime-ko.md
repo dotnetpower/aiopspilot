@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 06fc504a2340f8c617fc462da1a29064df6c7356
+translation_source_sha: fddd7a7893f268cb6944a9aa46c5a570c265c0f8
 translation_revised: 2026-09-08
 ---
 # 운영 A3 채널 런타임
@@ -94,6 +94,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | 구현됨 | 활성화 전환 중에 권위 있는 플랫폼 상태 출력의 전용 비실행기 edge 신원을 Operator 서비스 tfvars에 결속했습니다. 구체화 도구는 정확한 신원 형태를 검증하고 리소스 및 클라이언트 식별자가 모두 없으면 활성 edge를 차단합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 이전 `SERVICE_DEPLOY_TFVARS_JSON`이 작업 흐름 로그에 tenant 리소스 식별자를 노출하거나 서비스 설정 범위를 넓히지 않고 Slack을 활성화할 수 있도록 마스킹된 `OPERATOR_CHANNEL_EDGE_PROVIDER_JSON` 배포 결속을 추가했습니다. | `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 보호된 방식으로 실행하고 적용한 뒤 상태, 전달, 재시작 조정, 비활성화 및 제거 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 값 로깅이나 아티팩트 보존 없이 프로바이더가 호스팅하는 GitHub Secrets에서 고정 Slack A3 비밀을 구체화하고 다시 읽어 확인하는 정확한 리비전 기반 VNet 러너 작업 흐름을 추가했습니다. | `current change`, 집중 비밀 전송, 작업 흐름 보안, 러너 등록, 로그인 결속 및 CI 계약 테스트 | 필수 CI가 통과한 리비전에서 작업 흐름을 실행하고 생성된 버전 없는 비밀 식별자를 플랫폼과 Operator 계획에 결속한 뒤 전달 및 롤백 증적을 보존합니다. |
 | 2026-08-19 | 진행 중 | Operator API 공동 hosting과 여섯 번째 service distribution을 비평에서 모두 거부한 뒤 권한 없는 edge workload 설계를 승인했습니다. | `current change`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), route, tracking, translation 및 link 검사 | 구현, hardening, 검증 및 통제된 로컬/배포 증적 보존이 남았습니다. |
