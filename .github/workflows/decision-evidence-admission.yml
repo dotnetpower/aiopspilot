@@ -78,7 +78,7 @@ jobs:
           [[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
-          git rev-list --first-parent origin/main | grep -Fqx "$TARGET_COMMIT_SHA"
+          git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null
           [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
 
       - name: Authenticate deploy-runner identity
