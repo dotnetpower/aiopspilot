@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -2799,6 +2800,51 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     assert selected["channel_edge"]["enabled"] is False
     assert selected["channel_edge"]["principal_scopes_secret_id"] == "secret-reference"
     assert payload["environments"]["dev"]["operator-service"]["channel_edge"]["enabled"] is True
+
+
+def test_tfvars_cli_disables_channel_edge_without_model_endpoint_input(
+    tfvars: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "service.tfvars.json"
+    monkeypatch.delenv("MODEL_ENDPOINTS_JSON", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "environments": {
+                        "dev": {
+                            "operator-service": {
+                                "name": "ca-example-dev-operator-api",
+                                "channel_edge": {"enabled": True},
+                            }
+                        }
+                    }
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "materialize_tfvars.py",
+            "--service",
+            "operator-service",
+            "--environment",
+            "dev",
+            "--operator-channel-edge-enabled",
+            "false",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert tfvars.main() == 0
+    assert json.loads(output.read_text(encoding="utf-8"))["channel_edge"]["enabled"] is False
 
 
 def test_tfvars_materializes_bounded_slack_channel_edge_provider(

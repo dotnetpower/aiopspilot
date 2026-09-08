@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 3e69c57fd1c77075d4edea5ac63db590b990b60e
+translation_source_sha: 290415233bfc98080077ce54dafeda67ae419322
 translation_revised: 2026-09-08
 ---
 # 운영 A3 채널 런타임
@@ -94,6 +94,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | 구현됨 | Operator 롤백 사전 검사가 Core 전용 모델 결속을 호출하지 않고 비활성화된 channel-edge tfvars를 구체화할 수 있도록 빈 모델 엔드포인트 입력의 기본값을 빈 JSON 객체로 설정했습니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 계획을 다시 만들고 적용한 뒤 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 검증된 각 고정 이름 Azure 비밀 리소스 식별자를 Container Apps가 요구하는 같은 vault의 버전 없는 Key Vault HTTPS 비밀 참조로 변환했습니다. 구체화 도구는 검증된 vault 이름 구간만 사용해 호스트 이름을 만들고 임의 프로바이더 엔드포인트를 받지 않습니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 활성화 전환 중에 권위 있는 플랫폼 상태 출력의 전용 비실행기 edge 신원을 Operator 서비스 tfvars에 결속했습니다. 구체화 도구는 정확한 신원 형태를 검증하고 리소스 및 클라이언트 식별자가 모두 없으면 활성 edge를 차단합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 이전 `SERVICE_DEPLOY_TFVARS_JSON`이 작업 흐름 로그에 tenant 리소스 식별자를 노출하거나 서비스 설정 범위를 넓히지 않고 Slack을 활성화할 수 있도록 마스킹된 `OPERATOR_CHANNEL_EDGE_PROVIDER_JSON` 배포 결속을 추가했습니다. | `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 보호된 방식으로 실행하고 적용한 뒤 상태, 전달, 재시작 조정, 비활성화 및 제거 증적을 보존합니다. |

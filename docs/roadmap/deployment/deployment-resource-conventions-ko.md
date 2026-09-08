@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 27530d5ae8f7131f91daa795dd29c72e044d15eb
+translation_source_sha: cc7a38ed7cdecd75e447322d030c248b6a792317
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Core 이외 서비스의 롤백 tfvars 구체화가 Core 모델 결속 계약과 독립적으로 유지되도록 모델 엔드포인트 입력이 없을 때 빈 JSON 객체를 기본값으로 사용합니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 Operator 계획을 다시 만들고 적용합니다. |
 | 2026-09-08 | implemented | 검증된 고정 이름 Azure 비밀 리소스 식별자 4개를 Container Apps에 전달하기 전에 버전 없는 Key Vault HTTPS 참조로 변환했습니다. 다른 엔드포인트 입력을 받는 대신 검증된 리소스 식별자에서 Azure vault 호스트 이름을 파생합니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
 | 2026-09-08 | implemented | 활성화 계획 중에 권위 있는 플랫폼 상태 출력의 Operator channel-edge 워크로드 신원을 구체화했습니다. 서비스 구체화 도구는 정확한 리소스, 클라이언트 및 principal 식별자 형태만 수락하고 전용 리소스 및 클라이언트 식별자 없이 활성 edge가 생성되지 않게 합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
 | 2026-09-08 | implemented | 고정된 버전 없는 Key Vault 비밀 리소스 식별자 4개와 Slack 작업 영역 식별자 하나만 받는 마스킹되고 범위가 제한된 Operator channel-edge 프로바이더 결속을 추가했습니다. 서비스 구체화 도구는 배포 이름과 닫힌 Slack 전용 기본값을 파생하고, 키 변경, 고정 이름 변경 및 vault 간 참조를 차단하며, 암호화된 기본 tfvars는 변경하지 않습니다. | `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |

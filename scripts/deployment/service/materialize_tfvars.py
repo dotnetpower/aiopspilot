@@ -486,7 +486,7 @@ def main() -> int:
             ),
             resolved_models=resolved_models,
             resolved_models_digest=os.environ.get("RESOLVED_MODELS_DIGEST", ""),
-            model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "")),
+            model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "{}")),
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
             stewardship_gitops=_optional_object_environment("STEWARDSHIP_GITOPS_JSON"),
