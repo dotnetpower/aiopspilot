@@ -11,8 +11,9 @@ binding contracts live in the project-structure and deploy-and-onboard design do
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -64,6 +65,7 @@ if TYPE_CHECKING:
     from ..delivery.azure.metric_logs import AzureMonitorLogsConfig
     from ..delivery.pgvector.knowledge import PgvectorKnowledgeConfig
     from ..shared.providers.secret_provider import SecretProvider
+    from ..shared.providers.state_store import StateStore
 
 from . import wire_capabilities as _wire_capabilities  # noqa: E402
 from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noqa: E402
@@ -121,6 +123,51 @@ def default_container(config: AppConfig) -> Container:
         feasibility_probes=(),
         llm_bindings=llm,
         capability_runtime=_wire_capabilities.default_capability_runtime(),
+    )
+
+
+def bind_decision_evidence_admission(
+    container: Container,
+    *,
+    state_store: StateStore,
+    clock: Callable[[], datetime] | None = None,
+) -> Container:
+    """Bind durable exact-match evidence admission without granting authority."""
+
+    from ..delivery.persistence.state_store_decision_evidence import (
+        StateStoreDecisionEvidenceAdmissionProvider,
+    )
+
+    return replace(
+        container,
+        decision_evidence_admission_provider=StateStoreDecisionEvidenceAdmissionProvider(
+            store=state_store,
+            clock=clock,
+        ),
+    )
+
+
+def bind_azure_decision_evidence_admission(
+    container: Container,
+    *,
+    container_url: str,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> Container:
+    """Bind immutable Blob-backed admissions for the deployed runtime."""
+
+    from ..delivery.azure.decision_evidence import (
+        AzureBlobDecisionEvidenceAdmissionProvider,
+        AzureBlobDecisionEvidenceProofConfig,
+    )
+
+    return replace(
+        container,
+        decision_evidence_admission_provider=AzureBlobDecisionEvidenceAdmissionProvider(
+            config=AzureBlobDecisionEvidenceProofConfig(container_url=container_url),
+            identity=identity,
+            http_client=http_client,
+        ),
     )
 
 
@@ -319,11 +366,13 @@ __all__ = [
     "attach_metric_provider",
     "bind_browser_evidence",
     "bind_configuration_drift",
+    "bind_decision_evidence_admission",
     "bind_context_selection_shadow",
     "bind_execution_authorization",
     "bind_execution_backends",
     "bind_resolved_models_revision",
     "bind_azure_llm_bindings",
+    "bind_azure_decision_evidence_admission",
     "bind_azure_ontology_distiller",
     "bind_azure_operational_evidence",
     "bind_azure_devops_change_feed",

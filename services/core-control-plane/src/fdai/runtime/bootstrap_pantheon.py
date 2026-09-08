@@ -312,6 +312,7 @@ async def initialize_pantheon(
         OperationalContextMaterializer(
             store=config.control_loop.ontology_instance_store,
             require_decision_evidence=True,
+            decision_evidence=config.container.decision_evidence_admission_provider,
             catalog_versions=(
                 {"ontology": config.control_loop.ontology_release.digest}
                 if config.control_loop.ontology_release is not None

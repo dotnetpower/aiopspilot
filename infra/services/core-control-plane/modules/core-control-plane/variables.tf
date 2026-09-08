@@ -8,6 +8,10 @@ variable "platform" {
     operational_kafka_bootstrap_servers = optional(string, "")
   })
 }
+variable "decision_evidence_container_url" {
+  type    = string
+  default = ""
+}
 variable "image" { type = string }
 variable "bootstrap" {
   type = object({

@@ -98,6 +98,8 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], trimspace(var.decision_evidence_container_url) == "" ? [] : [
+    { name = "FDAI_DECISION_EVIDENCE_CONTAINER_URL", value = trimspace(var.decision_evidence_container_url) },
     ], var.rca_reader_identity.client_id == "" ? [] : [
     { name = "FDAI_RCA_AZURE_READER_CLIENT_ID", value = var.rca_reader_identity.client_id },
     ], !local.teams_notification_enabled ? [] : [

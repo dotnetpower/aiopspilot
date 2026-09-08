@@ -14,6 +14,20 @@ variable "platform" {
   })
 }
 
+variable "decision_evidence_container_url" {
+  description = "Optional private Blob container that retains governed decision-evidence admissions."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      trimspace(var.decision_evidence_container_url) == "" ||
+      can(regex("^https://[^/]+/[^/]+$", trimspace(var.decision_evidence_container_url)))
+    )
+    error_message = "decision_evidence_container_url must be empty or one HTTPS Blob container URL."
+  }
+}
+
 variable "image" {
   description = "Promoted Core OCI image. Pin by digest for protected environments."
   type        = string

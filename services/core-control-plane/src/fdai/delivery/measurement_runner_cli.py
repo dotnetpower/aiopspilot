@@ -37,6 +37,9 @@ from fdai.core.measurement.runners import (
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.measurement.admitted_operational_promotion import (
+    AdmittedOperationalPromotionEvidenceSource,
+)
 from fdai.delivery.measurement.holdout import (
     HoldoutVerifiedPatternBuilder,
     StateStoreTemporalHoldoutEvidenceSource,
@@ -64,6 +67,7 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
     StateStoreActionPromotionRegistry,
+    StateStoreDecisionEvidenceAdmissionProvider,
     StateStoreOperationalPromotionReceiptStore,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -262,7 +266,10 @@ async def _run_operational_promotion() -> int:
         unit_verifier=ManifestOperationalPromotionUnitVerifier(manifest),
     )
     results = await OperationalPromotionMeasurementRunner(
-        source=ImmutableFileOperationalPromotionEvidenceSource(manifest),
+        source=AdmittedOperationalPromotionEvidenceSource(
+            source=ImmutableFileOperationalPromotionEvidenceSource(manifest),
+            admission_provider=StateStoreDecisionEvidenceAdmissionProvider(store=state_store),
+        ),
         evaluator=evaluator,
         audit_store=state_store,
         receipt_sink=StateStoreOperationalPromotionReceiptStore(state_store),
