@@ -83,7 +83,9 @@ export function selectedAssessmentId(
   current: string | null,
 ): string | null {
   if (requestedTurn !== null) {
-    return data.assessments.find((item) => item.turn_id === requestedTurn)?.assessment_id ?? null;
+    return data.assessments.find(
+      (item) => item.assessment_id === requestedTurn || item.turn_id === requestedTurn,
+    )?.assessment_id ?? null;
   }
   if (current !== null && data.assessments.some((item) => item.assessment_id === current)) {
     return current;

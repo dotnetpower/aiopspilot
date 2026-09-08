@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: b8f7025a42b3a24821af2c7f807d34487076c3cd
+translation_source_sha: 90f750364b8eea8459ff32529cf8ed7d0cbe76a7
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -67,6 +67,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 대화 보증 경로 선택기가 현재 답변이 전달하는 권위 있는 평가 식별자를 수락하면서 기존 turn 식별자 링크도 유지하게 했습니다. | `current change`, 집중 대화 보증 경로 테스트 6개가 통과했습니다. | 인증된 실제 평가에서 경로 선택을 검증합니다. |
 | 2026-09-08 | implemented | 권위 있는 대화 평가 식별자를 실제 처리 및 복원된 Web turn 전체에 전달하여 답변 품질 링크가 일치하는 평가를 선택하게 했습니다. | `current change`, 집중 Console 스트림, 세션 및 근거 기반 답변 검사 43개와 Console 타입 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 정확한 딥 링크를 검증합니다. |
 | 2026-09-08 | implemented | 불완전한 원본 범위를 근거 기반 답변의 기본 차단 사유로 유지하면서, 별도로 기록된 충돌 표시를 간결한 Web 바닥글에 보존했습니다. | `current change`, `npm --prefix console test -- --run src/deck/grounded-reply.test.ts src/deck/grounded-sources.test.ts`에서 테스트 60개가 통과했습니다. | 인증된 Browser Entra 검증은 별도 근거로 유지합니다. |
 | 2026-09-06 | implemented | 기존 이력 경로로 사용자 범위의 의미 처리 최종 결과를 복원하고, 답변 없는 질문으로 끝나는 캐시를 모델 재호출 없이 보완했습니다. | `current change`; 집중 Python 검사 162개, Console 검사 81개 및 양 언어 복원 브라우저 검사 2개 통과. 보고된 대화의 저장 결과를 읽기 전용으로 복원해 744자 답변을 반환했고 인증된 세션 브라우저에서 실제 표시를 확인했습니다. | 최종 답변 복원을 수정했습니다. 관측된 작성, 검토, 보강 및 재검증 지연 51.4초는 별도의 최적화 대상입니다. |
