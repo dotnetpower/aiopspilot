@@ -190,3 +190,24 @@ def test_output_writer_refuses_existing_path_and_uses_owner_only_mode(
         match="new regular file",
     ):
         verifier._write(output, {"unsafe": True})
+
+
+def test_rejects_symlinked_source_artifact(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    evidence = _evidence_dir(tmp_path)
+    metadata = evidence / "plan-metadata.json"
+    target = evidence / "actual-metadata.json"
+    metadata.rename(target)
+    metadata.symlink_to(target)
+
+    with pytest.raises(verifier.DeploymentDecisionEvidenceError, match="regular file"):
+        verifier.build_deployment_decision_evidence(
+            evidence_dir=evidence,
+            source_run=_source_run(),
+            expected_commit_sha=_COMMIT,
+            expected_run_id=_RUN_ID,
+            expected_run_attempt=_RUN_ATTEMPT,
+            evaluated_at=_NOW,
+        )
