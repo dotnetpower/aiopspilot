@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -363,10 +364,25 @@ def _aware_utc(value: datetime) -> datetime:
 
 
 def _write(path: Path, payload: object) -> None:
-    path.write_text(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
+    _write_bytes(
+        path,
+        (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode(),
     )
+
+
+def _write_bytes(path: Path, content: bytes) -> None:
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+    except OSError as exc:
+        raise DeploymentDecisionEvidenceError(
+            "deployment decision evidence output MUST be a new regular file"
+        ) from exc
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(content)
 
 
 def main() -> int:
@@ -392,7 +408,7 @@ def main() -> int:
             evaluated_at=datetime.fromisoformat(args.evaluated_at.replace("Z", "+00:00")),
         )
         receipt, requirement, authentication, readback, container_url = evidence
-        args.output_dir.mkdir(parents=True, exist_ok=False)
+        args.output_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
         _write(args.output_dir / "receipt.json", receipt.model_dump(mode="json"))
         _write(args.output_dir / "requirement.json", requirement.model_dump(mode="json"))
         _write(
@@ -403,9 +419,9 @@ def main() -> int:
             args.output_dir / "readback-proofs.json",
             {"proofs": [proof.model_dump(mode="json") for proof in readback]},
         )
-        (args.output_dir / "container-url.txt").write_text(
-            container_url + "\n",
-            encoding="utf-8",
+        _write_bytes(
+            args.output_dir / "container-url.txt",
+            (container_url + "\n").encode(),
         )
     except (OSError, DeploymentDecisionEvidenceError, ValueError) as exc:
         parser.error(str(exc))
