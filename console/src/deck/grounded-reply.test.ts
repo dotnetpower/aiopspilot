@@ -7,6 +7,7 @@ import {
   assuranceHref,
   hasEvidenceReferenceCitations,
   primaryAnswerText,
+  sourceButtonAccessibleLabel,
   verificationLabel,
 } from "./grounded-reply";
 import { secondaryEvidencePostureIssueKind } from "./verification-presentation";
@@ -334,6 +335,15 @@ describe("grounded reply presentation", () => {
         },
       }),
     ).toBeNull();
+  });
+
+  it("includes evidence posture in the source button accessible name", () => {
+    expect(
+      sourceButtonAccessibleLabel("3 evidence references", [
+        "Partial evidence",
+        "Conflicting evidence",
+      ]),
+    ).toBe("3 evidence references. Partial evidence. Conflicting evidence");
   });
 
   it("does not treat empty citations as evidence references", () => {

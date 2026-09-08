@@ -183,9 +183,15 @@ export function GroundedReply({
     ? "confirmed"
     : "complete";
   const showAnswerState = answerState !== "complete";
-  const sourceButtonLabel = evidenceReferences
+  const sourceCountLabel = evidenceReferences
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
+  const sourceButtonLabel = sourceButtonAccessibleLabel(sourceCountLabel, [
+    groundingStatusLabel,
+    secondaryGroundingIssue
+      ? t(`deck.grounded.verificationStatus.${secondaryGroundingIssue}`)
+      : null,
+  ]);
 
   const copy = () => {
     void navigator.clipboard?.writeText(renderedText).then(
@@ -571,6 +577,14 @@ function preservesTypedEvidenceHold(
 
 export function assuranceHref(turnId: string): string {
   return routeHref("conversation-assurance", { params: { turn: turnId } });
+}
+
+export function sourceButtonAccessibleLabel(
+  sourceCountLabel: string,
+  statusLabels: readonly (string | null)[],
+): string {
+  return [sourceCountLabel, ...statusLabels.filter((item): item is string => Boolean(item))]
+    .join(". ");
 }
 
 export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckOpenDetail {

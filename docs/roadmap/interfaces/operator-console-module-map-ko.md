@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7a69be7b7dccd276d9d5572aba1573840c1adcb5
+translation_source_sha: f0c57706002c9dbb14c0366903d91a62b4c3b16e
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -19,6 +19,8 @@ WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 �
 온톨로지 인스턴스 변환 결과는 Inspector, 밀집 범례 및 현재 화면 근거 맥락에서 관측된
 `runtime_calls`를 일반 직접 관계와 구분합니다. 저장된 원본-대상 방향을 보존하며 런타임
 원본을 사용할 수 없을 때 호출을 추론할 수 없습니다.
+근거 출처 컨트롤은 기본 및 보조 근거 상태 레이블을 접근 가능한 이름에 포함하므로 보조 기술도
+표시된 바닥글과 같은 경고를 받습니다.
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
