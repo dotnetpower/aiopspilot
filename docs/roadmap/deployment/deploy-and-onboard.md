@@ -112,7 +112,7 @@ When governed operational-history storage is available, that 90-day apply artifa
 fixed plan, preflight, claim, receipt, and private-container coordinates consumed by the separate
 decision-evidence admission workflow. That workflow attests the exact admission record before it
 publishes any runtime-readable Blob record. An idempotent replay reuses an existing record only when
-both its bytes and `fdai-sha256` metadata match. Without the storage output, the existing apply
+both its bytes and `fdaisha256` metadata match. Without the storage output, the existing apply
 receipt remains available and no live evidence admission is claimed.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
