@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: baaf43cb2eeccb8ceda886c57ed277b541d7c027
-translation_revised: 2026-08-29
+translation_source_sha: ad5c780a66a3de95d61f919d74ecaf630fc7b793
+translation_revised: 2026-09-09
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -521,13 +521,14 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 | 실시간 구성 관측 | in-progress | `services/core-control-plane/src/fdai/delivery/azure/configuration_drift.py`; `runtime/configuration.py`; `runtime/bootstrap_plan.py`; `infra/modules/compute/container-apps/`; 집중 Azure, 런타임, 구성 표류 및 인프라 테스트 | 범위가 제한된 읽기 전용 Azure Resource Graph 어댑터가 구성된 스칼라 경로를 관측하고 불완전한 근거가 있으면 차단하며, 명시적인 런타임 구성이 완전할 때만 연결됩니다. Terraform은 기본적으로 기능을 사용하지 않습니다. 검토된 기준선 내용과 관리되는 실시간 근거는 아직 남아 있습니다. |
 | 예약된 분석기 전달 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | 구성된 진입점이 존재하며 발견 건마다 창 키를 가진 정본 Event 하나를 게시합니다. 게시 실패는 보고되고 0이 아닌 종료 코드로 작업이 재시도됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
 | 인벤토리 기반 대상 해석 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/core/investigation/analyzers.py`; `services/core-control-plane/tests/delivery/test_analyzer_targets.py`; `tests/integration/infra/test_detection_readiness.py` | 한 번의 tick이 구성된 대상과 영속 인벤토리 projection의 적격 `Resource`를 함께 분석합니다. 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 모두 실패 시 차단됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
-| 분산 추적 연속성 | implemented | `core/detection/trace_continuity.py`; `delivery/azure/trace_continuity.py`; `delivery/trace_continuity_tick.py`; 분석기 Job 바인딩; 집중 감지기, 소스, 틱, 인시던트, HIL, Terraform 검사(`55 passed`) | 결정론적 평가, 엄격하고 범위가 제한된 Azure 정규화, shadow Event 발행, 반복 발견의 인시던트 생성이 구현되어 있습니다. 실시간 Azure 감지, 승인, 복구 근거는 이슈 #142에 남아 있습니다. |
+| 분산 추적 연속성 | implemented | `core/detection/trace_continuity.py`; `core/rca/trace_continuity.py`; `delivery/azure/trace_continuity.py`; `delivery/trace_continuity_tick.py`; 분석기 Job 바인딩; 집중 감지기, RCA, 소스, 틱, 인시던트, HIL, Terraform 검사 | 결정론적 평가, 엄격하고 범위가 제한된 Azure 정규화, shadow Event 발행, 반복 발견의 인시던트 생성, 근거가 제한된 계측/수집기/헤더 원인 구분이 구현되어 있습니다. 권위 있는 원인 근거 생산자와 실시간 Azure 감지, 승인, 복구 근거는 이슈 #142에 남아 있습니다. |
 | 관리되는 운영 정확도 | in-progress | [런타임 전달 상태](#런타임-전달-상태); [열린 결정](#열림-decisions) | 런타임 정밀도, 재현율, 구간 포괄률, 선행 시간, 오탐 근거는 배포 작업으로 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 정확한 범위와 시각에 결속된 독립 인용 신호 하나에서만 계측, 수집기, 헤더 전파를 구분하고 수정 참조를 반환하지 않는 결정론적 T1 추적 원인 경계를 추가했습니다. | `current change`; 전체 RCA, 감지기, 인시던트 연결 범위 294건 통과; RCA 소스 26개 파일 strict mypy 통과. | 권위 있는 원인 근거 생산자를 연결하고 #142에서 관리하는 실시간 승인 또는 모든 안전조건을 갖춘 작업과 복구 증적을 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 3에서 Azure 표류 어댑터 관점 26개를 검토하고 유효한 빈 ARG 위치와 누락 필드를 구분했습니다. 이제 전역 범위 리소스는 전체 관측을 실패시키지 않고 안정적인 `global` 리전 토큰을 사용합니다. | `current change`; 집중 Azure 구성 표류 테스트. | 관리되는 현재 상태 표류 증적을 보존합니다. |
 | 2026-08-28 | in-progress | 범위가 고정된 Azure Resource Graph 구성 관측 소스를 추가하고 런타임에 연결했습니다. 정렬된 스칼라 속성 경로만 허용하고, 임의의 속성 묶음을 변환하지 않으며, 원시 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸고, 누락된 속성을 알 수 없음으로 표시합니다. 불완전한 구성, 범위 이탈, 잘림, 페이지 처리, 크기, HTTP 또는 행 형식 오류가 있으면 관측 결과를 만들지 않고 차단합니다. 시작 과정은 기능이 명시적으로 사용 설정된 경우 워크로드 신원을 요청하고 모든 전제 조건이 유효한 뒤에만 읽기 전용 도구를 설치합니다. Terraform은 전체 입력 집합을 명시적으로 사용 설정하는 계약으로 노출하고 기본적으로 표류 환경을 내보내지 않습니다. | `current change`; `delivery/azure/configuration_drift.py`; `runtime/{bootstrap,bootstrap_plan,configuration}.py`; `infra/services/core-control-plane/`; 집중 Azure 어댑터, 런타임 연결, 표류 서비스 및 인프라 검사 69건 통과; Ruff 및 strict mypy 통과; Core 서비스 Terraform 검증 성공. | 검토된 배포 기준선 내용을 적재하고 관리되는 현재 상태 표류 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 트리에 맞게 분석기 전달 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 분석기 전달을 복원하고 관리되는 정확도 근거를 보존합니다. |
@@ -553,6 +554,8 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
   현재 상태 증적을 보존합니다.
 - [ ] 감지기 정밀도, 재현율, 누락 위반, 구간 포괄률, 예측 선행 시간, 판단 보류 비율의 배포 근거를 기록합니다.
 - [ ] 인벤토리에서 발견된 리소스가 배포 변경 없이 실제 분석기 tick에 포함된다는 배포 런타임 근거를 기록하고 그 tick 보고를 보존합니다.
+- [x] 독립적으로 인용된 신호 하나에서만 계측, 수집기, 헤더 전파 원인을 구분하고 수정 권한을
+  포함하지 않는 근거 제한 추적 RCA를 추가합니다.
 - [ ] [이슈 #142](https://github.com/dotnetpower/fdai/issues/142)를 완료합니다. 집중 검사와 실시간 Azure 근거를 통해 `preserve`가 정상으로 유지되고, `regenerate`와 `drop`이 근거가 있는 발견 사항을 만들며, 반복 발견이 인시던트 하나를 열고, 복구 경로가 검증된 종결 전에 사람 승인 또는 모든 안전조건을 갖춘 작업에 도달함을 증명합니다.
 - [ ] [열린 결정](#열림-decisions)의 신호 등급별 방법, 기준선 이력, 승격 임계값을 확정하고 관리되는 구성에 인코딩합니다.
 

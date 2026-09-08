@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 86bb38fa6eac47137ff8bdd6b1f3d1acc8e71a90
+translation_source_sha: 6f1acb9259878b92d17a041f3dfd885d633116bb
 translation_revised: 2026-09-09
 ---
 # 근본원인 분석
@@ -41,6 +41,7 @@ translation_revised: 2026-09-09
 | 2026-09-09 | implemented | 일치하는 구간 레이블이 오래된 원격 측정을 허용하지 않도록 기본 5분의 양수 원인 근거 유효 기간을 추가했습니다. | `current change`; 집중 오래된 근거 및 잘못된 유효 기간 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-09 | implemented | 큰 양수 값으로 오래된 근거 방어를 비활성화할 수 없도록 구성된 추적 원인 근거 유효 기간을 24시간으로 제한했습니다. | `current change`; 집중 근거 유효 기간 상한 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-09 | implemented | 신뢰도 0인 근거가 grounded 원인을 만들 수 없도록 추적 전용 기본 신뢰도 하한을 0에서 `0.5`로 높였습니다. | `current change`; 집중 신뢰도 0 판단 보류 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
+| 2026-09-09 | implemented | 추적 RCA 비평 12회를 완료했습니다. 10개의 실질 수정으로 원인 근거를 표준화하고 제한했으며, 교차 범위 및 오래된 replay를 방지하고, 판단 보류 전에 신뢰도를 검증하고, 결합 인용을 제한하고, 지원되지 않는 홉 순서 원인 배정을 차단하고, 경계 소유권 주장을 제거하고, 근거 신뢰도와 유효 기간을 제한하고, 0이 아닌 기본 신뢰도 하한을 요구했습니다. 형식화된 감지기 생산자와 의도적으로 비어 있는 수정 참조를 추적한 뒤 두 가설은 기각했습니다. 이 제한된 범위에는 Low를 넘는 발견 사항이 남아 있지 않습니다. | `current change`; 전체 RCA, 감지기, 인시던트 연결 범위 294건 통과; RCA 소스 26개 파일 strict mypy 통과; Ruff 통과. | 권위 있는 원인 근거 생산자를 연결하고 #142에서 관리하는 실제 cohort를 보존합니다. |
 | 2026-09-04 | implemented | T1을 historical 인벤토리 신원, append-only topology history, canonical lifecycle Incident 매칭, 전용 reader RBAC, sovereign endpoint/audience 결합 및 전체 side-path timeout을 사용하는 event-time 맥락으로 보강했습니다. Split 배포는 정확한 platform reader identity를 hydrate하고 guard합니다. | `current change`; 집중 RCA 프로바이더, 멤버, topology, timeout, hydration, plan guard, Terraform, Ruff 및 strict mypy 검사, 잔여 하드닝 라운드 1-4, 11-12, 15-16, 22-29, 32-42. | 관리되는 exact-revision 운영 cohort를 보존합니다. |
 | 2026-09-04 | implemented | 자동 Incident T2를 서버 소유의 관리되는 문서 맥락에 연결했습니다. 별도의 읽기 전용 PostgreSQL 어댑터가 lexical ranking 전에 컬렉션과 접근 참조를 필터링하고 불변 메타데이터와 정확한 읽기 그룹을 다시 확인한 뒤 인시던트, 리소스, 목적, 기준 시각, 릴리스 및 주체에 결속된 맥락을 기존 문서 근거 검증기에 전달합니다. 문서나 접근 권한이 없으면 다른 인용으로 계속하지 않고 T2 판단을 보류합니다. | `current change`; 집중 관리 맥락, 자동 T2, 문서 근거, Ruff, strict mypy 및 Core 서비스 Terraform 검사가 통과했습니다. | 관리되는 운영 RCA cohort와 배포된 문서 읽기 증적을 보존합니다. |
 | 2026-09-04 | implemented | T1 RCA를 정확한 Azure Activity Log 변경과 완전하고 최신인 의존성 그래프에 연결했습니다. 어댑터는 서버 소유 인벤토리에서 중립 ID를 해석하고, 호출자 신원을 해시하며, 읽기 작업, 실패, 범위 이탈, pagination 상한 초과, 오래된 신원 및 그래프 세대 변경을 차단하고 모든 결과를 shadow로 유지합니다. | `current change`; 집중 Azure 배포 이력, 의존성 세대, 멤버 출처 및 control-loop 테스트 28건, Ruff, strict mypy가 통과했습니다. | 정확한 개정 번호의 운영 cohort와 독립적으로 검증한 결과를 보존합니다. |
