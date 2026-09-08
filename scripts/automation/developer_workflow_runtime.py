@@ -48,19 +48,8 @@ SELECT CASE WHEN EXISTS (
     SELECT 1
       FROM active_state
      WHERE checkpoint ->> 'generation' = snapshot_id
-) AND NOT EXISTS (
-    SELECT 1
-      FROM inventory_observation_journal AS pending
-      CROSS JOIN active_state
-     WHERE pending.watermark >
-           COALESCE((checkpoint ->> 'projection_high_watermark')::bigint, 0)
-       AND pending.scope_ref IN (
-           SELECT value FROM jsonb_array_elements_text(scopes)
-       )
-       AND NOT (
-           pending.source_revision = snapshot_id
-           OR pending.effective_at <= started_at
-       )
+       AND checkpoint -> 'scope_refs' = scopes
+       AND (checkpoint ->> 'projection_high_watermark')::bigint >= 0
 ) THEN 'ready' ELSE 'not-ready' END
 """.strip()
 PRESSURE_LIMITS = {

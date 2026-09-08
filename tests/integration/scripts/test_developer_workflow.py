@@ -429,7 +429,7 @@ def test_inventory_coverage_probe_requires_exact_ready_result(tmp_path: Path) ->
     )
     assert calls[0][:4] == ["docker", "exec", "fdai-postgres", "psql"]
     assert "inventory-ontology:active-scope-checkpoint" in calls[0][-1]
-    assert "inventory_observation_journal" in calls[0][-1]
+    assert "checkpoint -> 'scope_refs' = scopes" in calls[0][-1]
 
     assert not developer_workflow_runtime._inventory_coverage_ready(
         tmp_path,

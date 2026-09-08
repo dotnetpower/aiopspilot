@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9339ab9d86786b3a2a4efe56a7f9c619d26d50ba
+translation_source_sha: 0719b4814e096dbd0917d1db616018c9d686b484
 translation_revised: 2026-09-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -83,7 +83,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 관리 리소스 신원이 없는 영속 shadow 소비자로 남습니다. Compound는 정적 design mock이나
 테스트 고정본 애플리케이션을 시작하지 않습니다.
 
-작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 없거나 활성 범위 관측이 대기 중이면 범위가 제한된 복구가 완료될 때까지 스택을 사용할 수 없는 상태로 유지합니다.
+작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 활성 세대 및 정확한 범위 집합과 일치하지 않으면 스택을 사용할 수 없는 상태로 유지합니다. 이후 관측이 대기 중이면 답변 완전성은 낮아지지만 지속적으로 수집하는 프로세스를 준비되지 않은 상태로 만들지는 않습니다.
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬
 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,
