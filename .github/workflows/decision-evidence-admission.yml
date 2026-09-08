@@ -185,6 +185,7 @@ jobs:
           retain() {
             local source="$1"
             local name="$2"
+            local replay_mode="${3:-exact}"
             local digest
             digest="$(sha256sum "$source" | cut -d' ' -f1)"
             if az storage blob exists \
@@ -209,12 +210,42 @@ jobs:
                 --name "$name" \
                 --file "$RUNNER_TEMP/existing-decision-evidence.json" \
                 --auth-mode login --overwrite --only-show-errors --output none
-              cmp -s "$source" "$RUNNER_TEMP/existing-decision-evidence.json" || {
+              if cmp -s "$source" "$RUNNER_TEMP/existing-decision-evidence.json"; then
+                rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
+                return
+              fi
+              if [[ "$replay_mode" == "stable-lookup" ]] && python3 - \
+                  "$source" "$RUNNER_TEMP/existing-decision-evidence.json" <<'PY'
+              import json
+              import sys
+              from datetime import UTC, datetime
+
+              candidate = json.load(open(sys.argv[1], encoding="utf-8"))
+              existing = json.load(open(sys.argv[2], encoding="utf-8"))
+              fields = ("evidence_digest", "scope_digest", "purpose_id", "source_revision")
+              same_lookup = (
+                  candidate.get("lookup_digest") == existing.get("lookup_digest")
+                  and all(
+                      candidate.get("admission", {}).get(field)
+                      == existing.get("admission", {}).get(field)
+                      for field in fields
+                  )
+              )
+              valid_until = datetime.fromisoformat(
+                  existing.get("admission", {}).get("valid_until", "")
+              )
+              if valid_until.tzinfo is None:
+                  raise SystemExit(1)
+              raise SystemExit(0 if same_lookup and datetime.now(UTC) <= valid_until else 1)
+              PY
+              then
+                rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
+                return
+              fi
+              {
                 echo "decision evidence immutable record collision" >&2
                 exit 1
               }
-              rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
-              return
             fi
             az storage blob upload \
               --account-name "$account" \
@@ -235,7 +266,7 @@ jobs:
           retain "$inputs/bundle.json" \
             "decision-evidence/v1/bundles/${bundle_digest}.json"
           retain "$inputs/admission-record.json" \
-            "decision-evidence/v1/admissions/${lookup_digest}.json"
+            "decision-evidence/v1/admissions/${lookup_digest}.json" stable-lookup
 
       - name: Upload portable decision evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

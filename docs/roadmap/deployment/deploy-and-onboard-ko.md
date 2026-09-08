@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fd3b5c516f3642dae873c6378090a2b61e023a5f
+translation_source_sha: 6686525db606b71696219f08e610dc22189e1fbb
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -120,6 +120,9 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 증명합니다. 멱등 재실행은 기존 기록의 바이트와 `fdaisha256` 메타데이터가 모두 일치할
 때만 해당 기록을 재사용합니다. 저장소 출력이 없으면 기존 적용 증적만 유지하고 실제
 근거 승인을 주장하지 않습니다.
+재시도가 이미 게시된 승인 조회에 도달하면 근거, 범위, 목적 및 출처 개정이 계속 일치하는
+최초의 최신 기록만 재사용합니다. 만료되었거나 다른 기록은 충돌로 유지되며 새 출처 근거가
+필요합니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
