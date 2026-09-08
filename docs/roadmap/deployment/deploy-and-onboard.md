@@ -36,19 +36,17 @@ The production deployer permission boundary is owned by
 
 #### What Terraform does not create
 
-Terraform owns the inventory below, but four external inputs must exist before the first apply.
+Standalone `infra/bootstrap` retains its existing-account and existing-application-group prerequisites. The separate genesis root below removes that creation cycle without running application data-plane work locally.
 For a fresh database, supply its administrator password through the protected input or explicitly opt into persistent Terraform generation; enabling generation for an existing server is a separately approved credential change. Reference plans stay compatible with Terraform `>= 1.9`, and root wiring is checked separately.
 
-- **The deployer identity and its role-assignment permission.** Creating the executor identity and
-  its scoped roles needs User Access Administrator; Contributor alone plans and then fails.
-- **The Terraform state storage account.** `infra/bootstrap/create-state-account.sh` creates it with
-  `az`, because a private, key-disabled account cannot complete Terraform's data-plane readiness
-  poll from an operator workstation. Terraform reads it through a data source.
-- **The app resource group, when the bootstrap layer creates the runner VM.** That layer reads the
-  group as a data source to scope the runner's Contributor grant, while the app layer is what
-  creates it. On an empty subscription, create the empty group first or apply bootstrap once with
-  `create_runner_vm = false`, run the app layer, then re-apply with the runner enabled.
-- **An SSH public key for the runner**, plus quota headroom and the Log Analytics destination above.
+- **Deployer identity:** Role assignment needs User Access Administrator; Contributor alone is insufficient.
+- **State storage:** Standalone bootstrap reads the existing account created by `infra/bootstrap/create-state-account.sh`. Its AzureRM lookup can read account keys, so protect that local state as secret-bearing.
+- **Application resource group:** Standalone bootstrap expects the group to exist before assigning the runner's roles.
+- **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Offline bootstrap also requires an exact prebuilt image.
+
+[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups and the private state account through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
+For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
+`fdaictl provision plan --stage foundation` provides a dry run with optional private `--save-plan` capture. Approval, host enrollment, and remote-state migration remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
 matching capability-mode toggle before the plan can converge
@@ -245,10 +243,10 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
 - The protected `fdaictl` transport supports `dev` and `staging`. Its request identity binds the
   approved tenant, subscription, region, exact commit, selected services, run, attempt, and
   plan/apply/resume mode, and general CLI requests bind `document_ocr_action=preserve`. The workflow
-  recomputes those bindings and requires one reviewer with self-review and administrator bypass
-  disabled. Bot-owned Core and document applies validate the exact private plan and derive model,
-  database-host, or SharePoint inputs from its sealed mode, keeping the human reviewer distinct.
-  Profiles requiring N-of-M quorum or production-only inputs remain blocked until workflow-owned authority can bind and verify them.
+  recomputes those bindings. A single-maintainer repository can set
+  `DEV_DEPLOY_REQUIRED_APPROVALS=0` for direct `dev` applies only; the workflow then verifies that
+  the Environment has no reviewer rule. Staging, production, and bot-owned applies retain one independent
+  reviewer with self-review and administrator bypass disabled. N-of-M and production-only profiles remain blocked.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 
@@ -582,18 +580,18 @@ Every event is stamped with an **idempotency key at ingress** so a replay is a n
 MUST be reachable and covered by the [alert-routing contract](../operations/operating-and-verification.md#alert-routing)
 before enforce is enabled anywhere.
 
-The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
-Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
-signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
-until an approved push transport is available. The adaptive Inventory Job remains the completeness
-backstop; its policy targets a six-hour healthy interval while the minute scheduler checks deltas.
+The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event Hubs
+local authentication only to satisfy a Diagnostic Settings export. When the selected Azure signal source
+cannot publish with managed identity, use the bounded Activity Log recovery reader until an approved push
+transport is available. The adaptive Inventory Job reads validated policy before each coordinator run,
+keeps explicitly re-exported immutable synchronization records in the same Core image, reports failures independently, and advances overdue reconciliation. The module split adds no service, identity, or state writer.
 
 ## Verification After Provisioning
 
-Post-provision verification (adapter reachability, canary round-trip, shadow correctness) is
-defined in the [post-deploy smoke test contract](../operations/operating-and-verification.md#post-deploy-smoke-test-contract).
-A failing verification aborts the promotion and rolls traffic back
-([deployment.md#release-and-rollback](deployment.md#release-and-rollback)).
+Post-provision verification covers adapter reachability, canary round-trip, shadow correctness, and
+readback of any enabled Inventory Job. The [smoke test contract](../operations/operating-and-verification.md#post-deploy-smoke-test-contract) fails the apply when the
+inventory container is not successfully provisioned on the plan's exact digest-pinned Core image,
+preventing stale collection; any failed verification aborts promotion and triggers [rollback](deployment.md#release-and-rollback).
 
 ## Cost-Efficiency Principles
 

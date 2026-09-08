@@ -36,6 +36,9 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    PostgresInventoryObservationJournal,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
@@ -108,15 +111,16 @@ async def refresh() -> InventoryOntologyProjectionResult:
     )
     await ontology_store.sync_catalog()
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    snapshot_config = PostgresInventorySnapshotStoreConfig(dsn=dsn)
+    observation_journal = PostgresInventoryObservationJournal(config=snapshot_config)
     projector = InventoryOntologyProjector(
         store=ontology_store,
         status_store=state_store,
         ontology_release_digest=ontology.build_release().digest,
         resource_type_mappings=resource_type_mapping_digests(resource_types),
+        observation_journal=observation_journal,
     )
-    snapshot_store = PostgresInventorySnapshotStore(
-        config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
-    )
+    snapshot_store = PostgresInventorySnapshotStore(config=snapshot_config)
     projected: InventoryOntologyProjectionResult | None = None
     evidence_counts: dict[str, int] = {}
     event_bus = EventHubsKafkaBus(
@@ -141,7 +145,12 @@ async def refresh() -> InventoryOntologyProjectionResult:
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
-        projected = await projector.apply(observation)
+        journal_append = await observation_journal.append_promoted_snapshot(observation)
+        projected = await projector.apply(
+            observation,
+            journal_high_watermark=journal_append.journal_high_watermark,
+            projection_high_watermark=journal_append.projection_high_watermark,
+        )
         available = projected.status.value == "available"
         await activity_publisher.publish(
             ontology_projection_activity(
@@ -190,11 +199,12 @@ async def refresh() -> InventoryOntologyProjectionResult:
                 inventory=inventory,
                 manifest=InventoryCoverageManifest(
                     source="azure-resource-graph",
-                    scopes=("configured-subscription",),
+                    scopes=(subscription_id,),
                     resource_types=query_types,
                     observation_kind=InventoryObservationKind.OBSERVED,
                     started_at=datetime.now(UTC),
                     metadata={
+                        "coverage_scope": "full_provider_scope",
                         "credential": "azure-cli",
                         "synthetic": False,
                         "link_types": (

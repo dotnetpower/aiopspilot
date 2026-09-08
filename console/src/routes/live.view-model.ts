@@ -5,7 +5,6 @@ import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import type { ObservationSource } from "../hooks/observation-source";
 import { t } from "./i18n/live";
 import {
-  POOL_SIZE,
   RATE_WINDOW_MS,
   formatDuration,
   isTileStuck,
@@ -126,7 +125,7 @@ export function useLiveViewModel(
           { key: "stream.frames_dropped", value: droppedFrames, group: "throughput" },
           { key: "session.duration", value: formatDuration(state.now - state.session_started_at), group: "throughput" },
           { key: "tiles.active", value: activeTileCount, group: "tiles" },
-          { key: "tiles.empty", value: POOL_SIZE - activeTileCount, group: "tiles" },
+          { key: "tiles.empty", value: state.tiles.length - activeTileCount, group: "tiles" },
           { key: "tiles.shadow", value: shadowCount, group: "tiles" },
           { key: "tier.t0", value: percent(state.tierCounts.t0 ?? 0, tierTotal), group: "tier" },
           { key: "tier.t1", value: percent(state.tierCounts.t1 ?? 0, tierTotal), group: "tier" },

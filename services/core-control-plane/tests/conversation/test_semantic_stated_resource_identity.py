@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fdai.core.conversation.semantic_planning_cascade import (
     _current_state_clarification_fallback,
 )
@@ -252,6 +253,232 @@ def test_current_state_fallback_does_not_narrow_a_typed_collection() -> None:
     )
 
     assert result is None
+
+
+@pytest.mark.parametrize("target", ["webapp1", "list-db-prod", "vm-prod-01"])
+def test_current_state_fallback_preserves_one_source_grounded_exact_name(target: str) -> None:
+    utterance = f"Show the state of {target}."
+    start = utterance.index(target)
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "name": {"type": "string"},
+                "type": {
+                    "value_groups": [
+                        {
+                            "id": "compute-vm",
+                            "terms": ["VM"],
+                            "values": ["compute.vm"],
+                        }
+                    ]
+                },
+            },
+        },
+    )
+
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state",),
+            "targets": (
+                {
+                    "kind": "resource",
+                    "value": target,
+                    "canonical_value": "Resource.name",
+                    "source_start": start,
+                    "source_end": start + len(target),
+                },
+            ),
+        },
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+        confidence=0.95,
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.subject_constraints == ("Resource", f"Resource.name={target}")
+    assert proposal.clarification is None
+    assert frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
+
+
+def test_current_state_fallback_preserves_resource_id_kind() -> None:
+    target = "example-gateway"
+    utterance = f"Show the state of resource ID {target}."
+    start = utterance.index(target)
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {"id": {"type": "string"}},
+        },
+    )
+
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state",),
+            "targets": (
+                {
+                    "kind": "resource_id",
+                    "value": target,
+                    "canonical_value": None,
+                    "source_start": start,
+                    "source_end": start + len(target),
+                },
+            ),
+        },
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+        confidence=0.95,
+    )
+
+    assert result is not None
+    proposal, _frame = result
+    assert proposal.subject_constraints == ("Resource", f"Resource.id={target}")
+    assert proposal.clarification is None
+
+
+def test_current_state_fallback_preserves_multiple_target_ambiguity() -> None:
+    name = "aks-fdai-chaos"
+    resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example"
+    )
+    utterance = f"Compare the current state of {name} and {resource_id}."
+    name_start = utterance.index(name)
+    id_start = utterance.index(resource_id)
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        },
+    )
+
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state",),
+            "targets": (
+                {
+                    "kind": "resource",
+                    "value": name,
+                    "canonical_value": "Resource.name",
+                    "source_start": name_start,
+                    "source_end": name_start + len(name),
+                },
+                {
+                    "kind": "resource_id",
+                    "value": resource_id,
+                    "canonical_value": "Resource.id",
+                    "source_start": id_start,
+                    "source_end": id_start + len(resource_id),
+                },
+            ),
+        },
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+        confidence=0.95,
+    )
+
+    assert result is not None
+    proposal, _frame = result
+    assert proposal.subject_constraints == ("Resource",)
+    assert proposal.clarification_requirements == (ClarificationRequirement.RESOURCE_IDENTITY,)
+    assert proposal.clarification is not None
+
+
+def test_current_state_fallback_does_not_promote_generic_product_label() -> None:
+    target = "API Management"
+    utterance = f"Show the current state of {target}."
+    start = utterance.index(target)
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {"name": {"type": "string"}},
+        },
+    )
+
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state",),
+            "targets": (
+                {
+                    "kind": "resource",
+                    "value": target,
+                    "canonical_value": "Resource.name",
+                    "source_start": start,
+                    "source_end": start + len(target),
+                },
+            ),
+        },
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+        confidence=0.95,
+    )
+
+    assert result is not None
+    proposal, _frame = result
+    assert proposal.subject_constraints == ("Resource",)
+    assert proposal.clarification_requirements == (ClarificationRequirement.RESOURCE_IDENTITY,)
+
+
+def test_current_state_fallback_does_not_promote_declared_resource_type_term() -> None:
+    target = "VM"
+    utterance = f"Show the current state of {target}."
+    start = utterance.index(target)
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "name": {"type": "string"},
+                "type": {
+                    "value_groups": [
+                        {
+                            "id": "compute-vm",
+                            "terms": ["VM"],
+                            "values": ["compute.vm"],
+                        }
+                    ]
+                },
+            },
+        },
+    )
+
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state",),
+            "targets": (
+                {
+                    "kind": "resource",
+                    "value": target,
+                    "canonical_value": "Resource.name",
+                    "source_start": start,
+                    "source_end": start + len(target),
+                },
+            ),
+        },
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+        confidence=0.95,
+    )
+
+    assert result is not None
+    proposal, _frame = result
+    assert proposal.subject_constraints == ("Resource",)
+    assert proposal.clarification_requirements == (ClarificationRequirement.RESOURCE_IDENTITY,)
 
 
 def test_two_stated_targets_keep_the_hold() -> None:

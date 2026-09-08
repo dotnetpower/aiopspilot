@@ -27,6 +27,7 @@ import {
   type SchedulerRunPage,
   type SchedulerRunStatus,
 } from "./scheduler-runs.model";
+import type { ConsoleDataMode } from "../console-data-mode";
 
 interface Query {
   readonly taskId: string;
@@ -35,8 +36,17 @@ interface Query {
 
 const PAGE_SIZE = 50;
 
-export function SchedulerRunsRoute({ client }: { readonly client: OperatorApiClient }) {
-  const initial = queryFromRoute();
+export function SchedulerRunsRoute({
+  client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}) {
+  const routeQuery = queryFromRoute();
+  const initial = dataMode === "sample" && !routeQuery.taskId
+    ? { ...routeQuery, taskId: "inventory-reconciliation" }
+    : routeQuery;
   const [taskInput, setTaskInput] = useState(initial.taskId);
   const [statusInput, setStatusInput] = useState<Query["status"]>(initial.status);
   const [activeQuery, setActiveQuery] = useState<Query | null>(initial.taskId ? initial : null);

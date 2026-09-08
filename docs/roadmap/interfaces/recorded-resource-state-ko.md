@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: fd2a0e37b510723a8467270f677c11a00ade5912
-translation_revised: 2026-09-06
+translation_source_sha: b83d8a6489df884ede40dd652f3dd8d5edd689b0
+translation_revised: 2026-09-07
 ---
 # 기록된 리소스 상태
 
@@ -10,17 +10,18 @@ translation_revised: 2026-09-06
 정의합니다. 브라우저에서 새로운 운영 판정을 만들지 않고 기록된 값과 근거를 유지합니다.
 
 > **권한 경계:** 기록을 읽는 것만으로 현재 정상 여부를 증명하거나 변경 권한을 얻을 수 없습니다.
-> 공급자 조회, 모델 호출, 상태 쓰기 또는 새로운 영속 데이터 소유자를 추가하지 않습니다.
+> 인벤토리 작업이 검토된 공급자 조회와 단일 작성자 변환을 수행합니다. Console 및 대화 소비자는
+> 공급자 쓰기, 모델 호출 또는 상태 변경을 수행하지 않습니다.
 
 ## 설계 요약
 
-기존 인스턴스 읽기 구성요소가 현재의 불변 인벤토리 세대에서 Resource 속성을 제공합니다.
-Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표현합니다.
-두 Console 화면은 같은 버전의 데이터 형태를 사용합니다.
+인스턴스 목록과 상세 정보는 현재 세대 위에 순서가 보장된 실시간 변경을 병합합니다.
+기록 상태 페이지는 불변 상태와 세대 경계를 유지합니다. Operator Service는 Resource 속성을
+두 Console 화면이 사용하는 독립적인 세 가지 구분으로 표현합니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|
-| 운영 | 명시된 서비스, 전원, 단계, 준비, 실행, 연결, 접근 또는 링크 상태입니다. 중첩된 `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, `virtualNetworkLinkState`도 보존합니다. | 프로비저닝 성공을 실행 중으로 바꾸지 않습니다. Enabled, Online, Active, Attached, Completed는 기록된 의미를 유지합니다. |
+| 운영 | 명시된 서비스, 전원, 단계, 준비, 실행, 연결, 접근, 링크 또는 Static Web App 기본 환경 상태입니다. 중첩된 `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, `virtualNetworkLinkState`도 보존합니다. | 프로비저닝 성공을 실행 중으로 바꾸지 않습니다. Enabled, Online, Active, Attached, Completed, Ready는 기록된 의미를 유지합니다. |
 | 프로비저닝 | 명시된 `provisioningState`입니다. | 생성 성공은 가용성을 증명하지 않습니다. |
 | 가용성 | 명시된 가용성 근거입니다. | Running과 Succeeded는 서비스 정상을 증명하지 않습니다. |
 
@@ -39,6 +40,10 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 유지하며 관측 증적을 만들어 넣지 않습니다. 값이 없다고 자동으로 적용 대상 아님으로 처리하지도
 않습니다. 이 화면용 조회 결과는 기존 의사결정용 온톨로지 쿼리 검증기나 증적을 대체하지 않습니다.
 
+최신성은 상태 전이 시각이 아니라 근거 기준 시점이 얼마나 오래되었는지 측정합니다. 따라서 현재
+공급자 조회는 실제 적용 시각을 바꾸지 않으면서 오래전에 적용된 상태를 확인할 수 있습니다. 유지된
+사실은 이전 근거 기준 시점을 그대로 사용하며 해당 확인이 선언된 한도를 넘으면 오래된 근거가 됩니다.
+
 속성 단위 메타데이터를 기록하기 전에 생성된 현재 스냅샷은 불변 Resource의 `last_seen` 시각과
 스냅샷 완료 기준 시점으로 유지된 값을 설명합니다. `last_seen`을 실제 관측 시각으로 보존하며 더
 늦은 기준 시점으로 대체하지 않습니다. 시각 형식이나 순서가 올바르지 않으면 알 수 없음으로
@@ -50,9 +55,8 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 | 결과 | 의미 |
 |------|------|
 | `state_source_not_recorded` | 유형에 명시적인 공급자 또는 Kubernetes 상태 계약이 있지만 선택한 세대에 사용할 수 있는 값이 없습니다. 서비스, 전원, 준비, 데이터베이스, 메시지 브로커, 디스크, 스냅샷 접근, 프라이빗 DNS 링크 상태가 포함됩니다. |
-| `resource_health_projection_not_bound` | ARG 인벤토리가 리소스별 운영 상태를 제공하지 않으므로 Application Insights와 Log Analytics에는 Azure Resource Health가 필요합니다. 이 출처는 기록 상태 변환 결과에 연결되어 있지 않습니다. 프로비저닝 상태나 존재 여부로 대체하지 않습니다. |
 | `provider_operational_state_not_exposed` | 리소스에 운영상 고려할 상태는 있지만 현재 공급자 인벤토리 계약이 리소스별 운영 상태를 제공하지 않고 이 변환 결과에 검토된 대체 출처도 없습니다. |
-| `state_not_applicable` | 검토된 유형이 구성, ID, 그룹 또는 집계 정의이므로 하나의 운영 상태 값이 적용되지 않습니다. |
+| `state_not_applicable` | 검토된 유형 또는 축에 적용할 단일 상태가 없습니다. Application Insights 운영 및 가용성 상태와 Log Analytics 운영 상태가 포함됩니다. |
 | `resource_type_unclassified` | 공급자 유형에 검토된 표준 ResourceType 매핑이 없습니다. |
 | `state_applicability_unknown` | 하위 포크의 사용자 지정 유형을 아직 검토하지 않았습니다. 표준 유형에는 이 대체 결과를 사용하지 않습니다. |
 
@@ -80,19 +84,102 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 명시합니다. 전송 또는 스키마 오류를 빈 인벤토리나 기존 그래프 응답으로 대체하지 않습니다.
 화면 필터와 로컬 페이지는 수신한 집합에만 적용되며 조회 범위의 권한은 서버가 유지합니다.
 
+## 통합 상태 수집 및 조회
+
+리소스 검색은 ID와 구성을 확정합니다. 별도로 검토된 상태 보강기는 세대를 승격하기 전에 타입이
+지정된 상태 값과 표준 상태 사실 메타데이터만 추가할 수 있습니다. ID, 구성, 토폴로지 또는
+인벤토리 관측 시각을 대체할 수 없습니다.
+
+승격된 Resource 사실은 하나의 세대 일치 검사 아래에서 현재 `ontology_resource` Resource와
+Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니다. Core 대화 함수는 온톨로지
+인스턴스를 읽습니다. Operator 역할에는 Core 테이블 직접 접근 권한이 없으므로 인스턴스 및 일괄
+상태 조회는 같은 사실의 서비스 승인 변환 결과를 사용합니다.
+
+상태 전이 기록은 관계 완전성과 독립적입니다. 관련 없는 토폴로지 edge가 해결되지 않았어도 완전한
+객체 관측은 운영 또는 가용성 상태 이력을 전진시킬 수 있습니다. 관계 이력에는 계속 완전한 관계
+근거가 필요합니다.
+
+observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal에 추가합니다. 이력 게시가 실패하면
+온톨로지 변환은 전진하지 않습니다. 다음 재조정은 같은 coordinator lock 아래에서 보류 중인 활성
+세대를 먼저 재실행한 후 새 세대를 수집하거나 승격합니다. 따라서 일시적인 이력 실패가 영구적인
+상태 전이 누락을 만들지 않습니다.
+
+검토된 대체 가용성 출처는 Azure Resource Health입니다. 공통 계약은 ARM 유형이 지원되는 정확한
+ResourceType을 선언합니다.
+
+- 컴퓨팅 및 런타임 범위에는 App Service 계획, Azure Cache for Redis, Functions, 가상 머신,
+  VM scale set, Web Apps 및 AKS 클러스터가 포함됩니다.
+- 데이터 및 플랫폼 범위에는 경고 규칙, API Management, Event Hubs, Azure AI 서비스 계정,
+  Log Analytics 및 메트릭 작업 영역, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis Enterprise,
+  Key Vault, Service Bus 및 Storage 계정이 포함됩니다.
+- 네트워크 범위에는 Application Gateway, DNS Resolver 및 인바운드 엔드포인트, DNS 영역,
+  Azure Firewall, Load Balancer, NAT Gateway 및 Virtual Network Gateway가 포함됩니다.
+- `log-workspace`와 일부 플랫폼 유형에는 하나의 운영 실행 상태가 없습니다. 운영 축은 적용 대상이
+  아니거나 공급자가 제공하지 않은 상태를 유지하고, 가용성 축은 정확한 ARM Resource Health
+  상태를 사용합니다.
+- `application-insights`에는 직접 Resource Health 상태가 없습니다. 운영 및 가용성 축은 적용
+  대상이 아닙니다. 기반 Log Analytics 작업 영역은 별도의 관련 Resource로 유지하며 해당 상태를
+  Application Insights에 복사하지 않습니다.
+- `static-web-app`에 대해 검토된 대체 운영 출처는 정확한
+  `Microsoft.Web/staticSites/builds/default` 하위 리소스입니다. 인벤토리 승격 보강기는 API 버전
+  `2023-12-01`을 사용하고 문서화된 `BuildStatus` 열거형을 `staticSiteEnvironmentStatus`로
+  기록합니다. 배포 중, 준비 완료, 실패, 삭제 중, 분리 상태가 포함됩니다. 미리 보기 환경은 기본
+  환경을 덮어쓰지 않습니다.
+- Static Web App 상태 메타데이터는 공급자의 `lastUpdatedOn`을 실제 적용 시각으로 유지하고 필요한
+  경우에만 `createdTimeUtc`를 사용합니다. 수집 완료 시각은 기록 시각과 근거 기준 시점으로
+  유지합니다. HTTP 응답 성공이나 상위 리소스 존재 여부로 `Ready`를 추론하지 않습니다.
+- 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
+  `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
+- 정확한 조회는 대상 200개와 동시성 8로 제한합니다. 이전의 설명 가능한 사실은 세대가 일치하는
+  batch로 읽고, 대상 상한이나 공급자를 사용할 수 없을 때 유지합니다.
+- 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지
+  변환과 Operator 조회에 사용할 검토된 ResourceType별 경로 허용 목록을 정의합니다. 각 변환은
+  루트와 지원되는 중첩 속성 소유자에 이 허용 목록을 적용한 후 저장 값을 확인하며, 기존 최상위
+  `status` 필드도 같은 규칙을 따릅니다. 실제 허용 값과 연결된 표준 메타데이터만 유지하며 flat
+  메타데이터는 지원되는 `status` 및 `state` sibling 형식으로 제한합니다. 따라서 이전 `status`,
+  `provisioningState`, 잘못된 메타데이터 또는 예상하지 못한 속성이 적용 대상 아님이나 공급자
+  미제공 결과를 덮어쓸 수 없습니다.
+
 ## 화면과 호환성
 
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
-- 온톨로지 디렉터리와 탐색 기록에도 같은 `states` 필드를 추가합니다.
+- 온톨로지 디렉터리와 탐색 기록도 온톨로지가 소유하는 현재 Resource 상태에서 같은 `states` 필드를
+  제공합니다.
+- 온톨로지 인스턴스 그래프는 결과 노드가 적어도 검토된 뷰포트 높이를 유지하므로 기록된 상태의
+  세부 정보를 확인하는 영역이 축소되지 않습니다.
+- `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환
+  결과는 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용하며 원시 프로바이더 속성, 태그,
+  속도 제한 근거 경로 및 자격 증명은 서버에 유지합니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
-- 값이 없으면 기계 판독용 이유에 따라 기록 없음, 상태 원본 미연결, 사용 불가, 적용 대상 아님 또는
-  적용 여부 알 수 없음으로 표시합니다. 따라서 Application Insights와 Log Analytics는 일반적인
-  사용 불가 대신 연결되지 않은 Azure Resource Health 출처를 표시합니다.
+- 값이 없으면 기계 판독용 이유에 따라 기록 없음, 미제공, 미분류, 적용 대상 아님 또는 적용 여부
+  알 수 없음으로 표시합니다. `미제공`은 근거 계약을 설명하며 리소스 가용성을 뜻하지 않습니다.
+  이전 세대는 연결되지 않은 출처를 계속 명시적으로 표시할 수 있습니다.
+- 온톨로지 그래프의 간단한 노드 레이블은 정확한 운영 값을 먼저 사용합니다. 운영 축이 적용 대상이
+  아니거나 공급자가 운영 상태를 제공하지 않으면 정확한 가용성 값 또는 유용한 가용성 근거 누락을
+  먼저 표시하고, 그다음 정확한 프로비저닝 값을 사용합니다. 적용 가능한 운영 값의 누락은 계속
+  드러나며 가용성으로 숨길 수 없습니다. 레이블은 선택한 축을 밝히고, 프로비저닝 성공을 운영
+  성공이나 정상 상태로 바꾸지 않습니다.
+- 정확한 기본 환경 사실이 있는 Static Web App은 `Operational: Ready`,
+  `Operational: Deploying`, `Operational: Failed`와 같이 정확한 운영 값을 표시합니다. 검토된
+  출처에 기록된 값이 없으면 기록 없음으로 표시합니다. 미제공은 검토된 운영 출처가 없는
+  ResourceType에만 사용합니다.
 - Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
   이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.
+- 모델 배포의 `Succeeded` 상태는 프로비저닝 완료만 보고합니다. 추론 상태, 요청 성공, 할당량 여유
+  또는 호출자 권한을 입증하지 않습니다.
 - 기존 대시보드와 이전 인스턴스 클라이언트의 경로와 필드는 유지합니다.
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.
+- 런타임 화면 근거에는 현재 인증된 5273 Browser Entra 세션이 필요합니다. 만료된 캡처나 테스트
+  인증으로 대체한 결과는 표준 운영자 화면을 검증하지 않습니다.
+- frontend 또는 Operator API를 교체한 뒤에는 표준 화면에서 선택한 축 레이블을 다시 검증합니다.
+  따라서 유용한 가용성이나 프로비저닝 사실이 적용 대상이 아닌 운영 축 뒤에 다시 숨지 않습니다.
+- 확장된 Resource Health 검증은 ResourceType별 대상, 값 및 메타데이터 수를 비교합니다. 공급자가
+  모델링하지 않은 대상은 명시적으로 유지하며, 간단한 노드에 운영 상태를 표시하려면 독립적인 운영
+  사실이 필요합니다.
+- 런타임 대표 상태 검증에는 운영 또는 가용성 출처가 없는 구성형 Resource도 포함합니다. 이러한
+  노드는 정확한 프로비저닝 값이 있으면 해당 축을 표시하고, 모든 기록 축에 유용한 정확한 사실이
+  없을 때만 명시적인 근거 누락 레이블을 유지합니다.
 
 ## 채택하지 않은 대안
 

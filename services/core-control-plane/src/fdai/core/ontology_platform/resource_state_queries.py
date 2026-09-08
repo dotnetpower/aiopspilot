@@ -86,7 +86,7 @@ def resource_state_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_STATE_FUNCTION_NAME,
-        version="1.1.0",
+        version="1.1.1",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -150,19 +150,18 @@ def resource_state_inventory_function(
         if invocation_context.purposes != ("operations-review",):
             raise PermissionError("resource-state purpose does not match invocation context")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
-        if secured.receipt.truncated or not secured.receipt.complete:
-            return _table((), complete=False, reason="resource_scope_incomplete")
+        scope_incomplete = secured.receipt.truncated or not secured.receipt.complete
         requested = frozenset(str(item) for item in arguments["state_concepts"])
         include_all_observed = requested == {RESOURCE_STATE_OBSERVED_CONCEPT}
         rows: list[QueryRow] = []
-        incomplete = False
+        state_evidence_incomplete = False
         for target in sorted(secured.materialization.graph.objects, key=lambda item: item.id):
             values = verified_resource_state_values(
                 target,
                 observation_cutoff=secured.receipt.observation_cutoff,
             )
             if values is None:
-                incomplete = True
+                state_evidence_incomplete = True
                 continue
             if not include_all_observed and values["state_concept"] not in requested:
                 continue
@@ -174,8 +173,14 @@ def resource_state_inventory_function(
             )
         return _table(
             tuple(rows),
-            complete=not incomplete,
-            reason="resource_state_evidence_incomplete" if incomplete else None,
+            complete=not scope_incomplete and not state_evidence_incomplete,
+            reason=(
+                "resource_scope_incomplete"
+                if scope_incomplete
+                else "resource_state_evidence_incomplete"
+                if state_evidence_incomplete
+                else None
+            ),
         )
 
     return evaluate
@@ -191,8 +196,10 @@ def verified_resource_state_values(
     provider = _mapping(target.properties.get("properties"))
     raw_state = _text(provider.get("state"))
     state_concept = _state_concept(raw_state)
+    metadata_root = _mapping(provider.get(STATE_FACT_METADATA_PROPERTY))
+    metadata_value = metadata_root if "lane" in metadata_root else metadata_root.get("state")
     metadata = _verified_state_metadata(
-        provider.get(STATE_FACT_METADATA_PROPERTY),
+        metadata_value,
         observation_cutoff=observation_cutoff,
     )
     if state_concept is None or metadata is None:

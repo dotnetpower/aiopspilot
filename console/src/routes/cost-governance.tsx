@@ -18,6 +18,8 @@ import {
   isCostGovernanceProjection,
   loadCostGovernance,
 } from "./cost-governance.model";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { sampleCostGovernance } from "./cost-governance.sample";
 
 const TABS: readonly {
   readonly surface: CostGovernanceSurface;
@@ -36,7 +38,13 @@ function activeSurface(): CostGovernanceSurface {
     : "overview";
 }
 
-export function CostGovernanceRoute({ client }: { readonly client: OperatorApiClient }) {
+export function CostGovernanceRoute({
+  client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}) {
   const surface = activeSurface();
   const [state, setState] = useState<AsyncState<CostGovernanceProjection>>({
     status: "loading",
@@ -45,6 +53,12 @@ export function CostGovernanceRoute({ client }: { readonly client: OperatorApiCl
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
+    if (dataMode === "sample") {
+      setState({ status: "ready", data: sampleCostGovernance(surface) });
+      return () => {
+        cancelled = true;
+      };
+    }
     loadCostGovernance(client, surface).then((result) => {
       if (cancelled) return;
       if (isCostGovernanceProjection(result)) {
@@ -71,7 +85,7 @@ export function CostGovernanceRoute({ client }: { readonly client: OperatorApiCl
       }
     });
     return () => { cancelled = true; };
-  }, [client, surface]);
+  }, [client, dataMode, surface]);
 
   return (
     <div class="stack cost-governance-route">
@@ -79,7 +93,10 @@ export function CostGovernanceRoute({ client }: { readonly client: OperatorApiCl
       <nav class="cost-governance-tabs" aria-label={t("costGovernance.title")}>
         {TABS.map((tab) => (
           <a
-            href={routeHref("cost-governance", { segments: [tab.surface] })}
+            href={routeHref("cost-governance", {
+              segments: [tab.surface],
+              params: Object.fromEntries(currentRoute().search.entries()),
+            })}
             aria-current={tab.surface === surface ? "page" : undefined}
             class={tab.surface === surface ? "active" : ""}
           >

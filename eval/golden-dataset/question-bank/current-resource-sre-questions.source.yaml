@@ -1,0 +1,554 @@
+schema_version: "1.0.0"
+source_id: current-resource-sre-questions-2026-09
+
+questions:
+  - id: current-resource.inventory-by-type
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.inventory_by_type
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which Azure resources currently exist in the authorized scope, grouped by resource type?
+      ko: 권한 범위에 현재 존재하는 Azure 리소스를 리소스 유형별로 묶어 보여 주세요.
+  - id: current-resource.inventory-by-location
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.inventory_by_location
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: How are the currently existing Azure resources distributed by location and resource type?
+      ko: 현재 존재하는 Azure 리소스가 위치와 리소스 유형별로 어떻게 분포되어 있나요?
+  - id: current-resource.vm-power-state
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.vm_power_state
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: What is the current power state of each existing virtual machine in the authorized scope?
+      ko: 권한 범위에 존재하는 각 가상 머신의 현재 전원 상태는 무엇인가요?
+  - id: current-resource.vm-health-anomalies
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.vm_health_anomalies
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Do any existing virtual machines have a current health warning or unavailable state?
+      ko: 현재 상태 경고가 있거나 사용할 수 없는 기존 가상 머신이 있나요?
+  - id: current-resource.vm-utilization
+    category: metrics_observability
+    domain: capacity_performance_forecast
+    intent: current_resource.vm_utilization
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Rank the existing virtual machines by current CPU and memory utilization with observation times.
+      ko: 기존 가상 머신을 현재 CPU 및 메모리 사용률에 따라 순위화하고 관측 시각을 알려 주세요.
+  - id: current-resource.vm-storage-network-dependencies
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.vm_storage_network_dependencies
+    target_kinds: [VirtualMachine, ManagedDisk, NetworkInterface]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Show the current disk and network-interface dependencies for every existing virtual machine.
+      ko: 존재하는 모든 가상 머신의 현재 디스크 및 네트워크 인터페이스 의존 관계를 보여 주세요.
+  - id: current-resource.disk-attachment-state
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.disk_attachment_state
+    target_kinds: [ManagedDisk]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which existing managed disks are attached, detached, or in an unknown attachment state?
+      ko: 기존 관리 디스크 중 연결됨, 분리됨 또는 연결 상태를 알 수 없음인 디스크는 무엇인가요?
+  - id: current-resource.disk-capacity-utilization
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: current_resource.disk_capacity_utilization
+    target_kinds: [ManagedDisk]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which existing managed disks are closest to their reviewed capacity limits?
+      ko: 기존 관리 디스크 중 검토된 용량 한도에 가장 가까운 디스크는 무엇인가요?
+  - id: current-resource.disk-unattached-cost
+    category: cost_finops
+    domain: cost_finops
+    intent: current_resource.disk_unattached_cost
+    target_kinds: [ManagedDisk]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any existing managed disks unattached and still incurring cost?
+      ko: 기존 관리 디스크 중 연결되지 않았지만 비용이 계속 발생하는 디스크가 있나요?
+  - id: current-resource.nic-attachment-addresses
+    category: azure_infrastructure_network
+    domain: dependency_impact
+    intent: current_resource.nic_attachment_addresses
+    target_kinds: [NetworkInterface, VirtualMachine]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Show each existing network interface, its virtual-machine attachment, and its current private-address assignment.
+      ko: 각 기존 네트워크 인터페이스의 가상 머신 연결 관계와 현재 사설 주소 할당 상태를 보여 주세요.
+  - id: current-resource.public-ip-associations
+    category: azure_infrastructure_network
+    domain: dependency_impact
+    intent: current_resource.public_ip_associations
+    target_kinds: [PublicIPAddress, NetworkInterface]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Which existing public IP resources are associated with a network interface or another frontend resource?
+      ko: 기존 공용 IP 리소스 중 네트워크 인터페이스나 다른 프런트엔드 리소스에 연결된 것은 무엇인가요?
+  - id: current-resource.public-ip-exposure
+    category: azure_infrastructure_network
+    domain: reliability_policy_automation
+    intent: current_resource.public_ip_exposure
+    target_kinds: [PublicIPAddress, NetworkSecurityGroup]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Which current public IP associations expose a reachable path, based on verified network controls?
+      ko: 검증된 네트워크 제어를 기준으로 현재 도달 가능한 경로를 노출하는 공용 IP 연결은 무엇인가요?
+  - id: current-resource.vnet-address-capacity
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: current_resource.vnet_address_capacity
+    target_kinds: [VirtualNetwork]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: How much reviewed address-space capacity remains in each existing virtual network?
+      ko: 각 기존 가상 네트워크에 검토된 주소 공간 용량이 얼마나 남아 있나요?
+  - id: current-resource.vnet-subnet-health
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: current_resource.vnet_subnet_health
+    target_kinds: [VirtualNetwork, Subnet]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Do any subnets in the existing virtual networks have current delegation, route, or capacity issues?
+      ko: 기존 가상 네트워크의 서브넷 중 현재 위임, 경로 또는 용량 문제가 있는 곳이 있나요?
+  - id: current-resource.nsg-effective-rule-risk
+    category: azure_infrastructure_network
+    domain: reliability_policy_automation
+    intent: current_resource.nsg_effective_rule_risk
+    target_kinds: [NetworkSecurityGroup, NetworkInterface]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which existing network security groups have the highest verified exposure risk from effective rules?
+      ko: 기존 네트워크 보안 그룹 중 유효 규칙으로 인한 검증된 노출 위험이 가장 높은 것은 무엇인가요?
+  - id: current-resource.bastion-connectivity
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: current_resource.bastion_connectivity
+    target_kinds: [BastionHost, VirtualNetwork]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing Bastion host currently healthy and connected to its expected virtual network?
+      ko: 기존 Bastion 호스트가 현재 정상이며 예상된 가상 네트워크에 연결되어 있나요?
+  - id: current-resource.private-dns-link-health
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: current_resource.private_dns_link_health
+    target_kinds: [PrivateDnsZone, VirtualNetworkLink]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are all existing private DNS virtual-network links currently registered and healthy?
+      ko: 기존 Private DNS 가상 네트워크 링크가 모두 현재 등록되어 정상 상태인가요?
+  - id: current-resource.private-dns-unlinked-zones
+    category: azure_infrastructure_network
+    domain: dependency_impact
+    intent: current_resource.private_dns_unlinked_zones
+    target_kinds: [PrivateDnsZone, VirtualNetworkLink]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which existing private DNS zones have no verified link to a virtual network?
+      ko: 기존 Private DNS 영역 중 가상 네트워크에 대한 검증된 링크가 없는 것은 무엇인가요?
+  - id: current-resource.private-dns-resolution-path
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.private_dns_resolution_path
+    target_kinds: [PrivateDnsZone, VirtualNetwork, AzureResource]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Show the verified private DNS resolution path from each linked virtual network to its current private endpoint services.
+      ko: 연결된 각 가상 네트워크에서 현재 프라이빗 엔드포인트 서비스까지의 검증된 Private DNS 확인 경로를 보여 주세요.
+  - id: current-resource.managed-identity-assignments
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.managed_identity_assignments
+    target_kinds: [ManagedIdentity, AzureResource]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Which current resources use each existing user-assigned managed identity?
+      ko: 각 기존 사용자 할당 관리 ID를 현재 사용하는 리소스는 무엇인가요?
+  - id: current-resource.managed-identity-unused
+    category: cost_finops
+    domain: cost_finops
+    intent: current_resource.managed_identity_unused
+    target_kinds: [ManagedIdentity]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any existing user-assigned managed identities not attached to a current resource?
+      ko: 기존 사용자 할당 관리 ID 중 현재 리소스에 연결되지 않은 것이 있나요?
+  - id: current-resource.managed-identity-role-risk
+    category: dependency_impact
+    domain: reliability_policy_automation
+    intent: current_resource.managed_identity_role_risk
+    target_kinds: [ManagedIdentity, RoleAssignment]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which existing managed identities have role assignments broader than their reviewed operational need?
+      ko: 기존 관리 ID 중 검토된 운영 필요 범위보다 넓은 역할 할당을 가진 것은 무엇인가요?
+  - id: current-resource.storage-health
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.storage_health
+    target_kinds: [StorageAccount]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing storage account currently available without a verified service-health or data-plane warning?
+      ko: 기존 스토리지 계정이 검증된 서비스 상태 또는 데이터 평면 경고 없이 현재 사용 가능한가요?
+  - id: current-resource.storage-capacity-trend
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: current_resource.storage_capacity_trend
+    target_kinds: [StorageAccount]
+    temporal_scope: comparison
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: How has capacity consumption changed for the existing storage account over the reviewed observation window?
+      ko: 검토된 관측 구간 동안 기존 스토리지 계정의 용량 소비가 어떻게 변했나요?
+  - id: current-resource.storage-network-access
+    category: azure_infrastructure_network
+    domain: reliability_policy_automation
+    intent: current_resource.storage_network_access
+    target_kinds: [StorageAccount, VirtualNetwork]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: What verified network paths can currently reach the existing storage account?
+      ko: 현재 기존 스토리지 계정에 도달할 수 있는 검증된 네트워크 경로는 무엇인가요?
+  - id: current-resource.key-vault-availability
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.key_vault_availability
+    target_kinds: [KeyVault]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing key vault currently available, and when was that state last observed?
+      ko: 기존 Key Vault가 현재 사용 가능하며, 해당 상태는 언제 마지막으로 관측되었나요?
+  - id: current-resource.key-vault-expiration
+    category: prediction
+    domain: reliability_policy_automation
+    intent: current_resource.key_vault_expiration
+    target_kinds: [KeyVault, Certificate]
+    temporal_scope: forecast
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which reviewed certificates or secrets in the existing key vault are approaching expiration?
+      ko: 기존 Key Vault의 검토된 인증서 또는 비밀 중 만료가 가까운 것은 무엇인가요?
+  - id: current-resource.key-vault-network-access
+    category: azure_infrastructure_network
+    domain: reliability_policy_automation
+    intent: current_resource.key_vault_network_access
+    target_kinds: [KeyVault, VirtualNetwork]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is access to the existing key vault currently limited to the reviewed network paths?
+      ko: 기존 Key Vault에 대한 접근이 현재 검토된 네트워크 경로로 제한되어 있나요?
+  - id: current-resource.registry-health
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.registry_health
+    target_kinds: [ContainerRegistry]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing container registry currently healthy and available to authorized workloads?
+      ko: 기존 컨테이너 레지스트리가 현재 정상이며 권한 있는 워크로드에서 사용할 수 있나요?
+  - id: current-resource.registry-storage-growth
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: current_resource.registry_storage_growth
+    target_kinds: [ContainerRegistry]
+    temporal_scope: comparison
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: How quickly is storage consumption growing in the existing container registry?
+      ko: 기존 컨테이너 레지스트리의 스토리지 소비가 얼마나 빠르게 증가하고 있나요?
+  - id: current-resource.registry-pull-failures
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.registry_pull_failures
+    target_kinds: [ContainerRegistry, Workload]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which authorized workloads recently had verified pull failures from the existing container registry?
+      ko: 최근 기존 컨테이너 레지스트리에서 검증된 이미지 가져오기 실패가 발생한 권한 있는 워크로드는 무엇인가요?
+  - id: current-resource.cognitive-account-health
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.cognitive_account_health
+    target_kinds: [CognitiveServicesAccount]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing cognitive services account currently healthy and serving authorized requests?
+      ko: 기존 Cognitive Services 계정이 현재 정상이며 권한 있는 요청을 처리하고 있나요?
+  - id: current-resource.cognitive-quota
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: current_resource.cognitive_quota
+    target_kinds: [CognitiveServicesAccount]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: How much reviewed quota headroom remains for the existing cognitive services account?
+      ko: 기존 Cognitive Services 계정에 검토된 할당량 여유가 얼마나 남아 있나요?
+  - id: current-resource.cognitive-latency-errors
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.cognitive_latency_errors
+    target_kinds: [CognitiveServicesAccount]
+    temporal_scope: comparison
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Have latency or error rates increased for the existing cognitive services account during the current review window?
+      ko: 현재 검토 구간에 기존 Cognitive Services 계정의 지연 시간이나 오류율이 증가했나요?
+  - id: current-resource.app-insights-ingestion
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.app_insights_ingestion
+    target_kinds: [ApplicationInsightsComponent]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing Application Insights component currently receiving telemetry without a verified ingestion gap?
+      ko: 기존 Application Insights 구성 요소가 검증된 수집 공백 없이 현재 텔레메트리를 받고 있나요?
+  - id: current-resource.app-insights-failures
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.app_insights_failures
+    target_kinds: [ApplicationInsightsComponent, BusinessService]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which monitored operations have the most verified failures in the existing Application Insights data?
+      ko: 기존 Application Insights 데이터에서 검증된 실패가 가장 많은 모니터링 작업은 무엇인가요?
+  - id: current-resource.log-analytics-ingestion
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.log_analytics_ingestion
+    target_kinds: [LogAnalyticsWorkspace]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the existing Log Analytics workspace currently receiving expected logs from authorized resources?
+      ko: 기존 Log Analytics 작업 영역이 권한 있는 리소스에서 예상된 로그를 현재 받고 있나요?
+  - id: current-resource.log-analytics-retention
+    category: cost_finops
+    domain: cost_finops
+    intent: current_resource.log_analytics_retention
+    target_kinds: [LogAnalyticsWorkspace]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Does the existing Log Analytics workspace have a reviewed retention and ingestion profile for its current usage?
+      ko: 기존 Log Analytics 작업 영역에 현재 사용량에 맞는 검토된 보존 및 수집 프로필이 있나요?
+  - id: current-resource.azure-monitor-coverage
+    category: metrics_observability
+    domain: reliability_policy_automation
+    intent: current_resource.azure_monitor_coverage
+    target_kinds: [AzureMonitorWorkspace, AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which existing resources are not covered by the current Azure Monitor workspace evidence?
+      ko: 기존 리소스 중 현재 Azure Monitor 작업 영역 근거로 다뤄지지 않는 것은 무엇인가요?
+  - id: current-resource.grafana-data-sources
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: current_resource.grafana_data_sources
+    target_kinds: [ManagedGrafana, ObservationSource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are all reviewed data sources for the existing managed Grafana instance currently reachable?
+      ko: 기존 Managed Grafana 인스턴스의 검토된 데이터 원본이 모두 현재 도달 가능한가요?
+  - id: current-resource.grafana-dashboard-gaps
+    category: metrics_observability
+    domain: reliability_policy_automation
+    intent: current_resource.grafana_dashboard_gaps
+    target_kinds: [ManagedGrafana, AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which existing resource types lack a reviewed operational dashboard in managed Grafana?
+      ko: 기존 리소스 유형 중 Managed Grafana에 검토된 운영 대시보드가 없는 것은 무엇인가요?
+  - id: current-resource.smart-detector-active-alerts
+    category: current_health
+    domain: state_incident_detection
+    intent: current_resource.smart_detector_active_alerts
+    target_kinds: [SmartDetectorAlertRule, AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Do any existing smart detector alert rules have a current active alert for an authorized resource?
+      ko: 기존 Smart Detector 경고 규칙 중 권한 있는 리소스에 대한 현재 활성 경고가 있나요?
+  - id: current-resource.smart-detector-coverage
+    category: metrics_observability
+    domain: reliability_policy_automation
+    intent: current_resource.smart_detector_coverage
+    target_kinds: [SmartDetectorAlertRule, AzureResource]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Which current resource risks are covered by existing smart detector alert rules, and where are the verified gaps?
+      ko: 기존 Smart Detector 경고 규칙이 현재 어떤 리소스 위험을 다루며 검증된 공백은 어디인가요?
+  - id: current-resource.unhealthy-dependency-chain
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.unhealthy_dependency_chain
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Starting from every currently unhealthy resource, show the verified dependency chain and affected resources.
+      ko: 현재 비정상인 각 리소스에서 시작해 검증된 의존 관계와 영향을 받는 리소스를 보여 주세요.
+  - id: current-resource.recent-configuration-changes
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: current_resource.recent_configuration_changes
+    target_kinds: [AzureResource, Change]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: server_scope
+    wording:
+      en: Which existing resources had a verified configuration change during the last 24 hours?
+      ko: 지난 24시간 동안 검증된 구성 변경이 있었던 기존 리소스는 무엇인가요?
+  - id: current-resource.cost-ranking
+    category: cost_finops
+    domain: cost_finops
+    intent: current_resource.cost_ranking
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Rank the currently existing resources by reviewed cost contribution for the current billing window.
+      ko: 현재 청구 구간의 검토된 비용 기여도에 따라 현재 존재하는 리소스를 순위화해 주세요.
+  - id: current-resource.location-concentration
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.location_concentration
+    target_kinds: [AzureResource, Location]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Which current services have all verified resource dependencies concentrated in one Azure location?
+      ko: 현재 서비스 중 검증된 리소스 의존성이 하나의 Azure 위치에 모두 집중된 것은 무엇인가요?
+  - id: current-resource.missing-monitoring
+    category: metrics_observability
+    domain: reliability_policy_automation
+    intent: current_resource.missing_monitoring
+    target_kinds: [AzureResource, ObservationSource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which currently existing resources have no fresh health, metric, or log evidence?
+      ko: 현재 존재하는 리소스 중 최신 상태, 메트릭 또는 로그 근거가 없는 것은 무엇인가요?
+  - id: current-resource.private-connectivity-coverage
+    category: azure_infrastructure_network
+    domain: dependency_impact
+    intent: current_resource.private_connectivity_coverage
+    target_kinds: [AzureResource, VirtualNetwork, PrivateDnsZone]
+    temporal_scope: current
+    result_shape: graph
+    required_context: server_scope
+    wording:
+      en: Which existing platform services have a fully verified private connectivity and DNS path?
+      ko: 기존 플랫폼 서비스 중 완전히 검증된 프라이빗 연결 및 DNS 경로를 가진 것은 무엇인가요?
+  - id: current-resource.failure-blast-radius
+    category: dependency_impact
+    domain: dependency_impact
+    intent: current_resource.failure_blast_radius
+    target_kinds: [AzureResource, BusinessService]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which existing resource would have the largest verified service impact if it became unavailable now?
+      ko: 지금 사용할 수 없게 될 경우 검증된 서비스 영향이 가장 큰 기존 리소스는 무엇인가요?

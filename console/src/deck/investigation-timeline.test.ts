@@ -244,7 +244,9 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"deck.investigation.startingQuery"');
     expect(component).toContain('"deck.investigation.startingCommand"');
     expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
-    expect(presenter).toContain("!isInvestigationFlow || isInvestigationFinalAnswer ? (");
+    expect(presenter).toContain(
+      "isDeck && (!isInvestigationFlow || isInvestigationFinalAnswer) ? (",
+    );
     expect(component).toContain('"deck.investigation.sourceSummaryOne"');
     expect(component).toContain('"deck.investigation.eventCompletedOne"');
     expect(component).toContain('"deck.investigation.eventsCompletedMany"');
@@ -300,7 +302,7 @@ describe("upsertEvidenceBranch", () => {
       /\.cs-grounding-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto 14px;/s,
     );
     expect(styles).toMatch(
-      /\.deck-rt-stage-copy\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*baseline;[^}]*overflow:\s*hidden;/s,
+      /\.deck-rt-stage-copy\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*overflow:\s*hidden;/s,
     );
     expect(styles).toMatch(
       /\.deck-rt-detail\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s,
@@ -320,7 +322,7 @@ describe("upsertEvidenceBranch", () => {
     expect(view).toContain('class="deck-composer-inner cs-deck-composer-grid"');
     expect(view).toContain('class={`deck-transcript-inner');
     expect(styles).toContain("overflow-anchor: none;");
-    expect(styles).toContain("padding: 16px 42px 28px;");
+    expect(styles).toContain("padding: 24px 42px 32px;");
     expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
     expect(richContent).toContain("streaming ? parseStreamingAnswer(text) : parseAnswer(text)");
     expect(richContent).toContain("{rows.map((row, r) => (");

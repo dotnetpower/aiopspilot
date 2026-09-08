@@ -30,11 +30,14 @@ test("response example renders inside actual transcript turns", () => {
 });
 
 test("visible decision metadata comes from typed presentation state", () => {
-  assert.match(html, /Simulates a server-selected typed presentation profile/);
+  assert.match(html, /Applied response example/);
   assert.match(html, /id="ex-pattern-disposition">disposition: answered/);
   assert.match(html, /id="ex-pattern-evidence">evidence: complete/);
   assert.match(html, /id="ex-pattern-profile">profile: operational_brief/);
-  assert.match(html, /Presentation validated against typed state and evidence references/);
+  ["disposition", "evidence", "profile"].forEach((field) => {
+    assert.match(html, new RegExp(`getElementById\\("ex-pattern-${field}"\\)\\.textContent = "${field}: " \\+ pattern\\.${field}`));
+  });
+  assert.match(html, /Synthetic presentation example; not a live verification receipt/);
 });
 
 test("integrated proposal cannot execute managed-resource changes", () => {

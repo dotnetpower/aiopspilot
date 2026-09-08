@@ -19,12 +19,17 @@ export function isOptionalOperatorApiUnavailable(error: unknown): error is Opera
 
 export interface OperatorApiTransportOptions {
   readonly onUnauthorized?: (error: OperatorApiError) => void;
+  readonly sampleResponse?: (
+    path: string,
+    params: URLSearchParams,
+  ) => unknown | undefined;
 }
 
 export class OperatorApiTransport {
   readonly #config: ConsoleConfig;
   readonly #auth: AuthContext;
   readonly #onUnauthorized: ((error: OperatorApiError) => void) | undefined;
+  readonly #sampleResponse: OperatorApiTransportOptions["sampleResponse"];
 
   constructor(
     config: ConsoleConfig,
@@ -34,6 +39,7 @@ export class OperatorApiTransport {
     this.#config = config;
     this.#auth = auth;
     this.#onUnauthorized = options.onUnauthorized;
+    this.#sampleResponse = options.sampleResponse;
   }
 
   get baseUrl(): string {
@@ -93,6 +99,9 @@ export class OperatorApiTransport {
     body: Record<string, unknown>,
     idempotencyKey: string,
   ): Promise<T> {
+    if (this.#sampleResponse !== undefined) {
+      throw new OperatorApiError(405, "Sample mode does not permit Operator API mutations.");
+    }
     if (!idempotencyKey.trim()) {
       throw new OperatorApiError(400, "Idempotency key is required.");
     }
@@ -151,6 +160,16 @@ export class OperatorApiTransport {
     const url = new URL(path, this.#config.operatorApiBaseUrl);
     if (params && params.toString().length > 0) {
       url.search = params.toString();
+    }
+    if (this.#sampleResponse !== undefined) {
+      const value = this.#sampleResponse(url.pathname, url.searchParams);
+      if (value === undefined) {
+        throw new OperatorApiError(404, `No Sample response is registered for ${url.pathname}.`);
+      }
+      return new Response(JSON.stringify(value), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
     const headers: Record<string, string> = { accept };
     const authHeader = await this.#authorizationHeader();

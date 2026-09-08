@@ -30,14 +30,14 @@ def test_question_bank_generated_artifacts_match_all_sources() -> None:
     assert render_review_catalog(payload) == (_BANK_ROOT / "review-catalog.md").read_text(
         encoding="utf-8"
     )
-    assert payload["summary"]["question_count"] == 350
+    assert payload["summary"]["question_count"] == 400
     assert payload["summary"]["source_counts"] == {
-        "candidate": 250,
+        "candidate": 300,
         "console": 5,
         "golden": 35,
         "manual": 60,
     }
-    assert len(payload["source_files"]) == 10
+    assert len(payload["source_files"]) == 11
 
 
 def test_question_bank_preserves_existing_question_identities_and_variations() -> None:
@@ -212,6 +212,42 @@ def test_operator_expansion_preserves_supplied_category_order_and_unique_intents
     ]
     assert len({question["id"] for question in questions}) == 200
     assert len({question["intent"] for question in questions}) == 200
+
+
+def test_current_resource_questions_cover_observed_generic_resource_types() -> None:
+    source_ref = "eval/golden-dataset/question-bank/current-resource-sre-questions.source.yaml"
+    questions = [
+        question for question in _artifact()["questions"] if question["source_refs"] == [source_ref]
+    ]
+    expected_target_kinds = {
+        "ApplicationInsightsComponent",
+        "AzureMonitorWorkspace",
+        "BastionHost",
+        "CognitiveServicesAccount",
+        "ContainerRegistry",
+        "KeyVault",
+        "LogAnalyticsWorkspace",
+        "ManagedDisk",
+        "ManagedGrafana",
+        "ManagedIdentity",
+        "NetworkInterface",
+        "NetworkSecurityGroup",
+        "PrivateDnsZone",
+        "PublicIPAddress",
+        "SmartDetectorAlertRule",
+        "StorageAccount",
+        "VirtualMachine",
+        "VirtualNetwork",
+        "VirtualNetworkLink",
+    }
+
+    assert len(questions) == 50
+    assert expected_target_kinds <= {
+        target_kind for question in questions for target_kind in question["target_kinds"]
+    }
+    assert all(question["required_context"] == "server_scope" for question in questions)
+    assert all(question["safety"]["action_posture"] == "read_only" for question in questions)
+    assert all(question["safety"]["execution_authority"] is False for question in questions)
 
 
 def test_operator_candidates_remain_customer_agnostic() -> None:

@@ -335,6 +335,32 @@ def state_at(
     ).to_state
 
 
+def select_recent_distinct_transitions(
+    transitions: tuple[OperationalStateTransition, ...],
+    *,
+    limit: int,
+) -> tuple[OperationalStateTransition, ...]:
+    """Return the most recent transition for each Resource with stable tie-breaking."""
+
+    if limit <= 0:
+        raise ValueError("limit MUST be greater than zero")
+    ordered = sorted(
+        transitions,
+        key=lambda item: (item.effective_at, item.recorded_at, item.transition_id),
+        reverse=True,
+    )
+    selected: list[OperationalStateTransition] = []
+    seen_subjects: set[str] = set()
+    for item in ordered:
+        if item.subject_ref in seen_subjects:
+            continue
+        seen_subjects.add(item.subject_ref)
+        selected.append(item)
+        if len(selected) == limit:
+            break
+    return tuple(selected)
+
+
 def resource_state_transitions_function_type() -> OntologyFunctionType:
     return OntologyFunctionType(
         name=RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
@@ -374,6 +400,9 @@ def resource_state_transitions_function_type() -> OntologyFunctionType:
                 "end_at": {"type": "string", "format": "date-time"},
                 "known_at": {"type": "string", "format": "date-time"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": _MAX_TRANSITIONS},
+                "result_limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                "latest_first": {"type": "boolean"},
+                "distinct_subjects": {"type": "boolean"},
             },
         },
         output_schema={
@@ -418,9 +447,17 @@ def resource_state_transitions_function(
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         if secured.receipt.truncated or not secured.receipt.complete:
             return _table((), complete=False, limitation="resource_scope_incomplete")
-        subject_refs = tuple(sorted(item.id for item in secured.materialization.graph.objects))
+        objects = secured.materialization.graph.objects
+        subject_refs = tuple(sorted(item.id for item in objects))
         if not subject_refs:
             return _table((), complete=True, limitation=None)
+        subject_names = {
+            item.id: name
+            for item in objects
+            if (name := item.properties.get("name")) is not None
+            and isinstance(name, str)
+            and name.strip()
+        }
         to_states = tuple(sorted(str(item) for item in arguments["to_states"]))
         result = await reader.read(
             subject_refs=subject_refs,
@@ -431,12 +468,32 @@ def resource_state_transitions_function(
             known_at=_parse_time(arguments["known_at"], "known_at"),
             limit=int(arguments["limit"]),
         )
+        transitions = result.transitions
+        if arguments.get("latest_first") is True:
+            transitions = tuple(
+                sorted(
+                    transitions,
+                    key=lambda item: (item.effective_at, item.recorded_at, item.transition_id),
+                    reverse=True,
+                )
+            )
+        result_limit = arguments.get("result_limit")
+        if arguments.get("distinct_subjects") is True:
+            if not isinstance(result_limit, int) or isinstance(result_limit, bool):
+                raise ValueError("distinct_subjects requires result_limit")
+            transitions = select_recent_distinct_transitions(
+                transitions,
+                limit=result_limit,
+            )
+        elif isinstance(result_limit, int) and not isinstance(result_limit, bool):
+            transitions = transitions[:result_limit]
         rows = tuple(
             QueryRow.from_values(
                 f"state-transition-{index:04d}",
                 {
                     "transition_id": item.transition_id,
                     "subject_ref": item.subject_ref,
+                    "subject_name": subject_names.get(item.subject_ref),
                     "subject_type": item.subject_type,
                     "state_type": item.state_type,
                     "from_state": item.from_state,
@@ -454,7 +511,7 @@ def resource_state_transitions_function(
                     "execution_authority": False,
                 },
             )
-            for index, item in enumerate(result.transitions, start=1)
+            for index, item in enumerate(transitions, start=1)
         )
         return _table(rows, complete=result.complete, limitation=result.limitation)
 
@@ -559,5 +616,6 @@ __all__ = [
     "StateTransitionStore",
     "resource_state_transitions_function",
     "resource_state_transitions_function_type",
+    "select_recent_distinct_transitions",
     "state_at",
 ]

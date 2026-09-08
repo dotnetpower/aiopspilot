@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3ec0d4b8a49173f5809290a90e3fdd42c79438a7
-translation_revised: 2026-09-06
+translation_source_sha: 5bc16e6e75e826d0484b96108a2d19e3b6d4b22b
+translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -40,19 +40,17 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 #### Terraform이 만들지 않는 것
 
-아래 인벤토리는 Terraform이 소유하지만, 첫 적용 전에 외부 입력 넷이 있어야 합니다.
+독립 실행하는 `infra/bootstrap`은 기존 상태 계정과 애플리케이션 그룹을 요구합니다. 아래 별도 Genesis 루트는 로컬에서 애플리케이션 데이터 플레인 작업을 수행하지 않고 생성 순환 의존성을 없앱니다.
 새 데이터베이스는 보호된 입력으로 관리자 암호를 제공하거나 Terraform 영속 생성을 명시적으로 선택합니다. 기존 서버에서 생성을 켜는 것은 별도 승인이 필요한 자격 증명 변경입니다. 참조 계획은 Terraform `>= 1.9`와 호환되며 루트 연결은 별도로 검사합니다.
 
-- **Deployer 신원과 역할 배정 권한.** 실행기 신원과 scoped 역할을 만들려면 User 접근
-  Administrator가 필요합니다. 기여자만 있으면 계획은 통과하고 적용에서 실패합니다.
-- **Terraform 상태 저장소 계정.** `infra/bootstrap/create-state-account.sh`가 `az`로
-  만듭니다. 비공개 + key-disabled 계정은 운영자 워크스테이션에서 Terraform의 data-plane 준비 상태
-  poll을 끝낼 수 없기 때문입니다. Terraform은 데이터 출처로 읽기만 합니다.
-- **초기화 계층이 실행기 VM을 만들 때의 앱 리소스 그룹.** 그 계층은 실행기의 기여자
-  권한 부여 범위를 정하려고 이 그룹을 데이터 출처로 읽는데, 정작 그룹을 만드는 것은 앱 계층입니다.
-  빈 구독에서는 빈 그룹을 먼저 만들거나, `create_runner_vm = false`로 초기화를 한 번 적용한
-  뒤 앱 계층을 돌리고 실행기를 켜서 다시 적용합니다.
-- **실행기용 SSH 공개 키**, 그리고 위에 적은 쿼터 헤드룸과 Log Analytics 목적지.
+- **배포자 신원:** 역할 할당에는 User Access Administrator가 필요하며 Contributor만으로는 부족합니다.
+- **상태 저장소:** 독립 Bootstrap은 `infra/bootstrap/create-state-account.sh`로 만든 기존 계정을 읽습니다. AzureRM 조회가 계정 키를 읽을 수 있으므로 로컬 상태는 비밀을 포함한 자료로 보호합니다.
+- **애플리케이션 리소스 그룹:** 독립 Bootstrap은 실행기 역할을 할당하기 전에 그룹이 존재해야 합니다.
+- **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
+
+[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹과 블롭 보호를 포함한 비공개 상태 계정을 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
+새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
+`fdaictl provision plan --stage foundation`은 선택적 비공개 `--save-plan` 저장을 지원하는 모의 실행입니다. 승인, 호스트 등록, 원격 상태 이전은 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
@@ -245,10 +243,11 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
 - 보호된 `fdaictl` 전송 계층은 `dev`와 `staging`을 지원합니다. 요청 식별자는 승인된 테넌트,
   구독, 지역, 정확한 커밋, 선택한 서비스, 실행, 시도, 계획/적용/재개 모드를 연결하며 일반 CLI
-  요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산하고 자체
-  검토와 관리자 우회를 차단하는 필수 검토자 한 명을 요구합니다. 봇 소유 Core 및 문서 적용은
-  정확한 비공개 계획을 검증하고 봉인된 모드에서 모델, 데이터베이스 호스트 또는 SharePoint
-  입력을 도출하여 사람 검토자를 구분합니다. N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
+  요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산합니다.
+  단독 유지관리자 저장소는 직접 `dev` 적용에만 `DEV_DEPLOY_REQUIRED_APPROVALS=0`을 설정할 수
+  있으며, 작업 흐름은 환경에 검토자 규칙이 없는지 확인합니다. 스테이징, 운영 및 봇 소유
+  적용은 자체 검토와 관리자 우회를 차단하는 독립 검토자 한 명을 계속 요구합니다.
+  N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
   흐름 소유 권한 계층에서 검증할 때까지 차단합니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).
@@ -578,19 +577,19 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 해야 하며 어디에서든 강제 적용이 활성화되기 전에
 [경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)이 커버해야 함.
 
-Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
-Settings 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure
-신호 출처가 Managed Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가
-제한된 Activity Log 복구 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 완전성 대체 수단으로
-모든 배포에서 계속 필요합니다. 현재 정책은 정상 상태에서 6시간 조정 간격을 목표로 하고
-1분 스케줄러가 델타와 실행 시점을 확인합니다.
+Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. Diagnostic Settings
+내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure 신호 출처가 Managed
+Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가 제한된 Activity Log 복구
+읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 같은 Core 이미지에
+명시적으로 다시 내보낸 불변 동기화 레코드를 유지하며 장애를 독립적으로 보고하고 지연된 조정을
+진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
 
 ## 프로비저닝 후 검증
 
-프로비저닝 후 검증(어댑터 도달성, canary 왕복, shadow 정확성)은
-[배포 후 smoke 테스트 계약](../operations/operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)
-에 정의. 실패한 검증은 승격을 중단하고 트래픽 롤백
-([deployment-ko.md#release-and-rollback](deployment-ko.md#release-and-rollback)).
+프로비저닝 후 검증은 어댑터 도달성, canary 왕복, shadow 정확성, 활성화된 Inventory Job 재확인을 포함합니다.
+[배포 후 smoke 테스트 계약](../operations/operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)은 인벤토리 컨테이너가 계획의 정확한 다이제스트로 고정된 Core 이미지를 사용하지 않으면 적용을 중단하여
+오래된 수집을 방지합니다. 검증에 실패하면 승격을 중단하고 [트래픽을
+롤백합니다](deployment-ko.md#release-and-rollback).
 
 ## 비용 효율 원칙
 

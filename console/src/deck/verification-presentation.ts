@@ -1,5 +1,5 @@
 import { t } from "../i18n";
-import type { AnswerVerification } from "./backend";
+import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 
 export type VerificationIssueKind =
   | "contextRequired"
@@ -8,7 +8,17 @@ export type VerificationIssueKind =
   | "sourceUnavailable"
   | "invalidQuery"
   | "visionUnverified"
-  | "unsupportedClaim";
+  | "unsupportedClaim"
+  | "staleEvidence"
+  | "partialEvidence"
+  | "conflictingEvidence"
+  | "evidenceUnavailable";
+
+export type EvidencePostureIssueKind =
+  | "staleEvidence"
+  | "partialEvidence"
+  | "conflictingEvidence"
+  | "evidenceUnavailable";
 
 const CONTEXT_REQUIRED_REASONS = new Set([
   "ambiguous_candidate_identity_conflict",
@@ -22,10 +32,18 @@ const SOURCE_UNAVAILABLE_REASONS = new Set([
   "ordinal_resource_no_longer_observed",
   "semantic_deadline_exceeded",
   "semantic_evidence_held",
+  "semantic_evidence_incomplete",
   "semantic_result_store_unavailable",
   "semantic_runtime_unavailable",
   "semantic_transport_unavailable",
 ]);
+
+const EVIDENCE_POSTURE_ISSUES: Readonly<Record<string, EvidencePostureIssueKind>> = {
+  stale: "staleEvidence",
+  incomplete: "partialEvidence",
+  conflicting: "conflictingEvidence",
+  unavailable: "evidenceUnavailable",
+};
 
 export function verificationIssueKind(reasonCode: string | null): VerificationIssueKind {
   const reason = reasonCode?.toLowerCase() ?? "";
@@ -33,6 +51,7 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
     return "modelIdentityUnavailable";
   }
   if (
+    reason === "conversation_preflight_malformed" ||
     reason === "semantic_frame_unavailable" ||
     reason === "semantic_planning_failed" ||
     reason === "semantic_runtime_unavailable"
@@ -72,8 +91,41 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
   return "unsupportedClaim";
 }
 
-export function verificationPrimaryLabel(verification: AnswerVerification): string {
+export function evidencePostureIssueKind(
+  semanticReceipt: SemanticProjectionReceipt | undefined,
+): EvidencePostureIssueKind | null {
+  if (semanticReceipt?.schema_version !== "2.0.0") return null;
+  const posture = semanticReceipt.assurance_observation?.evidence_posture;
+  if (!posture || posture === "fresh") return null;
+  return EVIDENCE_POSTURE_ISSUES[posture] ?? null;
+}
+
+export function verificationAttentionKind(
+  verification: AnswerVerification,
+  semanticReceipt?: SemanticProjectionReceipt,
+): VerificationIssueKind | null {
+  if (verification.status === "unverified") {
+    return verificationIssueKind(verification.reason_code);
+  }
+  return evidencePostureIssueKind(semanticReceipt);
+}
+
+export function verificationIssueDetailLabel(
+  issue: VerificationIssueKind,
+  claims: string,
+): string {
+  return t(`deck.grounded.verificationLabel.${issue}`, { claims });
+}
+
+export function verificationPrimaryLabel(
+  verification: AnswerVerification,
+  semanticReceipt?: SemanticProjectionReceipt,
+): string {
   if (verification.status !== "unverified") {
+    const evidenceIssue = evidencePostureIssueKind(semanticReceipt);
+    if (evidenceIssue) {
+      return t(`deck.grounded.verificationStatus.${evidenceIssue}`);
+    }
     return t(`deck.grounded.verificationStatus.${verification.status}`);
   }
   return t(`deck.grounded.verificationStatus.${verificationIssueKind(verification.reason_code)}`);
@@ -83,7 +135,5 @@ export function unverifiedDetailLabel(
   verification: AnswerVerification,
   claims: string,
 ): string {
-  return t(`deck.grounded.verificationLabel.${verificationIssueKind(verification.reason_code)}`, {
-    claims,
-  });
+  return verificationIssueDetailLabel(verificationIssueKind(verification.reason_code), claims);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { OperatorApiError } from "../api";
-import { loadAnalyticsData } from "./analytics-data";
+import { loadAnalyticsData, sampleAnalyticsData } from "./analytics-data";
 
 describe("analytics source isolation", () => {
   it("does not request promotion gates for hubs that do not consume them", async () => {
@@ -28,5 +28,15 @@ describe("analytics source isolation", () => {
       autonomy: null,
       gates: null,
     });
+  });
+
+  it("builds the deterministic Sample projection with optional assurance gates", () => {
+    const data = sampleAnalyticsData(true);
+
+    expect(data.autonomy?.source).toMatchObject({
+      name: "sample-preview",
+      kind: "synthetic",
+    });
+    expect(data.gates).not.toBeNull();
   });
 });

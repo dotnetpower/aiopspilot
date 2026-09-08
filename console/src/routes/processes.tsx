@@ -38,22 +38,26 @@ import {
 } from "./processes.model";
 import { ProcessControlPanel } from "./process-control-panel";
 import { t } from "./i18n/processes";
+import type { ConsoleDataMode } from "../console-data-mode";
 
-interface Props { readonly client: OperatorApiClient }
+interface Props {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}
 
 interface LoadedProcessList {
   readonly response: ProcessListResponse;
   readonly generation: number;
 }
 
-export function ProcessesRoute({ client }: Props) {
+export function ProcessesRoute({ client, dataMode }: Props) {
   if (currentRoute().segments[0] === "scheduler-runs") {
-    return <SchedulerRunsRoute client={client} />;
+    return <SchedulerRunsRoute client={client} dataMode={dataMode} />;
   }
-  return <ProcessRuntimeRoute client={client} />;
+  return <ProcessRuntimeRoute client={client} dataMode={dataMode} />;
 }
 
-function ProcessRuntimeRoute({ client }: Props) {
+function ProcessRuntimeRoute({ client, dataMode }: Props) {
   const [listState, setListState] = useState<AsyncState<LoadedProcessList>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(() => currentRoute().segments[0] ?? null);
   const [detailState, setDetailState] = useState<AsyncState<ProcessDetailData>>({ status: "idle" });
@@ -88,7 +92,12 @@ function ProcessRuntimeRoute({ client }: Props) {
         });
         const defaultId = currentRoute().segments[0] ?? defaultProcessId(data.items, "");
         if (!currentRoute().segments[0] && defaultId) {
-          window.history.replaceState(window.history.state, "", processHref(defaultId));
+          const href = processHref(defaultId);
+          window.history.replaceState(
+            window.history.state,
+            "",
+            dataMode === "sample" ? `${href}?data=sample` : href,
+          );
           setSelectedId(defaultId);
         } else if (!defaultId) {
           dispatchRefresh({ type: "finish", generation: refreshCycle.generation });
@@ -101,7 +110,7 @@ function ProcessRuntimeRoute({ client }: Props) {
       },
     );
     return () => { cancelled = true; };
-  }, [client, refreshCycle.generation]);
+  }, [client, dataMode, refreshCycle.generation]);
 
   useEffect(() => {
     if (listState.status !== "ready") return;

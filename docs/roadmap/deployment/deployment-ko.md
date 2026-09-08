@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 1cc4c3760f89e604fb545377d401bbca3f72771d
-translation_revised: 2026-09-05
+translation_source_sha: 8cb940f6f9bfaf58989dc5a43ffdcec880c8f47c
+translation_revised: 2026-09-08
 ---
 
 # 배포(배포)
@@ -29,6 +29,7 @@ translation_revised: 2026-09-05
 |------|------|------|------|
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
+| 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
 | Bot 소유의 보호된 Core 적용 요청 | validated | PR #455, 보호된 계획 `33965356996`, Bot 요청 `33965478498`, 정확한 적용 `33965498775` 및 이슈 #454 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
@@ -43,6 +44,8 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 예약된 외부 변경 감지와 원하는 상태의 배포 계획을 분리했습니다. 이제 모든 표류 검사 루트가 새로 고침 전용 계획을 사용하므로, 전달 시점에만 사용하는 기능 입력이 누락되어도 활성 리소스가 삭제 대상으로 표시되지 않습니다. | `current change`, `.github/workflows/infra-drift.yml` 및 집중 표류 workflow 계약 테스트 | 삭제가 없는 새로 고침 계획을 보여 주는 정확한 보호 실행을 하나 보존합니다. 적용되지 않은 코드와 구성 변경은 보호된 배포 계획에서 확인합니다. |
+| 2026-09-07 | implemented | 정확한 계획과 런타임 안전성 검사를 유지하면서 검토 없는 환경을 검증하는 명시적인 단독 유지관리자 개발 정책을 추가했습니다. | `current change`, 집중 검증기 및 배포 작업 흐름 테스트 | 직접 개발 적용 하나를 성공시키고 적용 후 projection 조회 결과를 보존합니다. |
 | 2026-09-05 | validated | 독립된 사람의 Environment 승인, 성공한 상태 및 peer 격리 검사, 독립적인 이미지 및 신원 확인을 거쳐 첫 번째 Bot 요청 보호 Core 서비스 적용을 완료했습니다. | PR #455, 계획 `33965356996`, 요청 `33965478498`, 적용 `33965498775`, 이슈 #454 | 이 경로를 운영 외 범위와 정확한 계획에 계속 결합하고 보호된 Environment 정책을 적용합니다. |
 | 2026-09-05 | implemented | 정확한 성공 계획 실행, 만료되지 않은 산출물, 이미지 digest, 커밋 및 Environment 정책을 전달 전에 검증하는 운영 외 Bot 소유 Core 서비스 적용 요청을 추가했습니다. | `current change`, 보호된 작업 workflow, 요청 검증기 및 성공과 차단 기본 동작에 대한 집중 테스트 | 이슈 #454에서 첫 번째 독립 요청자 Environment 승인과 성공한 Core 서비스 적용 증적을 수집합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
@@ -167,11 +170,14 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   Supervisor는 가장 이른 근거 만료 시점보다 늦지 않게 다음 검사를 예약하고 재평가 전에 처리를
   닫으며 진단을 위해 이전 보고서를 유지합니다. Programming error는 준비 상태를 닫은 뒤 계속
   전파하고, 완전한 새로 고침이 성공해야만 처리를 다시 엽니다.
-- **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
-  5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
-  새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나
-  입력이 없거나 근거를 읽을 수 없거나 표류가 발견되면 실행이 실패합니다. 표류를 prod에
-  자동으로 적용하지 않습니다.
+- **표류 감지**: 환경별로 예약된 읽기 전용 새로 고침 계획은 이전 방식 platform 루트, 독립
+  서비스 루트 5개, 초기화 루트를 모두 검사합니다. 새로 고침 전용 계획은 라이브 리소스와 마지막
+  적용 상태를 비교하며, 전달 시점에만 사용하는 기능 입력 누락을 삭제 의도로 해석하지 않습니다.
+  보호된 배포 계획은 코드 및 배포 구성과 상태의 차이를 별도로 확인합니다. 표류 workflow 또는
+  상태 파서가 변경되면 `main`에서도 이 읽기 전용 검사를 시작하므로 별도 전달 없이 감지기를
+  검증할 수 있습니다. 루트 계약은 서로 다른 백엔드 키를 사용하고 새로 고침 전 상태에서 서비스
+  이미지를 해석하므로 대역 외 이미지 변경도 드러납니다. 상태나 입력이 없거나 근거를 읽을 수
+  없거나 표류가 발견되면 실행이 실패합니다. 표류는 자동으로 적용되지 않습니다.
 - 프로비저닝 리소스 - **최소 비용 효율 세트** (전체 인벤토리 + 티어 결정은
   [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set);
   인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md) 의 CSP-중립 계약을 렌더링):
@@ -235,8 +241,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   수동 실행도 모든 이미지를 빌드합니다. 선택된 각 빌드는 HIGH/CRITICAL Trivy 발견 사항을
   차단하고 CycloneDX **SBOM**을 생성합니다. `main`/release에서는 검증된 이미지를 GHCR에
   publish하고 GitHub build-provenance/SBOM 증명을 기록합니다. Dockerfile base는
-  **다이제스트**로 고정되고 uid 65532로 실행됩니다. 배포는 롤아웃 전에 증명과 다이제스트를
-  검증하며 unattested 이미지를 차단합니다.
+  **다이제스트**로 고정되고 uid 65532로 실행됩니다. Core 이미지 빌더는 서비스 wheel 설치 후
+  운영 부트스트랩을 cold import하여 직접 런타임 의존성이 없으면 게시를 차단합니다. 배포는
+  롤아웃 전에 증명과 다이제스트를 검증하며 unattested 이미지를 차단합니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/증명을 명시적 보존 정책으로 유지하여 어떤
   prod 개정 번호도 추적·재검증 가능.
 - **ACR 인계**: 업스트림 GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는

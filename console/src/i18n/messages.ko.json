@@ -9,6 +9,13 @@
     "console": "콘솔",
     "devMode": "개발 모드"
   },
+  "dataMode": {
+    "label": "Dashboard 데이터 모드",
+    "sample": "Sample",
+    "live": "Live",
+    "bannerTitle": "예시 데이터",
+    "bannerBody": "예시 화면 전용이며 운영 근거가 아닙니다. 지원하지 않는 경로는 Live 상태를 유지합니다."
+  },
   "browserNotifications": {
     "label": "알림",
     "off": "알림 켜기",
@@ -2515,6 +2522,20 @@
       },
       "preferenceApplied": "저장된 선호"
     },
+    "adaptive": {
+      "explanation": "보충 설명",
+      "sources": "답변 출처",
+      "owner": "답변 담당: {agent}",
+      "knowledge": "일반 지식",
+      "environmentExample": "현재 환경의 예시",
+      "operational": "운영 맥락",
+      "answered": "검증된 뒷받침 근거",
+      "unavailable": "확인할 수 없음",
+      "held": "보류됨",
+      "references": "뒷받침 근거 {count}개",
+      "limitationDetails": "이 부분의 답변이 제한된 이유",
+      "authority": "참고용 답변입니다. 이 답변으로 작업이 승인되거나 실행되지 않았습니다."
+    },
     "answerPlanning": {
       "consulted": "참여 에이전트",
       "uniqueSources": "고유 출처 {count}개",
@@ -2666,6 +2687,27 @@
     "backend": {
       "probing": "확인 중",
       "connected": "채팅 연결됨",
+      "t1Model": "T1 {model}",
+      "modelUnknown": "T1 모델 정보 없음",
+      "t1Scope": "다음 설명/일반 응답용 T1 모델(설정 또는 자동 선택)입니다. 독립 검토와 T2는 별도 모델을 사용합니다. 시험 호출 시간은 전체 답변 시간이 아닙니다.",
+      "updatedAt": "측정 스냅샷: {time}",
+      "expiresAt": "측정값 만료: {time}",
+      "probeInterval": "모델 측정 주기: {seconds}초",
+      "measurement": {
+        "measured": "측정됨",
+        "unmeasured": "미측정",
+        "failed": "측정 실패",
+        "stale": "오래된 측정값",
+        "unknown": "최신 여부를 알 수 없음"
+      },
+      "routing": {
+        "latency": "시험 호출 지연 시간",
+        "unmeasured": "설정에 따른 선택, 미측정",
+        "stale": "측정값이 오래됨",
+        "unavailable": "측정값을 사용할 수 없음",
+        "disabled": "지연 시간 기반 선택 꺼짐",
+        "unknown": "선택 사유 정보 없음"
+      },
       "ready": "LLM 준비됨",
       "deterministic": "결정론적"
     },
@@ -2818,6 +2860,10 @@
         "invalidQuery": "Query 검증 실패",
         "visionUnverified": "이미지 해석",
         "unsupportedClaim": "근거 없는 claim",
+        "staleEvidence": "오래된 근거",
+        "partialEvidence": "불완전한 근거",
+        "conflictingEvidence": "충돌하는 근거",
+        "evidenceUnavailable": "근거 사용 불가",
         "unverified": "검증되지 않음"
       },
       "verificationLabel": {
@@ -2837,6 +2883,10 @@
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
         "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",
         "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
+        "staleEvidence": "근거가 오래되었습니다. 이 답변을 신뢰하기 전에 다시 조회해 주세요{claims}",
+        "partialEvidence": "근거가 불완전합니다. 조회 범위를 넓히거나 누락된 출처를 기다려 주세요{claims}",
+        "conflictingEvidence": "근거가 서로 충돌합니다. 이 답변으로 조치하기 전에 불일치를 해소해 주세요{claims}",
+        "evidenceUnavailable": "근거를 사용할 수 없습니다. 권위 있는 출처가 복구된 후 다시 시도해 주세요{claims}",
         "unverified": "검증을 완료하지 못함{claims}",
         "scope": {
           "currentScreen": "현재 화면",
@@ -2856,7 +2906,11 @@
       "stageDetail": {
         "manifestSourcesAvailable": "manifest source {available}/{total}개 사용 가능",
         "reference": "근거 reference {count}개",
-        "references": "근거 reference {count}개"
+        "references": "근거 reference {count}개",
+        "staleEvidence": "근거가 오래되었습니다",
+        "partialEvidence": "근거가 불완전합니다",
+        "conflictingEvidence": "근거가 서로 충돌합니다",
+        "evidenceUnavailable": "근거를 사용할 수 없습니다"
       },
       "side": {
         "read": "조회",
@@ -3044,6 +3098,7 @@
       },
       "evidenceMode": {
         "screen_grounded": "화면 근거",
+        "document_grounded": "문서 근거",
         "operational_grounded": "운영 근거",
         "web_grounded": "웹 근거",
         "mixed_grounded": "혼합 근거",

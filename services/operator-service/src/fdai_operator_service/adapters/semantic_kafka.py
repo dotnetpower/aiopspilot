@@ -20,7 +20,11 @@ from fdai_service_contracts.semantic_turn import (
 )
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
-from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V15
+from fdai_operator_service.contract_codecs import (
+    CORE_REQUEST_PRODUCER_V15,
+    CORE_REQUEST_PRODUCER_V16,
+    CORE_REQUEST_PRODUCER_V17,
+)
 
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
 _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
@@ -72,97 +76,51 @@ class OperatorSemanticKafkaConfig:
             _TOPIC_PATTERN.fullmatch(topic) is None for topic in semantic_topics
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
-        if self.read_investigation_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.read_investigation_topic) is None
-            or self.read_investigation_topic in semantic_topics
-        ):
-            raise ValueError("read investigation topic MUST be distinct and valid")
-        if self.read_investigation_completion_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.read_investigation_completion_topic) is None
-            or self.read_investigation_completion_topic
-            in {
-                self.request_topic,
-                self.projection_topic,
-                self.progress_topic,
-                self.read_investigation_topic,
-            }
-        ):
-            raise ValueError("read investigation completion topic MUST be distinct and valid")
-        if self.background_task_projection_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.background_task_projection_topic) is None
-            or self.background_task_projection_topic
-            in {
-                self.request_topic,
-                self.projection_topic,
-                self.progress_topic,
-                self.read_investigation_topic,
-                self.read_investigation_completion_topic,
-            }
-        ):
-            raise ValueError("background task projection topic MUST be distinct and valid")
-        if self.event_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.event_topic) is None
-            or self.event_topic
-            in {
-                self.request_topic,
-                self.projection_topic,
-                self.progress_topic,
-                self.read_investigation_topic,
-                self.read_investigation_completion_topic,
-                self.background_task_projection_topic,
-            }
-        ):
-            raise ValueError("event topic MUST be distinct and valid")
-        if _TOPIC_PATTERN.fullmatch(
-            self.wara_assessment_topic
-        ) is None or self.wara_assessment_topic in {
-            self.request_topic,
-            self.projection_topic,
-            self.progress_topic,
+        configured_topics = set(semantic_topics)
+        _require_distinct_topic(
             self.read_investigation_topic,
+            occupied=configured_topics,
+            error_message="read investigation topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
             self.read_investigation_completion_topic,
+            occupied=configured_topics,
+            error_message="read investigation completion topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
             self.background_task_projection_topic,
+            occupied=configured_topics,
+            error_message="background task projection topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
             self.event_topic,
-        }:
+            occupied=configured_topics,
+            error_message="event topic MUST be distinct and valid",
+        )
+        if _TOPIC_PATTERN.fullmatch(self.wara_assessment_topic) is None:
             raise ValueError("WARA assessment topic MUST be distinct and valid")
-        if self.hil_decision_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.hil_decision_topic) is None
-            or self.hil_decision_topic
-            in {
-                self.request_topic,
-                self.projection_topic,
-                self.progress_topic,
-                self.read_investigation_topic,
-                self.read_investigation_completion_topic,
-                self.background_task_projection_topic,
-                self.event_topic,
-                self.wara_assessment_topic,
-            }
-        ):
-            raise ValueError("HIL decision topic MUST be distinct and valid")
-        if self.notification_receipt_topic is not None and (
-            _TOPIC_PATTERN.fullmatch(self.notification_receipt_topic) is None
-            or self.notification_receipt_topic
-            in {
-                self.request_topic,
-                self.projection_topic,
-                self.progress_topic,
-                self.read_investigation_topic,
-                self.read_investigation_completion_topic,
-                self.background_task_projection_topic,
-                self.event_topic,
-                self.wara_assessment_topic,
-                self.hil_decision_topic,
-            }
-        ):
-            raise ValueError("notification receipt topic MUST be distinct and valid")
+        _require_distinct_topic(
+            self.wara_assessment_topic,
+            occupied=configured_topics,
+            error_message="WARA assessment topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.hil_decision_topic,
+            occupied=configured_topics,
+            error_message="HIL decision topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.notification_receipt_topic,
+            occupied=configured_topics,
+            error_message="notification receipt topic MUST be distinct and valid",
+        )
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
             raise ValueError("Kafka DLQ suffix MUST NOT be empty")
         if self.physical_topic is not None and (
             _TOPIC_PATTERN.fullmatch(self.physical_topic) is None
-            or self.physical_topic in semantic_topics
+            or self.physical_topic in configured_topics
         ):
             raise ValueError("semantic Kafka physical topic MUST be a distinct valid topic")
         if self.maximum_message_bytes < 1:
@@ -241,8 +199,15 @@ class OperatorSemanticKafkaBus:
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
+        request_codec = (
+            CORE_REQUEST_PRODUCER_V17
+            if payload.get("schema_version") == "1.7.0"
+            else CORE_REQUEST_PRODUCER_V16
+            if payload.get("schema_version") == "1.6.0"
+            else CORE_REQUEST_PRODUCER_V15
+        )
         encoded = (
-            CORE_REQUEST_PRODUCER_V15.encode(payload)
+            request_codec.encode(payload)
             if topic == self._config.request_topic
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
@@ -405,6 +370,19 @@ def _transport_options(
         "sasl_oauth_token_provider": _ManagedIdentityTokenProvider(credential, scope),
         "ssl_context": ssl.create_default_context(),
     }
+
+
+def _require_distinct_topic(
+    topic: str | None,
+    *,
+    occupied: set[str],
+    error_message: str,
+) -> None:
+    if topic is None:
+        return
+    if _TOPIC_PATTERN.fullmatch(topic) is None or topic in occupied:
+        raise ValueError(error_message)
+    occupied.add(topic)
 
 
 def _encode(payload: Mapping[str, object], *, maximum: int) -> bytes:

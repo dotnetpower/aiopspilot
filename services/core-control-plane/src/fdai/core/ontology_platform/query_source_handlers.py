@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass
 
@@ -36,6 +37,8 @@ from .query_gateway import (
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_values import QueryRow, QueryTable
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class SecuredObjectSetNodeHandler:
     """Materialize one ACL- and purpose-scoped ObjectSet as a bounded table."""
@@ -67,22 +70,34 @@ class SecuredObjectSetNodeHandler:
         if dependencies:
             raise ValueError("object_set node MUST NOT consume dependency results")
         definition = ObjectSetDefinition.model_validate(node.arguments.get("definition"))
-        secured = await self._gateway.materialize(
-            definition,
-            projection_request=self._request,
-        )
-        if self._graph_refresher is not None:
-            secured = await self._graph_refresher.refresh(
-                definition=definition,
+        try:
+            secured = await self._gateway.materialize(
+                definition,
                 projection_request=self._request,
-                secured=secured,
             )
+        except ValueError:
+            _LOGGER.warning("secured_object_set_failed", extra={"stage": "materialize"})
+            raise
+        if self._graph_refresher is not None:
+            try:
+                secured = await self._graph_refresher.refresh(
+                    definition=definition,
+                    projection_request=self._request,
+                    secured=secured,
+                )
+            except ValueError:
+                _LOGGER.warning("secured_object_set_failed", extra={"stage": "refresh"})
+                raise
         if self._receipt_authority is not None:
-            await _issue_secured_result(
-                self._receipt_authority,
-                secured,
-                provider=self._decision_evidence,
-            )
+            try:
+                await _issue_secured_result(
+                    self._receipt_authority,
+                    secured,
+                    provider=self._decision_evidence,
+                )
+            except ValueError:
+                _LOGGER.warning("secured_object_set_failed", extra={"stage": "receipt"})
+                raise
         table = _secured_query_table(secured)
         return QueryNodeResult(
             value=table,
@@ -279,6 +294,36 @@ class SecuredTypedPathNodeHandler:
                 raise QueryNodeHeldError("typed_path_step_incomplete")
             if not current.rows:
                 break
+        if self._receipt_authority is not None and current.complete:
+            # A downstream query_result must identify path endpoints, not its carried root.
+            endpoint_ids = tuple(row.row_id for row in current.rows)
+            output = await self._gateway.materialize(
+                ObjectSetDefinition(
+                    selector=path.steps[-1].selector,
+                    object_ids=endpoint_ids,
+                    as_of=path.as_of,
+                    purpose=path.purpose,
+                    limit=path.limit,
+                    include_relationships=False,
+                ),
+                projection_request=self._request,
+            )
+            if not output.receipt.complete or {
+                item.id for item in output.materialization.graph.objects
+            } != set(endpoint_ids):
+                raise QueryNodeHeldError("typed_path_endpoint_projection_changed")
+            await _issue_secured_result(
+                self._receipt_authority, output, provider=self._decision_evidence
+            )
+            evidence_refs = [
+                ref for ref in evidence_refs if not ref.startswith("ontology-object-set-output:")
+            ]
+            evidence_refs.append(
+                f"ontology-object-set-output:{output.receipt.projected_result_digest}"
+            )
+        elif self._receipt_authority is not None:
+            # Retaining a root's output marker would turn an incomplete traversal into a root read.
+            raise QueryNodeHeldError("typed_path_endpoint_projection_incomplete")
         return QueryNodeResult(
             value=current,
             evidence_refs=tuple(dict.fromkeys(evidence_refs)),

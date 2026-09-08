@@ -58,6 +58,14 @@ import {
 import type { DeckContextMode } from "./open-deck";
 import type { CommandDeckSubmitOptions } from "./use-command-deck-submit";
 import { ConversationContextStore, type ConversationContext } from "./conversation-context";
+import {
+  decodeConversationModelAvailability,
+  readConversationModelTier,
+  writeConversationModelTier,
+  type ConversationModelAvailability,
+  type ConversationModelTier,
+} from "./conversation-model-selection";
+import { conversationModelText } from "./conversation-model-i18n";
 
 export function CommandDeck({ client }: { readonly client: OperatorApiClient }) {
   const snapshot = useViewContext();
@@ -129,6 +137,11 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     useState<VerificationProgress | null>(null);
   const health = useDeckBackendHealth(open);
   const [srStatus, setSrStatus] = useState("");
+  const [conversationModelTier, setConversationModelTier] = useState<ConversationModelTier>(
+    () => readConversationModelTier(sessionStore(), sessionKey),
+  );
+  const [conversationModelAvailability, setConversationModelAvailability] =
+    useState<ConversationModelAvailability>({ t2Available: false, t2Label: null });
   const [inFlight, setInFlight] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const activeRequestRef = useRef<ActiveRequest | null>(null);
@@ -142,6 +155,45 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     contextTimersRef,
     setTurns,
   });
+
+  useEffect(() => {
+    setConversationModelTier(readConversationModelTier(sessionStore(), sessionKey));
+  }, [sessionKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void client.panel<unknown>("/models/settings").then(
+      (value) => {
+        if (!cancelled) {
+          setConversationModelAvailability(decodeConversationModelAvailability(value));
+        }
+      },
+      () => {
+        if (!cancelled) {
+          setConversationModelAvailability({ t2Available: false, t2Label: null });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [client, open]);
+
+  const selectConversationModelTier = useCallback((tier: ConversationModelTier) => {
+    if (inFlightRef.current || (tier === "t2" && !conversationModelAvailability.t2Available)) {
+      return false;
+    }
+    if (
+      tier === "t2"
+      && conversationModelTier !== "t2"
+      && !window.confirm(conversationModelText("confirmT2"))
+    ) return false;
+    writeConversationModelTier(sessionStore(), sessionKeyRef.current, tier);
+    setConversationModelTier(tier);
+    setSrStatus(conversationModelText("appliesNext"));
+    return true;
+  }, [conversationModelAvailability.t2Available, conversationModelTier]);
 
   const {
     activeSearchMatch,
@@ -249,6 +301,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     focusInput,
     pinTranscriptToLatest,
     revealCompletedWork,
+    conversationModelTier,
   });
 
   const submitForContext = useCallback((
@@ -367,6 +420,8 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       }}
       canAttachScreen={snapshot !== null && snapshotPath === currentPathname()}
       health={health}
+      conversationModelTier={conversationModelTier}
+      conversationModelAvailability={conversationModelAvailability}
       client={client}
       sessionLabel={sessionLabel}
       deckStyle={deckStyle}
@@ -441,6 +496,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       }}
       onTranscriptScroll={onTranscriptScroll}
       onSubmit={(text) => void submitForContext(text)}
+      onConversationModelTier={selectConversationModelTier}
       onRegenerate={regenerateAt}
       onJumpToLatest={jumpToLatest}
       onRunSlashCommand={runSlashCommand}

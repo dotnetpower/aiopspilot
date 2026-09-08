@@ -14,6 +14,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.resource_state_queries import (
@@ -26,8 +27,73 @@ from fdai.core.ontology_platform.state_transitions import (
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
 )
 
-from .semantic_planning_models import SemanticOutputShape
+from .semantic_planning_frame_core import build_semantic_frame
+from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_resource_state_planning import resource_collection_definition
+
+_DEFAULT_RECENT_LOOKBACK_SECONDS = 3_600
+_DEFAULT_RECENT_RESULT_LIMIT = 5
+_MAX_RECENT_RESULT_LIMIT = 20
+_RECENT_CHANGE_FACETS = frozenset(
+    {"recent_changes", "recent_state_changes", "recently_changed", "state_changes"}
+)
+
+
+def build_recent_resource_state_transition_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build a targetless latest-state-change collection from accepted typed facets."""
+
+    limit = recent_resource_state_change_limit(judgment)
+    if limit is None or judgment is None:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource",),
+        measure_concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        temporal_scope={"lookback_seconds": _DEFAULT_RECENT_LOOKBACK_SECONDS},
+        output_shape=SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
+        evidence_requirements=("server_recent_default", f"result_limit.{limit}"),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def recent_resource_state_change_limit(
+    judgment: SemanticJudgmentProposal | None,
+) -> int | None:
+    """Return a bounded requested collection limit, or reject a different activity shape."""
+
+    if (
+        judgment is None
+        or judgment.primary_intent != "query.resource_change_activity"
+        or judgment.action_posture != "advise_only"
+        or judgment.action_subject != "none"
+        or judgment.secondary_intents
+        or judgment.targets
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+    ):
+        return None
+    facets = tuple(facet.replace("-", "_") for facet in judgment.requested_facets)
+    if not _RECENT_CHANGE_FACETS.intersection(facets):
+        return None
+    limits: list[int] = []
+    for facet in facets:
+        prefix, separator, value = facet.partition("_")
+        if separator and prefix in {"limit", "top"} and value.isdigit():
+            limits.append(int(value))
+    if len(set(limits)) > 1:
+        return None
+    limit = limits[0] if limits else _DEFAULT_RECENT_RESULT_LIMIT
+    return limit if 1 <= limit <= _MAX_RECENT_RESULT_LIMIT else None
 
 
 def compile_resource_state_transition_plan(
@@ -61,6 +127,7 @@ def compile_resource_state_transition_plan(
         descriptors=manifest.descriptors,
         evaluation_time=evaluation_time,
         purpose=purpose,
+        require_operational_state_metadata=True,
     )
     scope_id = "resource-transition-scope"
     transition_id = "resource-state-transitions"
@@ -72,6 +139,24 @@ def compile_resource_state_transition_plan(
         if state_concepts == (RESOURCE_STATE_OBSERVED_CONCEPT,)
         else tuple(concept.removeprefix("resource_state.") for concept in state_concepts)
     )
+    result_limit = _result_limit(frame.evidence_requirements)
+    latest_collection = result_limit is not None
+    function_arguments: dict[str, object] = {
+        "state_types": [RESOURCE_STATE_TRANSITION_TYPE],
+        "to_states": list(to_states),
+        "start_at": start_at.isoformat(),
+        "end_at": evaluation_time.isoformat(),
+        "known_at": evaluation_time.isoformat(),
+        "limit": 512 if latest_collection else 256,
+    }
+    if result_limit is not None:
+        function_arguments.update(
+            {
+                "result_limit": result_limit,
+                "latest_first": True,
+                "distinct_subjects": True,
+            }
+        )
     nodes = (
         OntologyQueryNode(
             node_id=scope_id,
@@ -86,14 +171,7 @@ def compile_resource_state_transition_plan(
             arguments_json=canonical_json(
                 {
                     "function_name": RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
-                    "arguments": {
-                        "state_types": [RESOURCE_STATE_TRANSITION_TYPE],
-                        "to_states": list(to_states),
-                        "start_at": start_at.isoformat(),
-                        "end_at": evaluation_time.isoformat(),
-                        "known_at": evaluation_time.isoformat(),
-                        "limit": 256,
-                    },
+                    "arguments": function_arguments,
                     "dependency_arguments": {scope_id: "query_result"},
                 }
             ),
@@ -124,6 +202,17 @@ def compile_resource_state_transition_plan(
     return verifier.verify(plan, manifest=manifest)
 
 
+def _result_limit(requirements: tuple[str, ...]) -> int | None:
+    limits = []
+    for requirement in requirements:
+        prefix, separator, value = requirement.partition(".")
+        if separator and prefix == "result_limit" and value.isdigit():
+            limits.append(int(value))
+    if len(limits) != 1:
+        return None
+    return limits[0] if 1 <= limits[0] <= _MAX_RECENT_RESULT_LIMIT else None
+
+
 def _has_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
     return any(
         descriptor.get("kind") == "function"
@@ -132,4 +221,8 @@ def _has_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
     )
 
 
-__all__ = ["compile_resource_state_transition_plan"]
+__all__ = [
+    "build_recent_resource_state_transition_frame",
+    "compile_resource_state_transition_plan",
+    "recent_resource_state_change_limit",
+]

@@ -17,6 +17,8 @@
 import { lazy, Suspense } from "preact/compat";
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
+import type { AdaptiveAnswer } from "./adaptive-answer";
+import { AdaptiveAnswerSources } from "./adaptive-answer-sources";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
@@ -41,6 +43,8 @@ import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import {
+  verificationAttentionKind,
+  verificationIssueDetailLabel,
   unverifiedDetailLabel,
   verificationIssueKind,
   verificationPrimaryLabel,
@@ -48,6 +52,7 @@ import {
 import {
   buildSources,
   citationMarks,
+  groundingAttentionIssueKind,
   groundingAgents,
   groundingStages,
   handoffReasonKey,
@@ -71,6 +76,7 @@ export function GroundedReply({
   streaming,
   verification,
   semanticReceipt,
+  adaptiveAnswer,
   confirmed,
   verificationProgress,
   answerPlanning,
@@ -90,6 +96,7 @@ export function GroundedReply({
   readonly streaming: boolean;
   readonly verification: AnswerVerification | undefined;
   readonly semanticReceipt: SemanticProjectionReceipt | undefined;
+  readonly adaptiveAnswer?: AdaptiveAnswer;
   readonly confirmed: ConfirmedAnswerSegment | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
@@ -115,16 +122,26 @@ export function GroundedReply({
   const renderedText = incidentCandidates && incidentCandidates.length > 0
     ? incidentCandidateAnswerLead(primaryText)
     : primaryText;
-  const evidenceReferences = cites.every((citation) =>
-    citation.label.startsWith("evidence."));
   const sources = buildSources(verification, cites);
-  const groundingIncomplete = verification?.evidence_manifest?.complete === false;
-  const groundingAttention = groundingIncomplete || verification?.status === "unverified";
+  const evidenceReferences = hasEvidenceReferenceCitations(cites);
+  const groundingIssue = groundingAttentionIssueKind(verification, semanticReceipt);
+  const groundingIncomplete = groundingIssue === "partialEvidence";
+  const groundingAttention = groundingIssue !== null || verification?.status === "unverified";
   const marks = citationMarks(sources);
+  const verificationIssue = verification
+    ? verificationAttentionKind(verification, semanticReceipt)
+    : null;
+  const renderedVerificationLabel = verification
+    ? verificationLabel(verification, semanticReceipt)
+    : null;
+  const groundingStatusLabel = groundingIssue
+    ? t(`deck.grounded.verificationStatus.${groundingIssue}`)
+    : null;
   const stages = groundingStages({
     sources,
     source,
     verification,
+    ...(semanticReceipt ? { semanticReceipt } : {}),
     agents: groundingAgents(delegation, answerPlanning),
     ...(delegation?.handoff_from
       ? {
@@ -144,9 +161,6 @@ export function GroundedReply({
     verification.reason_code === "ambiguous_incident";
   const recordedFailure = verification?.status === "verified" &&
     verification.reason_code === "recorded_failure_reason";
-  const verificationIssue = verification?.status === "unverified"
-    ? verificationIssueKind(verification.reason_code)
-    : null;
   const structuredPresentation = !streaming && !verificationIssue && presentationArtifact
     && presentationArtifactSupersedesText(presentationArtifact)
     ? presentationArtifact
@@ -167,7 +181,7 @@ export function GroundedReply({
     ? "confirmed"
     : "complete";
   const showAnswerState = answerState !== "complete";
-  const sourceButtonLabel = evidenceReferences || verification?.status === "unverified"
+  const sourceButtonLabel = evidenceReferences
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
 
@@ -244,6 +258,18 @@ export function GroundedReply({
           />
         )}
       </div>
+
+      {!streaming && adaptiveAnswer ? (
+        <section aria-label={t("deck.adaptive.explanation")}>
+          {adaptiveAnswer.answer !== text ? (
+            <>
+              <h4>{t("deck.adaptive.explanation")}</h4>
+              <RichContent text={adaptiveAnswer.answer} />
+            </>
+          ) : null}
+          <AdaptiveAnswerSources answer={adaptiveAnswer} />
+        </section>
+      ) : null}
 
       {!streaming && documentArtifact ? (
         <Suspense fallback={null}>
@@ -372,25 +398,25 @@ export function GroundedReply({
       {!streaming && (verification || text.trim().length > 0 || cites.length > 0) ? (
         <div class="deck-gr-actions cs-deck-action-row">
           {verification ? (
-            <Tooltip content={verificationLabel(verification)}>
+            <Tooltip content={renderedVerificationLabel ?? ""}>
               <div
                 class={`deck-verification is-${verifiedAmbiguity || recordedFailure ? "consistent" : boundedCorrection ? "verified" : verification.status}${verificationIssue ? ` is-${verificationIssue}` : ""}`}
                 role="status"
-                aria-label={verificationLabel(verification)}
+                aria-label={renderedVerificationLabel ?? ""}
               >
                 <span class="deck-verification-mark" aria-hidden="true">
-                  {!verifiedAmbiguity && !recordedFailure && (verification.status === "verified" ||
-                  verification.status === "consistent" ||
-                  boundedCorrection)
-                    ? "\u2713"
-                    : verifiedAmbiguity || recordedFailure
-                      ? "!"
+                  {verificationIssue || verifiedAmbiguity || recordedFailure
+                    ? "!"
+                    : verification.status === "verified" ||
+                        verification.status === "consistent" ||
+                        boundedCorrection
+                      ? "\u2713"
                       : verification.status === "corrected"
-                      ? "\u21bb"
-                      : "!"}
+                        ? "\u21bb"
+                        : "!"}
                 </span>
                 <span class="deck-verification-short">
-                  {shortVerificationStatus(verification, boundedCorrection)}
+                  {shortVerificationStatus(verification, semanticReceipt, boundedCorrection)}
                 </span>
               </div>
             </Tooltip>
@@ -446,7 +472,12 @@ export function GroundedReply({
                       : t("deck.grounded.sources")}
                   </span>
                   {groundingIncomplete ? (
-                    <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
+                    <span class="deck-gr-stat">
+                      {groundingStatusLabel ?? t("deck.grounded.partialEvidence")}
+                    </span>
+                  ) : null}
+                  {!groundingIncomplete && groundingStatusLabel ? (
+                    <span class="deck-gr-stat">{groundingStatusLabel}</span>
                   ) : null}
                   <span class="deck-gr-more">
                     {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
@@ -502,12 +533,18 @@ function stripReasonSuffix(text: string, reason: string | null): string {
     : text;
 }
 
+export function hasEvidenceReferenceCitations(cites: readonly Citation[]): boolean {
+  return cites.length > 0 && cites.every((citation) => citation.label.startsWith("evidence."));
+}
+
 function preservesTypedEvidenceHold(
   verification: AnswerVerification,
   semanticReceipt: SemanticProjectionReceipt | undefined,
 ): boolean {
+  const observation = semanticReceipt?.assurance_observation;
   return (
-    verification.authority === "ontology-query" &&
+    verification.authority.trim().length > 0 &&
+    verification.authority !== "unavailable" &&
     verification.checks_completed > 0 &&
     verification.checks_completed <= verification.checks_total &&
     verification.evidence_refs.some((reference) => reference.trim().length > 0) &&
@@ -518,6 +555,9 @@ function preservesTypedEvidenceHold(
     semanticReceipt.reason_code === verification.reason_code &&
     typeof semanticReceipt.plan_digest === "string" &&
     typeof semanticReceipt.execution_receipt_digest === "string" &&
+    observation?.authority_posture === "read_only" &&
+    observation.read_performed === true &&
+    observation.evidence_posture !== "fresh" &&
     semanticReceipt.execution_authority === false
   );
 }
@@ -583,6 +623,7 @@ function IncidentCandidatePicker({ candidates }: {
  *  stays available on hover (title). */
 function shortVerificationStatus(
   verification: AnswerVerification,
+  semanticReceipt: SemanticProjectionReceipt | undefined,
   boundedCorrection: boolean,
 ): string {
   if (verification.reason_code === "ambiguous_incident") {
@@ -590,6 +631,9 @@ function shortVerificationStatus(
   }
   if (verification.reason_code === "recorded_failure_reason") {
     return t("deck.grounded.verificationStatus.recordedFailure");
+  }
+  if (verification.status !== "unverified" && verificationAttentionKind(verification, semanticReceipt)) {
+    return verificationPrimaryLabel(verification, semanticReceipt);
   }
   if (boundedCorrection) return t("deck.grounded.verificationStatus.verified");
   switch (verification.status) {
@@ -600,7 +644,7 @@ function shortVerificationStatus(
     case "corrected":
       return t("deck.grounded.verificationStatus.corrected");
     case "unverified":
-      return verificationPrimaryLabel(verification);
+      return verificationPrimaryLabel(verification, semanticReceipt);
   }
 }
 
@@ -723,7 +767,10 @@ function CodeEvidence({ artifacts }: { readonly artifacts: readonly GroundedCode
   );
 }
 
-export function verificationLabel(verification: AnswerVerification): string {
+export function verificationLabel(
+  verification: AnswerVerification,
+  semanticReceipt?: SemanticProjectionReceipt,
+): string {
   const claims = verification.claims ?? [];
   const supportedClaims = claims.filter((claim) => claim.status === "supported").length;
   const claimSummary = claims.length > 0
@@ -740,6 +787,12 @@ export function verificationLabel(verification: AnswerVerification): string {
   }
   if (verification.reason_code === "recorded_failure_reason") {
     return t("deck.grounded.verificationLabel.recordedFailure");
+  }
+  if (semanticReceipt && verification.status !== "unverified") {
+    const verificationIssue = verificationAttentionKind(verification, semanticReceipt);
+    if (verificationIssue) {
+      return verificationIssueDetailLabel(verificationIssue, claimSummary);
+    }
   }
   switch (verification.status) {
     case "verified":

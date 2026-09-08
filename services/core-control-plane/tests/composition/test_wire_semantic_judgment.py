@@ -312,7 +312,7 @@ async def test_production_factory_uses_compact_preflight_before_full_judgment() 
     narrator_body = json.loads(requests[1].content)
     system_message = classifier_body["messages"][0]["content"]
     user_message = classifier_body["messages"][1]["content"]
-    assert len(system_message) < 5_400
+    assert len(system_message) < 5_700
     assert len(user_message) < 1_000
     assert "SemanticJudgmentProposal" not in system_message
     assert classifier_body["temperature"] == 0.0

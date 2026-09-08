@@ -12,8 +12,12 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .conversation_preflight import (
+    operational_target_is_generic,
+    operational_time_is_past_hour,
+)
+from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
-from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
@@ -76,74 +80,25 @@ from .semantic_planning_frame import (
 from .semantic_planning_frame import (
     build_unbound_change_correlation_frame as _build_unbound_change_correlation_frame,
 )
-from .semantic_planning_frame import (
-    is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
+from .semantic_planning_frame_core import build_semantic_frame
+from .semantic_planning_frame_gate import (
+    _gateway_target_shape_issue,
+    _normalize_gateway_diagnostic_time_scope,
+    normalize_and_gate_frame,
 )
-from .semantic_planning_frame import (
-    is_configuration_drift_evidence_frame as _is_configuration_drift_evidence_frame,
-)
-from .semantic_planning_frame import (
-    is_incident_triage_frame as _is_incident_triage_frame,
-)
-from .semantic_planning_frame import (
-    is_resource_classification_frame as _is_resource_classification_frame,
-)
-from .semantic_planning_frame import (
-    normalize_action_draft_temporal_scope as _normalize_action_draft_temporal_scope,
-)
-from .semantic_planning_frame import (
-    normalize_historical_topology_clarification as _normalize_historical_topology_clarification,
-)
-from .semantic_planning_frame import (
-    normalize_named_resource_group_membership as _normalize_named_resource_group_membership,
-)
-from .semantic_planning_frame import (
-    normalize_network_path_clarification as _normalize_network_path_clarification,
-)
-from .semantic_planning_frame import (
-    normalize_ontology_trace_frame as _normalize_ontology_trace_frame,
-)
-from .semantic_planning_frame import (
-    normalize_operating_objectives_frame as _normalize_operating_objectives_frame,
-)
-from .semantic_planning_frame import (
-    normalize_resource_classification_frame as _normalize_resource_classification_frame,
-)
-from .semantic_planning_frame import (
-    resolve_bound_incident_action_subject as _resolve_bound_incident_action_subject,
-)
-from .semantic_planning_frame import (
-    resolve_default_action_draft_subject as _resolve_default_action_draft_subject,
-)
-from .semantic_planning_frame import (
-    resolve_incident_reference as _resolve_incident_reference,
-)
-from .semantic_planning_frame import (
-    resolve_principal_scope_evidence_subject as _resolve_principal_scope_evidence_subject,
-)
-from .semantic_planning_frame import (
-    resolve_semantic_judgment_action_draft as _resolve_semantic_judgment_action_draft,
-)
-from .semantic_planning_frame import (
-    resolve_semantic_judgment_bound_read as _resolve_semantic_judgment_bound_read,
-)
-from .semantic_planning_frame import (
-    resource_target_clarification as _resource_target_clarification,
+from .semantic_planning_frame_normalization import (
+    build_inventory_document_frame as _build_inventory_document_frame,
 )
 from .semantic_planning_models import (
+    ClarificationRequirement,
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
 from .semantic_planning_support import _clarification, _outcome
-from .semantic_target_candidate_planning import (
-    normalize_decision_outcome_relationship,
-    normalize_operating_relationship_temporal_scope,
-    property_filter_has_stated_subject,
-    property_filter_omits_stated_relation,
-    resolve_resource_target_candidates,
-)
+from .semantic_resource_configuration_planning import build_resource_configuration_frame
+from .semantic_state_transition_planning import build_recent_resource_state_transition_frame
 
 
 def deterministic_pre_frame_outcome(
@@ -157,6 +112,163 @@ def deterministic_pre_frame_outcome(
 ) -> SemanticPlanningOutcome | None:
     """Return deterministic short-circuit outcomes before model frame proposal."""
 
+    if (
+        judgment is not None
+        and judgment.primary_intent
+        in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+        and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        and any(
+            target.kind == "time_range"
+            and target.canonical_value == "duration.PT1H"
+            and not operational_time_is_past_hour(target.value)
+            for target in judgment.targets
+        )
+    ):
+        output_shape = (
+            SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+            if judgment.primary_intent == "query.gateway_diagnostic_evidence"
+            else SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=output_shape,
+            evidence_requirements=(),
+            unresolved_terms=("temporal_scope",),
+            clarification_requirements=(ClarificationRequirement.TEMPORAL_SCOPE,),
+            clarification=_clarification(("temporal_scope",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
+    gateway_shape_issue = (
+        _gateway_target_shape_issue(judgment)
+        if judgment is not None
+        and judgment.primary_intent == "query.gateway_diagnostic_evidence"
+        and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        else None
+    )
+    if gateway_shape_issue is not None:
+        requirement = (
+            ClarificationRequirement.TEMPORAL_SCOPE
+            if gateway_shape_issue == "temporal_scope"
+            else ClarificationRequirement.SUBJECT
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE,
+            evidence_requirements=(),
+            unresolved_terms=(gateway_shape_issue,),
+            clarification_requirements=(requirement,),
+            clarification=_clarification((gateway_shape_issue,)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
+    if (
+        judgment is not None
+        and judgment.primary_intent == "query.resource_configuration_changes"
+        and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        and not any(
+            target.kind == "time_range"
+            and target.canonical_value == "duration.PT1H"
+            and operational_time_is_past_hour(target.value)
+            for target in judgment.targets
+        )
+    ):
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES,
+            evidence_requirements=(),
+            unresolved_terms=("temporal_scope",),
+            clarification_requirements=(ClarificationRequirement.TEMPORAL_SCOPE,),
+            clarification=_clarification(("temporal_scope",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
+    if (
+        judgment is not None
+        and judgment.primary_intent
+        in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+        and judgment.action_posture == "advise_only"
+        and not any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        and not (
+            judgment.primary_intent == "query.resource_configuration_changes"
+            and any(
+                target.kind in {"resource_type_filter", "object_type"}
+                and utterance[target.source_start : target.source_end] == target.value
+                for target in judgment.targets
+            )
+        )
+    ):
+        output_shape = (
+            SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+            if judgment.primary_intent == "query.gateway_diagnostic_evidence"
+            else SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=output_shape,
+            evidence_requirements=(),
+            unresolved_terms=("resource_identity",),
+            clarification_requirements=(ClarificationRequirement.RESOURCE_IDENTITY,),
+            clarification=_clarification(("resource_identity",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
     incident_metric_comparison = _build_bound_incident_metric_comparison_frame(
         judgment,
         bound_incident=bound_incident,
@@ -389,6 +501,7 @@ def deterministic_pre_frame_outcome(
 def deterministic_pre_frame_selection(
     *,
     judgment: Any,
+    judgment_accepted: bool = False,
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
@@ -397,6 +510,40 @@ def deterministic_pre_frame_selection(
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
     """Build accepted typed function or relationship frames before model proposal."""
 
+    inventory_document = _build_inventory_document_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    if inventory_document is not None:
+        proposal, frame = inventory_document
+        return proposal, frame, None
+    gateway_diagnostic = build_gateway_diagnostic_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if gateway_diagnostic is not None:
+        proposal, frame = gateway_diagnostic
+        return proposal, frame, None
+    resource_configuration = build_resource_configuration_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    if resource_configuration is not None:
+        proposal, frame = resource_configuration
+        return proposal, frame, None
+    recent_state_changes = build_recent_resource_state_transition_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if recent_state_changes is not None:
+        proposal, frame = recent_state_changes
+        return proposal, frame, None
     document_draft = _build_document_draft_frame(
         judgment=judgment,
         utterance=utterance,
@@ -415,7 +562,7 @@ def deterministic_pre_frame_selection(
         proposal, frame = named_resource_group
         return proposal, frame, None
     summary = build_function_backed_summary_frame(
-        judgment,
+        judgment if judgment_accepted else None,
         utterance=utterance,
         context=context,
         descriptors=manifest_descriptors or descriptors,
@@ -453,259 +600,8 @@ def deterministic_pre_frame_selection(
     return proposal, selected_frame, None
 
 
-def normalize_and_gate_frame(
-    *,
-    proposal: SemanticFrameProposal,
-    frame: Any,
-    investigation_intent: VerifiedInvestigationIntent | None,
-    judgment: Any,
-    utterance: str,
-    context: tuple[str, ...],
-    descriptors: tuple[dict[str, Any], ...],
-    manifest_digest: str,
-    bound_incident: bool,
-    inventory_query_language: InventoryQueryLanguageRegistry | None,
-) -> (
-    tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | SemanticPlanningOutcome
-):
-    """Apply deterministic frame normalization and early-return gates in order."""
-
-    proposal, frame = _resolve_semantic_judgment_action_draft(
-        proposal,
-        frame,
-        judgment=judgment,
-        utterance=utterance,
-        context=context,
-    )
-    if (
-        judgment is not None
-        and judgment.action_posture == "advise_only"
-        and frame.operation is SemanticOperation.ACTION_DRAFT
-    ):
-        return _outcome(
-            SemanticPlanningDisposition.UNSUPPORTED,
-            "semantic_action_posture_mismatch",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    proposal, frame = _normalize_named_resource_group_membership(
-        proposal,
-        frame,
-        judgment=judgment,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    if property_filter_has_stated_subject(
-        proposal,
-        utterance=utterance,
-        descriptors=descriptors,
-    ):
-        return proposal, frame, investigation_intent
-    proposal, frame = normalize_ontology_manifest_count_frame(
-        proposal,
-        frame,
-        judgment=judgment,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _resolve_semantic_judgment_bound_read(
-        proposal,
-        frame,
-        judgment=judgment,
-        bound_incident=bound_incident,
-        utterance=utterance,
-        context=context,
-    )
-    if bound_incident:
-        proposal, frame = _resolve_incident_reference(
-            proposal,
-            frame,
-            utterance=utterance,
-            context=context,
-        )
-        proposal, frame = _resolve_bound_incident_action_subject(
-            proposal,
-            frame,
-            utterance=utterance,
-            context=context,
-        )
-    proposal, frame = _resolve_default_action_draft_subject(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _normalize_action_draft_temporal_scope(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _resolve_principal_scope_evidence_subject(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _normalize_network_path_clarification(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    proposal, frame = _normalize_operating_objectives_frame(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _normalize_resource_classification_frame(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _normalize_ontology_trace_frame(
-        proposal,
-        frame,
-        judgment=judgment,
-        utterance=utterance,
-        context=context,
-    )
-    proposal, frame = _normalize_historical_topology_clarification(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    proposal, frame = normalize_decision_outcome_relationship(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    proposal, frame = normalize_operating_relationship_temporal_scope(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    if property_filter_omits_stated_relation(
-        proposal,
-        utterance=utterance,
-        inventory_query_language=inventory_query_language,
-    ):
-        korean = any("가" <= character <= "힣" for character in utterance)
-        return _outcome(
-            SemanticPlanningDisposition.CLARIFICATION,
-            "semantic_clarification_required",
-            manifest_digest=manifest_digest,
-            frame=frame,
-            clarification=(
-                "FDAI가 이름이나 태그에 포함된 리소스 그룹을 찾을까요, "
-                "아니면 FDAI가 관리하는 전체 범위의 리소스 그룹을 볼까요?"
-                if korean
-                else (
-                    "Should I find resource groups whose name or tags contain FDAI, "
-                    "or list every resource group in FDAI's managed scope?"
-                )
-            ),
-        )
-    proposal, frame = resolve_resource_target_candidates(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-        inventory_query_language=inventory_query_language,
-    )
-    if frame.output_shape == SemanticOutputShape.RESOURCE_TARGET_CANDIDATES:
-        investigation_intent = None
-    resource_clarification = _resource_target_clarification(
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    if resource_clarification is not None:
-        return _outcome(
-            SemanticPlanningDisposition.CLARIFICATION,
-            "semantic_clarification_required",
-            manifest_digest=manifest_digest,
-            frame=frame,
-            clarification=resource_clarification,
-        )
-    if frame.unresolved_terms:
-        clarification = proposal.clarification or _clarification(frame.unresolved_terms)
-        return _outcome(
-            SemanticPlanningDisposition.CLARIFICATION,
-            "semantic_clarification_required",
-            manifest_digest=manifest_digest,
-            frame=frame,
-            clarification=clarification,
-        )
-    if frame.operation is SemanticOperation.ACTION_DRAFT:
-        return _outcome(
-            SemanticPlanningDisposition.ACTION_DRAFT,
-            "governed_action_draft_required",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if _is_completed_change_outcome_frame(frame):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_change_outcome_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if _is_configuration_drift_evidence_frame(frame):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_configuration_drift_evidence_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if _is_resource_classification_frame(frame):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_resource_classification_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if _is_incident_triage_frame(frame):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_incident_triage_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if (
-        frame.operation is SemanticOperation.COMPARE
-        and frame.output_shape == SemanticOutputShape.INCIDENT_EVIDENCE
-        and frame.temporal_scope == {"kind": "historical"}
-    ):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_incident_recurrence_comparison_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    if frame.output_shape == SemanticOutputShape.EVIDENCE_VALIDATION:
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_evidence_validation_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
-    return proposal, frame, investigation_intent
-
-
 __all__ = [
+    "_normalize_gateway_diagnostic_time_scope",
     "deterministic_pre_frame_outcome",
     "deterministic_pre_frame_selection",
     "normalize_and_gate_frame",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -17,6 +18,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentReceipt,
     SemanticJudgmentTier,
 )
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
 from .conversation_preflight import (
@@ -26,6 +28,9 @@ from .conversation_preflight import (
     SocialResponseNarratorResult,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
+from .semantic_judgment_rejections import (
+    SAFE_SEMANTIC_JUDGMENT_REJECTION_REASONS as _SAFE_REJECTION_REASONS,
+)
 
 _MAX_UTTERANCE_CHARS = 32_000
 _MAX_CONTEXT_ITEMS = 8
@@ -36,30 +41,6 @@ _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
 _MAX_SCHEMA_ERRORS = 16
 _MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
 _LOGGER = logging.getLogger(__name__)
-_SAFE_REJECTION_REASONS = frozenset(
-    {
-        "ambiguous semantic judgment MUST carry one clarification",
-        "primary semantic intent MUST NOT be duplicated",
-        "semantic link intent MUST use query namespace",
-        "semantic judgment action subject MUST match draft posture",
-        "semantic judgment alternatives MUST be unique",
-        "semantic judgment ambiguity MUST match its unresolved meaning",
-        "semantic judgment clarification MUST be one question",
-        "semantic judgment confidence MUST be finite",
-        "semantic current-state intent requires a Resource target",
-        "semantic direct response answer MUST be one paragraph",
-        "semantic direct response answer MUST be trimmed",
-        "semantic direct response answer MUST remain unambiguous and advisory",
-        "semantic direct response intent MUST carry exactly one model-authored answer",
-        "semantic direct response locale does not match the request",
-        "semantic direct response profile digest does not match",
-        "semantic judgment requested_facets MUST be unique",
-        "semantic judgment secondary_intents MUST be unique",
-        "semantic target source span exceeds the utterance",
-        "semantic target source span does not match the utterance",
-        "semantic target source span MUST be ordered",
-    }
-)
 
 
 class SemanticJudgmentModel(Protocol):
@@ -84,6 +65,7 @@ SemanticJudgmentObservation = ConversationModelObservation
 SemanticJudgmentModelResponse = ConversationModelResponse
 _COLLECTION_FUNCTION_INTENTS = frozenset(
     {
+        "query.governed_documents",
         "query.resource_health_inventory",
         "query.resource_state_inventory",
         "query.subscription_scope_identity",
@@ -112,7 +94,13 @@ class SemanticJudgmentResult:
 
     @property
     def accepted(self) -> bool:
-        return self.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED
+        """Admit accepted meaning or a low-confidence candidate that can only become a draft."""
+
+        return self.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED or (
+            self.receipt.disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
+            and self.proposal is not None
+            and self.proposal.action_posture == "draft_only"
+        )
 
 
 class SemanticJudgmentBoundary:
@@ -147,6 +135,8 @@ class SemanticJudgmentBoundary:
         context: Sequence[str],
         locale: str,
         direct_response_profile: Mapping[str, Any],
+        cancelled: asyncio.Event | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
     ) -> ConversationPreflightResult:
         """Run the compact social/operational preflight when it is configured."""
 
@@ -157,6 +147,8 @@ class SemanticJudgmentBoundary:
             context=context,
             locale=locale,
             direct_response_profile=direct_response_profile,
+            cancelled=cancelled,
+            conversation_model_tier=conversation_model_tier,
         )
 
     def narrate_social(

@@ -21,6 +21,7 @@ _OUTBOX_PREFIX: Final = "operator-semantic-outbox:"
 _NAMESPACED_OUTBOX_PREFIX: Final = "operator-semantic-namespaced-outbox:"
 _RESULT_PREFIX: Final = "operator-semantic-result:"
 _RULE_SEARCH_PROJECTION_PREFIX: Final = "operator-projection:workflow:rule.search:"
+_RULE_PROJECTION_IDENTITY_CONFLICT: Final = "rule_projection_identity_conflict"
 _NAMESPACE_PATTERN: Final = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
 FetchAll = Callable[[str, Mapping[str, object]], Awaitable[list[dict[str, Any]]]]
@@ -360,6 +361,12 @@ class PostgresSemanticTurnRepository:
             raise SemanticTurnRequestAbsentError
         if rows[0].get("terminal_closed") is True:
             raise SemanticTurnTerminalClosedError
+        failure_type = rows[0].get("failure_type")
+        if isinstance(failure_type, str):
+            raise SemanticTurnConflictError(
+                "rule-search projection identity conflicts with durable state",
+                failure_type=failure_type,
+            )
         stored = _json_object(rows[0].get("value"), label=key)
         if stored.get("projection_digest") != projection_digest:
             raise SemanticTurnConflictError(
@@ -470,13 +477,14 @@ class PostgresSemanticTurnRepository:
              ORDER BY (value ->> 'event_sequence')::bigint,
                                             (value ->> 'recorded_at')::timestamptz,
                       value ->> 'projection_id'
-             LIMIT 1
+             LIMIT %(limit)s
             """,
             {
                 "prefix": f"{_RESULT_PREFIX}%",
                 "principal_id": principal_id,
                 "request_id": request_id,
                 "after_sequence": after_sequence or 0,
+                "limit": limit,
             },
         )
         return tuple(
@@ -484,7 +492,7 @@ class PostgresSemanticTurnRepository:
                 _json_object(row.get("value"), label="semantic result"),
                 duplicate=True,
             )
-            for row in rows[:1]
+            for row in rows
         )
 
     async def _transition_claim(self, *, key: str, claim_id: str, state: str) -> bool:
@@ -575,6 +583,14 @@ class PostgresSemanticTurnRepository:
                    AND existing.value ->> 'projection_digest'
                        = %(projection_digest)s
                  FOR UPDATE OF existing
+            ), rule_identity_conflict_result AS (
+                SELECT FALSE AS inserted,
+                       FALSE AS terminal_closed,
+                       NULL::jsonb AS value,
+                       %(rule_projection_identity_conflict)s::text AS failure_type
+                  FROM owned_request
+                 WHERE EXISTS (SELECT 1 FROM rule_identity_conflict)
+                 LIMIT 1
             ), inserted AS (
                 INSERT INTO state_kv (key, value)
                 SELECT %(result_key)s,
@@ -587,18 +603,28 @@ class PostgresSemanticTurnRepository:
                 ON CONFLICT (key) DO NOTHING
                 RETURNING value
             ), accepted AS (
-                               SELECT TRUE AS inserted, FALSE AS terminal_closed, value
+                               SELECT TRUE AS inserted,
+                                      FALSE AS terminal_closed,
+                                      value,
+                                      NULL::text AS failure_type
                                     FROM inserted
                                  WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
                 UNION ALL
-                               SELECT FALSE AS inserted, FALSE AS terminal_closed, value
+                               SELECT FALSE AS inserted,
+                                      FALSE AS terminal_closed,
+                                      value,
+                                      NULL::text AS failure_type
                                     FROM existing
                                  WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
             ), terminal_closed AS (
-                SELECT FALSE AS inserted, TRUE AS terminal_closed, NULL::jsonb AS value
+                SELECT FALSE AS inserted,
+                       TRUE AS terminal_closed,
+                       NULL::jsonb AS value,
+                       NULL::text AS failure_type
                  FROM owned_request
                 WHERE owned_request.state = 'completed'
                   AND NOT EXISTS (SELECT 1 FROM existing)
+                  AND NOT EXISTS (SELECT 1 FROM rule_identity_conflict_result)
             ), completed AS (
                 UPDATE state_kv AS target
                    SET value = target.value || jsonb_build_object(
@@ -638,14 +664,23 @@ class PostgresSemanticTurnRepository:
             SELECT inserted,
                    terminal_closed,
                    value,
+                   failure_type,
                    (SELECT count(*) FROM rule_projected) AS rule_projection_writes
               FROM accepted
             UNION ALL
             SELECT inserted,
                    terminal_closed,
                    value,
+                   failure_type,
                    0 AS rule_projection_writes
               FROM terminal_closed
+            UNION ALL
+            SELECT inserted,
+                   terminal_closed,
+                   value,
+                   failure_type,
+                   0 AS rule_projection_writes
+              FROM rule_identity_conflict_result
             """,
             {
                 "outbox_prefix": f"{self._outbox_prefix}%",
@@ -674,6 +709,7 @@ class PostgresSemanticTurnRepository:
                         sort_keys=True,
                     )
                 ),
+                "rule_projection_identity_conflict": _RULE_PROJECTION_IDENTITY_CONFLICT,
             },
         )
 

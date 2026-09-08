@@ -10,6 +10,7 @@ All profiles share **one control path**: only composition-root adapters and cred
 Inventory invalidation uses the same read path in both profiles. Core commits normalized observations before the Operator role reads a SELECT-only watermark. The authenticated SSE contains no Resource or provider payload, and the Console re-reads the same bounded instance projection. Local and deployed profiles differ only in the configured Azure identity and network route. Cross-origin stream replay admits the authenticated `Authorization` and bounded `Last-Event-ID` headers without widening allowed origins, methods, or credentials.
 The shared Operator data-source manifest also assigns the three Assurance Twin read routes to the same service-local projection in both profiles. This ownership reports an explicit unavailable reason when PostgreSQL isn't configured and doesn't change WARA, cost-governance, or other route authority.
 ## Audit - What Works Local, What Needs Azure
+Local preparation writes `LLM_RESOLVED_MODELS_SHA256` from the exact selected model artifact, not a stale Console value, and carries the pin into the Operator environment. Startup still rejects a missing pin or changed artifact before serving requests.
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
 test runner. "Full-stack local" means the VS Code compound launch using browser Entra for the
 operator and the current Azure CLI context for server-side Azure adapters. Test fixtures are never
@@ -56,23 +57,29 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### Fixed workspace ports
-Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs independently on `5474` for local development and stays separate from the authenticated Console full stack.
+Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
+on `5474` and starts with the authenticated Console full stack so the in-product help library is
+available without a separate command.
+
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch or `design mocks: serve (5373)` task |
 | Console SPA | `http://localhost:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
+| Manual Studio | `http://127.0.0.1:5474` | `Console Web: Full Stack` or `console: start full stack` task |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Document Ingestion API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-The `Console Web: Full Stack` compound starts the five independently packaged backend services and
-the Console SPA. The generic Console build loads `/fdai-config.js` before its module entry and ships
-an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
+The `Console Web: Full Stack` compound starts the five independently packaged backend services, the
+Console SPA, and Manual Studio. The generic Console build loads `/fdai-config.js` before its module
+entry and ships an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
 with schema-validated public HTTPS and Entra bindings; unknown fields and a second tenant rewrite
 fail closed. Local launches still import only service-owned distributions, and the local Isolated
 Executor remains a durable shadow consumer without managed-resource identity. The compound doesn't
 start static design mocks or fixture applications.
+
+The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Local readiness and the 10-minute watchdog include all three processes, so a stopped help library or inventory producer makes the stack unavailable and triggers bounded recovery.
 
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
@@ -91,7 +98,7 @@ The `database_host_binding` deployment mode changes only the deployed service's 
 
 Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly from the trusted primary checkout so setup never competes with editor initialization. The task verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs `start-console-services.sh`. Preparation first validates all service-migration branches and write ownership. It then restores runtime PostgreSQL on port `5432`, the isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV before it evaluates eight ordered stage fingerprints: Console dependencies, local migrations, runtime environment, authoritative inventory, Settings projections, catalog projections, service environments, and Entra redirects. A stage is reused from its exact inputs and required outputs without requiring an already-running application stack. Database-backed stages also include the local PostgreSQL volume identity, so recreated volumes cannot inherit stale file markers. A missing or changed dependency stage runs frozen `uv sync` for every Python workspace package and lockfile-backed `npm ci`; it also requires the independently packaged worker and Executor entry points before the stage can be reused. Dependency repair finishes before the supervisor starts any service process, so package reconciliation cannot become an implicit application launch. Each external command runs through `run-bounded-command.py`, which streams output and latches either its total or no-progress deadline once. The runner keeps signaling the complete child process group even when its direct child exits first, sends `SIGTERM` at expiration, and escalates to `SIGKILL` after the declared grace period. `--force` invalidates every stage.
 
-The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, but the VS Code task remains active until the supervisor emits exactly one terminal `ready` or `failed` event. The complete readiness gate defaults to 60 seconds and has a 65-second outer process-group deadline. Every child exit, readiness failure, signal, or managed-lock failure before readiness emits `failed` and returns nonzero. Duplicate explicit starts run concurrently through the managed lock and fingerprint reuse path instead of being silently ignored. The schema-valid `silent` overflow policy applies only after the two-instance ceiling is reached and never opens an interactive prompt. `console: wait full stack ready` is a separate ten-second diagnostic after a successful start, not a second startup phase. Its text mode emits the wait budget before polling; JSON mode remains one machine-readable document. The Core and Operator recovery tasks apply the same named-service readiness check and emit terminal markers instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
+The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, but the VS Code task remains active until the supervisor emits exactly one terminal `ready` or `failed` event. The complete readiness gate defaults to 60 seconds and has a 65-second outer process-group deadline. Every child exit, readiness failure, signal, or managed-lock failure before readiness emits `failed` and returns nonzero. Duplicate explicit starts run concurrently through the managed lock and fingerprint reuse path instead of being silently ignored. The schema-valid `silent` overflow policy applies only after the two-instance ceiling is reached and never opens an interactive prompt. `console: wait full stack ready` is a separate ten-second diagnostic after a successful start, not a second startup phase. Its text mode emits the wait budget before polling; JSON mode remains one machine-readable document. The Core launcher rejects modified or untracked active prompt files so local answers cannot silently use a different prompt than the checked-in revision. A deliberate prompt-development run can opt in with `FDAI_LOCAL_ALLOW_DIRTY_PROMPTS=1`; standard startup remains closed. The Core and Operator recovery tasks apply the same named-service readiness check and emit terminal markers instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
 
 The ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
@@ -347,10 +354,10 @@ file creation when they differ. Both profiles execute the same explicitly typed 
 derives a non-identifying consumer instance hash from the local user and host so concurrent developers never join the same Event Hubs Kafka
 consumer group. Automation can set `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20 characters
 when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups use that instance, while deployed Operator
-request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The generic Live stage hub
-remains future-only. The Agent hub retains one latest validated `agent.state` event per agent and seeds those values while registering each
-new subscriber under the same lock. This bounded process-local snapshot hydrates a refresh without polling, but it is not durable history
-replay and disappears when the Operator process restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently
+request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The Live stage hub retains at most 256 accepted frames for 60 seconds and replays them in observed order to a new subscriber. The Agent hub retains one latest
+validated `agent.state` event per agent and seeds those values while registering each new subscriber under the same lock. These bounded
+process-local snapshots hydrate a refresh without polling, but they are not durable history replay and disappear when the Operator process
+restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently
 running Operator process or replica so each hub consumes the complete `fdai.pipeline.stages` stream. Its default preserves single-process
 compatibility only. The isolated E2E launcher always replaces an inherited value with a UUID-scoped group and never joins the group used by
 the browser-serving Operator.
@@ -619,17 +626,10 @@ Kept as future work. Full design already in
 [llm-strategy.md § Reconciler Job](../architecture/llm-strategy.md#reconciler-job); ships as a
 `infra/modules/compute/container-apps-job/` reuse plus a Python entry point.
 
-## Fork-Side Override Points
+## Fork-side overrides
 
-Everything above stays customer-agnostic. A fork customises without touching `core/` by:
-
-- Providing its own `llm-registry.yaml` with region/compliance overrides.
-- Supplying `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` env pointing at the fork's
-  subscription. **This repo never stores those values.**
-- Registering additional LLM providers (e.g. Anthropic direct API) by binding a fork-owned
-  `CrossCheckModel` implementation in its composition root - the `azure-foundry` /
-  `external` / `hil-only` toggle in
-  [llm-strategy.md § Mixed-Model Family Strategies](../architecture/llm-strategy.md#mixed-model-family-strategies).
+Use the [deployment fork override reference](../../reference/deployment-fork-overrides.md) to keep
+tenant values and provider-specific bindings outside the upstream repository.
 
 ## Verification Gates
 

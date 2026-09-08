@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setLocale } from "../i18n";
 import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
-import { assuranceHref, primaryAnswerText, verificationLabel } from "./grounded-reply";
+import {
+  assuranceHref,
+  hasEvidenceReferenceCitations,
+  primaryAnswerText,
+  verificationLabel,
+} from "./grounded-reply";
 
 function verification(authority: string): AnswerVerification {
   return {
@@ -28,6 +33,36 @@ function verification(authority: string): AnswerVerification {
         reason_code: null,
       },
     ],
+  };
+}
+
+function semanticReceipt(
+  evidence_posture: "fresh" | "stale" | "incomplete" | "conflicting" | "unavailable",
+): SemanticProjectionReceipt {
+  return {
+    schema_version: "2.0.0",
+    projection_id: "projection-1",
+    request_id: "request-1",
+    disposition: "answered",
+    reason_code: "query_completed",
+    execution_authority: false,
+    assurance_observation: {
+      schema_version: "1.0.0",
+      frame: null,
+      capabilities: [],
+      object_types: [],
+      link_types: [],
+      function_types: [],
+      ontology_paths: [],
+      fact_kinds: [],
+      limitation_kinds: [],
+      claim_kinds: [],
+      evidence_posture,
+      authority_posture: "read_only",
+      read_performed: true,
+      observation_digest: "sha256:obs",
+      execution_authority: false,
+    },
   };
 }
 
@@ -74,6 +109,12 @@ describe("verificationLabel", () => {
       setLocale("en");
     }
   });
+
+  it("surfaces stale evidence posture in the verification tooltip", () => {
+    expect(
+      verificationLabel(verification("server_read_model"), semanticReceipt("stale")),
+    ).toBe("Grounding evidence is stale; refresh the read before trusting this answer (1/1 claims supported)");
+  });
 });
 
 describe("grounded reply presentation", () => {
@@ -91,6 +132,15 @@ describe("grounded reply presentation", () => {
     expect(account).toBeGreaterThan(-1);
     expect(authority).toBeGreaterThan(account);
     expect(confirm).toBeGreaterThan(authority);
+  });
+
+  it("uses an attention mark when verified claims have an evidence-posture issue", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain("verificationIssue || verifiedAmbiguity || recordedFailure");
   });
 
   it("preserves the server's concrete semantic clarification question", () => {
@@ -156,6 +206,18 @@ describe("grounded reply presentation", () => {
     );
   });
 
+  it("maps malformed preflight replies to the planner recovery prompt", () => {
+    const unavailable = {
+      ...verification("server_read_model"),
+      status: "unverified" as const,
+      reason_code: "conversation_preflight_malformed",
+    };
+
+    expect(primaryAnswerText("Unsupported request shape.", unavailable)).toBe(
+      "Semantic planning is unavailable. Restore model connectivity or the semantic runtime, then retry this question.",
+    );
+  });
+
   it("directs model identity failures to authentication recovery", () => {
     const unavailable = {
       ...verification("server_read_model"),
@@ -192,14 +254,12 @@ describe("grounded reply presentation", () => {
 
   it("preserves the server's typed partial-evidence hold", () => {
     const held = {
-      ...verification("ontology-query"),
+      ...verification("server_inventory_graph"),
       status: "unverified" as const,
       reason_code: "semantic_evidence_held",
     };
     const receipt: SemanticProjectionReceipt = {
-      schema_version: "2.0.0",
-      projection_id: "semantic-projection-1",
-      request_id: "semantic-request-1",
+      ...semanticReceipt("incomplete"),
       disposition: "held",
       reason_code: "semantic_evidence_held",
       unavailable_reason: "authoritative_evidence_unavailable",
@@ -217,6 +277,13 @@ describe("grounded reply presentation", () => {
     ].join("\n");
 
     expect(primaryAnswerText(answer, held, receipt)).toBe(answer);
+    expect(
+      primaryAnswerText(
+        answer,
+        { ...held, reason_code: "semantic_evidence_incomplete" },
+        { ...receipt, reason_code: "semantic_evidence_incomplete" },
+      ),
+    ).toBe(answer);
     expect(primaryAnswerText("unverified streamed draft", held)).toBe(
       "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
     );
@@ -244,6 +311,11 @@ describe("grounded reply presentation", () => {
 
   it("links answer review to the exact turn assessment", () => {
     expect(assuranceHref("turn 1")).toBe("/conversation-assurance?turn=turn+1");
+  });
+
+  it("does not treat empty citations as evidence references", () => {
+    expect(hasEvidenceReferenceCitations([])).toBe(false);
+    expect(hasEvidenceReferenceCitations([{ label: "evidence.incident" }])).toBe(true);
   });
 
   it("leaves agent ownership to the turn header and hides redundant complete chrome", () => {

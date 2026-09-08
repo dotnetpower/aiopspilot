@@ -330,7 +330,7 @@ types:
     category: database
     description: Logical SQL server that hosts SQL-family databases and owns their endpoint.
     azure_arm_type: Microsoft.Sql/servers
-    query_terms: [sql server, sql servers, logical sql server, sql 서버]
+    query_terms: [sql server, sql servers, logical sql server, mssql server, mssql servers, sql 서버, mssql 서버]
     typical_parents: [resource-group]
   - id: sql-database
     category: database
@@ -450,6 +450,8 @@ types:
       - LLM deployments
       - GPT model
       - GPT models
+      - GPT resource
+      - GPT resources
       - deployed GPT model
       - Global Standard
       - TPM
@@ -459,6 +461,7 @@ types:
       - LLM 배포
       - GPT 모델
       - GPT 모델 목록
+      - GPT 리소스
       - 배포된 GPT 모델
       - 글로벌 표준
     typical_parents: [llm-endpoint]

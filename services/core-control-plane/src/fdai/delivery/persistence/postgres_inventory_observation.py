@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -13,28 +12,48 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.persistence.postgres_inventory_observation_records import (
+    confirmed_tombstone as _confirmed_tombstone,
+)
+from fdai.delivery.persistence.postgres_inventory_observation_records import mapping as _mapping
+from fdai.delivery.persistence.postgres_inventory_observation_records import (
+    observation_from_row as _observation,
+)
+from fdai.delivery.persistence.postgres_inventory_observation_records import (
+    snapshot_records as _snapshot_records,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
+    active_scope_projection_watermark as _active_scope_projection_watermark,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
+    global_projection_watermark as _global_projection_watermark,
+)
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     MAX_ACTIVE_PROJECTION_OBSERVATIONS,
     InventoryProjectionReplayInput,
     build_projection_replay_observation,
     projection_freshness_ceiling,
+    projection_replay_drops,
     required_replay_watermark,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
     PostgresInventorySnapshotStoreConfig,
-    _snapshot_relationship_props,
 )
 from fdai.delivery.persistence.postgres_observation_lifecycle import (
     bind_observation_lifecycle,
     close_observation_corrections,
 )
+from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 from fdai.shared.providers.inventory_observation import (
     INVENTORY_OBSERVATION_SCHEMA_VERSION,
-    InventoryMutationKind,
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
+)
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
 )
 
 INVENTORY_OBSERVATION_WATERMARK_KEY: Final[str] = "inventory-observation:watermarks"
@@ -53,10 +72,12 @@ class InventoryObservationAppendResult:
 
 @dataclass(frozen=True, slots=True)
 class InventorySnapshotObservationAppendResult:
-    """Journal and contiguous projection watermarks for one promoted snapshot."""
+    """Global retention and active-scope graph checkpoints for one promoted snapshot."""
 
     journal_high_watermark: int
     projection_high_watermark: int
+    active_scope_projection_watermark: int | None = None
+    active_scope_refs: tuple[str, ...] = ()
 
 
 class PostgresInventoryObservationJournal:
@@ -267,6 +288,73 @@ class PostgresInventoryObservationJournal:
             freshness_ceiling_seconds=projection_freshness_ceiling(manifest),
         )
 
+    async def load_pending_promoted_snapshot(self) -> PromotedInventoryObservation | None:
+        """Rebuild an active generation whose ontology projection did not complete."""
+
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,)
+                )
+                snapshot_cursor = await connection.execute(
+                    "SELECT s.id, s.completed_at, s.metadata "
+                    "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
+                    "WHERE a.singleton=TRUE AND s.status='active'"
+                )
+                snapshot = await snapshot_cursor.fetchone()
+                if snapshot is None or snapshot["completed_at"] is None:
+                    return None
+                metadata = _mapping(snapshot["metadata"])
+                if "state_base_generation" not in metadata:
+                    return None
+                generation = str(snapshot["id"])
+                state_cursor = await connection.execute(
+                    "SELECT value FROM state_kv WHERE key=%s",
+                    (INVENTORY_OBSERVATION_WATERMARK_KEY,),
+                )
+                state_row = await state_cursor.fetchone()
+                state = _mapping(state_row["value"]) if state_row is not None else {}
+                manifest_cursor = await connection.execute(
+                    "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
+                )
+                manifest_row = await manifest_cursor.fetchone()
+                manifest = _mapping(manifest_row["value"]) if manifest_row is not None else {}
+                if state.get("ontology_generation") == generation:
+                    if manifest.get("generation") != generation:
+                        raise ValueError("inventory ontology completion fence is inconsistent")
+                    return None
+                if manifest.get("generation") == generation:
+                    raise ValueError(
+                        "inventory ontology manifest advanced without its atomic watermark"
+                    )
+                expected_base = metadata.get("state_base_generation")
+                if manifest.get("generation") != expected_base:
+                    raise ValueError("pending inventory ontology base generation changed")
+                resource_cursor = await connection.execute(
+                    "SELECT resource_id, resource_type, props, provider_ref, last_seen "
+                    "FROM inventory_snapshot_resource WHERE snapshot_id=%s "
+                    "ORDER BY resource_id LIMIT %s",
+                    (generation, MAX_ACTIVE_PROJECTION_OBSERVATIONS + 1),
+                )
+                resource_rows = await resource_cursor.fetchall()
+                link_cursor = await connection.execute(
+                    "SELECT from_id, from_type, link_type, to_id, to_type, props "
+                    "FROM inventory_snapshot_link WHERE snapshot_id=%s "
+                    "ORDER BY from_id, link_type, to_id LIMIT %s",
+                    (generation, MAX_ACTIVE_PROJECTION_OBSERVATIONS + 1),
+                )
+                link_rows = await link_cursor.fetchall()
+        prior_manifest = manifest or {"object_content": [], "dropped_reasons": []}
+        return _snapshot_recovery_observation(
+            generation=generation,
+            recorded_at=snapshot["completed_at"],
+            metadata=metadata,
+            prior_manifest=prior_manifest,
+            resource_rows=resource_rows,
+            link_rows=link_rows,
+        )
+
     async def append_promoted_snapshot(
         self,
         observation: PromotedInventoryObservation,
@@ -346,6 +434,13 @@ class PostgresInventoryObservationJournal:
                                 snapshot["started_at"],
                             ),
                         )
+                high_watermark = max(
+                    high_watermark,
+                    await _retained_generation_watermark(
+                        connection,
+                        generation=observation.generation,
+                    ),
+                )
                 await _update_watermark_state(
                     connection,
                     journal_watermark=high_watermark,
@@ -357,29 +452,27 @@ class PostgresInventoryObservationJournal:
                 state_row = await state_cursor.fetchone()
                 state = _mapping(state_row["value"]) if state_row is not None else {}
                 current_projection = _nonnegative_int(state.get("ontology_projection_watermark"))
-                gap_cursor = await connection.execute(
-                    "SELECT COALESCE(MIN(watermark) - 1, %s) AS projection_watermark "
-                    "FROM inventory_observation_journal "
-                    "WHERE watermark>%s AND NOT (source_revision=%s OR ("
-                    "effective_at<=%s AND scope_ref=ANY(%s::text[])))",
-                    (
-                        high_watermark,
-                        current_projection,
-                        observation.generation,
-                        snapshot["started_at"],
-                        list(snapshot["scopes"]),
-                    ),
+                projection_watermark = await _global_projection_watermark(
+                    connection,
+                    high_watermark=high_watermark,
+                    current_projection=current_projection,
+                    generation=observation.generation,
+                    snapshot_started_at=snapshot["started_at"],
+                    scope_refs=tuple(str(value) for value in snapshot["scopes"]),
                 )
-                gap = await gap_cursor.fetchone()
-                if gap is None:
-                    raise RuntimeError("inventory observation projection watermark is unavailable")
-                projection_watermark = max(
-                    current_projection,
-                    int(gap["projection_watermark"]),
+                active_scope_refs = tuple(sorted(str(value) for value in snapshot["scopes"]))
+                active_scope_projection_watermark = await _active_scope_projection_watermark(
+                    connection,
+                    high_watermark=high_watermark,
+                    generation=observation.generation,
+                    snapshot_started_at=snapshot["started_at"],
+                    scope_refs=active_scope_refs,
                 )
         return InventorySnapshotObservationAppendResult(
             journal_high_watermark=high_watermark,
             projection_high_watermark=projection_watermark,
+            active_scope_projection_watermark=active_scope_projection_watermark,
+            active_scope_refs=active_scope_refs,
         )
 
     async def mark_ontology_projected(self, *, generation: str, watermark: int) -> None:
@@ -388,16 +481,10 @@ class PostgresInventoryObservationJournal:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
-                await _update_watermark_state(
-                    connection,
-                    ontology_watermark=watermark,
-                    ontology_generation=generation,
-                )
-                await close_observation_corrections(
+                await advance_ontology_projection(
                     connection,
                     generation=generation,
-                    projection_watermark=watermark,
-                    closed_at=datetime.now(tz=UTC),
+                    watermark=watermark,
                 )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -412,6 +499,98 @@ class PostgresInventoryObservationJournal:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+async def advance_ontology_projection(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    generation: str,
+    watermark: int,
+) -> None:
+    """Advance the ontology fence and close covered corrections in one transaction."""
+
+    await _update_watermark_state(
+        connection,
+        ontology_watermark=watermark,
+        ontology_generation=generation,
+    )
+    await close_observation_corrections(
+        connection,
+        generation=generation,
+        projection_watermark=watermark,
+        closed_at=datetime.now(tz=UTC),
+    )
+
+
+async def _retained_generation_watermark(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    generation: str,
+) -> int:
+    cursor = await connection.execute(
+        "SELECT COALESCE(MAX(watermark), 0) AS watermark "
+        "FROM inventory_observation_journal "
+        "WHERE source_revision=%s AND source_event_id=%s",
+        (generation, f"snapshot:{generation}"),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        raise RuntimeError("inventory generation watermark is unavailable")
+    return _nonnegative_int(row["watermark"])
+
+
+def _snapshot_recovery_observation(
+    *,
+    generation: str,
+    recorded_at: datetime,
+    metadata: Mapping[str, Any],
+    prior_manifest: Mapping[str, Any],
+    resource_rows: Sequence[Mapping[str, Any]],
+    link_rows: Sequence[Mapping[str, Any]],
+) -> PromotedInventoryObservation:
+    if len(resource_rows) + len(link_rows) > MAX_ACTIVE_PROJECTION_OBSERVATIONS:
+        raise ValueError("pending inventory snapshot replay exceeds its bound")
+    resources = tuple(
+        ResourceRecord(
+            resource_id=str(row["resource_id"]),
+            type=str(row["resource_type"]),
+            props=_mapping(row["props"]),
+            provider_ref=str(row["provider_ref"]) if row["provider_ref"] is not None else None,
+            last_seen=(row["last_seen"].isoformat() if row["last_seen"] is not None else None),
+        )
+        for row in resource_rows
+    )
+    links: list[LinkRecord] = []
+    for row in link_rows:
+        properties = dict(_mapping(row["props"]))
+        raw_observation = properties.pop(LINK_OBSERVATION_METADATA_PROPERTY, None)
+        if not isinstance(raw_observation, Mapping):
+            raise ValueError("pending inventory relationship has no observation metadata")
+        links.append(
+            LinkRecord(
+                from_id=str(row["from_id"]),
+                from_type=str(row["from_type"]),
+                link_type=str(row["link_type"]),
+                to_id=str(row["to_id"]),
+                to_type=str(row["to_type"]),
+                link_props=properties,
+                observation_metadata=LinkObservationMetadata.from_mapping(raw_observation),
+            )
+        )
+    return PromotedInventoryObservation(
+        generation=generation,
+        resources=resources,
+        links=tuple(links),
+        complete=True,
+        relationship_drops=projection_replay_drops(metadata, prior_manifest),
+        recorded_at=recorded_at,
+        state_base_generation=(
+            str(metadata["state_base_generation"])
+            if metadata.get("state_base_generation") is not None
+            else None
+        ),
+        state_base_generation_checked="state_base_generation" in metadata,
+    )
 
 
 _SELECT_OBSERVATIONS = (
@@ -517,152 +696,6 @@ def _observation_params(item: NormalizedInventoryObservation) -> tuple[object, .
     )
 
 
-def _observation(row: Mapping[str, Any]) -> NormalizedInventoryObservation:
-    properties = _mapping(row["properties"])
-    return NormalizedInventoryObservation(
-        observation_id=str(row["observation_id"]),
-        content_digest=str(row["content_digest"]),
-        idempotency_key=str(row["idempotency_key"]),
-        subject_kind=InventoryObservationSubjectKind(str(row["subject_kind"])),
-        observation_kind=InventoryObservationKind(str(row["observation_kind"])),
-        mutation_kind=InventoryMutationKind(str(row["mutation_kind"])),
-        subject_ref=str(row["subject_ref"]),
-        subject_type=str(row["subject_type"]),
-        properties_json=json.dumps(
-            properties,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        ),
-        property_mask=tuple(row["property_mask"]),
-        properties_complete=bool(row["properties_complete"]),
-        links_complete=bool(row["links_complete"]),
-        tombstone_confirmed=bool(row["tombstone_confirmed"]),
-        provider_ref=str(row["provider_ref"]) if row["provider_ref"] is not None else None,
-        scope_ref=str(row["scope_ref"]) if row["scope_ref"] is not None else None,
-        operation=str(row["operation"]) if row["operation"] is not None else None,
-        operation_status=(
-            str(row["operation_status"]) if row["operation_status"] is not None else None
-        ),
-        source_identity=str(row["source_identity"]),
-        source_event_id=str(row["source_event_id"]),
-        source_revision=str(row["source_revision"]),
-        effective_at=row["effective_at"],
-        observed_at=row["observed_at"],
-        evidence_cutoff=row["evidence_cutoff"],
-        recorded_at=row["recorded_at"],
-        from_id=str(row["from_id"]) if row["from_id"] is not None else None,
-        from_type=str(row["from_type"]) if row["from_type"] is not None else None,
-        link_type=str(row["link_type"]) if row["link_type"] is not None else None,
-        to_id=str(row["to_id"]) if row["to_id"] is not None else None,
-        to_type=str(row["to_type"]) if row["to_type"] is not None else None,
-    )
-
-
-def _snapshot_records(
-    observation: PromotedInventoryObservation,
-    *,
-    scope_refs: tuple[str, ...],
-) -> tuple[NormalizedInventoryObservation, ...]:
-    if observation.recorded_at is None:
-        raise ValueError("promoted inventory observation recorded_at MUST be supplied")
-    records: list[NormalizedInventoryObservation] = []
-    scope_ref = _scope_set_ref(scope_refs)
-    for resource in observation.resources:
-        observed_at = _timestamp(resource.last_seen) or observation.recorded_at
-        records.append(
-            NormalizedInventoryObservation.create(
-                idempotency_key=_snapshot_key(
-                    observation.generation, "object", resource.resource_id
-                ),
-                subject_kind=InventoryObservationSubjectKind.OBJECT,
-                observation_kind=InventoryObservationKind.FULL,
-                mutation_kind=InventoryMutationKind.UPSERT,
-                subject_ref=resource.resource_id,
-                subject_type=resource.type,
-                properties=resource.props,
-                property_mask=tuple(resource.props),
-                properties_complete=True,
-                links_complete=observation.complete,
-                tombstone_confirmed=False,
-                provider_ref=resource.provider_ref,
-                scope_ref=_provider_scope(resource.provider_ref) or scope_ref,
-                source_identity="inventory.reconciliation",
-                source_event_id=f"snapshot:{observation.generation}",
-                source_revision=observation.generation,
-                effective_at=observed_at,
-                observed_at=observed_at,
-                evidence_cutoff=observed_at,
-                recorded_at=observation.recorded_at,
-            )
-        )
-    for link in observation.links:
-        subject_ref = _relationship_ref(link.from_id, link.link_type, link.to_id)
-        relationship_properties = _snapshot_relationship_props(link)
-        records.append(
-            NormalizedInventoryObservation.create(
-                idempotency_key=_snapshot_key(observation.generation, "relationship", subject_ref),
-                subject_kind=InventoryObservationSubjectKind.RELATIONSHIP,
-                observation_kind=InventoryObservationKind.FULL,
-                mutation_kind=InventoryMutationKind.UPSERT,
-                subject_ref=subject_ref,
-                subject_type=link.link_type,
-                properties=relationship_properties,
-                property_mask=tuple(relationship_properties),
-                properties_complete=True,
-                links_complete=observation.complete,
-                tombstone_confirmed=False,
-                scope_ref=scope_ref,
-                source_identity="inventory.reconciliation",
-                source_event_id=f"snapshot:{observation.generation}",
-                source_revision=observation.generation,
-                effective_at=observation.recorded_at,
-                observed_at=observation.recorded_at,
-                evidence_cutoff=observation.recorded_at,
-                recorded_at=observation.recorded_at,
-                from_id=link.from_id,
-                from_type=link.from_type,
-                link_type=link.link_type,
-                to_id=link.to_id,
-                to_type=link.to_type,
-            )
-        )
-    return tuple(records)
-
-
-def _confirmed_tombstone(
-    row: Mapping[str, Any],
-    *,
-    generation: str,
-    confirmed_at: datetime,
-    recorded_at: datetime,
-) -> NormalizedInventoryObservation:
-    resource_id = str(row["resource_id"])
-    candidate_id = str(row["observation_id"])
-    return NormalizedInventoryObservation.create(
-        idempotency_key=f"inventory-tombstone-confirmation:{candidate_id}:{generation}",
-        subject_kind=InventoryObservationSubjectKind.OBJECT,
-        observation_kind=InventoryObservationKind.TOMBSTONE,
-        mutation_kind=InventoryMutationKind.DELETE,
-        subject_ref=resource_id,
-        subject_type=str(row["resource_type"]),
-        properties={},
-        property_mask=(),
-        properties_complete=False,
-        links_complete=True,
-        tombstone_confirmed=True,
-        scope_ref=str(row["scope_ref"]) if row["scope_ref"] is not None else None,
-        source_identity="inventory.reconciliation",
-        source_event_id=f"snapshot:{generation}",
-        source_revision=generation,
-        effective_at=confirmed_at,
-        observed_at=confirmed_at,
-        evidence_cutoff=confirmed_at,
-        recorded_at=recorded_at,
-    )
-
-
 async def _update_watermark_state(
     connection: psycopg.AsyncConnection[Any],
     *,
@@ -709,14 +742,6 @@ async def _update_watermark_state(
     )
 
 
-def _mapping(value: object) -> Mapping[str, Any]:
-    if isinstance(value, str):
-        value = json.loads(value)
-    if not isinstance(value, Mapping):
-        raise ValueError("inventory observation JSON value MUST be an object")
-    return value
-
-
 def _nonnegative_int(value: object) -> int:
     if value is None:
         return 0
@@ -736,45 +761,6 @@ def _manifest_watermarks(manifest: Mapping[str, Any]) -> tuple[int, int]:
         required_replay_watermark(manifest, "journal_high_watermark"),
         required_replay_watermark(manifest, "projection_high_watermark"),
     )
-
-
-def _timestamp(value: str | None) -> datetime | None:
-    if value is None:
-        return None
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        raise ValueError("inventory observation timestamp MUST be timezone-aware")
-    return parsed.astimezone(UTC)
-
-
-def _snapshot_key(generation: str, subject_kind: str, subject_ref: str) -> str:
-    digest = hashlib.sha256(subject_ref.encode("utf-8")).hexdigest()
-    return f"inventory-snapshot:{generation}:{subject_kind}:{digest}"
-
-
-def _relationship_ref(from_id: str, link_type: str, to_id: str) -> str:
-    digest = hashlib.sha256(f"{from_id}\0{link_type}\0{to_id}".encode()).hexdigest()
-    return f"relationship:{digest}"
-
-
-def _provider_scope(provider_ref: str | None) -> str | None:
-    if provider_ref is None:
-        return None
-    parts = provider_ref.strip("/").split("/")
-    for index, part in enumerate(parts[:-1]):
-        if part.lower() == "subscriptions" and parts[index + 1]:
-            return parts[index + 1]
-    return None
-
-
-def _scope_set_ref(scope_refs: tuple[str, ...]) -> str:
-    scopes = tuple(sorted(set(scope_refs)))
-    if not scopes:
-        raise ValueError("promoted inventory observation requires source scopes")
-    if len(scopes) == 1:
-        return scopes[0]
-    digest = hashlib.sha256("\0".join(scopes).encode()).hexdigest()
-    return f"scope-set:sha256:{digest}"
 
 
 __all__ = [

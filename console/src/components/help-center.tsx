@@ -1,4 +1,3 @@
-import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getLocale } from "../i18n";
 import { helpCenterText } from "./help-center.i18n";
@@ -259,18 +258,13 @@ function ManualBookCover({
   manual,
   imageUrl,
   stageNumber,
-  reflection = false,
 }: {
   readonly manual: ManualCatalogEntry;
   readonly imageUrl: string;
   readonly stageNumber: number;
-  readonly reflection?: boolean;
 }) {
   return (
-    <span
-      class={`manual-book${reflection ? " manual-book-reflection" : ""}`}
-      aria-hidden={reflection || undefined}
-    >
+    <span class="manual-book" aria-hidden="true">
       <span class="manual-book-image">
         <img src={imageUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
         <b>{manual.coverLabel}</b>
@@ -287,55 +281,12 @@ function ManualBookCover({
   );
 }
 
-function applyManualCoverDrag(
-  track: HTMLDivElement,
-  selectedIndex: number,
-  deltaX: number,
-): void {
-  const spacing = 150;
-  Array.from(track.children).forEach((node, index) => {
-    if (!(node instanceof HTMLElement)) return;
-    const position = index - selectedIndex + deltaX / spacing;
-    const distance = Math.abs(position);
-    const x = position * spacing;
-    const rotation = Math.max(-28, Math.min(28, -position * 22));
-    const scale = distance <= 1
-      ? 1 - distance * 0.44
-      : Math.max(0.38, 0.56 - (distance - 1) * 0.16);
-    node.style.transform =
-      `translateX(calc(-50% + ${x}px)) rotateY(${rotation}deg) scale(${scale})`;
-    node.style.filter =
-      `brightness(${Math.max(0.36, 1 - distance * 0.4)}) ` +
-      `saturate(${Math.max(0.5, 1 - distance * 0.28)})`;
-    node.style.opacity = distance >= 2.4 ? "0" : "1";
-    node.style.zIndex = String(Math.max(1, 10 - Math.round(distance * 2)));
-  });
-}
-
-function clearManualCoverDrag(track: HTMLDivElement): void {
-  Array.from(track.children).forEach((node) => {
-    if (!(node instanceof HTMLElement)) return;
-    node.style.removeProperty("transform");
-    node.style.removeProperty("filter");
-    node.style.removeProperty("opacity");
-    node.style.removeProperty("z-index");
-  });
-}
-
 export function HelpCenter() {
   const [open, setOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [selectedManualId, setSelectedManualId] = useState<string | null>(null);
   const [catalogState, setCatalogState] = useState<CatalogState>({ status: "idle" });
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const manualDragRef = useRef({
-    pointerId: null as number | null,
-    startX: 0,
-    deltaX: 0,
-    targetManualId: null as string | null,
-  });
-  const suppressManualClickRef = useRef(false);
   let manualStudioUrl: string | null = null;
   let invalidConfiguration = false;
   try {
@@ -383,14 +334,6 @@ export function HelpCenter() {
         const catalog = parseManualCatalog(await response.json(), manualStudioUrl);
         if (!cancelled) {
           setCatalogState({ status: "ready", catalog });
-          setSelectedManualId((current) =>
-            current !== null && catalog.manuals.some((manual) => manual.id === current)
-              ? current
-              : catalog.manuals.find((manual) => manual.id === "ontology-foundation")?.id
-                ?? catalog.manuals.find((manual) => manual.featured)?.id
-                ?? catalog.manuals[0]?.id
-                ?? null
-          );
         }
       })
       .catch((error: unknown) => {
@@ -413,61 +356,6 @@ export function HelpCenter() {
     window.requestAnimationFrame(() => triggerRef.current?.focus());
   };
   const readyCatalog = catalogState.status === "ready" ? catalogState.catalog : null;
-  const selectedIndex = readyCatalog?.manuals.findIndex((manual) =>
-    manual.id === selectedManualId) ?? -1;
-  const selectedManual = selectedIndex >= 0 ? readyCatalog?.manuals[selectedIndex] : undefined;
-  const selectedStage = selectedManual === undefined
-    ? undefined
-    : readyCatalog?.journey.stages.find((stage) => stage.id === selectedManual.stageId);
-  const finishManualDrag = (
-    event: JSX.TargetedPointerEvent<HTMLDivElement>,
-  ): void => {
-    const drag = manualDragRef.current;
-    if (drag.pointerId !== event.pointerId) return;
-    const track = event.currentTarget;
-    if (track.hasPointerCapture(event.pointerId)) {
-      track.releasePointerCapture(event.pointerId);
-    }
-    const moved = Math.abs(drag.deltaX) > 8;
-    let nextManualId = selectedManual?.id ?? null;
-    if (readyCatalog !== null && Math.abs(drag.deltaX) >= 36) {
-      const movedCovers = Math.max(1, Math.round(Math.abs(drag.deltaX) / 150));
-      const nextIndex = Math.max(
-        0,
-        Math.min(
-          readyCatalog.manuals.length - 1,
-          selectedIndex + (drag.deltaX < 0 ? movedCovers : -movedCovers),
-        ),
-      );
-      nextManualId = readyCatalog.manuals[nextIndex]?.id ?? null;
-    }
-    track.classList.remove("dragging");
-    if (nextManualId !== selectedManual?.id) {
-      setSelectedManualId(nextManualId);
-      window.requestAnimationFrame(() => clearManualCoverDrag(track));
-    } else {
-      clearManualCoverDrag(track);
-    }
-    const clickedActiveCover = drag.targetManualId === selectedManual?.id;
-    if (
-      !moved &&
-      clickedActiveCover &&
-      selectedManual !== undefined &&
-      manualStudioUrl !== null
-    ) {
-      window.open(
-        manualOpenUrl(manualStudioUrl, selectedManual.id),
-        "_blank",
-        "noopener,noreferrer",
-      );
-      close();
-    }
-    suppressManualClickRef.current = moved || clickedActiveCover;
-    window.setTimeout(() => { suppressManualClickRef.current = false; }, 0);
-    drag.pointerId = null;
-    drag.deltaX = 0;
-    drag.targetManualId = null;
-  };
 
   return (
     <span class="help-center">
@@ -562,180 +450,63 @@ export function HelpCenter() {
               </div>
               {readyCatalog.manuals.length === 0 ? (
                 <p class="manual-library-empty">{helpCenterText("noManuals")}</p>
-              ) : selectedManual !== undefined && selectedStage !== undefined ? (
-                <div class="manual-journey">
-                  <div class="manual-journey-stages" aria-label={readyCatalog.journey.title}>
-                    {readyCatalog.journey.stages.map((stage) => (
-                      <button
-                        key={stage.id}
-                        type="button"
-                        class={stage.id === selectedStage.id ? "active" : ""}
-                        aria-current={stage.id === selectedStage.id ? "step" : undefined}
-                        aria-label={`${stage.number}. ${stage.title}`}
-                        onClick={() => {
-                          const next = readyCatalog.manuals.find((manual) =>
-                            manual.stageId === stage.id &&
-                            (manual.featured || manual.kind === "core"));
-                          if (next) setSelectedManualId(next.id);
-                        }}
-                      >
-                        <span>{String(stage.number).padStart(2, "0")}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div class="manual-journey-heading">
-                    <span>{String(selectedStage.number).padStart(2, "0")}</span>
-                    <div>
-                      {selectedStage.differentiator
-                        ? <small>FDAI DIFFERENTIATOR</small>
-                        : null}
-                      <strong>{selectedStage.title}</strong>
-                      <p>{selectedStage.question}</p>
-                    </div>
-                  </div>
-                  <div class="manual-coverflow">
-                    <button
-                      type="button"
-                      class="manual-coverflow-arrow"
-                      aria-label={helpCenterText("previousManual")}
-                      disabled={selectedIndex <= 0}
-                      onClick={() => setSelectedManualId(
-                        readyCatalog.manuals[selectedIndex - 1]?.id ?? selectedManual.id
-                      )}
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
-                    </button>
-                    <div
-                      class="manual-coverflow-track"
-                      onPointerDown={(event) => {
-                        if (event.button !== 0) return;
-                        const drag = manualDragRef.current;
-                        drag.pointerId = event.pointerId;
-                        drag.startX = event.clientX;
-                        drag.deltaX = 0;
-                        const pointerTarget = event.target instanceof Element
-                          ? event.target.closest<HTMLElement>(".manual-library-card")
-                          : null;
-                        drag.targetManualId = pointerTarget?.dataset.manualId ?? null;
-                        event.currentTarget.setPointerCapture(event.pointerId);
-                        event.currentTarget.classList.add("dragging");
-                      }}
-                      onPointerMove={(event) => {
-                        const drag = manualDragRef.current;
-                        if (drag.pointerId !== event.pointerId) return;
-                        const minimum =
-                          -(readyCatalog.manuals.length - 1 - selectedIndex) * 150;
-                        const maximum = selectedIndex * 150;
-                        drag.deltaX = Math.max(
-                          minimum,
-                          Math.min(maximum, event.clientX - drag.startX),
-                        );
-                        applyManualCoverDrag(event.currentTarget, selectedIndex, drag.deltaX);
-                      }}
-                      onDragStart={(event) => event.preventDefault()}
-                      onPointerUp={finishManualDrag}
-                      onPointerCancel={finishManualDrag}
-                    >
-                      {readyCatalog.manuals.map((manual, index) => {
-                        const distance = Math.max(-3, Math.min(3, index - selectedIndex));
-                        const active = distance === 0;
-                        const stageNumber = readyCatalog.journey.stages.find((stage) =>
-                          stage.id === manual.stageId)?.number ?? selectedStage.number;
-                        return (
-                          <button
-                            key={manual.id}
-                            type="button"
-                            class="manual-library-card"
-                            data-distance={distance}
-                            data-active={String(active)}
-                            data-manual-id={manual.id}
-                            aria-label={active
-                              ? helpCenterText("openManual", { title: manual.title })
-                              : manual.title}
-                            aria-current={active ? "true" : undefined}
-                            aria-hidden={Math.abs(distance) > 1}
-                            tabIndex={active ? 0 : -1}
-                            onClick={(event) => {
-                              if (suppressManualClickRef.current) {
-                                event.preventDefault();
-                                suppressManualClickRef.current = false;
-                                return;
-                              }
-                              if (!active) {
-                                setSelectedManualId(manual.id);
-                                return;
-                              }
-                              window.open(
-                                manualOpenUrl(manualStudioUrl, manual.id),
-                                "_blank",
-                                "noopener,noreferrer",
-                              );
-                              close();
-                            }}
-                          >
-                            <ManualBookCover
-                              manual={manual}
-                              imageUrl={manualAssetUrl(manualStudioUrl, manual.coverImage) ?? ""}
-                              stageNumber={stageNumber}
-                            />
-                            <ManualBookCover
-                              manual={manual}
-                              imageUrl={manualAssetUrl(manualStudioUrl, manual.coverImage) ?? ""}
-                              stageNumber={stageNumber}
-                              reflection
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      class="manual-coverflow-arrow"
-                      aria-label={helpCenterText("nextManual")}
-                      disabled={selectedIndex >= readyCatalog.manuals.length - 1}
-                      onClick={() => setSelectedManualId(
-                        readyCatalog.manuals[selectedIndex + 1]?.id ?? selectedManual.id
-                      )}
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
-                    </button>
-                  </div>
-                </div>
               ) : (
-                <div class="manual-library-grid">
-                  {readyCatalog.manuals.map((manual) => (
-                    <a
-                      key={manual.id}
-                      class="manual-library-card"
-                      href={manualOpenUrl(manualStudioUrl, manual.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={helpCenterText("openManual", { title: manual.title })}
-                      onClick={close}
-                    >
-                      <span class="manual-library-cover">
-                        <img
-                          src={manualAssetUrl(manualStudioUrl, manual.coverImage) ?? ""}
-                          alt=""
-                          referrerPolicy="no-referrer"
-                        />
-                        <span>
-                          <small>FDAI</small>
-                          <strong>{manual.coverLabel}</strong>
-                        </span>
-                      </span>
-                      <span class="manual-library-copy">
-                        <small>{manual.eyebrow}</small>
-                        <strong>{manual.title}</strong>
-                        <span>{manual.description}</span>
-                        <span>
-                          <time dateTime={manual.createdAt}>{formatDate(manual.createdAt)}</time>
-                          <i aria-hidden="true" />
-                          {helpCenterText("slides", { count: manual.slideCount })}
-                        </span>
-                      </span>
-                    </a>
-                  ))}
+                <div class="manual-journey">
+                  {readyCatalog.journey.stages.map((stage) => {
+                    const stageManuals = readyCatalog.manuals.filter((manual) =>
+                      manual.stageId === stage.id);
+                    if (stageManuals.length === 0) return null;
+                    const headingId = `manual-journey-stage-${stage.id}`;
+                    return (
+                      <section
+                        key={stage.id}
+                        class="manual-journey-section"
+                        aria-labelledby={headingId}
+                      >
+                        <div class="manual-journey-heading">
+                          <span>{String(stage.number).padStart(2, "0")}</span>
+                          <div>
+                            {stage.differentiator
+                              ? <small>FDAI DIFFERENTIATOR</small>
+                              : null}
+                            <strong id={headingId}>{stage.title}</strong>
+                            <p>{stage.question}</p>
+                          </div>
+                        </div>
+                        <ul class="manual-book-list">
+                          {stageManuals.map((manual) => (
+                            <li key={manual.id}>
+                              <a
+                                class="manual-book-list-item"
+                                href={manualOpenUrl(manualStudioUrl, manual.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={helpCenterText("openManual", {
+                                  title: manual.title,
+                                })}
+                                onClick={close}
+                              >
+                                <span class="manual-book-list-cover">
+                                  <ManualBookCover
+                                    manual={manual}
+                                    imageUrl={
+                                      manualAssetUrl(manualStudioUrl, manual.coverImage) ?? ""
+                                    }
+                                    stageNumber={stage.number}
+                                  />
+                                </span>
+                                <span class="manual-book-list-details">
+                                  <span class="manual-book-recommendation">
+                                    {manual.description}
+                                  </span>
+                                </span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    );
+                  })}
                 </div>
               )}
               <footer class="manual-library-footer">

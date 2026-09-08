@@ -11,10 +11,11 @@ import pytest
 from fdai_operator_service.families.operations.contracts import InventoryInstanceResource
 from fdai_operator_service.families.operations.instance_explorer import _resource_projection
 from fdai_operator_service.families.operations.recorded_state import (
+    AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
+    AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
-    RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES,
     RecordedStateObservation,
     recorded_resource_states,
 )
@@ -90,7 +91,7 @@ def test_all_29_previously_dropped_raw_states_are_retained(index: int) -> None:
     assert states["provisioning"]["value"] == "Succeeded"
     assert states["availability"]["value"] is None
     assert states["availability"]["reason"] == "state_not_recorded"
-    assert projected["status"] == "Succeeded"
+    assert projected["status"] == "Running"
     assert projected["subscription_id"] == "example-subscription"
     assert "private-provider-payload" not in repr(projected)
 
@@ -159,19 +160,162 @@ def test_unclassified_resource_missing_state_has_a_distinct_reason() -> None:
 
 def test_missing_state_separates_source_provider_and_applicability_outcomes() -> None:
     mapped = recorded_resource_states({}, resource_type="compute.container-app", now=NOW)
-    resource_health_unbound = recorded_resource_states(
+    application_insights = recorded_resource_states(
         {},
         resource_type="application-insights",
         now=NOW,
     )
+    log_workspace = recorded_resource_states({}, resource_type="log-workspace", now=NOW)
     not_applicable = recorded_resource_states({}, resource_type="resource-group", now=NOW)
     unresolved = recorded_resource_states({}, resource_type="downstream.custom", now=NOW)
     assert mapped["operational"]["reason"] == "state_source_not_recorded"
-    assert (
-        resource_health_unbound["operational"]["reason"] == "resource_health_projection_not_bound"
-    )
+    assert application_insights["operational"]["reason"] == "state_not_applicable"
+    assert application_insights["availability"]["reason"] == "state_not_applicable"
+    assert log_workspace["operational"]["reason"] == "state_not_applicable"
+    assert log_workspace["availability"]["reason"] == "state_source_not_recorded"
     assert not_applicable["operational"]["reason"] == "state_not_applicable"
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
+
+
+def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None:
+    resource_group = recorded_resource_states(
+        {"status": "Succeeded"},
+        resource_type="resource-group",
+        now=NOW,
+    )
+    application_insights = recorded_resource_states(
+        {"availabilityState": "Available"},
+        resource_type="application-insights",
+        now=NOW,
+    )
+    function = recorded_resource_states(
+        {"status": "Running", "state": "Running"},
+        resource_type="compute.function",
+        now=NOW,
+    )
+
+    assert resource_group["operational"]["value"] is None
+    assert resource_group["operational"]["reason"] == "state_not_applicable"
+    assert application_insights["availability"]["value"] is None
+    assert application_insights["availability"]["reason"] == "state_not_applicable"
+    assert function["operational"]["source_path"] == "state"
+    for resource_type in ("application-insights", "log-workspace", "resource-group"):
+        projected = _resource_projection(
+            InventoryInstanceResource(
+                resource_id=f"{resource_type}-1",
+                resource_type=resource_type,
+                properties={"status": "Running", "provisioningState": "Succeeded"},
+                last_seen=None,
+            ),
+            root_id=None,
+            now=NOW,
+        )
+        assert projected["status"] is None
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "properties", "expected_path", "expected_value"),
+    [
+        (
+            "compute.function",
+            {"status": "Running", "state": "Stopped"},
+            "state",
+            "Stopped",
+        ),
+        (
+            "compute.vm",
+            {
+                "status": "Running",
+                "state": "Started",
+                "properties": {"powerState": {"code": "PowerState/deallocated"}},
+            },
+            "properties.powerState.code",
+            "PowerState/deallocated",
+        ),
+        (
+            "static-web-app",
+            {
+                "status": "Running",
+                "provisioningState": "Succeeded",
+                "staticSiteEnvironmentStatus": "Ready",
+            },
+            "staticSiteEnvironmentStatus",
+            "Ready",
+        ),
+    ],
+)
+def test_operational_state_and_legacy_status_share_resource_type_paths(
+    resource_type: str,
+    properties: dict[str, object],
+    expected_path: str,
+    expected_value: str,
+) -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id=f"{resource_type}-1",
+            resource_type=resource_type,
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+        now=NOW,
+    )
+
+    states = projected["states"]
+    assert isinstance(states, dict)
+    operational = states["operational"]
+    assert isinstance(operational, dict)
+    assert operational["source_path"] == expected_path
+    assert operational["value"] == expected_value
+    assert projected["status"] == expected_value
+
+
+def test_kubernetes_unknown_readiness_remains_a_recorded_state() -> None:
+    states = recorded_resource_states(
+        {"ready_status": "Unknown"},
+        resource_type="kubernetes.node",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "Unknown"
+    assert states["operational"]["source_path"] == "ready_status"
+
+
+def test_private_endpoint_approval_does_not_become_operational_health() -> None:
+    properties = {
+        "properties": {
+            "provisioningState": "Succeeded",
+            "privateLinkServiceConnections": [
+                {
+                    "properties": {
+                        "privateLinkServiceConnectionState": {
+                            "status": "Approved",
+                        }
+                    }
+                }
+            ],
+        }
+    }
+    states = recorded_resource_states(
+        properties,
+        resource_type="network.private-endpoint",
+        now=NOW,
+    )
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="private-endpoint-1",
+            resource_type="network.private-endpoint",
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] is None
+    assert states["operational"]["reason"] == "provider_operational_state_not_exposed"
+    assert states["provisioning"]["value"] == "Succeeded"
+    assert projected["status"] is None
 
 
 def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:
@@ -189,10 +333,12 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
         set(OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
         | OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES
         | PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
-        | RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES
         | {"unclassified-resource"}
     )
     assert classified == canonical
+    assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
+        AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+    )
 
 
 @pytest.mark.parametrize(
@@ -222,6 +368,47 @@ def test_resource_specific_state_paths_are_retained(
     assert fact["source_path"] == f"properties.{path}"
     assert fact["freshness"] == "fresh"
     assert fact["completeness"] == 1.0
+
+
+@pytest.mark.parametrize("resource_type", AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+def test_resource_health_availability_preserves_exact_evidence(resource_type: str) -> None:
+    metadata = _metadata(
+        source_identity="azure-resource-health",
+        source_revision="azure-resource-health:sha256:" + "1" * 64,
+        effective_at="2026-09-05T00:04:00+00:00",
+        recorded_at="2026-09-05T00:04:30+00:00",
+        evidence_cutoff="2026-09-05T00:04:30+00:00",
+        freshness_ceiling_seconds=300,
+        evidence_refs=["azure-resource-health:sha256:" + "1" * 64],
+    )
+    states = recorded_resource_states(
+        {
+            "availabilityState": "Available",
+            "state_fact_metadata": {"availabilityState": metadata},
+        },
+        resource_type=resource_type,
+        now=NOW,
+    )
+
+    assert states["availability"] == {
+        "value": "Available",
+        "source_path": "availabilityState",
+        "observed_at": "2026-09-05T00:04:00+00:00",
+        "recorded_at": "2026-09-05T00:04:30+00:00",
+        "freshness": "fresh",
+        "completeness": 1.0,
+        "conflicts": [],
+        "reason": None,
+    }
+    unknown = recorded_resource_states(
+        {
+            "availabilityState": "Unknown",
+            "state_fact_metadata": {"availabilityState": metadata},
+        },
+        resource_type=resource_type,
+        now=NOW,
+    )
+    assert unknown["availability"]["value"] == "Unknown"
 
 
 @pytest.mark.parametrize("value", [None, "", "unknown", "Unknown", " unknown ", {}, True])
@@ -289,7 +476,7 @@ def test_staleness_and_incomplete_metadata_do_not_erase_values() -> None:
     assert partial["reason"] == "state_metadata_incomplete"
 
 
-def test_recent_cutoff_cannot_refresh_an_old_effective_state() -> None:
+def test_recent_cutoff_confirms_an_old_effective_state_without_rewriting_time() -> None:
     fact = _state(
         {
             "state": "Running",
@@ -301,7 +488,30 @@ def test_recent_cutoff_cannot_refresh_an_old_effective_state() -> None:
         }
     )
     assert fact["value"] == "Running"
-    assert fact["freshness"] == "stale"
+    assert fact["observed_at"] == "2026-09-04T00:00:00+00:00"
+    assert fact["freshness"] == "fresh"
+    assert fact["reason"] is None
+
+
+def test_static_web_app_ready_uses_current_evidence_cutoff_for_freshness() -> None:
+    states = recorded_resource_states(
+        {
+            "staticSiteEnvironmentStatus": "Ready",
+            "state_fact_metadata": {
+                "staticSiteEnvironmentStatus": _metadata(
+                    source_identity="azure-static-web-app-default-environment",
+                    effective_at="2026-08-01T00:00:00+00:00",
+                )
+            },
+        },
+        resource_type="static-web-app",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "Ready"
+    assert states["operational"]["observed_at"] == "2026-08-01T00:00:00+00:00"
+    assert states["operational"]["freshness"] == "fresh"
+    assert states["operational"]["reason"] is None
 
 
 @pytest.mark.parametrize(

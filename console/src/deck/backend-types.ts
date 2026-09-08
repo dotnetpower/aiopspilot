@@ -3,8 +3,11 @@ import type { Answer } from "./answerer";
 export interface BackendTurn {
   readonly role: "user" | "assistant";
   readonly content: string;
+  readonly source?: string;
   readonly semanticRequestId?: string;
-  readonly semanticDisposition?: SemanticProjectionReceipt["disposition"];
+  readonly semanticDisposition?: SemanticProjectionReceipt["disposition"] | "advisory_response";
+  /** Retained locally for replay and source selection, never forwarded as trusted evidence. */
+  readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
@@ -33,12 +36,17 @@ export interface RouterCandidate {
   readonly p95_ms: number | null;
   readonly samples: number;
   readonly history_ms: readonly number[];
+  readonly status?: "measured" | "unmeasured" | "failed" | "stale";
+  readonly measured_at?: string;
 }
 
 export interface RouterSnapshot {
   readonly chose: string;
   readonly reason: string;
   readonly candidates: readonly RouterCandidate[];
+  readonly updated_at?: string;
+  readonly expires_at?: string;
+  readonly interval_seconds?: number;
   readonly vision?: {
     readonly available: boolean;
     readonly chose: string | null;
@@ -418,12 +426,26 @@ export interface TrajectoryDetail {
 
 export type IntentEvidenceMode =
   | "screen_grounded"
+  | "document_grounded"
   | "operational_grounded"
   | "web_grounded"
   | "mixed_grounded"
   | "model_knowledge"
   | "partial"
   | "held_for_review";
+
+export type IntentEvidenceAuthority =
+  | "server_inventory_graph"
+  | "server_metering"
+  | "server_ontology_manifest"
+  | "server_ontology_instance_path"
+  | "server_ontology_query"
+  | "server_operational_metrics"
+  | "server_operational_state_history"
+  | "server_resource_health"
+  | "server_governed_document"
+  | "server_subscription_scope"
+  | "server_subscription_health";
 
 export interface IntentGraphMetadata {
   readonly schema_version: 2;
@@ -444,7 +466,7 @@ export interface IntentGraphMetadata {
 }
 
 export interface IntentGraphEvidence {
-  readonly schema_version: 1;
+  readonly schema_version: 2;
   readonly status: "completed" | "partial" | "unavailable" | "failed" | "cancelled";
   readonly evidence_mode: IntentEvidenceMode;
   readonly goals: readonly {
@@ -459,6 +481,7 @@ export interface IntentGraphEvidence {
     readonly reason?: string;
     readonly blocked_by?: readonly string[];
     readonly evidence_refs?: readonly string[];
+    readonly authority?: IntentEvidenceAuthority;
     readonly started_at: string;
     readonly completed_at: string;
   }[];
@@ -650,6 +673,7 @@ export interface ConversationDocumentArtifact {
 }
 
 export type ProgressiveAnswer = Answer & {
+  readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly source: string;
   readonly router?: RouterSnapshot;
   readonly verification?: AnswerVerification;
@@ -686,6 +710,7 @@ export interface BackendHealth {
 
 export interface StreamCallbacks {
   readonly onToken: (delta: string) => void;
+  readonly onValidatedTerminal?: () => void;
   readonly onProgress?: (progress: VerificationProgress) => void;
   readonly onActivity?: (activity: InvestigationActivity) => void;
   readonly onMilestone?: (milestone: InvestigationMilestone) => void;
@@ -699,6 +724,7 @@ export interface StreamCallbacks {
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
   readonly semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2";
+  readonly conversationModelTier?: "t1" | "t2";
   readonly targetAgent?: string;
   readonly handoverGoalId?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;

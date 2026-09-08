@@ -8,17 +8,18 @@ Ontology Instances. It preserves recorded values and their evidence instead of c
 browser-side operational verdict.
 
 > **Authority boundary:** Reading a record does not prove current health or authorize a change.
-> No provider query, model invocation, state write, or new persistence owner is introduced.
+> The inventory job performs the reviewed provider read and single-writer projection. Console and
+> conversational consumers do not perform a provider write, model invocation, or state mutation.
 
 ## Design at a glance
 
-The existing instance reader supplies Resource properties from one immutable active inventory
-generation. The Operator Service projects these properties into three independent recorded-state
-axes. Both Console screens consume the same versioned shape.
+The instance directory and detail merge ordered realtime changes over one active generation.
+Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
+Resource properties into three independent axes that both Console screens consume.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
-| Operational | Explicit service, power, phase, readiness, running, attachment, access, or link state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, and Completed keep their recorded meaning. |
+| Operational | Explicit service, power, phase, readiness, running, attachment, access, link, or Static Web App default-environment state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, Completed, and Ready keep their recorded meaning. |
 | Provisioning | Explicit `provisioningState`. | Successful creation does not establish availability. |
 | Availability | Explicit availability evidence. | Running and Succeeded do not establish healthy service. |
 
@@ -38,6 +39,11 @@ remains unknown; it never becomes an invented observation receipt. A missing val
 not-applicable. The display projection is not a replacement for the existing decision-critical
 ontology query verifier or its receipts.
 
+Freshness measures the age of the evidence cutoff, not the age of the state transition. A current
+provider read can therefore confirm a state whose effective time is older without rewriting that
+effective time. A retained fact keeps its earlier evidence cutoff and becomes stale when that
+confirmation exceeds the declared ceiling.
+
 For active snapshots created before property-level metadata was recorded, the read model qualifies a
 retained value from the immutable Resource `last_seen` timestamp and the snapshot completion cutoff.
 It preserves `last_seen` as effective time and never substitutes the later cutoff for that time.
@@ -49,9 +55,8 @@ reviewed outcome:
 | Outcome | Meaning |
 |---------|---------|
 | `state_source_not_recorded` | The type has an explicit provider or Kubernetes state contract, but the selected generation contains no usable value. This includes service, power, readiness, database, broker, disk, snapshot-access, and private-DNS-link states. |
-| `resource_health_projection_not_bound` | Application Insights and Log Analytics require Azure Resource Health because ARG inventory exposes no per-resource operational state. That source is not connected to the recorded-state projection. Provisioning state and existence do not replace it. |
 | `provider_operational_state_not_exposed` | The resource can have operational concerns, but its current provider inventory contract exposes no per-resource operational state and has no reviewed alternate source in this projection. |
-| `state_not_applicable` | The reviewed type is a configuration, identity, grouping, or aggregate definition with no single operational-state value. |
+| `state_not_applicable` | The reviewed type or axis has no single applicable state. This includes Application Insights operational and availability state and Log Analytics operational state. |
 | `resource_type_unclassified` | The provider type has no reviewed canonical ResourceType mapping. |
 | `state_applicability_unknown` | A downstream custom type has not been reviewed. Canonical types do not use this fallback. |
 
@@ -80,20 +85,103 @@ caps accumulation at 20,000 records under a total deadline. Reaching that bound 
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
 Display filters and local pages operate on this received set; the server query remains the authority.
 
+## Unified state ingestion and readers
+
+Resource discovery establishes identity and configuration. A separate reviewed state enricher may
+add only a typed state value and canonical state-fact metadata before the generation is promoted.
+It cannot replace identity, configuration, topology, or inventory observation time.
+
+The promoted Resource fact is written to both the current `ontology_resource` Resource and the
+Operator-readable inventory projection under one generation fence. Core conversational functions
+read the ontology instance. Operator instance and batch-state reads use the service-approved
+projection of the same fact because the Operator role has no direct Core-table access.
+
+State transition recording is independent of relationship completeness. A complete object
+observation can advance operational or availability state history even when an unrelated topology
+edge remains unresolved. Relationship history still requires complete relationship evidence.
+
+The observer appends the promoted generation to the normalized journal before publishing history.
+If history publication fails, ontology projection does not advance. The next reconciliation replays
+that pending active generation under the same coordinator lock before collecting or promoting a new
+generation, so a transient history failure cannot create a permanent transition gap.
+
+The reviewed alternate availability source is Azure Resource Health. The shared contract declares
+the exact ResourceTypes whose ARM type is supported:
+
+- Compute and runtime coverage includes App Service plans, Azure Cache for Redis, Functions, virtual
+  machines, VM scale sets, Web Apps, and AKS clusters.
+- Data and platform coverage includes alert rules, API Management, Event Hubs, Azure AI service
+  accounts, Log Analytics and metrics workspaces, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis
+  Enterprise, Key Vault, Service Bus, and Storage accounts.
+- Network coverage includes Application Gateway, DNS Resolver and inbound endpoints, DNS zones,
+  Azure Firewall, Load Balancer, NAT Gateway, and Virtual Network Gateway.
+- `log-workspace` and several platform types have no single operational running state. Their
+  operational axis remains not applicable or not exposed, while availability uses the exact ARM
+  Resource Health status.
+- `application-insights` has no direct Resource Health status. Its operational and availability
+  axes are not applicable. The backing Log Analytics workspace remains a separate related Resource;
+  its health is never copied onto Application Insights.
+- The reviewed alternate operational source for `static-web-app` is the exact
+  `Microsoft.Web/staticSites/builds/default` child resource. The inventory promotion enricher reads
+  API version `2023-12-01` and records the documented `BuildStatus` enumeration as
+  `staticSiteEnvironmentStatus`, including deployment, ready, failed, deleting, and detached states.
+  Preview environments never override the default environment.
+- Static Web App state metadata keeps the provider `lastUpdatedOn` value as effective time, falling
+  back to `createdTimeUtc` only when needed. The collection completion remains the recorded time and
+  evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
+- A failed, unauthorized, malformed, partial, or stale state read records the exact source
+  limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+- Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
+  generation-consistent batches and retained when the target bound or provider is unavailable.
+- One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
+  reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
+  projection applies that allowlist to root and supported nested property owners before inspecting
+  stored values, including the legacy top-level `status` field. Only canonical metadata paired with
+  a present allowlisted value is retained, and flat metadata remains limited to the supported
+  `status` and `state` sibling form. A legacy `status`, `provisioningState`, malformed metadata, or
+  unexpected property therefore cannot override a not-applicable or provider-not-exposed outcome.
+
 ## Presentation and compatibility
 
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
-- Ontology directory and exploration records expose the same additive `states` field.
+- Ontology directory and exploration records expose the same additive `states` field from the
+  ontology-owned current Resource state.
+- The Ontology Instances graph reserves its reviewed viewport height even when a result contains
+  only a few nodes, so recorded-state details do not collapse the inspection surface.
+- An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
+  Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
+  raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
-- Missing values render as Not recorded, State source not connected, Unavailable, Not applicable,
-  or Applicability unknown from the machine reason. Application Insights and Log Analytics
-  therefore identify the unbound Azure Resource Health source instead of displaying a generic
-  unavailable value.
+- Missing values render as Not recorded, Not provided, Unclassified, Not applicable, or
+  Applicability unknown from the machine reason. `Not provided` describes the evidence contract,
+  not resource availability. Legacy generations can still identify an unbound source explicitly.
+- Compact ontology graph nodes use an exact operational value first. When operation is not
+  applicable or the provider exposes no operational state, an exact availability value or useful
+  availability evidence gap leads, followed by an exact provisioning value. A missing applicable
+  operational value remains visible and cannot be hidden by availability. The selected axis stays
+  in the label, and provisioning success never becomes operational success or health.
+- A Static Web App with an exact default-environment fact shows that exact operational value, such
+  as `Operational: Ready`, `Operational: Deploying`, or `Operational: Failed`. If that reviewed
+  source has no recorded value, the label is Not recorded. Not provided is reserved for
+  ResourceTypes with no reviewed operational source.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
+- A `Succeeded` model deployment state reports provisioning completion only. It does not establish
+  inference health, successful requests, quota headroom, or caller authorization.
 - The original Dashboard and older instance clients retain their existing routes and fields.
 - Resource inspection and selection do not grant approval or execution authority.
+- Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired
+  capture or test-authenticated replacement does not validate the standard operator screen.
+- After a frontend or Operator API replacement, runtime validation rechecks the selected axis label
+  on the standard page so a useful availability or provisioning fact cannot regress behind an
+  inapplicable operational axis.
+- Expanded Resource Health validation compares target, value, and metadata counts by ResourceType.
+  Provider-unmodeled targets stay explicit and require an independent operational fact before a
+  compact node can show operation.
+- Runtime primary-state validation includes configuration Resources with no operational or
+  availability source. These nodes show exact provisioning when present and retain explicit
+  evidence-gap labeling only when every recorded axis lacks a useful exact fact.
 
 ## Rejected alternatives
 

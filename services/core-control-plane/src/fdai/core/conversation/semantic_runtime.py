@@ -3,28 +3,48 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any, Literal
 
+from fdai_service_contracts.adaptive_answer import AdaptiveAnswer
 from fdai_service_contracts.ontology_query import (
+    AnswerEvidenceMode,
     EvidenceAuthority,
     IntentGraphEvidence,
     QueryNodeKind,
+    TaskStatus,
     project_intent_graph,
     project_intent_graph_evidence,
 )
+from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
 from fdai.core.ontology_platform.query_values import QueryTable
 
+from .adaptive_call_scope import AdaptiveBudgetExceededError, bind_adaptive_model_budget
+from .adaptive_models import AdaptiveEvidence
+from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
+from .adaptive_wait import await_adaptive_call
+from .conversation_preflight import (
+    DIRECT_SOCIAL_ACTS,
+    ContextDependency,
+    ConversationPreflightResult,
+    GeneralKnowledgeSignal,
+    OperationalSignal,
+    SocialAct,
+    preflight_selects_general_knowledge,
+)
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
+from .semantic_governed_document_planning import document_evidence_mode
 from .semantic_planning import SemanticPlanningService
-from .semantic_planning_cascade import SemanticPlanningEscalationPolicy
+from .semantic_planning_cascade import NO_T2_ESCALATION_POLICY, SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
@@ -39,6 +59,8 @@ _PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
     "semantic_query_progress_observer",
     default=None,
 )
+_PREFLIGHT_CANCELLATION_GRACE_SECONDS = 1.0
+_PENDING_PREFLIGHT_DRAINS: set[asyncio.Task[None]] = set()
 
 
 @contextmanager
@@ -59,6 +81,72 @@ def _resolve_progress_observer(
     return explicit or _PROGRESS_OBSERVER.get()
 
 
+async def _run_preflight_with_cancellation(
+    planner: SemanticPlanningService,
+    *,
+    utterance: str,
+    prior_turns: tuple[Turn, ...],
+    locale: str,
+    conversation_profile: Mapping[str, str] | None,
+    cancelled: asyncio.Event | None,
+    conversation_model_tier: SemanticConversationModelTier | None,
+) -> ConversationPreflightResult:
+    """Bridge task or request cancellation into the thread-owned provider call."""
+    provider_cancelled = asyncio.Event()
+
+    async def forward_request_cancellation() -> None:
+        if cancelled is None:
+            return
+        await cancelled.wait()
+        provider_cancelled.set()
+
+    def invoke_preflight() -> ConversationPreflightResult:
+        if conversation_model_tier is None:
+            return planner.preflight(
+                utterance=utterance,
+                prior_turns=prior_turns,
+                locale=locale,
+                conversation_profile=conversation_profile,
+                cancelled=provider_cancelled,
+            )
+        return planner.preflight(
+            utterance=utterance,
+            prior_turns=prior_turns,
+            locale=locale,
+            conversation_profile=conversation_profile,
+            cancelled=provider_cancelled,
+            conversation_model_tier=conversation_model_tier,
+        )
+
+    worker = asyncio.create_task(asyncio.to_thread(invoke_preflight))
+    watcher = asyncio.create_task(forward_request_cancellation()) if cancelled is not None else None
+    try:
+        result = await asyncio.shield(worker)
+        if provider_cancelled.is_set():
+            raise asyncio.CancelledError
+        return result
+    except asyncio.CancelledError:
+        provider_cancelled.set()
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(worker),
+                timeout=_PREFLIGHT_CANCELLATION_GRACE_SECONDS,
+            )
+        except TimeoutError:
+
+            async def drain_worker() -> None:
+                await asyncio.gather(worker, return_exceptions=True)
+
+            drain = asyncio.create_task(drain_worker())
+            _PENDING_PREFLIGHT_DRAINS.add(drain)
+            drain.add_done_callback(_PENDING_PREFLIGHT_DRAINS.discard)
+        raise
+    finally:
+        if watcher is not None:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticTurnResult:
     """One total semantic turn disposition and optional execution projections."""
@@ -66,6 +154,7 @@ class SemanticTurnResult:
     disposition: Literal[
         "answered",
         "direct_response",
+        "advisory_response",
         "clarification",
         "held",
         "unsupported",
@@ -78,6 +167,7 @@ class SemanticTurnResult:
     intent_graph: dict[str, Any] | None = None
     intent_graph_evidence: dict[str, Any] | None = None
     execution_authority: Literal[False] = False
+    adaptive_answer: AdaptiveAnswer | None = None
 
     def __post_init__(self) -> None:
         if self.execution_authority:
@@ -86,6 +176,13 @@ class SemanticTurnResult:
         has_projections = self.intent_graph is not None and self.intent_graph_evidence is not None
         if has_execution != has_projections:
             raise ValueError("semantic turn execution and projections MUST be present together")
+        if self.disposition == "advisory_response" and self.adaptive_answer is None:
+            raise ValueError("advisory terminal requires exactly one adaptive answer")
+        if self.adaptive_answer is not None and self.disposition not in {
+            "advisory_response",
+            "action_draft",
+        }:
+            raise ValueError("adaptive content requires an advisory or governed draft terminal")
 
 
 class SemanticConversationRuntime:
@@ -94,16 +191,38 @@ class SemanticConversationRuntime:
     def __init__(
         self,
         *,
-        planner: SemanticPlanningService,
+        planner: SemanticPlanningService | None = None,
         executor: OntologyQueryPlanExecutor | None = None,
         executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None = None,
         purpose: str = "operations-review",
         function_bindings: Mapping[str, EvidenceAuthority] | None = None,
+        adaptive_service: AdaptiveConversationService | None = None,
+        verified_unavailable_reason: str | None = None,
     ) -> None:
-        if (executor is None) == (executor_factory is None):
+        if (
+            verified_unavailable_reason is not None
+            and not 1 <= len(verified_unavailable_reason) <= 128
+        ):
+            raise ValueError("verified runtime unavailability must have a bounded reason")
+        advisory_only = (
+            planner is None
+            and adaptive_service is not None
+            and verified_unavailable_reason is not None
+        )
+        if not advisory_only and (executor is None) == (executor_factory is None):
             raise ValueError("semantic runtime requires exactly one executor binding")
+        if planner is None and not advisory_only:
+            raise ValueError(
+                "semantic runtime requires a planner or explicit advisory-only binding"
+            )
+        if advisory_only and (executor is not None or executor_factory is not None):
+            raise ValueError("advisory-only runtime cannot carry an executor")
         self._planner = planner
-        if executor_factory is not None:
+        self._verified_unavailable_reason = verified_unavailable_reason
+        self._executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None
+        if advisory_only:
+            self._executor_factory = None
+        elif executor_factory is not None:
             self._executor_factory = executor_factory
         else:
             if executor is None:  # pragma: no cover - constructor invariant
@@ -112,6 +231,7 @@ class SemanticConversationRuntime:
             self._executor_factory = lambda _principal: bound_executor
         self._purpose = purpose
         self._function_bindings = MappingProxyType(dict(function_bindings or {}))
+        self._adaptive = adaptive_service
 
     @property
     def function_bindings(self) -> Mapping[str, EvidenceAuthority]:
@@ -131,10 +251,322 @@ class SemanticConversationRuntime:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         progress_observer: QueryProgressObserver | None = None,
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
+    ) -> SemanticTurnResult:
+        """Answer knowledge facets without bypassing the principal-scoped verified read path."""
+        if cancelled is not None and cancelled.is_set():
+            raise asyncio.CancelledError
+        conversation_profile = (
+            self._adaptive.social_profile(target_agent, locale, relationship)
+            if self._adaptive is not None
+            else None
+        )
+        preflight_result = (
+            await _run_preflight_with_cancellation(
+                self._planner,
+                utterance=utterance,
+                prior_turns=prior_turns,
+                locale=locale,
+                conversation_profile=conversation_profile,
+                cancelled=cancelled,
+                conversation_model_tier=conversation_model_tier,
+            )
+            if self._planner is not None
+            else None
+        )
+        if cancelled is not None and cancelled.is_set():
+            raise asyncio.CancelledError
+
+        async def verified(question: str) -> SemanticTurnResult:
+            return await self._handle_verified(
+                utterance=question,
+                prior_turns=prior_turns,
+                principal=principal,
+                locale=locale,
+                cancelled=cancelled,
+                bound_incident=bound_incident,
+                bound_resource_context=bound_resource_context,
+                bound_investigation_continuation=bound_investigation_continuation,
+                escalation_policy=escalation_policy,
+                conversation_model_tier=conversation_model_tier,
+                progress_observer=progress_observer,
+                conversation_profile=conversation_profile,
+                preflight_result=preflight_result,
+            )
+
+        if (
+            preflight_result is not None
+            and preflight_result.attempted
+            and preflight_result.failure_kind is not None
+        ):
+            return await verified(utterance)
+
+        async def evidence(question: str) -> AdaptiveEvidence:
+            result = await verified(question)
+            if result.disposition != "answered" or result.execution is None:
+                return AdaptiveEvidence(status="held", limitation=result.reason)
+            degraded_optional_document = optional_document_evidence_degraded(
+                result.planning,
+                result.execution,
+            )
+            document_output_ids = (
+                {
+                    node.node_id
+                    for node in result.planning.plan.nodes
+                    if node.kind is QueryNodeKind.FUNCTION
+                    and node.arguments.get("function_name") == "query.governed_documents"
+                }
+                if degraded_optional_document and result.planning.plan is not None
+                else set()
+            )
+            values: list[object] = []
+            refs: list[str] = []
+            authorities: list[EvidenceAuthority] = []
+            for node_id in result.execution.output_node_ids:
+                if node_id in document_output_ids:
+                    continue
+                node = result.execution.results.get(node_id)
+                if node is None:
+                    return AdaptiveEvidence(status="unavailable", limitation="missing_query_output")
+                value = node.value
+                values.append(
+                    json.loads(value.canonical_json()) if isinstance(value, QueryTable) else value
+                )
+                refs.extend(node.evidence_refs)
+                if node.authority is not None:
+                    authorities.append(node.authority)
+                authorities.extend(node.authority_inputs)
+            try:
+                content = json.dumps(values, ensure_ascii=False, allow_nan=False)
+            except (TypeError, ValueError):
+                return AdaptiveEvidence(
+                    status="unavailable", limitation="unsupported_evidence_shape"
+                )
+            references = tuple(dict.fromkeys(refs))
+            if (
+                len(content) > 12000
+                or len(references) > 12
+                or not references
+                or any(len(ref) > 256 for ref in references)
+            ):
+                return AdaptiveEvidence(
+                    status="unavailable", limitation="adaptive_evidence_budget_or_refs"
+                )
+            return AdaptiveEvidence(
+                status="answered",
+                content=content,
+                evidence_refs=references,
+                limitation=result.reason if degraded_optional_document else None,
+                authorities=tuple(dict.fromkeys(authorities)),
+            )
+
+        proposal = preflight_result.proposal if preflight_result is not None else None
+        general_route_eligible = (
+            bound_incident is None
+            and bound_investigation_continuation is None
+            and escalation_policy != NO_T2_ESCALATION_POLICY
+            and (self._adaptive is not None or target_agent == "Bragi")
+        )
+        general_candidate = (
+            general_route_eligible
+            and proposal is not None
+            and proposal.social_act is SocialAct.NONE
+            and proposal.knowledge_signal is GeneralKnowledgeSignal.EXPLICIT
+            and proposal.operational_signal is OperationalSignal.NONE
+            and proposal.context_dependency is ContextDependency.NONE
+        )
+        general_one_shot = general_route_eligible and preflight_selects_general_knowledge(
+            preflight_result,
+            utterance=utterance,
+            locale=locale,
+        )
+        if general_candidate and not general_one_shot:
+            return SemanticTurnResult(
+                disposition="held",
+                reason="general_answer_route_unverified",
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                    reason="general_answer_route_unverified",
+                    model_observations=(
+                        preflight_result.observations if preflight_result is not None else ()
+                    ),
+                ),
+            )
+        if general_one_shot:
+            if proposal is None or proposal.general_answer is None:
+                raise RuntimeError("general answer promotion invariant violated")
+            observations = preflight_result.observations if preflight_result is not None else ()
+            return SemanticTurnResult(
+                disposition="advisory_response",
+                reason="semantic_advisory_response",
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
+                    reason="semantic_advisory_response",
+                    model_observations=observations,
+                ),
+                adaptive_answer=AdaptiveAnswer.model_validate(
+                    {
+                        "answer": proposal.general_answer.answer,
+                        "goals": (
+                            {
+                                "goal_id": "general-knowledge",
+                                "kind": "knowledge",
+                                "required": True,
+                                "status": "answered",
+                            },
+                        ),
+                        "role_agent": target_agent,
+                        "quality_status": "limited",
+                        "refinements": 0,
+                        "execution_authority": False,
+                    }
+                ),
+            )
+        preflight_selects_verified = (
+            proposal is not None
+            and proposal.knowledge_signal is GeneralKnowledgeSignal.NONE
+            and (
+                proposal.operational_signal
+                in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
+                or (
+                    proposal.social_act in DIRECT_SOCIAL_ACTS
+                    and proposal.operational_signal is OperationalSignal.NONE
+                    and proposal.context_dependency
+                    in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+                )
+            )
+        )
+        if preflight_selects_verified:
+            return await verified(utterance)
+        if (
+            self._adaptive is not None
+            and bound_incident is None
+            and bound_investigation_continuation is None
+            and escalation_policy != NO_T2_ESCALATION_POLICY
+        ):
+            outcome = await self._adaptive.respond(
+                utterance=utterance,
+                history=tuple(
+                    {"direction": turn.direction, "content": turn.content} for turn in prior_turns
+                ),
+                locale=locale,
+                target_agent=target_agent,
+                relationship=relationship,
+                read_evidence=evidence,
+                cancelled=cancelled,
+                allow_refinement=(
+                    conversation_model_tier is not SemanticConversationModelTier.T1
+                    and escalation_policy != NO_T2_ESCALATION_POLICY
+                ),
+                conversation_model_tier=conversation_model_tier,
+            )
+            if isinstance(outcome, AdaptiveUnavailable):
+                return SemanticTurnResult(
+                    disposition="held",
+                    reason=outcome.reason,
+                    planning=SemanticPlanningOutcome(
+                        disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                        reason=outcome.reason,
+                        model_observations=outcome.observations,
+                    ),
+                )
+            if isinstance(outcome, AdaptiveDeferred):
+                needs_explanation = outcome.plan.action_requested and any(
+                    goal.kind == "knowledge" for goal in outcome.plan.goals
+                )
+                try:
+                    async with bind_adaptive_model_budget(
+                        outcome.budget,
+                        reserved_calls=2 if needs_explanation else 0,
+                    ):
+                        governed = await await_adaptive_call(
+                            verified(utterance),
+                            timeout=outcome.budget.remaining,
+                            cancelled=cancelled,
+                        )
+                except (TimeoutError, AdaptiveBudgetExceededError):
+                    return SemanticTurnResult(
+                        disposition="held",
+                        reason="adaptive_governed_budget_exhausted",
+                        planning=SemanticPlanningOutcome(
+                            disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                            reason="adaptive_governed_budget_exhausted",
+                            model_observations=tuple(outcome.budget.observations),
+                        ),
+                    )
+                recorded = {id(item) for item in outcome.budget.observations}
+                outcome.budget.observations.extend(
+                    item
+                    for item in governed.planning.model_observations
+                    if id(item) not in recorded
+                )
+                governed = replace(
+                    governed,
+                    planning=replace(
+                        governed.planning,
+                        model_observations=tuple(outcome.budget.observations),
+                    ),
+                )
+                if governed.disposition != "action_draft" or not needs_explanation:
+                    return governed
+                explanation = await self._adaptive.resume_after_governed_draft(
+                    outcome,
+                    read_evidence=evidence,
+                    cancelled=cancelled,
+                    allow_refinement=escalation_policy != NO_T2_ESCALATION_POLICY,
+                )
+                return replace(
+                    governed,
+                    adaptive_answer=explanation.answer,
+                    planning=replace(
+                        governed.planning,
+                        model_observations=explanation.observations,
+                    ),
+                )
+            if outcome is not None:
+                return SemanticTurnResult(
+                    disposition="advisory_response",
+                    reason="semantic_advisory_response",
+                    planning=SemanticPlanningOutcome(
+                        disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
+                        reason="semantic_advisory_response",
+                        model_observations=outcome.observations,
+                    ),
+                    adaptive_answer=outcome.answer,
+                )
+        return await verified(utterance)
+
+    async def _handle_verified(
+        self,
+        *,
+        utterance: str,
+        prior_turns: tuple[Turn, ...],
+        principal: Principal,
+        locale: str = "en",
+        cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
+        bound_resource_context: BoundResourceContext | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
+        progress_observer: QueryProgressObserver | None = None,
+        conversation_profile: Mapping[str, str] | None = None,
+        preflight_result: ConversationPreflightResult | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
-
+        if self._planner is None:
+            reason = self._verified_unavailable_reason or "semantic_query_runtime_unavailable"
+            return SemanticTurnResult(
+                disposition="held",
+                reason=reason,
+                planning=SemanticPlanningOutcome(
+                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
+                    reason=reason,
+                ),
+            )
         planning = await asyncio.to_thread(
             self._planner.plan,
             utterance=utterance,
@@ -146,6 +578,9 @@ class SemanticConversationRuntime:
             bound_resource_context=bound_resource_context,
             bound_investigation_continuation=bound_investigation_continuation,
             escalation_policy=escalation_policy,
+            conversation_model_tier=conversation_model_tier,
+            conversation_profile=conversation_profile,
+            preflight_result=preflight_result,
         )
         if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:
             return _terminal("direct_response", planning.reason, planning)
@@ -159,7 +594,7 @@ class SemanticConversationRuntime:
             return _terminal("held", planning.reason, planning)
         if planning.plan is None or planning.intent_graph is None:
             raise RuntimeError("verified semantic planning result is incomplete")
-        executor = self._executor_factory(principal)
+        executor = self._executor_factory(principal) if self._executor_factory is not None else None
         if executor is None:  # pragma: no cover - constructor invariant
             raise RuntimeError("semantic executor binding is unavailable")
         execution = await executor.execute(
@@ -177,6 +612,14 @@ class SemanticConversationRuntime:
             execution=execution,
             frame=planning.frame,
         )
+        optional_document_degraded = optional_document_evidence_degraded(planning, execution)
+        if optional_document_degraded:
+            evidence = evidence.model_copy(
+                update={
+                    "status": "partial",
+                    "evidence_mode": AnswerEvidenceMode.PARTIAL,
+                }
+            )
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
@@ -198,10 +641,28 @@ class SemanticConversationRuntime:
                 elif _query_output_incomplete(planning, execution):
                     disposition = "held"
                     reason = "semantic_evidence_incomplete"
+                elif (
+                    document_hold_reason := _required_document_hold_reason(
+                        planning,
+                        execution,
+                    )
+                ) is not None:
+                    disposition = "held"
+                    reason = document_hold_reason
+                elif optional_document_degraded:
+                    disposition = "answered"
+                    reason = (
+                        "semantic_optional_governed_documents_incomplete"
+                        if _governed_document_node_ids(planning)
+                        else "semantic_optional_governed_documents_unavailable"
+                    )
                 else:
                     disposition = "answered"
         elif execution.status == "cancelled":
             disposition = "cancelled"
+        elif optional_document_degraded:
+            disposition = "answered"
+            reason = "semantic_optional_governed_documents_unavailable"
         else:
             disposition = "held"
         return SemanticTurnResult(
@@ -246,19 +707,133 @@ def _query_output_incomplete(
     planning: SemanticPlanningOutcome,
     execution: QueryPlanExecution,
 ) -> bool:
-    """Hold a completed DAG when its authoritative output is explicitly incomplete."""
+    """Hold only collection shapes that cannot safely present a verified partial result."""
     frame = planning.frame
     plan = planning.plan
     if (
         frame is None
         or plan is None
-        or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
+        or frame.output_shape is not SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
     ):
         return False
+    document_node_ids = {
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
+    }
     return any(
         isinstance(result.value, QueryTable) and not result.value.complete
         for node_id in plan.output_node_ids
+        if node_id not in document_node_ids
         if (result := execution.results.get(node_id)) is not None
+    )
+
+
+def _required_document_hold_reason(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> str | None:
+    frame = planning.frame
+    plan = planning.plan
+    if frame is None or plan is None:
+        return None
+    mode = document_evidence_mode(frame)
+    if mode not in {
+        SemanticDocumentEvidenceMode.REQUIRED,
+        SemanticDocumentEvidenceMode.EXPLICIT,
+    }:
+        return None
+    document_node_ids = tuple(
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
+    )
+    if len(document_node_ids) != 1:
+        return "semantic_governed_documents_unavailable"
+    result = execution.results.get(document_node_ids[0])
+    if result is None or not isinstance(result.value, QueryTable):
+        return "semantic_governed_documents_unavailable"
+    if not result.value.complete:
+        return "semantic_governed_documents_incomplete"
+    excerpt_count = sum(row.values.get("record_kind") == "excerpt" for row in result.value.rows)
+    if excerpt_count == 0:
+        return "semantic_governed_documents_empty"
+    return None
+
+
+def optional_document_evidence_degraded(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> bool:
+    """Allow a failed independent optional document branch to remain partial."""
+
+    frame = planning.frame
+    plan = planning.plan
+    if (
+        frame is None
+        or plan is None
+        or document_evidence_mode(frame) is not SemanticDocumentEvidenceMode.OPTIONAL
+        or execution.status == "cancelled"
+    ):
+        return False
+    document_nodes = tuple(
+        node for node in plan.nodes if node.node_id in _governed_document_node_ids(planning)
+    )
+    if len(document_nodes) > 1 or (document_nodes and document_nodes[0].depends_on):
+        return False
+    if not document_nodes:
+        return (
+            execution.status == "completed"
+            and bool(execution.receipts)
+            and all(
+                receipt.status is TaskStatus.COMPLETED
+                and receipt.evidence_refs
+                and receipt.goal_id in execution.results
+                for receipt in execution.receipts
+            )
+        )
+    document_task_id = f"query:{document_nodes[0].node_id}"
+    receipts = {receipt.task_id: receipt for receipt in execution.receipts}
+    document_receipt = receipts.get(document_task_id)
+    if document_receipt is None:
+        return False
+    remaining = tuple(
+        receipt for receipt in execution.receipts if receipt.task_id != document_task_id
+    )
+    independent_operational_evidence = bool(remaining) and all(
+        receipt.status is TaskStatus.COMPLETED
+        and receipt.evidence_refs
+        and receipt.goal_id in execution.results
+        for receipt in remaining
+    )
+    if not independent_operational_evidence:
+        return False
+    if document_receipt.status is TaskStatus.COMPLETED:
+        document_result = execution.results.get(document_nodes[0].node_id)
+        return (
+            execution.status == "completed"
+            and document_result is not None
+            and isinstance(document_result.value, QueryTable)
+            and not document_result.value.complete
+        )
+    return execution.status != "completed" and document_receipt.status in {
+        TaskStatus.FAILED,
+        TaskStatus.TIMED_OUT,
+        TaskStatus.UNAVAILABLE,
+    }
+
+
+def _governed_document_node_ids(planning: SemanticPlanningOutcome) -> frozenset[str]:
+    plan = planning.plan
+    if plan is None:
+        return frozenset()
+    return frozenset(
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
     )
 
 
@@ -282,6 +857,7 @@ def _terminal(
 
 __all__ = [
     "bind_semantic_query_progress_observer",
+    "optional_document_evidence_degraded",
     "SemanticConversationRuntime",
     "SemanticTurnResult",
 ]

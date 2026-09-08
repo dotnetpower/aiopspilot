@@ -55,6 +55,20 @@ describe("stream paint batching", () => {
     expect(queue).toEqual([]);
   });
 
+  it("reveals validated advisory terminals without sixty artificial display frames", () => {
+    expect(shouldFlushStreamPaintSynchronously("visible", true, true)).toBe(true);
+    expect(shouldFlushStreamPaintSynchronously("visible", true, false)).toBe(false);
+    expect(submitSource).toContain("reply.adaptiveAnswer !== undefined");
+    expect(submitSource).toContain("onValidatedTerminal");
+    expect(submitSource).toContain("terminalReplyReady = true");
+    expect(submitSource).toContain("!receivedTerminalContent");
+    const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
+    const queue = terminalRevealChunks(text);
+    expect(queue).toHaveLength(60);
+    expect(flushStreamPaint(queue)).toBe(text);
+    expect(queue).toHaveLength(0);
+  });
+
   it("chunks terminal-only tables without changing their canonical text", () => {
     const text = "| Name | State |\n| --- | --- |\n| api | Running |";
     const chunks = terminalRevealChunks(text);
@@ -107,5 +121,15 @@ describe("stream paint batching", () => {
     expect(drainIndex).toBeGreaterThan(ensureIndex);
     expect(clearIndex).toBeGreaterThan(drainIndex);
     expect(terminalIndex).toBeGreaterThan(clearIndex);
+  });
+
+  it("lets confirmed segments replace the visible answer even without draft token paint", () => {
+    const confirmedIndex = submitSource.indexOf("onConfirmed: (segment: ConfirmedAnswerSegment) => {");
+    const visibleIndex = submitSource.indexOf("visibleAcc = segment.text;", confirmedIndex);
+    const textIndex = submitSource.indexOf("text: segment.text,", confirmedIndex);
+
+    expect(confirmedIndex).toBeGreaterThan(0);
+    expect(visibleIndex).toBeGreaterThan(confirmedIndex);
+    expect(textIndex).toBeGreaterThan(visibleIndex);
   });
 });

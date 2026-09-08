@@ -13,8 +13,8 @@ describe("Command Deck header layout", () => {
     expect(source).toContain('class="deck-header-actions"');
     expect(source).toContain('class="deck-header-action deck-header-history"');
     expect(source).toContain('class="deck-window-controls"');
-    expect(styles).toContain('grid-template-areas: "title center actions window";');
-    expect(styles).toContain('grid-template-areas: "title actions window";');
+    expect(styles).toContain('grid-template-areas: "title model center actions window";');
+    expect(styles).toContain('grid-template-areas: "title model actions window";');
     expect(styles).toContain(".deck-header-actions {\n  grid-area: actions;");
   });
 
@@ -29,9 +29,10 @@ describe("Command Deck header layout", () => {
   test("separates conversation identity from route context and hides empty search", () => {
     expect(source).toContain('class="deck-header-copy"');
     expect(source).toContain('class="deck-header-conversation-title"');
+    expect(source).toContain('class="deck-model-selector"');
     expect(source).toContain('{searchAvailable ? <div class="deck-search" role="search">');
     expect(source).toContain('class="deck-header-action"');
     expect(source).toContain('aria-pressed={conversationsOpen}');
-    expect(styles).toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: none; }");
+    expect(styles).toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: block; }");
   });
 });

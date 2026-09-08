@@ -3,6 +3,8 @@ import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api
 import type { AutonomyPayload, DashboardKpi } from "../types";
 import type { AsyncState } from "../components/ui";
 import type { GatesSummary } from "./dashboard.model";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { DASHBOARD_SAMPLE_DATA } from "./dashboard.sample";
 
 export interface AnalyticsData {
   readonly kpi: DashboardKpi;
@@ -12,6 +14,7 @@ export interface AnalyticsData {
 
 interface AnalyticsDataOptions {
   readonly includeGates?: boolean;
+  readonly dataMode?: ConsoleDataMode;
 }
 
 async function optional<T>(load: () => Promise<T>): Promise<T | null> {
@@ -37,6 +40,23 @@ export async function loadAnalyticsData(
   return { kpi, autonomy, gates };
 }
 
+export async function loadAnalyticsDataForMode(
+  mode: ConsoleDataMode,
+  client: OperatorApiClient,
+  options: AnalyticsDataOptions = {},
+): Promise<AnalyticsData> {
+  if (mode === "sample") return sampleAnalyticsData(options.includeGates);
+  return loadAnalyticsData(client, options);
+}
+
+export function sampleAnalyticsData(includeGates = false): AnalyticsData {
+  return {
+    kpi: DASHBOARD_SAMPLE_DATA.kpi,
+    autonomy: DASHBOARD_SAMPLE_DATA.autonomy,
+    gates: includeGates ? DASHBOARD_SAMPLE_DATA.gates : null,
+  };
+}
+
 export function useAnalyticsData(
   client: OperatorApiClient,
   options: AnalyticsDataOptions = {},
@@ -46,7 +66,11 @@ export function useAnalyticsData(
     let cancelled = false;
     void (async () => {
       try {
-        const data = await loadAnalyticsData(client, options);
+        const data = await loadAnalyticsDataForMode(
+          options.dataMode ?? "live",
+          client,
+          options,
+        );
         if (!cancelled) setState({ status: "ready", data });
       } catch (error) {
         if (!cancelled) {
@@ -58,6 +82,6 @@ export function useAnalyticsData(
       }
     })();
     return () => { cancelled = true; };
-  }, [client, options.includeGates]);
+  }, [client, options.dataMode, options.includeGates]);
   return state;
 }

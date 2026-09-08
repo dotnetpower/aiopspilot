@@ -246,6 +246,26 @@ describe("viewContextWithUser wiring", () => {
     expect(enabled.include_model_trace).toBe(true);
   });
 
+  test("sends an explicit conversation model tier without changing Auto requests", () => {
+    const automatic = createBackendRequestPayload("status", liveSnap(), [], "session-42");
+    const t2 = createBackendRequestPayload(
+      "status",
+      liveSnap(),
+      [],
+      "session-42",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "t2",
+    );
+
+    expect(automatic.conversation_model_tier).toBeUndefined();
+    expect(t2.conversation_model_tier).toBe("t2");
+  });
+
   test("sends the incident binding as structured conversation context", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42", {
       kind: "incident",

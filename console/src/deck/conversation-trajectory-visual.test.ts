@@ -22,7 +22,7 @@ describe("observed trajectory typography", () => {
       /\.deck-transcript\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-anchor:\s*none;[^}]*padding:\s*0;[^}]*font-size:\s*15px;/,
     );
     expect(styles).toMatch(
-      /\.deck-transcript-inner\s*\{[^}]*width:\s*min\(100%, 900px\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*12px;/,
+      /\.deck-transcript-inner\s*\{[^}]*width:\s*min\(100%, 900px\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*20px;/,
     );
     expect(styles).toContain("--deck-font-heading: 13px;");
     expect(styles).toContain("--deck-font-body: 12px;");

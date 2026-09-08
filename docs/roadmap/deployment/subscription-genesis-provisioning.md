@@ -59,6 +59,9 @@ cannot replace complete reconciliation or raise readiness. A one-shot scheduled 
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
 local long-running profile records that exact failure and retries only after its configured loop
 interval. Neither mode changes source authority or readiness semantics.
+A promoted generation records an exact active-scope graph checkpoint separately from the all-scope
+retention fence. Retained inactive-scope history cannot block current-scope readiness, while active
+post-snapshot observations still keep readiness incomplete until projection catches up.
 
 ## Target operator experience
 
@@ -348,6 +351,15 @@ The pre-scan count is labeled as an estimate because resources can change during
 `fraction=1` is emitted only after the final fence, provider coverage reconciliation, atomic graph
 promotion, and independent active-generation readback. If the count changes, the display can show
 more observed resources than the original estimate without claiming more than 100 percent.
+
+The same inventory attempt can enrich reviewed Resource types with exact provider state before
+promotion. The active snapshot generation is captured before enrichment and compared again inside
+the promotion lock. A concurrent promotion blocks the stale candidate rather than mixing current
+identity with older state. State transitions can advance from a complete Resource observation even
+when an unrelated relationship remains incomplete.
+If history or ontology projection fails after promotion, the normalized journal retains the active
+generation. The next inventory attempt replays it under the coordinator lock before starting a new
+scan.
 
 Genesis always scans the exact target subscription root with no resource-type filter. A narrowed
 scope is available only for later operator-requested refreshes and cannot satisfy onboarding.

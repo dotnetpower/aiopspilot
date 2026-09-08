@@ -282,6 +282,8 @@ class _AnsweredRuntime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         locale: str = "en",
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
         cancelled: Any = None,
         bound_incident: Any = None,
         bound_investigation_continuation: Any = None,
@@ -297,6 +299,13 @@ class _AnsweredRuntime:
         assert utterance == "Show current operations evidence."
         assert principal.id == "operator-1"
         assert locale == "en"
+        assert target_agent == "Bragi"
+        assert relationship is not None
+        assert relationship["relationship_status"] == "unknown"
+        assert relationship["relationship_unknown_reason"] in {
+            "resolver_unavailable",
+            "relationship_proof_unavailable",
+        }
         plan = SimpleNamespace(
             ontology_release_digest=RELEASE_DIGEST,
             semantic_catalog_digest=MANIFEST_DIGEST,
@@ -468,7 +477,7 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     terminal = events[-1]
     semantic_result = cast(dict[str, object], terminal.data["semantic_result"])
     assert terminal.data["status"] == "answered"
-    assert cast(str, terminal.data["answer"]).startswith("## Verified result")
+    assert cast(str, terminal.data["answer"]).startswith("## 1 matching Resources")
     assert "```json" not in cast(str, terminal.data["answer"])
     trajectory = cast(dict[str, object], terminal.data["trajectory_detail"])
     activities = cast(list[dict[str, object]], trajectory["activities"])

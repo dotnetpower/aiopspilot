@@ -218,6 +218,45 @@ async def test_prior_turns_do_not_block_verified_target_candidates() -> None:
     assert query_calls == [QueryNodeKind.OBJECT_SET]
 
 
+def test_current_state_plan_preserves_explicit_resource_id_property() -> None:
+    resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example/providers/Microsoft.App/containerApps/example"
+    )
+    model = _Model(
+        frame={
+            "operation": "select",
+            "subject_constraints": ["Resource"],
+            "measure_concepts": ["running_status"],
+            "temporal_scope": {},
+            "output_shape": "target_current_state",
+            "evidence_requirements": ["authoritative_inventory"],
+            "unresolved_terms": [],
+            "clarification_requirements": [],
+            "clarification": None,
+            "investigation": None,
+            "confidence": 0.99,
+        }
+    )
+
+    outcome = _planner(model).plan(
+        utterance=f"What is the current state of {resource_id}?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "id",
+            "operator": "equals",
+            "equals": resource_id,
+        }
+    ]
+
+
 @pytest.mark.parametrize(
     ("utterance", "measure_concepts"),
     (

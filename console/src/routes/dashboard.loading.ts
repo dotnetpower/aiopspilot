@@ -7,6 +7,8 @@ import type {
 } from "../types";
 import type { CostGovernanceProjection } from "../api-cost-governance";
 import type { GatesSummary } from "./dashboard.model";
+import type { ConsoleDataMode } from "../console-data-mode";
+import { DASHBOARD_SAMPLE_DATA } from "./dashboard.sample";
 
 export interface DashboardOverviewData {
   readonly kpi: DashboardKpi;
@@ -36,6 +38,18 @@ export async function loadDashboardOverview(
     optionalOverview(() => client.autonomy(), [404, 501, 502, 503]),
   ]);
   return { kpi, cost, gates, autonomy };
+}
+
+export async function loadDashboardOverviewForMode(
+  mode: ConsoleDataMode,
+  client: DashboardOverviewClient,
+  publishBackbone: (data: DashboardOverviewData) => void,
+): Promise<DashboardOverviewData> {
+  if (mode === "sample") {
+    publishBackbone(DASHBOARD_SAMPLE_DATA);
+    return DASHBOARD_SAMPLE_DATA;
+  }
+  return loadDashboardOverview(client, publishBackbone);
 }
 
 async function optionalOverview<T>(

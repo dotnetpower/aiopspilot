@@ -25,6 +25,7 @@ bindings through configuration (see
 |------|-------|----------|-------|
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
+| Single-maintainer direct dev apply | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py`, and focused verifier and workflow tests | `DEV_DEPLOY_REQUIRED_APPROVALS=0` permits only direct dev applies without a reviewer rule. Exact plans, image attestations, identity checks, health verification, and rollback remain required; staging, production, and bot-owned paths keep independent approval. |
 | Bot-owned protected Core apply request | validated | PR #455, protected plan `33965356996`, bot request `33965478498`, exact apply `33965498775`, and Issue #454 | A bot requester keeps the FDAI maintainer distinct from the deployment requester. The non-production Core path remains plan-bound and requires human Environment approval. |
 | Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding. Governed apply evidence remains open. |
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
@@ -39,6 +40,8 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Separated scheduled out-of-band drift detection from desired-state deployment planning. Every drift root now uses a refresh-only plan, so missing dispatch-only feature inputs cannot render enabled resources as deletion candidates. | `current change`; `.github/workflows/infra-drift.yml` and focused drift workflow contract tests | Retain one exact protected run showing deletion-free refresh plans; use protected deploy plans for unapplied code and configuration changes. |
+| 2026-09-07 | implemented | Added an explicit single-maintainer dev policy that validates a no-review Environment while retaining exact-plan and runtime safety gates. | `current change`; focused verifier and deployment workflow tests | Retain one successful direct dev apply and post-apply projection readback. |
 | 2026-09-05 | validated | Completed the first bot-requested protected Core service apply with a distinct human Environment approval, successful health and peer-isolation checks, and independent image and identity readback. | PR #455; plan `33965356996`; request `33965478498`; apply `33965498775`; Issue #454 | Keep the path non-production, exact-plan-bound, and subject to the protected Environment policy. |
 | 2026-09-05 | implemented | Added a non-production, bot-owned Core service apply request that verifies the exact successful plan run, unexpired artifact, image digest, commit, and Environment policy before dispatch. | `current change`; protected-operation workflow, request validator, and focused valid and fail-closed tests | Capture the first distinct-requester Environment approval and successful Core service apply receipt in Issue #454. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
@@ -167,11 +170,15 @@ prod topology so shadow evaluation is representative.
   check no later than the earliest evidence expiry, closes processing before reevaluation, and
   keeps the prior report for diagnosis. Programming errors still propagate after readiness closes,
   and only a complete successful refresh reopens processing.
-- **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
-  independent service roots, and the bootstrap root for each environment. The root contract uses
-  distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image
-  change remains visible. Missing state, missing inputs, unreadable evidence, and detected drift all
-  fail the run; drift is never silently auto-applied to prod.
+- **Drift detection**: a scheduled read-only refresh plan covers the legacy platform root, the five
+  independent service roots, and the bootstrap root for each environment. Refresh-only planning
+  compares live resources with the last applied state and cannot interpret missing dispatch-only
+  feature inputs as deletion intent. Protected deploy plans separately compare code and deployment
+  configuration with state. A change to the drift workflow or its state parser also starts this
+  read-only check on `main`, which validates the detector without a separate dispatch. The root
+  contract uses distinct backend keys and resolves service images from pre-refresh state, so an
+  out-of-band image change remains visible. Missing state, missing inputs, unreadable evidence, and
+  detected drift all fail the run; drift is never silently applied.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
   [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set); the
   inventory renders the CSP-neutral contracts in [csp-neutrality.md](../architecture/csp-neutrality.md)):
@@ -235,8 +242,9 @@ prod topology so shadow evaluation is representative.
   runs also build all images. Each selected build blocks on HIGH/CRITICAL Trivy findings, emits a
   CycloneDX **SBOM**, publishes the verified image to GHCR on `main`/release, and writes GitHub
   build-provenance and SBOM attestations. The Dockerfile base is pinned by **digest** and runs as uid
-  65532. Deployment verifies the attestation and digest before rollout; an unattested image is
-  rejected.
+  65532. The Core image builder cold-imports the production bootstrap after installing the service
+  wheel, so a missing direct runtime dependency blocks publication. Deployment verifies the
+  attestation and digest before rollout; an unattested image is rejected.
 - **Artifact registry**: images and their SBOM/attestations are retained with an explicit
   retention policy so any prod revision can be traced and re-verified.
 - **ACR handoff**: upstream GHCR is the generic build-evidence registry. A fork that requires

@@ -10,10 +10,16 @@ from fdai.delivery.inventory_source_policy import (
     SourceCollectionPolicy,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    PostgresInventoryReconciliationGate,
+    _pending_resource_count,
+    _projection_pending,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
     inventory_reconciliation_due,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
 )
 
 
@@ -232,3 +238,87 @@ def test_adaptive_gate_collects_stale_snapshot_without_failure_timestamp() -> No
     assert decision.action is CollectionScheduleAction.COLLECT
     assert decision.due_in_seconds == 0
     assert decision.reason_codes == ("change_demand", "maximum_staleness")
+
+
+def test_adaptive_gate_collects_when_realtime_overlay_is_open() -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=30,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        overlay_open=True,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.due_in_seconds == 0
+    assert decision.reason_codes == ("overlay_open",)
+
+
+def test_pending_tombstones_open_reconciliation_demand() -> None:
+    assert _pending_resource_count(overlay_resource_count=2, pending_tombstone_count=3) == 5
+
+    with pytest.raises(ValueError, match="MUST NOT be negative"):
+        _pending_resource_count(overlay_resource_count=0, pending_tombstone_count=-1)
+
+
+def test_pending_ontology_projection_forces_collection() -> None:
+    assert (
+        _projection_pending(
+            {
+                "journal_high_watermark": 5,
+                "ontology_projection_watermark": 4,
+            }
+        )
+        is True
+    )
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=30,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        projection_pending=True,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.reason_codes == ("projection_pending",)
+
+
+def test_reconciliation_gate_tracks_every_enabled_accelerator_cursor() -> None:
+    gate = PostgresInventoryReconciliationGate(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://example"),
+        cursor_scopes=("sub-1",),
+        cursor_prefixes=(
+            "arg_resource_change_cursor:",
+            "inventory_delta_cursor:",
+        ),
+    )
+
+    assert gate._cursor_keys == (  # noqa: SLF001 - exact durable-key contract
+        "arg_resource_change_cursor:sub-1",
+        "inventory_delta_cursor:sub-1",
+    )
+
+
+def test_cursor_lag_beyond_source_freshness_forces_collection() -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=30,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        cursor_lag_seconds=1,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.reason_codes == ("cursor_lag",)

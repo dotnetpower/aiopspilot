@@ -38,6 +38,8 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
     def __init__(self, *, object_types: Sequence[OntologyObjectType]) -> None:
         super().__init__(object_types=object_types, link_types=())
         self.last_property_equals: Mapping[str, Any] | None = None
+        self.property_equals_calls: list[Mapping[str, Any] | None] = []
+        self.last_property_text_in: Mapping[str, Sequence[str]] | None = None
         self.last_limit: int | None = None
         self.force_truncated = False
 
@@ -46,14 +48,18 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
         *,
         object_types: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
         limit: int = 100,
         include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
         self.last_property_equals = property_equals
+        self.property_equals_calls.append(property_equals)
+        self.last_property_text_in = property_text_in
         self.last_limit = limit
         graph = await super().query_objects(
             object_types=object_types,
             property_equals=property_equals,
+            property_text_in=property_text_in,
             limit=limit,
             include_relationships=include_relationships,
         )
@@ -267,6 +273,31 @@ async def test_query_pushes_down_only_equals_and_reports_post_filter_truncation(
     assert [item.id for item in result.graph.objects] == ["resource-a"]
     assert result.truncated is True
     assert result.truncation_reason is ObjectSetTruncationReason.RESULT_LIMIT
+
+
+async def test_query_pushes_one_text_in_predicate_before_memory_filtering() -> None:
+    object_type = _object_type()
+    store = _RecordingStore(object_types=(object_type,))
+    await _seed(store)
+
+    definition = _definition(
+        ObjectPredicate(
+            property="status",
+            operator=ObjectPredicateOperator.IN,
+            values=("ready", "blocked"),
+        ),
+        ObjectPredicate(property="score", operator=ObjectPredicateOperator.AT_LEAST, equals=3),
+    ).model_copy(update={"include_relationships": False})
+    result = await _service(store, object_type).materialize(definition)
+
+    assert store.property_equals_calls == [{}]
+    assert store.last_property_text_in == {"status": ("ready", "blocked")}
+    assert [item.id for item in result.graph.objects] == [
+        "resource-a",
+        "resource-b",
+        "resource-c",
+    ]
+    assert result.truncated is False
 
 
 async def test_query_reports_candidate_limit_before_memory_filtering() -> None:

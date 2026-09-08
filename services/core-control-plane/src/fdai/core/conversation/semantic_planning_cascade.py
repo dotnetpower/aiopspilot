@@ -15,6 +15,7 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
@@ -193,6 +194,7 @@ class SemanticPlanningCascade:
         semantic_judgment: Mapping[str, Any] | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         observations: list[SemanticJudgmentObservation] | None = None,
     ) -> (
         tuple[
@@ -216,6 +218,7 @@ class SemanticPlanningCascade:
             utterance=utterance,
             context=context,
             descriptors=descriptors,
+            inventory_query_language=self._inventory_query_language,
         )
         if stated_filter is not None:
             _LOGGER.info(
@@ -265,7 +268,7 @@ class SemanticPlanningCascade:
                     },
                 )
                 return (*candidate, None)
-        for tier, model in self._planning_models():
+        for tier, model in self._planning_models(conversation_model_tier):
             raw = _propose_frame(
                 model,
                 observations=observations,
@@ -602,10 +605,11 @@ class SemanticPlanningCascade:
         manifest: QueryManifest,
         evaluation_time: datetime,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_model_tier: SemanticConversationModelTier | None = None,
         observations: list[SemanticJudgmentObservation] | None = None,
     ) -> OntologyQueryPlan | None:
         recovery_context: dict[str, str] | None = None
-        for tier, model in self._planning_models():
+        for tier, model in self._planning_models(conversation_model_tier):
             raw = _propose_plan(
                 model,
                 observations=observations,
@@ -682,7 +686,14 @@ class SemanticPlanningCascade:
             return plan
         return None
 
-    def _planning_models(self) -> tuple[tuple[str, SemanticPlanningModel], ...]:
+    def _planning_models(
+        self,
+        preferred_tier: SemanticConversationModelTier | None = None,
+    ) -> tuple[tuple[str, SemanticPlanningModel], ...]:
+        if preferred_tier is SemanticConversationModelTier.T1:
+            return (("t1", self._model),)
+        if preferred_tier is SemanticConversationModelTier.T2:
+            return (("t2", self._escalation_model),) if self._escalation_model is not None else ()
         if self._escalation_model is None:
             return (("t1", self._model),)
         return (("t1", self._model), ("t2", self._escalation_model))

@@ -1,0 +1,1166 @@
+/* Governance and Evidence workspace refinement over the shared Calm Slate foundation. */
+.cs-governance-evidence {
+  --cs-text-soft: #565e67;
+  --cs-sage: #436c3e;
+  --cs-terracotta: #8a4b22;
+  --cs-dusty-red: #993e3e;
+  --ge-scope: #3f7d76;
+  --ge-intent: #9a7638;
+  --ge-reality: #4f668a;
+  --ge-decision: #8a5d68;
+}
+
+.cs-governance-evidence .cs-page,
+.cs-governance-evidence .cp-page {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+}
+
+.cs-governance-evidence .cs-page-header,
+.cs-governance-evidence .cp-header {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-governance-evidence .cs-page-header h1,
+.cs-governance-evidence .cp-header h1 {
+  margin-bottom: 6px;
+  letter-spacing: -.025em;
+}
+
+.cs-governance-evidence .cp-header h1 {
+  font-size: clamp(26px, 2.3vw, 34px);
+  line-height: 1.08;
+}
+
+.cs-governance-evidence .cs-lead,
+.cs-governance-evidence .cp-header p {
+  max-width: 76ch;
+}
+
+.cs-governance-evidence .cs-readonly-banner {
+  border-color: var(--cs-hairline);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cs-shade) 58%, transparent);
+  box-shadow: none;
+}
+
+.cs-governance-evidence .cs-alert-bar { display: none; }
+.cs-governance-evidence .cs-alert {
+  border-color: var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+.cs-governance-evidence .cs-filterbar {
+  border-color: var(--cs-hairline);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cs-card) 84%, var(--cs-bg));
+  box-shadow: none;
+}
+
+.cs-governance-evidence :where(.cs-card, .cp-card, .cp-table-wrap, .cp-workspace, .rc-panel, .rc-chain-wrap, .rc-hero, .rc-abstained, .rt-step, .on-canvas, .on-detail, .br-panel, .br-card, .wb-panel) {
+  border-color: var(--cs-hairline);
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.cs-governance-evidence :where(.cp-kpis, .ah-summary) {
+  margin-top: 20px;
+  margin-bottom: 40px;
+}
+
+.cs-governance-evidence main > .cs-grid-4 {
+  gap: 0;
+  margin: 20px 0 40px;
+  border-block: 1px solid var(--cs-hairline);
+}
+
+.cs-governance-evidence main > .cs-grid-4 > .cs-card {
+  padding: 16px 18px;
+  border: 0;
+  border-right: 1px solid var(--cs-hairline);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-governance-evidence main > .cs-grid-4 > .cs-card:last-child { border-right: 0; }
+
+.cs-governance-evidence .cp-kpi strong,
+.cs-governance-evidence .cs-kpi-value,
+.cs-governance-evidence .ah-metric strong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+
+.cs-governance-evidence :where(.cp-section, .cs-section, .rc-section) {
+  scroll-margin-top: 24px;
+}
+
+.cs-governance-evidence .cp-section + .cp-section {
+  padding-top: 38px;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-governance-evidence :where(.cp-section-head, .cs-section-head, .rc-section-head) h2 {
+  letter-spacing: -.015em;
+}
+
+.cs-governance-evidence .cs-badge-num { display: none; }
+
+.cs-governance-evidence :where(.cp-table, .cs-table, .ah-contract-table) th {
+  background: color-mix(in srgb, var(--cs-shade) 58%, var(--cs-card));
+  color: var(--cs-text-soft);
+  font-weight: 650;
+}
+
+.cs-governance-evidence :where(.cp-table, .cs-table, .ah-contract-table) tbody tr:hover {
+  background: color-mix(in srgb, var(--cs-shade) 64%, transparent);
+}
+
+.cs-governance-evidence :where(code, .cs-mono, .cp-code) {
+  overflow-wrap: anywhere;
+}
+
+.cs-governance-evidence .cp-table-wrap {
+  border-inline: 0;
+  border-radius: 0;
+}
+
+.cs-governance-evidence .cp-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.cs-governance-evidence .cp-table th {
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
+
+.cs-governance-evidence .cp-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.cs-governance-evidence .cp-table a {
+  color: var(--cs-steel);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.cs-governance-evidence .cp-table a:hover { text-decoration: underline; }
+
+.cs-governance-evidence .cp-form {
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cs-card) 84%, var(--cs-bg));
+  box-shadow: none;
+}
+
+.cs-governance-evidence .cp-form.has-inline-action .cp-form-actions {
+  grid-column: span var(--cp-action-span, 2);
+  align-self: end;
+  padding: 0;
+}
+
+.cs-governance-evidence .cp-form.has-inline-action .cp-form-actions button { width: 100%; }
+
+.cs-governance-evidence .cp-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0;
+  color: var(--cs-text);
+}
+
+.cs-governance-evidence .cp-field .cp-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--cs-steel);
+}
+
+.cs-evidence-ledger .cp-kpis { margin-bottom: 32px; }
+.cs-evidence-ledger #audit-query { margin-top: 32px; }
+.cs-evidence-ledger #audit-query .cp-section-head { margin-bottom: 10px; }
+.cs-evidence-ledger #audit-query .cp-form-note { display: none; }
+.cs-evidence-ledger #audit-query .cp-form {
+  align-items: end;
+  padding: 14px;
+}
+.cs-evidence-ledger #audit-query .cp-form-actions {
+  align-self: end;
+  padding: 0;
+}
+.cs-evidence-ledger #audit-query .cp-form-actions button { width: 100%; }
+.cs-evidence-ledger .cp-table { --cp-table-min: 960px; }
+.cs-evidence-ledger .cp-table td:first-child {
+  min-width: 96px;
+  color: var(--cs-text-soft);
+  font-family: var(--cs-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.cs-evidence-ledger .cp-table td:nth-child(2) { min-width: 230px; }
+.cs-evidence-ledger .cp-workspace { min-height: 360px; }
+.cs-evidence-ledger .cp-workspace-list li { position: relative; padding-left: 34px; }
+.cs-evidence-ledger .cp-workspace-list li::before {
+  position: absolute;
+  top: 18px;
+  left: 16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cs-steel);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cs-steel) 12%, transparent);
+  content: "";
+}
+.cs-evidence-ledger .cp-workspace-list li:not(:last-child)::after {
+  position: absolute;
+  top: 28px;
+  bottom: -8px;
+  left: 19px;
+  width: 1px;
+  background: var(--cs-hairline);
+  content: "";
+}
+
+.cs-governance-evidence :where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--cs-steel) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.cs-governance-evidence :where(.ah-workspace, .ah-resolver, .ah-candidate, .ah-invitation, .ah-neutral-note) {
+  border-color: var(--cs-hairline);
+  box-shadow: none;
+}
+
+.cs-governance-evidence .ah-workspace,
+.cs-governance-evidence .ah-agent.is-selected {
+  outline-color: color-mix(in srgb, var(--cs-steel) 58%, var(--cs-hairline));
+}
+
+.cs-governance-evidence .rc-confidence-ring {
+  background: conic-gradient(var(--cs-teal) var(--confidence), var(--cs-shade) 0);
+}
+
+.cs-governance-evidence .rc-hero,
+.cs-governance-evidence .rc-abstained {
+  background: var(--cs-card);
+}
+
+.cs-governance-evidence .rt-step::before {
+  box-shadow: 0 0 0 2px var(--cs-hairline);
+}
+
+/* Console-aligned Ontology semantic model. */
+.cs-ge-ontology .ge-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px 28px;
+}
+
+.cs-ge-ontology .ge-page-header-copy { min-width: 0; }
+.cs-ge-ontology .ge-page-header h1 { margin: 0 0 6px; }
+.cs-ge-ontology .ge-page-header p {
+  max-width: 76ch;
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-page-subtitle-size);
+  line-height: var(--cs-type-page-subtitle-line-height);
+}
+
+.cs-ge-ontology .ge-page-meta {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+.cs-ge-ontology .ge-page-meta strong { color: var(--cs-text); font-weight: 650; }
+
+.cs-ge-ontology .ontology-tabs {
+  display: flex;
+  gap: 18px;
+  min-height: 36px;
+  overflow-x: auto;
+  margin: 24px 0 18px;
+  border-bottom: 1px solid var(--cs-hairline);
+  scrollbar-width: none;
+}
+.cs-ge-ontology .ontology-tabs::-webkit-scrollbar { display: none; }
+.cs-ge-ontology .ontology-tabs a {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 5px 1px 9px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  text-decoration: none;
+}
+.cs-ge-ontology .ontology-tabs a:hover { color: var(--cs-text); }
+.cs-ge-ontology .ontology-tabs a.is-active { color: var(--cs-text); font-weight: 700; }
+.cs-ge-ontology .ontology-tabs a.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--cs-steel);
+  content: "";
+}
+.cs-ge-ontology .ontology-tabs strong { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+
+.cs-ge-ontology .ontology-view[hidden] { display: none; }
+.cs-ge-ontology .ontology-view { min-width: 0; }
+.cs-ge-ontology .ontology-semantic-map { display: grid; gap: 12px; min-width: 0; }
+.cs-ge-ontology .ontology-semantic-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 4px 0;
+}
+.cs-ge-ontology .ontology-semantic-header h2 { margin: 0 0 6px; font-size: 18px; }
+.cs-ge-ontology .ontology-semantic-header p {
+  max-width: 84ch;
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.cs-ge-ontology .ontology-semantic-source {
+  flex: 0 1 360px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-card);
+  color: var(--cs-text-soft);
+  font-size: 10.5px;
+}
+.cs-ge-ontology .ontology-semantic-source strong { display: block; margin-bottom: 2px; color: var(--cs-text); font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-source code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cs-ge-ontology .ontology-semantic-lenses {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  max-width: 720px;
+  padding: 3px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-shade);
+}
+.cs-ge-ontology .ontology-semantic-lenses button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cs-text-soft);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cs-ge-ontology .ontology-semantic-lenses button:hover { color: var(--cs-text); background: color-mix(in srgb, var(--cs-card) 66%, transparent); }
+.cs-ge-ontology .ontology-semantic-lenses button[aria-pressed="true"] { background: var(--cs-card); color: var(--cs-text); box-shadow: var(--cs-shadow); }
+
+.cs-ge-ontology .ontology-semantic-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  min-width: 0;
+  min-height: 680px;
+  overflow: hidden;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-card);
+}
+.cs-ge-ontology .ontology-semantic-canvas { min-width: 0; padding: 14px; background: var(--cs-bg); }
+.cs-ge-ontology .ontology-semantic-bands { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 6px; }
+.cs-ge-ontology .ontology-semantic-band { padding: 12px; border-bottom: 1px solid var(--cs-hairline); }
+.cs-ge-ontology .ontology-semantic-band:last-child { border-bottom: 0; }
+.cs-ge-ontology .ontology-semantic-band.is-operating-scope { background: color-mix(in srgb, var(--ge-scope) 7%, var(--cs-card)); }
+.cs-ge-ontology .ontology-semantic-band.is-operating-intent { background: color-mix(in srgb, var(--ge-intent) 7%, var(--cs-card)); }
+.cs-ge-ontology .ontology-semantic-band.is-operating-reality { background: color-mix(in srgb, var(--ge-reality) 7%, var(--cs-card)); }
+.cs-ge-ontology .ontology-semantic-band.is-decision-learning { background: color-mix(in srgb, var(--ge-decision) 7%, var(--cs-card)); }
+.cs-ge-ontology .ontology-semantic-band > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.cs-ge-ontology .ontology-semantic-band > header span { display: block; font-size: 12px; font-weight: 800; }
+.cs-ge-ontology .ontology-semantic-band > header small { display: block; margin-top: 2px; color: var(--cs-text-soft); font-size: 10.5px; }
+.cs-ge-ontology .ontology-semantic-band > header strong { min-width: 28px; color: var(--cs-text-soft); font-size: 11px; text-align: right; }
+.cs-ge-ontology .ontology-semantic-nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 7px; }
+.cs-ge-ontology .ontology-semantic-nodes button {
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 9px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cs-card) 94%, transparent);
+  color: var(--cs-text);
+  text-align: left;
+  cursor: pointer;
+}
+.cs-ge-ontology .ontology-semantic-nodes button:hover { border-color: var(--cs-steel); }
+.cs-ge-ontology .ontology-semantic-nodes button.is-selected {
+  border-color: var(--cs-steel);
+  outline: 2px solid color-mix(in srgb, var(--cs-steel) 26%, transparent);
+  background: var(--cs-card);
+}
+.cs-ge-ontology .ontology-semantic-nodes code { display: block; overflow-wrap: anywhere; color: inherit; font-size: 11px; font-weight: 700; }
+.cs-ge-ontology .ontology-semantic-nodes span { display: block; margin-top: 5px; color: var(--cs-text-soft); font-size: 9.5px; }
+
+.cs-ge-ontology :where(.ontology-semantic-relations, .ontology-semantic-state, .ontology-semantic-context) {
+  margin-top: 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-card);
+}
+.cs-ge-ontology .ontology-semantic-relations > header { display: flex; justify-content: space-between; gap: 12px; padding: 9px 11px; border-bottom: 1px solid var(--cs-hairline); font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-relations > p { margin: 0; padding: 12px; color: var(--cs-text-soft); font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-relations ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
+.cs-ge-ontology .ontology-semantic-relations li,
+.cs-ge-ontology .ontology-semantic-inspector li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--cs-hairline);
+  font-size: 10px;
+}
+.cs-ge-ontology .ontology-semantic-relations li code,
+.cs-ge-ontology .ontology-semantic-inspector li code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-ge-ontology .ontology-relation-arrow { color: var(--cs-steel); font-family: var(--cs-font-mono); white-space: nowrap; }
+.cs-ge-ontology .ontology-relation-flags { color: var(--cs-text-soft); font-size: 9px; white-space: nowrap; }
+.cs-ge-ontology .ontology-semantic-state { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+.cs-ge-ontology .ontology-semantic-state > div { min-width: 0; padding: 12px; border-right: 1px solid var(--cs-hairline); }
+.cs-ge-ontology .ontology-semantic-state > div:last-child { border-right: 0; }
+.cs-ge-ontology .ontology-semantic-state strong,
+.cs-ge-ontology .ontology-semantic-state span { display: block; }
+.cs-ge-ontology .ontology-semantic-state strong { font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-state span { margin-top: 5px; color: var(--cs-text-soft); font-size: 10px; line-height: 1.4; }
+.cs-ge-ontology .ontology-semantic-context { padding: 12px; }
+.cs-ge-ontology .ontology-semantic-context dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 0; }
+.cs-ge-ontology .ontology-semantic-context dl > div { min-width: 0; padding: 8px 10px; border-top: 1px solid var(--cs-hairline); }
+.cs-ge-ontology .ontology-semantic-context dt { color: var(--cs-text-soft); font-size: 9.5px; text-transform: uppercase; }
+.cs-ge-ontology .ontology-semantic-context dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 11px; }
+
+.cs-ge-ontology .ontology-semantic-inspector {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px;
+  border-left: 1px solid var(--cs-hairline);
+  background: var(--cs-shade);
+}
+.cs-ge-ontology .ontology-semantic-inspector h3 { margin: 8px 0; overflow-wrap: anywhere; font-size: 16px; }
+.cs-ge-ontology .ontology-semantic-inspector > p { margin: 0 0 12px; color: var(--cs-text-soft); font-size: 11px; line-height: 1.45; }
+.cs-ge-ontology .ontology-semantic-inspector dl { margin: 0; }
+.cs-ge-ontology .ontology-semantic-inspector dl > div { padding: 7px 0; border-top: 1px solid var(--cs-hairline); }
+.cs-ge-ontology .ontology-semantic-inspector dt { color: var(--cs-text-soft); font-size: 9.5px; text-transform: uppercase; }
+.cs-ge-ontology .ontology-semantic-inspector dd { margin: 2px 0 0; font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-inspector section { margin-top: 15px; }
+.cs-ge-ontology .ontology-semantic-inspector h4 { margin: 0 0 6px; font-size: 11px; }
+.cs-ge-ontology .ontology-semantic-inspector ul { margin: 0; padding: 0; list-style: none; }
+.cs-ge-ontology .ontology-semantic-inspector li { grid-template-columns: minmax(0, 1fr); padding-inline: 0; }
+
+.cs-ge-ontology .ontology-registry-panel {
+  min-height: 420px;
+  padding: 22px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-card);
+}
+.cs-ge-ontology .ontology-registry-panel h2 { margin: 0 0 6px; font-size: var(--cs-type-section-title-size); }
+.cs-ge-ontology .ontology-registry-panel > p { max-width: 76ch; margin: 0 0 22px; color: var(--cs-text-soft); }
+.cs-ge-ontology .ontology-registry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.cs-ge-ontology .ontology-registry-item { min-width: 0; padding: 13px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-bg); }
+.cs-ge-ontology .ontology-registry-item strong,
+.cs-ge-ontology .ontology-registry-item small { display: block; }
+.cs-ge-ontology .ontology-registry-item small { margin-top: 4px; color: var(--cs-text-soft); }
+
+@media (max-width: 900px) {
+  .cs-ge-ontology .ge-page-header,
+  .cs-ge-ontology .ontology-semantic-header { align-items: flex-start; grid-template-columns: 1fr; flex-direction: column; gap: 10px; }
+  .cs-ge-ontology .ge-page-meta { justify-items: start; }
+  .cs-ge-ontology .ontology-semantic-source { width: 100%; flex-basis: auto; }
+  .cs-ge-ontology .ontology-semantic-workbench { grid-template-columns: 1fr; }
+  .cs-ge-ontology .ontology-semantic-inspector { max-height: 360px; border-top: 1px solid var(--cs-hairline); border-left: 0; }
+  .cs-ge-ontology .ontology-semantic-state { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-ge-ontology .ontology-semantic-state > div:nth-child(2) { border-right: 0; }
+  .cs-ge-ontology .ontology-semantic-state > div:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+}
+
+@media (max-width: 620px) {
+  .cs-governance-evidence .cp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-governance-evidence .cp-kpi:nth-child(2n) { border-right: 0; }
+  .cs-governance-evidence .cp-kpi:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+  .cs-governance-evidence main > .cs-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-governance-evidence main > .cs-grid-4 > .cs-card:nth-child(2n) { border-right: 0; }
+  .cs-governance-evidence main > .cs-grid-4 > .cs-card:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+  .cs-governance-evidence :where(button, a, input, select) { min-height: 44px; }
+  .cs-governance-evidence .cp-facts a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .cs-governance-evidence .ah-person-pill { min-height: 44px; }
+  .cs-governance-evidence .ah-tools :is(input, select),
+  .cs-governance-evidence .ah-scope-context select,
+  .cs-governance-evidence .cs-btn { min-height: 44px; }
+  .cs-governance-evidence .cp-form.has-inline-action .cp-form-actions { grid-column: 1 / -1; }
+  .cs-ge-ontology .ontology-tabs a,
+  .cs-ge-ontology .ontology-semantic-lenses button,
+  .cs-ge-ontology .ontology-semantic-nodes button { min-height: 44px; }
+  .cs-ge-ontology .ontology-tabs { mask-image: linear-gradient(to right, transparent, black 18px, black calc(100% - 18px), transparent); }
+  .cs-ge-ontology .ontology-semantic-lenses { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; }
+  .cs-ge-ontology .ontology-semantic-nodes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-ge-ontology .ontology-semantic-relations ul { grid-template-columns: 1fr; }
+  .cs-ge-ontology .ontology-semantic-context dl { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-governance-evidence *,
+  .cs-governance-evidence *::before,
+  .cs-governance-evidence *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Cross-route readability floor for the actual nested mock viewport. */
+.cs-governance-evidence :is(
+  .fg-select small,
+  .fg-select > span:last-child,
+  .fg-kicker,
+  .fg-facts dt,
+  .fg-count,
+  .fg-header-meta,
+  .result-summary strong,
+  .fg-field > span,
+  .fg-review-list small,
+  .oversight-agent small,
+  .oversight-agent > span:last-child,
+  .oversight-group h3,
+  .oversight-readiness small,
+  .trace-stage-index,
+  .workflow-node-kind,
+  .workflow-node small,
+  .impact-node small,
+  .promotion-table th,
+  .promotion-timeline li,
+  .contract-axis span,
+  .contract-axis small,
+  .contract-path span,
+  .contract-path strong,
+  .skill-dependency small,
+  .custody-timeline small,
+  .custody-timeline time,
+  .redaction-summary small,
+  .search-result small,
+  .search-result span,
+  .search-gap small,
+  .turn-meta strong,
+  .turn-meta time,
+  .assurance-turn > span,
+  .evidence-ref-grid small,
+  .scan-gate span,
+  .scan-gate small,
+  .context-column header small,
+  .context-item small,
+  .context-item > span:last-child,
+  .context-token-row,
+  .scope-boundary > header small,
+  .scope-axis-name small,
+  .scope-conflict code,
+  .assurance-check small,
+  .forecast-stage span,
+  .forecast-stage small,
+  .forecast-bar span,
+  .report-canvas-head p,
+  .report-widget > small,
+  .report-table,
+  .report-table th,
+  .report-provenance,
+  .report-provenance code,
+  .rule-detail-grid small,
+  .rule-lifecycle span,
+  .ontology-release-strip span,
+  .ontology-band-legend,
+  .impact-legend,
+  .rc-evidence-status small,
+  .decision-shelf span,
+  .decision-shelf small,
+  .state-legend,
+  .filter-token,
+  .calibration-axis,
+  .gap-summary small,
+  .append-marker,
+  .append-boundary small,
+  .variable-contract span,
+  .variable-contract small,
+  .render-state small,
+  .lookup-summary small,
+  .hypothesis-tier,
+  .no-response small,
+  .trace-recovery small
+) {
+  font-size: var(--cs-type-compact-size) !important;
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-governance-evidence :is(
+  .ontology-semantic-nodes span,
+  .ontology-semantic-relations li,
+  .ontology-semantic-context dt,
+  .ontology-semantic-inspector dt,
+  .ontology-semantic-inspector li,
+  .ontology-semantic-band > header small,
+  .ontology-semantic-source,
+  .ontology-registry-item small
+) {
+  font-size: var(--cs-type-compact-size) !important;
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-governance-evidence :is(
+  .fg-detail-head p,
+  .fg-section > p,
+  .fg-boundary,
+  .assurance-decision p,
+  .turn p
+) {
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+
+.cs-governance-evidence :is(
+  .ontology-semantic-map code,
+  .oversight-glyph,
+  .rules-catalog-table th,
+  .workflow-node code,
+  .fg-select code,
+  .fg-facts code,
+  .fg-section code,
+  .catalog-group h3,
+  .promotion-criteria small,
+  .audit-phase span,
+  .audit-phase small,
+  .trace-evidence span,
+  .trace-path,
+  .trace-branch p,
+  .scope-separation p,
+  .scope-history small,
+  .custody-lock small,
+  .assurance-lock small,
+  .forecast-priority p,
+  .report-widget code,
+  .report-table code,
+  .ingestion-panel small
+) {
+  font-size: var(--cs-type-compact-size) !important;
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-governance-evidence :is(
+  .fg-select strong,
+  .oversight-agent strong,
+  .oversight-readiness strong,
+  .decision-shelf strong,
+  .variable-contract strong,
+  .promotion-criteria strong,
+  .scope-separation strong,
+  .scope-lanes header p,
+  .ingestion-drop,
+  .forecast-priority h3,
+  .forecast-lifecycle > p,
+  .rules-catalog-table td,
+  .workflow-node strong,
+  .impact-node strong,
+  .context-item strong,
+  .turn p,
+  .report-table td
+) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+/* Keep dense evidence readable instead of silently clipping it at narrow widths. */
+.cs-governance-evidence .hypothesis-tier {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .cs-ge-ontology .ontology-semantic-relations li {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .cs-ge-ontology .ontology-semantic-relations li code {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 620px) {
+  .cs-governance-evidence .rules-catalog-table,
+  .cs-governance-evidence .rules-catalog-table tbody,
+  .cs-governance-evidence .rules-catalog-table tr,
+  .cs-governance-evidence .rules-catalog-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .cs-governance-evidence .rules-catalog-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .cs-governance-evidence .rules-catalog-table tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cs-governance-evidence .rules-catalog-table tr {
+    padding: 8px 10px;
+    border: 1px solid var(--cs-hairline);
+    border-radius: 6px;
+    background: var(--cs-bg);
+  }
+
+  .cs-governance-evidence .rules-catalog-table td {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .cs-governance-evidence .rules-catalog-table td::before {
+    color: var(--cs-text-soft);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .cs-governance-evidence .rules-catalog-table td:nth-child(1)::before { content: "Rule"; }
+  .cs-governance-evidence .rules-catalog-table td:nth-child(2)::before { content: "Source"; }
+  .cs-governance-evidence .rules-catalog-table td:nth-child(3)::before { content: "Severity"; }
+  .cs-governance-evidence .rules-catalog-table td:nth-child(4)::before { content: "Resource"; }
+  .cs-governance-evidence .rules-catalog-table td:nth-child(5)::before { content: "Shadow accuracy"; }
+}
+
+/* Compact non-dashboard framing: identity, boundary, controls, then work. */
+.cs-governance-evidence .cs-page,
+.cs-governance-evidence .cp-page,
+.cs-governance-evidence .fg-page {
+  padding-top: 24px;
+}
+
+.cs-governance-evidence .fg-header {
+  align-items: center;
+  gap: 14px 24px;
+  padding-bottom: 12px;
+}
+
+.cs-governance-evidence .fg-header h1,
+.cs-governance-evidence .cs-page-header h1 {
+  margin-bottom: 4px;
+  font-size: var(--cs-type-page-title-size);
+  line-height: var(--cs-type-page-title-line-height);
+  letter-spacing: 0;
+}
+
+.cs-governance-evidence .fg-header p,
+.cs-ge-ontology .ge-page-header p {
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+
+.cs-governance-evidence .fg-header-meta,
+.cs-ge-ontology .ge-page-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cs-governance-evidence .fg-boundary {
+  align-items: center;
+  margin-top: 10px;
+  padding: 7px 10px;
+  line-height: 1.35;
+}
+
+.cs-governance-evidence .fg-metrics {
+  margin: 12px 0 16px;
+}
+
+.cs-governance-evidence .fg-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px;
+  min-height: 44px;
+  padding: 12px 16px;
+}
+
+.cs-governance-evidence .fg-metric strong {
+  margin-top: 0;
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-governance-evidence .fg-metric small {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  line-height: 1.3;
+}
+
+.cs-governance-evidence .fg-toolbar {
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px;
+}
+
+.cs-governance-evidence .fg-field { gap: 3px; }
+.cs-governance-evidence :is(.fg-metric span, .fg-metric small, .fg-facts dd,
+  .fg-badge, .fg-review-list strong, .fg-pane-head p, .compact-disclosure summary,
+  .compact-disclosure summary strong, .rule-detail-grid strong, .audit-phase strong,
+  .audit-json, .report-widget h3, .contract-axis strong, .scope-axis-name strong,
+  .scope-boundary > header strong, .forecast-stage strong, .assurance-check strong,
+  .assurance-score-head, .turn-meta, .custody-timeline strong, .trace-evidence strong,
+  .scan-gate strong, .scope-arrow, .promotion-table, .promotion-table button) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+  letter-spacing: 0;
+}
+.cs-governance-evidence .fg-select strong { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.cs-governance-evidence .fg-select { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.cs-governance-evidence .fg-select > span:last-child { white-space: normal; }
+.cs-governance-evidence .fg-detail-head { flex-wrap: wrap; gap: 8px 16px; }
+.cs-governance-evidence .fg-detail-head > div { flex: 1 1 180px; min-width: 0; }
+.cs-governance-evidence .fg-detail-head h2 code { font-size: var(--cs-type-body-size); }
+.cs-governance-evidence .workflow-workbench { grid-template-columns: 220px minmax(0, 1fr) 310px; }
+.cs-governance-evidence .fg-badge { white-space: normal; flex: 0 0 auto; }
+.cs-governance-evidence .fg-badge.is-info { color: #365879; background: #eef3f8; }
+.cs-governance-evidence .fg-badge.is-warning { color: #85451c; background: #fbf2e9; }
+.cs-governance-evidence .fg-badge.is-danger { color: #993e3e; background: #faf0f0; }
+.cs-governance-evidence .fg-badge.is-success { color: #436c3e; background: #eef4ed; }
+.cs-governance-evidence .fg-facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+.cs-governance-evidence .fg-detail-head h2 { font-size: var(--cs-type-section-title-size); line-height: var(--cs-type-section-title-line-height); letter-spacing: 0; }
+.cs-governance-evidence .fg-section h3 { font-size: var(--cs-type-panel-title-size); }
+.cs-governance-evidence :is(.fg-copy-result, .fg-form-result, .chart-source-limit) { margin: 8px 0; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.cs-governance-evidence .fg-form-result { grid-column: 1 / -1; }
+.cs-governance-evidence .promotion-table button { min-height: 36px; text-align: left; }
+.cs-governance-evidence .ingestion-consent { min-height: 64px; padding: 12px; font-size: var(--cs-type-compact-size); cursor: pointer; }
+.cs-governance-evidence .ingestion-consent input { width: 18px; height: 18px; flex: 0 0 auto; }
+.cs-governance-evidence .assurance-check:has(.is-danger) { background: #faf0f0; border-color: var(--cs-hairline); }
+.cs-governance-evidence .assurance-check:has(.is-danger) > strong { color: #993e3e; }
+.cs-governance-evidence .rc-plan-step > .rc-plan-num { color: #fff; }
+
+.cs-governance-evidence .fg-field input,
+.cs-governance-evidence .fg-field select,
+.cs-governance-evidence .fg-button {
+  min-height: 34px;
+}
+
+.cs-governance-evidence .cs-page-header {
+  margin-bottom: 10px;
+  padding-bottom: 12px;
+}
+
+.cs-governance-evidence .cs-readonly-banner {
+  padding: 7px 10px;
+}
+
+.cs-ge-ontology .ontology-release-strip {
+  margin: 10px 0 4px;
+}
+
+.cs-ge-ontology .ontology-release-strip div {
+  padding: 8px 12px;
+}
+
+.cs-ge-ontology .ontology-tabs {
+  margin: 12px 0 14px;
+}
+
+.cs-governance-evidence .decision-shelf {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cs-governance-evidence .decision-shelf article,
+.cs-governance-evidence .promotion-criteria article,
+.cs-governance-evidence .variable-contract article {
+  padding: 8px 9px;
+}
+
+.cs-governance-evidence .decision-shelf strong,
+.cs-governance-evidence .decision-shelf small,
+.cs-governance-evidence .promotion-criteria small,
+.cs-governance-evidence .variable-contract strong,
+.cs-governance-evidence .variable-contract small {
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.cs-governance-evidence .promotion-criteria {
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cs-governance-evidence .forecast-priority {
+  padding: 8px 10px;
+}
+
+.cs-governance-evidence .forecast-priority > header { margin-bottom: 3px; }
+
+.cs-governance-evidence .variable-contract {
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.cs-governance-evidence .compact-disclosure {
+  margin-bottom: 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cs-card) 82%, var(--cs-bg));
+}
+
+.cs-governance-evidence .compact-disclosure summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  color: var(--cs-text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-governance-evidence .compact-disclosure summary::-webkit-details-marker { display: none; }
+
+.cs-governance-evidence .compact-disclosure summary strong {
+  margin-left: auto;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+
+.cs-governance-evidence .compact-disclosure summary::after {
+  color: var(--cs-steel);
+  font-size: 15px;
+  font-weight: 400;
+  content: "+";
+}
+
+.cs-governance-evidence .compact-disclosure[open] summary {
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-governance-evidence .compact-disclosure[open] summary::after { content: "-"; }
+
+.cs-governance-evidence .compact-disclosure :where(.decision-shelf, .promotion-criteria, .variable-contract) {
+  margin: 0;
+  padding: 8px;
+}
+
+.cs-governance-evidence .result-summary {
+  min-height: 34px;
+  margin-bottom: 8px;
+  padding: 5px 9px;
+}
+
+.cs-governance-evidence .fg-rail > .result-summary {
+  align-items: flex-start;
+  flex-direction: column;
+  margin: 8px;
+}
+
+.cs-governance-evidence .promotion-list > .result-summary {
+  margin: 8px 10px;
+}
+
+.cs-governance-evidence .fg-rail > .forecast-priority {
+  margin: 8px;
+}
+
+.cs-governance-evidence .rca-page .cs-lead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (min-width: 821px) {
+  .cs-governance-evidence .fg-page {
+    display: block;
+  }
+
+  .cs-governance-evidence .fg-page > * { grid-column: 1 / -1; }
+
+  .cs-governance-evidence .fg-page > .fg-boundary {
+    grid-column: 1;
+    margin-bottom: 16px;
+  }
+
+  .cs-governance-evidence .fg-page > .fg-metrics {
+    grid-column: 2;
+    align-self: stretch;
+    margin-top: 10px;
+  }
+
+  .cs-governance-evidence .fg-toolbar { align-items: end; }
+
+  .cs-governance-evidence .fg-field {
+    display: grid;
+    align-items: start;
+    gap: 7px;
+  }
+
+  .cs-governance-evidence .fg-field > span {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .cs-governance-evidence .fg-field :is(input, select) {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .cs-governance-evidence .search-mode-toggle button { min-height: 36px; font-size: var(--cs-type-compact-size); }
+
+  .cs-ge-ontology [data-ontology-preview] {
+    display: grid;
+    grid-template-columns: minmax(480px, 1fr) minmax(0, 1.25fr);
+    column-gap: 12px;
+  }
+
+  .cs-ge-ontology [data-ontology-preview] > * { grid-column: 1 / -1; }
+
+  .cs-ge-ontology [data-ontology-preview] > .cs-readonly-banner {
+    grid-column: 1;
+    align-self: stretch;
+    margin: 10px 0 4px;
+  }
+
+  .cs-ge-ontology [data-ontology-preview] > .ontology-release-strip {
+    grid-column: 2;
+    align-self: stretch;
+  }
+
+  .cs-governance-evidence .rca-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(320px, .75fr);
+    column-gap: 12px;
+  }
+
+  .cs-governance-evidence .rca-page > * { grid-column: 1 / -1; }
+
+  .cs-governance-evidence .rca-page > .cs-readonly-banner {
+    grid-column: 1;
+    align-self: stretch;
+    margin-bottom: 12px;
+  }
+
+  .cs-governance-evidence .rca-page > .lookup-summary {
+    grid-column: 2;
+    align-self: stretch;
+    margin-bottom: 12px;
+  }
+
+  .cs-governance-evidence .rca-page > .rc-context {
+    grid-column: 1;
+    align-self: center;
+    margin-bottom: 12px;
+  }
+
+  .cs-governance-evidence .rca-page > .rc-view-toggle {
+    grid-column: 2;
+    align-self: start;
+    justify-self: end;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 820px) {
+  .cs-governance-evidence .workflow-workbench { grid-template-columns: minmax(0, 1fr); }
+  .cs-governance-evidence .fg-header-meta,
+  .cs-ge-ontology .ge-page-meta {
+    display: grid;
+    justify-content: initial;
+  }
+}
+
+@media (max-width: 620px) {
+  .cs-governance-evidence .cs-page,
+  .cs-governance-evidence .cp-page,
+  .cs-governance-evidence .fg-page {
+    padding-top: 20px;
+  }
+
+  .cs-governance-evidence .fg-boundary { align-items: flex-start; }
+
+  .cs-governance-evidence .fg-metric {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    min-height: 44px;
+    padding: 6px 9px;
+  }
+
+  .cs-governance-evidence .fg-metric small { display: block; }
+
+  .cs-governance-evidence .fg-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cs-governance-evidence .fg-toolbar > .fg-field:first-child { grid-column: 1 / -1; }
+
+  .cs-governance-evidence .fg-toolbar .fg-button { width: 100%; }
+
+  .cs-governance-evidence .fg-field input,
+  .cs-governance-evidence .fg-field select,
+  .cs-governance-evidence .fg-button {
+    min-height: 44px;
+  }
+
+  .cs-governance-evidence .compact-disclosure summary { min-height: 44px; }
+
+  .cs-governance-evidence .trace-branch summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}

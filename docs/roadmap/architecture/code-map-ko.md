@@ -1,14 +1,13 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7a16514117503f006ea74b9fa1130a3b93433244
-translation_revised: 2026-09-06
+translation_source_sha: 581ef65ebf4b1fe40799fc05475f7043f3588b3c
+translation_revised: 2026-09-08
 ---
 # 코드 맵
 
-이 페이지는 각 FDAI 런타임 서비스와 shared 패키지를 물리 출처, 테스트 및 소유 design에
-연결합니다. 폐기된 최상위 애플리케이션 트리에 의존하지 않고 현재 service-owned 구현을
-찾을 때 사용합니다.
+이 페이지는 FDAI 런타임 서비스, 배포 도구, 공유 패키지를 소스, 테스트, 설계 문서에 연결합니다.
+폐기된 최상위 애플리케이션 트리 대신 현재 소유권에 맞는 구현을 찾을 때 사용합니다.
 
 > **범위:** 이 지도는 검증된 로컬 IS-08 저장소 소유권과 IS-07 로컬 업그레이드 및 롤백
 > 증명을 설명합니다. 지연된 원격 검증은 IS-09가 소유합니다.
@@ -18,6 +17,14 @@ translation_revised: 2026-09-06
 - **서비스 분포 5개:** 각 런타임 프로세스는 `services/` 아래 패키지 하나를 소유합니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유하고
   `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
+- **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된
+  ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자
+  속성을 확인하기 전에 이 레지스트리를 사용합니다. 루트와 지원되는 중첩 메타데이터 소유자는 실제
+  허용 값과 연결된 표준 메타데이터만 유지합니다. 지원되지 않는 flat 메타데이터, 일반 `status`,
+  `provisioningState`는 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다. Azure 상태 보강기는
+  승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
+  App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
+  하위 리소스의 출처와 실제 적용 시각을 유지합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
@@ -32,12 +39,83 @@ translation_revised: 2026-09-06
   Document Ingestion API 계획만 수락합니다. 전환 플래그는 결합된 Core 바인딩을 포함해 봉인된
   모드에서 도출하며 서비스 tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
+- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
+  및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
+  결과를 명시적으로 선택할 수 있습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
 > [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.
 
 ## 물리 서비스 소유권
+
+운영 진단 대화는 기존 서비스 경계를 유지합니다. Core의 `gateway_diagnostics.py`와
+`resource_configuration_{queries,snapshots,projection}.py`는 범위가 제한된 메트릭 비교와
+허용된 범위로 필터링한 과거 구성 사실을 담당합니다. 의미 컴파일러는 이 조회를 선언된
+FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 증적은 백엔드 조회가
+이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. 선택적인 정확한 백엔드 필터는 보안 객체 의존성으로 가장하지 않고 검증된 스칼라 함수 인자로 유지합니다. Azure 기본 메트릭 템플릿은
+전달 어댑터에 유지합니다. Operator의 `document_export.py`는 무관한 이전 대화가 아니라
+현재 검증된 인벤토리 결과를 문서로 변환합니다.
+응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
+바이너리나 없는 내용을 모델 상태로 해석하지 않습니다.
+Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다. 명시적으로 선택한 T2
+연결은 하나의 preflight에서 일반 답변을 분류하고 범위가 제한된 답변을 작성합니다. 명시적 운영
+요청은 Adaptive 설명 계획을 우회하고 검증된 의미 계획을 유지합니다. Azure 의미 계획은 검토된
+서술자 범위와 전체 요청의 64KiB 상한을 적용합니다.
+정확한 F1-F4 형식에서는 preflight가 출처가 결속된 후보 의미를 제공해 직렬 전체 의미 판단 호출 하나를
+제거할 수도 있습니다. Core는 이를 재사용하기 전에 현재 입력 digest, 원문 범위, 확신도, 맥락
+독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다.
+정확한 Resource 현재 상태 preflight는 전체 이름 또는 Resource ID 하나를
+`query.resource_current_state`에 결속합니다. 결과 ObjectSet은 관계를 제외하며 식별자 안에서 찾은
+catalog 값 필터를 추가하지 않습니다.
+운영 Resource 모음은 결정론적 계획 또는 모델 계획 뒤에 서버 소유 표시 규칙 하나를 적용합니다.
+카탈로그에 결속되지 않은 필터는 전체 Resource로 범위를 넓히지 않고 명확화를 요청하며, 정확한 ARM
+신원은 `Resource.id` 조건식으로 유지합니다. 역할 할당 객체는 전용 IAM 근거 경로에서만 사용할 수
+있습니다. ObjectSet 실패는 기존 예외와 범위가 제한된 단계 진단을 유지합니다. 불완전한 읽기 전용 Resource 및 상태 전이 결과는 검증된 범위의 행과 제한 사항 및 재시도 안내를 제시합니다.
+신원, 권한, 충돌 또는 안전한 부분 집합이 없는 결과는 계속 판단을 보류합니다.
+수락된 구독 신원 및 Service Health 판단은 정확한 입력 없는 FunctionType에서 결정론적 프레임과 서버 계획을 구성하므로 전체 온톨로지 스키마가 프레임 모델 경계를 통과하지 않습니다.
+모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
+나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
+로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
+commit을 일괄 수행합니다. Multiplex된 논리 consumer는 관련 없는 물리 이벤트마다 broker commit을
+수행하지 않고 건너뛸 수 있으며, 처리 도중 닫힌 이벤트는 재전달 대상 상태로 유지합니다.
+APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected", "해당" 같은 한정사가
+붙어도 정확한 운영 대상이 될 수 없습니다. Frame 또는 provider 작업 전에 Resource 신원 명확화를
+요구합니다. "our gateway", "my APIM service", "우리 게이트웨이" 같은 소유격 표현도 일반
+범주로 유지합니다. "that gateway", "그 APIM service" 같은 지시 표현도 같습니다.
+빠른 경로의 신원 target은 공백 없는 토큰 형태 이름 또는 정확한 ARM ID입니다. 검토된 일반 표기
+목록에 없더라도 자연어 신원 구문은 전체 의미 판단을 유지합니다.
+한 시간 운영 단축 경로는 과거를 명시하는 원문 문구만 수락합니다. 방향이 없거나 미래를 나타내는
+문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단과 시간 범위 명확화를 유지합니다. 전체 의미
+판단 이후와 configuration 및 gateway 정규화에도 같은 원문 검사를 적용합니다.
+`last_hour` facet은 설명 정보일 뿐이며 해당 원문 기반 `time_range` target 없이는 시간 window를
+설정할 수 없습니다.
+결정론적 F2 compiler는 경로 형태 ARM ID를 `Resource.name`이 아니라 `Resource.id`로 결속합니다.
+원문 기반 시간이 없으면 시간 범위 명확화를 반환하고, 다른 결정론적 F2 구성 실패는 frame 모델로
+fallback하지 않고 보류합니다.
+Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
+target을 요구합니다.
+Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합니다. 비어 있거나 다른 모델
+범위가 compiler의 15분 기본값으로 바뀌지 않습니다.
+또한 judgment의 원문 기반 target에서 gateway root와 선택적 backend 제약을 다시 만듭니다. 모델
+frame은 backend를 gateway root로 바꿀 수 없으며 빠른 경로는 backend 또는 model filter 하나만
+수락합니다. 경로 형태 backend ARM target은 `Backend.name`이 아니라 `Backend.id`로 결속합니다.
+Gateway judgment는 Resource 1개와 과거를 명시한 time target 1개, backend 또는 model target 최대
+1개만 허용하며 다른 target kind는 허용하지 않습니다. 모든 신원 target은 exact 형태여야 합니다.
+일반 resource, backend, model 표기나 잘못된 cardinality는 frame I/O 전에 명확화를 반환합니다.
+수락된 semantic judgment만 이러한 frame 정규화를 적용할 수 있습니다. 모호하거나 확신도가 낮거나
+수락되지 않은 제안은 frame 범위나 신원을 다시 쓸 수 없습니다.
+Configuration 및 gateway 운영 output shape는 같은 family의 수락된 judgment도 요구합니다. 수락되지
+않은 judgment는 모델 frame으로 fallback해 운영 plan을 다시 만들 수 없습니다.
+Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
+모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
+만들 수 없습니다.
+원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성과 게이트웨이 비교는 frame 모델이나
+프로바이더 I/O 전에 타입이 지정된 `resource_identity` 명확화로 중단합니다.
+정확한 대상과 1시간 기간을 포함한 수락된 구성 판단은 F2 frame을 결정론적으로 만들고 범용 frame
+모델을 생략합니다.
+[운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
+체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 
 | 소유자 | 출처 | 테스트 | 분포 |
 |--------|--------|------|--------------|
@@ -87,38 +165,44 @@ Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인
 Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니다.
 `wire_semantic_query.py`는 기존 공개 가져오기를 유지하면서 해당 생성자를 직접 다시
 내보내며, 일반 배선 모듈은 적용되는 800줄 상한 아래를 유지합니다.
+관리되는 대화형 문서 검색은 의미 판단과 계획 모듈,
+`core/knowledge/governed_document_reader.py`, 읽기 전용
+`query.governed_documents` FunctionType, Operator 신원 projection, Console 근거 decoder에 걸쳐 있습니다.
+문서 메타데이터는 온톨로지로 관리하지만 발췌문은 권한을 부여하지 않습니다. 필수 검색은 불완전한 범위에서 종료하며, 선택적 검색은 근거가 완료되지 않으면 부분 상태로 남습니다. Reader는 모든 온톨로지 편집을 넓히지 않고 문서 인제스트 경로를 사용합니다.
+PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세대를 사용할 수 있을 때까지
+`index_completeness_unverified`를 보고합니다. 집중 계약 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한, 입력 및 reader 한도 실패를 모두 검증합니다. 콘텐츠 및 접근 범위 digest는 길이만 같은 값이 아니라 정확한 소문자 16진수 SHA-256 신원을 요구합니다. Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을 적용한 정확한 표현 digest를 분리합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
 코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
 부분적이거나 사용할 수 없는 관측을 표시합니다.
 Inventory 변경 수집은 타입이 지정된 `inventory_observation.py` 계약을 사용하고 overlay를 현재
-조회 경로로 유지하면서 추가 전용 PostgreSQL 원장에 이중 기록합니다. 원장 replay는 작업 상태를
-분리하고 완전성 검사에 projection watermark를 제공합니다. 범위가 제한된
-`postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
+조회 경로로 유지하면서 추가 전용 PostgreSQL 원장에 이중 기록합니다.
+`postgres_inventory_projection_checkpoints.py`는 전체 범위 보존 경계와 활성 범위 그래프 checkpoint를 분리하며, `inventory_ontology_state.py`는 세대에 결속된 상태를 검증합니다.
+범위가 제한된 `postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
 content, coverage, freshness 및 watermark가 동일할 때만 active generation을 migration합니다.
+로컬 authoritative refresh는 구성된 구독 범위를 기록하고 승격된 snapshot을 추가한 뒤 ontology projection을 전진시킵니다.
+완전성 검사는 정확한 활성 checkpoint를 사용하며 관련 없는 범위는 보존 및 replay를 위해 대기 상태로 유지합니다.
 `operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,
-principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다.
+principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다. 변경할 수 없는 증적은 순서가 지정된 scenario 결과를 유지하고, PostgreSQL 변환 결과는 같은 결과를 scenario별로 키를 지정해 객체 값 저장 계약을 충족합니다.
 OI-16 보호 certification campaign은 `delivery/operational_history_certification_campaign*.py`에
 있으며, 정확한 synthetic retention 및 추가 전용 recovery schema는
 `20260907_core_oi16_certification_support.py`에 있습니다. 공유 journal은 synthetic purge
 retention을 기본으로 비활성화하며 검증된 개발 campaign만 이를 활성화합니다. 보호된 workflow는
 certification writer가 증적을 추가하기 전에 13개 시나리오 결과를 정확한 CI, runtime image
-attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
+attestation, 배포 근거 및 별도 사람 승인에 결속하고 독립적인 restart 효과를 최대 5분 동안 조회한 뒤 실행의 실제 replica 및 container 신원에서 최종 요약을 읽습니다. 비공개 Blob 모듈은 이전 배포자 역할을 보존하면서 안정적인 runner를 별도 Terraform 주소에 추가하므로, 인증 계획은 역할 교체와 삭제를 차단합니다.
 
-프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
-`composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
-서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
-프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
+프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립은 `composition/wire_azure_prompts.py`에 둡니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, `adaptive_model_targets.py`는 적응형 답변과 선택형 `wire_t1_routing.py` 지연 시간 프로브가 함께 쓰는 작성, 검토 및 선택적 보강 대상을 배선 모듈 간 가져오기 없이 해석합니다. [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다.
+리비전 기반 대화 설정은 Operator 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다. IAM 조립은 최상위 모듈 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. Core는 범위가 제한된 T1 측정값을 권한 없는 상태 변환 결과에 기록합니다. Operator 대화 어댑터는 해당 상태만 읽고 Console 상태 표시에 앞서 엔드포인트 세부 정보를 제거하며, 기존 의미 런타임 facade를 통해 판독기를 가져와 최상위 조립을 고유 서비스 가져오기 39개로 유지합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 제외 항목을 재실행을 위해 기록하며, 버전 협상을 적용한 적응형 `1.6.0` 전송은 의미 처리 근거를 보존합니다.
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
-생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+지식 전용 계획은 후보 초안을 포함하고 검토는 무관한 이력을 제외하며 보강은 재검증 한도를 남깁니다. 근거가 없으면 지지된 설명을 제한 상태로 유지하고 불필요한 T2 호출을 막습니다. 단계는 스키마를 캐시하고 경과 시간을 기록하며 저장된 최종 결과는 권한 부여 없이 읽기 측을 깨웁니다. 프롬프트 타입은 공개 인터페이스를 사용합니다. `families/conversation/conversation_history.py`는 모델 재호출 없이 사용자 범위의 답변을 복원합니다. 질문 모음은 두 Console 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
@@ -128,16 +212,14 @@ optional package 카탈로그를 해석하므로 새 경로가 누락된 English
 결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
-다중 pair 관계 계획 및 조회를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
-필요한 모든 LinkType 증적을 결속합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
+다중 pair 관계 계획 및 조회를 소유합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
+필요한 모든 LinkType 증적을 결속합니다. `conversation_preflight_answer_safety.py`와 `conversation_preflight_targets.py`는 모델 답변 안전성과 정확한 대상, 시간 및 구독 범위 검증을 분리하고, `semantic_planning_preflight.py`와 `semantic_target_candidate_constants.py`는 간결한 서술자 선택과 타입 기반 대상 후보 집합을 소유합니다. Gateway plan은 권한이 있는 같은 진단 유형 이름을 수집하고 `semantic_target_suggestions.py`는 대상을 다시 결속하지 않고 후보 순위를 정합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
-신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
-ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
-다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
-검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
-잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
-원본을 바인딩합니다.
+신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
+대상이 없는 최근 상태 계획은 Resource 범위를 매니페스트에 선언되고 검토된 운영 상태 경로와 상태 사실 메타데이터가 있는 유형으로 좁힙니다. ObjectSet 서비스는 범위가 제한된 유형 집합을 온톨로지 저장소 조회 하나에 전달하므로 원본 세대와 완전성을 한 번만 평가합니다.
+상태 전이 함수는 Resource마다 두 시간축 기준으로 가장 최근 전이 하나를 유지하고 Console 변환 결과는 인벤토리 권한 입력을 보존합니다. 원본이 불완전하면 빈 목록이나 추정 목록이 아니라 타입 기반 근거 보류로 유지합니다.
+검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 생성기를 통해 잔여 `frame` 모델을 우회합니다. 문서 초안 작성은 초안 전용이며 인증된 principal의 직전 검증 결과에 원본을 바인딩합니다. 관리형 문서 근거 계획은 스키마로 검증된 근거 모드에서만 `query.governed_documents`를 컴파일합니다. 판독기는 제한된 발췌문을 반환하기 전에 정확한 principal, 그룹, 컬렉션, 목적, 정책, 리비전, 수명 주기 및 완전성을 다시 검증합니다. 필수 또는 명시적 근거가 없으면 안전하게 보류하고, 선택적 근거 실패는 독립 운영 근거가 있는 경우에만 부분 답변으로 명확히 표시합니다. 문서 텍스트는 신뢰하지 않으며 지시 또는 실행 권한을 부여하지 않습니다.
 Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
 레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
@@ -154,6 +236,15 @@ Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다
 gate 순서 및 읽기 전용 권한을 보존합니다.
 Resource Health 상태 그룹 파생은 `semantic_query_health_values.py`에 있으며 public 의미
 composition facade를 강제된 800줄 제한 아래로 유지하면서 등록 순서는 바꾸지 않습니다.
+주기적 인벤토리 재조정은 검토된 Resource 형식에 정확한 공급자 상태도 보강합니다. 인벤토리
+coordinator는 하나의 advisory lock 아래에서 수집, 승격, 상태 전이 게시 및 온톨로지 변환을
+직렬화합니다. 공통 계약은 Storage 계정을 포함해 Resource Health가 지원하는 컴퓨팅, 데이터,
+플랫폼 및 네트워크 ResourceType을 선택하며 Application Insights는 적용 대상이 아닌 상태로
+명시합니다. 정확한 조회는 대상과 동시성 상한을 적용하고, 이전 사실은 세대 및 내용 기반 주소를
+가진 근거를 유지합니다. Operator 및 대화 조회는 프로비저닝 상태에서 상태를 유추하지 않고 이
+결과를 사용합니다.
+정규화 observation journal은 coordinator가 다음 승격을 허용하기 전에 이력 또는 온톨로지 변환을
+마치지 못한 활성 세대를 재실행합니다.
 토폴로지 엔드포인트 명확화 정규화는 `semantic_planning_topology_normalization.py`에 있으며
 호환성 파사드는 공개 import, 결정론적 gate 순서 및 읽기 전용 권한을 보존합니다.
 이력 및 활동 frame 생성은 `semantic_planning_temporal_frames.py`, 인벤토리 수집 상태 조립은
@@ -472,13 +563,13 @@ shadow 테스트가 두 경계를 고정합니다.
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
 | 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 정확한 제안-정책 결합, 3-way-CAS Settings projection, 고유한 기능 신원, 정확한 GA 및 TPM/PTU 해석, 범위가 제한된 공급자 읽기, Core 전용 attested runtime binding, healthy active-revision CAS, 정책 결속 exact 적용 및 독립 공급자 readback | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [제안 검증기](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [계획 검증기](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision 검증기](../../../scripts/deployment/azure/verify_active_core_revision.py), [공급자 readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator 서비스 | 인증된 경로 계열, 범위가 제한된 인증 모듈을 통한 loopback 전용 로컬 Azure CLI 세션 초기화, 영속 의미 브리지, 정규화된 직접 Psycopg 연결, 정확한 릴리스 읽기, 소유자 범위 백그라운드 작업, 실행 권한이 없는 principal 범위 Process 상태 및 원자적 전환 제안 수락 | [인증 경계](../../../services/operator-service/src/fdai_operator_service/auth.py), [로컬 인증](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN 정규화](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [워크플로 계열](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [Process 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [승인 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [재시도 수락](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 범위가 제한된 인증 모듈을 통한 loopback 전용 로컬 Azure CLI 세션 초기화, 영속 의미 브리지, 구조를 검증하는 T1 상태 보강, 정규화된 직접 Psycopg 연결, 정확한 릴리스 읽기, 소유자 범위 백그라운드 작업, 실행 권한이 없는 principal 범위 Process 상태 및 원자적 전환 제안 수락 | [인증 경계](../../../services/operator-service/src/fdai_operator_service/auth.py), [로컬 인증](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN 정규화](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [워크플로 계열](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [T1 상태 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py), [Process 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [승인 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [재시도 수락](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console Process 컨트롤 | 엄격한 principal 범위 Process 및 전환 디코더, 현지화된 현재 단계 요구 사항, 리비전 결속 재개/취소/재시도 요청, 명시적인 성공 아님 수락 | [컨트롤 디코더](../../../console/src/routes/processes.control.ts), [컨트롤 패널](../../../console/src/routes/process-control-panel.tsx), [요청 클라이언트](../../../console/src/routes/processes.transitions.ts), [브라우저 계약](../../../console/tests/e2e/workflow-process-transitions.spec.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
 | FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트, 알림 및 플래너 사용 불가 복구 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
 | FDAI Console 경로 로드 | 이름이 지정된 경로 내보내기는 하나의 형식 안전 지연 로드 어댑터를 사용하고, 공유 경로 모듈은 하나의 로더를 재사용합니다. 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 경로 격리를 약화하지 않으면서 원시 크기와 gzip 예산을 모두 적용합니다. | [패널 레지스트리](../../../console/src/panels.tsx), [진입 번들 검사](../../../console/scripts/check-entry-bundle.mjs) |
-| FDAI Console Dashboard v2와 기록된 Resource 상태 | 별도 리소스 중심 `/dashboard-v2` 경로에 표시량이 제한된 허니콤, 하나의 활성 미리 보기, 유형 자동완성, 기존 온톨로지 인스턴스 읽기 구성요소의 운영, 프로비저닝, 가용성 기록을 함께 제공합니다. 서버 페이지는 인벤토리 세대를 커밋된 온톨로지 매니페스트에 결속하고, 불변 스냅샷 시각으로 검토된 공급자 상태 경로를 설명하며, 서로 다른 알 수 없음 원인을 유지합니다. Dashboard와 Instances 화면은 공통 디코더와 상태 표시 구성요소를 사용합니다. 기존 Dashboard와 Cost Governance 경로는 유지하며 인증된 런타임 검증은 별도로 남아 있습니다. | [경로](../../../console/src/routes/dashboard-v2.tsx), [공통 디코더](../../../console/src/recorded-resource-state.ts), [상태 API](../../../services/operator-service/src/fdai_operator_service/families/operations/instance_states.py), [기록 상태 설계](../interfaces/recorded-resource-state-ko.md), [적용 기록](../../roadmap-implementation/interfaces/console-operations.md) |
+| FDAI Console Dashboard v2와 기록된 Resource 상태 | 별도 리소스 중심 `/dashboard-v2` 경로에 표시량이 제한된 허니콤, 하나의 활성 미리 보기, 유형 자동완성, 기존 온톨로지 인스턴스 읽기 구성요소의 운영, 프로비저닝, 가용성 기록을 함께 제공합니다. 서버 페이지는 인벤토리 세대를 커밋된 온톨로지 매니페스트에 결속하고, 불변 스냅샷 시각으로 검토된 공급자 상태 경로를 설명하며, 서로 다른 알 수 없음 원인을 유지합니다. Dashboard와 Instances 화면은 공통 디코더와 상태 표시 구성요소를 사용합니다. 온톨로지 그래프의 간단한 노드는 정확한 운영 값을 우선하지만, 운영 축이 적용 대상이 아니거나 공급자가 제공하지 않으면 정확한 가용성을 선택한 뒤 운영 상태 사용 불가 자리표시자보다 정확한 프로비저닝을 먼저 사용합니다. 적용 가능한 운영 값의 누락은 계속 드러나며 축 레이블은 추론한 운영 판정이나 정상 판정을 만들지 않습니다. 기존 Dashboard와 Cost Governance 경로는 유지하며 인증된 런타임 검증은 별도로 남아 있습니다. | [경로](../../../console/src/routes/dashboard-v2.tsx), [공통 디코더](../../../console/src/recorded-resource-state.ts), [상태 API](../../../services/operator-service/src/fdai_operator_service/families/operations/instance_states.py), [기록 상태 설계](../interfaces/recorded-resource-state-ko.md), [적용 기록](../../roadmap-implementation/interfaces/console-operations.md) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
@@ -514,8 +605,8 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
-함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 프레임 모델 요청을 보내지 않고 프레임을 결정론적으로
-만들고 검증합니다. Operator bridge는 변환 결과를 수락하기 전에 계속 요청을 영속화합니다. 요청 누락은
+함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다.
+`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.
@@ -526,84 +617,8 @@ principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Res
 전달하는 버전이 지정된 no-authority 운영 활동 기록을 소유합니다. 이 기록은 논리적 에이전트 소유권과
 생산 프로세스를 분리하고 `execution_authority=false`를 고정합니다.
 
-기존 Operator/Core 묶음의 버전 1.2는 범위가 제한된 semantic-turn 요청 하나와 근거에 묶인 최종
-결과 하나를 추가합니다. 요청은 인증된 역할, 세션 정렬, 용도, 기한 및 멱등성을
-pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실행 증적 및 근거 참조가
-필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
-게시와 consumption은 service-owned 구현으로 유지되며, Operator bridge는 서로 다른 최종
-projection topic과 progress topic을 감독합니다.
-
-로컬 준비는 각 checkout에 결정론적 semantic outbox namespace를 부여합니다. Pantheon
-qualification은 일반 숙의에서 현재 검증된 Bragi 라우팅을 재사용하고 고정 T2 census 라우팅은
-보존하며 peer 중복을 제거합니다. 결정론적 검증 및 예산 연기 게이트 아래에서 mixed-family 의미
-검토를 적용하고 평가자 오류도 연기 상태로 유지합니다. T2는 정확한 답변 모델 신원을 제공하여
-자체 검토를 차단합니다. 유효하지 않은 평가자 출력은 의미 루브릭 입력이 되지 않으며 완료되지
-않은 필수 T2 또는 시도된 금지 T2 결과는 검증된 범위 제한 사유 코드와 함께 agent 또는 실행
-권한을 변경하지 않고 캠페인을 보류합니다.
-
-Operator continuation 조회는 `request_id`로 결합하기 전에 결과 후보를 정확한 세션으로,
-요청 후보를 정확한 outbox namespace와 principal로 제한하여 materialize합니다. 범위가 제한된
-후보 집합은 lineage 검사를 유지하면서 PostgreSQL 조인이 관련 없는 `state_kv` 행으로 확장되지
-않게 합니다.
-
-Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된 화면 또는 리소스 그룹
-선택을 보존합니다. Operator는 Core가 `query.contextual_resources`를 위해 정확한
-`Resource.id` 범위를 컴파일하기 전에 인증된 principal, 일반 소문자 role 범위, purpose,
-정확한 release, source generation, completeness 및 id 집합에 대해 token을 조회하고 선택
-다이제스트를 다시 계산합니다.
-클라이언트가 위조하거나 다시 계산한 id, 재시작 후 사라진 token 또는 범위 불일치는 principal
-컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과가 됩니다. 어떤 context 필드도 승인
-또는 실행 권한을 부여하지 않습니다.
-명시적 발화 조건식은 token의 집합과 교집합하며, 불완전한 object-only contextual 표는
-answered claim이 되지 않고 semantic turn을 hold합니다.
-이 hold는 contextual resource plan에만 적용합니다. 범위가 제한된 다른 query table은 명시적
-잘림 상태와 함께 계속 반환됩니다.
-Operator instance projection은 인증된 principal과 활성 generation에서 token을 발급하며,
-잘린 projection은 신원을 완전히 생략합니다.
-Contextual FunctionType은 불투명한 선택 token을 스칼라 스키마 입력으로 전달하고 객체 값인
-조회 결과는 의존성 전용으로 유지합니다. 따라서 연결되지 않은 model node는 specialized
-read를 호출할 수 없습니다.
-공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
-`BreakGlass`는 거부합니다. 정확한 id 조건식은 최대 128개씩 batch로 조회하고, 이러한 객체
-전용 읽기에서는 관계 구체화와 관계 완전성 검사를 생략합니다.
-Wire 계약은 보수적인 512개 id context envelope를 허용하고
-일반 ObjectSet과 store 상한은 1,000개로 유지합니다.
-Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입력을 거부하며, 정확한
-선택 읽기는 source-generation receipt를 보존합니다.
-같은 512개 상한을 Operator/Core schema가 함께 적용하므로 과도한 client context는
-planning에 들어갈 수 없습니다.
-범위가 제한된 semantic query JSON envelope는 512개 id 선택에 맞게 크기를 확보하면서도
-일반 output의 기존 행 및 byte 상한은 제거하지 않습니다.
-
-SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
-결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,
-identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다. 같은 계약은
-targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 때 사용하는 canonical physical-topic
-기본값도 제공합니다.
-
-SDK는 `notification-delivery-receipt` wire 스키마와 canonical 논리 토픽도 소유합니다.
-Operator는 기존 multiplex 물리 토픽을 통해 관찰을 인증하고 게시하며, Core만 이미 수락된 전달에
-관찰을 적용합니다. 이 계약은 알림 대상이나 실행 권한을 부여하지 않습니다.
-
-SDK는 WARA shadow 평가 토픽과 Operator 소비자 그룹 ID도 소유합니다. Core는 권한이 없는 평가
-결과를 이 토픽으로 발행하고 독립 Operator 서비스는 활성 컨트롤 전체가 정확히 포함됐는지 검증한
-뒤 읽기 변환 결과를 교체합니다. 공유 계약에는 wire ID만 있으며 어느 서비스에도 공급자 읽기 또는
-실행 권한을 부여하지 않습니다.
-
-또한 SDK는 실행 장소 계약을 소유합니다. `FDAI_EXECUTION_VENUE`를 해석하는 유일한 resolver와
-장소가 선택하는 기능 플래그 표 하나입니다. 모든 프로세스가 같은 변수를 해석하고 독립 서비스는
-core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아니라 여기에 둡니다.
-`fdai/runtime/venue.py`는 이를 다시 내보내기만 하고 자체 바인딩을 선언하지 않습니다.
-
-서비스 분포 5개는 deployable `0.1.2` 이미지를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
-`1.0.0`/`1.1.0` 매트릭스는 프로세스 간 호환성 경계로 유지합니다.
-내용 기반 주소를 가진 실제 운영 근거는 exact 서비스와 관측 종류도 연결하고 `observed=true`를
-요구합니다. 다이제스트를 다시 계산해도 관측하지 않은 점유는 실제 운영 증적이 될 수 없습니다.
-
-패키지 테스트 트리는 SDK 행동을 검증합니다. 서비스 간 N/N-1 및 토폴로지 검사는
-[루트 통합 테스트](../../../tests/integration/)에 유지합니다.
-배포 가능한 서비스 이미지는 고정된 Alpine Python, OpenSSL, SQLite 및 util-linux 런타임 패키지를 공유하며 이미지 계약과 Trivy 게이트는 Dockerfile 6개 모두 알려진 차단 취약점이 없는 정확한 제공 버전을 유지합니다.
-문서 worker는 자신이 소유한 Tesseract 언어 데이터와 OCR 의존성만 추가합니다.
+버전이 지정된 의미 채널, 맥락 선택, 논리 토픽, 실행 장소, 호환성 및 이미지 계약은
+[공유 계약 런타임 참조](../../reference/shared-contract-runtime-ko.md)에 설명되어 있습니다.
 
 ## 기타 저장소 소유자
 
@@ -619,7 +634,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [콘솔/](../../../console/) | 지식 원본 및 거버넌스 적용 문서 업로드 경로, 지역화된 가이드 서랍, 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
-| [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |
+| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | 운영자 클라이언트와 별도 배포 도구입니다. 비공개 기반 계층 계획, 상태 비교, 런타임 입력 검증을 제공합니다. 기반 계층이 애플리케이션 그룹을 소유하며 새 플랫폼 상태는 두 번째 소유자 없이 이를 참조합니다. [Genesis 진행 상태](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)를 참조하세요. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design 맥락 읽기를 기록하고 dirty 편집 경로를 예약하며, framework 및 constitution 편집의 stale 맥락을 hard-block하고, commit 범위와 파괴적 Git을 보호하며, repository-wide 검증을 명시적인 integration 또는 release 경계로 라우팅합니다. |
 
 ## 관련 문서
@@ -629,6 +644,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | 물리 서비스 및 패키지 소유권 | [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md) |
 | 모듈 경계와 의존성 주입 | [프로젝트 구조](project-structure-ko.md) |
 | 대화 및 온톨로지 조회 구현 순서 | [온톨로지 조회 커버리지 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
+| 기록된 Resource 상태 경로 및 근거 경계 | [기록된 리소스 상태](../interfaces/recorded-resource-state-ko.md) |
 | IS 작업 패키지와 local-first 순서 | [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md) |
 | 서비스 승격, 데이터 소유권 및 롤백 게이트 | [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md) |
 | Control-loop 권한 | [아키텍처 instructions](../../../.github/instructions/architecture.instructions.md) |

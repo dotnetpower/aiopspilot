@@ -1,0 +1,108 @@
+import type { AutonomyPayload, DashboardKpi } from "../types";
+import type { DashboardOverviewData } from "./dashboard.loading";
+import { sampleCostGovernance } from "./cost-governance.sample";
+
+const SAMPLE_AT = "2026-08-31T09:00:00Z";
+
+const SAMPLE_KPI: DashboardKpi = {
+  event_count: 1280,
+  shadow_share: 0.96,
+  enforce_share: 0.04,
+  hil_pending: 3,
+  by_action_kind: {
+    investigate: 520,
+    recommend: 410,
+    remediate: 280,
+    verify: 70,
+  },
+  by_outcome: {
+    auto_resolved: 918,
+    approval_required: 146,
+    held_for_review: 128,
+    denied: 88,
+  },
+  by_tier: {
+    t0: 896,
+    t1: 320,
+    t2: 64,
+  },
+  last_recorded_at: SAMPLE_AT,
+  audit_sample: {
+    from_seq: 1001,
+    through_seq: 1280,
+    row_count: 280,
+    limit: 500,
+  },
+};
+
+const SAMPLE_AUTONOMY: AutonomyPayload = {
+  synthetic: true,
+  window_days: 30,
+  sample_size: 1280,
+  confidence: 0.94,
+  source: {
+    name: "sample-preview",
+    kind: "synthetic",
+    as_of: SAMPLE_AT,
+  },
+  rules: {
+    active: 42,
+    candidates_30d: 7,
+    promoted_30d: 3,
+  },
+  success: {
+    auto_resolution_rate: { value: 0.72, baseline: 0.48, direction: "higher" },
+    human_touchpoints_per_100: { value: 11, baseline: 24, direction: "lower" },
+    mttr_seconds: { value: 540, baseline: 1320, direction: "lower" },
+    change_lead_time_seconds: { value: 960, baseline: 2100, direction: "lower" },
+    cost_per_resolved_event_usd: { value: 0.31, baseline: 0.72, direction: "lower" },
+  },
+  leading: {
+    mixed_model_disagreement_rate: { value: 0.018, baseline: 0.041, direction: "lower" },
+    verifier_failure_rate: { value: 0.009, baseline: 0.025, direction: "lower" },
+    shadow_divergence_rate: { value: 0.014, baseline: 0.036, direction: "lower" },
+  },
+  guards: [
+    { key: "rollback_success", value: 0.995, baseline: 0.97, threshold: 0.98, ok: true },
+    { key: "policy_escape_rate", value: 0, baseline: 0.004, threshold: 0, ok: true },
+    { key: "effect_verification", value: 0.992, baseline: 0.95, threshold: 0.98, ok: true },
+  ],
+  finalization: {
+    finalized_events: 1192,
+    pending_events: 88,
+    adverse_events: 0,
+  },
+  attribution: {
+    attributed_events: 1244,
+    unattributed_events: 36,
+    coverage: 0.972,
+  },
+  verticals: [
+    { key: "resilience", events: 480, auto_resolved: 358, open_risks: 2, monthly_savings: 18400 },
+    { key: "change-safety", events: 510, auto_resolved: 372, open_risks: 1, monthly_savings: 12600 },
+    { key: "cost-governance", events: 290, auto_resolved: 188, open_risks: 0, monthly_savings: 37200 },
+  ],
+  tier: {
+    mix: { t0: 0.7, t1: 0.25, t2: 0.05 },
+    bands: { t0: [0.7, 0.8], t1: [0.15, 0.2], t2: [0.05, 0.1] },
+  },
+  trend: {
+    auto_resolution_rate: [0.54, 0.57, 0.59, 0.61, 0.64, 0.66, 0.69, 0.72],
+  },
+};
+
+export const DASHBOARD_SAMPLE_DATA: DashboardOverviewData = {
+  kpi: SAMPLE_KPI,
+  cost: sampleCostGovernance("overview"),
+  gates: {
+    rows: [
+      { policy_escapes: 0, ready: true },
+      { policy_escapes: 0, ready: true },
+      { policy_escapes: 0, ready: true },
+      { policy_escapes: 0, ready: false },
+    ],
+    ready_count: 3,
+    blocked_count: 1,
+  },
+  autonomy: SAMPLE_AUTONOMY,
+};

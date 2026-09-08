@@ -1,10 +1,15 @@
 name: infra-drift
 
-# Scheduled drift detection: run `terraform plan` against the live remote state
-# on the self-hosted VNet runner and fail (a visible signal) when the real
-# infrastructure has drifted from code. Detection only - never applies.
+# Scheduled drift detection: run refresh-only Terraform plans against live
+# remote state on the self-hosted VNet runner. Desired code changes stay in
+# protected deploy plans, so incomplete dispatch inputs cannot propose deletes.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/infra-drift.yml"
+      - "scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
   workflow_dispatch:
@@ -29,6 +34,7 @@ concurrency:
 jobs:
   drift:
     if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
@@ -53,6 +59,7 @@ jobs:
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
       TF_VAR_runner_vm_size: Standard_D4ds_v5
+      TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
     steps:
@@ -103,7 +110,9 @@ jobs:
       - name: Plan legacy root
         id: legacy_drift
         continue-on-error: true
-        run: terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+        run: >-
+          terraform plan -refresh-only -input=false -lock-timeout=300s
+          -detailed-exitcode
 
       - name: Plan independent service roots
         id: service_drift
@@ -112,6 +121,9 @@ jobs:
         env:
           ENVIRONMENT: ${{ inputs.environment || 'dev' }}
           SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+          WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+          WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
         run: |
           set -euo pipefail
           [[ -n "$SERVICE_DEPLOY_TFVARS_JSON" ]] || {
@@ -124,18 +136,17 @@ jobs:
           trap 'rm -rf -- "$temp_root"' EXIT
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$temp_root/all-services.json"
           chmod 600 "$temp_root/all-services.json"
-          database_host="$(terraform output -raw postgres_fqdn)"
-          event_topic="$(
-            terraform output -json event_bus_topics \
-              | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
-          )"
-          pipeline_stage_topic="$(
-            terraform output -json event_bus_auxiliary_topics \
-              | jq -er '[.[] | select(. == "fdai.pipeline.stages")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical pipeline-stage topic") end'
-          )"
-          pantheon_object_topic="$(
-            terraform output -json event_bus_topics \
-              | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
+          terraform -chdir=infra show -json >"$temp_root/platform-state.json"
+          platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-inputs --state-json "$temp_root/platform-state.json")"
+          database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
+          event_topic="$(jq -er '.event_topic' <<<"$platform_inputs")"
+          pipeline_stage_topic="$(jq -er '.pipeline_stage_topic' <<<"$platform_inputs")"
+          pantheon_object_topic="$(jq -er '.pantheon_object_topic' <<<"$platform_inputs")"
+          model_endpoints_json="$(jq -cer '.model_endpoints' <<<"$platform_inputs")"
+          resolved_models_digest="$(
+            python3 -c 'import hashlib,json,sys; payload=json.load(sys.stdin); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())' \
+              <<<"$RESOLVED_MODELS_JSON"
           )"
           roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
             --environment "$ENVIRONMENT")"
@@ -148,6 +159,10 @@ jobs:
           drift_found=0
           while IFS=$'\t' read -r root_id terraform_root backend_key; do
             service="${root_id#service:}"
+            resolved_model_args=()
+            if [[ "$service" == "core-control-plane" ]]; then
+              resolved_model_args+=(--model-binding-transition)
+            fi
             terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
               -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
               -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
@@ -171,12 +186,16 @@ jobs:
                   --event-topic "$event_topic" \
                     --pipeline-stage-topic "$pipeline_stage_topic" \
                     --pantheon-object-topic "$pantheon_object_topic" \
-              | python3 scripts/deployment/service/materialize_tfvars.py \
+              | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
+                RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
+                python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
+                  "${resolved_model_args[@]}" \
                   --output "$temp_root/$service.tfvars.json"
             set +e
             terraform -chdir="$terraform_root" plan \
+              -refresh-only \
               -input=false \
               -lock-timeout=5m \
               -detailed-exitcode \
@@ -236,7 +255,7 @@ jobs:
           runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
-          terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+          terraform plan -refresh-only -input=false -lock-timeout=300s -detailed-exitcode
 
       - name: Enforce complete drift evidence
         if: always()

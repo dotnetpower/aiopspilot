@@ -31,10 +31,17 @@ _CATALOG = _REPO / "rule-catalog"
 # frame/plan prompts use the same resolved reasoner candidates as two strict
 # calls. Semantic judgment reuses resolved T1 and optional T2 targets. Conversation
 # preflight and social narration reuse the narrator deployment through distinct,
-# deterministic composition keys. Adding to this set requires a stated reason.
+# deterministic composition keys. Adaptive plan/answer and review/verify reuse
+# independent configured T1 narrators; optional refine uses t2.reasoner.primary.
+# Adding to this set requires a stated reason.
 _PROMPT_ONLY_CAPABILITIES = frozenset(
     {
         "console.narrator",
+        "conversation.adaptive.plan",
+        "conversation.adaptive.answer",
+        "conversation.adaptive.review",
+        "conversation.adaptive.refine",
+        "conversation.adaptive.verify",
         "conversation.preflight",
         "conversation.social-narrator",
         "conversation.social-narrator.farewell",
@@ -44,6 +51,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "norns.post-turn-review",
         "semantic.judgment",
         "semantic.query.frame",
+        "semantic.query.frame.operational",
         "semantic.query.plan",
         "t2.proposer",
     }
@@ -108,6 +116,92 @@ def test_question_generation_prompt_is_wording_only() -> None:
     assert "copy those fields exactly" not in prompt.body.casefold()
 
 
+def test_adaptive_plan_routes_current_operational_diagnostics_to_verified_semantics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    packs = prompts.get_packs("conversation.adaptive.plan")
+    adaptive = next(item for item in packs if item.id == "adaptive-plan")
+
+    assert adaptive.version == 4
+    assert "answer as operational only when it depends on current environment evidence" in (
+        adaptive.body
+    )
+    assert "Current subscription inventory and its download" in adaptive.body
+    assert "Route them to legacy with no knowledge goal" in adaptive.body
+
+
+def test_preflight_routes_general_knowledge_away_from_operational_semantics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    prompt = prompts.get_base("conversation.preflight")
+
+    assert prompt.version == 8
+    assert "conceptual technology comparison" in prompt.body
+    assert "knowledge_signal: explicit" in prompt.body
+    assert "include general_answer" in prompt.body
+    assert "For every other route general_answer is null" in prompt.body
+    assert "resource_type_filter" in prompt.body
+    assert "subscription_scope_identity" in prompt.body
+    assert "subscription_service_health" in prompt.body
+    assert "recent_resource_state_changes" in prompt.body
+    assert "operational_result_limit" in prompt.body
+    assert "operational status or state changes are excluded" in prompt.body
+    assert "Core binds them only through the current catalog" in prompt.body
+
+
+def test_semantic_judgment_separates_name_fragments_from_group_membership() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    name_filter = next(
+        item
+        for item in prompts.get_packs("semantic.judgment")
+        if item.id == "semantic-resource-name-filter"
+    )
+
+    assert name_filter.version == 1
+    assert name_filter.default_mode.value == "enforce"
+    assert "resource_name_filter" in name_filter.body
+    assert "not a request for Resources contained by one exact named group" in name_filter.body
+
+
+def test_semantic_judgment_supports_bounded_current_sre_diagnostics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    diagnostic = next(
+        item
+        for item in prompts.get_packs("semantic.judgment")
+        if item.id == "semantic-sre-diagnostic"
+    )
+
+    assert diagnostic.version == 1
+    assert diagnostic.default_mode.value == "enforce"
+    assert "default_recent_window" in diagnostic.body
+    assert "llm-model-deployment" in diagnostic.body
+    assert "Generic Backend Instance, API Management, GPT" in diagnostic.body
+
+
+def test_adaptive_prompts_require_one_coherent_general_answer() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    plan = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.plan")
+        if item.id == "adaptive-plan"
+    )
+    answer = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.answer")
+        if item.id == "adaptive-answer"
+    )
+    review = next(
+        item
+        for item in prompts.get_packs("conversation.adaptive.review")
+        if item.id == "adaptive-review"
+    )
+
+    assert (plan.version, answer.version, review.version) == (4, 2, 2)
+    assert "unique goal_id, kind, bounded question, and required boolean" in plan.body
+    assert "exact matching goal_id" in plan.body
+    assert "do not repeat an introduction, agent self-label, evidence disclaimer" in plan.body
+    assert "General knowledge does not require a warning" in answer.body
+    assert "inconsistent non-polite Korean endings" in review.body
+
+
 def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     artifacts = [
@@ -142,11 +236,19 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
 def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     frame = prompts.get_base("semantic.query.frame")
+    operational_frame = prompts.get_base("semantic.query.frame.operational")
     judgment = prompts.get_base("semantic.judgment")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 39
+    assert frame.version == 40
     assert judgment.version == 8
+    assert operational_frame.version == 1
+    assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
+    assert "gateway status, backend status, and model status" in operational_frame.body
+    assert "Capacity units, current capacity, authoritative TPM" in operational_frame.body
+    assert (
+        "resource_inventory, subscription, complete_content, and download" in operational_frame.body
+    )
     assert "emit exactly one source-spanned agent target for that addressee" in judgment.body
     assert "preserve one as primary_intent and the other in secondary_intents" in judgment.body
     assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
@@ -164,7 +266,8 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "use query.resource_state_inventory as primary_intent" in judgment.body
     assert "This rule does not apply to collection-level" in judgment.body
     assert "A non-execution constraint is not an artifact deliverable" in judgment.body
-    assert "independently requests a governed artifact" in judgment.body
+    assert "Documenting observed inventory is read-only presentation" in judgment.body
+    assert "fresh secured inventory read and a downloadable document" in judgment.body
     assert "needs a target, comparison side, or time range" in judgment.body
     assert "ask for it instead of selecting unsupported" in judgment.body
     assert "recommend the safest recovery sequence" in judgment.body

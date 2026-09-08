@@ -73,6 +73,8 @@ def test_shipped_vocabulary_covers_three_verticals() -> None:
     assert "nosql-database" in ids
     assert "mysql" in registry.get("mysql-server").query_terms
     assert "MySQL 데이터베이스" in registry.get("mysql-server").query_terms
+    assert "mssql server" in registry.get("sql-server").query_terms
+    assert "mssql 서버" in registry.get("sql-server").query_terms
 
 
 def test_shipped_vocabulary_covers_common_azure_inventory_types() -> None:

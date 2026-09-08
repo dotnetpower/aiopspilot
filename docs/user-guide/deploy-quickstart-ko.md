@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b026e0e85321be3fc98dfbb6bdcb096ebda426a7
-translation_revised: 2026-09-06
+translation_source_sha: 3ea53e78ba0504db49090c3e1b0743e92770e3f8
+translation_revised: 2026-09-08
 ---
 
 # 배포 빠른 시작
@@ -29,10 +29,18 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
   폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
   `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
+- **새 오프라인 구독:** 독립 Bootstrap은 기존 상태 계정과 애플리케이션 그룹을 요구합니다.
+  별도 Genesis 루트는 ARM 전용 기반 계층 계획과 참조 전용 애플리케이션 그룹 소유권을
+  제공합니다. 패키지 실행 흐름은 아직 승인된 생성, 호스트 등록, 상태 이전을 자동화하지
+  않습니다. [오프라인 준비 범위](../roadmap/deployment/disconnected-deployment-ko.md)를 확인하세요.
+  준비된 산출물이나 저장된 계획이 설치 준비 완료를 뜻하지는 않습니다.
 - `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은
   해당 digest를 연결하며 이미지를 promote하거나 재구축하지 않습니다.
+- 예약된 Inventory Job을 보호된 플랫폼 경로에서 유지합니다. 적용 후 작업 흐름은 Job을 다시
+  읽고 인벤토리 컨테이너가 계획에서 선택한 정확한 다이제스트로 고정된 Core 이미지를 사용하지
+  않으면 중단합니다.
 - 배포 호스트에서 모든 비공개 엔드포인트로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
   운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요. 그 환경의
   Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.
@@ -44,6 +52,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - VNet에 연결된 runner에서 5개 서비스 root를 독립적으로 배포합니다. 각 서비스는 자체
   이미지, Terraform state, migration branch, 상태 probe, workload identity를 소유합니다.
   Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
+- 단독 유지관리자 저장소에서는 `DEV_DEPLOY_REQUIRED_APPROVALS=0` 저장소 변수를 설정해
+  검토자 없이 직접 `dev` 적용을 실행합니다. `dev` 환경에는 검토자 규칙을 두지 않고 관리자
+  우회를 비활성화하세요. 스테이징, 운영 및 봇 소유 적용 경로는 독립 검토자 한 명을 계속
+  요구합니다.
 - 보호된 Console 게시자를 통해 Console 및 Manual Studio 정적 콘텐츠를 게시합니다. 이
   게시자는 정확한 적용에서 동기화한 Static Web App 결속을 사용하고 Azure 리소스와 호스트
   이름의 일치를 검증한 뒤 결합된 정적 아티팩트를 독립적으로 업로드합니다. 별도 catalog

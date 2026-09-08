@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
 from fdai.core.conversation.intent_graph import resolve_execution_authority
@@ -26,6 +27,7 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
+from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
@@ -63,14 +65,18 @@ from fdai_service_contracts import (
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
+    QueryNodeKind,
     TaskStatus,
     content_digest,
 )
 
+from fdai_core_service.dialogue_relationship import runtime_relationship
+
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
-    OPERATOR_REQUEST_CONSUMER_V15,
+    OPERATOR_PROJECTION_PRODUCER_V16,
+    OPERATOR_REQUEST_CONSUMER_V17,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -83,6 +89,10 @@ from .semantic_service_health_answer import (
 )
 from .semantic_subscription_scope_answer import (
     render_subscription_scope_answer as _render_subscription_scope_answer,
+)
+from .semantic_target_suggestions import (
+    observed_resource_name_candidates,
+    resource_name_suggestions,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -118,8 +128,14 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_authority_conflict",
     "semantic_evidence_authority_missing",
     "semantic_current_relationship_mapping_unavailable",
+    "semantic_governed_documents_unavailable",
+    "semantic_governed_documents_incomplete",
+    "semantic_governed_documents_empty",
 }
 _SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
+    "conversation_preflight_malformed",
+    "conversation_preflight_provider_unavailable",
+    "general_answer_route_unverified",
     "semantic_frame_unavailable",
 }
 
@@ -137,6 +153,12 @@ class _SemanticProjectionExtensions:
     operational_evidence: OperationalEvidenceProjection | None = None
 
 
+class _ObservedModelCall(Protocol):
+    model: str
+    usage: Mapping[str, int] | None
+    trace_call: Mapping[str, object]
+
+
 class SemanticTurnRejectedError(ValueError):
     """Reject one malformed or unauthorized semantic request before runtime I/O."""
 
@@ -151,6 +173,8 @@ class SemanticTurnRuntime(Protocol):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         locale: str = "en",
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_resource_context: BoundResourceContext | None = None,
@@ -416,6 +440,7 @@ class SemanticTurnProcessor:
 
         claim_finalized = False
         try:
+            failure_stage = "execute"
             try:
                 if assurance_case_id is None:
                     result, extensions = await self._execute(
@@ -424,6 +449,7 @@ class SemanticTurnProcessor:
                         principal=principal,
                         cancelled=cancelled,
                     )
+                    failure_stage = "projection"
                     try:
                         projection = self._projection(
                             envelope,
@@ -448,18 +474,30 @@ class SemanticTurnProcessor:
                             request_digest=request_digest,
                         )
                 else:
+                    failure_stage = "assurance_projection"
                     projection = await self._pantheon_assurance_projection(
                         envelope,
                         request,
                         case_id=assurance_case_id,
                         request_digest=request_digest,
                     )
+                failure_stage = "result_store_write"
                 created = await self._results.put_if_absent(idempotency_key, projection)
                 if created:
                     claim_finalized = True
                     return projection
+                failure_stage = "result_store_read"
                 winner = await self._results.get(idempotency_key)
-            except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+            except Exception as exc:  # noqa: BLE001 - persistence detail must not cross the wire
+                _LOGGER.warning(
+                    "semantic_result_finalize_failed stage=%s failure_type=%s",
+                    failure_stage,
+                    type(exc).__name__,
+                    extra={
+                        "failure_stage": failure_stage,
+                        "failure_type": type(exc).__name__,
+                    },
+                )
                 return self._held_projection(
                     envelope,
                     request,
@@ -677,16 +715,22 @@ class SemanticTurnProcessor:
         if runtime is None:  # pragma: no cover - guarded by _execute
             raise RuntimeError("semantic runtime is unavailable")
         runtime_kwargs: dict[str, Any] = {}
+        relationship = runtime_relationship(request, now=self._now())
+        if relationship is not None:
+            runtime_kwargs["relationship"] = relationship
         if bound_resource_context is not None:
             runtime_kwargs["bound_resource_context"] = bound_resource_context
         escalation_policy = await self._escalation_policy(request)
         if escalation_policy is not None:
             runtime_kwargs["escalation_policy"] = escalation_policy
+        if request.conversation_model_tier is not None:
+            runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         return await runtime.handle(
             utterance=request.utterance,
             prior_turns=_prior_turns(request, requested_at=requested_at),
             principal=principal,
             locale=request.locale,
+            target_agent=request.target_agent,
             cancelled=runtime_cancelled,
             bound_incident=_bound_incident(request),
             bound_investigation_continuation=_bound_investigation_continuation(request),
@@ -831,7 +875,7 @@ class SemanticTurnProcessor:
                     mode="json"
                 )
         projection = {
-            "schema_version": "1.4.0",
+            "schema_version": ("1.6.0" if result.adaptive_answer is not None else "1.4.0"),
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -842,18 +886,28 @@ class SemanticTurnProcessor:
             "semantic_result": semantic_result,
         }
         projection["projection_id"] = _semantic_projection_id(projection)
+        encoded_size = len(
+            json.dumps(
+                projection,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        _LOGGER.info(
+            "semantic_projection_prepared encoded_bytes=%d",
+            encoded_size,
+            extra={"encoded_bytes": encoded_size},
+        )
         if extensions is not None and extensions.operational_evidence is not None:
-            encoded_size = len(
-                json.dumps(
-                    projection,
-                    allow_nan=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ).encode("utf-8")
-            )
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
-        return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
+        codec = (
+            OPERATOR_PROJECTION_PRODUCER_V16
+            if projection["schema_version"] == "1.6.0"
+            else OPERATOR_PROJECTION_PRODUCER_V14
+        )
+        return codec.encode(projection)
 
     async def _pantheon_assurance_projection(
         self,
@@ -965,7 +1019,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V15.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V17.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -993,7 +1047,11 @@ def _principal(request: SemanticTurnRequest) -> Principal:
     if not ordinary_roles:
         raise SemanticTurnRejectedError("semantic_break_glass_only")
     selected = ordinary_roles[-1]
-    return Principal(id=request.principal.subject_id, role=_ROLE_MAP[selected])
+    return Principal(
+        id=request.principal.subject_id,
+        role=_ROLE_MAP[selected],
+        groups=frozenset(request.principal.groups),
+    )
 
 
 def _prior_turns(
@@ -1136,6 +1194,23 @@ def _project_runtime_result(
     result: RuntimeSemanticTurnResult,
 ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
     model_extensions = _semantic_model_extensions(request, result)
+    if result.disposition == "advisory_response":
+        adaptive_answer = result.adaptive_answer
+        if adaptive_answer is None:
+            return _terminal_result(request, "held", "semantic_runtime_failed"), model_extensions
+        return (
+            ContractSemanticTurnResult(
+                disposition=SemanticTurnDisposition.ADVISORY_RESPONSE,
+                reason_code="semantic_advisory_response",
+                semantic_route="semantic_advisory_response",
+                session_id=request.session_id,
+                turn_id=request.turn_id,
+                turn_sequence=request.turn_sequence,
+                answer=adaptive_answer.answer,
+                adaptive_answer=adaptive_answer,
+            ),
+            model_extensions,
+        )
     if result.disposition == "direct_response":
         intent = result.planning.direct_response_intent
         answer = result.planning.direct_response_answer
@@ -1205,6 +1280,10 @@ def _project_runtime_result(
                 disposition=disposition,
             ),
         )
+        if disposition == "action_draft" and result.adaptive_answer is not None:
+            terminal = ContractSemanticTurnResult.model_validate(
+                {**terminal.model_dump(), "adaptive_answer": result.adaptive_answer}
+            )
         continuation = None
         if result.disposition == "held" and result.execution is not None:
             continuation = _project_investigation_continuation(
@@ -1271,6 +1350,7 @@ def _project_runtime_result(
         execution_receipt_digest=execution_receipt_digest,
     )
     checks_total = len(execution.receipts)
+    checks_completed = sum(receipt.status is TaskStatus.COMPLETED for receipt in execution.receipts)
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
         return _evidence_incomplete(
@@ -1306,6 +1386,17 @@ def _project_runtime_result(
             "relationship_projection_rejected",
             result=result,
         ), model_extensions
+    evidence_requirements = tuple(getattr(frame, "evidence_requirements", ()))
+    optional_document_node_ids = (
+        tuple(
+            node.node_id
+            for node in getattr(plan, "nodes", ())
+            if node.kind is QueryNodeKind.FUNCTION
+            and node.arguments.get("function_name") == "query.governed_documents"
+        )
+        if "governed_documents.optional" in evidence_requirements
+        else ()
+    )
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -1313,12 +1404,14 @@ def _project_runtime_result(
         output_shape=frame.output_shape,
         subject_constraints=tuple(frame.subject_constraints),
         measure_concepts=tuple(frame.measure_concepts),
+        evidence_requirements=evidence_requirements,
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
         incident_node_id=incident_node_id,
         ontology_relationships=relationships,
         ontology_relationships_node_id=relationships_node_id,
+        optional_document_node_ids=optional_document_node_ids,
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
@@ -1328,7 +1421,11 @@ def _project_runtime_result(
         ), model_extensions
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
-        reason_code="semantic_answer_verified",
+        reason_code=(
+            "semantic_answer_partial"
+            if optional_document_evidence_degraded(planning, execution)
+            else "semantic_answer_verified"
+        ),
         semantic_route="verified_query_plan",
         session_id=request.session_id,
         turn_id=request.turn_id,
@@ -1340,7 +1437,7 @@ def _project_runtime_result(
         intent_graph=result.intent_graph,
         intent_graph_evidence=result.intent_graph_evidence,
         evidence_refs=evidence_refs,
-        checks_completed=checks_total,
+        checks_completed=checks_completed,
         checks_total=checks_total,
         answer=answer,
         assurance_observation=project_semantic_assurance(
@@ -1575,7 +1672,10 @@ def _semantic_model_extensions(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> _SemanticProjectionExtensions | None:
-    observations = getattr(result.planning, "model_observations", ())
+    observations = cast(
+        Sequence[_ObservedModelCall],
+        getattr(result.planning, "model_observations", ()),
+    )
     social_act = getattr(result.planning, "social_act", None)
     social_act_value = getattr(social_act, "value", None)
     if not observations and not isinstance(social_act_value, str):
@@ -1607,7 +1707,7 @@ def _semantic_model_extensions(
             latency_ms += duration
         calls.append(call)
     return _SemanticProjectionExtensions(
-        model=observations[-1].model,
+        model=_reported_conversation_model(request, observations),
         latency_ms=latency_ms,
         usage=measured_usage,
         model_trace=(
@@ -1622,6 +1722,30 @@ def _semantic_model_extensions(
         ),
         social_act=social_act_value if isinstance(social_act_value, str) else None,
     )
+
+
+def _reported_conversation_model(
+    request: SemanticTurnRequest,
+    observations: Sequence[_ObservedModelCall],
+) -> str:
+    """Report the selected answer author instead of its later independent reviewer."""
+
+    if request.conversation_model_tier is None:
+        return observations[-1].model
+    author_kinds = {
+        "adaptive-plan",
+        "adaptive-answer",
+        "adaptive-refine",
+        "conversation-social-narrator",
+        "semantic-planning-frame",
+        "semantic-planning-plan",
+    }
+    authored = [
+        observation
+        for observation in observations
+        if observation.trace_call.get("kind") in author_kinds
+    ]
+    return (authored[-1] if authored else observations[-1]).model
 
 
 def _merge_projection_extensions(
@@ -1683,6 +1807,7 @@ def _project_execution_hold(
                 "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
+                "semantic_evidence_incomplete",
             }
         )
         or not execution.receipts
@@ -1710,6 +1835,7 @@ def _project_execution_hold(
                 "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
+                "semantic_evidence_incomplete",
             }
             else "semantic_evidence_held"
         ),
@@ -1751,7 +1877,13 @@ def _projected_execution_evidence_matches(
         "failed",
         "cancelled",
     } or (
-        result.reason == "semantic_current_relationship_mapping_unavailable"
+        result.reason
+        in {
+            "semantic_current_relationship_mapping_unavailable",
+            "semantic_evidence_authority_conflict",
+            "semantic_evidence_authority_missing",
+            "semantic_evidence_incomplete",
+        }
         and evidence_status == "completed"
     )
     if (
@@ -1811,6 +1943,11 @@ def _render_execution_hold_answer(
     if causal_answer is not None:
         return causal_answer
     hypotheses = _held_hypothesis_lines(result, korean=korean)
+    target_suggestions = _render_target_name_suggestions(
+        result,
+        execution,
+        korean=korean,
+    )
     if korean:
         return "\n".join(
             [
@@ -1824,6 +1961,11 @@ def _render_execution_hold_answer(
                 "- 완료되지 않은 가설은 `supported` 또는 `refuted`로 승격하지 않고 "
                 "`unresolved`로 유지합니다.",
                 *(["", "## 가설 상태", "", *hypotheses] if hypotheses else []),
+                *(
+                    ["", "## 유사한 리소스 이름", "", *target_suggestions]
+                    if target_suggestions
+                    else []
+                ),
                 "",
                 "## 제한 사항",
                 "",
@@ -1853,6 +1995,11 @@ def _render_execution_hold_answer(
             "- Incomplete hypotheses remain `unresolved`; they are not promoted to "
             "`supported` or `refuted`.",
             *(["", "## Hypothesis status", "", *hypotheses] if hypotheses else []),
+            *(
+                ["", "## Similar resource names", "", *target_suggestions]
+                if target_suggestions
+                else []
+            ),
             "",
             "## Limitations",
             "",
@@ -1868,6 +2015,91 @@ def _render_execution_hold_answer(
             "",
             "`execution_authority=false`",
         ]
+    )
+
+
+def _render_target_name_suggestions(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+    *,
+    korean: bool,
+) -> list[str]:
+    """Explain an unresolved exact name and offer evidence-backed candidates."""
+
+    reasons = {
+        receipt.reason
+        for receipt in execution.receipts
+        if receipt.reason in {"entity_resolution_empty", "entity_resolution_incomplete"}
+    }
+    frame = result.planning.frame
+    if not reasons or frame is None:
+        return []
+    requested_name = next(
+        (
+            constraint.removeprefix("Resource.name=")
+            for constraint in frame.subject_constraints
+            if constraint.startswith("Resource.name=")
+        ),
+        None,
+    )
+    if not requested_name:
+        return []
+    suggestions = resource_name_suggestions(requested_name, execution)
+    exact_message = (
+        f"- 요청한 정확한 이름 `{requested_name}`은 검증된 범위에서 해석되지 않았습니다."
+        if korean
+        else (
+            f"- The exact requested name `{requested_name}` was not resolved in the verified scope."
+        )
+    )
+    if not suggestions:
+        candidates = observed_resource_name_candidates(
+            execution,
+            requested_name=requested_name,
+        )
+        no_match = (
+            "- 충분히 유사한 이름은 없습니다. 다음은 같은 진단 유형에서 관측된 후보입니다."
+            if korean
+            else (
+                "- No sufficiently similar name was found. These candidates were observed "
+                "for the same resource type."
+            )
+        )
+        if not candidates:
+            unavailable = (
+                "- 제안할 수 있는 검증된 gateway 후보도 없습니다."
+                if korean
+                else "- No verified gateway candidate is available to suggest."
+            )
+            return [exact_message, no_match, unavailable]
+        candidate_lines = [
+            f"- 같은 진단 유형 후보: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+            if korean
+            else f"- Same diagnostic-family candidate: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+            for item in candidates
+        ]
+        return [exact_message, no_match, *candidate_lines, _candidate_selection_message(korean)]
+    candidate_lines = [
+        (
+            f"- 제안: `{item.name}`"
+            + (f" ({item.resource_type})" if item.resource_type is not None else "")
+        )
+        for item in suggestions
+    ]
+    return [exact_message, *candidate_lines, _candidate_selection_message(korean)]
+
+
+def _candidate_selection_message(korean: bool) -> str:
+    return (
+        "- 이름을 자동으로 바꾸지 않았습니다. 위 후보가 맞으면 정확한 이름을 선택해 "
+        "다시 요청하세요."
+        if korean
+        else (
+            "- The target was not changed automatically. If a candidate is correct, select its "
+            "exact name and retry."
+        )
     )
 
 
@@ -2285,11 +2517,14 @@ def _verified_plan_failure(
         return "manifest_digest_mismatch"
     if execution.plan_digest != getattr(plan, "plan_digest", None):
         return "plan_digest_mismatch"
-    if execution.status != "completed":
+    optional_document_degraded = optional_document_evidence_degraded(planning, execution)
+    if execution.status != "completed" and not optional_document_degraded:
         return "execution_not_completed"
     if not execution.receipts:
         return "no_receipts"
-    if any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts):
+    if not optional_document_degraded and any(
+        receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts
+    ):
         return "receipt_not_completed"
     if not _projected_answer_evidence_is_complete(result, execution):
         return "intent_graph_evidence_mismatch"
@@ -2323,12 +2558,23 @@ def _projected_answer_evidence_is_complete(
         return False
     graph_goals = graph.get("goals")
     evidence_goals = evidence.get("goals")
+    optional_document_degraded = optional_document_evidence_degraded(
+        result.planning,
+        execution,
+    )
+    expected_status = "partial" if optional_document_degraded else "completed"
+    expected_mode = "partial" if optional_document_degraded else None
     if (
         graph.get("schema_version") != 2
         or graph.get("action_posture") != "advise_only"
         or evidence.get("schema_version") not in {1, 2}
-        or evidence.get("status") != "completed"
-        or evidence.get("evidence_mode") != "operational_grounded"
+        or evidence.get("status") != expected_status
+        or (expected_mode is not None and evidence.get("evidence_mode") != expected_mode)
+        or (
+            expected_mode is None
+            and evidence.get("evidence_mode")
+            not in {"operational_grounded", "document_grounded", "mixed_grounded"}
+        )
         or not isinstance(graph_goals, list)
         or not isinstance(evidence_goals, list)
         or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
@@ -2355,7 +2601,7 @@ def _projected_answer_evidence_is_complete(
             or evidence_goal.get("intent") != graph_goal.get("intent")
             or evidence_goal.get("capability") != graph_goal.get("capability")
             or evidence_goal.get("task_id") != receipt.task_id
-            or evidence_goal.get("status") != "completed"
+            or evidence_goal.get("status") != receipt.status.value
             or evidence_goal.get("authority")
             != (receipt.authority.value if receipt.authority is not None else None)
             or not isinstance(evidence_refs, list)
@@ -2405,14 +2651,22 @@ def _render_query_answer(
     output_shape: str,
     subject_constraints: tuple[str, ...] = (),
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
     incident_node_id: str | None = None,
     ontology_relationships: dict[str, object] | None = None,
     ontology_relationships_node_id: tuple[str, ...] | None = None,
+    optional_document_node_ids: tuple[str, ...] = (),
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
+    inventory_document = (
+        operation == "select"
+        and output_shape == "resource_list"
+        and subject_constraints == ("Resource",)
+        and set(measure_concepts) == {"complete_content", "download"}
+    )
     projected_rule_search = False
     projected_incident = False
     projected_relationships = False
@@ -2420,6 +2674,11 @@ def _render_query_answer(
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
+            if (
+                node_id in optional_document_node_ids
+                and "governed_documents.optional" in evidence_requirements
+            ):
+                continue
             return None, None
         if isinstance(result.value, dict):
             if incident_evidence is not None and node_id == incident_node_id:
@@ -2476,16 +2735,25 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
-        if len(table.rows) <= 40:
+        if inventory_document:
+            projected_rows = table.rows[:1000]
+        elif len(table.rows) <= 40:
             projected_rows = table.rows
         else:
             projected_rows = (
                 table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
             )
-        for row in projected_rows:
+        for row_index, row in enumerate(projected_rows, start=1):
             candidate_rows: list[dict[str, object]] = [
                 *rows,
-                {"row_id": row.row_id, "values": _answer_row_values(row.values)},
+                {
+                    "row_id": (f"resource-{row_index:04d}" if inventory_document else row.row_id),
+                    "values": (
+                        _inventory_document_row_values(row.values)
+                        if inventory_document
+                        else _answer_row_values(row.values)
+                    ),
+                },
             ]
             candidate = [
                 *outputs,
@@ -2496,7 +2764,8 @@ def _render_query_answer(
                     evidence_refs=result.evidence_refs,
                 ),
             ]
-            if len(_answer_json(candidate).encode("utf-8")) > 48_000:
+            answer_output_limit = 220_000 if inventory_document else 48_000
+            if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit:
                 break
             rows = candidate_rows
         outputs.append(
@@ -2519,7 +2788,13 @@ def _render_query_answer(
         "presentation_context": {
             "operation": operation,
             "output_shape": output_shape,
+            **({"document_kind": "inventory"} if inventory_document else {}),
             **({"measure_concepts": list(measure_concepts)} if measure_concepts else {}),
+            **(
+                {"evidence_requirements": list(evidence_requirements)}
+                if evidence_requirements
+                else {}
+            ),
             **(
                 {"presentation_semantics": presentation_semantics}
                 if (
@@ -2535,7 +2810,8 @@ def _render_query_answer(
         },
         "outputs": outputs,
     }
-    if len(_answer_json(outputs).encode("utf-8")) > 48_000:
+    answer_output_limit = 220_000 if inventory_document else 48_000
+    if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
     answer = (
         _render_incident_answer(request, outputs[0])
@@ -2549,6 +2825,7 @@ def _render_query_answer(
                 output_shape=output_shape,
                 subject_constraints=subject_constraints,
                 measure_concepts=measure_concepts,
+                evidence_requirements=evidence_requirements,
             )
         )
     )
@@ -2596,6 +2873,16 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    if values.get("record_kind") == "excerpt" and isinstance(values.get("text"), str):
+        original_text = values["text"]
+        displayed_text = _redact_answer_scalar("text", original_text)
+        projected["text"] = displayed_text
+        rendered_text, _display_truncated = _bounded_document_text(
+            str(displayed_text),
+            maximum=1_200,
+        )
+        projected["display_content_digest"] = content_digest({"text": rendered_text})
+        projected["redaction_applied"] = displayed_text != original_text
     current: list[Mapping[str, object]] = [values]
     for _depth in range(2):
         nested = [
@@ -2608,6 +2895,23 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
                     projected.setdefault(field, _redact_answer_scalar(field, value))
         current = nested
     return projected
+
+
+def _inventory_document_row_values(values: Mapping[str, object]) -> dict[str, object]:
+    """Preserve secured scalar inventory fields without exposing provider property bags."""
+
+    projected = _answer_row_values(values)
+    properties = values.get("properties")
+    if isinstance(properties, Mapping):
+        for field in ("name", "type", "location", "status", "parent_id"):
+            value = properties.get(field)
+            if value is not None and not isinstance(value, Mapping | list):
+                projected[field] = _redact_answer_scalar(field, value)
+    return {
+        field: projected[field]
+        for field in ("name", "type", "location", "status", "parent_id")
+        if field in projected
+    }
 
 
 def _redact_answer_scalar(field: str, value: object) -> object:
@@ -3050,6 +3354,7 @@ def _render_general_query_answer(
     output_shape: str | None = None,
     subject_constraints: tuple[str, ...] = (),
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -3058,6 +3363,47 @@ def _render_general_query_answer(
     result contains and leaves the machinery in technical details.
     """
     korean = request.locale.casefold().startswith("ko")
+    document_section = _render_governed_document_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if document_section is not None:
+        if output_shape == "governed_document_excerpts":
+            return document_section
+        operational_outputs = [
+            output for output in outputs if not _is_governed_document_output(output)
+        ]
+        if operational_outputs:
+            operational_answer = _render_general_query_answer(
+                request,
+                operational_outputs,
+                output_shape=output_shape,
+                subject_constraints=subject_constraints,
+                measure_concepts=measure_concepts,
+                evidence_requirements=(),
+            )
+            return f"{operational_answer}\n\n{document_section}"
+    elif any(requirement == "governed_documents.optional" for requirement in evidence_requirements):
+        unavailable = (
+            "## 문서 근거 범위\n\n"
+            "관리되는 문서 검색 기능을 사용할 수 없어 다른 검증된 근거만 사용했습니다."
+            if korean
+            else (
+                "## Document evidence coverage\n\n"
+                "Governed document retrieval was unavailable, so this answer uses only "
+                "the other verified evidence."
+            )
+        )
+        operational_answer = _render_general_query_answer(
+            request,
+            outputs,
+            output_shape=output_shape,
+            subject_constraints=subject_constraints,
+            measure_concepts=measure_concepts,
+            evidence_requirements=(),
+        )
+        return f"{operational_answer}\n\n{unavailable}"
     target_candidates_answer = _render_target_candidates_answer(
         outputs,
         korean=korean,
@@ -3126,6 +3472,13 @@ def _render_general_query_answer(
     )
     if current_state_answer is not None:
         return current_state_answer
+    resource_state_answer = _render_resource_state_list_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if resource_state_answer is not None:
+        return resource_state_answer
     declaration_count_answer = _render_ontology_declaration_count_answer(
         outputs,
         korean=korean,
@@ -3141,6 +3494,14 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
+    resource_list_answer = _render_resource_list_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+        measure_concepts=measure_concepts,
+    )
+    if resource_list_answer is not None:
+        return resource_list_answer
     empty_answer = _render_generic_empty_query_answer(
         outputs,
         korean=korean,
@@ -3211,6 +3572,343 @@ def _render_general_query_answer(
     return "\n".join(lines)
 
 
+def _render_resource_list_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+    measure_concepts: tuple[str, ...],
+) -> str | None:
+    """Render bounded Resource identities instead of only reporting a row count."""
+
+    if (
+        output_shape not in {"resource_list", "property_filtered_resources"}
+        or set(measure_concepts) == {"complete_content", "download"}
+        or len(outputs) != 1
+    ):
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    total = output.get("total_rows")
+    source_complete = output.get("source_complete") is True
+    source_limitation = output.get("source_truncation_reason")
+    if (
+        not isinstance(rows, list)
+        or not rows
+        or not isinstance(total, int)
+        or isinstance(total, bool)
+        or any(not isinstance(row, Mapping) for row in rows)
+    ):
+        return None
+    if source_complete:
+        heading = f"## 일치하는 리소스 {total}개" if korean else f"## {total} matching Resources"
+    else:
+        heading = (
+            f"## 확인 범위에서 일치하는 리소스 {total}개 이상"
+            if korean
+            else f"## At least {total} matching Resources in the checked scope"
+        )
+    lines = [heading, ""]
+    for row in rows:
+        values = row.get("values")
+        if not isinstance(values, Mapping):
+            return None
+        name = _answer_text(values.get("name"), fallback="name unavailable")
+        resource_type = _answer_text(values.get("type"), fallback="type unavailable")
+        details = [
+            value
+            for value in (
+                _answer_text(values.get("location"), fallback=""),
+                _answer_text(values.get("status"), fallback=""),
+            )
+            if value
+        ]
+        suffix = f" - {resource_type}"
+        if details:
+            suffix += f" / {' / '.join(details)}"
+        lines.append(f"- `{_inline_code(name)}`{suffix}")
+    if output.get("display_truncated") is True:
+        lines.extend(
+            [
+                "",
+                (
+                    f"표시 한도에 따라 {len(rows)}개만 표시했습니다. "
+                    "정확한 전체 행은 기술 상세에서 확인하세요."
+                    if korean
+                    else (
+                        f"Displayed {len(rows)} rows within the presentation limit. "
+                        "Technical details retain the same bounded rows and truncation metadata."
+                    )
+                ),
+            ]
+        )
+    if not source_complete:
+        limitation = (
+            source_limitation
+            if isinstance(source_limitation, str) and source_limitation
+            else "source_incomplete"
+        )
+        lines.extend(
+            [
+                "",
+                (
+                    "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
+                    f"제한: `{limitation}`"
+                    if korean
+                    else (
+                        "The source scope is incomplete, so this is not an exhaustive count. "
+                        f"Limitation: `{limitation}`"
+                    )
+                ),
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            (
+                "검증된 읽기 전용 결과이며 실행 권한을 부여하지 않습니다."
+                if korean
+                else "This is a verified read-only result and grants no execution authority."
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_governed_document_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    document_outputs = [output for output in outputs if _is_governed_document_output(output)]
+    if not document_outputs:
+        return None
+    if len(document_outputs) != 1:
+        return (
+            "## 문서 근거를 검증할 수 없음\n\n문서 검색 출력이 하나보다 많아 답변을 보류했습니다."
+            if korean
+            else (
+                "## Document evidence could not be verified\n\n"
+                "More than one document retrieval output was returned."
+            )
+        )
+    document_output = document_outputs[0]
+    rows = document_output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    source_complete = document_output.get("source_complete")
+    source_limitation = document_output.get("source_truncation_reason")
+    projection_truncated = document_output.get("display_truncated")
+    if (
+        not isinstance(source_complete, bool)
+        or not isinstance(projection_truncated, bool)
+        or (
+            not source_complete
+            and (
+                not isinstance(source_limitation, str)
+                or not source_limitation
+                or len(source_limitation) > 128
+            )
+        )
+        or (source_complete and source_limitation is not None)
+    ):
+        return None
+    summary = rows[0].get("values") if isinstance(rows[0], Mapping) else None
+    if not isinstance(summary, Mapping) or summary.get("record_kind") != "summary":
+        return None
+    excerpts = [
+        values
+        for row in rows[1:]
+        if isinstance(row, Mapping)
+        and isinstance((values := row.get("values")), Mapping)
+        and values.get("record_kind") == "excerpt"
+    ]
+    if len(excerpts) != len(rows) - 1:
+        return None
+    heading = (
+        f"## 관리되는 문서 근거 {len(excerpts)}건"
+        if korean
+        else f"## {len(excerpts)} governed document excerpts"
+    )
+    lines = [heading, ""]
+    if not source_complete:
+        lines.extend(
+            [
+                (
+                    "문서 근거 범위가 불완전합니다. 이 발췌문을 전체 결과로 해석하면 안 됩니다. "
+                    f"제한: `{_inline_code(str(source_limitation))}`"
+                    if korean
+                    else (
+                        "Document coverage is incomplete. Do not treat these excerpts as "
+                        "exhaustive. "
+                        f"Limitation: `{_inline_code(str(source_limitation))}`"
+                    )
+                ),
+                "",
+            ]
+        )
+    if projection_truncated:
+        lines.extend(
+            [
+                (
+                    "표시 한도로 일부 문서 행이 생략됐습니다. 기술 상세에서 범위가 제한된 행을 "
+                    "확인할 수 있습니다."
+                    if korean
+                    else (
+                        "Some document rows were omitted by the display limit. "
+                        "Bounded rows remain available in technical details."
+                    )
+                ),
+                "",
+            ]
+        )
+    if not excerpts:
+        lines.append(
+            (
+                "접근 가능한 범위에서 관련 발췌문을 찾지 못했습니다. "
+                "이는 문서가 없다는 증거가 아닙니다."
+            )
+            if korean
+            else (
+                "No admissible excerpt was found in the authorized scope. "
+                "This does not prove that no relevant document exists."
+            )
+        )
+    for excerpt in excerpts:
+        source_name = excerpt.get("source_name")
+        locator = excerpt.get("locator")
+        revision = excerpt.get("document_revision")
+        evidence_ref = excerpt.get("evidence_ref")
+        text = excerpt.get("text")
+        display_content_digest = excerpt.get("display_content_digest")
+        redaction_applied = excerpt.get("redaction_applied")
+        if (
+            not isinstance(source_name, str)
+            or not source_name
+            or not isinstance(locator, str)
+            or not locator
+            or not isinstance(revision, str)
+            or not revision
+            or not isinstance(evidence_ref, str)
+            or not evidence_ref
+            or not isinstance(text, str)
+            or not text
+            or not isinstance(display_content_digest, str)
+            or not display_content_digest.startswith("sha256:")
+            or not isinstance(redaction_applied, bool)
+        ):
+            return None
+        rendered_text, display_truncated = _bounded_document_text(text, maximum=1_200)
+        lines.extend(
+            [
+                f"### {_escape_document_text(source_name, maximum=512)}",
+                "",
+                (
+                    f"- 위치: `{_inline_code(locator)}`"
+                    if korean
+                    else f"- Location: `{_inline_code(locator)}`"
+                ),
+                (
+                    f"- 문서 개정: `{_inline_code(revision)}`"
+                    if korean
+                    else f"- Document revision: `{_inline_code(revision)}`"
+                ),
+                (
+                    f"- 근거 참조: `{_inline_code(evidence_ref)}`"
+                    if korean
+                    else f"- Evidence reference: `{_inline_code(evidence_ref)}`"
+                ),
+                (
+                    f"- 표시 콘텐츠 다이제스트: `{_inline_code(display_content_digest)}`"
+                    if korean
+                    else (f"- Display content digest: `{_inline_code(display_content_digest)}`")
+                ),
+                *(
+                    [
+                        (
+                            "- 표시 내용은 민감 값 규칙에 따라 제거되었습니다."
+                            if korean
+                            else "- Display text was redacted by the sensitive-value policy."
+                        )
+                    ]
+                    if redaction_applied
+                    else []
+                ),
+                *(
+                    [
+                        (
+                            "- 표시 길이 제한으로 발췌문 일부만 보입니다. "
+                            "전체 허용 본문은 기술 상세에 남아 있습니다."
+                            if korean
+                            else (
+                                "- The excerpt is display-truncated. The complete admissible "
+                                "text remains in technical details."
+                            )
+                        )
+                    ]
+                    if display_truncated
+                    else []
+                ),
+                "",
+                f"> {rendered_text}",
+                "",
+            ]
+        )
+    lines.append(
+        "`instruction_authority=false`, `execution_authority=false`입니다."
+        if korean
+        else "The excerpts carry `instruction_authority=false` and `execution_authority=false`."
+    )
+    if output_shape != "governed_document_excerpts":
+        lines.insert(
+            2,
+            (
+                "이 문서 근거는 운영 관측을 보완하며 현재 상태의 권위를 대체하지 않습니다."
+                if korean
+                else (
+                    "This document evidence supplements operational observations and does not "
+                    "replace current-state authority."
+                )
+            ),
+        )
+        lines.insert(3, "")
+    return "\n".join(lines)
+
+
+def _is_governed_document_output(output: Mapping[str, object]) -> bool:
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return False
+    first = rows[0]
+    return (
+        isinstance(first, Mapping)
+        and isinstance((values := first.get("values")), Mapping)
+        and values.get("record_kind") == "summary"
+        and "access_scope_digest" in values
+        and "index_generation" in values
+        and "retrieval_mode" in values
+    )
+
+
+def _escape_document_text(value: str, *, maximum: int) -> str:
+    bounded = " ".join(value.split())[:maximum]
+    escaped = bounded.replace("\\", "\\\\")
+    for character in "`*_{}[]<>()#+-.!|":
+        escaped = escaped.replace(character, f"\\{character}")
+    return escaped
+
+
+def _bounded_document_text(value: str, *, maximum: int) -> tuple[str, bool]:
+    normalized = " ".join(value.split())
+    truncated = len(normalized) > maximum
+    return _escape_document_text(normalized, maximum=maximum), truncated
+
+
+def _inline_code(value: str) -> str:
+    return value.replace("`", "'").replace("\r", " ").replace("\n", " ")[:512]
+
+
 def _render_state_transition_answer(
     outputs: list[dict[str, object]],
     *,
@@ -3249,16 +3947,24 @@ def _render_state_transition_answer(
             if unresolved
             else "## 검증된 상태 전이 없음"
             if complete
-            else "## 상태 전이 확인 불가"
+            else "## 확인 범위에서 검증된 상태 전이 없음"
         )
         lines = [heading, ""]
         for row in rows[:20]:
+            subject = row.get("subject_name") or row.get("subject_ref") or "리소스 미확인"
             lines.append(
                 "- "
-                f"{row.get('effective_at') or '시각 미확인'} - "
+                f"`{subject}`: "
                 f"`{row.get('from_state') or 'unknown'}` -> "
                 f"`{row.get('to_state') or 'unknown'}` "
-                f"({row.get('state_type') or '상태 유형 미확인'})"
+                f"({row.get('effective_at') or '시각 미확인'}, "
+                f"{row.get('state_type') or '상태 유형 미확인'})"
+            )
+        if not rows and not unresolved:
+            lines.append(
+                "- 검증된 전체 조회 범위에서 상태 전이를 찾지 못했습니다."
+                if complete
+                else "- 현재 확인 가능한 범위에서는 검증된 상태 전이를 찾지 못했습니다."
             )
         lines.append(f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`")
         if unresolved:
@@ -3271,6 +3977,18 @@ def _render_state_transition_answer(
             )
         if isinstance(limitation, str) and limitation:
             lines.append(f"- 제한 사항: `{limitation}`")
+        if not complete:
+            lines.extend(
+                [
+                    "",
+                    "## 안내",
+                    "",
+                    "- 표시된 항목은 검증됐지만 원본 범위가 불완전하므로 전체 최신 목록으로 "
+                    "해석할 수 없습니다.",
+                    "- 인벤토리 조정과 상태 전이 범위 확인이 완료된 뒤 같은 범위에서 다시 "
+                    "조회하세요.",
+                ]
+            )
         lines.extend(["", "`execution_authority=false`"])
         return "\n".join(lines)
     heading = (
@@ -3280,16 +3998,24 @@ def _render_state_transition_answer(
         if unresolved
         else "## No verified state transitions"
         if complete
-        else "## Resource state transitions unavailable"
+        else "## No verified state transitions in scope"
     )
     lines = [heading, ""]
     for row in rows[:20]:
+        subject = row.get("subject_name") or row.get("subject_ref") or "resource unavailable"
         lines.append(
             "- "
-            f"{row.get('effective_at') or 'time unavailable'} - "
+            f"`{subject}`: "
             f"`{row.get('from_state') or 'unknown'}` -> "
             f"`{row.get('to_state') or 'unknown'}` "
-            f"({row.get('state_type') or 'state type unavailable'})"
+            f"({row.get('effective_at') or 'time unavailable'}, "
+            f"{row.get('state_type') or 'state type unavailable'})"
+        )
+    if not rows and not unresolved:
+        lines.append(
+            "- No state transitions were found in the complete verified scope."
+            if complete
+            else "- No verified state transitions were found in the currently available scope."
         )
     lines.append(f"- Source completeness: `{'complete' if complete else 'incomplete'}`")
     if unresolved:
@@ -3302,6 +4028,18 @@ def _render_state_transition_answer(
         )
     if isinstance(limitation, str) and limitation:
         lines.append(f"- Limitation: `{limitation}`")
+    if not complete:
+        lines.extend(
+            [
+                "",
+                "## Guidance",
+                "",
+                "- Displayed items are verified, but incomplete source scope means this is not the "
+                "complete latest list.",
+                "- Retry the same scope after inventory reconciliation and transition coverage "
+                "catch up.",
+            ]
+        )
     lines.extend(["", "This result is read-only and has `execution_authority=false`."])
     return "\n".join(lines)
 
@@ -3512,6 +4250,78 @@ def _render_ontology_declaration_count_answer(
     return "\n".join(lines)
 
 
+def _render_resource_state_list_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render verified collection state rows without reducing them to a count."""
+
+    if output_shape != "resource_state_list" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    raw_rows = output.get("rows")
+    if not isinstance(raw_rows, list) or not raw_rows:
+        return None
+    rows: list[Mapping[str, object]] = []
+    for raw_row in raw_rows:
+        if not isinstance(raw_row, Mapping):
+            return None
+        values = raw_row.get("values")
+        if (
+            not isinstance(values, Mapping)
+            or not isinstance(values.get("name"), str)
+            or not values["name"].strip()
+            or not isinstance(values.get("type"), str)
+            or not values["type"].strip()
+            or not isinstance(values.get("observed_state"), str)
+            or not values["observed_state"].strip()
+            or not isinstance(values.get("source_observed_at"), str)
+            or not values["source_observed_at"].strip()
+            or values.get("execution_authority") is not False
+        ):
+            return None
+        rows.append(values)
+    complete = output.get("source_complete") is True
+    limitation = output.get("source_truncation_reason")
+    lines = [
+        "## 관측된 리소스 상태" if korean else "## Observed resource states",
+        "",
+    ]
+    for row in rows:
+        name = row["name"]
+        resource_type = row["type"]
+        state = row["observed_state"]
+        observed_at = row["source_observed_at"]
+        lines.append(
+            f"- `{name}`: `{state}` (`{resource_type}`, 관측 {observed_at})"
+            if korean
+            else f"- `{name}`: `{state}` (`{resource_type}`, observed {observed_at})"
+        )
+    lines.append(
+        f"- 근거 완전성: `{'complete' if complete else 'incomplete'}`"
+        if korean
+        else f"- Evidence completeness: `{'complete' if complete else 'incomplete'}`"
+    )
+    if isinstance(limitation, str) and limitation:
+        lines.append(f"- 제한 사항: `{limitation}`" if korean else f"- Limitation: `{limitation}`")
+    lines.extend(
+        [
+            "",
+            (
+                "표시된 행은 검증된 관측 근거에만 해당합니다. `execution_authority=false`"
+                if korean
+                else (
+                    "Displayed rows are limited to verified observed evidence. "
+                    "`execution_authority=false`"
+                )
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _render_generic_empty_query_answer(
     outputs: list[dict[str, object]],
     *,
@@ -3563,23 +4373,29 @@ def _render_generic_empty_query_answer(
             ]
         else:
             lines = [
-                "## 일치하는 관측 근거 없음" if complete else "## 근거가 충분하지 않음",
+                (
+                    "## 일치하는 관측 근거 없음"
+                    if complete
+                    else "## 확인 범위에서 일치하는 항목 없음"
+                ),
                 "",
                 (
                     "- 검증된 조회 범위에서 일치하는 행이 반환되지 않았습니다."
                     if complete
-                    else "- 반환된 행은 없지만 원본 근거가 완전하지 않아 부재를 판단할 수 없습니다."
+                    else "- 현재 확인 가능한 범위에서는 일치하는 항목을 찾지 못했습니다."
                 ),
             ]
-        if limitations:
-            lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
-        lines.extend(
-            [
-                "- 행 0개는 검증된 조회 범위를 벗어난 실제 리소스의 부재를 증명하지 않습니다.",
-                "",
-                "`execution_authority=false`",
-            ]
-        )
+        if not complete:
+            lines.extend(["", "## 안내", ""])
+            if limitations:
+                lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
+            lines.extend(
+                [
+                    "- 원본 범위가 아직 완전하지 않으므로 전체 범위에 항목이 없다는 뜻은 아닙니다.",
+                    "- 원본 동기화와 변환 결과 처리가 완료된 뒤 같은 범위에서 다시 조회하세요.",
+                ]
+            )
+        lines.extend(["", "`execution_authority=false`"])
         return "\n".join(lines)
     if output_shape == "resource_state_list":
         lines = [
@@ -3596,27 +4412,29 @@ def _render_generic_empty_query_answer(
         ]
     else:
         lines = [
-            "## No matching observed evidence" if complete else "## Evidence is insufficient",
+            (
+                "## No matching observed evidence"
+                if complete
+                else "## No matching items in the verified scope"
+            ),
             "",
             (
                 "- The verified query scope returned no matching rows."
                 if complete
-                else (
-                    "- No rows were returned, but incomplete source evidence cannot establish "
-                    "absence."
-                )
+                else "- No matching items were found in the currently verified scope."
             ),
         ]
-    if limitations:
-        lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
-    lines.extend(
-        [
-            "- Zero rows do not prove that no real resources exist outside the "
-            "verified query scope.",
-            "",
-            "`execution_authority=false`",
-        ]
-    )
+    if not complete:
+        lines.extend(["", "## Guidance", ""])
+        if limitations:
+            lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
+        lines.extend(
+            [
+                "- The source scope is incomplete, so this does not establish global absence.",
+                "- Retry the same scope after source synchronization and projection catch up.",
+            ]
+        )
+    lines.extend(["", "`execution_authority=false`"])
     return "\n".join(lines)
 
 
@@ -4754,6 +5572,23 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
 
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
+    document_messages = {
+        "semantic_governed_documents_unavailable": (
+            "관리되는 문서 검색 기능을 사용할 수 없어 요청을 보류했습니다.",
+            "The request was held because governed document retrieval is unavailable.",
+        ),
+        "semantic_governed_documents_incomplete": (
+            "문서 검색 범위가 불완전하여 요청을 보류했습니다.",
+            "The request was held because governed document retrieval was incomplete.",
+        ),
+        "semantic_governed_documents_empty": (
+            "접근 가능한 범위에서 관련 문서 발췌문을 찾지 못해 요청을 보류했습니다.",
+            "The request was held because no admissible document excerpt was found.",
+        ),
+    }
+    if reason_code in document_messages:
+        korean_message, english_message = document_messages[reason_code]
+        return korean_message if locale.casefold().startswith("ko") else english_message
     if reason_code == "semantic_model_identity_unavailable":
         return (
             "모델 인증을 확인할 수 없어 요청을 보류했습니다. 인증을 복구한 후 다시 시도해 주세요."
@@ -4784,7 +5619,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
         "action_draft": "The request produced a review-only action draft.",
         "cancelled": "The request was cancelled.",
     }
-    korean = {
+    korean_messages = {
         "answered": "검증된 결과를 준비했습니다.",
         "direct_response": "직접 답변을 준비했습니다.",
         "held": "검증된 근거를 사용할 수 없어 요청을 보류했습니다.",
@@ -4793,7 +5628,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
         "action_draft": "요청을 검토 전용 작업 초안으로 만들었습니다.",
         "cancelled": "요청이 취소되었습니다.",
     }
-    selected = korean if locale.casefold().startswith("ko") else messages
+    selected = korean_messages if locale.casefold().startswith("ko") else messages
     return f"{selected.get(disposition, selected['held'])} ({reason_code})"
 
 
@@ -4900,7 +5735,14 @@ def _semantic_projection_id(projection: Mapping[str, object]) -> str:
     request_id = projection.get("request_id")
     if not isinstance(request_id, str):
         raise ValueError("semantic projection request_id MUST be a string")
-    projection_digest = content_digest(projection)
+    encoded = json.dumps(
+        projection,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    projection_digest = hashlib.sha256(encoded).hexdigest()
     return str(uuid5(_PROJECTION_NAMESPACE, f"{request_id}\0{projection_digest}"))
 
 
@@ -4928,6 +5770,8 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
     if loaded.get("schema_version") == "1.3.0":
         return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
+    if loaded.get("schema_version") == "1.6.0":
+        return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 

@@ -15,6 +15,14 @@ import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.azure.resource_health_inventory import (
+    AzureResourceHealthInventoryConfig,
+    AzureResourceHealthInventoryEnricher,
+)
+from fdai.delivery.azure.static_web_app_inventory import (
+    AzureStaticWebAppInventoryConfig,
+    AzureStaticWebAppInventoryEnricher,
+)
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
@@ -40,6 +48,8 @@ from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionEnricher,
     InventoryPromotionObserver,
+    InventoryPromotionObserverError,
+    InventoryPromotionRecovery,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
 )
@@ -121,6 +131,19 @@ class InventoryJobResult:
     active: bool
 
 
+@dataclass(frozen=True, slots=True)
+class ChangeStreamDrainResult:
+    """Sanitized per-source outcome for one bounded accelerator drain."""
+
+    published: int
+    unavailable_sources: tuple[str, ...] = ()
+
+    @property
+    def degraded(self) -> bool:
+        """Return whether any enabled accelerator was unavailable."""
+        return bool(self.unavailable_sources)
+
+
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
@@ -184,7 +207,7 @@ def _build_ontology_observer(
     vocabulary: ResourceTypeRegistry,
     publisher: EventBusOperationalActivityPublisher,
     evidence_counts: dict[str, int],
-) -> InventoryPromotionObserver:
+) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     observation_journal = build_observation_journal(config.dsn, os.environ)
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
@@ -226,6 +249,7 @@ def _build_ontology_observer(
             transition_writer=PostgresStateTransitionStore(
                 config=PostgresStateTransitionStoreConfig(dsn=config.dsn)
             ),
+            current_state_reader=ontology_store,
         )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:
@@ -237,20 +261,33 @@ def _build_ontology_observer(
             return
         failures: list[tuple[str, Exception]] = []
         history_available = False
-        try:
-            history_available = await topology_publisher.publish(observation) is not None
-        except Exception as exc:  # noqa: BLE001 - independent derived read model
-            failures.append(("topology_history_failed", exc))
-        result = None
+        catalog_available = True
         try:
             await ontology_store.sync_catalog()
-            result = await projector.apply(
-                observation,
-                journal_high_watermark=journal_append.journal_high_watermark,
-                projection_high_watermark=journal_append.projection_high_watermark,
-            )
         except Exception as exc:  # noqa: BLE001 - independent derived read model
-            failures.append(("projection_failed", exc))
+            failures.append(("catalog_sync_failed", exc))
+            catalog_available = False
+        result = None
+        if catalog_available:
+            history_succeeded = False
+            try:
+                history_available = await topology_publisher.publish(observation) is not None
+                history_succeeded = True
+            except Exception as exc:  # noqa: BLE001 - independent derived read model
+                failures.append(("topology_history_failed", exc))
+            if history_succeeded:
+                try:
+                    result = await projector.apply(
+                        observation,
+                        journal_high_watermark=journal_append.journal_high_watermark,
+                        projection_high_watermark=journal_append.projection_high_watermark,
+                        active_scope_projection_watermark=(
+                            journal_append.active_scope_projection_watermark
+                        ),
+                        active_scope_refs=journal_append.active_scope_refs,
+                    )
+                except Exception as exc:  # noqa: BLE001 - independent derived read model
+                    failures.append(("projection_failed", exc))
         if failures:
             await publisher.publish(
                 ontology_projection_activity(
@@ -285,8 +322,17 @@ def _build_ontology_observer(
                 reason_codes=reason_codes,
             )
         )
+        if result.status is not InventoryOntologyProjectionStatus.AVAILABLE or not result.complete:
+            raise RuntimeError("inventory ontology projection is incomplete")
 
-    return _observe
+    async def _recover() -> None:
+        if projector is None or ontology_store is None or topology_publisher is None:
+            return
+        pending = await observation_journal.load_pending_promoted_snapshot()
+        if pending is not None:
+            await _observe(pending)
+
+    return _observe, _recover
 
 
 async def run(
@@ -313,8 +359,32 @@ async def run(
             stack=stack,
             identity=identity,
         )
+        resource_health_enricher = AzureResourceHealthInventoryEnricher(
+            identity=identity,
+            http_client=client,
+            config=AzureResourceHealthInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                audience=config.management_audience,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=durable_store,
+        )
+        static_web_app_enricher = AzureStaticWebAppInventoryEnricher(
+            identity=identity,
+            http_client=client,
+            config=AzureStaticWebAppInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                audience=config.management_audience,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=durable_store,
+        )
         effective_enricher = SequentialInventoryPromotionEnricher(
             promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
+            resource_health_enricher,
+            static_web_app_enricher,
             kubernetes_enricher,
         )
         event_bus, event_topic = _build_job_event_bus(identity)
@@ -324,15 +394,23 @@ async def run(
             publisher=activity_publisher,
         )
         evidence_counts: dict[str, int] = {}
+        ontology_observer, ontology_recovery = _build_ontology_observer(
+            config,
+            vocabulary=vocabulary,
+            publisher=activity_publisher,
+            evidence_counts=evidence_counts,
+        )
         try:
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_enricher=effective_enricher,
-                promotion_observer=_build_ontology_observer(
-                    config,
-                    vocabulary=vocabulary,
-                    publisher=activity_publisher,
-                    evidence_counts=evidence_counts,
+                promotion_observer=ontology_observer,
+                pre_run_recovery=ontology_recovery,
+                run_lock=PostgresAdvisoryResourceLock(
+                    config=PostgresAdvisoryResourceLockConfig(
+                        dsn=config.dsn,
+                        lock_timeout_ms=30_000,
+                    )
                 ),
                 relationship_mapping_catalog=relationship_catalog,
                 progress_deadline_seconds=float(config.progress_deadline_seconds),
@@ -400,37 +478,62 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         dsn=config.dsn,
         freshness_budget_seconds=config.freshness_budget_seconds,
     )
-    published = await _drain_change_stream(config)
+    collection_policy = config.collection_policy
+    if collection_policy is None:
+        raise RuntimeError("inventory collection policy is unavailable")
+    drain = await _drain_change_stream(config)
     reconciliation_gate = PostgresInventoryReconciliationGate(
         config=snapshot_config,
         change_min_interval_seconds=config.change_min_interval_seconds,
         source_policy=config.snapshot_policy(config.source_order[0]),
         cursor_scopes=config.scopes,
+        cursor_prefixes=tuple(
+            prefix
+            for enabled, prefix in (
+                (config.resource_change_feed_enabled, "arg_resource_change_cursor:"),
+                (config.recovery_delta_enabled, "inventory_delta_cursor:"),
+            )
+            if enabled
+        ),
+        cursor_stale_after_seconds=min(
+            (
+                policy.target_freshness_seconds
+                for enabled, policy in (
+                    (
+                        config.resource_change_feed_enabled,
+                        collection_policy.source("resourcechanges-delta"),
+                    ),
+                    (
+                        config.recovery_delta_enabled,
+                        collection_policy.source("activity-log-delta"),
+                    ),
+                )
+                if enabled
+            ),
+            default=0.0,
+        ),
     )
     due = await reconciliation_gate(config.reconciliation_interval_seconds)
     await _publish_collection_health(
         config,
         health_state=reconciliation_gate.last_health_state,
         decision=reconciliation_gate.last_decision,
+        accelerator_degraded=drain.degraded,
     )
     if not due:
         _LOGGER.info(
             "inventory_reconciliation_not_due",
             extra={
                 "interval_seconds": config.reconciliation_interval_seconds,
-                "change_records_published": published if published is not None else 0,
-                "change_stream_available": published is not None,
+                "change_records_published": drain.published,
+                "change_stream_available": not drain.degraded,
+                "unavailable_sources": drain.unavailable_sources,
             },
         )
-        print(
-            "inventory reconciliation not due; "
-            + (
-                f"change records published {published}"
-                if published is not None
-                else "change stream unavailable"
-            ),
-            flush=True,
-        )
+        message = f"inventory reconciliation not due; change records published {drain.published}"
+        if drain.degraded:
+            message += f"; unavailable sources {','.join(drain.unavailable_sources)}"
+        print(message, flush=True)
         return config
     result = await run(config)
     if result.active:
@@ -457,6 +560,7 @@ async def _publish_collection_health(
     *,
     health_state: InventoryReconciliationHealthState | None,
     decision: CollectionScheduleDecision | None,
+    accelerator_degraded: bool = False,
 ) -> None:
     """Persist one sanitized aggregate projection for principal-gated reads."""
 
@@ -464,6 +568,7 @@ async def _publish_collection_health(
         config,
         health_state=health_state,
         decision=decision,
+        accelerator_degraded=accelerator_degraded,
     )
     if projection is None:
         return
@@ -472,22 +577,30 @@ async def _publish_collection_health(
     )
 
 
-async def _drain_change_stream(config: InventoryJobConfig) -> int | None:
+async def _drain_change_stream(config: InventoryJobConfig) -> ChangeStreamDrainResult:
     """Drain the read-only change accelerators without stopping completeness scans.
 
     The bounded ARG resourcechanges accelerator runs first - it is the
     lower-latency freshness hint - followed by the Activity Log recovery
     delta fallback/audit source. Each degrades independently: a source
     that is disabled or raises does not mask the other's success. The
-    combined result is `None` only when both are unavailable (disabled
-    counts as `0`, not unavailable), otherwise it is the sum of whatever
-    each source actually published."""
+    The result preserves both the published count and which enabled sources
+    were unavailable. Disabled sources count as available no-ops."""
 
     resource_change_result = await _try_resource_change_feed(config)
     recovery_delta_result = await _try_recovery_delta(config)
-    if resource_change_result is None and recovery_delta_result is None:
-        return None
-    return (resource_change_result or 0) + (recovery_delta_result or 0)
+    unavailable = tuple(
+        source
+        for source, result in (
+            ("resourcechanges", resource_change_result),
+            ("activity_log", recovery_delta_result),
+        )
+        if result is None
+    )
+    return ChangeStreamDrainResult(
+        published=(resource_change_result or 0) + (recovery_delta_result or 0),
+        unavailable_sources=unavailable,
+    )
 
 
 async def _try_resource_change_feed(config: InventoryJobConfig) -> int | None:
@@ -524,14 +637,17 @@ async def _main(argv: list[str]) -> None:
         config = await _load_job_config()
         try:
             await _run_due_once(config)
-        except InventorySourcesExhaustedError as exc:
+        except (InventorySourcesExhaustedError, InventoryPromotionObserverError) as exc:
             if not loop:
                 raise
+            failure_codes = (
+                tuple(failure.code.value for failure in exc.failures)
+                if isinstance(exc, InventorySourcesExhaustedError)
+                else ("ontology_projection_failed",)
+            )
             _LOGGER.warning(
                 "inventory_reconciliation_loop_tick_failed",
-                extra={
-                    "failure_codes": tuple(failure.code.value for failure in exc.failures),
-                },
+                extra={"failure_codes": failure_codes},
             )
             print("inventory reconciliation failed; retry scheduled", flush=True)
         if not loop:

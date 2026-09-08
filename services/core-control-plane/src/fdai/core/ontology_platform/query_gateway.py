@@ -365,8 +365,10 @@ class SecuredObjectSetQueryGateway:
             removed_link_count=len(materialization.graph.links) - len(secured_graph.links),
         )
         source_complete = secured_graph.source_complete
-        if self._graph_completeness is not None and any(
-            record.object_type == "Resource" for record in secured_graph.objects
+        if (
+            definition.include_relationships
+            and self._graph_completeness is not None
+            and any(record.object_type == "Resource" for record in secured_graph.objects)
         ):
             source_complete = source_complete and await self._graph_completeness()
         secured_graph = OntologyGraphSnapshot(

@@ -4,194 +4,40 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Workflow builder - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <style>
-    /* Workflow builder: read-only visual view of a "when -> do" workflow. */
-    .wb-layout { display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; align-items: start; }
-    @media (max-width: 1080px) { .wb-layout { grid-template-columns: 1fr; } }
-
-    .wb-panel { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
-    .wb-panel h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--cs-text-soft); font-weight: 600; }
-
-    /* Left: palette (ActionTypes to drop in) */
-    .wb-palette ul { list-style: none; padding: 0; margin: 8px 0 0; }
-    .wb-palette li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 2px -10px; border-radius: 6px; font-size: 13px; cursor: grab; border: 1px dashed transparent; }
-    .wb-palette li:hover { background: var(--cs-shade); border-color: var(--cs-hairline); }
-    .wb-palette li code { font-size: 12px; }
-    .wb-palette-cat { font-size: 11px; padding: 0 6px; border-radius: 3px; margin-left: auto; }
-    .wb-palette-cat.is-rem { color: var(--cs-sage);       background: rgba(94,130,89,.12); }
-    .wb-palette-cat.is-ops { color: var(--cs-steel);      background: rgba(68,104,142,.12); }
-    .wb-palette-cat.is-gov { color: var(--cs-plum);       background: rgba(123,108,156,.12); }
-    .wb-palette-cat.is-tool { color: var(--cs-teal);      background: rgba(79,132,126,.12); }
-
-    /* Middle: canvas */
-    .wb-canvas { padding: 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); min-height: 460px; background-image: radial-gradient(rgba(0,0,0,.045) 1px, transparent 1px); background-size: 18px 18px; }
-    .wb-canvas h3 { margin: 0 0 10px; font-size: 15px; }
-
-    .wb-node { display: block; padding: 12px 14px; margin: 0 auto 8px; max-width: 320px; border-radius: 10px; background: var(--cs-card); border: 1px solid var(--cs-hairline); box-shadow: var(--cs-shadow); position: relative; }
-    .wb-node .wb-kind { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
-    .wb-node.is-trigger .wb-kind { color: var(--cs-terracotta); background: rgba(188,116,73,.14); }
-    .wb-node.is-guard .wb-kind   { color: var(--cs-plum);      background: rgba(123,108,156,.14); }
-    .wb-node.is-action .wb-kind  { color: var(--cs-steel);     background: rgba(68,104,142,.14); }
-    .wb-node.is-notify .wb-kind  { color: var(--cs-teal);      background: rgba(79,132,126,.14); }
-    .wb-node-name { font-weight: 600; font-size: 14px; }
-    .wb-node-name code { font-size: 12.5px; }
-    .wb-node-note { color: var(--cs-text-soft); font-size: 12px; margin: 4px 0 0; }
-
-    /* Connector between stacked nodes */
-    .wb-edge { display: block; width: 2px; height: 26px; margin: -4px auto 4px; background: var(--cs-hairline); position: relative; }
-    .wb-edge::after { content: "\25BC"; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--cs-text-soft); }
-    .wb-edge-label { display: block; text-align: center; font-size: 10.5px; color: var(--cs-text-soft); margin: -2px 0 6px; font-family: "Cascadia Code","Consolas",monospace; }
-
-    .wb-toolbar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; }
-    .wb-toolbar .cs-btn { padding: 6px 10px; font-size: 12.5px; }
-    .wb-toolbar .cs-tag { margin-left: auto; }
-
-    /* Right: inspector */
-    .wb-inspect .wb-field { margin: 10px 0; }
-    .wb-inspect .wb-field label { display: block; font-size: 11.5px; color: var(--cs-text-soft); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-    .wb-inspect .wb-field input,
-    .wb-inspect .wb-field select { width: 100%; padding: 7px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); font: inherit; font-size: 13px; background: var(--cs-card); color: var(--cs-text); }
-    .wb-inspect .wb-field code { font-size: 12.5px; }
-    .wb-inspect .wb-safety { border-top: 1px dashed var(--cs-hairline); margin-top: 12px; padding-top: 10px; font-size: 12.5px; }
-    .wb-inspect .wb-safety > div { display: flex; justify-content: space-between; padding: 3px 0; }
-    .wb-inspect .wb-safety > div > span:last-child { color: var(--cs-text); font-weight: 500; }
-  </style>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=focused-governance-v1" />
+  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
+  <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
+  <script src="assets/focused-governance-workspaces.js?v=1" defer></script>
+  <script src="assets/calm-slate.js?v=focused-governance-v1" defer></script>
 </head>
-<body>
-  <main class="cs-container cs-page">
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Knowledge &middot; read-only workflow catalog</div>
-      <h1>Workflow builder</h1>
-      <p class="cs-lead">The visual companion to the "when &rarr; do" summary. Each workflow is a
-        chain of ActionType steps registered in the ontology; the builder is read-only in the
-        console (drop, drag, and property edits are wire-frames only). Publishing a workflow is a
-        catalog PR.</p>
-    </div>
+<body class="cs-governance-evidence">
+  <main class="cs-container cs-page fg-page">
+    <header class="fg-header"><div><h1><span class="cs-page-domain">Governance</span><span aria-hidden="true"> / </span>Workflow builder</h1><p>Review the published Process definition, ordered ActionType contracts, authority transitions, and recovery obligations without implying in-browser editing.</p></div><div class="fg-header-meta"><span>Catalog revision</span><strong>incident-review@4</strong></div></header>
+    <div class="fg-boundary" role="note"><strong>Published definition.</strong><span>Node selection is read-only inspection. Workflow changes are authored and reviewed as catalog pull requests.</span></div>
 
-    <div class="cs-readonly-banner">
-      <strong>Read-only surface.</strong> The palette lists the ActionTypes available on this
-      deployment (17). Reordering or wiring here does not mutate the catalog - the graph you
-      see is the last published version.
-    </div>
+    <section class="fg-metrics" aria-label="Workflow summary"><div class="fg-metric"><span>Steps</span><strong>5</strong><small>trigger to notification</small></div><div class="fg-metric"><span>Authority gates</span><strong>2</strong><small>quality and risk</small></div><div class="fg-metric"><span>Default mode</span><strong>Shadow</strong><small>no managed-resource effect</small></div><div class="fg-metric"><span>Validation</span><strong>Passed</strong><small>revision 4</small></div></section>
 
-    <div class="wb-layout">
-      <!-- Left: palette -->
-      <aside class="wb-panel wb-palette">
-        <h3>Palette <span class="cs-muted" style="font-size:11.5px; text-transform:none; letter-spacing:0">17 ActionTypes</span></h3>
-        <p class="cs-muted" style="margin:6px 0 6px; font-size:12px;">Drag onto the canvas.</p>
-        <ul>
-          <li><code>database.enable-pitr</code> <span class="wb-palette-cat is-rem">rem</span></li>
-          <li><code>storage.set-lifecycle-tier</code> <span class="wb-palette-cat is-rem">rem</span></li>
-          <li><code>k8s.scale-deployment</code> <span class="wb-palette-cat is-ops">ops</span></li>
-          <li><code>k8s.restart-deployment</code> <span class="wb-palette-cat is-ops">ops</span></li>
-          <li><code>iam.rotate-service-principal</code> <span class="wb-palette-cat is-gov">gov</span></li>
-          <li><code>cost.right-sizing.medium</code> <span class="wb-palette-cat is-rem">rem</span></li>
-          <li><code>network.rebalance-egress</code> <span class="wb-palette-cat is-ops">ops</span></li>
-          <li><code>notify.teams-adaptive-card</code> <span class="wb-palette-cat is-tool">tool</span></li>
-          <li><code>governance.escalate-to-github-issue</code> <span class="wb-palette-cat is-gov">gov</span></li>
-        </ul>
+    <form class="fg-toolbar" data-fg-static-form><label class="fg-field"><span>Workflow</span><select><option>Enable PITR after verified finding</option><option>Recover deployment health</option><option>Escalate policy exception</option></select></label><label class="fg-field"><span>Revision</span><select><option>Revision 4 - current</option><option>Revision 3</option></select></label><label class="fg-field"><span>Review lens</span><select><option>Authority and safety</option><option>Inputs and outputs</option><option>Recovery path</option></select></label><a class="fg-button" href="audit.html?workflow=incident-review">Open audit</a></form>
+
+    <section class="fg-workbench workflow-workbench" aria-label="Published workflow definition">
+      <aside class="workflow-catalog"><header class="fg-pane-head"><div><h2>Published workflows</h2><p>Catalog source</p></div><span class="fg-count">8</span></header><ul class="fg-select-list"><li><button class="fg-select" type="button" aria-pressed="true"><span><strong>Enable PITR</strong><small>Resilience / revision 4</small></span><span>current</span></button></li><li><button class="fg-select" type="button" aria-pressed="false"><span><strong>Deployment recovery</strong><small>Resilience / revision 7</small></span><span>ready</span></button></li><li><button class="fg-select" type="button" aria-pressed="false"><span><strong>Policy exception</strong><small>Governance / revision 3</small></span><span>review</span></button></li><li><button class="fg-select" type="button" aria-pressed="false"><span><strong>Cost anomaly review</strong><small>Cost / revision 5</small></span><span>current</span></button></li></ul></aside>
+
+      <div class="workflow-canvas"><header class="workflow-canvas-head"><div><h2><code>enable-pitr-after-finding</code></h2><p>Ordered contract path - select a step to inspect it.</p></div><span class="fg-badge is-success">Valid</span></header><div class="workflow-flow">
+        <button class="workflow-node" type="button" data-fg-select="workflow-step" data-fg-value="trigger" aria-pressed="false"><span class="workflow-node-kind">When</span><span><strong>Finding admitted</strong><small><code>database.pitr.required</code> with exact target identity</small></span><span class="fg-badge">Event</span></button><span class="workflow-connector"></span>
+        <button class="workflow-node" type="button" data-fg-select="workflow-step" data-fg-value="quality" aria-pressed="false"><span class="workflow-node-kind">Verify</span><span><strong>Quality gate</strong><small>Schema, policy, what-if, and grounding must pass</small></span><span class="fg-badge is-success">Required</span></button><span class="workflow-connector"></span>
+        <button class="workflow-node" type="button" data-fg-select="workflow-step" data-fg-value="risk" aria-pressed="false"><span class="workflow-node-kind">Decide</span><span><strong>Risk and approval gate</strong><small>Production scope requires two distinct reviewers</small></span><span class="fg-badge is-warning">HIL</span></button><span class="workflow-connector"></span>
+        <button class="workflow-node" type="button" data-fg-select="workflow-step" data-fg-value="action" aria-pressed="true"><span class="workflow-node-kind">Act</span><span><strong><code>database.enable-pitr</code></strong><small>PR-native, idempotent, effect verified</small></span><span class="fg-badge is-info">Shadow</span></button><span class="workflow-connector"></span>
+        <button class="workflow-node" type="button" data-fg-select="workflow-step" data-fg-value="notify" aria-pressed="false"><span class="workflow-node-kind">Close</span><span><strong>Notify and seal audit</strong><small>Publish terminal outcome only after independent observation</small></span><span class="fg-badge">Terminal</span></button>
+      </div></div>
+
+      <aside class="workflow-inspector">
+        <article class="fg-detail-panel" data-fg-panel="workflow-step" data-fg-value="action"><header class="fg-detail-head"><div><span class="fg-kicker">Selected ActionType</span><h2><code>database.enable-pitr</code></h2><p>Proposes one reversible configuration change through a reviewed PR.</p></div><span class="fg-badge is-info">Shadow</span></header><section class="fg-section"><h3>Safety contract</h3><ul class="fg-review-list"><li><span><strong>Rollback</strong><small><code>pr_revert</code>, tested</small></span><span class="fg-badge is-success">Ready</span></li><li><span><strong>Stop condition</strong><small>Backup lag above 60 seconds</small></span><span class="fg-badge is-success">Bound</span></li><li><span><strong>Impact cap</strong><small>1 target / 3 direct dependents</small></span><span class="fg-badge is-success">Under</span></li><li><span><strong>Effect check</strong><small>Provider configuration observation</small></span><span class="fg-badge">Required</span></li></ul></section></article>
+        <article class="fg-detail-panel" data-fg-panel="workflow-step" data-fg-value="trigger" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Trigger contract</span><h2>Finding admitted</h2><p>Starts only from a schema-valid, source-attributed finding with exact target identity.</p></div><span class="fg-badge">Event</span></header><section class="fg-section"><h3>Inputs</h3><p><code>Finding</code>, <code>Resource</code>, evidence cutoff, and ontology release.</p></section></article>
+        <article class="fg-detail-panel" data-fg-panel="workflow-step" data-fg-value="quality" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Verification contract</span><h2>Quality gate</h2><p>Abstains if schema, policy, dry-run, or grounding evidence is incomplete.</p></div><span class="fg-badge is-success">Required</span></header><section class="fg-section"><h3>Checks</h3><p>Contract validation, Rego policy, provider what-if, and reviewed citation.</p></section></article>
+        <article class="fg-detail-panel" data-fg-panel="workflow-step" data-fg-value="risk" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Authority contract</span><h2>Risk and approval gate</h2><p>Computes current approval requirements from action, target, impact, and identity.</p></div><span class="fg-badge is-warning">HIL</span></header><section class="fg-section"><h3>Separation</h3><p>Requester, two reviewers, and executor remain distinct principals.</p></section></article>
+        <article class="fg-detail-panel" data-fg-panel="workflow-step" data-fg-value="notify" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Terminal contract</span><h2>Notify and seal audit</h2><p>Publishes success only after the expected effect is independently observed.</p></div><span class="fg-badge">Terminal</span></header><section class="fg-section"><h3>Outputs</h3><p>Observed outcome, operator notification, and immutable terminal audit record.</p></section></article>
       </aside>
-
-      <!-- Middle: canvas -->
-      <section class="wb-canvas">
-        <div class="wb-toolbar">
-          <a class="cs-btn" href="#">&larr; Back to list</a>
-          <a class="cs-btn" href="#">Validate</a>
-          <a class="cs-btn is-primary" href="#">Open PR</a>
-          <span class="cs-tag is-teal">shadow-only in this env</span>
-        </div>
-
-        <h3>enable-pitr-on-shared-db-flag</h3>
-        <p class="cs-muted" style="margin:0 0 14px; font-size:13px;">
-          Trigger: PITR-disabled anomaly on a managed database. Do: verify, HIL-approve if prod,
-          then enable + notify.
-        </p>
-
-        <div class="wb-node is-trigger">
-          <span class="wb-kind">when</span>
-          <span class="wb-node-name">object.event <code>pitr:disabled</code></span>
-          <p class="wb-node-note">Deterministic match on <code>rule/database/pitr.rego</code>.
-            Correlates duplicates within 60s.</p>
-        </div>
-
-        <div class="wb-edge"></div>
-        <span class="wb-edge-label">if</span>
-
-        <div class="wb-node is-guard">
-          <span class="wb-kind">guard</span>
-          <span class="wb-node-name">quality gate (verifier + grounding)</span>
-          <p class="wb-node-note">Schema + Rego policy + what-if must pass. Grounded on
-            <code>waf.reliability.rl-04</code>.</p>
-        </div>
-
-        <div class="wb-edge"></div>
-        <span class="wb-edge-label">and</span>
-
-        <div class="wb-node is-guard">
-          <span class="wb-kind">guard</span>
-          <span class="wb-node-name">risk gate (env-based ceiling)</span>
-          <p class="wb-node-note">env=prod: HIL; env=nonprod: auto. Two distinct approvers.</p>
-        </div>
-
-        <div class="wb-edge"></div>
-        <span class="wb-edge-label">then do</span>
-
-        <div class="wb-node is-action">
-          <span class="wb-kind">do</span>
-          <span class="wb-node-name"><code>database.enable-pitr</code></span>
-          <p class="wb-node-note">pr_native path. 7-day retention. Rollback pr_revert.</p>
-        </div>
-
-        <div class="wb-edge"></div>
-        <span class="wb-edge-label">then</span>
-
-        <div class="wb-node is-notify">
-          <span class="wb-kind">notify</span>
-          <span class="wb-node-name"><code>notify.teams-adaptive-card</code></span>
-          <p class="wb-node-note">To <code>rg-billing-prod</code> owners channel. Includes rollback link.</p>
-        </div>
-      </section>
-
-      <!-- Right: inspector -->
-      <aside class="wb-panel wb-inspect">
-        <h3>Inspect <span class="cs-muted" style="font-size:11.5px; text-transform:none; letter-spacing:0">selected step</span></h3>
-        <p class="cs-muted" style="margin:6px 0 6px; font-size:12px;"><code>database.enable-pitr</code></p>
-
-        <div class="wb-field">
-          <label>ActionType</label>
-          <input type="text" value="database.enable-pitr" readonly />
-        </div>
-        <div class="wb-field">
-          <label>Execution path</label>
-          <select disabled><option>pr_native</option><option>direct_api</option><option>tool_call</option></select>
-        </div>
-        <div class="wb-field">
-          <label>Target selector</label>
-          <input type="text" value="tag:workload=billing AND env=prod" readonly />
-        </div>
-        <div class="wb-field">
-          <label>Parameter: retention_days</label>
-          <input type="text" value="7" readonly />
-        </div>
-
-        <div class="wb-safety">
-          <div><span>Rollback contract</span><span>pr_revert (tested)</span></div>
-          <div><span>Stop-condition</span><span>backup lag &gt; 60s</span></div>
-          <div><span>Blast cap</span><span>1 resource</span></div>
-          <div><span>Default mode</span><span>shadow</span></div>
-          <div><span>Promotion gate</span><span>see promotion.html</span></div>
-          <div><span>Reversibility</span><span>idempotent</span></div>
-        </div>
-      </aside>
-    </div>
-
-    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
-      Palette content comes from <code>GET /workflows/action-types</code>; the graph is a
-      static rendering of the built-in workflow catalog. See
-      <a href="actions.html">Actions</a> for the full ActionType ontology.
-    </p>
+    </section>
   </main>
 </body>
 </html>

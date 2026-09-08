@@ -3,9 +3,8 @@ title: Code Map
 ---
 # Code Map
 
-This page maps each FDAI runtime service and shared package to its physical source, tests, and
-owning design. Use it to find the current service-owned implementation without relying on the
-retired top-level application tree.
+This page maps FDAI runtime services, deployment tooling, and shared packages to their source, tests,
+and owning designs. Use it instead of the retired top-level application tree.
 
 > **Scope:** This map describes the validated local IS-08 repository ownership and IS-07 local
 > upgrade and rollback proof. IS-09 owns the deferred remote verification.
@@ -15,6 +14,14 @@ retired top-level application tree.
 - **Five service distributions:** Every runtime process owns one package under `services/`.
 - **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts;
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
+- **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
+  reviewed ResourceType path registry. Core ontology projection and Operator read models consume
+  that registry before inspecting provider properties. Root and supported nested metadata owners
+  retain only canonical metadata paired with a present allowlisted value. Unsupported flat
+  metadata, generic `status`, and `provisioningState` cannot create an operational fact for an
+  inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
+  and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
+  `BuildStatus`; canonical ontology projection keeps that child source and effective time.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
@@ -29,12 +36,70 @@ retired top-level application tree.
   bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
   from its sealed mode, including combined Core bindings; service tfvars cannot replace ownership or approval.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
+- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
+  Operations routes can opt into explicit Sample projections that remain read-only, generic, and
+  visibly separate from operational evidence.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
 > [archived Code Map implementation ledger](../../roadmap-implementation/architecture/code-map.md).
 
 ## Physical service ownership
+
+Operational diagnostic conversations retain the existing service boundary. Core's `gateway_diagnostics.py` and `resource_configuration_{queries,snapshots,projection}.py` own bounded metric comparisons and reviewed, scope-filtered historical facts. The semantic compilers bind these reads to declared FunctionTypes; intrinsic ObjectSet IDs and endpoint-only typed-path receipts prevent a downstream backend read from using the carried gateway root. An optional exact backend filter stays in validated scalar function arguments rather than masquerading as a secured object dependency. Azure native metric templates remain in delivery adapters. Operator's `document_export.py` renders the same verified inventory result, not a prior unrelated turn. Its response envelope can contain binary documents; `t1_model_health.py` validates raw projection input and never treats binary or absent content as model health.
+Core conversation routing runs compact preflight on the first turn. An explicitly selected T2 binding classifies and authors a bounded general answer in that single preflight, while explicit operational requests bypass adaptive explanation planning and retain verified semantic planning. Azure semantic planning enforces reviewed descriptor slices and the complete 64 KiB request ceiling. For exact F1-F4 shapes, preflight can also supply provenance-bound candidate meaning and remove one serial full-judgment call. Core verifies current-input digests, source spans, confidence, context independence, family shape, and the principal manifest before reusing it. Other requests keep full semantic judgment.
+Exact Resource current-state preflight binds one complete name or Resource ID to
+`query.resource_current_state`. The resulting ObjectSet excludes relationships and does not add
+catalog value filters found inside the identifier.
+Operational Resource collections apply one server-owned visibility rule after deterministic or
+model planning. Unbound catalog filters clarify instead of widening to all Resources, exact ARM
+identities remain `Resource.id` predicates, and role-assignment objects stay available only to
+their dedicated IAM evidence paths. ObjectSet failures retain their exception and bounded stage diagnostic. Incomplete read-only Resource and state-transition results present verified scoped rows with limitation and retry guidance; identity, authority, conflict, and no-safe-subset outcomes remain held.
+Accepted subscription identity and Service Health judgments build deterministic frames and server plans from their exact no-input FunctionTypes, so the complete ontology schema never crosses a frame-model boundary.
+If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
+value occurs once in the current utterance. Missing or repeated values retain full judgment.
+The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
+bounds as the cloud SASL path. Multiplexed logical consumers can skip unrelated physical events
+without one broker commit per event, while mid-processing closure remains eligible for redelivery.
+Generic product labels such as APIM, gateway, backend, and GPT never satisfy an exact operational
+target, including when a determiner such as "the" or "selected" is attached. They require Resource
+identity clarification before frame or provider work. Possessive forms such as "our gateway" and
+"my APIM service", and deictic forms such as "that gateway", remain generic as well.
+Fast-path identity targets are token-like names without whitespace or exact ARM IDs. Natural-language
+identity phrases retain full judgment even when they are not in the reviewed generic-label set.
+The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
+future wording retains full semantic judgment and then receives temporal clarification instead of
+becoming a historical lookback. The same source check applies after full judgment and in both
+configuration and gateway normalization.
+The `last_hour` facet is descriptive only and cannot establish a time window without that grounded
+`time_range` target.
+The deterministic F2 compiler binds path-shaped ARM IDs as `Resource.id` instead of
+`Resource.name`. Missing grounded time returns temporal clarification, and other deterministic F2
+construction failures hold without a frame-model fallback.
+Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
+compiler's default window.
+Core then rewrites the accepted gateway frame to `window_seconds=3600`; an empty or different model
+scope cannot fall back to the compiler's 15-minute default.
+It also rebuilds the gateway root and optional backend constraint from the judgment's source-grounded
+targets. A model frame cannot substitute a backend as the gateway root, and the fast path accepts
+at most one backend-or-model filter. Path-shaped backend ARM targets bind to `Backend.id`, not
+`Backend.name`.
+Gateway judgments require exactly one Resource and one explicitly past time target, at most one
+backend-or-model target, and no other target kind. Every identity target must be exact; generic
+resource, backend, or model labels and invalid cardinality clarify before frame I/O.
+Only an accepted semantic judgment can drive these frame normalizations; ambiguous, low-confidence,
+or otherwise rejected proposals cannot rewrite frame scope or identity.
+Configuration and gateway operational output shapes also require an accepted judgment for the same
+family. A rejected judgment cannot fall through to a model frame and recover an operational plan.
+For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
+consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
+the replacement process ready.
+Configuration and gateway comparisons without a source-grounded Resource name or id stop with
+typed `resource_identity` clarification before frame-model or provider I/O.
+An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and
+skips the general frame model.
+See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
+for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
 
 | Owner | Source | Tests | Distribution |
 |-------|--------|-------|--------------|
@@ -86,39 +151,48 @@ abstentions separately.
 Azure semantic query construction lives in `semantic_query_azure_composition.py`.
 `wire_semantic_query.py` directly re-exports that constructor while retaining the established
 public import, and the general wiring module stays below the enforced 800-line ceiling.
+Governed conversational document retrieval spans the semantic judgment and planning modules,
+`core/knowledge/governed_document_reader.py`, the read-only
+`query.governed_documents` FunctionType, Operator identity projection, and Console evidence
+decoding. Document metadata remains ontology-governed, while excerpt text stays untrusted and cannot
+grant authority. Required retrieval fails closed on incomplete coverage; optional retrieval remains
+partial unless evidence completes. Its reader uses the document-ingestion route without widening every ontology edit.
+The PostgreSQL adapter reports `index_completeness_unverified` until a complete provider-owned
+index generation is available. Focused contract tests cover every excerpt, collection, authorization, input, and reader-bound failure without granting execution authority. Content and access-scope digests require exact lowercase hexadecimal SHA-256 identities, not matching length alone. Projection regressions keep the immutable source digest separate from the exact redacted, escaped, and display-truncated representation digest.
 
 Semantic resource-health planning now keeps collection health, exact resource identity, explicit
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
 provider completeness and reason codes, while the Operator presentation and Console dashboard keep
 partial or unavailable observations visible instead of substituting generic inventory rows.
 Inventory change ingestion uses the typed `inventory_observation.py` contract and dual-writes the
-append-only PostgreSQL journal while the overlay remains the current read path. Journal replay keeps
-operation status separate and exposes projection watermarks to completeness checks. The bounded
-`postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py` migrate
-the active generation only when its content, coverage, freshness, and watermarks remain identical.
+append-only PostgreSQL journal while the overlay remains the current read path.
+`postgres_inventory_projection_checkpoints.py` separates the all-scope retention fence from the active-scope graph checkpoint, and `inventory_ontology_state.py` validates its generation-bound state.
+The bounded `postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py`
+migrate the active generation only when content, coverage, freshness, and watermarks remain identical.
+The local authoritative refresh records the configured subscription scope and appends the promoted
+snapshot before advancing ontology projection. Completeness checks use the exact active checkpoint
+while unrelated scopes remain pending for retention and replay.
 `operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob
-artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule.
+artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule. The immutable receipt keeps ordered scenario results, while its PostgreSQL projection keys the same results by scenario to satisfy the object-valued storage contract.
 The OI-16 protected certification campaign lives in
 `delivery/operational_history_certification_campaign*.py`, with its exact synthetic retention and
 append-only recovery schema in `20260907_core_oi16_certification_support.py`. The shared journal
 keeps synthetic purge retention disabled by default; only a validated dev campaign enables it.
 The protected workflow binds all 13 scenario results to exact CI, runtime-image attestation,
 deployment evidence, and separate human approval before the certification writer can append a
-receipt.
+receipt, polls the independent restart effect for at most five minutes, then reads the finalized summary from the execution's actual replica and container identities. Its private Blob module preserves the prior deployer role while adding the stable runner at a separate Terraform address, so certification planning rejects role replacement and deletion.
 
-Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
-into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the
-Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at
-startup. Prompt ablation removes only optional context and records every exclusion for replay.
+Prompt composition keeps role and safety layers in `core/prompts/` and Azure startup assembly in `composition/wire_azure_prompts.py`. [Adaptive composition](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py) binds role-aware stages, while `adaptive_model_targets.py` resolves the shared author, reviewer, and optional refinement targets for both adaptive answers and the opt-in `wire_t1_routing.py` latency probe without cross-wire imports. [Answers](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py) share [nested provider budgets](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py), and [Operator relationship resolution](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py) supplies expiring no-authority context.
+Revisioned conversation settings are written by the Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at startup. IAM composition binds dialogue relationship adapters without expanding root imports. Core records bounded T1 measurements in a no-authority state projection; the Operator conversation adapter reads only that state, removes endpoint details before Console health presentation, and imports the reader through the existing semantic runtime facade so root composition stays at 39 unique service imports. Adaptive answers use independent configured T1 author/reviewer models, with T2 only for optional refinement. Prompt ablation records every optional exclusion for replay, and version-negotiated adaptive `1.6.0` wires preserve semantic evidence.
 Question campaign wording uses `core/conversation/question_candidates.py` as the server-owned
 semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
 can return only a `question` field. Core binds the case before independent semantic review, so
 generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
 Generated question-bank artifacts record the current Console catalog digests, so a reviewed
 presentation-contract change regenerates the JSON bank and review catalog together.
-The generated question bank binds both Console message catalogs by digest and is regenerated
+Knowledge-only plans carry a candidate draft; review omits unrelated history and refinement reserves verification budgets. Missing evidence keeps supported explanations limited without futile T2 calls. Stages cache schemas and expose elapsed budgets; persisted terminals wake readers without granting authority. Prompt types use public agent/model facades; `families/conversation/conversation_history.py` restores principal-bound durable replies without model replay. The question bank binds both Console catalogs by digest and is regenerated
 whenever those reviewed source catalogs change.
 The Console static catalog inventory resolves shared, route-local, and optional package catalogs,
 including the Dashboard v2 catalog, so a new route cannot hide a missing English fallback key.
@@ -129,19 +203,17 @@ deterministic clarification and candidate recovery. Focused sibling modules own 
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, typed multi-pair
 relationship planning, and queries while preserving public imports, deterministic gate order, and
-read-only authority. Typed Rule traces bind the exact Rule declaration and all required LinkType
-receipts before answering. Service-to-Agent ownership uses one exact-release, principal-scoped
+read-only authority. `semantic_planning_judgment.py` and `semantic_planning_frame_gate.py` isolate judgment consumption and ordered frame gates, while `semantic_query_runtime_composition.py` owns runtime availability. `conversation_preflight_answer_safety.py` and `conversation_preflight_targets.py` isolate model-answer safety from exact target, time, and subscription-scope validation; `semantic_planning_preflight.py` and `semantic_target_candidate_constants.py` own compact descriptor selection and typed target-candidate sets; gateway plans collect authorized same-family names and `semantic_target_suggestions.py` ranks them without rebinding.
+Typed Rule traces bind the exact Rule declaration and all required LinkType receipts before answering. Service-to-Agent ownership uses one exact-release, principal-scoped
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
-Validated `Document` judgments and exact named resource-group membership bypass the residual frame
-model through deterministic builders. The document path remains draft-only and binds its source to
-the authenticated principal's preceding verified result.
+Validated `Document` judgments and exact named resource-group membership bypass the residual frame model through deterministic builders. Document drafting remains draft-only and binds its source to the authenticated principal's preceding verified result. Governed-document evidence planning separately compiles `query.governed_documents` only from a schema-validated evidence mode. Its reader revalidates the exact principal, groups, collection, purpose, policy, revision, lifecycle, and completeness before returning bounded excerpts. Required or explicit evidence fails closed; optional failure can produce only a labeled partial answer backed by independent operational evidence. Document text remains untrusted and grants no instruction or execution authority.
 The Core package pins the Snappy codec used by Kafka consumers so compressed EventBus records do
 not pass readiness and then terminate a required runtime task.
-Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
-relationship inclusion by default, and the default remains absent from legacy serialized
-definitions so replay digests do not change.
+Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain relationship inclusion by default, and the default remains absent from legacy serialized definitions so replay digests do not change.
+Targetless recent-state plans narrow Resource scope to manifest-declared types with reviewed operational-state paths and state-fact metadata. The ObjectSet service pushes the bounded type set into one ontology-store query so source generation and completeness are evaluated once.
+The transition function keeps one latest bitemporal edge per Resource, and the Console projection preserves its inventory authority input. An incomplete source remains a typed evidence hold rather than an empty or guessed Resource list.
 Semantic judgment uses strict structured output, and a first-turn operational read avoids the
 social preflight while direct social candidates and context-bearing turns remain independently
 confirmed.
@@ -159,6 +231,15 @@ public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.
+Periodic inventory reconciliation also enriches reviewed Resource types with exact provider state.
+The inventory coordinator serializes collection, promotion, transition publication, and ontology
+projection under one advisory lock. The shared contract selects Resource Health-supported compute,
+data, platform, and network ResourceTypes, including Storage accounts; Application Insights remains
+explicitly not applicable. Exact reads are target- and concurrency-bounded, prior facts retain their
+generation and content-addressed evidence, and Operator and conversational readers consume the
+result without deriving health from provisioning.
+The normalized observation journal replays any active generation whose history or ontology
+projection did not finish before the coordinator admits another promotion.
 Topology endpoint clarification normalization lives in
 `semantic_planning_topology_normalization.py`; the compatibility facade preserves public imports,
 deterministic gate order, and read-only authority.
@@ -494,13 +575,13 @@ an agent into the framework.
 | Service | Package responsibility | Package map |
 |---------|------------------------|-------------|
 | Environment model binding | Shared authority-free policy contract, exact proposal-to-policy join, three-way-CAS Settings projection, unique capability identities, exact GA and TPM/PTU resolution, bounded provider reads, Core-only attested runtime binding, healthy active-revision CAS, policy-bound exact apply, and independent provider readback | [shared contract](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [resolver schema](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [proposal validator](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [plan verifier](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision verifier](../../../scripts/deployment/azure/verify_active_core_revision.py), [provider readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM adapter](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), and [Console editor](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator Service | Authenticated route families, loopback-only local Azure CLI session bootstrap through the bounded authentication module, durable semantic bridge, normalized direct-Psycopg connections, exact-release reads, owner-scoped background tasks, and principal-scoped Process state plus atomic transition-proposal admission without execution authority | [authentication boundary](../../../services/operator-service/src/fdai_operator_service/auth.py), [local authentication](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN normalization](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [workflow family](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [Process projection](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [approval projection](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [retry admission](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [background-task projections](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [runtime projection reader](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator Service | Authenticated route families, loopback-only local Azure CLI session bootstrap through the bounded authentication module, durable semantic bridge, shape-validated T1 health enrichment, normalized direct-Psycopg connections, exact-release reads, owner-scoped background tasks, and principal-scoped Process state plus atomic transition-proposal admission without execution authority | [authentication boundary](../../../services/operator-service/src/fdai_operator_service/auth.py), [local authentication](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN normalization](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [workflow family](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [T1 health projection](../../../services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py), [Process projection](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [approval projection](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [retry admission](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [background-task projections](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [runtime projection reader](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console background-task inspection | Strict owner-scoped task/progress decoders, bilingual list and selected detail presentation, and explicit refresh without create, cancel, retry, or execute controls | [route](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), and [decoder tests](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console Process controls | Strict principal-scoped Process and transition decoders, localized current-step requirements, revision-bound resume/cancel/retry requests, and explicit non-success acceptance | [control decoder](../../../console/src/routes/processes.control.ts), [control panel](../../../console/src/routes/process-control-panel.tsx), [request client](../../../console/src/routes/processes.transitions.ts), and [browser contract](../../../console/tests/e2e/workflow-process-transitions.spec.ts) |
 | FDAI Console ontology workbench | Exact declaration routes, strict projection decoders, evidence/dependent/release sections, localized verification state, and snapshot-bound impact/map presentation with no execution controls | [ObjectType workbench](../../../console/src/routes/ontology-object-type-detail.tsx), [impact route](../../../console/src/routes/blast-radius.tsx), [impact decoder](../../../console/src/routes/blast-radius.model.ts), and [ontology contracts](../../../console/src/routes/ontology.types.ts) |
 | FDAI Console localization catalogs | Shared shell, Incident, Alerts, and planner-unavailable recovery labels remain in the base bilingual catalog. Route-specific Teams integration and optional Cost Governance labels stay in lazy route catalogs, so specialized guidance does not consume the entry-bundle budget or activate a package. Changes to the base catalogs regenerate the question-bank digests. | [base English catalog](../../../console/src/i18n/messages.en.json), [base Korean catalog](../../../console/src/i18n/messages.ko.json), and [route catalogs](../../../console/src/routes/i18n/) |
 | FDAI Console route loading | Named route exports use one typed lazy adapter while shared route modules reuse one loader. The entry-bundle check verifies required lazy boundaries and enforces both raw and gzip budgets without weakening route isolation. | [panel registry](../../../console/src/panels.tsx) and [entry-bundle check](../../../console/scripts/check-entry-bundle.mjs) |
-| FDAI Console Dashboard v2 and recorded Resource state | Additive resource-first `/dashboard-v2` route with a bounded honeycomb, one active hover preview, type autocomplete, and shared operational, provisioning, and availability facts from the existing ontology instance reader. Bounded server pages fence the inventory generation to the committed ontology manifest, qualify reviewed provider state paths from immutable snapshot times, and preserve distinct unknown causes. The Dashboard and Instances screens share one decoder and fact view. The existing Dashboard and Cost Governance routes remain unchanged. Authenticated runtime validation remains separate. | [route](../../../console/src/routes/dashboard-v2.tsx), [shared decoder](../../../console/src/recorded-resource-state.ts), [state API](../../../services/operator-service/src/fdai_operator_service/families/operations/instance_states.py), [recorded-state design](../interfaces/recorded-resource-state.md), and [adoption ledger](../../roadmap-implementation/interfaces/console-operations.md) |
+| FDAI Console Dashboard v2 and recorded Resource state | Additive resource-first `/dashboard-v2` route with a bounded honeycomb, one active hover preview, type autocomplete, and shared operational, provisioning, and availability facts from the existing ontology instance reader. Bounded server pages fence the inventory generation to the committed ontology manifest, qualify reviewed provider state paths from immutable snapshot times, and preserve distinct unknown causes. The Dashboard and Instances screens share one decoder and fact view. Compact ontology graph nodes keep an exact operational value primary, but may select exact availability when operation is not applicable or not exposed, then exact provisioning before an operational-unavailable placeholder; a missing applicable operational value remains visible, and the axis label prevents an inferred operational or health verdict. The existing Dashboard and Cost Governance routes remain unchanged. Authenticated runtime validation remains separate. | [route](../../../console/src/routes/dashboard-v2.tsx), [shared decoder](../../../console/src/recorded-resource-state.ts), [state API](../../../services/operator-service/src/fdai_operator_service/families/operations/instance_states.py), [recorded-state design](../interfaces/recorded-resource-state.md), and [adoption ledger](../../roadmap-implementation/interfaces/console-operations.md) |
 | Network topology visualization | Shared network vocabulary, authored static-diagram contract, observed-only Console focus and path presentation, and sanitized export with no execution authority | [shared vocabulary](../../../packages/network-topology-contracts/), [diagram compiler](../../../tools/architecture-diagrams/), [Console architecture components](../../../console/src/components/), and [owner design](../interfaces/network-topology-visualization.md) |
 | Document Ingestion API | Upload intake, API-owned transitions, governed preview authorization, and fenced connector state | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing, process-isolated Korean and English OCR, and restart-safe protection revocation cleanup | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/), [local OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), and [provider policy contract](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
@@ -538,8 +619,8 @@ execution handler.
 Interactive conversation planning uses one schema-validated semantic judgment before capability
 selection. When that boundary accepts an unambiguous collection-level Resource state,
 Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
-builds and verifies the frame deterministically instead of issuing a second frame-model request.
-The Operator bridge still persists the request before accepting its projection. A missing request
+builds the frame without a second model request. `semantic_judgment_rejections.py` owns the stable
+content-free rejection vocabulary and keeps the boundary below its limit. The Operator bridge persists the request before accepting its projection. A missing request
 can retry as a bounded visibility race, while a permanent projection identity conflict is
 quarantined once without churning the consumer group. Model timing includes completed judgment,
 frame, and plan calls; end-to-end turn timing remains the broader latency authority.
@@ -551,85 +632,9 @@ scan, ontology projection, and current-state read evidence from Core to Operator
 record separates logical agent ownership from the producing process and fixes
 `execution_authority=false`.
 
-Version 1.2 of the existing Operator/Core envelopes adds one bounded semantic-turn request and one
-evidence-bound terminal result. The request pins authenticated roles, session ordering, purpose,
-deadline, and idempotency. An answered result requires exact release, manifest, plan, execution
-receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
-those fields. Runtime publication and consumption remain service-owned implementations, and the
-Operator bridge supervises distinct terminal-projection and progress topics.
-
-Local preparation gives each checkout a deterministic semantic outbox namespace. Pantheon
-qualification reuses the current verified Bragi route for ordinary deliberation, preserves the
-fixed T2 census route, deduplicates peers, and applies mixed-family semantic review beneath the
-deterministic verification and provider-deferral gates. T2 supplies its exact answer-model identity
-to block self-review. Invalid evaluator outputs never become semantic rubric inputs, and an
-incomplete required or attempted forbidden T2 outcome holds the campaign with validated bounded
-reason codes, without changing agent or execution authority.
-
-Operator continuation lookup materializes result candidates for the exact session and request
-candidates for the exact outbox namespace and principal before joining them by `request_id`. The
-bounded candidate sets preserve lineage checks without expanding the PostgreSQL join across
-unrelated `state_kv` rows.
-
-Semantic-turn requests also preserve a typed screen or resource-group selection with an opaque
-server-issued token. Operator resolves the token against the authenticated principal, ordinary
-lowercase role scope, purpose, exact release, source generation, completeness, and id set, then
-recomputes the selection digest before Core compiles an exact `Resource.id` scope for
-`query.contextual_resources`; a client-forged or
-recomputed id, missing-after-restart token, or scope mismatch is typed unavailable rather than a
-fallback to the principal-visible collection. No context field grants approval or execution
-authority.
-Explicit utterance predicates are intersected with the token's set, and an incomplete
-object-only contextual table holds the semantic turn instead of becoming an answered claim.
-This hold is limited to contextual resource plans; other bounded query tables continue to return
-their explicit truncation state.
-The contextual FunctionType carries its opaque selection token as a scalar schema input while the
-object-valued query result remains dependency-only, so a disconnected model node cannot invoke the
-specialized read.
-Operator instance projections issue the token from the authenticated principal and active
-generation, while truncated projections omit the identity entirely.
-The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
-`owner`) and rejects `BreakGlass`. Exact id predicates use batches of at most 128 ids and omit
-relationship materialization and relationship-completeness gating for these object-only reads.
-The wire contract permits a conservative bounded 512-id context envelope; the general ObjectSet
-and store limits remain 1,000.
-The context contract rejects mixed incident, screen, and resource-group identities, while exact
-selection reads retain the source-generation receipt.
-The same 512 bound is enforced by the Operator/Core schema, so oversized client context cannot
-enter planning.
-The bounded semantic query JSON envelope remains within its existing byte limit for the 512-id
-selection without removing the existing row and byte limits on ordinary outputs.
-
-The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
-those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,
-codecs, identities, logical topics, and offset groups; neither imports the other's implementation.
-The same contract exports the canonical physical-topic default used when targeted Terraform state
-has not yet materialized newly declared outputs.
-
-The SDK also owns the `notification-delivery-receipt` wire schema and canonical logical topic.
-Operator authenticates and publishes the observation over the existing multiplexed physical topic;
-Core alone applies it to an already accepted delivery. This contract grants no notification target
-or execution authority.
-
-The SDK also owns the WARA shadow-assessment topic and Operator consumer-group identifiers. Core
-publishes no-authority assessment results through that topic, and the independent Operator service
-validates exact active-control coverage before replacing its read projection. The shared contract
-contains wire identifiers only; it grants neither service provider-read or execution authority.
-
-The SDK also owns the execution-venue contract: the one resolver for `FDAI_EXECUTION_VENUE` and
-the one table of venue-selected capability flags. It lives here rather than in a service because
-every process resolves the same variable, and an independent service cannot import the core
-control plane. `fdai/runtime/venue.py` re-exports it and declares no binding of its own.
-
-The five service distributions use deployable `0.1.2` images as N-1 and `0.1.3` as N. Their existing contract-set
-`1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
-Content-addressed live evidence also binds the exact service and observation kind and requires
-`observed=true`; recomputing a digest cannot convert an unobserved claim into a live receipt.
-
-The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
-[root integration tests](../../../tests/integration/).
-Deployable service images share pinned Alpine Python, OpenSSL, SQLite, and util-linux runtime packages; the image contract and Trivy gate keep all six Dockerfiles on exact available versions without known blocked vulnerabilities.
-The document worker adds only its owned Tesseract language data and OCR dependencies.
+The versioned semantic channel, contextual selection, logical-topic, execution-venue, compatibility,
+and image contracts are documented in the
+[shared contract runtime reference](../../reference/shared-contract-runtime.md).
 
 ## Other repository owners
 
@@ -645,7 +650,7 @@ The document worker adds only its owned Tesseract language data and OCR dependen
 | [console/](../../../console/) | Thin operator SPA, including the Knowledge source and governed document-upload routes, localized Guides drawer, and validated Manual Studio catalog boundary. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | Independent static guide library, HTML slide viewer, repository-safe media provenance, and focused prototype checks. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | Provider-neutral Teams endpoint persistence: encrypted loopback state locally and one versioned Key Vault secret in deployment. |
-| [cli/](../../../cli/) | Operator command-line client. |
+| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | Operator client and separate deployment tooling: private foundation planning, state comparison, and verified runtime inputs. The foundation owns the application group; new platform state references it without a second owner. See [Genesis delivery status](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md). |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Record design-context reads, reserve dirty edit paths, hard-block stale context for framework and constitutional edits, guard commit scope and destructive Git, and route repository-wide validation to explicit integration or release boundaries. |
 
 ## Related docs
@@ -655,6 +660,7 @@ The document worker adds only its owned Tesseract language data and OCR dependen
 | Physical service and package ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
 | Module boundaries and dependency injection | [Project Structure](project-structure.md) |
 | Conversation and ontology query implementation sequencing | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
+| Recorded Resource state paths and evidence boundaries | [Recorded Resource State](../interfaces/recorded-resource-state.md) |
 | IS work packages and local-first sequencing | [Service Decomposition Execution Plan](service-decomposition-execution-plan.md) |
 | Graduation, data ownership, and rollback gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
 | Control-loop authority | [Architecture instructions](../../../.github/instructions/architecture.instructions.md) |

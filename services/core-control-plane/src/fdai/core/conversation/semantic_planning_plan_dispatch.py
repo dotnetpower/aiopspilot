@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticOperation
+from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
+from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
@@ -21,6 +23,12 @@ from .semantic_activity_planning import compile_target_activity_plan
 from .semantic_contextual_resource_planning import compile_contextual_resource_plan
 from .semantic_current_state_planning import compile_target_current_state_plan
 from .semantic_error_activity_planning import compile_target_error_activity_plan
+from .semantic_gateway_diagnostic_planning import compile_gateway_diagnostic_plan
+from .semantic_governed_document_planning import (
+    append_governed_document_plan,
+    compile_governed_document_plan,
+    document_evidence_mode,
+)
 from .semantic_health_planning import compile_target_health_plan
 from .semantic_impact_planning import compile_target_impact_plan
 from .semantic_ingress_planning import compile_target_ingress_plan
@@ -47,6 +55,7 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
+from .semantic_planning_specialized_plans import build_inventory_document_plan
 from .semantic_planning_support import (
     _investigation_clarification,
     _investigation_windows,
@@ -59,6 +68,7 @@ from .semantic_planning_value_filters import (
 )
 from .semantic_relationship_planning import compile_typed_relationship_plan
 from .semantic_resource_condition_planning import compile_resource_condition_plan
+from .semantic_resource_configuration_planning import compile_resource_configuration_plan
 from .semantic_resource_event_planning import compile_resource_event_plan
 from .semantic_resource_health_planning import compile_resource_health_plan
 from .semantic_resource_metric_planning import (
@@ -67,6 +77,7 @@ from .semantic_resource_metric_planning import (
     compile_resource_metric_plan,
 )
 from .semantic_resource_state_planning import compile_resource_state_plan
+from .semantic_resource_visibility import exclude_hidden_operational_resources
 from .semantic_service_health_planning import compile_service_health_plan
 from .semantic_state_transition_planning import compile_resource_state_transition_plan
 from .semantic_subscription_scope_planning import compile_subscription_scope_plan
@@ -119,6 +130,7 @@ def dispatch_semantic_plan(
     now: Callable[[], datetime],
     cascade: SemanticPlanningCascade,
     escalation_policy: SemanticPlanningEscalationPolicy | None,
+    conversation_model_tier: SemanticConversationModelTier | None,
     model_observations: list[SemanticJudgmentObservation],
     anchored_incident_plan_builder: Callable[..., OntologyQueryPlan | None],
     stated_value_filter_plan_builder: Callable[..., OntologyQueryPlan | None],
@@ -156,16 +168,44 @@ def dispatch_semantic_plan(
     else:
         plan = None
     if frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
-        plan = anchored_incident_plan_builder(
-            bound_incident=bound_incident,
+        plan = compile_governed_document_plan(
             frame=frame,
-            descriptors=descriptors,
+            utterance=utterance,
             manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_governed_documents"
+        elif frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_governed_documents_unavailable",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
+        else:
+            plan = anchored_incident_plan_builder(
+                bound_incident=bound_incident,
+                frame=frame,
+                descriptors=descriptors,
+                manifest=manifest,
+                principal=principal,
+                purpose=purpose,
+                evaluation_time=evaluation_time,
+            )
+            plan_source = "bound_incident" if plan is not None else "proposed"
+    if plan is None:
+        plan = build_inventory_document_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
             principal=principal,
             purpose=purpose,
             evaluation_time=evaluation_time,
         )
-        plan_source = "bound_incident" if plan is not None else "proposed"
+        if plan is not None:
+            plan_source = "server_inventory_document"
     if plan is None:
         plan = compile_ontology_manifest_count_plan(
             frame=frame,
@@ -277,6 +317,26 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_target_current_state"
+    if plan is None:
+        plan = compile_gateway_diagnostic_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_gateway_diagnostic_evidence"
+    if plan is None:
+        plan = compile_resource_configuration_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_resource_configuration_changes"
     if plan is None:
         plan = compile_subscription_scope_plan(
             frame=frame,
@@ -524,6 +584,7 @@ def dispatch_semantic_plan(
             manifest=manifest,
             evaluation_time=evaluation_time,
             escalation_policy=escalation_policy,
+            conversation_model_tier=conversation_model_tier,
             observations=model_observations,
         )
     if plan is None:
@@ -540,11 +601,43 @@ def dispatch_semantic_plan(
             manifest_digest=manifest.manifest_digest,
             frame=frame,
         )
+    verify_model_operands = plan_source == "proposed"
+    mode = document_evidence_mode(frame)
+    if mode is not None and frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+        augmented = append_governed_document_plan(
+            plan,
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+        if augmented is None:
+            if mode in {
+                SemanticDocumentEvidenceMode.REQUIRED,
+                SemanticDocumentEvidenceMode.EXPLICIT,
+            }:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_governed_documents_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+        else:
+            plan = augmented
+            plan_source = f"{plan_source}+governed_documents"
     if any(node.kind.value == "object_set" for node in plan.nodes):
         execution_time = now()
         if execution_time.tzinfo is None:
             raise ValueError("semantic execution cutoff MUST be timezone-aware")
         plan = _refresh_object_set_cutoffs(plan, execution_time=execution_time)
+        allowed_value_filter_properties = (
+            frozenset()
+            if frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
+            else frozenset({"parent_id"})
+            if "parent_id" in frame.measure_concepts
+            else None
+        )
         plan, grounded = ground_stated_value_filters(
             plan,
             utterance=utterance,
@@ -555,27 +648,29 @@ def dispatch_semantic_plan(
                 in {
                     SemanticOutputShape.RESOURCE_STATE_LIST,
                     SemanticOutputShape.RESOURCE_TARGET_CANDIDATES,
+                    SemanticOutputShape.TARGET_CURRENT_STATE,
                 }
                 else frame.subject_constraints
             ),
-            allowed_properties=(
-                frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
-            ),
+            allowed_properties=allowed_value_filter_properties,
         )
         if grounded:
             _LOGGER.info(
                 "semantic_plan_filter_grounded",
                 extra={"grounded_properties": ",".join(grounded)},
             )
-        if plan_source == "proposed":
+        if verify_model_operands:
             verify_stated_value_filter_operands(
                 plan,
                 utterance=utterance,
                 descriptors=descriptors,
-                allowed_properties=(
-                    frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
-                ),
+                allowed_properties=allowed_value_filter_properties,
             )
+        plan = exclude_hidden_operational_resources(
+            plan,
+            output_shape=frame.output_shape,
+            descriptors=descriptors,
+        )
         verifier.verify(plan, manifest=manifest)
     return PlanDispatchResult(
         proposal=proposal,

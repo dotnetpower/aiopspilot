@@ -11,6 +11,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
+from fdai_service_contracts.adaptive_answer import AdaptiveAgentName, AdaptiveAnswer
+from fdai_service_contracts.adaptive_relationship import (
+    AdaptiveRelationshipProof,
+    AdaptiveRelationshipUnknownReason,
+)
 from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
     QueryContract,
@@ -157,6 +162,7 @@ class SemanticTurnDisposition(StrEnum):
 
     ANSWERED = "answered"
     DIRECT_RESPONSE = "direct_response"
+    ADVISORY_RESPONSE = "advisory_response"
     HELD = "held"
     CLARIFICATION = "clarification"
     UNSUPPORTED = "unsupported"
@@ -178,9 +184,17 @@ class SemanticPlanningProfile(StrEnum):
     GOLDEN_CAMPAIGN_NO_T2 = "golden_campaign_no_t2"
 
 
+class SemanticConversationModelTier(StrEnum):
+    """Operator-selected model tier for model-authored conversation stages."""
+
+    T1 = "t1"
+    T2 = "t2"
+
+
 SemanticRoute = Literal[
     "verified_query_plan",
     "semantic_direct_response",
+    "semantic_advisory_response",
     "semantic_clarification",
     "semantic_unsupported",
     "semantic_action_draft",
@@ -195,6 +209,7 @@ SemanticUnavailableReason = Literal[
 _SEMANTIC_ROUTE_BY_DISPOSITION: dict[SemanticTurnDisposition, SemanticRoute] = {
     SemanticTurnDisposition.ANSWERED: "verified_query_plan",
     SemanticTurnDisposition.DIRECT_RESPONSE: "semantic_direct_response",
+    SemanticTurnDisposition.ADVISORY_RESPONSE: "semantic_advisory_response",
     SemanticTurnDisposition.CLARIFICATION: "semantic_clarification",
     SemanticTurnDisposition.UNSUPPORTED: "semantic_unsupported",
     SemanticTurnDisposition.ACTION_DRAFT: "semantic_action_draft",
@@ -208,15 +223,23 @@ class SemanticTurnPrincipal(QueryContract):
     subject_id: BoundedId
     roles: Annotated[tuple[OperatorRole, ...], Field(min_length=1, max_length=4)]
     principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
+    groups: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=256)], ...],
+        Field(max_length=64, exclude_if=lambda groups: not groups),
+    ] = ()
 
     @model_validator(mode="after")
     def _roles_are_unique(self) -> SemanticTurnPrincipal:
         if len(self.roles) != len(set(self.roles)):
             raise ValueError("semantic turn principal roles MUST be unique")
+        if len(self.groups) != len(set(self.groups)):
+            raise ValueError("semantic turn principal groups MUST be unique")
         if self.principal_kind is OperatorPrincipalKind.WORKLOAD and self.roles != (
             OperatorRole.READER,
         ):
             raise ValueError("semantic workload principals MUST have only the Reader role")
+        if self.principal_kind is OperatorPrincipalKind.WORKLOAD and self.groups:
+            raise ValueError("semantic workload principals MUST NOT carry human group claims")
         return self
 
 
@@ -401,9 +424,24 @@ class SemanticTurnRequest(QueryContract):
     investigation_continuation: SemanticInvestigationContinuation | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
+    conversation_model_tier: SemanticConversationModelTier | None = None
     include_model_trace: bool = False
     cancelled: bool = False
+    target_agent: AdaptiveAgentName = "Bragi"
+    relationship_proof: AdaptiveRelationshipProof | None = None
+    relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None
     execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _relationship_observation_is_unambiguous(self) -> SemanticTurnRequest:
+        if self.relationship_proof is not None and self.relationship_unknown_reason is not None:
+            raise ValueError("relationship proof and unknown reason MUST be mutually exclusive")
+        if (
+            self.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
+            and self.conversation_model_tier is SemanticConversationModelTier.T2
+        ):
+            raise ValueError("golden campaign planning profile MUST NOT select T2")
+        return self
 
 
 class OperationalEvidenceProjection(QueryContract):
@@ -579,6 +617,7 @@ class SemanticTurnResult(QueryContract):
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
+    adaptive_answer: AdaptiveAnswer | None = None
     assurance_observation: SemanticAssuranceObservation | None = None
     execution_authority: Literal[False] = False
 
@@ -603,15 +642,36 @@ class SemanticTurnResult(QueryContract):
             self.plan_digest,
             self.execution_receipt_digest,
         )
+        optional_document_partial = _optional_document_partial_is_valid(self)
         if self.disposition is SemanticTurnDisposition.ANSWERED and (
             any(item is None for item in exact)
             or not self.evidence_refs
             or self.checks_total == 0
-            or self.checks_completed != self.checks_total
+            or (self.checks_completed != self.checks_total and not optional_document_partial)
             or self.answer is None
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
         direct_response = self.disposition is SemanticTurnDisposition.DIRECT_RESPONSE
+        advisory_response = self.disposition is SemanticTurnDisposition.ADVISORY_RESPONSE
+        if advisory_response and self.adaptive_answer is None:
+            raise ValueError("advisory responses MUST carry an adaptive answer")
+        if self.adaptive_answer is not None and self.disposition not in {
+            SemanticTurnDisposition.ADVISORY_RESPONSE,
+            SemanticTurnDisposition.ACTION_DRAFT,
+        }:
+            raise ValueError("only advisory responses or action drafts may carry adaptive answers")
+        if advisory_response and (
+            self.adaptive_answer is None
+            or self.answer != self.adaptive_answer.answer
+            or any(item is not None for item in exact)
+            or self.intent_graph is not None
+            or self.intent_graph_evidence is not None
+            or self.evidence_refs
+            or self.checks_completed != 0
+            or self.checks_total != 0
+            or self.assurance_observation is not None
+        ):
+            raise ValueError("advisory support MUST remain goal-local with an exact answer")
         if direct_response != (self.direct_response_intent is not None):
             raise ValueError(
                 "direct response semantic results MUST carry exactly one direct answer intent"
@@ -630,6 +690,42 @@ class SemanticTurnResult(QueryContract):
                 "direct response semantic results MUST NOT carry query or evidence claims"
             )
         return self
+
+
+def _optional_document_partial_is_valid(result: SemanticTurnResult) -> bool:
+    if (
+        result.reason_code != "semantic_answer_partial"
+        or result.checks_total < 2
+        or result.checks_completed != result.checks_total - 1
+        or not isinstance(result.intent_graph_evidence, dict)
+        or result.intent_graph_evidence.get("status") != "partial"
+        or result.intent_graph_evidence.get("evidence_mode") != "partial"
+    ):
+        return False
+    goals = result.intent_graph_evidence.get("goals")
+    if not isinstance(goals, list) or len(goals) != result.checks_total:
+        return False
+    document_goals = [
+        goal for goal in goals if isinstance(goal, dict) and goal.get("evidence_mode") == "document"
+    ]
+    if len(document_goals) != 1 or document_goals[0].get("status") not in {
+        "failed",
+        "timed_out",
+        "unavailable",
+    }:
+        return False
+    return all(
+        isinstance(goal, dict)
+        and (
+            goal is document_goals[0]
+            or (
+                goal.get("status") == "completed"
+                and isinstance(goal.get("evidence_refs"), list)
+                and bool(goal["evidence_refs"])
+            )
+        )
+        for goal in goals
+    )
 
 
 class RuleSearchRank(QueryContract):
@@ -810,6 +906,7 @@ __all__ = [
     "SemanticAssurancePathStep",
     "SemanticDirectResponseIntent",
     "SemanticInvestigationContinuation",
+    "SemanticConversationModelTier",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",

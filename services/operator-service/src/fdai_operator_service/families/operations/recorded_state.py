@@ -8,127 +8,26 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, TypedDict
 
-MAX_STATE_VALUE_CHARS = 256
+from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
+    AVAILABILITY_STATE_PATHS,
+    AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    MAX_RECORDED_STATE_VALUE_CHARS,
+    OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
+    OPERATIONAL_STATE_PATHS,
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    availability_state_paths,
+    is_recorded_state_value_valid,
+    operational_state_paths,
+)
+
+MAX_STATE_VALUE_CHARS = MAX_RECORDED_STATE_VALUE_CHARS
 MAX_STATE_CONFLICTS = 16
 DEFAULT_STATE_FRESHNESS_CEILING_SECONDS = 21_600
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})")
-_OPERATIONAL_PATHS = (
-    "status",
-    "state",
-    "phase",
-    "ready_status",
-    "readiness",
-    "runningStatus",
-    "operationalState",
-    "dnsResolverState",
-    "diskState",
-    "resourceState",
-    "snapshotAccessState",
-    "userVisibleState",
-    "virtualNetworkLinkState",
-    "powerState.code",
-    "powerState",
-    "instanceView.powerState.code",
-    "extended.instanceView.powerState.code",
-)
-OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
-    "app-service-plan": ("powerState", "status"),
-    "compute.container-app": ("runningStatus",),
-    "compute.container-app-job": ("runningStatus",),
-    "compute.function": ("state",),
-    "compute.vm": (
-        "powerState",
-        "instanceView.powerState.code",
-        "extended.instanceView.powerState.code",
-    ),
-    "compute.vm-shutdown-schedule": ("status",),
-    "compute.web-app": ("state",),
-    "disk": ("diskState",),
-    "disk-snapshot": ("snapshotAccessState", "diskState"),
-    "event-hub": ("status",),
-    "kubernetes-cluster": ("powerState",),
-    "kubernetes.daemon-set": ("ready_status",),
-    "kubernetes.deployment": ("ready_status",),
-    "kubernetes.job": ("phase",),
-    "kubernetes.node": ("ready_status",),
-    "kubernetes-node-pool": ("powerState.code",),
-    "kubernetes.pod": ("phase",),
-    "kubernetes.replica-set": ("ready_status",),
-    "kubernetes.stateful-set": ("ready_status",),
-    "mysql-server": ("state",),
-    "network.application-gateway": ("operationalState",),
-    "network.dns-resolver": ("dnsResolverState",),
-    "network.private-dns-zone-link": ("virtualNetworkLinkState",),
-    "postgresql-server": ("state",),
-    "redis-enterprise": ("resourceState",),
-    "service-bus-namespace": ("status",),
-    "sql-database": ("status",),
-    "sql-server": ("state",),
-    "subscription": ("state",),
-    "workflow.logic-app": ("state",),
-}
-OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
-    {
-        "action-group",
-        "alert-rule",
-        "authorization.role-assignment",
-        "certificate",
-        "compute.vm-scale-set",
-        "data-collection-rule",
-        "diagnostic-settings",
-        "email-domain",
-        "kubernetes.cron-job",
-        "kubernetes.endpoint-slice",
-        "kubernetes.endpoints",
-        "kubernetes.ingress",
-        "kubernetes.ingress-class",
-        "kubernetes.namespace",
-        "kubernetes.service",
-        "managed-identity",
-        "network.private-dns-zone-group",
-        "resource-group",
-    }
-)
-RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES = frozenset(
-    {
-        "application-insights",
-        "log-workspace",
-    }
-)
-PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
-    {
-        "api-gateway",
-        "cache",
-        "communication-service",
-        "compute.container-app-environment",
-        "container-registry",
-        "data-collection-endpoint",
-        "email-service",
-        "event-grid-topic",
-        "file-share",
-        "llm-endpoint",
-        "llm-model-deployment",
-        "metrics-workspace",
-        "network.dns-resolver-inbound-endpoint",
-        "network.dns-zone",
-        "network.firewall",
-        "network.interface",
-        "network.load-balancer",
-        "network.nat-gateway",
-        "network.nsg",
-        "network.private-dns-zone",
-        "network.private-endpoint",
-        "network.public-ip",
-        "network.route-table",
-        "network.subnet",
-        "network.virtual-network-gateway",
-        "network.vnet",
-        "nosql-database",
-        "object-storage",
-        "secret-store",
-        "static-web-app",
-    }
-)
+_OPERATIONAL_PATHS = OPERATIONAL_STATE_PATHS
+_AVAILABILITY_PATHS = AVAILABILITY_STATE_PATHS
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,7 +101,7 @@ def recorded_resource_states(
         ),
         "availability": _fact(
             properties,
-            ("availabilityState",),
+            _AVAILABILITY_PATHS,
             evaluated_at,
             resource_type=resource_type,
             observation=observation,
@@ -228,17 +127,19 @@ def _fact(
         "conflicts": [],
         "reason": _missing_reason(resource_type, paths),
     }
+    selected_paths = _applicable_paths(resource_type, paths)
     for prefix in ("", "properties.", "properties.properties."):
-        for path in paths:
+        for path in selected_paths:
             source_path = prefix + path
             value = _at(properties, source_path)
+            allow_unknown = paths == _AVAILABILITY_PATHS or path == "ready_status"
             if (
                 not isinstance(value, str)
                 or not value.strip()
-                or value.strip().casefold() == "unknown"
+                or (value.strip().casefold() == "unknown" and not allow_unknown)
             ):
                 continue
-            if len(value) > MAX_STATE_VALUE_CHARS or any(ord(char) < 32 for char in value):
+            if not is_recorded_state_value_valid(value, allow_unknown=allow_unknown):
                 result["reason"] = "state_value_invalid"
                 continue
             result["value"] = value
@@ -266,6 +167,19 @@ def _fact(
     return result
 
 
+def _applicable_paths(
+    resource_type: str | None,
+    paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    if resource_type is None:
+        return paths
+    if paths == _OPERATIONAL_PATHS:
+        return operational_state_paths(resource_type)
+    if paths == _AVAILABILITY_PATHS:
+        return availability_state_paths(resource_type)
+    return paths
+
+
 def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
     if resource_type == "unclassified-resource":
         return "resource_type_unclassified"
@@ -274,11 +188,14 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_source_not_recorded"
         if resource_type in OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
             return "state_not_applicable"
-        if resource_type in RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES:
-            return "resource_health_projection_not_bound"
         if resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES:
             return "provider_operational_state_not_exposed"
         return "state_applicability_unknown"
+    if paths == _AVAILABILITY_PATHS and resource_type is not None:
+        if resource_type in AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE:
+            return "state_source_not_recorded"
+        if resource_type in AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
+            return "state_not_applicable"
     return "state_not_recorded"
 
 
@@ -408,7 +325,7 @@ def _qualify_metadata(
         and cutoff is not None
         and ceiling is not None
     ):
-        age = (now - observed).total_seconds()
+        age = (now - cutoff).total_seconds()
         result["freshness"] = "stale" if age > ceiling else "fresh"
     if result["conflicts"]:
         result["reason"] = "state_conflicting"

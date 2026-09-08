@@ -43,6 +43,7 @@ import {
 import { completedWorkRevealTarget } from "./scroll-stick";
 import { backendHistoryForTurns } from "./turn-history";
 import type { IncidentConversationBinding } from "./open-deck";
+import type { ConversationModelTier } from "./conversation-model-selection";
 import {
   isSemanticDirectResponseSource,
   queueNextRequestId,
@@ -121,6 +122,7 @@ interface UseCommandDeckSubmitOptions {
   readonly focusInput: () => void;
   readonly pinTranscriptToLatest: () => void;
   readonly revealCompletedWork: (turnId: string, childSelector?: string) => void;
+  readonly conversationModelTier: ConversationModelTier;
 }
 
 export function resolveConversationSummary(
@@ -129,6 +131,16 @@ export function resolveConversationSummary(
   key: string,
 ): ConversationSummary | undefined {
   return metadata.get(key) ?? conversations.find((item) => item.key === key);
+}
+
+export function synchronizeConversationSummary(
+  metadata: { current: Map<string, ConversationSummary> },
+  summary: ConversationSummary,
+  updateConversationIndex: (summary: ConversationSummary) => void,
+): ConversationSummary {
+  metadata.current.set(summary.key, summary);
+  updateConversationIndex(summary);
+  return summary;
 }
 
 function shortTime(): string {
@@ -166,6 +178,7 @@ export function useCommandDeckSubmit({
   focusInput,
   pinTranscriptToLatest,
   revealCompletedWork,
+  conversationModelTier,
 }: UseCommandDeckSubmitOptions) {
   return useCallback(async (raw: string, options: CommandDeckSubmitOptions = {}) => {
     const text = raw.trim();
@@ -221,11 +234,12 @@ export function useCommandDeckSubmit({
       sessionMetadataRef.current,
       originSessionKey,
     );
+    let currentSessionSummary = sessionSummary;
     const currentTurns = turnsRef.current;
     const historyTurns = options.historyTurns ?? currentTurns;
     const conversationBinding = options.conversationBinding ?? sessionSummary?.binding;
     const hasOperatorTurn = currentTurns.some((turn) => turn.role === "operator");
-    updateConversationIndex({
+    currentSessionSummary = synchronizeConversationSummary(sessionMetadataRef, {
       key: originSessionKey,
       label:
         sessionSummary
@@ -239,7 +253,7 @@ export function useCommandDeckSubmit({
       createdAt: sessionSummary?.createdAt ?? activityAt,
       updatedAt: activityAt,
       lastReadAt: activityAt,
-    });
+    }, updateConversationIndex);
     setTurns((current) => [...current, operatorTurn]);
     turnsRef.current = [...currentTurns, operatorTurn];
     setDraft("");
@@ -268,6 +282,7 @@ export function useCommandDeckSubmit({
     try {
       let started = false;
       let receivedToken = false;
+      let receivedTerminalContent = false;
       let visibleAcc = "";
       let pendingRevision = 0;
       const preparingStartedAt = Date.now();
@@ -349,6 +364,14 @@ export function useCommandDeckSubmit({
           ...(conversationBinding
             ? { conversationBinding }
             : {}),
+          ...(conversationModelTier === "auto"
+            ? {}
+            : { conversationModelTier }),
+          onValidatedTerminal: () => {
+            if (!isCurrent()) return;
+            terminalReplyReady = true;
+            revealWhenReady();
+          },
           onToken: (delta) => {
             if (!isCurrent()) return;
             receivedToken = true;
@@ -486,6 +509,7 @@ export function useCommandDeckSubmit({
           },
           onRevision: (answer, revision, status) => {
             if (!isCurrent()) return;
+            receivedTerminalContent = true;
             visibleAcc = answer;
             paintQueue.length = 0;
             pendingRevision = revision;
@@ -514,21 +538,12 @@ export function useCommandDeckSubmit({
           },
           onConfirmed: (segment: ConfirmedAnswerSegment) => {
             if (!isCurrent()) return;
+            receivedTerminalContent = true;
             pendingRevision = Math.max(pendingRevision, segment.revision);
-            revealWhenReady();
-            if (!started) return;
-            if (!receivedToken) {
-              setTurns((current) => {
-                const next = current.map((turn) => turn.id === deckId
-                  ? { ...turn, revision: segment.revision, confirmed: segment }
-                  : turn);
-                turnsRef.current = next;
-                return next;
-              });
-              return;
-            }
             visibleAcc = segment.text;
             paintQueue.length = 0;
+            revealWhenReady();
+            if (!started) return;
             if (paintFrame !== null) {
               cancelAnimationFrame(paintFrame);
               paintFrame = null;
@@ -556,7 +571,7 @@ export function useCommandDeckSubmit({
       const terminalRecordedAt = reply.turnTiming?.completed_at ?? new Date().toISOString();
       const directResponse = isSemanticDirectResponseSource(reply.source);
       terminalReplyReady = true;
-      if (!directResponse && !started && isCurrent()) {
+      if (!directResponse && !reply.adaptiveAnswer && !started && isCurrent()) {
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
         if (remaining > 0) {
           await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
@@ -591,11 +606,12 @@ export function useCommandDeckSubmit({
       }
       paintQueue.length = 0;
       ensureTurn();
-      if (!receivedToken && reply.text.length > 0 && isCurrent()) {
+      if (!receivedToken && !receivedTerminalContent && reply.text.length > 0 && isCurrent()) {
         const terminalQueue = terminalRevealChunks(reply.text);
         if (shouldFlushStreamPaintSynchronously(
           document.visibilityState,
           document.hasFocus(),
+          reply.adaptiveAnswer !== undefined,
         )) {
           visibleAcc = reply.text;
         } else {
@@ -620,18 +636,18 @@ export function useCommandDeckSubmit({
       }
       if (isCurrent()) {
         if (reply.conversationBinding) {
-          updateConversationIndex({
+          currentSessionSummary = synchronizeConversationSummary(sessionMetadataRef, {
             key: originSessionKey,
-            label: sessionSummary?.label ?? text,
-            kind: sessionSummary?.kind ?? "screen-default",
-            ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
+            label: currentSessionSummary?.label ?? text,
+            kind: currentSessionSummary?.kind ?? "screen-default",
+            ...(currentSessionSummary?.agent ? { agent: currentSessionSummary.agent } : {}),
             binding: reply.conversationBinding,
-            originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
-            originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
-            createdAt: sessionSummary?.createdAt ?? activityAt,
+            originPath: currentSessionSummary?.originPath ?? conversationPath(currentPathname()),
+            originLabel: currentSessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
+            createdAt: currentSessionSummary?.createdAt ?? activityAt,
             updatedAt: terminalRecordedAt,
             lastReadAt: terminalRecordedAt,
-          });
+          }, updateConversationIndex);
         }
         setTurns((current) => {
           const retained = directResponse
@@ -686,6 +702,7 @@ export function useCommandDeckSubmit({
                   } : {}),
                   ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
                   ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
+                  ...(reply.adaptiveAnswer ? { adaptiveAnswer: reply.adaptiveAnswer } : {}),
                   ...(reply.conversationBinding
                     ? { conversationBinding: reply.conversationBinding }
                     : {}),
@@ -734,5 +751,6 @@ export function useCommandDeckSubmit({
     updateConversationIndex,
     pinTranscriptToLatest,
     revealCompletedWork,
+    conversationModelTier,
   ]);
 }

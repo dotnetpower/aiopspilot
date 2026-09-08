@@ -36,6 +36,13 @@ The workbench is complete only when it answers these bounded operational questio
 | C5 - Evidence health | Is runtime evidence available, current, complete, conflicting, or synthetic? | Sanitized source alias, generation, cutoffs, freshness, conflicts, drop reasons, and nullable counts when unavailable. |
 | C6 - Governed actions | Which actions are semantically bound to this declaration? | Exact ObjectType or InterfaceType target evidence and the complete ActionType safety contract, with no execute control. |
 | C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
+
+Conversation planning can project a smaller model-facing view after schema-validated intent
+classification. Subscription inventory documents retain `Resource`; configuration comparison adds
+the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed
+gateway function. This projection is a prompt-minimization view, not another manifest or authority
+source. Every descriptor still originates in the complete principal-scoped manifest, and plan
+verification still resolves against the exact release.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
@@ -282,6 +289,12 @@ For a resource-scoped semantic read, the optional operational evidence source an
 principal Context provider bind as one pair. Core admits the exact bundle and Context metadata
 before Operator persistence and presentation. Any identity, evidence, graph, citation,
 contradiction, or budget failure holds the response; the path adds no provider read or authority.
+
+Collection state reads consume the canonical `state` property together with its
+`state_fact_metadata.state` entry. The retained flat metadata form remains readable for replay.
+Broad state ObjectSets first select manifest-declared Resource types with reviewed operational-state
+paths and observed state metadata. When source coverage is incomplete, verified matching rows may
+remain visible with incomplete posture, but an empty result never establishes absence.
 
 The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
 providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve

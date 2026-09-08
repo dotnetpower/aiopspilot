@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 13847c97b442802565c690f94da8d66b34f54e66
-translation_revised: 2026-09-06
+translation_source_sha: ade8884c8bc38399bc4ff8c55a1936ec6068c69d
+translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -18,12 +18,27 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 용어집, 제목을 해당 제출에서 제외합니다. 현재 화면 맥락이 인시던트 근거로 나타나지 않도록
 최소한의 로캘, 경로, principal 메타데이터와 서버에서 검증한 정확한 인시던트 바인딩만 유지합니다.
 
+대화 복원은 기존 대화 행과 사용자 범위의 의미 요청 및 결과 기록을 함께 읽습니다.
+캐시가 답변 없는 사용자 질문으로 끝나면 불완전하므로 서버 조회를 생략하지 않습니다.
+저장된 최종 결과는 같은 검증된 표현 경로로 표시하며 질문을 다시 보내거나 모델을 호출하거나
+이력을 다시 쓰지 않습니다. 복원 중 새 입력이나 세션 전환이 발생하면 화면을 덮어쓰지 않습니다.
+
+검증된 자문 최종 응답은 완성된 원문을 즉시 표시합니다. 서버가 검토를 마친 뒤 인위적인 타자
+효과를 다시 재생하지 않습니다. 일반 스트리밍 조각은 기존 표시 속도와 순서를 유지하며 잘못된
+자문 메타데이터는 이 빠른 경로를 선택할 수 없습니다.
+
+Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중인 스트림을 깨웁니다.
+크기가 제한된 완료 표식은 대기 직전에 저장된 결과가 1초 재조회 주기만큼 지연되는 경합을
+막습니다. 신호에 답변이나 권한을 넣지 않으며 읽기 측은 권위 있는 결과를 다시 읽습니다.
+알림이 없으면 기존 재조회 경로로 복구합니다.
+
 ## 구현 상태
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 적응형 답변 출처와 재실행 표현 | implemented | `adaptive-answer.test.ts` 33개, `turn-history.test.ts` 및 `command-deck.session.test.ts` 20개, Console 타입 검사와 빌드 통과 | 일반 지식에는 전체 답변의 조회 증적을 부여하지 않습니다. 목표별 근거와 별도 초안 설명은 스트림 및 복원 후에도 유지하며, 잘못된 스트림은 미검증 텍스트를 지웁니다. 브라우저 런타임 검증은 별도입니다. |
 | 일반 대화 예시 질문 즉시 전송 | 구현됨 | `general-conversation-intro.tsx`, `command-deck-view.tsx`, `conversation-entry.spec.ts` | 양 언어의 예시 버튼 세 개는 클릭하거나 키보드로 실행하면 표시된 질문을 선택한 맥락에 맞는 일반 전송 경로로 보냅니다. 툴팁은 즉시 전송 동작을 안내합니다. 실제 모델 호출 없이 합성 응답으로 예시 질문 검사 6개와 기존 진입점 검사 2개를 통과했습니다. |
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
@@ -32,12 +47,12 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 | 일반 대화와 현재 화면 대화 분리 | 구현됨 | `conversation-context.ts`, `general-conversation-intro.tsx`, `command-deck.tsx`, `navigation-shell.tsx`, `conversation-entry.spec.ts`, 집중 Deck 검사 | 좌측 메뉴는 현재 탭의 일반 대화를 열거나 이어가고 하단과 키보드 진입점은 현재 화면의 별도 대화를 선택합니다. 일반 질문에는 명시적으로 추가한 화면만 포함합니다. 초안, 저장한 맥락, 배치 설정은 각각 유지합니다. 작업 초안의 로그인 검토 힌트와 별도 실행기 권한도 유지합니다. |
 | Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
-| 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
+| 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`command-deck-header.tsx`](../../../console/src/deck/command-deck-header.tsx), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. Header 모델 선택은 브라우저 기본 title 풍선 대신 공용 접근성 Tooltip을 사용합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 선제적 담당 업무 인수인계 대화 | 구현됨 | `handover_runtime.py`; `handover_binding.py`; `console/src/handover-*`; Command Deck 세션 및 문서 업로드 경로; 집중 Operator 및 Console 검사 | 실제 최종 책임자 매핑은 피로도 한도가 적용된 에이전트 대화 하나를 열 수 있습니다. 서버는 주체, 목표, 세션, 에이전트를 검증하고 영속적으로 연결하며 인시던트 또는 승인 작업 중 초대를 억제합니다. 승인된 근거가 이후 사용할 수 없게 되면 목표를 stale로 표시합니다. 배포 증적은 남아 있습니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 외부 Browser Entra 실행기는 정확한 Operator API 원본을 요구하고, 성공 경로에서 모호하지 않은 조회 가능 유형 요청을 사용하며, 요청 및 변환 결과에 결속된 증적을 펼치고, 산출물을 출처, 작업 영역 패치, 실행 구성 digest에 결속합니다. `answered`가 아닌 증적을 받으면 답변 전용 UI 단언 전에 중단합니다. `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 Console 검사 | `semantic_clarification_required`를 `Context required`로 표시하면서 범위가 제한된 서버 작성 질문을 기본 답변으로 보존합니다. 질문이 잘못되었거나 없으면 지역화된 대체 문구를 사용합니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
-| 타입 기반 근거 보류 표현 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 스트림 및 Console 검사, Core 부분 인과 표현 검사 | `semantic_evidence_held`와 `semantic_evidence_incomplete`는 온톨로지 조회 검증에 비어 있지 않은 완료 근거가 있고 같은 요청의 보류 증적이 일치하는 사유, 계획, 실행, 권한 없음 digest와 `authoritative_evidence_unavailable`을 보고할 때만 범위가 제한된 정본 최종 답변을 보존합니다. 검증 사유가 증적 검증 전에 타입 기반 보류 주장을 식별하므로 누락되거나 다른 요청에 속하거나 불일치하는 증적은 거부를 우회할 수 없습니다. 정본 최종 본문이 없거나 공백뿐이면 대기 중인 token을 내보내기 전에 거부하고, 단조 증가하는 미검증 revision과 token pump generation 무효화로 이미 표시된 초안과 로컬 burst token을 철회한 뒤 지역화 대체 문구를 표시합니다. |
+| 타입 기반 근거 보류 표현 | 검증됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 스트림 및 Console 검사, Core 부분 인과 표현 검사, 인증된 표준 Console 브라우저 근거 | `semantic_evidence_held`와 `semantic_evidence_incomplete`는 검증 결과에 비어 있지 않은 서버 권한이 있고, 완료된 검사에 비어 있지 않은 근거가 유지되며, 같은 요청의 보류 증적이 일치하는 사유, 계획, 실행, 권한 없음 digest와 `authoritative_evidence_unavailable`을 보고할 때만 범위가 제한된 정본 최종 답변을 보존합니다. 파생 함수 증적은 타입 기반 권한 입력을 보존하므로 Operator가 유효한 보류를 지원되지 않는 주장으로 다시 표시하지 않고 정확한 원본 계보를 검증할 수 있습니다. assurance 관측에도 수행된 읽기, 읽기 전용 권한 및 fresh가 아닌 근거 상태가 기록되어야 합니다. 정확한 이름을 해석할 수 없으면 같은 유형에서 관측된 제안을 표시할 수 있지만 어떤 후보도 자동 선택하지 않았다고 명확히 알립니다. 검증 사유가 증적 검증 전에 타입 기반 보류 주장을 식별하므로 누락되거나 다른 요청에 속하거나 불일치하거나 권한이 없는 증적은 거부를 우회할 수 없습니다. 정본 최종 본문이 없거나 공백뿐이면 대기 중인 token을 내보내기 전에 거부하고, 단조 증가하는 미검증 revision과 token pump generation 무효화로 이미 표시된 초안과 로컬 burst token을 철회한 뒤 지역화 대체 문구를 표시합니다. |
 | 의미 모델 투명성 | 구현됨 | `semantic_planning.py`, `semantic_planning_cascade.py`, Azure 의미 계획 어댑터, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core 및 Operator 검사 | 완료된 모든 의미 판단, 프레임, 계획 모델 호출은 표현을 위해 범위가 제한된 실측 모델, 처리 시간 및 토큰 metadata를 보존합니다. 요청과 응답 본문은 요청에서 명시적으로 활성화한 경우에만 projection하며 결정론적으로 민감정보를 제거하고 범위를 제한합니다. 이 정보는 계획 근거나 실행 권한이 되지 않습니다. |
 | 실시간 의미 조회 진행 상황 | 구현됨 | `SemanticQueryProgress`, `query_execution.py`, Core semantic consumer, Operator semantic bridge, 집중 progress 검사 25개 통과 | Core는 검증된 실제 조회 노드의 시작 및 최종 관측만 별도 best-effort topic으로 발행합니다. Operator는 실제 내부 조회를 렌더링하고 권위 있는 최종 receipt가 도착하면 일시적인 진행 상태를 폐기합니다. 진행 정보는 범위가 제한되고 읽기 전용이며 `execution_authority=false`로 고정됩니다. 인증된 Command Deck 증적은 열린 상태입니다. |
 | 현재 화면 컨텍스트 게시 | 구현됨 | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), [`view-contract.test.ts`](../../../console/src/routes/view-contract.test.ts), 집중 Console 컨텍스트 및 경로 검사, 데스크톱 브라우저 검사 | 등록된 모든 패널은 로딩, 사용 불가, 오류, 경로 전환 상태에서 자신을 식별합니다. 특화 게시기는 이전 경로의 스냅샷을 넘기지 않고 대체 정보를 범위가 제한된 표시 사실과 공통 카탈로그 용어집으로 교체할 수 있습니다. |
@@ -48,6 +63,10 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 기존 이력 경로로 사용자 범위의 의미 처리 최종 결과를 복원하고, 답변 없는 질문으로 끝나는 캐시를 모델 재호출 없이 보완했습니다. | `current change`; 집중 Python 검사 162개, Console 검사 81개 및 양 언어 복원 브라우저 검사 2개 통과. 보고된 대화의 저장 결과를 읽기 전용으로 복원해 744자 답변을 반환했고 인증된 세션 브라우저에서 실제 표시를 확인했습니다. | 최종 답변 복원을 수정했습니다. 관측된 작성, 검토, 보강 및 재검증 지연 51.4초는 별도의 최적화 대상입니다. |
+| 2026-09-06 | implemented | 기존 회귀 테스트를 직접 응답과 자문 응답의 내부 경로 배지 숨김 및 명시적인 담당 관계 미확인 계약에 맞췄습니다. | `current change`; 표현 및 자문 검사 44개, 외부 공급자 없는 의미 요청 왕복 검사 15개 통과. 통합된 메인 코드에서 합성 대화 진입점 브라우저 검사 10개도 모두 통과했습니다. | 실제 모델 품질, 로컬 기동 및 정확한 커밋의 CI는 별도 근거입니다. |
+| 2026-09-06 | implemented | 적응형 출처의 펼침 영역과 복원된 일반 대화의 맥락을 강화했습니다. 이전 로컬 색인에 맥락 모드가 없으면 제목이나 생성 경로가 아니라 명시적인 일반 대화 식별자에서 복원하며, 재개한 요청에 대시보드 사실을 자동으로 추가하지 않습니다. | `current change`; 집중 Console 검사 209개, 타입 검사와 빌드, 격리된 대화 진입점 E2E 시나리오 10개 모두 통과. 두 언어에서 데스크톱을 먼저 검증한 뒤 1440/993/390 화면, 키보드 펼침, 저장 이력 복원 및 화면 맥락 없는 후속 전송을 확인했습니다. | 브라우저 근거는 격리된 합성 검증이며 실제 Browser Entra 또는 모델 검증 증적이 아닙니다. |
+| 2026-09-06 | implemented | 통제된 확인 필드를 대체하지 않고 변환 결과 1.6의 조언 응답 표현, 번역된 목표별 근거, 선택한 에이전트 신원 및 재실행 후에도 유지되는 초안 설명을 추가했습니다. | `current change`; 적응형 답변 33개, 세션과 이력 20개, Console 타입 검사와 프로덕션 빌드 통과 | 연결 비평 근거를 완료하고 별도로 승인된 브라우저 런타임 근거를 보존합니다. |
 | 2026-09-06 | 구현됨 | 런타임 라우팅이나 어휘 검사기를 변경하지 않고 구조화된 대화 키 복원을 의미 판정이 아닌 검토된 경계로 등록했습니다. | `current change`, `chat-semantic-routing-baseline.json`, 의미 라우팅 검사 10개 통과, 세션 및 탐색 검사 33개 통과, Console 타입 검사 | 게시된 정확한 커밋의 CI 증적은 이 집중 검사와 별개입니다. |
 | 2026-09-06 | 구현됨 | 일반 대화 예시 버튼이 초안만 채우는 대신 일반 전송 경로로 바로 질문을 보내도록 변경하고 양 언어 툴팁에 전송 안내를 추가했습니다. | `current change`, `conversation-entry.spec.ts`: 8개 통과, 집중 채팅 및 카탈로그 검사: 48개 통과, Console 타입 검사 | 실제 모델 호출이나 리소스 실행 검증은 요청되지 않았으며 수행하지 않았습니다. |
 | 2026-09-06 | 구현됨 | 일반 대화 시작 화면과 명시적 화면 추가 기능을 완성했습니다. 다시 열 때 별도 초안을 보존하고 일반 이력은 화면을 이동하지 않으며 두 전송 경로는 선택한 스냅샷을 사용합니다. 답변 재생성도 화면 없는 요청을 그대로 유지합니다. | `current change`, `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`, 집중 단위 검사와 합성 브라우저 검사 | 이 UI 검증에서는 모델 답변이나 리소스 실행을 호출하지 않았습니다. |
@@ -149,6 +168,12 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 플로팅 대화의 참고 화면은 바뀌지 않습니다. 일반 대화 이력을 선택해도 생성 당시 화면으로 이동하지
 않습니다. 질문을 보내면 입력창은 대화 하단으로 이동합니다. 헤더는 대화와 참고 맥락을 구분하며
 검색과 이력을 간결하게 표시합니다. 화면 맥락은 힌트일 뿐이며 근거, 권한, 실행 검증은 서버가 담당합니다.
+작업 영역은 운영자 턴과 Bragi 턴을 하나의 840px 읽기 축에 맞추고 운영자 말풍선은 그 축 안에서
+오른쪽에 배치합니다. 한국어와 영문은 글꼴 합성을 사용하지 않는 하나의 글꼴 묶음을 공유하고 기록
+시간은 운영자 말풍선 안에 표시합니다. 운영 단계는 아이콘, 레이블, 상태 및 확인 열을 안정적으로
+유지합니다. 데스크톱 컨트롤은 32px 영역을 사용하고 모바일 컨트롤은 44px 터치 영역을 유지하면서
+대화 신원, 모델 선택, 검색, 이력 및 창 동작을 두 행에 배치합니다.
+턴 그룹은 20px 세로 간격을 유지해 공유 읽기 축을 쉽게 훑어볼 수 있게 합니다.
 
 대화 이력은 운영자의 질문이 아니라 구조화된 대화 식별자와 메타데이터에서 진입 모드를 복원합니다.
 사용자 및 경로 정규화와 네임스페이스 해석은 의미 라우팅 기준 목록의 검토된 `retain` 경계입니다.
@@ -156,6 +181,16 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 인시던트 연결 또는 대화 모드를 선택하지 않습니다.
 
 ## 의미 최종 표현 계획
+
+`advisory_response`는 소셜 `direct_response` 및 검증된 운영 `answered`와 구분하여 변환 결과
+`1.6.0`으로 전달합니다. Console은 전체 답변의 증적을 만들지 않고 정본 답변과 목표별 일반 지식,
+검증된 예시, 사용 불가 표시를 렌더링합니다. 선택적 예시 실패가 설명을 원본 실패 답변으로 대체하지
+않습니다. 검토된 설명은 기존 `action_draft`에도 첨부할 수 있으며 정본 초안과 전달된 확인 필드는
+유지합니다. 스트림, JSON, 로컬 캐시, 영속 복원은 동일한 적응형 메타데이터를 보존합니다.
+설명 문구에서 새로운 확인 권한이나 실행 권한을 추론하지 않습니다.
+제한 사유는 원시 진단 코드를 주요 레이블로 표시하는 대신 번역된 펼침 영역에 넣습니다.
+이전 로컬 색인에 명시적인 모드 필드가 없어도 복원된 일반 대화는 일반 맥락을 유지하며,
+제목이나 생성 경로만으로 화면 근거를 추가하지 않습니다.
 
 타입이 지정된 `direct_response`는 검증된 조회 답변과 구분합니다. 하나의 닫힌 답변 의도,
 의미 판단 모델이 작성하고 범위와 언어가 제한된 텍스트, `execution_authority=false`를 전달하지만 조회 계획, 근거 참조, 검증 배지,

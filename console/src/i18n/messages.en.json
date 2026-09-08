@@ -9,6 +9,13 @@
     "console": "Console",
     "devMode": "dev mode"
   },
+  "dataMode": {
+    "label": "Dashboard data mode",
+    "sample": "Sample",
+    "live": "Live",
+    "bannerTitle": "Sample data",
+    "bannerBody": "Sample presentation only - not operational evidence. Unsupported routes remain Live."
+  },
   "browserNotifications": {
     "label": "Alerts",
     "off": "Enable alerts",
@@ -2515,6 +2522,20 @@
       },
       "preferenceApplied": "Saved preference"
     },
+    "adaptive": {
+      "explanation": "Supporting explanation",
+      "sources": "Answer sources",
+      "owner": "Response owner: {agent}",
+      "knowledge": "General knowledge",
+      "environmentExample": "Environment example",
+      "operational": "Operational context",
+      "answered": "Verified supporting evidence",
+      "unavailable": "Unavailable",
+      "held": "Held",
+      "references": "{count} supporting references",
+      "limitationDetails": "Why this part is limited",
+      "authority": "Advisory only. No action was authorized or executed by this answer."
+    },
     "answerPlanning": {
       "consulted": "Consulted",
       "uniqueSources": "{count} unique source(s)",
@@ -2666,6 +2687,27 @@
     "backend": {
       "probing": "probing",
       "connected": "Chat connected",
+      "t1Model": "T1 {model}",
+      "modelUnknown": "T1 model not reported",
+      "t1Scope": "Next narration/general response: configured or auto-selected T1 model. Independent review and T2 use separate models. Probe timings are not whole-answer time.",
+      "updatedAt": "Probe snapshot: {time}",
+      "expiresAt": "Measurements expire: {time}",
+      "probeInterval": "Model probe interval: {seconds}s",
+      "measurement": {
+        "measured": "Measured",
+        "unmeasured": "Unmeasured",
+        "failed": "Probe failed",
+        "stale": "Stale",
+        "unknown": "Freshness unknown"
+      },
+      "routing": {
+        "latency": "Probe latency",
+        "unmeasured": "Configured selection; not measured",
+        "stale": "Measurements stale",
+        "unavailable": "Measurements unavailable",
+        "disabled": "Latency routing disabled",
+        "unknown": "Selection reason not reported"
+      },
       "ready": "LLM ready",
       "deterministic": "deterministic"
     },
@@ -2818,6 +2860,10 @@
         "invalidQuery": "Invalid query",
         "visionUnverified": "Image interpretation",
         "unsupportedClaim": "Unsupported claim",
+        "staleEvidence": "Stale evidence",
+        "partialEvidence": "Partial evidence",
+        "conflictingEvidence": "Conflicting evidence",
+        "evidenceUnavailable": "Evidence unavailable",
         "unverified": "Unverified"
       },
       "verificationLabel": {
@@ -2837,6 +2883,10 @@
         "invalidQuery": "The read query failed strict validation{claims}",
         "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",
         "unsupportedClaim": "One or more claims are not supported by evidence{claims}",
+        "staleEvidence": "Grounding evidence is stale; refresh the read before trusting this answer{claims}",
+        "partialEvidence": "Grounding evidence is incomplete; widen the read or wait for the missing sources{claims}",
+        "conflictingEvidence": "Grounding evidence conflicts; resolve the disagreement before acting on this answer{claims}",
+        "evidenceUnavailable": "Grounding evidence is unavailable; retry after the authoritative source recovers{claims}",
         "unverified": "Verification could not be completed{claims}",
         "scope": {
           "currentScreen": "the current screen",
@@ -2856,7 +2906,11 @@
       "stageDetail": {
         "manifestSourcesAvailable": "{available}/{total} manifest sources available",
         "reference": "{count} evidence reference",
-        "references": "{count} evidence references"
+        "references": "{count} evidence references",
+        "staleEvidence": "Grounding evidence is stale",
+        "partialEvidence": "Grounding evidence is incomplete",
+        "conflictingEvidence": "Grounding evidence conflicts",
+        "evidenceUnavailable": "Grounding evidence is unavailable"
       },
       "side": {
         "read": "retrieve",
@@ -3044,6 +3098,7 @@
       },
       "evidenceMode": {
         "screen_grounded": "screen grounded",
+        "document_grounded": "document grounded",
         "operational_grounded": "operationally grounded",
         "web_grounded": "web grounded",
         "mixed_grounded": "mixed grounding",

@@ -4,13 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FDAI - Cells (WebGL2 mock)</title>
+<link rel="stylesheet" href="../ui/assets/experimental-preview.css" />
+<script src="../ui/assets/experimental-preview.js" defer></script>
 <style>
   :root {
     --bg-0: #1a2540;
     --bg-1: #223058;
     --bg-2: #2b3d6e;
     --ink:  #dbe6f2;
-    --muted: #7f92ae;
+    --muted: #b5c3d8;
     --accent: #8B5CF6;
     --panel: rgba(20, 32, 60, 0.72);
     --panel-border: rgba(139, 92, 246, 0.35);
@@ -301,7 +303,7 @@
       wheel to zoom · drag to pan · click a cell to reframe
     </div>
 
-    <div id="loading">Building cells... (WebGL2)</div>
+    <div id="loading" class="experiment-loading" role="status" aria-busy="true"><span>Loading experimental preview</span><div class="experiment-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>
   </div>
 
   <!-- d3 UMD from jsDelivr (offline vendoring is a follow-up; see README) -->

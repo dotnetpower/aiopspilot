@@ -10,6 +10,7 @@ import {
   ontologyInstanceAksLanes,
   ontologyInstanceContextIdentity,
   ontologyInstanceNetworkPaths,
+  ontologyInstanceNodeState,
   ontologyInstancePresentationCoverage,
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
@@ -101,6 +102,55 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
     expect(decoded.relationship_coverage).toBeNull();
     expect(decoded.resources[0]?.capacity).toBeNull();
+    expect(decoded.resources[0]?.model_deployment).toBeNull();
+  });
+
+  it("accepts bounded model deployment details", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "llm-model-deployment";
+    resources[1]!.model_deployment = {
+      model_name: "gpt-5.4",
+      model_version: "2026-08-01",
+      sku_name: "GlobalStandard",
+      capacity_tpm: 50_000,
+    };
+
+    expect(decodeOntologyInstanceExploration(value).resources[1]?.model_deployment).toEqual(
+      resources[1]!.model_deployment,
+    );
+  });
+
+  it.each([-1, true, 1.5, 2_147_483_648])(
+    "rejects invalid model deployment TPM %s",
+    (capacityTpm) => {
+      const value = payload();
+      const resources = value.resources as Record<string, unknown>[];
+      resources[1]!.resource_type = "llm-model-deployment";
+      resources[1]!.model_deployment = {
+        model_name: "gpt-5.4",
+        model_version: "2026-08-01",
+        sku_name: "GlobalStandard",
+        capacity_tpm: capacityTpm,
+      };
+
+      expect(() => decodeOntologyInstanceExploration(value)).toThrow();
+    },
+  );
+
+  it("rejects model deployment details on another Resource type", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.model_deployment = {
+      model_name: "gpt-5.4",
+      model_version: null,
+      sku_name: null,
+      capacity_tpm: null,
+    };
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "model deployment details MUST use the llm-model-deployment Resource type",
+    );
   });
 
   it("accepts an observed scalable-resource capacity", () => {
@@ -138,6 +188,132 @@ describe("decodeOntologyInstanceExploration", () => {
       [null, "neutral"],
     ] as const)("maps %s without rewriting the provider state", (status, expected) => {
       expect(ontologyInstanceStatusTone(status)).toBe(expected);
+    });
+  });
+
+  describe("ontology instance node state", () => {
+    const fact = (value: string | null, reason: string | null) => ({
+      value,
+      source_path: value === null ? null : "properties.state",
+      observed_at: null,
+      recorded_at: null,
+      freshness: "unknown" as const,
+      completeness: null,
+      conflicts: [],
+      reason,
+    });
+    const resource = (
+      operational: ReturnType<typeof fact>,
+      provisioning: ReturnType<typeof fact>,
+      availability: ReturnType<typeof fact>,
+    ) => ({
+      ...decodeOntologyInstanceExploration(payload()).resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational,
+        provisioning,
+        availability,
+      },
+    });
+
+    it("keeps applicable operational state as the primary graph label", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact("Running", null),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "operational", fact: fact("Running", null) });
+    });
+
+    it("shows an exact Static Web App default-environment Ready state", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact("Ready", null),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({ axis: "operational", fact: fact("Ready", null) });
+    });
+
+    it("shows exact availability when operation is not applicable", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "availability", fact: fact("Available", null) });
+    });
+
+    it("keeps an applicable availability evidence gap ahead of provisioning", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact(null, "state_source_not_recorded"),
+      ))).toEqual({
+        axis: "availability",
+        fact: fact(null, "state_source_not_recorded"),
+      });
+    });
+
+    it("shows provisioning without recasting it as operation or health", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact(null, "state_not_applicable"),
+      ))).toEqual({ axis: "provisioning", fact: fact("Succeeded", null) });
+    });
+
+    it("keeps an applicable operational evidence gap ahead of provisioning", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_source_not_recorded"),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "state_source_not_recorded"),
+      });
+    });
+
+    it("shows exact availability ahead of an operational evidence gap", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "availability", fact: fact("Available", null) });
+    });
+
+    it("shows provisioning when the provider exposes no operational or availability value", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({ axis: "provisioning", fact: fact("Succeeded", null) });
+    });
+
+    it("keeps exact unknown availability visible ahead of an operational evidence gap", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact("Unknown", null),
+      ))).toEqual({ axis: "availability", fact: fact("Unknown", null) });
+    });
+
+    it("keeps not-applicable operation when no other axis has a useful fact", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "state_not_applicable"),
+      });
+    });
+
+    it("keeps provider-unavailable operation when no other axis has a useful fact", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "provider_operational_state_not_exposed"),
+      });
     });
   });
 

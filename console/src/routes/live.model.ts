@@ -209,10 +209,13 @@ export interface LiveState {
   readonly session_total: number;
 }
 
-export function makeInitialState(): LiveState {
+export function makeInitialState(poolSize = POOL_SIZE): LiveState {
+  if (!Number.isInteger(poolSize) || poolSize < 1) {
+    throw new Error("Live pool size MUST be a positive integer");
+  }
   const now = Date.now();
   return {
-    tiles: new Array(POOL_SIZE).fill(null) as readonly (TileState | null)[],
+    tiles: new Array(poolSize).fill(null) as readonly (TileState | null)[],
     eventIdToSlot: new Map(),
     ticker: [],
     ratePings: [],
@@ -233,6 +236,7 @@ export function makeInitialState(): LiveState {
 export type Action =
   | { readonly kind: "event"; readonly event: LiveStageEvent }
   | { readonly kind: "batch"; readonly events: readonly LiveStageEvent[] }
+  | { readonly kind: "seed-rate"; readonly now: number; readonly per_tier_per_second: number }
   | { readonly kind: "tick"; readonly now: number }
   | { readonly kind: "select"; readonly event_id: string | null }
   | { readonly kind: "filter"; readonly value: FilterKind };
@@ -244,6 +248,42 @@ export function reducer(state: LiveState, action: Action): LiveState {
   if (action.kind === "filter") {
     return { ...state, filter: action.value };
   }
+  if (action.kind === "seed-rate") {
+    const count = action.per_tier_per_second;
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error("Live seed rate MUST be a non-negative integer");
+    }
+    const patterns = {
+      t0: [2, 1, 1, 2],
+      t1: [1, 1, 2, 0],
+      t2: [0, 1, 0, 1],
+    } as const;
+    const seeded = (tier: RateTierKey) => Array.from(
+      { length: RATE_BUCKETS },
+      (_, index) => patterns[tier][index % patterns[tier].length]! * count,
+    ) as readonly number[];
+    const rateBuckets = {
+      t0: seeded("t0"),
+      t1: seeded("t1"),
+      t2: seeded("t2"),
+    };
+    const ratePings: number[] = [];
+    for (let index = 0; index < RATE_BUCKETS; index += 1) {
+      const total = RATE_TIER_KEYS.reduce(
+        (sum, tier) => sum + (rateBuckets[tier][index] ?? 0),
+        0,
+      );
+      const at = action.now - (RATE_BUCKETS - 1 - index) * 1_000;
+      ratePings.push(...new Array(total).fill(at));
+    }
+    return {
+      ...state,
+      ratePings,
+      rateBuckets,
+      rateBucketAt: action.now,
+      now: action.now,
+    };
+  }
   if (action.kind === "tick") {
     const cutoff = action.now - RATE_WINDOW_MS;
     const pings = state.ratePings.filter((t) => t >= cutoff);
@@ -254,6 +294,7 @@ export function reducer(state: LiveState, action: Action): LiveState {
       rolls += 1;
       bucketAt += 1000;
     }
+
     const buckets = rolls > 0 ? rollRateBuckets(state.rateBuckets, rolls) : state.rateBuckets;
     const latSum = rolls > 0 ? rollBucketArray(state.latSum, rolls) : state.latSum;
     const latCount = rolls > 0 ? rollBucketArray(state.latCount, rolls) : state.latCount;
@@ -310,7 +351,7 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     slotIndex = pickSlot(state, now);
     if (slotIndex < 0) {
       // Pool is completely full of sticky (HIL) tiles - drop the event.
-      // Extremely rare with POOL_SIZE=96; log and move on. Still record it in
+      // The configured pool is full of sticky HIL tiles. Still record it in
       // the audit stream if it is a terminal audit entry.
       const isAuditEntry =
         evt.stage === "audit" && (evt.phase === "done" || evt.phase === "failed");

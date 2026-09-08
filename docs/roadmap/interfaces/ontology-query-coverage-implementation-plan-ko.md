@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: f07d70d5c8e05996ffdad8d1a6407e365bd720ae
-translation_revised: 2026-09-04
+translation_source_sha: 6aaeaff0efb9c708a5f307bea6cb4481585898f5
+translation_revised: 2026-09-08
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -42,16 +42,37 @@ translation_revised: 2026-09-04
 > 제한된 사전 검사 안에서 `semantic_model_identity_unavailable`을 반환합니다. Operator는 요청별로
 > 권위 있는 최종 결과 하나만 허용하고, 시간 초과 보류를 실제 fallback 시각에 기록하며, 뒤늦게
 > 도착한 경쟁 변환 결과를 무시합니다. 이 동작은 어휘 또는 정규식 라우팅을 추가하지 않습니다.
-> 자연어 의도는 계속 스키마로 검증된 모델 판단을 거쳐야 합니다.
+> 자연어 의도는 계속 스키마로 검증된 모델 판단을 거쳐야 합니다. 사전 검사가 잘못된 구조화 출력을
+> 반환하면 Core는 타입이 지정된 사용 불가 결과를 반환하기 전에 검증 사유와 함께 스키마 복구를
+> 한 번 시도합니다.
 >
-> **이름이 지정된 리소스 그룹 멤버십:** 모델 판단이 정확한 이름의 리소스 그룹에 속한 멤버
+> **운영 preflight 의미 판단:** F1-F4, 현재 리소스 모음 및 정확한 Resource 현재 상태 요청 하나를 포함하는 검토된 형식에서는
+> Compact T1
+> preflight가 출처가 결속된 후보 의미를 제공해 두 번째 직렬 의미 판단 호출을 생략할 수 있습니다.
+> Core는 명시적이고 맥락과 독립적인 요청, 0.90 이상의 확신도, 현재 발화의 정확한 원문 범위,
+> 지원되는 한 시간 정규화, 유형별 대상 및 facet 형식, 기존 principal 매니페스트를 모두 확인한
+> 경우에만 이를 수락합니다. 일치하지 않으면 전체 의미 판단을 유지합니다.
+> 리소스 모음 제안은 canonical 피연산자 없이 원문에 근거한 하위 유형 또는 범주 필터 하나와 현재
+> 상태 필터 하나를 전달할 수 있습니다. Core는 현재 온톨로지 값 도메인과 인벤토리 상태 카탈로그를
+> 통해 해당 구문을 결속합니다. 결속할 수 없거나 모호하면 전체 의미 판단을 유지하거나 타입이 있는
+> 명확화 요청을 반환합니다. 요청을 필터 없는 Resource 모음으로 넓히지 않으며 preflight 모델은 조회
+> 피연산자를 만들 수 없습니다. 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
+> 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
+> 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service
+> Health 조회는 전체 principal 매니페스트를 프레임 모델에 전달하지 않고 정확한 입력 없는
+> FunctionType에서 결정론적 프레임과 서버 계획을 구성합니다.
+> APIM, Application Gateway, backend 또는 GPT 같은 일반 제품 표기는 정확한 신원이 아닙니다.
+> 이 경우 frame 모델 또는 provider I/O 전에 `resource_identity` 명확화를 반환합니다.
+>
+> **운영 Resource 표시 범위:** 모든 Resource 모음은 결정론적 계획 또는 모델 계획 뒤에 서버 소유
+> 표시 규칙 하나를 적용합니다. 운영자가 선택할 수 있는 Resource 결과에서
+> `authorization.role-assignment`를 제외하지만 IAM 관계 근거를 위한 객체는 유지합니다. 명시적인 IAM
+> 또는 RBAC 질문은 전용 근거 경로를 사용합니다. 모델 판단이 정확한 이름의 리소스 그룹에 속한 멤버
 > 요청으로 분류하면 Core는 모델 프레임 제안 전에 검증된 `Resource.parent_id` 프레임을 만듭니다.
 > 정확한 그룹 이름을 범위가 제한된 `parent_id contains` 조건식으로 컴파일합니다. 리소스 그룹
 > 객체 자체를 대신 반환하거나 그룹 명사를 `Resource.type=resource-group`으로 재해석하지 않습니다.
 > `resource_group` 대상을 포함한 `query.resource_current_state` 판단은 호환되지 않는 타입 조합으로
-> 차단하고 계획 전에 다시 판단합니다. 일반 그룹 멤버십에서는 `authorization.role-assignment`를
-> 제외합니다. 이 타입은 IAM 근거를 위한 온톨로지 리소스로 유지되지만 운영자가 선택할 수 있는 Azure
-> 리소스 그룹 멤버는 아닙니다. 명시적인 IAM 또는 RBAC 질문은 전용 근거 경로를 사용합니다.
+> 차단하고 계획 전에 다시 판단합니다.
 >
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis
@@ -165,6 +186,7 @@ translation_revised: 2026-09-04
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v2.yaml`, `conversation_preflight.py`, `semantic_planning.py`, 집중 테스트 238개, 대상 Ruff, strict mypy 및 Browser Entra 변형 | 정확한 F1-F4 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
@@ -176,11 +198,11 @@ translation_revised: 2026-09-04
 | T1 명확화 및 frame-plan 정렬 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`, `semantic_planning_alignment.py`, 집중 플래너 검사 90개 통과 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료됩니다. 집중된 결정론적 helper는 서버 소유 명확화 맥락을 결속하고 승인된 frame 또는 정확한 기능군을 바꾸는 plan을 거부합니다. Server-bound context 요청, 모호하거나 혼합된 대상, 유효하지 않은 스키마, 결정론적 frame-plan 불일치는 T2 없이 안전하게 종료되고 타입이 지정된 T1 unavailable만 interactive runtime의 범위가 제한된 fallback을 사용할 수 있습니다. |
 | 온톨로지 선언 개수 | 구현됨 | `semantic_manifest_planning.py`, `semantic_planning_frame_checks.py`, `semantic_planning_plan_dispatch.py`, `semantic_turn_processor.py`, 집중 판단, 계획 및 이중 언어 표현 회귀 검사 | 검증된 `query.ontology_declaration` 개수 판단에서는 canonical 선언 `*Type` target 하나가 충돌하는 frame subject보다 우선하고 선언이 아닌 영역 target은 선언 선택에서 제외합니다. Canonical 선언 target이 없으면 정확한 선언 종류 또는 canonical `*Type` frame subject를 대체값으로 사용합니다. 집계 frame은 서버 소유 계획으로 `query.manifest`와 선언 종류별 `count`를 컴파일합니다. 완전한 출력은 집계 행 개수가 아니라 각 선언 종류의 개수와 읽기 전용 출처를 표시하고, 표시 종류를 모델이 작성한 노드 ID가 아니라 검증된 frame subject에 결속합니다. 운영 개수, 모호성, 충돌하는 canonical 선언 target, 사용할 수 없는 매니페스트 Function, 불완전한 출력 및 다른 측정값은 기존의 안전한 실패 경로를 유지합니다. |
 | 복합 서비스-담당 Agent 인스턴스 경로 | 구현됨 | `ontology_query.py`, `query_gateway.py`, `query_source_handlers.py`, `semantic_relationship_planning.py`, 집중 계약, 조회, 플래너, 실행기 및 보증 검사 451개 통과 | 일관된 단일 그래프 스냅샷이 실제 서비스, 워크로드, 리소스 및 담당 Agent의 각 경로를 보존합니다. 최종 증적은 정확한 매니페스트와 인벤토리 입력, principal 범위, release, 기준 시점, 출처 세대, 경로 정의 및 결과 다이제스트를 결합합니다. 빈 경로는 신원을 주장하지 않으며 담당 체계는 실행 권한을 부여하지 않습니다. |
-| 컬렉션 범위 Resource 상태 및 근거 기능군 격리 | implemented | `semantic_resource_state_planning.py`, `resource_state_queries.py`, `semantic_planning_value_filters.py`, `inventory-query-language.yaml`, 집중 플래너, FunctionType, 조립, prompt 및 표현 검사 | 서버 소유 FunctionType이 보안이 적용된 Resource 컬렉션을 완전한 observed `StateFactMetadata`로 필터링합니다. 스키마로 검증한 언어 레지스트리는 현재 인벤토리 상태와 구독 상태 평가를 분리하며, 바인딩되지 않은 상태 평가, 메트릭, 이력, 맥락 및 커버리지 기능군은 관련 없는 Resource 행 대신 타입이 지정된 보류를 반환합니다. 인증된 로컬 Console 관측은 구현 주장을 뒷받침하지만 통제된 릴리스 근거는 아닙니다. |
+| 컬렉션 범위 Resource 상태 및 근거 기능군 격리 | implemented | `semantic_resource_state_planning.py`, `resource_state_queries.py`, `semantic_planning_value_filters.py`, `inventory-query-language.yaml`, 집중 플래너, FunctionType, 조립, prompt 및 표현 검사, Python 전체 회귀 shard 2에서 7,294개 통과 | 서버 소유 FunctionType이 보안이 적용된 Resource 컬렉션을 완전한 observed `StateFactMetadata`로 필터링합니다. 현재 속성별 메타데이터 묶음과 유지되는 이전 평면 형식을 모두 허용합니다. ObjectSet은 범위가 넓은 읽기를 매니페스트에 선언되고 검토된 운영 상태 경로와 상태 메타데이터가 있는 Resource 유형으로 먼저 제한하므로 관련 없는 인벤토리 양이 잘못된 빈 상태 결과가 되지 않습니다. 원본 범위가 불완전하면 검증된 양성 일치 행은 불완전 상태로 표시하되 0행으로 전체 부재를 판단하지 않습니다. 스키마로 검증한 언어 레지스트리는 현재 인벤토리 상태와 구독 상태 평가를 분리하며, 바인딩되지 않은 상태 평가, 메트릭, 이력, 맥락 및 커버리지 기능군은 관련 없는 Resource 행 대신 타입이 지정된 보류를 반환합니다. 인증된 로컬 Console 관측은 구현 주장을 뒷받침하지만 통제된 릴리스 근거는 아닙니다. |
 | 정확한 대상이 없는 Resource 하위 유형 후보 계약 | validated | `semantic_target_candidate_planning.py`, `inventory_query_language.py`, `inventory-query-language.yaml`, 집중 계획 검사 204개 통과, 인증된 한국어 Console 행렬 | Core는 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 요청을 보안이 적용된 유형 필터 ObjectSet 하나로 바꾸고 `execution_authority=false`를 보존합니다. 스키마로 검증한 대상 수 신호는 FunctionType을 선택할 수 없고 컬렉션은 항상 단수보다 우선하며 정확한 신원은 후보 축소를 우회합니다. Current-source SRE 예시 첫 턴 8개는 hard-zero 표현 카운터가 모두 0인 검증된 목록 또는 후보 답변으로 완료됐습니다. 정확한 대상 기능 완성은 열린 상태입니다. |
 | Kubernetes 워크로드 대상 선택 및 평가 | implemented | Kubernetes rollout, Pod 복구, Resource 이벤트 이력 플래너 및 FunctionType, 검토된 메트릭 의미 규칙, 프로바이더 읽기 경로, 집중 검사, 인증된 대상 없는 Console 증적과 정확한 대상 Console 증적 | 검토된 용어는 S12 및 S1 대상을 연결합니다. 정확한 Deployment 및 Pod 계획은 소유권과 동일 UID 재시작 변화량을 검증하고 `source_incomplete`를 보존하며 원인 및 실행 권한을 false로 유지합니다. Descriptor가 광고한 `resource_event.kubernetes` frame은 typed judgment duration이 범위가 제한된 frame lookback과 같을 때만 기존 2-node 계획으로 컴파일됩니다. 출처에 근거한 Resource 이름 하나가 있으면 서버 계획은 전체 Resource 유형으로 넓히지 않고 정확한 조건식을 추가합니다. Function은 정확한 현재 child 하나에 증적에 결속된 UID selector를 사용할 수 있고 identity가 없거나 일치하지 않으면 provider I/O 전에 incomplete로 유지합니다. 명시적인 cluster scope만 삭제된 객체 이력을 조회할 수 있습니다. 답변은 관측 행, 출처 완전성 및 정확한 제한 사항을 보여주고 `source_retention_unverified`이면 행 0개가 과거 부재를 증명하지 않는다고 명시합니다. 인증된 실행은 정확한 Event Function에 도달해 `source_unavailable`을 렌더링했으므로 성공적인 프로바이더 접근과 영속 보존은 열린 상태입니다. |
 | 정확한 대상 메트릭 시계열 및 표현 | validated | `semantic_resource_metric_planning.py`, `resource_metric_queries.py`, `wire_semantic_query.py`, `presentation_artifact_v2.py`, 집중 검사, 인증된 표준 포트 Console 및 Browser 근거 | 명시적 시각화 요청은 T2 없이 `target_resource_metric_series`와 `query.resource_metric_series`를 사용했습니다. FunctionType은 source 표본 1085개에서 완전한 양 끝점 및 구간별 최솟값/최댓값 행 20/20개를 `display_truncated=false`로 반환했고 Operator는 검증된 시계열 블록과 exact-values 대체 표를 컴파일했습니다. 집계 요청은 `query.resource_metric_inventory`를 계속 사용하며 결과는 실행 권한을 부여하지 않습니다. |
-| 명시적 리소스 필터 근거 확인 | 구현됨 | `semantic_planning_value_filters.py`, `test_semantic_planning.py`, focused 플래너 검사(`27 passed`) | Core는 발화에 명시된 모든 카탈로그 값 필터와 frame이 보존한 정확한 자유 텍스트 subject 하나를 유지합니다. 결과를 좁히는 조건식만 추가하고 subject가 발화에 그대로 존재해야 하며 실행 권한을 부여하지 않습니다. |
+| 명시적 리소스 필터 근거 확인 | 구현됨 | `semantic_planning_value_filters.py`, `semantic_resource_visibility.py`, 집중 planning 및 visibility 검사 | Core는 발화에 명시된 모든 카탈로그 값 필터와 frame이 보존한 정확한 자유 텍스트 subject 하나를 유지합니다. 결과를 좁히는 조건식만 추가하고 subject가 발화에 그대로 존재해야 하며 실행 권한을 부여하지 않습니다. 모든 운영 Resource collection은 server가 소유하는 검증 후 filter를 통해 `authorization.role-assignment`를 제외하고, 명시적 IAM 관계 조회는 전용 근거 경로를 유지합니다. |
 | 정확한 대상 상태 근거 평가 | validated | `semantic_health_planning.py`, `resource_health_assessment_queries.py`, 운영 의미 조립, 집중 검사 및 인증된 Console 증적 | 의미 런타임은 정확한 대상 하나와 명시적인 근거 또는 상태 평가 축이 있을 때만 보존된 읽기 전용 상태 frame을 수정합니다. Core는 범위가 제한된 노드 7개와 결정론적 평가 FunctionType을 컴파일합니다. 준비 상태, 애플리케이션 작업 성공, 의존성, 프로세스 재시작, 메모리, 로그, 최신성 근거가 불완전하면 명시적인 제한으로 유지되며 정상 상태로 보고할 수 없습니다. 같은 질문의 런타임은 T2나 관련 없는 행 없이 노드 7/7과 근거 검사 13/13을 완료했습니다. |
 | 정확한 대상 요청 오류 및 Activity Log 상관 평가 | validated | `semantic_error_activity_planning.py`, `resource_error_activity_correlation_queries.py`, Azure 메트릭 및 읽기 조사 프로바이더, 집중 검사 및 인증된 Console 증적 | Core는 정확한 Resource 읽기 하나, 길이가 같은 직전/현재 `request.errors` 구간, 같은 구간의 Activity Log 읽기, 원인을 단정하지 않는 결정론적 reducer를 컴파일합니다. 완전한 0은 누락 근거와 구분하고 동시 관측은 인과관계가 되지 않으며 모델이 작성한 프로바이더 명령이나 실행 권한을 허용하지 않습니다. 재시작 후 같은 질문은 노드 5/5와 근거 검사 11/11을 완료했습니다. Activity Log는 검증된 0건을 반환했고 사용할 수 없는 요청 오류 매핑은 명시적인 공백으로 유지했습니다. |
 | 타입 기반 extension 답변 projection | 구현됨 | `semantic_turn_processor.py`, focused Core processor 테스트 | 검증된 `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, `CausalEvidenceJoin` 출력은 exact digest, 완전성, 개수, 제한 사항 및 `execution_authority=false`가 있는 범위 제한 요약으로 렌더링됩니다. Raw provider payload는 계속 제외하고 evidence reference는 기존 receipt 경로로 전달합니다. |
@@ -192,6 +214,11 @@ translation_revised: 2026-09-04
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정확한 Resource 현재 상태 질문이 Resource 컬렉션 필터로 축소되지 않도록 수정했습니다. 이제 컬렉션 복구에는 명시적인 컬렉션 카디널리티와 정확한 Resource 대상 없음이 필요하며, 전체 의미 판단 복구는 출처에 기반한 이름 또는 ID를 타입 기반 조건으로 보존합니다. 프로비저닝 성공이 관찰됐지만 런타임 상태가 없으면 실행 중이 아니라는 잘못된 주장 대신 `not_proven`으로 유지합니다. | `current change`, 정확한 이름, 대상 없는 명확화, 컬렉션, preflight 기능군, 현재 상태 프로바이더, Ruff 및 strict mypy 집중 검사 | 공유 CDP 브라우저가 다시 연결되면 인증된 표준 Console에서 정확한 `aks-fdai-chaos` 상태 질문을 다시 확인합니다. |
+| 2026-09-07 | implemented | 운영 Resource visibility를 중앙화해 모델이 제안한 collection plan과 server가 만든 collection plan 모두에서 `authorization.role-assignment`를 제외했습니다. 제외는 모델 operand 검증 뒤 실행되며 명시적 IAM 관계 출력에는 영향을 주지 않습니다. | `current change`; 집중 visibility 및 이름이 지정된 Resource Group 검사. 격리된 production Operator E2E가 `answered`, `semantic_answer_verified`, `resource_list`, 직렬화된 role assignment 행 0개 및 `execution_authority=false`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
+| 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight와 객체 전용 완전성을 추가하고 로컬 inventory refresh가 구성된 범위와 journal 계보를 보존하도록 했습니다. 범위가 지정된 graph coverage는 활성 범위의 보류 관측을 무시하지 않으면서 관련 없는 테스트 관측을 제외합니다. | `current change`; 집중 preflight, planner, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `target_current_state`를 통해 답변했습니다. | 인증된 표준 Console 근거를 보존합니다. |
+| 2026-09-07 | implemented | 일반 제품 범주를 정확한 운영 신원으로 인정하지 않고 모호하며 대상이 없는 게이트웨이 비교를 frame 계획 전에 종료했습니다. | `current change`; 집중 테스트 238개, 수정 후 Browser Entra F4 trace에서 frame 모델 및 provider 읽기 없음 | 정확한 대상이 있는 F3/F4 근거를 보존합니다. |
+| 2026-09-07 | implemented | 스키마로 검증되고 출처가 결속된 F1-F4 preflight 의미를 추가하고 원문, 확신도, 맥락, 시간, 유형별 형식 및 Resource 신원 검사를 안전하게 실패하도록 적용했습니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 답변 token TTFT와 완전한 근거 증적을 보존합니다. |
 | 2026-09-01 | 구현됨 | 변경 상관관계와 Resource 활동의 의미 판단 변형을 제한한 뒤 VPN 경로 exact-source canary를 완료했습니다. 서비스-Agent 담당 관계, 서비스 현재 상태, 변경 상관관계 및 제한된 Resource 활동을 포함한 사례 10개가 모두 통과했습니다. 런타임은 실행 권한을 부여하지 않고 VPN을 통해 프라이빗 Foundry 엔드포인트를 사용했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 로컬 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10. 실행 후 중지 표식과 기존 질문, 평가 및 회귀 원장은 원래 SHA-256 다이제스트를 유지했습니다. | 같은 기대 항목 10개에 대한 이중 언어 20개 캠페인을 제안하되 시작하지 않습니다. 100개 캠페인은 계속 비활성화합니다. |
 | 2026-09-01 | 구현됨 | 서비스와 담당 Agent 간 혼합 권한 보류를 명시적인 복합 읽기 권한 및 계보를 보존하는 인스턴스 경로 노드로 대체했습니다. 이 노드는 정확한 LinkType 선언 의존성을 검증하고 principal 범위의 현재 그래프를 하나의 저장소 스냅샷에서 읽으며, 완전하고 가려지지 않은 실제 경로에서만 신원 주장을 변환합니다. | `current change`, 서비스 계약, 온톨로지 조회, 플래너, 실행기, 프로바이더, 영속성 및 보증 집중 검사 451개 통과, Ruff 및 엄격한 mypy 통과 | 범위가 제한된 canary 10개를 실행합니다. 10개가 모두 통과한 경우에만 20개 캠페인을 제안하고 100개 캠페인은 시작하지 않습니다. |
 | 2026-09-01 | 구현됨 | 첫 canary에서 확인된 완전한 빈 결과 경계를 수정했습니다. 실제 루트에서 Agent로 이어지는 서비스 담당 경로가 없으면 필요한 신원 사실 없이 답변 완료로 반환하지 않고 보류합니다. | `current change`, 집중 인스턴스 경로 및 의미 계획 검사. 첫 탐색용 EN/KO 관계 cohort는 예상된 서비스-Agent 빈 경로 실패 2건을 포함해 5/10으로 보존했습니다. | 의도된 canary cohort 10개를 다시 실행합니다. 10개가 모두 통과한 경우에만 20개 캠페인을 제안합니다. |

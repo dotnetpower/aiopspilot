@@ -31,12 +31,14 @@ import {
 import { LivingRules, VerticalCards } from "./dashboard.signals";
 import { DashboardSkeleton } from "./dashboard.skeleton";
 import {
-  loadDashboardOverview,
+  loadDashboardOverviewForMode,
   type DashboardOverviewData,
 } from "./dashboard.loading";
+import type { ConsoleDataMode } from "../console-data-mode";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 /**
@@ -45,14 +47,14 @@ interface Props {
  * `policy_escapes` sum > 0 blocks release per goals-and-metrics (escapes
  * MUST be exactly 0), so it also fails the health axis.
  */
-export function DashboardRoute({ client }: Props) {
+export function DashboardRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<DashboardOverviewData>>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await loadDashboardOverview(client, (backbone) => {
+        const data = await loadDashboardOverviewForMode(dataMode, client, (backbone) => {
           if (!cancelled) setState({ status: "ready", data: backbone });
         });
         if (!cancelled) setState({ status: "ready", data });
@@ -68,7 +70,7 @@ export function DashboardRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, dataMode]);
 
   return (
     <div class="stack overview-page">

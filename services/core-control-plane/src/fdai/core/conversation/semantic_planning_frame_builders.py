@@ -315,12 +315,26 @@ def build_resource_current_state_clarification(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Clarify an unresolved current-state target before candidate execution."""
 
+    exact_targets = (
+        tuple(
+            target
+            for target in judgment.targets
+            if target.kind in {"resource", "resource_id"}
+            and target.canonical_value in {None, "Resource", "Resource.id", "Resource.name"}
+        )
+        if judgment is not None
+        else ()
+    )
     if (
         judgment is None
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent
         not in {"query.ontology_relationships", "query.resource_current_state"}
-        or any(target.canonical_value not in {None, "Resource"} for target in judgment.targets)
+        or exact_targets
+        or any(
+            target.canonical_value not in {None, "Resource", "Resource.id", "Resource.name"}
+            for target in judgment.targets
+        )
     ):
         return None
     facets = tuple(sorted(facet.replace("-", "_") for facet in judgment.requested_facets))

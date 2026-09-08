@@ -399,12 +399,16 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
         core_probe=lambda _root: True,
-        process_records=[(repo, [".venv/bin/python", "-m", "fdai"])],
+        process_records=[
+            (repo, [".venv/bin/python", "-m", "fdai"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
+        ],
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 6
-    assert result["ready_count"] == 4
+    assert result["service_count"] == 9
+    assert result["ready_count"] == 7
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
@@ -427,7 +431,11 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
-        process_records=[(tmp_path / "other", ["python", "-m", "fdai"])],
+        process_records=[
+            (tmp_path / "other", ["python", "-m", "fdai"]),
+            (repo, ["python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
+            (repo, ["python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
+        ],
     )
 
     assert result["status"] == "warning"
@@ -447,7 +455,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
     assert _git(repo, "add", "example.txt").returncode == 0
     assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
     (repo / ".fdai").mkdir()
-    barrier = threading.Barrier(5)
+    barrier = threading.Barrier(6)
     seen: list[str] = []
     lock = threading.Lock()
 
@@ -464,16 +472,49 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         process_records=[],
     )
 
-    assert len(seen) == 5
+    assert len(seen) == 6
     assert [item["name"] for item in result["services"]] == [
         "core-runtime",
         "console-frontend",
+        "manual-studio",
         "operator-api",
         "document-ingestion-api",
         "document-processing-worker",
         "isolated-executor",
+        "inventory-reconciliation",
+        "observation-campaign",
     ]
-    assert result["unavailable_services"] == ["core-runtime", "document-ingestion-api"]
+    assert result["unavailable_services"] == [
+        "core-runtime",
+        "document-ingestion-api",
+        "inventory-reconciliation",
+        "observation-campaign",
+    ]
+
+
+def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / ".fdai").mkdir()
+
+    result = module._local_services_diagnostic(
+        repo,
+        probe=lambda _url: True,
+        core_probe=lambda _root: True,
+        process_records=[(repo, ["python", "-m", "fdai"])],
+    )
+
+    assert result["unavailable_services"] == [
+        "inventory-reconciliation",
+        "observation-campaign",
+    ]
 
 
 def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
@@ -484,10 +525,25 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
 
     assert frontend["command"] == ("npm run dev -- --host 127.0.0.1 --port 5273 --strictPort")
     assert frontend["serverReadyAction"]["uriFormat"] == "http://localhost:5273"
+    assert frontend["env"]["VITE_MANUAL_STUDIO_URL"] == "http://127.0.0.1:5474"
     assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[0] == (
         "console-frontend",
         "http://localhost:5273/",
     )
+    assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[1] == (
+        "manual-studio",
+        "http://127.0.0.1:5474/catalog.json",
+    )
+    manual_studio = next(
+        item for item in launch["configurations"] if item["name"] == "Console Web: Manual Studio"
+    )
+    assert manual_studio["command"] == "npm run dev"
+    assert manual_studio["cwd"] == "${workspaceFolder}/tools/manual-studio"
+    assert manual_studio["env"]["PORT"] == "5474"
+    full_stack = next(
+        item for item in launch["compounds"] if item["name"] == "Console Web: Full Stack"
+    )
+    assert "Console Web: Manual Studio" in full_stack["configurations"]
 
 
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
@@ -507,13 +563,96 @@ def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> N
     assert not developer_workflow_runtime._core_heartbeat_ready(tmp_path, now=stale)
 
 
+def test_core_restart_readiness_requires_new_semantic_consumer_and_heartbeat(
+    tmp_path: Path,
+) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    started = datetime(2026, 8, 20, 13, 0, 0, tzinfo=UTC)
+    current = datetime(2026, 8, 20, 13, 0, 4, tzinfo=UTC)
+    log_file.write_text(
+        "\n".join(
+            (
+                "2026-08-20T12:59:59.000000+00:00 pantheon_heartbeat",
+                "2026-08-20T13:00:01.000000+00:00 pantheon_heartbeat",
+                "2026-08-20T13:00:02.000000+00:00 event_bus_consumer_started "
+                '"consumer_group": "fdai-core-semantic-turn.example"',
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert not developer_workflow_runtime._core_runtime_ready_after(
+        tmp_path,
+        not_before=started,
+        now=current,
+    )
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write("2026-08-20T13:00:03.000000+00:00 pantheon_heartbeat\n")
+
+    assert developer_workflow_runtime._core_runtime_ready_after(
+        tmp_path,
+        not_before=started,
+        now=current,
+    )
+
+
+def test_core_restart_readiness_retains_markers_across_large_startup_log(
+    tmp_path: Path,
+) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    started = datetime(2026, 8, 20, 13, 0, 0, tzinfo=UTC)
+    current = datetime(2026, 8, 20, 13, 0, 4, tzinfo=UTC)
+    log_file.write_text(
+        "2026-08-20T13:00:01.000000+00:00 event_bus_consumer_started "
+        '"consumer_group": "fdai-core-semantic-turn.example"\n'
+        + ("x" * (65 * 1024))
+        + "\n2026-08-20T13:00:03.000000+00:00 pantheon_heartbeat\n",
+        encoding="utf-8",
+    )
+
+    assert developer_workflow_runtime._core_runtime_ready_after(
+        tmp_path,
+        not_before=started,
+        now=current,
+    )
+
+
+def test_core_restart_readiness_spans_one_log_rotation(tmp_path: Path) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    started = datetime(2026, 8, 20, 13, 0, 0, tzinfo=UTC)
+    current = datetime(2026, 8, 20, 13, 0, 4, tzinfo=UTC)
+    log_file.with_name("core-runtime.log.1").write_text(
+        "2026-08-20T13:00:01.000000+00:00 event_bus_consumer_started "
+        '"consumer_group": "fdai-core-semantic-turn.example"\n',
+        encoding="utf-8",
+    )
+    log_file.write_text(
+        "2026-08-20T13:00:03.000000+00:00 pantheon_heartbeat\n",
+        encoding="utf-8",
+    )
+
+    assert developer_workflow_runtime._core_runtime_ready_after(
+        tmp_path,
+        not_before=started,
+        now=current,
+    )
+
+
 def test_local_service_wait_retries_until_the_complete_topology_is_ready(
     tmp_path: Path,
 ) -> None:
     reports = iter(
         (
             {"status": "warning", "unavailable_services": ["operator-api"]},
-            {"status": "ok", "ready_count": 6, "service_count": 6, "unavailable_services": []},
+            {"status": "ok", "ready_count": 9, "service_count": 9, "unavailable_services": []},
         )
     )
     clock = iter((0.0, 0.0, 0.25))
@@ -543,8 +682,8 @@ def test_local_services_command_fails_for_an_incomplete_topology(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 3,
-            "ready_count": 5,
-            "service_count": 6,
+            "ready_count": 8,
+            "service_count": 9,
             "status": "warning",
             "unavailable_services": ["operator-api"],
         },
@@ -567,10 +706,10 @@ def test_local_services_json_omits_text_progress(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 1,
-            "ready_count": 6,
+            "ready_count": 9,
             "read_only": True,
             "schema_version": 1,
-            "service_count": 6,
+            "service_count": 9,
             "status": "ok",
             "unavailable_services": [],
         },
@@ -588,8 +727,8 @@ def test_local_services_report_can_scope_readiness_to_core_runtime(
         module,
         "_local_services_diagnostic",
         lambda _root: {
-            "ready_count": 5,
-            "service_count": 6,
+            "ready_count": 8,
+            "service_count": 9,
             "services": [
                 {"name": "core-runtime", "ready": False},
                 {"name": "operator-api", "ready": True},

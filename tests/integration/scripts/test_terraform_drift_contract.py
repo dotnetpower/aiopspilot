@@ -6,6 +6,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -56,6 +57,49 @@ def _state(address: str, *images: str) -> dict[str, object]:
     }
 
 
+def _platform_state(*, missing_address: str | None = None) -> dict[str, Any]:
+    resources = [
+        {
+            "address": "module.state_store.azurerm_postgresql_flexible_server.primary",
+            "values": {"fqdn": "postgres.example.com"},
+        },
+        {
+            "address": 'module.event_bus.azurerm_eventhub.topic["fdai.change.events"]',
+            "values": {"name": "fdai.change.events"},
+        },
+        {
+            "address": ('module.event_bus.azurerm_eventhub.auxiliary["fdai.pipeline.stages"]'),
+            "values": {"name": "fdai.pipeline.stages"},
+        },
+        {
+            "address": 'module.event_bus.azurerm_eventhub.topic["fdai.pantheon.objects"]',
+            "values": {"name": "fdai.pantheon.objects"},
+        },
+        {
+            "address": "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
+            "values": {
+                "name": "oai-example",
+                "endpoint": "https://oai-example.openai.azure.com/",
+            },
+        },
+    ]
+    return {
+        "values": {
+            "root_module": {
+                "child_modules": [
+                    {
+                        "resources": [
+                            resource
+                            for resource in resources
+                            if resource["address"] != missing_address
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+
 def test_production_roots_cover_legacy_bootstrap_and_all_services(drift: ModuleType) -> None:
     roots = drift.production_roots("dev")
 
@@ -80,15 +124,27 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Plan legacy root" in workflow
     assert "Plan independent service roots" in workflow
     assert "Plan bootstrap root" in workflow
+    assert workflow.count("-refresh-only") == 3
+    assert '"scripts/deployment/service/drift_contract.py"' in workflow
+    assert "github.event_name == 'push' && github.ref == 'refs/heads/main'" in workflow
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
+    assert "drift_contract.py \\\n            platform-inputs" in workflow
     assert '[[ "$service_count" -eq 5 ]]' in workflow
     assert 'terraform -chdir="$terraform_root" init' in workflow
+    assert "TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}" in workflow
     assert "scripts/deployment/service/hydrate_database_host.py" in workflow
     assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
-    assert 'select(. == "fdai.change.events")' in workflow
-    assert 'select(. == "fdai.pipeline.stages")' in workflow
-    assert 'select(. == "fdai.pantheon.objects")' in workflow
+    assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in workflow
+    assert "resolved_models_digest=" in workflow
+    assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in workflow
+    assert "resolved_model_args+=(--model-binding-transition)" in workflow
+    assert '"${resolved_model_args[@]}"' in workflow
+    assert "terraform -chdir=infra show -json" in workflow
+    assert "database_host=\"$(jq -er '.database_host'" in workflow
+    assert "event_topic=\"$(jq -er '.event_topic'" in workflow
+    assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
+    assert "pantheon_object_topic=\"$(jq -er '.pantheon_object_topic'" in workflow
     assert "ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" in workflow
     assert "Verify runner storage posture" in workflow
     assert "./check-runner-storage-posture.sh" in workflow
@@ -142,6 +198,37 @@ def test_stored_service_image_rejects_missing_or_ambiguous_primary(
             contract=contract,
             repository="example/fdai",
         )
+
+
+def test_stored_platform_inputs_preserve_pre_refresh_service_bindings(
+    drift: ModuleType,
+) -> None:
+    assert drift.stored_platform_inputs(_platform_state()) == {
+        "database_host": "postgres.example.com",
+        "event_topic": "fdai.change.events",
+        "model_endpoints": {"azure-openai:oai-example": "https://oai-example.openai.azure.com"},
+        "pantheon_object_topic": "fdai.pantheon.objects",
+        "pipeline_stage_topic": "fdai.pipeline.stages",
+    }
+
+
+def test_stored_platform_inputs_reject_incomplete_state(drift: ModuleType) -> None:
+    with pytest.raises(LookupError):
+        drift.stored_platform_inputs(
+            _platform_state(
+                missing_address=('module.event_bus.azurerm_eventhub.topic["fdai.pantheon.objects"]')
+            )
+        )
+
+
+def test_stored_platform_inputs_reject_unexpected_topic(drift: ModuleType) -> None:
+    state = _platform_state()
+    root = state["values"]["root_module"]
+    topic = root["child_modules"][0]["resources"][1]
+    topic["values"]["name"] = "fdai.unexpected.events"
+
+    with pytest.raises(drift.DriftContractError, match="unexpected event_topic"):
+        drift.stored_platform_inputs(state)
 
 
 def test_stored_bootstrap_inputs_preserve_pre_refresh_intent(drift: ModuleType) -> None:

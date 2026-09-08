@@ -74,6 +74,7 @@ EXPECTED_RUNTIME_MODULES = {
     "human_access.py",
     "human_assignment_reconciliation.py",
     "inventory_ontology.py",
+    "inventory_ontology_state.py",
     "isolated_executor_client.py",
     "metric_semantic_catalog.py",
     "notification_registry.py",
@@ -154,6 +155,7 @@ def test_core_wheel_metadata_has_no_monolithic_fdai_dependency(core_wheel: Path)
 
     assert metadata["Name"] == "fdai-core-control-plane"
     requirements = metadata.get_all("Requires-Dist", [])
+    assert "azure-core<2,>=1.35" in requirements
     assert "fdai-service-contracts==0.1.0" in requirements
     assert all(_requirement_name(requirement) != "fdai" for requirement in requirements)
 
@@ -257,5 +259,6 @@ assert Path(fdai_core_service.main.__file__).resolve().is_relative_to(wheel_root
 def test_core_image_has_no_monolithic_source_fallback() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     assert "--no-install-package fdai" in dockerfile
+    assert '/app/.venv/bin/python -c "import fdai.runtime.bootstrap"' in dockerfile
     assert 'PYTHONPATH="/app/src"' not in dockerfile
     assert "COPY --chown=65532:65532 src/ /app/src/" not in dockerfile

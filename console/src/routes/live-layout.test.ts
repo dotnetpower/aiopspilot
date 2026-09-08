@@ -6,6 +6,10 @@ const styles = readFileSync(
   fileURLToPath(new URL("../styles.css", import.meta.url)),
   "utf8",
 );
+const panels = readFileSync(
+  fileURLToPath(new URL("./live.panels.tsx", import.meta.url)),
+  "utf8",
+);
 
 function ruleBody(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -33,5 +37,14 @@ describe("Live responsive header", () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.live-swarm\s*\{[^}]*grid-template-columns: 1fr/);
     expect(styles).toMatch(/\.live-queue\s*\{[^}]*min-width: 1080px/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.live-queue\s*\{[^}]*min-width: 0/);
+  });
+
+  it("keeps flow slots stable while signaling semantic updates", () => {
+    expect(panels).toContain("state.tiles.map((tile, slotIndex)");
+    expect(panels).toContain('key={`slot-${slotIndex}`}');
+    expect(panels).not.toContain("[...view.populatedTiles]");
+    expect(styles).toMatch(
+      /\.live-tile\.is-content-updated \.live-tile-stage\s*\{[^}]*color: var\(--accent\)/,
+    );
   });
 });

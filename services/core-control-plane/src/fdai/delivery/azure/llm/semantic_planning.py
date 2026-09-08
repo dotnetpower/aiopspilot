@@ -9,12 +9,18 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import Any, TypeVar
 
 import httpx
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
 from pydantic import BaseModel, ValidationError
 
+from fdai.core.conversation.adaptive_call_scope import (
+    call_scoped_provider,
+    run_scoped_model,
+    stop_scoped_provider_retry,
+)
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
@@ -38,9 +44,20 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
-_MAX_SYSTEM_PROMPT_CHARS = 32_768
+_MAX_SYSTEM_PROMPT_CHARS = 33_000
+_MAX_OPERATIONAL_REQUEST_BYTES = 65_536
 _MAX_RECOVERY_CONTEXT_CHARS = 1_024
 _MAX_ATTEMPTS_PER_CANDIDATE = 3
+_COMPACT_OPERATIONAL_INTENTS = frozenset(
+    {
+        "create.document",
+        "query.gateway_diagnostic_evidence",
+        "query.resource_configuration_changes",
+        "query.resource_current_state",
+        "query.resource_state_inventory",
+        "query.contextual_resources",
+    }
+)
 _ProposalT = TypeVar("_ProposalT", bound=BaseModel)
 _RECOVERY_PROMPT = """
 This is one bounded T2 recovery attempt after a typed T1 planning failure.
@@ -59,6 +76,7 @@ class AzureOpenAISemanticPlanningModelConfig:
     candidates: tuple[ModelRequestTarget, ...]
     frame_system_prompt: str
     plan_system_prompt: str
+    operational_frame_system_prompt: str | None = None
     timeout_seconds: float = 90.0
     max_tokens: int = 2_048
 
@@ -74,6 +92,11 @@ class AzureOpenAISemanticPlanningModelConfig:
         for prompt in (self.frame_system_prompt, self.plan_system_prompt):
             if not prompt or len(prompt) > _MAX_SYSTEM_PROMPT_CHARS:
                 raise ValueError("semantic planning system prompts MUST be non-empty and bounded")
+        if self.operational_frame_system_prompt is not None and (
+            not self.operational_frame_system_prompt
+            or len(self.operational_frame_system_prompt) > _MAX_SYSTEM_PROMPT_CHARS
+        ):
+            raise ValueError("operational frame system prompt MUST be non-empty and bounded")
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("semantic planning timeout_seconds MUST be in (0, 120]")
         if not 1 <= self.max_tokens <= 4_096:
@@ -131,7 +154,7 @@ class AzureOpenAISemanticPlanningModel:
             return None
         return self._complete(
             payload=payload,
-            prompt=self._config.frame_system_prompt,
+            prompt=self._frame_prompt(semantic_judgment),
             proposal_type=SemanticFrameProposal,
             operation="frame",
         )
@@ -191,7 +214,7 @@ class AzureOpenAISemanticPlanningModel:
         }
         if not _bounded_input(payload, context=context, descriptors=descriptors):
             return None
-        prompt = _recovery_prompt(self._config.frame_system_prompt)
+        prompt = _recovery_prompt(self._frame_prompt(semantic_judgment))
         if prompt is None:
             return None
         return self._complete(
@@ -235,6 +258,15 @@ class AzureOpenAISemanticPlanningModel:
             operation="plan_recovery",
         )
 
+    def _frame_prompt(self, semantic_judgment: Mapping[str, Any] | None) -> str:
+        if (
+            self._config.operational_frame_system_prompt is not None
+            and semantic_judgment is not None
+            and semantic_judgment.get("primary_intent") in _COMPACT_OPERATIONAL_INTENTS
+        ):
+            return self._config.operational_frame_system_prompt
+        return self._config.frame_system_prompt
+
     def _complete(
         self,
         *,
@@ -270,6 +302,23 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
     ) -> Mapping[str, Any] | None:
+        return await run_scoped_model(
+            lambda: self._complete_attempts(
+                payload=payload,
+                prompt=prompt,
+                proposal_type=proposal_type,
+                operation=operation,
+            )
+        )
+
+    async def _complete_attempts(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        prompt: str,
+        proposal_type: type[BaseModel],
+        operation: str,
+    ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
             {"untrusted_input": payload},
             allow_nan=False,
@@ -285,6 +334,27 @@ class AzureOpenAISemanticPlanningModel:
             sort_keys=True,
         )
         system_content = f"{prompt}\nRequired JSON Schema:\n{schema}"
+        prompt_profile = (
+            "operational" if prompt == self._config.operational_frame_system_prompt else "general"
+        )
+        request_bytes = len(system_content.encode()) + len(user_content.encode())
+        if prompt_profile == "operational" and request_bytes > _MAX_OPERATIONAL_REQUEST_BYTES:
+            _LOGGER.warning(
+                "semantic_planning_operational_request_over_budget",
+                extra={"request_bytes": request_bytes},
+            )
+            return None
+        _LOGGER.info(
+            "semantic_planning_request_prepared",
+            extra={
+                "operation": operation,
+                "prompt_profile": prompt_profile,
+                "system_chars": len(system_content),
+                "user_chars": len(user_content),
+                "request_bytes": request_bytes,
+                "candidate_count": len(self._config.candidates),
+            },
+        )
         candidate_timeout = self._config.timeout_seconds / len(self._config.candidates)
         for index, target in enumerate(self._config.candidates):
             try:
@@ -308,15 +378,20 @@ class AzureOpenAISemanticPlanningModel:
                         body["model"] = request.model_body_field
                     for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):
                         trace_start = start_model_trace(body["messages"])
-                        response = await self._http.post(
-                            request.url,
-                            params=request.params,
-                            headers={
-                                "Authorization": f"Bearer {token.token}",
-                                "Content-Type": "application/json",
-                            },
-                            json=body,
-                            timeout=candidate_timeout,
+                        response, reservation = await call_scoped_provider(
+                            partial(
+                                self._http.post,
+                                request.url,
+                                params=request.params,
+                                headers={
+                                    "Authorization": f"Bearer {token.token}",
+                                    "Content-Type": "application/json",
+                                },
+                                json=body,
+                                timeout=candidate_timeout,
+                            ),
+                            request=body,
+                            output_tokens=self._config.max_tokens,
                         )
                         if response.status_code == 429:
                             response.raise_for_status()
@@ -334,13 +409,16 @@ class AzureOpenAISemanticPlanningModel:
                                 response_content=response_content,
                                 usage=usage,
                             )
+                            observation = SemanticJudgmentObservation(
+                                model=target.deployment,
+                                usage=bounded_usage(usage),
+                                trace_call=trace_call,
+                            )
+                            if reservation is not None:
+                                reservation.record(observation)
                             return SemanticPlanningModelResponse(
                                 proposal=proposal,
-                                observation=SemanticJudgmentObservation(
-                                    model=target.deployment,
-                                    usage=bounded_usage(usage),
-                                    trace_call=trace_call,
-                                ),
+                                observation=observation,
                             )
                         except (ValidationError, ValueError) as exc:
                             if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
@@ -356,6 +434,12 @@ class AzureOpenAISemanticPlanningModel:
                             )
                     raise RuntimeError("semantic planning retry loop exhausted")
             except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
+                if stop_scoped_provider_retry():
+                    _LOGGER.warning(
+                        "adaptive_query_provider_attempt_ended",
+                        extra={"operation": operation, "failure_type": type(exc).__name__},
+                    )
+                    return None
                 failure: dict[str, Any] = {
                     "operation": operation,
                     "candidate_index": index,

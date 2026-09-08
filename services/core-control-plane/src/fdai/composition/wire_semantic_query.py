@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fdai_service_contracts.ontology_query import (
@@ -12,6 +11,7 @@ from fdai_service_contracts.ontology_query import (
     content_digest,
 )
 
+from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import (
     CatalogQueryManifestProvider,
@@ -66,6 +66,15 @@ from fdai.core.ontology_platform.contextual_resource_queries import (
 from fdai.core.ontology_platform.declaration_queries import (
     ONTOLOGY_DECLARATION_FUNCTION_NAME,
     ontology_declaration_function,
+)
+from fdai.core.ontology_platform.gateway_diagnostics import (
+    GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+    gateway_diagnostic_function,
+)
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+    GovernedDocumentReader,
+    governed_document_function,
 )
 from fdai.core.ontology_platform.graph_query_refresh import (
     BoundedGraphLiveRefreshProvider,
@@ -133,6 +142,14 @@ from fdai.core.ontology_platform.resource_activity_queries import (
 from fdai.core.ontology_platform.resource_class_closure import (
     RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
     resource_class_closure_function,
+)
+from fdai.core.ontology_platform.resource_configuration_queries import (
+    RESOURCE_CONFIGURATION_FUNCTION_NAME,
+    resource_configuration_changes_function,
+)
+from fdai.core.ontology_platform.resource_configuration_snapshots import (
+    RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
+    resource_configuration_snapshot_function,
 )
 from fdai.core.ontology_platform.resource_current_state_queries import (
     RESOURCE_CURRENT_STATE_FUNCTION_NAME,
@@ -211,26 +228,10 @@ from .semantic_query_azure_composition import compose_azure_semantic_query_runti
 from .semantic_query_health_values import (
     resource_health_state_values as _resource_health_state_values,
 )
+from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticQueryRuntimeComposition:
-    """Optional runtime plus one stable reason when composition is unavailable."""
-
-    runtime: SemanticConversationRuntime | None
-    unavailable_reason: str | None
-    model_auth_audiences: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if (self.runtime is None) != (self.unavailable_reason is not None):
-            raise ValueError("semantic runtime composition availability is inconsistent")
-        if self.runtime is not None and not self.model_auth_audiences:
-            raise ValueError("available semantic runtime requires model auth audiences")
-        if self.runtime is None and self.model_auth_audiences:
-            raise ValueError("unavailable semantic runtime cannot expose model auth audiences")
 
 
 def build_semantic_query_runtime(
@@ -262,6 +263,8 @@ def build_semantic_query_runtime(
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
+    adaptive_service: AdaptiveConversationService | None = None,
+    governed_document_reader: GovernedDocumentReader | None = None,
 ) -> SemanticConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -350,6 +353,16 @@ def build_semantic_query_runtime(
                 catalog_digest=catalog_digest,
             ),
         )
+    if governed_document_reader is not None:
+        governed_document_declaration = declarations[GOVERNED_DOCUMENT_FUNCTION_NAME]
+        function_registry.register_contextual(
+            governed_document_declaration,
+            governed_document_function(
+                ontology_release,
+                reader=governed_document_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
+        )
     contextual_declaration = declarations[CONTEXTUAL_RESOURCE_FUNCTION_NAME]
     function_registry.register_contextual(
         contextual_declaration,
@@ -432,7 +445,29 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
         )
+    if topology_reader is not None:
+        function_registry.register_contextual(
+            declarations[RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME],
+            resource_configuration_snapshot_function(
+                ontology_release,
+                reader=topology_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+        function_registry.register_contextual(
+            declarations[RESOURCE_CONFIGURATION_FUNCTION_NAME],
+            resource_configuration_changes_function(ontology_release),
+        )
     if metric_registry is not None and metric_window_provider is not None:
+        function_registry.register_contextual(
+            declarations[GATEWAY_DIAGNOSTIC_FUNCTION_NAME],
+            gateway_diagnostic_function(
+                ontology_release,
+                registry=metric_registry,
+                provider=metric_window_provider,
+            ),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        )
         resource_metric_declaration = declarations[RESOURCE_METRIC_FUNCTION_NAME]
         function_registry.register_contextual(
             resource_metric_declaration,
@@ -733,6 +768,12 @@ def build_semantic_query_runtime(
                         caller_agent="Bragi",
                         caller_role=role,
                         purposes=(purpose,),
+                        principal_ref=principal.id,
+                        principal_groups=tuple(sorted(principal.groups)),
+                        principal_scope_digest=semantic_principal_scope_digest(
+                            principal=principal,
+                            purpose=purpose,
+                        ),
                     ),
                     receipt_authority=receipt_authority,
                     allow_presentation_read_dependencies=True,
@@ -746,6 +787,7 @@ def build_semantic_query_runtime(
         executor_factory=executor_for,
         purpose=purpose,
         function_bindings=function_registry.binding_authorities,
+        adaptive_service=adaptive_service,
     )
 
 

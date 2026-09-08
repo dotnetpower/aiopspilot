@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 8c21cc88f1f852d737bcf8adf4fd7f13a677134f
-translation_revised: 2026-09-06
+translation_source_sha: bb29a27c804e87b48cfa1c498fc555d19ba6e932
+translation_revised: 2026-09-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
@@ -13,6 +13,7 @@ translation_revised: 2026-09-06
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
 공유 Operator 데이터 출처 매니페스트도 두 프로필에서 Assurance Twin 읽기 경로 3개를 같은 서비스 로컬 변환 결과에 할당합니다. 이 소유권은 PostgreSQL이 구성되지 않았을 때 명시적인 사용 불가 이유를 보고하며 WARA, 비용 거버넌스 또는 다른 경로의 권한을 바꾸지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
+로컬 준비는 오래된 Console 값 대신 실제로 선택한 모델 파일에서 `LLM_RESOLVED_MODELS_SHA256`을 계산해 Operator 환경에 전달합니다. 시작 시 확인값이 없거나 파일이 변경되었으면 요청을 처리하기 전에 차단합니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에
 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch
@@ -60,24 +61,30 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
 | Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### 고정 workspace 포트
-커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는 로컬 개발에서 `5474`로 독립 실행되며 인증된 Console full stack과 분리되어 있습니다.
+커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는
+`5474`에서 실행되며 인증된 Console full stack과 함께 시작됩니다. 따라서 별도 명령 없이 제품
+내 도움말 라이브러리를 사용할 수 있습니다.
 
 | 표면 | 기본 주소 | Workspace 항목 지점 |
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch 또는 `design mocks: serve (5373)` 작업 |
 | Console SPA | `http://localhost:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
+| Manual Studio | `http://127.0.0.1:5474` | `Console Web: Full Stack` 또는 `console: start full stack` 작업 |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-`Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
-SPA를 시작합니다. 일반 Console 빌드는 모듈 진입점보다 먼저 `/fdai-config.js`를 불러오며
+`Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개, Console
+SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점보다 먼저
+`/fdai-config.js`를 불러오며
 정확한 null 자리 표시자를 제공합니다. 배포 도구는 비공개 사전 빌드 사본에서만 이 파일을
 스키마로 검증된 공개 HTTPS 및 Entra 연결로 바꿀 수 있으며, 알 수 없는 필드나 두 번째 테넌트
 변경은 안전하게 차단됩니다. 로컬 launch는 계속 담당 서비스 분포만 가져오며 로컬 격리 실행기는
 관리 리소스 신원이 없는 영속 shadow 소비자로 남습니다. Compound는 정적 design mock이나
 테스트 고정본 애플리케이션을 시작하지 않습니다.
+
+작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스를 모두 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되면 스택을 사용할 수 없는 상태로 전환하고 범위가 제한된 복구를 시작합니다.
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬
 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,
@@ -96,7 +103,7 @@ loopback 전용 소켓 가드는 클라우드 호출을 차단하며 Docker 서�
 
 작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다. 이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤 `start-console-services.sh`을 실행합니다. 준비 작업은 먼저 모든 서비스 migration branch와 쓰기 소유권을 검증합니다. 그다음 port `5432`의 런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 복구한 뒤 순서가 있는 8개 단계 fingerprint를 평가합니다. 8개 단계는 Console 의존성, 로컬 migration, 런타임 환경, 권위 있는 인벤토리, Settings 변환 결과, 카탈로그 변환 결과, 서비스 환경 및 Entra redirect입니다. 각 단계는 이미 실행 중인 애플리케이션 스택을 요구하지 않고 정확한 입력과 필수 출력으로 재사용됩니다. 데이터베이스 기반 단계에는 로컬 PostgreSQL volume identity도 포함하므로 재생성된 volume이 오래된 파일 marker를 상속할 수 없습니다. 의존성 단계가 없거나 변경되면 모든 Python workspace 패키지에 고정된 `uv sync`를 실행하고 lockfile 기반 `npm ci`도 실행합니다. 또한 독립 패키지인 워커와 실행기 진입점이 있어야 이 단계를 재사용합니다. 의존성 복구는 supervisor가 서비스 프로세스를 시작하기 전에 끝나므로 패키지 조정이 암시적인 애플리케이션 시작으로 이어지지 않습니다. 각 외부 명령은 출력을 전달하는 `run-bounded-command.py`를 통해 실행하며 전체 또는 무진행 기한을 한 번만 고정합니다. 실행기는 직접 자식이 먼저 종료되어도 전체 자식 process group에 계속 signal을 보내며 만료 시 `SIGTERM`을 보낸 뒤 선언된 유예 시간이 지나면 `SIGKILL`로 전환합니다. `--force`는 모든 단계를 무효화합니다.
 
-Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내지만 VS Code 태스크는 supervisor가 terminal `ready` 또는 `failed` 중 하나를 정확히 한 번 내보낼 때까지 활성 상태를 유지합니다. 전체 readiness gate의 기본값은 60초이며 외부 process-group deadline은 65초입니다. Readiness 전의 모든 child exit, readiness 실패, signal 또는 managed-lock 실패는 `failed`를 내보내고 0이 아닌 값으로 종료합니다. 중복된 명시적 시작은 조용히 무시되지 않고 managed lock과 fingerprint 재사용 경로를 통해 동시에 실행됩니다. 스키마에 맞는 `silent` 초과 정책은 instance 2개 상한에 도달한 뒤에만 적용되며 대화형 prompt를 열지 않습니다. `console: wait full stack ready`는 성공한 시작 뒤 사용하는 별도 10초 진단이며 두 번째 시작 단계가 아닙니다. 텍스트 모드는 반복 확인 전에 대기 예산을 내보내고 JSON 모드는 하나의 기계 판독 문서를 유지합니다. Core와 Operator 복구 작업은 이름이 지정된 동일한 서비스 준비 상태 검사를 적용하고 프로세스 시작을 준비 상태로 취급하지 않도록 terminal 표식을 내보냅니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
+Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내지만 VS Code 태스크는 supervisor가 terminal `ready` 또는 `failed` 중 하나를 정확히 한 번 내보낼 때까지 활성 상태를 유지합니다. 전체 readiness gate의 기본값은 60초이며 외부 process-group deadline은 65초입니다. Readiness 전의 모든 child exit, readiness 실패, signal 또는 managed-lock 실패는 `failed`를 내보내고 0이 아닌 값으로 종료합니다. 중복된 명시적 시작은 조용히 무시되지 않고 managed lock과 fingerprint 재사용 경로를 통해 동시에 실행됩니다. 스키마에 맞는 `silent` 초과 정책은 instance 2개 상한에 도달한 뒤에만 적용되며 대화형 prompt를 열지 않습니다. `console: wait full stack ready`는 성공한 시작 뒤 사용하는 별도 10초 진단이며 두 번째 시작 단계가 아닙니다. 텍스트 모드는 반복 확인 전에 대기 예산을 내보내고 JSON 모드는 하나의 기계 판독 문서를 유지합니다. Core 실행기는 수정되었거나 추적되지 않는 활성 프롬프트 파일을 차단하여 로컬 답변이 체크인된 버전과 다른 프롬프트를 조용히 사용하지 못하게 합니다. 의도적인 프롬프트 개발 실행은 `FDAI_LOCAL_ALLOW_DIRTY_PROMPTS=1`로 허용할 수 있으며 표준 시작은 계속 차단 상태를 유지합니다. Core와 Operator 복구 작업은 이름이 지정된 동일한 서비스 준비 상태 검사를 적용하고 프로세스 시작을 준비 상태로 취급하지 않도록 terminal 표식을 내보냅니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
 
 순서가 있는 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 이러한 선언은 발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
 Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는
@@ -334,11 +341,11 @@ Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
 alphanumeric 및 hyphen 식별자를 설정할 수 있습니다. 생성된 코어, Pantheon 및 Operator 요청
 그룹은 이 인스턴스를 사용하고 deployed Operator 요청 그룹은 런타임 hostname을 사용합니다.
-Live 및 Agent 관찰에는 서로 다른 프로세스 내부 재생 규칙이 적용됩니다. 일반 Live 단계 hub는
-구독 이후 이벤트만 전달합니다. Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를
-보존하고 새 구독자를 같은 잠금 안에서 등록하면서 이 값들을 초기값으로 제공합니다. 범위가 제한된
-이 프로세스 내부 스냅샷은 polling 없이 새로 고침을 초기화하지만 영속 이력 재생은 아니며 Operator
-프로세스가 다시 시작되면 사라집니다. 각 hub가 전체 `fdai.pipeline.stages` 스트림을 consume하려면
+Live 및 Agent 관찰에는 서로 다른 프로세스 내부 재생 규칙이 적용됩니다. Live 단계 hub는 허용된 프레임을 최대 256개까지 60초 동안 유지하고 새 구독자에게 관찰된 순서로 재생합니다. Agent hub는
+agent별로 검증된 최신 `agent.state` 이벤트 하나를 보존하고 새 구독자를 같은 잠금 안에서 등록하면서
+이 값들을 초기값으로 제공합니다. 범위가 제한된 이 프로세스 내부 스냅샷은 polling 없이 새로 고침을
+초기화하지만 영속 이력 재생은 아니며 Operator 프로세스가 다시 시작되면 사라집니다. 각 hub가 전체
+`fdai.pipeline.stages` 스트림을 consume하려면
 독립적으로 실행되는 Operator 프로세스 또는 복제본마다 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`가
 계속 고유해야 합니다. 기본값은 단일 프로세스 호환성만 유지합니다. 격리된 E2E launcher는 상속된
 값을 항상 UUID 범위 그룹으로 교체하며 브라우저에 서비스를 제공하는 Operator가 사용하는 그룹에
@@ -620,16 +627,10 @@ Future 작업으로 유지. 전체 설계는 이미
 [llm-strategy.md § 조정기 작업](../architecture/llm-strategy-ko.md#reconciler-job) 에 있음;
 `infra/modules/compute/container-apps-job/` 재사용 + Python 엔트리로 shipping.
 
-## Fork-Side 오버라이드 지점
+## 포크 측 재정의
 
-위 모든 게 customer-agnostic 유지. 포크는 `core/` 를 안 건드리고 커스텀:
-
-- 리전/컴플라이언스 오버라이드 있는 자체 `llm-registry.yaml` 제공.
-- 포크의 구독을 가리키는 `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` env 제공.
-  **이 리포는 그 값들을 절대 저장 안 함.**
-- 추가 LLM 프로바이더 (예: Anthropic 직접 API) 등록: 조립 루트에서 포크 소유
-  `CrossCheckModel` 구현 바인딩 - [llm-strategy.md § Mixed-Model 계열 Strategies](../architecture/llm-strategy-ko.md#mixed-model-family-strategies)
-  의 `azure-foundry` / `external` / `hil-only` 토글.
+[배포 포크 재정의 참조](../../reference/deployment-fork-overrides-ko.md)를 사용해 테넌트 값과
+프로바이더별 바인딩을 업스트림 저장소 밖에 유지합니다.
 
 ## 검증 게이트
 

@@ -194,7 +194,7 @@ def _verify(token: str) -> Mapping[str, object]:
         roles = [OperatorRole.APPROVER.value]
     else:
         roles = []
-    return {"oid": "operator", "roles": roles}
+    return {"oid": "operator", "idtyp": "user", "roles": roles}
 
 
 def _client(
@@ -553,6 +553,39 @@ def test_cors_preflight_allows_durable_sse_replay_header() -> None:
     assert {"authorization", "last-event-id"} <= allowed
 
 
+def test_cors_exposes_document_integrity_headers() -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                CORS_ORIGINS_ENV: "http://localhost:5273",
+            },
+            composition=composition,
+        ),
+        client=("127.0.0.1", 50000),
+    )
+
+    response = client.get("/healthz", headers={"Origin": "http://localhost:5273"})
+
+    exposed = {
+        value.strip().casefold()
+        for value in response.headers["access-control-expose-headers"].split(",")
+    }
+    assert {
+        "x-fdai-artifact-sha256",
+        "x-fdai-expected-rows",
+        "x-fdai-included-rows",
+    } <= exposed
+
+
 def test_local_cli_mode_rejects_non_loopback_requests() -> None:
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify,
@@ -754,7 +787,11 @@ def test_llm_usage_requires_one_bounded_timezone_aware_range() -> None:
 def test_mapping_shaped_roles_claim_does_not_grant_operator_access() -> None:
     def verify_mapping_role(token: str) -> Mapping[str, object]:
         del token
-        return {"oid": "operator", "roles": {OperatorRole.OWNER.value: True}}
+        return {
+            "oid": "operator",
+            "idtyp": "user",
+            "roles": {OperatorRole.OWNER.value: True},
+        }
 
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: verify_mapping_role,

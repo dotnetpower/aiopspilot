@@ -29,7 +29,7 @@ from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
     STATE_FACT_METADATA_PROPERTY,
     LinkObservationMetadata,
-    StateFactMetadata,
+    state_fact_metadata_values,
 )
 
 MAX_ACTIVE_PROJECTION_OBSERVATIONS: Final[int] = 250_000
@@ -53,7 +53,12 @@ def build_projection_replay_observation(
     prior_manifest: Mapping[str, Any],
     records: Sequence[NormalizedInventoryObservation],
 ) -> PromotedInventoryObservation:
-    if metadata.get("projection_complete") is not True:
+    legacy_snapshot_metadata = _modern_manifest_covers_legacy_snapshot(
+        generation=generation,
+        metadata=metadata,
+        prior_manifest=prior_manifest,
+    )
+    if metadata.get("projection_complete") is not True and not legacy_snapshot_metadata:
         raise ValueError("active inventory snapshot is incomplete for projection replay")
     resources: list[ResourceRecord] = []
     links: list[LinkRecord] = []
@@ -95,13 +100,54 @@ def build_projection_replay_observation(
         resources=tuple(resources),
         links=tuple(links),
         complete=True,
-        relationship_drops=projection_replay_drops(metadata, prior_manifest),
+        relationship_drops=(
+            () if legacy_snapshot_metadata else projection_replay_drops(metadata, prior_manifest)
+        ),
         recorded_at=recorded_at,
+        state_base_generation=(
+            str(metadata["state_base_generation"])
+            if metadata.get("state_base_generation") is not None
+            else None
+        ),
+        state_base_generation_checked="state_base_generation" in metadata,
     )
-    expected_coverage = _mapping(metadata.get("relationship_coverage"))
-    if dict(compute_relationship_coverage(observation).to_metadata()) != dict(expected_coverage):
-        raise ValueError("inventory projection replay relationship coverage changed")
+    if not legacy_snapshot_metadata:
+        expected_coverage = _mapping(metadata.get("relationship_coverage"))
+        actual_coverage = dict(compute_relationship_coverage(observation).to_metadata())
+        if actual_coverage != dict(expected_coverage):
+            raise ValueError("inventory projection replay relationship coverage changed")
     return observation
+
+
+def _modern_manifest_covers_legacy_snapshot(
+    *,
+    generation: str,
+    metadata: Mapping[str, Any],
+    prior_manifest: Mapping[str, Any],
+) -> bool:
+    if any(
+        key in metadata
+        for key in (
+            "projection_complete",
+            "relationship_coverage",
+            "relationship_drop_classifications",
+        )
+    ):
+        return False
+    manifest_digest = prior_manifest.get("manifest_digest")
+    return (
+        prior_manifest.get("schema_version") == "1.3.0"
+        and prior_manifest.get("generation") == generation
+        and prior_manifest.get("complete") is True
+        and prior_manifest.get("relationship_complete") is True
+        and prior_manifest.get("dropped_reasons") == []
+        and isinstance(prior_manifest.get("object_content"), list)
+        and isinstance(prior_manifest.get("link_content"), list)
+        and isinstance(manifest_digest, str)
+        and len(manifest_digest) == 71
+        and manifest_digest.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in manifest_digest[7:])
+    )
 
 
 def projection_replay_drops(
@@ -205,7 +251,9 @@ def projection_freshness_ceiling(manifest: Mapping[str, Any]) -> int:
             continue
         if not isinstance(state_fact, Mapping):
             raise ValueError("inventory projection replay state fact is invalid")
-        ceilings.add(StateFactMetadata.from_mapping(state_fact).freshness_ceiling_seconds)
+        ceilings.update(
+            fact.freshness_ceiling_seconds for fact in state_fact_metadata_values(state_fact)
+        )
     if not ceilings:
         return DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS
     if len(ceilings) != 1:

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AnswerVerification } from "./backend";
+import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 import type { Citation } from "./citations";
 import {
   buildSources,
   citationMarks,
+  groundingAttentionIssueKind,
   groundingAgents,
   groundingStages,
   handoffReasonKey,
@@ -33,6 +34,36 @@ function manifestVerification(
       complete: true,
       source_entry_count: 2,
       entries,
+    },
+  };
+}
+
+function semanticReceipt(
+  evidence_posture: "fresh" | "stale" | "incomplete" | "conflicting" | "unavailable",
+): SemanticProjectionReceipt {
+  return {
+    schema_version: "2.0.0",
+    projection_id: "projection-1",
+    request_id: "request-1",
+    disposition: "answered",
+    reason_code: "query_completed",
+    execution_authority: false,
+    assurance_observation: {
+      schema_version: "1.0.0",
+      frame: null,
+      capabilities: [],
+      object_types: [],
+      link_types: [],
+      function_types: [],
+      ontology_paths: [],
+      fact_kinds: [],
+      limitation_kinds: [],
+      claim_kinds: [],
+      evidence_posture,
+      authority_posture: "read_only",
+      read_performed: true,
+      observation_digest: "sha256:obs",
+      execution_authority: false,
     },
   };
 }
@@ -356,6 +387,36 @@ describe("groundingStages", () => {
       detail: "1/3 manifest sources available",
       detailKey: "deck.grounded.stageDetail.manifestSourcesAvailable",
       detailParams: { available: 1, total: 3 },
+      status: "attention",
+    });
+  });
+
+  it("surfaces evidence posture as grounding attention even with a complete manifest", () => {
+    const verification = manifestVerification([{
+      ref: "e-1",
+      path: "/incident/id",
+      field: "id",
+      kind: "id",
+      raw_value: "inc-1",
+      normalized_value: "inc-1",
+      anchors: [],
+    }]);
+
+    expect(groundingAttentionIssueKind(verification, semanticReceipt("stale"))).toBe("staleEvidence");
+    const stages = groundingStages({
+      sources: buildSources(verification, []),
+      source: "llm:gpt-4o-mini",
+      verification,
+      semanticReceipt: semanticReceipt("stale"),
+      agents: [],
+    });
+    expect(stages.find((stage) => stage.action === "ground")).toMatchObject({
+      action: "ground",
+      detailKey: "deck.grounded.stageDetail.staleEvidence",
+      status: "attention",
+    });
+    expect(stages.find((stage) => stage.action === "verify")).toMatchObject({
+      action: "verify",
       status: "attention",
     });
   });

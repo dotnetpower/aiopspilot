@@ -26,6 +26,12 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "relationship_mapping_catalog=load_provider_relationship_mapping_catalog(" in source
     assert "scope_coverage=query_factory.build_scope_coverage_fn()" in source
     assert "unmapped_resources=query_factory.build_unmapped_resource_query_fn()" in source
+    assert "scopes=(subscription_id,)" in source
+    assert 'scopes=("configured-subscription",)' not in source
+    assert '"coverage_scope": "full_provider_scope"' in source
+    assert "observation_journal.append_promoted_snapshot(observation)" in source
+    assert "journal_high_watermark=journal_append.journal_high_watermark" in source
+    assert "projection_high_watermark=journal_append.projection_high_watermark" in source
 
 
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:

@@ -28,6 +28,7 @@ import type { ComponentType } from "preact";
 import { lazy } from "preact/compat";
 import type { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
+import type { ConsoleDataMode } from "./console-data-mode";
 import { t } from "./i18n";
 
 function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProps>>>(
@@ -175,6 +176,7 @@ const LabsRoute = lazyRoute(() => import("./routes/labs"), "LabsRoute");
 export interface PanelProps {
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
+  readonly dataMode: ConsoleDataMode;
 }
 
 /** The six stable production navigation domains plus dev-only Labs.

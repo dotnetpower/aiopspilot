@@ -55,16 +55,25 @@ class PostgresInventoryReconciliationGate:
         change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
         source_policy: SourceCollectionPolicy | None = None,
         cursor_scopes: tuple[str, ...] = (),
+        cursor_prefixes: tuple[str, ...] = ("inventory_delta_cursor:",),
+        cursor_stale_after_seconds: float = 0.0,
     ) -> None:
         if change_min_interval_seconds < 1:
             raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
         if any(not scope.strip() for scope in cursor_scopes):
             raise ValueError("inventory cursor scopes MUST be non-empty strings")
+        if any(not prefix.strip() or not prefix.endswith(":") for prefix in cursor_prefixes):
+            raise ValueError("inventory cursor prefixes MUST be non-empty namespace prefixes")
+        if cursor_stale_after_seconds < 0:
+            raise ValueError("inventory cursor stale threshold MUST NOT be negative")
         self._config = config
         self._change_min_interval_seconds = change_min_interval_seconds
         self._source_policy = source_policy
+        self._cursor_stale_after_seconds = cursor_stale_after_seconds
         self._cursor_keys = tuple(
-            f"inventory_delta_cursor:{scope}" for scope in dict.fromkeys(cursor_scopes)
+            f"{prefix}{scope}"
+            for prefix in dict.fromkeys(cursor_prefixes)
+            for scope in dict.fromkeys(cursor_scopes)
         )
         self._last_decision: CollectionScheduleDecision | None = None
         self._last_health_state: InventoryReconciliationHealthState | None = None
@@ -128,7 +137,9 @@ class PostgresInventoryReconciliationGate:
                 "(SELECT count(*) FROM inventory_snapshot_link l WHERE l.snapshot_id="
                 "(SELECT id FROM active)) END AS relationship_count, "
                 "(SELECT count(*) FROM inventory_realtime_resource) AS overlay_resource_count, "
-                "(SELECT count(*) FROM inventory_realtime_link) AS overlay_relationship_count"
+                "(SELECT count(*) FROM inventory_realtime_link) AS overlay_relationship_count, "
+                "(SELECT count(*) FROM inventory_observation_pending_tombstone) "
+                "AS pending_tombstone_count"
             )
             row = await cursor.fetchone()
             if row is None:
@@ -141,6 +152,11 @@ class PostgresInventoryReconciliationGate:
                 ),
             )
             markers = await marker_cursor.fetchall()
+            watermark_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s",
+                ("inventory-observation:watermarks",),
+            )
+            watermark_row = await watermark_cursor.fetchone()
             if self._cursor_keys:
                 cursor_health_cursor = await connection.execute(
                     "SELECT count(*) AS cursor_count, "
@@ -169,8 +185,16 @@ class PostgresInventoryReconciliationGate:
         )
         resource_count = row["resource_count"]
         relationship_count = row["relationship_count"]
+        overlay_resource_count = _pending_resource_count(
+            overlay_resource_count=int(row["overlay_resource_count"] or 0),
+            pending_tombstone_count=int(row["pending_tombstone_count"] or 0),
+        )
+        overlay_relationship_count = int(row["overlay_relationship_count"] or 0)
         cursor_count = int(cursor_health["cursor_count"] or 0) if cursor_health else 0
         cursor_lag = cursor_health["cursor_lag_seconds"] if cursor_health else None
+        projection_pending = _projection_pending(
+            watermark_row["value"] if watermark_row is not None else None
+        )
         cursor_complete = bool(self._cursor_keys) and cursor_count == len(self._cursor_keys)
         self._last_health_state = InventoryReconciliationHealthState(
             measured_at=datetime.now(tz=UTC),
@@ -179,8 +203,8 @@ class PostgresInventoryReconciliationGate:
             relationship_count=(
                 int(relationship_count) if relationship_count is not None else None
             ),
-            overlay_resource_count=int(row["overlay_resource_count"] or 0),
-            overlay_relationship_count=int(row["overlay_relationship_count"] or 0),
+            overlay_resource_count=overlay_resource_count,
+            overlay_relationship_count=overlay_relationship_count,
             cursor_lag_seconds=float(cursor_lag) if cursor_lag is not None else None,
             cursor_complete=cursor_complete,
             coverage_complete=row["active_started_at"] is not None,
@@ -197,6 +221,13 @@ class PostgresInventoryReconciliationGate:
                 failure_code=failure_code,
                 abandoned_attempt=abandoned_attempt,
                 change_demand=change_demand,
+                overlay_open=bool(overlay_resource_count or overlay_relationship_count),
+                projection_pending=projection_pending,
+                cursor_lag_seconds=(
+                    max(0.0, float(cursor_lag) - self._cursor_stale_after_seconds)
+                    if cursor_lag is not None
+                    else 0.0
+                ),
             )
             return self._last_decision
         due = inventory_reconciliation_due(
@@ -231,6 +262,9 @@ def adaptive_reconciliation_decision(
     failure_code: str | None,
     abandoned_attempt: bool,
     change_demand: bool,
+    overlay_open: bool = False,
+    projection_pending: bool = False,
+    cursor_lag_seconds: float = 0.0,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
@@ -257,6 +291,9 @@ def adaptive_reconciliation_decision(
                 failure_age_seconds if failure_age_seconds is not None else age_seconds
             ),
             change_demand=change_demand,
+            overlay_open=overlay_open,
+            projection_pending=projection_pending,
+            cursor_lag_seconds=cursor_lag_seconds,
             failure_streak=failure_streak,
             provider_pressure=pressure,
         ),
@@ -276,6 +313,38 @@ def _provider_pressure(
             ProviderPressure.THROTTLED if failure_code == "throttled" else ProviderPressure.TIMEOUT
         )
     return ProviderPressure.HEALTHY
+
+
+def _pending_resource_count(
+    *,
+    overlay_resource_count: int,
+    pending_tombstone_count: int,
+) -> int:
+    """Combine visible overlay rows with deletes awaiting complete reconciliation."""
+    if overlay_resource_count < 0 or pending_tombstone_count < 0:
+        raise ValueError("inventory pending resource counts MUST NOT be negative")
+    return overlay_resource_count + pending_tombstone_count
+
+
+def _projection_pending(value: object) -> bool:
+    """Return whether accepted observations remain outside the ontology fence."""
+    if value is None:
+        return False
+    if not isinstance(value, Mapping):
+        raise ValueError("inventory observation watermark state MUST be an object")
+    journal = value.get("journal_high_watermark", 0)
+    projection = value.get("ontology_projection_watermark", 0)
+    if (
+        not isinstance(journal, int)
+        or isinstance(journal, bool)
+        or journal < 0
+        or not isinstance(projection, int)
+        or isinstance(projection, bool)
+        or projection < 0
+        or projection > journal
+    ):
+        raise ValueError("inventory observation watermark state is invalid")
+    return journal > projection
 
 
 def has_unreconciled_change(

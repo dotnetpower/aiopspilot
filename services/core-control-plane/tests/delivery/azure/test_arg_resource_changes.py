@@ -16,8 +16,8 @@ Verifies the bounded, oldest-first ``resourcechanges`` polling path
 - Any HTTP/parse failure in either the ``resourcechanges`` query or the
   hydration query raises before a cursor is computed, so
   ``forward_arg_resource_changes`` never persists a stale/partial cursor.
-- A hydration id genuinely absent from the ``Resources`` response (a
-  benign race, not a fetch failure) is a silent skip, not a raise.
+- A hydration id absent from the ``Resources`` response leaves the poll
+  incomplete so the durable cursor cannot advance past a potentially new resource.
 
 No real Azure endpoints are contacted.
 """
@@ -27,6 +27,7 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -521,8 +522,8 @@ async def test_resourcechanges_http_failure_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_hydration_race_loss_is_a_benign_skip_not_a_failure() -> None:
-    """A resource legitimately gone by hydration time is dropped, not raised."""
+async def test_missing_hydration_fails_before_cursor_advance() -> None:
+    """A missing hydration cannot silently discard a potentially new resource."""
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
     arm_id = _arm_id(arm_type, "thing-vanished")
@@ -547,13 +548,10 @@ async def test_hydration_race_loss_is_a_benign_skip_not_a_failure() -> None:
         _router(on_changes=on_changes, on_hydration=on_hydration), vocab=vocab
     )
     try:
-        result = await feed.poll("")
+        with pytest.raises(ArgResourceChangeError, match="did not resolve every mapped upsert"):
+            await feed.poll("")
     finally:
         await client.aclose()
-
-    assert result.events == ()
-    # The cursor still advances - the row WAS validated, just not emitted.
-    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 
 # ---------------------------------------------------------------------------
@@ -598,7 +596,7 @@ async def test_unknown_hydrated_type_is_dropped_but_cursor_advances() -> None:
                     change_time="2026-07-10T06:00:00Z",
                     change_type="Update",
                     arm_id=arm_id,
-                    arm_type="Microsoft.Nonexistent/widgets",
+                    arm_type=None,
                 )
             ]
         )
@@ -950,11 +948,17 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
             event_bus=event_bus,
             topic="inventory.events",
             scope=_SCOPE,
+            clock=lambda: datetime(2026, 7, 10, 6, 1, tzinfo=UTC),
         )
     finally:
         await client.aclose()
 
     assert "strcmp(tostring(id), 'c1') > 0" in seen_cursors[0]
+    saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
+    assert saved == {
+        "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_polled_at": "2026-07-10T06:01:00+00:00",
+    }
 
 
 @pytest.mark.asyncio

@@ -45,6 +45,7 @@ const MAX_INCIDENT_CANDIDATES = 5;
 const MAX_INCIDENT_FIELD_CHARS = 512;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_DOCUMENT_PREVIEW_CHARS = 256 * 1024;
+const MAX_DOCUMENT_ROWS = 1000;
 
 export function parseConversationDocumentArtifact(
   raw: unknown,
@@ -62,8 +63,8 @@ export function parseConversationDocumentArtifact(
   if (
     typeof sourceRequestId !== "string" ||
     !REQUEST_ID.test(sourceRequestId) ||
-    !boundedInteger(expectedRows, 0, 40) ||
-    !boundedInteger(includedRows, 0, 40) ||
+    !boundedInteger(expectedRows, 0, MAX_DOCUMENT_ROWS) ||
+    !boundedInteger(includedRows, 0, MAX_DOCUMENT_ROWS) ||
     expectedRows !== includedRows ||
     value.complete !== true ||
     typeof sha256 !== "string" ||

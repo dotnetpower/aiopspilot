@@ -8,6 +8,7 @@ from typing import Any
 
 import psycopg
 
+from fdai.delivery.inventory_sync import INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 
@@ -32,20 +33,37 @@ async def resource_graph_source_coverage(
         "EXISTS (SELECT 1 FROM inventory_observation_partition AS correction "
         "WHERE correction.scope_ref IN ("
         "SELECT value FROM jsonb_array_elements_text(snapshot.scopes)) "
-        "AND correction.state='correction_pending') AS pending_correction, "
+        "AND correction.state='correction_pending' "
+        "AND (snapshot.metadata->>'coverage_scope' IS DISTINCT FROM 'full_provider_scope' "
+        "OR correction.last_watermark>COALESCE("
+        "(manifest.value->>'journal_high_watermark')::bigint, 0))) AS pending_correction, "
         "EXISTS (SELECT 1 FROM jsonb_array_elements_text(snapshot.scopes) "
         "AS active_scope(scope) JOIN state_kv AS marker ON "
         "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope) "
-        "AS pending_reconciliation "
+        "AS pending_reconciliation, "
+        "EXISTS (SELECT 1 FROM inventory_observation_journal AS pending "
+        "WHERE pending.watermark>CASE WHEN "
+        "active_checkpoint.value->>'generation'=active.snapshot_id "
+        "AND active_checkpoint.value->'scope_refs'=snapshot.scopes "
+        "THEN COALESCE((active_checkpoint.value->>'projection_high_watermark')::bigint, 0) "
+        "ELSE COALESCE("
+        "(observation_watermarks.value->>'ontology_projection_watermark')::bigint, 0) END "
+        "AND pending.scope_ref IN ("
+        "SELECT value FROM jsonb_array_elements_text(snapshot.scopes)) "
+        "AND NOT (pending.source_revision=active.snapshot_id "
+        "OR pending.effective_at<=snapshot.started_at)) AS pending_active_observation "
         "FROM inventory_active AS active "
         "JOIN inventory_snapshot AS snapshot ON snapshot.id=active.snapshot_id "
         "LEFT JOIN state_kv AS status ON status.key='inventory-ontology:status' "
         "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
         "LEFT JOIN state_kv AS observation_watermarks "
         "ON observation_watermarks.key='inventory-observation:watermarks' "
+        "LEFT JOIN state_kv AS active_checkpoint "
+        "ON active_checkpoint.key=%s "
         "LEFT JOIN state_kv AS storage_pressure "
         "ON storage_pressure.key='operational-history:storage-pressure' "
-        "WHERE active.singleton=TRUE"
+        "WHERE active.singleton=TRUE",
+        (INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,),
     )
     row = await cursor.fetchone()
     if row is None:
@@ -61,6 +79,7 @@ async def resource_graph_source_coverage(
         manifest=manifest,
         expresses_relationships=expresses_relationships,
         pending_reconciliation=bool(row.get("pending_reconciliation")),
+        pending_observation=bool(row.get("pending_active_observation")),
         journal_high_watermark=observation_watermarks.get("journal_high_watermark"),
         ontology_projection_watermark=observation_watermarks.get("ontology_projection_watermark"),
         pending_tombstones=observation_watermarks.get("pending_tombstones"),
@@ -77,6 +96,7 @@ def resolve_inventory_graph_source_coverage(
     manifest: Mapping[str, Any],
     expresses_relationships: bool = True,
     pending_reconciliation: bool = False,
+    pending_observation: bool | None = None,
     journal_high_watermark: object = None,
     ontology_projection_watermark: object = None,
     pending_tombstones: object = None,
@@ -88,11 +108,15 @@ def resolve_inventory_graph_source_coverage(
 
     manifest_generation = manifest.get("generation")
     source_generation = manifest_generation if isinstance(manifest_generation, str) else None
-    watermark_incomplete = _observation_watermarks_incomplete(
-        journal_high_watermark,
-        ontology_projection_watermark,
-        pending_tombstones,
-        state_present=observation_watermark_state_present,
+    watermark_incomplete = (
+        pending_observation
+        if pending_observation is not None
+        else _observation_watermarks_incomplete(
+            journal_high_watermark,
+            ontology_projection_watermark,
+            pending_tombstones,
+            state_present=observation_watermark_state_present,
+        )
     )
     if (
         watermark_incomplete

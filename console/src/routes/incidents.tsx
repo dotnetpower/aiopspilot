@@ -34,11 +34,13 @@ import {
 } from "./incidents.overview";
 import { incidentTimelinePresentation } from "./incidents.timeline";
 import { IncidentIntervention } from "./incidents.intervention";
+import type { ConsoleDataMode } from "../console-data-mode";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
 }
 
 interface IncidentData {
@@ -202,7 +204,7 @@ export function incidentPageMatchesSnapshot(
   return current.snapshot_seq === incoming.snapshot_seq;
 }
 
-export function IncidentsRoute({ client }: Props) {
+export function IncidentsRoute({ client, dataMode }: Props) {
   const initialRoute = currentRoute();
   const initialStatus = initialRoute.search.get("status");
   const initialSearch = normalizeIncidentSearch(initialRoute.search.get("q"));
@@ -585,6 +587,7 @@ export function IncidentsRoute({ client }: Props) {
         {(data) => (
           <IncidentBody
             client={client}
+            dataMode={dataMode}
             data={data}
             selectedId={selectedId}
             history={history}
@@ -604,6 +607,7 @@ export function IncidentsRoute({ client }: Props) {
 
 interface BodyProps {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
   readonly data: IncidentData;
   readonly selectedId: string | null;
   readonly history: AsyncState<IncidentHistoryData>;
@@ -618,6 +622,7 @@ interface BodyProps {
 
 function IncidentBody({
   client,
+  dataMode,
   data,
   selectedId,
   history,
@@ -750,6 +755,7 @@ function IncidentBody({
         {selected ? (
           <IncidentDetail
             client={client}
+            dataMode={dataMode}
             incident={selected}
             history={history}
             loadingOlderHistory={loadingOlderHistory}
@@ -814,6 +820,7 @@ function IncidentCommandStrip({ data }: { readonly data: IncidentData }) {
 
 function IncidentDetail({
   client,
+  dataMode,
   incident,
   history,
   loadingOlderHistory,
@@ -821,6 +828,7 @@ function IncidentDetail({
   onLoadOlderHistory,
 }: {
   readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
   readonly incident: IncidentSummary;
   readonly history: AsyncState<IncidentHistoryData>;
   readonly loadingOlderHistory: boolean;
@@ -842,7 +850,9 @@ function IncidentDetail({
           </h2>
           <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
-          <IncidentIntervention client={client} incident={incident} />
+          {dataMode === "live" ? (
+            <IncidentIntervention client={client} incident={incident} />
+          ) : null}
         </div>
         <dl class="incident-detail-meta">
           <div><dt>{t("incidents.opened")}</dt><dd>{formatConsoleTimestamp(incident.opened_at)}</dd></div>

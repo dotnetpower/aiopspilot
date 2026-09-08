@@ -17,12 +17,92 @@ the trust routing in
 > fork-only. Core still ships deny-by-default fakes
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
+## Adaptive conversation assembly
+
+The adaptive conversation uses one catalog-owned `adaptive-common` base and exactly one plan,
+answer, review, refine, or verify pack. A turn adds one fixed Pantheon role and locale; user and
+tool prose remain in the untrusted data envelope. The server resolves the explicitly selected
+agent independently of the optional stewardship relationship. Operator verifies current ownership
+and directory evidence, binds an expiring proof to principal and target, and Core rechecks it before
+each role-aware conversation. Identity identifiers and source-revision text never enter system text.
+Unknown or expired relationships retain the selected role without pretending to be verified.
+
+Production composition consumes resolved model slots rather than hardcoded models or endpoints.
+The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer use the selected
+T1 narrator, review and verify use an independent eligible T1 narrator, and only
+optional refinement uses `t2.reasoner.primary`. Exact deployment metadata supplies publisher and
+family; names never imply model identity. Held or unknown candidates are excluded.
+They do not create model deployments. Role and lifecycle types use the public agent and model facades.
+The author and reviewer must be independent configured models; one optional refinement re-enters
+independent review. The no-T2 request profile retains the existing non-adaptive path. Every stage
+preserves the same no-execution boundary. Schema, byte, time, call, and token budgets are enforced;
+optional reads reserve time and two calls for a useful answer and review. Nested query-model
+requests share the same turn budget and cancellation scope. The role profile and model traces remain
+separate from operational evidence and cannot produce a whole-answer verification badge.
+
+Critique and revision: making a T2 secondary a prerequisite disabled ordinary explanations in
+single-publisher local installations and sent knowledge questions into operational query planning.
+T1 authorship and independent T1 review therefore stay available when all T2 bindings are absent.
+A missing or non-independent escalation target disables refinement only. Provider-side structured
+output is used when configured; otherwise the exact schema accompanies the request and the
+application validates returned JSON against it. This does not relax evidence verification or the
+separate mixed-publisher operational T2 quality gate.
+
+The [Core mini latency router](../interfaces/narrator-routing-and-latency.md#core-owned-mini-candidate-selection)
+freezes the author/reviewer pair once per turn, including deferred stages. Its opt-in probes contain
+only synthetic `OK` requests, never these prompt packs or operator content. Routing changes neither
+the optional T2 refinement nor judge/critic bindings; implementation and validation status belong
+to that routing document.
+
+### Latency budget
+
+The latency work preserves independent review and the no-execution boundary. Removing validation
+would make a fast response untrustworthy, so the revised approach reduces redundant model work,
+schema preparation, irrelevant context, avoidable refinement, and post-validation display waits.
+The v2 planning pack may include a candidate draft only for a complete knowledge-only plan, reducing
+the ordinary model path from three calls to two. Operational reads still precede operational
+prose. Only independently supported sections may be published. Optional refinement must leave
+time and call capacity for independent verification. Short review stages may use explicitly
+supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
+authoring, other families, and T2 reasoning settings remain unchanged.
+
+Content-free stage logs report elapsed time, remaining time, status, and reserved call attempts.
+An attempted or reserved stage is not proof that a provider accepted a physical request.
+Schema text and prepared-validator caches are bounded and contain no user input; every response
+still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
+adding another token cache. Offline request-count and clock tests prove mechanism changes, not
+live model quality or a production speedup. New live comparisons require explicit authorization.
+
+### Ten-round latency review (2026-09-06)
+
+| Round | Change | Focused evidence |
+|-------|--------|------------------|
+| 1 | Content-free stage timing | `859618b68`; elapsed and remaining clock assertions |
+| 2 | Immutable Pydantic schema reuse | `e0c590c85`; repeated schema generation drops from three misses per turn to cache hits |
+| 3 | Bounded adapter validator reuse | `00f9db010`; later malformed responses still fail validation |
+| 4 | Low-effort lightweight review | `18b8a0e97`; only supported review/verify requests change |
+| 5 | Knowledge-only plan plus initial draft | `145d472ac`; three calls become two, independent review retained |
+| 6 | Context-independent review inputs | `ad3afa42f`; unrelated history omitted, active-thread history preserved |
+| 7 | Verification budget before refinement | `fdc221366`; unfinishable refinement is skipped without losing supported prose |
+| 8 | No prose retry for missing required evidence | `ad83b6bdd`; required goals remain held and answer quality remains limited |
+| 9 | Immediate validated advisory display | `5a3901de7`; removes up to 60 artificial display frames |
+| 10 | Wake streams after durable terminal commit | `0d3eeb66a`; bounded, race-safe notification removes the one-second poll wait |
+
+The final focused gate passed 342 Python checks, 76 Console checks, 12 bilingual browser scenarios,
+strict mypy, and the Console production build. Offline before/after fixed-provider-clock runs
+preserved identical answer hashes, quality states, and goal states: knowledge used 3 -> 2 calls;
+late refinement and missing evidence used 5 -> 3 calls. The simulated late-refinement case changed
+55 -> 35 seconds. These are mechanism measurements, not live speedup claims. The only real-provider
+baseline retained here is two earlier turns at 51.431 and 53.841 seconds; no new live calls were made.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Ten-round bounded latency optimization | implemented | [Round evidence](#ten-round-latency-review-2026-09-06) | Reduces avoidable work without bypassing review; real-provider latency and quality comparison still need authorized measurements. |
+| Adaptive role and relationship prompt assembly | implemented | `adaptive_prompt.py`; `wire_adaptive_conversation.py`; `adaptive_relationship.py`; 20 composition checks and connected role/proof checks passed | Uses one common stage policy, fixed selected role, and current no-authority relationship context. Final offline validation and 11 focused critique reviews are recorded with hierarchical conversation planning. |
 | Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
 | Route-specific conversation prompts | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; focused composer and Azure adapter checks | Startup composes a compact T1 preflight separately from full operational semantic judgment. Pure eligible social turns use only the compact prompt and schema. Mixed, contextual, ambiguous, and operational turns continue to the full capability-aware prompt. |
 | Approved external skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | The GitHub delivery adapter resolves immutable commits and returns only bounded exact files. Fetch never grants prompt eligibility; quarantine, publisher verification, approval, and disabled-first installation remain authoritative. |
@@ -35,6 +115,10 @@ the trust routing in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Completed ten measured latency-improvement rounds across adaptive planning, schema preparation, review budgets, display, and terminal delivery. | Round commits and combined gate recorded above; fixed-provider-clock comparisons preserve exact answer and quality outcomes. | Retain an authorized real-provider before/after comparison before claiming an end-to-end speedup. |
+| 2026-09-06 | implemented | Removed the mandatory T2 reviewer from ordinary adaptive composition. Distinct configured T1 narrator models author and review; only an optional T2 primary refines, and malformed or unavailable escalation does not disable T1. Unbound provider schema support uses application-side JSON validation. | `current change`; 115 focused composition, transport, schema, budget, runtime, and prompt-registry tests passed; strict mypy passed for both modified source modules. The comparison regression exercises real composition and transport with mocked models and no operational query. | Retain an explicitly authorized live-question receipt before claiming actual answer quality. Strict no-T2 campaign behavior and operational quality gates are unchanged. |
+| 2026-09-06 | implemented | Completed fixed-role and relationship composition with independently reviewed answers and provider-budget propagation. Operational catalog failure no longer disables an independently valid general-answer service. | `current change`; 20 composition checks and 653 connected Python checks passed; 11 focused critique reviews are recorded in hierarchical conversation planning. | Live model quality and promotion evidence require separate authorization. |
+| 2026-09-06 | in-progress | Added common adaptive stage policy, fixed-role composition, expiring relationship context, and nested provider budget propagation. | `current change`; `test_wire_adaptive_conversation.py` passed 19 cases and `test_adaptive_provider_budget.py` passed 10 cases. | Finish connected critique evidence in hierarchical conversation planning; no live promotion is claimed. |
 | 2026-09-02 | implemented | Added the answer-continuity and prompt-ablation slice. The implementation separates guaranteed terminal usefulness from factual verification, protects authority-bearing prompt layers from ablation, makes exclusions replay-visible, and applies revision-fenced settings through one startup snapshot. Ten critique and hardening rounds closed four Medium and five Low defects; the final round found nothing above Low. | `current change`; 312 focused Python checks, 6 Console checks, task-scoped Ruff, strict mypy over 18 source files, and documentation gates passed. | Retain governed shadow evidence before claiming runtime validation. |
 | 2026-08-29 | implemented | Hardening round 8 reviewed 23 conversation-preflight lenses and moved social profile bounding inside the safe fallback boundary. Oversized profiles now hold before any narrator call instead of raising through the turn. | `current change`; focused conversation preflight tests. | Retain governed live social-response evidence. |
 | 2026-08-28 | implemented | Split temperature-zero social classification, temperature-0.3 persona narration, and full operational semantic judgment into separate composed prompt capabilities. Social narration now combines one common base with exactly one typed enforce pack for greeting, thanks, farewell, or self-introduction. The classifier and narrator receive no ontology capability catalog, the narrator receives no operational context, and only its schema can carry social prose. | `current change`; focused prompt, adapter, routing, and processor checks passed 608 cases; authenticated self-introduction variants used roughly 1.7K-1.9K total tokens across two calls versus the earlier 5,819-token full social input. Composition checks prove act packs remain mutually exclusive. | Retain authenticated per-pack waterfall evidence and measure collision, appropriateness, and latency on a larger bilingual corpus. |

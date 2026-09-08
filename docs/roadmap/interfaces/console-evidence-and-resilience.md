@@ -18,23 +18,13 @@ Ordinal follow-ups revalidate the selected position through exact fresh inventor
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
 Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. In workspace, a pointer or keyboard separator resizes conversation history from 180 to 360 px and stores the last width locally. Narrow layouts hide the separator. The history header keeps search and icon-only creation in one compact row, uses lightweight filter tabs, and leaves scrolling to the list rather than the controls. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
 History preserves stable cursor order but renders only 20 summaries initially. Nearing the history scroll boundary reveals the next 20 already loaded summaries. After the local window is exhausted, the same boundary requests the next server page of 20 and reveals it without replacing prior rows. The count shows `20+` while another page exists. Turn bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a resumed-session marker until the operator starts a new conversation. The Deck header owns the route and optional agent context; it never repeats a non-agent conversation question. Digest owns record count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or stop.
-The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
-utility keep a single title.
-The shared top bar renders the icon-only FDAI mark in its original source colors beside the
-`FDAI Console` wordmark. Console themes don't desaturate or recolor the brand asset.
-Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
-in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
-window, and connection status remain visible. An open SSE response proves transport connectivity
-only. Live reports the source as ready only after an authoritative runtime or replay stage frame
-is observed. A keepalive-only connection renders `Awaiting source`, keeps operational metrics
-unavailable, and points the operator to Core Runtime and stage-topic readiness instead of
-presenting zero as measured health. Flow is the default view with a bounded 12-item work pool.
-Flow and Queue preserve the same title, target, scope, reason, tier, mode, owner, and stage facts;
-Queue adds only observed risk, impact, SLA, and control-state fields. Flow renders only populated
-work, packs six items per desktop row, and sorts by attention priority and then newest
-observation. Terminal outcomes remain available in History instead of occupying the Live work
-surface. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A missing
-autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
+Command Deck renders transport tokens only in the explicit draft state and renders each receipt-bound revision or confirmed segment as soon as it arrives. A later malformed, interrupted, sequence-gap, or missing-terminal stream retracts the draft and renders an unavailable outcome instead of a success-shaped partial answer. The final server-owned conversation binding updates both the durable index and the active in-memory metadata before the next turn. Verified answers also preserve the semantic receipt's evidence posture: stale, incomplete, conflicting, and unavailable evidence render as attention states even when claim checks passed. Empty citation sets use the neutral grounded-source label, and malformed conversation preflight output uses the planner-recovery guidance.
+The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone utility keep a single title.
+The shared top bar renders the icon-only FDAI mark in its original source colors beside the `FDAI Console` wordmark. Console themes don't desaturate or recolor the brand asset.
+On Overview analysis and every Operations child route, `Sample | Live` appears before incident attention. `Live` is the initial default; `Sample` writes `data=sample`, persists for the tab, replaces the complete projection with a deterministic generic fixture, and shows a page-width non-operational-evidence banner.
+A GET-only Sample client serves ordinary projections without authentication or network access. Sample Live seeds 180 deterministic terminal control loops across its 60-second window, then starts one unique loop per second and reveals its ingest, routing, verification, gate, execution when applicable, and audit stages at 800 ms intervals. The latest 30 cards keep fixed positions while their state, progress, owner, and brief top-edge update signal change; authoritative Live retains its 12-item bound. Live, Provision, and Scheduled Continuations use bounded local fixtures; Sample removes Incident intervention, rejects every POST, never activates from API failure, and never mixes with live values. Unsupported routes hide the control and remain Live.
+Live follows the same shared title contract as `Operations / Live`. Its observation controls stay in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source, window, and connection status remain visible. An open SSE response proves transport connectivity only. Live reports the source as ready after a fresh validated Huginn runtime heartbeat or an authoritative runtime or replay stage frame is observed. The runtime-source marker expires after 15 seconds without a new observation and never creates a control-loop tile. A keepalive-only connection renders `Awaiting source`, keeps operational metrics unavailable, and points the operator to Core Runtime and stage-topic readiness instead of presenting zero as measured health. The Operator API retains at most 256 accepted stage frames for 60 seconds and replays them in observed order when a new Live subscriber connects. This process-local recovery fills only the current Live window, resets when the Operator API restarts, and never replaces History. Flow is the default view with a bounded 12-item work pool.
+Flow and Queue preserve the same title, target, scope, reason, tier, mode, owner, and stage facts; Queue adds only observed risk, impact, SLA, and control-state fields. Flow renders only populated work, packs six items per desktop row, and sorts by attention priority and then newest observation. Terminal outcomes remain available in History instead of occupying the Live work surface. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A missing autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
@@ -209,13 +199,8 @@ inclusive and maps to the next UTC midnight as the exclusive API boundary.
 
 ## Loading presentation
 
-Every route, panel, and bounded content region renders a skeleton from its first loading frame. The shared skeleton replaces spinner-only and text-only waits, while a route can provide a shape that preserves its final layout dimensions.
-Dashboard uses a posture block followed by metric, distribution, attention, and vertical placeholders so loading does not collapse the report. One screen-reader status announces loading; decorative blocks stay hidden. Shimmer stops under reduced motion while the static skeleton remains visible.
-The shared fallback uses heading, summary-card, and body-panel placeholders; an owned route shape
-replaces that fallback only when it preserves a more accurate final layout.
-
-The HTML document owns the console stylesheet as a direct dependency, so authentication, route, component, and JavaScript hot updates cannot leave a mounted SPA without its layout and theme. Vite transforms the same document link into the fingerprinted production CSS asset.
-During development, the existing hot-update guard also passes CSS changes through Vite's race-safe file reader before transformation, preventing an editor's temporary empty snapshot from replacing the complete stylesheet.
+The [Console loading presentation reference](../../reference/console-loading-presentation.md)
+defines skeleton, reduced-motion, stylesheet, and hot-update behavior.
 
 ## Localization boundary
 
@@ -334,6 +319,12 @@ answer row remains in the transcript flow without an internal vertical scroll re
 control. A foreground terminal-only deterministic answer uses the same visual paint queue, so its
 canonical table also reveals monotonically from zero rows to the complete row count. Background tabs
 finish synchronously. Cells wrap on narrow screens instead of widening the transcript.
+After a one-call general-knowledge answer passes its terminal schema, locale, profile, and
+no-authority checks, the browser sends its canonical text through the same bounded token callback
+and paint queue instead of displaying the whole paragraph in one update. It never exposes partial
+provider JSON or pre-validation prose. In the authenticated standard-port desktop check, the answer
+became visible at 3.959 seconds, changed across 13 answer-text paints, and completed at 4.415 seconds;
+the complete conversation log changed 53 times including progress timing.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Each expanded timeline
 event shows the available source-record detail, including evidence summaries and references, plan

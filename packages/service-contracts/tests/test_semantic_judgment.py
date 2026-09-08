@@ -62,6 +62,12 @@ def test_proposal_carries_bounded_meaning_without_authority() -> None:
     assert proposal.proposal_digest.startswith("sha256:")
 
 
+def test_default_document_mode_is_omitted_from_legacy_digest_material() -> None:
+    payload = _proposal().model_dump(mode="json")
+
+    assert "document_evidence_mode" not in payload
+
+
 def test_target_accepts_canonical_ontology_identity_case() -> None:
     target = SemanticTarget(
         kind="object_type",
@@ -201,6 +207,12 @@ def test_direct_response_requires_one_bounded_model_authored_answer() -> None:
         SemanticDirectResponseDraft(
             locale="ko",
             answer="안녕, 난 Bragi야！ 무엇을 도와드릴까요?",
+            profile_digest=_DIGEST,
+        )
+    with pytest.raises(ValidationError, match="polite honorific endings"):
+        SemanticDirectResponseDraft(
+            locale="ko",
+            answer="안녕 반가워.감사합니다.",
             profile_digest=_DIGEST,
         )
 

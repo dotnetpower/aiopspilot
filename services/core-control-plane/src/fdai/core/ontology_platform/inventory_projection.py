@@ -24,6 +24,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.recorded_resource_state import (
+    availability_state_paths,
+    is_recorded_state_value_valid,
+    operational_state_paths,
+)
+
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
@@ -39,6 +45,8 @@ from fdai.shared.providers.state_evidence import (
 )
 
 from .observation_adjudication import (
+    CONFLICT_PROVIDER_REF,
+    CONFLICT_TRUNCATED,
     ObservationIdentityConflictError,
     ObservationVerdict,
     ObservedClaim,
@@ -67,26 +75,6 @@ _RESOURCE_OBJECT_TYPE = "Resource"
 _MAX_RESOURCES = 50_000
 _MAX_LINKS = 200_000
 DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS = 21_600
-_OPERATIONAL_STATE_PATHS = (
-    "status",
-    "state",
-    "phase",
-    "ready_status",
-    "readiness",
-    "runningStatus",
-    "operationalState",
-    "dnsResolverState",
-    "diskState",
-    "resourceState",
-    "snapshotAccessState",
-    "userVisibleState",
-    "virtualNetworkLinkState",
-    "powerState.code",
-    "powerState",
-    "instanceView.powerState.code",
-    "extended.instanceView.powerState.code",
-)
-
 _DROP_OBSERVATION_INCOMPLETE = "observation_incomplete"
 _DROP_UNREGISTERED_LINK_TYPE = "unregistered_link_type"
 _DROP_MISSING_SOURCE_ENDPOINT = "missing_source_endpoint"
@@ -295,6 +283,7 @@ def _build_objects(
             ) from exc
         objects[resource_id] = _resource_object(
             verdict,
+            claims=resource_claims,
             resource_id=resource_id,
             generation=generation,
             freshness_ceiling_seconds=freshness_ceiling_seconds,
@@ -305,11 +294,22 @@ def _build_objects(
 def _resource_object(
     verdict: ObservationVerdict,
     *,
+    claims: Sequence[ObservedClaim],
     resource_id: str,
     generation: str,
     freshness_ceiling_seconds: int,
 ) -> OntologyObjectRecord:
     """Map one adjudicated resource onto the declared ``Resource`` property shape."""
+    global_conflicts = tuple(
+        conflict
+        for conflict in verdict.conflicts
+        if conflict in {CONFLICT_PROVIDER_REF, CONFLICT_TRUNCATED}
+    )
+    if global_conflicts and not operational_state_paths(verdict.type):
+        raise InventoryProjectionConflictError(
+            f"inventory resource {resource_id!r} has a global observation conflict "
+            "but no applicable operational state fact can carry it"
+        )
     if verdict.contested and verdict.observed_at is None:
         # The conflict can only travel on the state fact, and the state fact needs an
         # observation time. Projecting the object anyway would publish a contested
@@ -322,6 +322,8 @@ def _resource_object(
     provider_properties = dict(verdict.agreed_properties)
     _add_observed_state(
         provider_properties,
+        resource_type=verdict.type,
+        claims=claims,
         generation=generation,
         observed_at=verdict.observed_at,
         conflicts=verdict.conflicts,
@@ -342,6 +344,8 @@ def _resource_object(
 def _add_observed_state(
     properties: dict[str, Any],
     *,
+    resource_type: str,
+    claims: Sequence[ObservedClaim],
     generation: str,
     observed_at: datetime | None,
     conflicts: tuple[str, ...],
@@ -353,45 +357,282 @@ def _add_observed_state(
     not evidence that the fact was independently corroborated.
     """
 
-    state = _operational_state(properties)
+    _filter_state_metadata_owners(properties, resource_type=resource_type)
+    paths = operational_state_paths(resource_type)
+    if not paths:
+        _remove_operational_state(properties, resource_type=resource_type)
+        return
+    state, conflicts = _adjudicate_operational_state(
+        claims,
+        resource_type=resource_type,
+        conflicts=conflicts,
+    )
     has_state = state is not None
     if observed_at is None or not (has_state or conflicts):
         return
     if has_state:
         properties["state"] = state
-    properties[STATE_FACT_METADATA_PROPERTY] = StateFactMetadata(
-        lane=StateFactLane.OBSERVED,
-        authority=StateFactAuthority.PROVIDER,
-        source_identity="inventory-provider",
-        source_revision=generation,
-        effective_at=observed_at,
-        recorded_at=observed_at,
-        evidence_cutoff=observed_at,
-        freshness_ceiling_seconds=freshness_ceiling_seconds,
-        completeness=0.0 if conflicts else 1.0,
-        synthetic=False,
-        conflicts=conflicts,
-        evidence_refs=(f"inventory-generation:{generation}",),
-    ).to_mapping()
+    retained_metadata = (
+        _operational_state_metadata(
+            properties,
+            resource_type=resource_type,
+            state=state,
+        )
+        if state is not None and not conflicts
+        else None
+    )
+    state_metadata = (
+        retained_metadata
+        or StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision=generation,
+            effective_at=observed_at,
+            recorded_at=observed_at,
+            evidence_cutoff=observed_at,
+            freshness_ceiling_seconds=freshness_ceiling_seconds,
+            completeness=0.0 if conflicts else 1.0,
+            synthetic=False,
+            conflicts=conflicts,
+            evidence_refs=(f"inventory-generation:{generation}",),
+        ).to_mapping()
+    )
+    existing_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if isinstance(existing_metadata, Mapping) and "lane" not in existing_metadata:
+        properties[STATE_FACT_METADATA_PROPERTY] = {
+            **_allowlisted_state_metadata(
+                existing_metadata,
+                resource_type=resource_type,
+                owner=properties,
+            ),
+            "state": state_metadata,
+        }
+    else:
+        properties[STATE_FACT_METADATA_PROPERTY] = state_metadata
 
 
-def _operational_state(properties: Mapping[str, object]) -> str | None:
+def _operational_state_candidates(
+    properties: Mapping[str, object],
+    *,
+    paths: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    candidates: list[tuple[str, str]] = []
     for prefix in ("", "properties.", "properties.properties."):
-        for path in _OPERATIONAL_STATE_PATHS:
+        for path in paths:
             current: object = properties
             for part in (prefix + path).split("."):
                 if not isinstance(current, Mapping):
                     current = None
                     break
                 current = current.get(part)
-            candidate = current.get("code") if isinstance(current, Mapping) else current
-            if (
-                isinstance(candidate, str)
-                and candidate.strip()
-                and candidate.strip().casefold() != "unknown"
-            ):
-                return candidate.strip()
+            if is_recorded_state_value_valid(
+                current,
+                allow_unknown=path == "ready_status",
+            ) and isinstance(current, str):
+                candidate = (path, current.strip())
+                if candidate not in candidates:
+                    candidates.append(candidate)
+    return tuple(candidates)
+
+
+def _operational_state_metadata(
+    properties: Mapping[str, object],
+    *,
+    resource_type: str,
+    state: str,
+) -> dict[str, object] | None:
+    paths = operational_state_paths(resource_type)
+    root_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if isinstance(root_metadata, Mapping) and "lane" in root_metadata:
+        return _canonical_state_metadata(root_metadata)
+    for prefix in ("", "properties.", "properties.properties."):
+        owner = _state_owner(properties, prefix)
+        if owner is None:
+            continue
+        owner_metadata = owner.get(STATE_FACT_METADATA_PROPERTY)
+        for path in paths:
+            value = _state_value_at(owner, path)
+            if not isinstance(value, str) or value.strip() != state:
+                continue
+            candidates: list[object] = []
+            if isinstance(root_metadata, Mapping):
+                candidates.extend((root_metadata.get(prefix + path), root_metadata.get(path)))
+            if isinstance(owner_metadata, Mapping) and "lane" not in owner_metadata:
+                candidates.append(owner_metadata.get(path))
+            for candidate in candidates:
+                canonical = _canonical_state_metadata(candidate)
+                if canonical is not None:
+                    return canonical
     return None
+
+
+def _state_owner(
+    properties: Mapping[str, object],
+    prefix: str,
+) -> Mapping[str, object] | None:
+    current: object = properties
+    for part in prefix.removesuffix(".").split(".") if prefix else ():
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current if isinstance(current, Mapping) else None
+
+
+def _adjudicate_operational_state(
+    claims: Sequence[ObservedClaim],
+    *,
+    resource_type: str,
+    conflicts: tuple[str, ...],
+) -> tuple[str | None, tuple[str, ...]]:
+    """Adjudicate only reviewed operational paths across repeated observations."""
+
+    paths = operational_state_paths(resource_type)
+    if not paths:
+        return None, ()
+    global_conflicts = tuple(
+        conflict
+        for conflict in conflicts
+        if conflict in {CONFLICT_PROVIDER_REF, CONFLICT_TRUNCATED}
+    )
+    candidates_by_claim = tuple(
+        _operational_state_candidates(claim.properties, paths=paths) for claim in claims
+    )
+    supplied = tuple(candidate for candidates in candidates_by_claim for candidate in candidates)
+    if not supplied:
+        return None, global_conflicts
+    values = {candidate[1] for candidate in supplied}
+    if all(candidates_by_claim) and len(values) == 1:
+        return supplied[0][1], global_conflicts
+    property_conflicts = tuple(
+        f"observed_property_conflict:{root}"
+        for root in sorted({candidate[0].split(".", 1)[0] for candidate in supplied})
+    )
+    return None, tuple(dict.fromkeys((*global_conflicts, *property_conflicts)))
+
+
+def _remove_operational_state(
+    properties: dict[str, Any],
+    *,
+    resource_type: str,
+) -> None:
+    properties.pop("state", None)
+    metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if not isinstance(metadata, Mapping):
+        properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+        return
+    if "lane" in metadata:
+        canonical = _canonical_state_metadata(metadata)
+        if canonical is not None and _flat_state_metadata_allowed(properties, resource_type):
+            properties[STATE_FACT_METADATA_PROPERTY] = canonical
+        else:
+            properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+        return
+    retained = _allowlisted_state_metadata(
+        metadata,
+        resource_type=resource_type,
+        owner=properties,
+    )
+    if retained:
+        properties[STATE_FACT_METADATA_PROPERTY] = retained
+    else:
+        properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+
+
+def _allowlisted_state_metadata(
+    metadata: Mapping[str, object],
+    *,
+    resource_type: str,
+    owner: Mapping[str, object],
+) -> dict[str, object]:
+    operational_paths = operational_state_paths(resource_type)
+    availability_paths = availability_state_paths(resource_type)
+    allowed_paths = (*operational_paths, *availability_paths)
+    allowed_keys = {
+        prefix + path: path
+        for prefix in ("", "properties.", "properties.properties.")
+        for path in allowed_paths
+    }
+    retained: dict[str, object] = {}
+    for key, value in metadata.items():
+        path = allowed_keys.get(key)
+        if path is None or not is_recorded_state_value_valid(
+            _state_value_at(owner, key),
+            allow_unknown=path == "ready_status" or path in availability_paths,
+        ):
+            continue
+        canonical = _canonical_state_metadata(value)
+        if canonical is not None:
+            retained[key] = canonical
+    return retained
+
+
+def _canonical_state_metadata(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return StateFactMetadata.from_mapping(value).to_mapping()
+    except (OverflowError, ValueError):
+        return None
+
+
+def _filter_state_metadata_owners(
+    properties: dict[str, Any],
+    *,
+    resource_type: str,
+) -> None:
+    owner = properties
+    for depth in range(3):
+        if STATE_FACT_METADATA_PROPERTY in owner:
+            metadata = owner[STATE_FACT_METADATA_PROPERTY]
+            if isinstance(metadata, Mapping):
+                canonical = _canonical_state_metadata(metadata) if "lane" in metadata else None
+                retained = (
+                    canonical
+                    if canonical is not None and _flat_state_metadata_allowed(owner, resource_type)
+                    else _allowlisted_state_metadata(
+                        metadata,
+                        resource_type=resource_type,
+                        owner=owner,
+                    )
+                    if "lane" not in metadata
+                    else {}
+                )
+                if retained:
+                    owner[STATE_FACT_METADATA_PROPERTY] = retained
+                else:
+                    owner.pop(STATE_FACT_METADATA_PROPERTY, None)
+            else:
+                owner.pop(STATE_FACT_METADATA_PROPERTY, None)
+        if depth == 2:
+            return
+        nested = owner.get("properties")
+        if not isinstance(nested, Mapping):
+            return
+        nested_owner = dict(nested)
+        owner["properties"] = nested_owner
+        owner = nested_owner
+
+
+def _flat_state_metadata_allowed(
+    owner: Mapping[str, object],
+    resource_type: str,
+) -> bool:
+    operational_paths = operational_state_paths(resource_type)
+    return any(
+        path in operational_paths
+        and is_recorded_state_value_valid(owner.get(path), allow_unknown=False)
+        for path in ("status", "state")
+    )
+
+
+def _state_value_at(owner: Mapping[str, object], path: str) -> object:
+    current: object = owner
+    for part in path.split("."):
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current
 
 
 def _observed_at(value: str | None) -> datetime | None:
@@ -456,6 +697,7 @@ def _build_links(
             continue
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
         properties = dict(link_props) if isinstance(link_props, Mapping) else {}
+        properties.pop("provider_relationship_evidence", None)
         properties[LINK_OBSERVATION_METADATA_PROPERTY] = normalize_json_value(
             metadata.to_mapping(),
             path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",

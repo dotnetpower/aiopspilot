@@ -40,6 +40,11 @@ FDAI Console and operator clients. It does not become an orchestrator, a hidden 
 workflow engine, and it never receives Thor's executor identity. Agents do not call each other
 directly.
 
+Recorded Resource state views consume the shared independent state axes rather than interpreting
+raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
+therefore appears as its operational value, while a missing reviewed value remains Not recorded.
+Provisioning success and a successful provider request never become operational success.
+
 ## Product vocabulary
 
 Use one product name and plain operational labels:
@@ -78,9 +83,18 @@ table, or new approval topic. Each source keeps its own schema, revision, lifecy
 The Ontology instance workspace is a read-only operational view. Its graph-first layout, selected
 resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 they do not create links, change query scope, or grant mutation authority.
+For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
+model name, version, deployment SKU, and normalized TPM object. Missing values remain Not reported,
+and `Succeeded` describes provisioning completion rather than inference health or caller access.
 The relationship legend shows `contains`, `attached_to`, and `depends_on` by default and exposes
 the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
 legend does not remove links, change counts, or narrow the Inspector.
+Compact graph nodes keep an exact operational value first. If operation is not applicable or the
+provider exposes no operational state, the node selects an exact availability value or evidence
+gap, then an exact provisioning value before the unavailable operational placeholder, and names
+that axis. A missing applicable operational value remains visible. This is presentation precedence
+only; it does not merge axes or infer operational success or health from availability or
+provisioning.
 
 The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2
 reads recorded state only when the active inventory matches the committed ontology manifest, rejects
@@ -475,11 +489,12 @@ rollback contract makes the request ineligible for execution.
 
 ## Resource-first Dashboard preview
 
-The [Dashboard mock](../../../mocks/ui/dashboard.html) is a synthetic presentation study, not a
+The [resource Dashboard mock](../../../mocks/ui/dashboard-v2.html) is a synthetic presentation study, not a
 production inventory reader. Its local fixture adapter covers 24, 100, 1,000, and 10,000 resources.
 
 | Concern | Preview and adoption contract |
 |---------|-------------------------------|
+| Console alignment | Overview, Operations, and Agents previews follow the Console registry, including separate executive and resource Dashboards. Operations record workspaces place tabs and preview controls above summary metrics and retain side-by-side detail while space permits. The [operator preview checks](../../../console/tests/e2e/operator-workspaces.spec.ts) cover routes, local interactions, and responsive presentation. Fixtures never submit requests; queued examples do not apply lifecycle changes or fabricate audit evidence. |
 | Large scopes | Above 48 resources, start with a dense individual-resource honeycomb. Smaller examples start comfortable. Groups remain an optional subscription/resource-group drill-down, not a replacement for the resource overview. |
 | Rendering bound | Dense cells are 24 by 28 px. The available width selects up to 34 columns and 14 rows, at most 476 records per page. Comfortable and list views retain a 48-record bound; group summaries retain six. Only the active page/view is rendered. These presentation limits are not server capacity claims. |
 | Counts and selection | Separate observed inventory, filter matches, and displayed records. Legend counts cover the filtered scope before the state filter. Keep selected identity and evidence when it is off-page or outside filters; changing the example generation clears selection. |
@@ -587,7 +602,9 @@ on color alone; source, deadline, and unavailable reason have accessible names. 
 one polite status announcement without moving focus, while submit conflicts focus the actionable
 summary and return focus to the originating control after dismissal.
 Cost Governance cards link to narrower sections or cross-surface routes. Topbar controls use
-`aria-label` without redundant `title` attributes.
+`aria-label` without redundant `title` attributes. The design-mock shell keeps Cost Governance on
+its canonical page, labels resource efficiency as a separate study, and preserves existing query
+parameters when adding a cache-busting preview token.
 
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
 managed-resource mutation appears only as a later Thor `ActionRun`. Conflict, retry, compensation,
@@ -606,25 +623,8 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 
 ## Settings and component presentation boundary
 
-The Console settings routes and static design mocks share the Calm Slate control tokens and
-presentation primitives. Desktop form controls use a compact 34 px standard height and 28 px
-compact action height. Touch layouts use 44 px targets. Settings keep browser-local preferences,
-account preferences, deployment policy, evidence, and authority boundaries visually distinct
-without changing their persistence or authorization contracts.
-
-`/settings/iam` uses route-owned bilingual messages and responsive styles. It distinguishes the
-verified FDAI Owner role from tenant administration, presents request, review, protected apply,
-and fresh verification as separate stages, and links operational assignment review to Agent
-oversight. Rolling Console and Operator API upgrades preserve safe role and capability facts while
-marking missing directory metadata as unknown. IAM response decoders load with the first IAM
-request instead of increasing the initial Console bundle.
-
-The static component gallery reads its documented component contracts from
-`mocks/ui/assets/component-registry.json`. Each bounded category view presents the specimen before
-its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product
-references. A missing or invalid registry blocks documented status instead of inferring that a
-specimen is canonical. The gallery remains synthetic presentation evidence and grants no Console,
-Operator API, or executor authority.
+The [Console settings and component presentation reference](../../reference/console-settings-presentation.md)
+defines shared controls, IAM stages, component documentation, and authority boundaries.
 
 ## Rejected alternatives
 

@@ -114,10 +114,43 @@ test("opens the independent manual library from the Console header", async ({ pa
 
     const drawer = page.getByRole("dialog", { name: "Guides" });
     await expect(drawer).toBeVisible();
-    await expect(drawer.locator(".manual-journey-stages button")).toHaveCount(5);
-    await expect(drawer.getByRole("button", { name: "Open FDAI 운영 개요" })).toBeVisible();
+    await expect(drawer.locator(".manual-journey-stages")).toHaveCount(0);
+    await expect(drawer.locator(".manual-journey-section")).toHaveCount(2);
+    await expect(drawer.locator(".manual-journey-heading > span").first()).toHaveText("01");
+    await expect(drawer.locator(".manual-journey-heading strong").first())
+      .toHaveText("Discovery & Alignment");
+    await expect(drawer.getByRole("link", { name: "Open FDAI 운영 개요" })).toBeVisible();
+    await expect(drawer.locator(".manual-book-list-item")).toHaveCount(3);
+    const firstBookBounds = await drawer.locator(".manual-book").first().boundingBox();
+    expect(firstBookBounds?.height).toBeGreaterThanOrEqual(240);
+    const firstDetailsBounds = await drawer.locator(".manual-book-list-details").first()
+      .boundingBox();
+    expect(firstDetailsBounds!.y).toBeGreaterThanOrEqual(
+      firstBookBounds!.y + firstBookBounds!.height,
+    );
+    expect(firstDetailsBounds!.width).toBeGreaterThan(firstBookBounds!.width);
     await expect(drawer.locator(".manual-book-copy small").first()).toContainText("L100");
     await expect(drawer.locator(".manual-book-image img").first()).toHaveJSProperty("naturalWidth", 1600);
+    await expect(drawer.locator(".manual-book-recommendation").first()).toHaveText(
+      "신호에서 검증까지 이어지는 FDAI 운영 모델을 빠르게 살펴봅니다.",
+    );
+    const recommendationLayout = await drawer.locator(".manual-book-recommendation").first()
+      .evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        return {
+          clientWidth: element.clientWidth,
+          lineCount: range.getClientRects().length,
+          scrollWidth: element.scrollWidth,
+        };
+      });
+    expect(recommendationLayout.scrollWidth).toBeLessThanOrEqual(
+      recommendationLayout.clientWidth,
+    );
+    expect(recommendationLayout.lineCount).toBeGreaterThan(1);
+    await expect(
+      drawer.locator(".manual-book-list-details").first().locator("small, strong, time"),
+    ).toHaveCount(0);
     const documentWidth = await page.locator("html").evaluate((element) => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
@@ -129,35 +162,28 @@ test("opens the independent manual library from the Console header", async ({ pa
     }));
     expect(drawerWidth.scrollWidth).toBeLessThanOrEqual(drawerWidth.clientWidth);
 
+    if (viewport.width === 1440) {
+      const lightJourneyColors = await drawer.locator(".manual-journey").evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { background: style.backgroundColor, color: style.color };
+      });
+      expect(lightJourneyColors).toEqual({
+        background: "rgb(244, 242, 240)",
+        color: "rgb(44, 51, 58)",
+      });
+      await page.locator("html").evaluate((element) => element.setAttribute("data-theme", "dark"));
+      await expect(drawer.locator(".manual-journey")).toHaveCSS(
+        "background-color",
+        "rgb(38, 42, 46)",
+      );
+      await page.locator("html").evaluate((element) => element.removeAttribute("data-theme"));
+    }
     if (viewport.width === 390) {
       const closeBounds = await drawer.getByRole("button", { name: "Close guides" }).boundingBox();
       expect(closeBounds?.width).toBeGreaterThanOrEqual(44);
       expect(closeBounds?.height).toBeGreaterThanOrEqual(44);
     }
-    if (viewport.width === 1440) {
-      const track = drawer.locator(".manual-coverflow-track");
-      const bounds = await track.boundingBox();
-      expect(bounds).not.toBeNull();
-      const activeCover = drawer.locator(".manual-library-card[data-active='true']");
-      const initialTransform = await activeCover.evaluate((element) =>
-        getComputedStyle(element).transform);
-      await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(bounds!.x + bounds!.width / 2 - 24, bounds!.y + bounds!.height / 2, {
-        steps: 3,
-      });
-      await expect(track).toHaveClass(/dragging/);
-      expect(await activeCover.evaluate((element) => getComputedStyle(element).transform))
-        .not.toBe(initialTransform);
-      await page.mouse.move(bounds!.x + bounds!.width / 2 - 285, bounds!.y + bounds!.height / 2, {
-        steps: 12,
-      });
-      await expect(track).toHaveClass(/dragging/);
-      await page.mouse.up();
-      await expect(
-        drawer.getByRole("button", { name: "Open Art of the Possible" }),
-      ).toHaveAttribute("data-active", "true");
-    }
+    await expect(drawer.getByRole("link", { name: "Open Art of the Possible" })).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(drawer).not.toBeVisible();
@@ -168,7 +194,7 @@ test("opens the independent manual library from the Console header", async ({ pa
   await page.goto("/tests/fixtures/help-center.html");
   await page.getByRole("button", { name: "Open guides" }).click();
   const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Open FDAI 운영 개요" }).click();
+  await page.getByRole("link", { name: "Open FDAI 운영 개요" }).click();
   const manualPage = await popupPromise;
   await manualPage.waitForLoadState("networkidle");
   await expect(manualPage).toHaveURL(/\/library\.html\?manual=executive-briefing$/);

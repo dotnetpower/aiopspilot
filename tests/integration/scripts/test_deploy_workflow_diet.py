@@ -78,6 +78,7 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
         "validate_deploy_request.py",
         "bind-production-terraform-inputs.sh",
         "bind_core_runtime_image.sh",
+        "verify_job_image.py",
         "publish-console.sh",
         "build_dev_gateway_artifact.py",
         "run_runner_preflight.py",
@@ -151,3 +152,17 @@ def test_registry_credentials_are_not_process_arguments() -> None:
     assert "--password" not in binder
     assert "--user" not in binder
     assert 'echo "::add-mask::$registry_token"' in binder
+
+
+def test_post_apply_verifies_inventory_job_image() -> None:
+    start = _WORKFLOW.index("- name: Verify Terraform convergence")
+    end = _WORKFLOW.index("- name: Verify model deployment readback")
+    block = _WORKFLOW[start:end]
+
+    assert "verify_job_image.py" in block
+    assert '--expected-image "$TF_VAR_core_image"' in block
+    assert 'inventory_job="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"' in block
+    assert (
+        'az containerapp job show --resource-group "$(terraform output -raw resource_group_name)"'
+        in block
+    )

@@ -14,6 +14,9 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.recorded_resource_state import (
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+)
 
 from fdai.core.ontology_platform import (
     ObjectPredicate,
@@ -24,6 +27,7 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.property_values import declared_property_values
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
     RESOURCE_STATE_MEASURE_CONCEPTS,
@@ -36,6 +40,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     query_scope_matches,
     query_signal_matches,
 )
+from fdai.shared.providers.state_evidence import STATE_FACT_METADATA_PROPERTY
 
 from .semantic_current_state_planning import exact_target_from_constraints
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
@@ -187,6 +192,7 @@ def compile_resource_state_plan(
         descriptors=manifest.descriptors,
         evaluation_time=evaluation_time,
         purpose=purpose,
+        require_operational_state_metadata=True,
     )
     nodes = (
         OntologyQueryNode(
@@ -285,11 +291,13 @@ def resource_collection_definition(
     descriptors: tuple[dict[str, Any], ...],
     evaluation_time: datetime,
     purpose: str,
+    require_operational_state_metadata: bool = False,
 ) -> ObjectSetDefinition:
     """Build one current Resource scope narrowed only by stated catalog types."""
 
     filters = stated_value_filters(utterance, descriptors)
     type_values = filters.get(("Resource", "type"), ())
+    operational_type_values = _operational_type_values(descriptors)
     type_predicate = (
         ObjectPredicate(
             property="type",
@@ -303,17 +311,51 @@ def resource_collection_definition(
             values=type_values,
         )
         if type_values
+        else ObjectPredicate(
+            property="type",
+            operator=ObjectPredicateOperator.IN,
+            values=operational_type_values,
+        )
+        if require_operational_state_metadata
         else ObjectPredicate(property="type", operator=ObjectPredicateOperator.EXISTS)
     )
     as_of = evaluation_time.astimezone(UTC)
+    predicates = [type_predicate]
+    if require_operational_state_metadata:
+        predicates.append(
+            ObjectPredicate(
+                property="properties",
+                operator=ObjectPredicateOperator.CONTAINS,
+                equals=STATE_FACT_METADATA_PROPERTY,
+            )
+        )
     return ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
-        predicates=(type_predicate,),
+        predicates=tuple(predicates),
         as_of=as_of,
         purpose=purpose,
         limit=1000,
         include_relationships=False,
     )
+
+
+def _operational_type_values(descriptors: tuple[dict[str, Any], ...]) -> tuple[str, ...]:
+    reviewed = frozenset(OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+    descriptor = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "object" and item.get("name") == "Resource"
+        ),
+        None,
+    )
+    properties = descriptor.get("properties") if isinstance(descriptor, dict) else None
+    type_property = properties.get("type") if isinstance(properties, dict) else None
+    declared = declared_property_values(type_property)
+    values = reviewed if declared is None else reviewed.intersection(declared)
+    if not values:
+        raise ValueError("principal manifest has no reviewed operational-state Resource types")
+    return tuple(sorted(values))
 
 
 def _state_descriptor_metadata(

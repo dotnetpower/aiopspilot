@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,15 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
+from fdai.core.conversation.conversation_preflight import (
+    ContextDependency,
+    ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalPreflightFamily,
+    OperationalSignal,
+    OperationalWindowMode,
+    SocialAct,
+)
 from fdai.core.conversation.coordinator import ConversationCoordinator, CoordinatorConfig
 from fdai.core.conversation.intent_graph import (
     build_intent_graph_evidence,
@@ -16,8 +26,19 @@ from fdai.core.conversation.intent_graph import (
 )
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
-from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
+from fdai.core.conversation.semantic_planning import (
+    SemanticPlanningService,
+    _descriptors_for_judgment,
+    _operational_frame_matches_accepted_judgment,
+    _plan_node_summary,
+    _preflight_descriptor_intent,
+)
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
+from fdai.core.conversation.semantic_planning_frame_checks import (
+    _normalize_gateway_diagnostic_time_scope,
+    deterministic_pre_frame_outcome,
+)
+from fdai.core.conversation.semantic_planning_frame_core import build_semantic_frame
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
     SemanticFrameProposal,
@@ -45,6 +66,10 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.contextual_resource_queries import (
     contextual_resource_function_type,
+)
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+    governed_document_function_type,
 )
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.core.ontology_platform.query_execution import QueryNodeProgress
@@ -96,9 +121,14 @@ from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
     QueryNodeKind,
     TaskStatus,
+    canonical_json,
     content_digest,
 )
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDocumentEvidenceMode,
+    SemanticJudgmentProposal,
+    SemanticTarget,
+)
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -236,6 +266,7 @@ class _JudgmentBoundary:
     def preflight(self, **_kwargs: Any) -> Any:
         return SimpleNamespace(
             observations=(),
+            attempted=False,
             failure_kind=None,
             proposal=None,
         )
@@ -951,6 +982,7 @@ def _typed_fixture(
     include_state_transitions: bool = False,
     include_service_health: bool = False,
     include_contextual_resource: bool = False,
+    include_governed_document: bool = False,
     include_parent_id: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
@@ -962,6 +994,7 @@ def _typed_fixture(
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "type": PropertyDecl(type=PropertyType.STRING, required=True),
             "name": PropertyDecl(type=PropertyType.STRING),
+            "properties": PropertyDecl(type=PropertyType.OBJECT),
             **({"parent_id": PropertyDecl(type=PropertyType.STRING)} if include_parent_id else {}),
         },
     )
@@ -969,6 +1002,7 @@ def _typed_fixture(
         function
         for function in (
             contextual_resource_function_type() if include_contextual_resource else None,
+            governed_document_function_type() if include_governed_document else None,
             resource_event_function_type() if include_resource_event else None,
             resource_health_function_type() if include_resource_health else None,
             resource_metric_function_type() if include_resource_metric else None,
@@ -1020,6 +1054,16 @@ _RESOURCE_GROUP_GROUP = PropertyValueGroup(
     values=("resource-group",),
     terms=("resource group", "resource groups", "리소스 그룹", "리소스그룹"),
 )
+_AKS_GROUP = PropertyValueGroup(
+    id="kubernetes-cluster",
+    values=("kubernetes-cluster",),
+    terms=("aks", "kubernetes cluster"),
+)
+_LLM_DEPLOYMENT_GROUP = PropertyValueGroup(
+    id="llm-model-deployment",
+    values=("llm-model-deployment",),
+    terms=("deployed LLM", "배포된 LLM"),
+)
 _VM_GROUP = PropertyValueGroup(
     id="compute-vm",
     values=("compute.vm",),
@@ -1029,6 +1073,11 @@ _POSTGRES_GROUP = PropertyValueGroup(
     id="postgresql-server",
     values=("postgresql-server",),
     terms=("postgres", "postgres db", "postgresql"),
+)
+_SQL_SERVER_GROUP = PropertyValueGroup(
+    id="sql-server",
+    values=("sql-server",),
+    terms=("mssql server", "mssql 서버", "sql server"),
 )
 
 
@@ -1286,6 +1335,95 @@ def test_stated_value_narrows_an_existence_predicate_to_the_declared_value() -> 
     assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
 
 
+@pytest.mark.parametrize(
+    ("utterance", "target_value"),
+    (
+        ("리소스그룹 목록", "리소스그룹"),
+        ("List resource groups", "resource groups"),
+    ),
+)
+def test_resource_group_type_target_is_not_treated_as_named_group_membership(
+    utterance: str,
+    target_value: str,
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    target_start = utterance.casefold().index(target_value.casefold())
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value=utterance[target_start : target_start + len(target_value)],
+                source_start=target_start,
+                source_end=target_start + len(target_value),
+            ),
+        ),
+        requested_facets=("name", "type"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_resource_group_name_fragment_filters_group_objects_not_members() -> None:
+    utterance = "지금 fdai 가 포함된 리소스 그룹은?"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="fdai",
+                source_start=utterance.index("fdai"),
+                source_end=utterance.index("fdai") + len("fdai"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+
+    assert predicates == [
+        {"property": "name", "operator": "contains", "equals": "fdai"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
 def test_named_resource_group_membership_filters_parent_instead_of_group_type() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_RESOURCE_GROUP_GROUP,),
@@ -1383,6 +1521,60 @@ def test_named_group_judgment_stabilizes_repeated_membership_frames(
     assert model.plan_calls == 0
 
 
+def test_named_group_normalization_preserves_required_document_evidence() -> None:
+    utterance = "rg-example 리소스 그룹의 런북 요구 사항과 리소스를 알려줘"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_governed_document=True,
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="rg-example",
+                source_start=0,
+                source_end=len("rg-example"),
+            ),
+        ),
+        requested_facets=("details", "name_filter"),
+        document_evidence_mode=SemanticDocumentEvidenceMode.REQUIRED,
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "rg-example"],
+            measure_concepts=["parent_id", "type"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert "governed_documents.required" in outcome.frame.evidence_requirements
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["function_name"] == GOVERNED_DOCUMENT_FUNCTION_NAME
+
+
 def test_document_judgment_builds_action_draft_without_frame_model_call() -> None:
     manifest, _definition = _fixture()
     judgment = SemanticJudgmentProposal(
@@ -1422,6 +1614,1040 @@ def test_document_judgment_builds_action_draft_without_frame_model_call() -> Non
     assert outcome.execution_authority is False
     assert model.frame_calls == 0
     assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "구독에 배포된 리소스 상세 정보를 문서화하자.",
+        "현재 구독의 리소스를 빠짐없이 정리해서 내려받을 문서로 작성해 주세요.",
+        "리소스 현황 문서가 필요해. 이 구독에 있는 것들을 자세히 정리해 줘.",
+        "배포 자산별 세부 정보가 담긴 구독 인벤토리 문서를 부탁드립니다.",
+        "Document the deployed resources in the current subscription.",
+        "Prepare a downloadable inventory covering every resource in this subscription.",
+        "Can you write up the details of our authorized subscription's deployed assets?",
+        "I need the subscription resource inventory as a complete document.",
+    ),
+)
+def test_inventory_document_judgment_reads_current_inventory_without_model_plan(
+    utterance: str,
+) -> None:
+    """Synthetic judgments exercise paraphrase-independent dispatch, not live model quality."""
+    manifest, _definition = _fixture()
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("download", "subscription", "complete_content", "resource_inventory"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(model, manifest, semantic_judgment=_JudgmentBoundary(judgment)).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_list"
+    assert set(outcome.frame.measure_concepts) == {"complete_content", "download"}
+    assert outcome.plan is not None
+    assert len(outcome.plan.nodes) == 1
+    node = outcome.plan.nodes[0]
+    assert node.kind is QueryNodeKind.OBJECT_SET
+    definition = ObjectSetDefinition.model_validate(json.loads(node.arguments_json)["definition"])
+    assert definition.selector.name == "Resource"
+    assert definition.predicates == ()
+    assert definition.include_relationships is False
+    assert definition.limit == 1000
+    assert outcome.execution_authority is False
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_inventory_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _fixture()
+    model = _Model(frame=None, plan=None)
+    utterance = "Prepare a complete downloadable inventory for the current subscription."
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    preflight = ConversationPreflightResult(
+        proposal=ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            context_dependency=ContextDependency.NONE,
+            operational_family=OperationalPreflightFamily.INVENTORY_DOCUMENT,
+            operational_facets=(
+                "resource_inventory",
+                "subscription",
+                "complete_content",
+                "download",
+            ),
+            confidence=0.99,
+        ),
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+    assert preflight.proposal is not None
+    preflight = replace(
+        preflight,
+        proposal_digest=content_digest(preflight.proposal.model_dump(mode="json")),
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_list"
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_recent_state_change_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_state_transitions=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "최근 상태가 변경된 리소스 5개만 알려줄래?"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_facets=(
+            "recently_changed",
+            "resource_count",
+            "default_recent_window",
+            "limit_5",
+        ),
+        operational_result_limit=5,
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_transitions"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"]["result_limit"] == 5
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_SQL_SERVER_GROUP,),
+        include_resource_state=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "실행 중인 mssql 서버 목록"
+    type_value = "mssql 서버"
+    state_value = "실행 중"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+            SemanticTarget(
+                kind="resource_state_filter",
+                value=state_value,
+                source_start=utterance.index(state_value),
+                source_end=utterance.index(state_value) + len(state_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list", "current_state"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None and outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [
+        {"property": "type", "operator": "equals", "equals": "sql-server"},
+        {
+            "property": "properties",
+            "operator": "contains",
+            "equals": "state_fact_metadata",
+        },
+    ]
+    assert outcome.plan.nodes[-1].arguments["arguments"] == {
+        "state_concepts": ["resource_state.running"]
+    }
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_type_collection_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "aks 목록"
+    target_value = "aks"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=utterance.index(target_value),
+                source_end=utterance.index(target_value) + len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "kubernetes-cluster",
+        }
+    ]
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "fdai 관련 리소스 목록은"
+    target_value = "fdai"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("verified preflight should reach deterministic clarification")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=0,
+                source_end=len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.plan is None
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("resource_filter_meaning",)
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_deployed_llm_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(groups=(_LLM_DEPLOYMENT_GROUP,))
+    model = _Model(frame=None, plan=None)
+    utterance = "배포된 llm 모델이 뭐야"
+    target_value = "배포된 llm 모델"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=target_value,
+                source_start=utterance.index(target_value),
+                source_end=utterance.index(target_value) + len(target_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert [
+        predicate.model_dump(mode="json", exclude_none=True) for predicate in definition.predicates
+    ] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "llm-model-deployment",
+        }
+    ]
+    assert model.frame_calls == model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"primary_intent": "query.governed_documents"},
+        {"action_posture": "draft_only", "action_subject": "Document"},
+        {"secondary_intents": ("execute.action",)},
+        {"requested_facets": ("resource_inventory", "subscription", "download", "upload")},
+        {"discourse_mode": "quoted"},
+        {
+            "targets": (
+                SemanticTarget(
+                    kind="resource_group",
+                    value="example",
+                    source_start=0,
+                    source_end=7,
+                ),
+            )
+        },
+    ),
+)
+def test_inventory_document_frame_does_not_drop_distinct_meaning(
+    updates: dict[str, object],
+) -> None:
+    from fdai.core.conversation.semantic_planning_frame_normalization import (
+        build_inventory_document_frame,
+    )
+
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("resource_inventory", "subscription", "complete_content", "download"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    ).model_copy(update=updates)
+
+    assert (
+        build_inventory_document_frame(
+            judgment=judgment,
+            utterance="example",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+        )
+        is None
+    )
+
+
+def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
+    from fdai.core.conversation.semantic_planning_frame_checks import (
+        deterministic_pre_frame_selection,
+    )
+
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("resource_inventory", "subscription", "complete_content", "download"),
+        confidence=0.2,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert (
+        deterministic_pre_frame_selection(
+            judgment=judgment,
+            judgment_accepted=False,
+            utterance="Document the subscription inventory.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "primary_intent,expected_names",
+    (
+        ("create.document", {"Resource"}),
+        ("query.contextual_resources", {"Resource"}),
+        (
+            "query.resource_health_inventory",
+            {"Resource", "query.resource_health_inventory"},
+        ),
+        (
+            "query.resource_current_state",
+            {"Resource", "query.resource_current_state"},
+        ),
+        (
+            "query.resource_state_inventory",
+            {"Resource", "query.resource_state_inventory"},
+        ),
+        (
+            "query.subscription_scope_identity",
+            {"query.subscription_scope_identity"},
+        ),
+        (
+            "query.subscription_service_health",
+            {"query.subscription_service_health"},
+        ),
+        (
+            "query.resource_configuration_changes",
+            {
+                "Resource",
+                "query.resource_configuration_changes",
+                "query.resource_configuration_snapshot",
+            },
+        ),
+        (
+            "query.gateway_diagnostic_evidence",
+            {
+                "Resource",
+                "routes_to",
+                "query.gateway_diagnostic_evidence",
+                "query.resource_configuration_changes",
+                "query.resource_current_state",
+                "query.resource_state_inventory",
+                "query.resource_configuration_snapshot",
+            },
+        ),
+    ),
+)
+def test_known_operational_judgment_narrows_model_descriptors(
+    primary_intent: str,
+    expected_names: set[str],
+) -> None:
+    descriptors = tuple(
+        {"kind": "function" if name.startswith("query.") else "object", "name": name}
+        for name in (
+            "Resource",
+            "routes_to",
+            "query.gateway_diagnostic_evidence",
+            "query.resource_configuration_changes",
+            "query.resource_current_state",
+            "query.resource_health_inventory",
+            "query.resource_state_inventory",
+            "query.resource_configuration_snapshot",
+            "query.subscription_scope_identity",
+            "query.subscription_service_health",
+            "unrelated-large-capability",
+        )
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    selected = _descriptors_for_judgment(descriptors, judgment)
+
+    assert {item["name"] for item in selected} == expected_names
+    assert "unrelated-large-capability" not in {item["name"] for item in selected}
+
+
+def test_known_preflight_family_selects_compact_descriptors_before_shape_repair() -> None:
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_targets=(),
+        operational_facets=("metrics",),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=DIGEST,
+        proposal_digest=DIGEST,
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert _preflight_descriptor_intent(result) == "query.gateway_diagnostic_evidence"
+
+
+def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
+    descriptors = ({"kind": "object", "name": "Resource"},)
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.other",
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert _descriptors_for_judgment(descriptors, judgment) is descriptors
+
+
+def test_operational_frame_requires_accepted_matching_judgment() -> None:
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_configuration_changes",
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_configuration_changes",
+        judgment=judgment,
+        judgment_accepted=False,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="gateway_diagnostic_evidence",
+        judgment=judgment,
+        judgment_accepted=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_configuration_changes",
+        judgment=judgment,
+        judgment_accepted=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_list",
+        judgment=None,
+        judgment_accepted=False,
+    )
+
+
+@pytest.mark.parametrize(
+    "primary_intent,output_shape",
+    (
+        ("query.resource_configuration_changes", "resource_configuration_changes"),
+        ("query.gateway_diagnostic_evidence", "gateway_diagnostic_evidence"),
+    ),
+)
+def test_operational_comparison_without_exact_resource_requires_clarification(
+    primary_intent: str,
+    output_shape: str,
+) -> None:
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(),
+        requested_facets=("comparison",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance="Compare the selected deployment.",
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == output_shape
+    assert outcome.frame.unresolved_terms == ("resource_identity",)
+
+
+def test_ambiguous_gateway_judgment_with_generic_resource_skips_frame_model() -> None:
+    utterance = "Compare the APIM gateway and backend 500 responses."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(
+                kind="resource",
+                value="APIM",
+                source_start=12,
+                source_end=16,
+            ),
+        ),
+        requested_facets=("gateway", "backend", "status_500"),
+        unresolved_terms=("resource_identity",),
+        clarification="Which exact gateway resource should I inspect?",
+        confidence=0.98,
+        ambiguous=True,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("resource_identity",)
+
+
+def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
+    utterance = "Compare agw-example latency over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-example", source_start=8, source_end=19),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=37,
+                source_end=46,
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            temporal_scope={},
+            output_shape="gateway_diagnostic_evidence",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        judgment_accepted=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.temporal_scope == {"window_seconds": 3_600}
+    assert normalized_frame.temporal_scope == {"window_seconds": 3_600}
+    assert normalized.subject_constraints == ("Resource", "Resource.name=agw-example")
+
+    rejected, rejected_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        judgment_accepted=False,
+        utterance=utterance,
+        context=(),
+    )
+    assert rejected == proposal
+    assert rejected_frame == frame
+
+
+def test_gateway_judgment_replaces_model_substituted_root() -> None:
+    utterance = "Compare agw-prod with backend-prod over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(kind="backend", value="backend-prod", source_start=22, source_end=34),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=44,
+                source_end=53,
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource", "Resource.name=backend-prod"],
+            temporal_scope={},
+            output_shape="gateway_diagnostic_evidence",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        judgment_accepted=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.subject_constraints == (
+        "Resource",
+        "Resource.name=agw-prod",
+        "Backend.name=backend-prod",
+    )
+    assert normalized_frame.subject_constraints == normalized.subject_constraints
+
+
+def test_gateway_judgment_binds_backend_arm_id_as_id() -> None:
+    backend_id = "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Web/sites/backend"
+    utterance = f"Compare agw-prod with {backend_id} over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind="backend",
+                value=backend_id,
+                source_start=utterance.index(backend_id),
+                source_end=utterance.index(backend_id) + len(backend_id),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=utterance.index("last hour"),
+                source_end=utterance.index("last hour") + len("last hour"),
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(temporal_scope={}, output_shape="gateway_diagnostic_evidence")
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, _normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        judgment_accepted=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.subject_constraints[-1] == f"Backend.id={backend_id}"
+
+
+@pytest.mark.parametrize(
+    "primary_intent,output_shape",
+    (
+        ("query.resource_configuration_changes", "resource_configuration_changes"),
+        ("query.gateway_diagnostic_evidence", "gateway_diagnostic_evidence"),
+    ),
+)
+def test_future_hour_judgment_requires_temporal_clarification(
+    primary_intent: str,
+    output_shape: str,
+) -> None:
+    utterance = "Compare deployment-a one hour from now."
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(
+            SemanticTarget(kind="resource", value="deployment-a", source_start=8, source_end=20),
+            SemanticTarget(
+                kind="time_range",
+                value="one hour",
+                canonical_value="duration.PT1H",
+                source_start=21,
+                source_end=29,
+            ),
+        ),
+        requested_facets=("comparison",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == output_shape
+    assert outcome.frame.unresolved_terms == ("temporal_scope",)
+
+
+def test_gateway_judgment_with_multiple_time_targets_requires_clarification() -> None:
+    utterance = "Compare agw-prod over the last hour and previous hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=26,
+                source_end=35,
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="previous hour",
+                canonical_value="duration.PT1H",
+                source_start=40,
+                source_end=53,
+            ),
+        ),
+        requested_facets=("latency",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("temporal_scope",)
+
+
+@pytest.mark.parametrize(
+    "target_kind,target_value",
+    (
+        ("resource", "this gateway"),
+        ("backend", "backend"),
+    ),
+)
+def test_gateway_judgment_rejects_generic_extra_target(
+    target_kind: str,
+    target_value: str,
+) -> None:
+    utterance = "Compare agw-prod with this gateway backend over the last hour."
+    target_start = utterance.index(target_value)
+    time_start = utterance.index("last hour")
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind=target_kind,
+                value=target_value,
+                source_start=target_start,
+                source_end=target_start + len(target_value),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=time_start,
+                source_end=time_start + len("last hour"),
+            ),
+        ),
+        requested_facets=("latency",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("subject",)
 
 
 @pytest.mark.parametrize(
@@ -2122,7 +3348,12 @@ def test_typed_subscription_state_query_uses_observed_resource_state(
             "property": "type",
             "operator": "equals",
             "equals": "postgresql-server",
-        }
+        },
+        {
+            "property": "properties",
+            "operator": "contains",
+            "equals": "state_fact_metadata",
+        },
     ]
     assert outcome.plan.nodes[1].arguments["arguments"] == {
         "state_concepts": [RESOURCE_STATE_OBSERVED_CONCEPT]
@@ -2580,6 +3811,67 @@ def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
         execution,
         frame=outcome.frame,
         plan=outcome.plan,
+    ) == (None, "verified")
+    document_node = OntologyQueryNode(
+        node_id="governed-documents",
+        kind=QueryNodeKind.FUNCTION,
+        arguments_json=canonical_json(
+            {
+                "function_name": "query.governed_documents",
+                "arguments": {"query": "recovery", "evidence_mode": "optional"},
+                "dependency_arguments": {},
+            }
+        ),
+        output_kind="query.table",
+    )
+    document_plan = outcome.plan.model_copy(
+        update={
+            "nodes": (*outcome.plan.nodes, document_node),
+            "output_node_ids": (*outcome.plan.output_node_ids, document_node.node_id),
+            "plan_digest": DIGEST,
+        }
+    )
+    document_frame = outcome.frame.model_copy(
+        update={
+            "evidence_requirements": (
+                *outcome.frame.evidence_requirements,
+                "governed_documents.optional",
+            )
+        }
+    )
+    document_receipt = GoalTaskReceipt(
+        task_id="query:governed-documents",
+        goal_id="governed-documents",
+        intent="function",
+        capability="query.function",
+        evidence_mode=GoalEvidenceMode.DOCUMENT,
+        status=TaskStatus.COMPLETED,
+        duration_ms=1,
+        evidence_refs=("document:sha256:" + ("d" * 64),),
+        authority=EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
+        started_at=NOW,
+        completed_at=NOW,
+    )
+    document_execution = replace(
+        execution,
+        plan_digest=document_plan.plan_digest,
+        results=MappingProxyType(
+            {
+                **dict(execution.results),
+                document_node.node_id: QueryNodeResult(
+                    value={},
+                    evidence_refs=document_receipt.evidence_refs,
+                    authority=document_receipt.authority,
+                ),
+            }
+        ),
+        receipts=(*execution.receipts, document_receipt),
+        output_node_ids=document_plan.output_node_ids,
+    )
+    assert resolve_execution_authority(
+        document_execution,
+        frame=document_frame,
+        plan=document_plan,
     ) == (None, "verified")
     evidence = build_intent_graph_evidence(
         graph=outcome.intent_graph,
@@ -3081,6 +4373,56 @@ def test_property_filter_rejects_unstated_declared_value_operand() -> None:
     assert model.plan_calls == 1
 
 
+def test_optional_document_augmentation_still_rejects_unstated_filter_operand() -> None:
+    manifest, definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP),
+        include_governed_document=True,
+    )
+    narrowed = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals="resource-group",
+                ),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(narrowed),
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(),
+        requested_facets=("details",),
+        document_evidence_mode=SemanticDocumentEvidenceMode.OPTIONAL,
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance="Show typed resources and consult the runbook.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 1
+
+
 def test_target_health_without_identity_discovers_verified_candidates() -> None:
     container_app = PropertyValueGroup(
         id="compute-container-app",
@@ -3194,6 +4536,7 @@ def test_stated_subtype_wins_over_its_broader_category_group() -> None:
         "Show the deployed LLMs.",
         "List the GPT models.",
         "배포된 LLM 목록을 보여줘.",
+        "배포된 llm 모델이 뭐야",
         "GPT 모델 목록을 알려줘.",
     ),
 )
@@ -3206,6 +4549,7 @@ def test_llm_inventory_phrases_select_model_deployment_instances(utterance: str)
                 (
                     "deployed LLMs",
                     "GPT models",
+                    "배포된 LLM",
                     "배포된 LLM 목록",
                     "GPT 모델 목록",
                 )

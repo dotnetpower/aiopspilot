@@ -174,6 +174,7 @@ class InMemoryOntologyInstanceStore:
         object_types: Sequence[str] = (),
         object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
         limit: int = 100,
         include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
@@ -187,6 +188,7 @@ class InMemoryOntologyInstanceStore:
         selected_types = set(object_types)
         selected_ids = set(object_ids)
         filters = normalize_json_value(property_equals or {}, path="property_equals")
+        text_filters = property_text_in or {}
         matches = [
             item
             for item in sorted(self._objects.values(), key=lambda value: value.id)
@@ -195,6 +197,10 @@ class InMemoryOntologyInstanceStore:
             and all(
                 _json_values_equal(item.properties.get(key), value)
                 for key, value in filters.items()
+            )
+            and all(
+                isinstance(item.properties.get(key), str) and item.properties.get(key) in values
+                for key, values in text_filters.items()
             )
         ]
         truncated = len(matches) > limit

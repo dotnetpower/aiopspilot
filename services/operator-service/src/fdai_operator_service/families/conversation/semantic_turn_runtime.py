@@ -13,7 +13,8 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
-from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V14
+from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolution
+from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V16
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
@@ -35,6 +36,10 @@ from fdai_operator_service.families.conversation.semantic_turn import SemanticTu
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data as _done_event_data,
 )
+from fdai_operator_service.families.conversation.t1_model_health import (
+    T1ModelHealthReader,
+    t1_model_health,
+)
 from fdai_operator_service.postgres_family_store import (
     SemanticTurnClaim,
     StoredSemanticResult,
@@ -49,6 +54,8 @@ from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
     OperationalEvidenceProjection,
+    OperatorPrincipalKind,
+    OperatorRole,
     RuleSearchProjection,
     SemanticInvestigationContinuation,
     SemanticQueryProgress,
@@ -56,7 +63,12 @@ from fdai_service_contracts import (
     SemanticTurnRequest,
     SemanticTurnResult,
 )
-from pydantic import ValidationError
+from fdai_service_contracts.adaptive_answer import AdaptiveAgentName
+from fdai_service_contracts.adaptive_relationship import (
+    AdaptiveRelationshipProof,
+    AdaptiveRelationshipUnknownReason,
+)
+from pydantic import TypeAdapter, ValidationError
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
@@ -71,6 +83,19 @@ _MAX_ANSWER_CHUNK_CHARS = 64
 _MAX_TRACKED_PROGRESS_REQUESTS = 256
 _MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
 _LOGGER = logging.getLogger(__name__)
+_RELATIONSHIP_REASON = TypeAdapter(AdaptiveRelationshipUnknownReason)
+
+
+class DialogueRelationshipResolver(Protocol):
+    """Read current relationship facts for a fixed authenticated principal and target."""
+
+    async def resolve(
+        self,
+        *,
+        principal_id: str,
+        roles: frozenset[OperatorRole],
+        target_agent: AdaptiveAgentName,
+    ) -> AdaptiveRelationshipResolution: ...
 
 
 class SemanticTurnStore(Protocol):
@@ -154,6 +179,17 @@ class _SemanticProgressRelay:
     def __init__(self) -> None:
         self._updates: OrderedDict[str, deque[SemanticQueryProgress]] = OrderedDict()
         self._signals: dict[str, asyncio.Event] = {}
+        self._terminals: OrderedDict[str, None] = OrderedDict()
+
+    def terminal_committed(self, request_id: str) -> None:
+        """Wake readers only after terminal validation and durable persistence succeed."""
+        self._terminals[request_id] = None
+        self._terminals.move_to_end(request_id)
+        if len(self._terminals) > _MAX_TRACKED_PROGRESS_REQUESTS:
+            self._terminals.popitem(last=False)
+        signal = self._signals.get(request_id)
+        if signal is not None:
+            signal.set()
 
     def consume(self, payload: Mapping[str, object]) -> bool:
         """Validate and retain one monotonic update, ignoring stale redelivery."""
@@ -184,6 +220,7 @@ class _SemanticProgressRelay:
         """Drop transient updates once durable terminal replay is authoritative."""
         self._updates.pop(request_id, None)
         self._signals.pop(request_id, None)
+        self._terminals.pop(request_id, None)
 
     async def wait_for_update(
         self,
@@ -193,11 +230,11 @@ class _SemanticProgressRelay:
         timeout: float,
     ) -> None:
         """Wake one active stream as soon as a newer progress record arrives."""
-        if self.after(request_id, progress_sequence):
+        if request_id in self._terminals or self.after(request_id, progress_sequence):
             return
         signal = self._signals.setdefault(request_id, asyncio.Event())
         signal.clear()
-        if self.after(request_id, progress_sequence):
+        if request_id in self._terminals or self.after(request_id, progress_sequence):
             return
         try:
             await asyncio.wait_for(signal.wait(), timeout=timeout)
@@ -504,21 +541,32 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         # step that already ended, whatever the disposition turned out to be.
         self._settle_pending_activities(result.sequence)
         done = _done_event_data(result.data, locale=self._request.locale)
-        if _is_document_draft(result.data) and self._stored.source_request_id is not None:
-            if self._document_exporter is None:
+        inventory_document = _is_inventory_document(result.data)
+        if inventory_document or _is_document_draft(result.data):
+            source_request_id = (
+                result.request_id if inventory_document else self._stored.source_request_id
+            )
+            if self._document_exporter is None or source_request_id is None:
                 done["answer"] = _document_unavailable_answer(self._request.locale)
+                done["document_unavailable_reason"] = (
+                    "document_export_unavailable"
+                    if self._document_exporter is None
+                    else "document_source_not_found"
+                )
             else:
                 try:
                     document = await self._document_exporter.materialize(
                         principal_id=self._principal_id,
-                        source_request_id=self._stored.source_request_id,
+                        source_request_id=source_request_id,
                     )
-                except ConversationBoundaryError:
+                except ConversationBoundaryError as exc:
                     done["answer"] = _document_unavailable_answer(self._request.locale)
+                    done["document_unavailable_reason"] = exc.code
                 else:
                     done["answer"] = _document_ready_answer(
                         self._request.locale,
                         included_rows=document.included_rows,
+                        pdf_available=self._document_exporter.pdf_encoder is not None,
                     )
                     done["document_artifact"] = document.metadata(
                         pdf_available=self._document_exporter.pdf_encoder is not None
@@ -595,7 +643,7 @@ class SemanticTurnProjectionConsumer:
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
         """Reject malformed or evidence-incomplete results before durable projection."""
-        decoded = CORE_PROJECTION_CONSUMER_V14.decode_mapping(payload)
+        decoded = CORE_PROJECTION_CONSUMER_V16.decode_mapping(payload)
         semantic_payload = decoded.get("semantic_result")
         extension_payload = decoded.get("payload")
         if not isinstance(extension_payload, dict):
@@ -666,6 +714,7 @@ class SemanticTurnBridge:
         publisher: SemanticTurnEventPublisher | None = None,
         result_source: SemanticTurnResultSource | None = None,
         builder: SemanticTurnEnvelopeBuilder | None = None,
+        relationship_resolver: DialogueRelationshipResolver | None = None,
         worker_id: str = "operator-semantic-turn",
         request_topic: str = SEMANTIC_REQUEST_TOPIC,
         result_topic: str = SEMANTIC_RESULT_TOPIC,
@@ -686,6 +735,8 @@ class SemanticTurnBridge:
         self._publisher = publisher
         self._result_source = result_source
         self._builder = builder or SemanticTurnEnvelopeBuilder()
+        self._relationship_resolver = relationship_resolver
+        self._acceptance_started = False
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._progress_relay = _SemanticProgressRelay()
         self._drainer = (
@@ -701,10 +752,23 @@ class SemanticTurnBridge:
         self._retry_seconds = retry_seconds
         self._tasks: tuple[asyncio.Task[None], ...] = ()
 
+    def bind_relationship_resolver(self, resolver: DialogueRelationshipResolver) -> None:
+        """Bind composition-owned readers once, before request acceptance or startup."""
+        if self._relationship_resolver is not None or self._acceptance_started or self._tasks:
+            raise RuntimeError("relationship resolver MUST be bound once before bridge use")
+        self._relationship_resolver = resolver
+
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Accept one authorized stream proposal and persist a typed held fallback if unbound."""
+        self._acceptance_started = True
         envelope = self._builder.build(proposal)
         semantic = SemanticTurnRequest.model_validate(envelope["semantic_turn"])
+        relationship = await self._resolve_relationship(semantic)
+        envelope = self._builder.build(
+            proposal,
+            relationship_proof=relationship.proof,
+            relationship_unknown_reason=relationship.reason,
+        )
         continuation = await self._store.latest_semantic_investigation_continuation(
             principal_id=proposal.scope.subject_id,
             session_id=semantic.session_id,
@@ -720,6 +784,8 @@ class SemanticTurnBridge:
             envelope = self._builder.build(
                 proposal,
                 investigation_continuation=continuation,
+                relationship_proof=relationship.proof,
+                relationship_unknown_reason=relationship.reason,
             )
         source_request_id = _source_request_id(proposal.body.get("source_request_id"))
         if source_request_id == envelope["request_id"]:
@@ -814,6 +880,7 @@ class SemanticTurnBridge:
 
     async def start(self) -> None:
         """Start one publisher drainer and one result consumer when transport is injected."""
+        self._acceptance_started = True
         if self._tasks or self._drainer is None or self._result_source is None:
             return
         self._tasks = (
@@ -828,6 +895,61 @@ class SemanticTurnBridge:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _resolve_relationship(
+        self, request: SemanticTurnRequest
+    ) -> AdaptiveRelationshipResolution:
+        if request.principal.principal_kind is not OperatorPrincipalKind.HUMAN:
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "human_principal_required",
+                None,
+            )
+        if self._relationship_resolver is None:
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "resolver_unavailable",
+                None,
+            )
+        try:
+            async with asyncio.timeout(5):
+                resolution = await self._relationship_resolver.resolve(
+                    principal_id=request.principal.subject_id,
+                    roles=frozenset(request.principal.roles),
+                    target_agent=request.target_agent,
+                )
+            proof = resolution.proof
+            if resolution.target_agent != request.target_agent:
+                raise ValueError("relationship resolution target mismatch")
+            if resolution.status != "matched" or proof is None:
+                return AdaptiveRelationshipResolution(
+                    request.target_agent,
+                    "unknown",
+                    _RELATIONSHIP_REASON.validate_python(resolution.reason),
+                    None,
+                )
+            if (
+                not isinstance(proof, AdaptiveRelationshipProof)
+                or proof.principal_id != request.principal.subject_id
+                or proof.target_agent != request.target_agent
+            ):
+                raise ValueError("relationship proof binding mismatch")
+            return resolution
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - failed optional context cannot assert a relationship
+            _LOGGER.info(
+                "semantic_relationship_unknown",
+                extra={"target_agent": request.target_agent, "reason": "resolver_unavailable"},
+            )
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "resolver_unavailable",
+                None,
+            )
 
     async def _run_drainer(self) -> None:
         if self._drainer is None:
@@ -857,7 +979,7 @@ class SemanticTurnBridge:
                 ):
                     quarantine_key = _projection_quarantine_key(payload)
                     try:
-                        await self._consumer.consume(payload)
+                        committed = await self._consumer.consume(payload)
                     except (ContractValidationError, ValidationError, ValueError):
                         await self._quarantine(quarantine_key)
                     except SemanticTurnRequestAbsentError:
@@ -890,6 +1012,7 @@ class SemanticTurnBridge:
                         await self._quarantine(quarantine_key)
                     else:
                         conflicts.pop(quarantine_key, None)
+                        self._progress_relay.terminal_committed(committed.request_id)
             except SemanticTurnRequestAbsentError:
                 _LOGGER.info(
                     "semantic_projection_conflict_retrying",
@@ -958,6 +1081,7 @@ class SemanticTurnConversationAdapters:
     fallback_outbox: ConversationProposalOutbox
     fallback_streams: ConversationStreamReader
     document_exporter: ConversationDocumentExporter | None = None
+    t1_model_health_reader: T1ModelHealthReader | None = None
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Serve bridge-owned health and delegate every durable projection read."""
@@ -972,11 +1096,16 @@ class SemanticTurnConversationAdapters:
         if query.operation != "chat.health":
             return await self.fallback_projections.read(query)
         health = self.bridge.health()
+        routing = (
+            await self.t1_model_health_reader.read()
+            if self.t1_model_health_reader is not None
+            else (await self.fallback_projections.read(query)).body
+        )
         return ConversationResponse(
             body={
                 "available": health["available"],
                 "mode": health["mode"],
-                "model": None,
+                **t1_model_health(routing),
                 "endpoint": None,
                 "semantic_bridge": health,
             },
@@ -1008,15 +1137,34 @@ def _is_document_draft(projection: Mapping[str, object]) -> bool:
     return subjects == ["Document"]
 
 
-def _document_ready_answer(locale: str, *, included_rows: int) -> str:
+def _is_inventory_document(projection: Mapping[str, object]) -> bool:
+    """Use only the Core-owned terminal presentation contract to attach a document."""
+
+    semantic = projection.get("semantic_result")
+    payload = projection.get("payload")
+    if not isinstance(semantic, Mapping) or semantic.get("disposition") != "answered":
+        return False
+    details = payload.get("technical_details") if isinstance(payload, Mapping) else None
+    context = details.get("presentation_context") if isinstance(details, Mapping) else None
+    return (
+        isinstance(context, Mapping)
+        and context.get("operation") == "select"
+        and context.get("output_shape") == "resource_list"
+        and context.get("document_kind") == "inventory"
+    )
+
+
+def _document_ready_answer(locale: str, *, included_rows: int, pdf_available: bool) -> str:
+    formats = "Markdown 또는 PDF" if pdf_available else "Markdown"
     if locale.casefold().startswith("ko"):
         return (
-            f"직전 검증 결과의 전체 행 {included_rows}개를 포함한 문서 초안을 만들었습니다. "
-            "아래 미리보기를 검토하거나 Markdown 또는 PDF로 다운로드할 수 있습니다."
+            f"검증된 원본 조회의 전체 행 {included_rows}개를 포함한 문서를 만들었습니다. "
+            f"미리보기의 범위와 제외 항목을 검토하거나 {formats}로 다운로드할 수 있습니다."
         )
+    formats = "Markdown or PDF" if pdf_available else "Markdown"
     return (
-        f"I created a document draft with all {included_rows} rows from the preceding verified "
-        "result. Review the preview below or download it as Markdown or PDF."
+        f"I created a document with all {included_rows} rows from the verified source query. "
+        f"Review its scope and exclusions in the preview or download it as {formats}."
     )
 
 
@@ -1024,11 +1172,11 @@ def _document_unavailable_answer(locale: str) -> str:
     if locale.casefold().startswith("ko"):
         return (
             "전체 행을 검증할 수 없어 문서 다운로드를 만들지 않았습니다. "
-            "원본 조회를 다시 실행한 후 문서 생성을 요청해 주세요."
+            "근거의 완전성 또는 조회 한도를 확인한 후 범위를 좁혀 다시 요청해 주세요."
         )
     return (
         "No document download was created because the complete row set could not be verified. "
-        "Run the source query again, then request the document."
+        "Check evidence completeness or query limits, then request a narrower scope."
     )
 
 
@@ -1559,11 +1707,11 @@ def _initial_progress(locale: str) -> dict[str, str]:
     if locale.casefold().startswith("ko"):
         return {
             "accepted": "질문을 수락했습니다.",
-            "planning": "검증된 조사 계획을 기다리는 중입니다.",
+            "planning": "답변 경로를 확인하는 중입니다.",
         }
     return {
         "accepted": "Semantic request accepted.",
-        "planning": "Waiting for a verified semantic plan.",
+        "planning": "Determining the answer path.",
     }
 
 
@@ -1651,4 +1799,5 @@ __all__ = [
     "SemanticTurnProjectionConsumer",
     "SemanticTurnResultSource",
     "SemanticTurnStore",
+    "T1ModelHealthReader",
 ]

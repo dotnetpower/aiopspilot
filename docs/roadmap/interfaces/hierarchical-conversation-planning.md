@@ -16,47 +16,145 @@ renders only evidence and verified limitations.
 
 ![Design at a glance. The main stages are Text, screen, image, document, Bounded context resolver, T1 mini-model intent graph, Deterministic graph validator, Available capability binding, T2 reasoner retry, Read task DAG, Evidence ledger, Claim verification, Bragi presentation.](../../diagrams/generated/fdai-roadmap-interfaces-hierarchical-conversation-planning-01.en.svg)
 
-The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to
-the current principal and deployment. The validator blocks unknown capabilities, cycles,
-unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation
-draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only
-when the T1 model or provider is unavailable and the active typed policy permits that exact stage.
-Schema, build, manifest, and frame-plan verification failures terminate as clarification,
-unsupported, or held without T2. A valid T1 clarification, action draft, scope denial, or
-evidence-execution hold also never spends T2 capacity. Golden campaign requests select the separate
-`golden_campaign_no_t2` profile, so provider unavailability cannot trigger a campaign fallback.
+The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to the current principal and deployment. The validator blocks unknown capabilities, cycles, unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only when the T1 model or provider is unavailable and the active typed policy permits that exact stage. Schema, build, manifest, and frame-plan verification failures terminate as clarification, unsupported, or held without T2. A valid T1 clarification, action draft, scope denial, or evidence-execution hold also never spends T2 capacity. Golden campaign requests select the separate `golden_campaign_no_t2` profile, so provider unavailability cannot trigger a campaign fallback.
 
-An Owner can enable aggressive read-only T2 recovery from Runtime policies. The setting defaults
-on in development for local demonstrations and off in staging and production until promoted with
-measured assurance evidence. It is read for each interactive turn, so changing it does not require
-a Core restart.
-When enabled, Core gives the configured T2 planner one bounded retry after T1 cannot produce a
-usable frame or plan. Eligible clarification is a typed Resource identity, subject, or measure hold;
-server-bound scope and purpose holds are excluded. The retry receives only compact typed recovery
-context: the failed stage, trigger, and safe validation reason. It does not receive provider output
-or hidden reasoning. The deterministic frame and plan verifier remains mandatory. If T2 still
-requires clarification, Core returns the original T1 clarification rather than a lower-confidence
-guess; a later plan failure remains an honest unavailable result. Action drafts, scope and
-authorization denials, `golden_campaign_no_t2`, evidence
-verification, and execution authority remain unchanged. The request profile is evaluated before the
-runtime setting, so `golden_campaign_no_t2` always wins. T2 may produce a better verified read plan,
-but it cannot invent a resource identity, relationship, or evidence item to avoid an honest
-limitation. Each turn records the effective setting and escalation trigger in operational logs.
+An Owner can enable aggressive read-only T2 recovery from Runtime policies. The setting defaults on in development for local demonstrations and off in staging and production until promoted with measured assurance evidence. It is read for each interactive turn, so changing it does not require a Core restart. When enabled, Core gives the configured T2 planner one bounded retry after T1 cannot produce a usable frame or plan. Eligible clarification is a typed Resource identity, subject, or measure hold; server-bound scope and purpose holds are excluded. The retry receives only compact typed recovery context: the failed stage, trigger, and safe validation reason. It does not receive provider output or hidden reasoning. The deterministic frame and plan verifier remains mandatory. If T2 still requires clarification, Core returns the original T1 clarification rather than a lower-confidence guess; a later plan failure remains an honest unavailable result. Action drafts, scope and authorization denials, `golden_campaign_no_t2`, evidence verification, and execution authority remain unchanged. The request profile is evaluated before the runtime setting, so `golden_campaign_no_t2` always wins. T2 may produce a better verified read plan, but it cannot invent a resource identity, relationship, or evidence item to avoid an honest limitation. Each turn records the effective setting and escalation trigger in operational logs.
 
 A compact T1 conversation preflight runs before manifest loading and full semantic judgment. It sees
 the utterance, locale, bounded recent context, and trusted Bragi profile, but no ontology capability
-catalog. The schema keeps `social_act`, operational signal, and context dependency as independent
-axes. A high-confidence context-independent greeting or self-introduction in an unbound
-conversation may return its model-authored response directly, including a repeated greeting after
-earlier turns. A mixed, contextual, ambiguous, low-confidence, or
-failed preflight continues to the existing full semantic judgment without using partial response
-text.
+catalog. The schema keeps `social_act`, operational signal, context dependency, typed operational window,
+and a bounded operational-family proposal as independent axes. A high-confidence context-independent greeting or
+self-introduction in an unbound conversation may return its model-authored response directly,
+including a repeated greeting after earlier turns.
 
-The full model-backed semantic judgment boundary remains authoritative for operational meaning. A
-social expression combined with an operational request stays on that full path, while `social_act`
-is retained only as no-authority planning metadata. Runtime code never substitutes a canned success
-answer or infers intent from keywords, phrase tables, regular expressions, token matching, or
-hard-coded utterances. No path gains execution authority.
+The preflight also runs on the first turn. An explicit or context-dependent operational signal
+enters the verified semantic path without paying for the adaptive explanation planner first. A
+mixed request remains adaptive so its knowledge and operational goals stay separate. For reviewed
+families, including one exact Resource current-state request, preflight can propose source-grounded targets and bounded facets. Core reuses that
+proposal only when the turn is explicit, context-independent, at least 0.75 confidence, bound to the
+current utterance and proposal digests, and valid for the family-specific shape. One-hour targets
+also require an explicitly past source expression; directionless or future wording retains full
+judgment. F2 accepts a deployment name, not an ARM resource ID,
+because its deterministic compiler filters `Resource.name`.
+Gateway preflight reuse validates an explicit past-hour target or uses the server-owned adjacent
+15-minute comparison windows for a current-symptom request.
+When an exact Resource name cannot be resolved, a plan may run an independent candidate read only
+for Resource types already established by the typed frame. Core ranks the authorized observed names
+deterministically and keeps the terminal as an evidence hold. It can suggest bounded names, but it
+never substitutes, selects, or retries a candidate without a new operator choice.
+Targetless recent-state requests follow a separate collection path. When accepted typed judgment
+requests recently changed Resources and a bounded result count, Core applies the server-owned recent
+window, reads the secured Resource collection, and queries durable operational-state transitions.
+It orders the transitions by bitemporal recency, keeps the newest transition for each Resource, and
+returns no more than the requested count. Missing or incomplete transition evidence produces an
+explicit evidence outcome instead of an exact-target clarification.
+
+Mixed, contextual, ambiguous, low-confidence operational, stale, and unsupported preflight
+proposals continue to full semantic judgment. A malformed or unavailable configured preflight is
+held without another model call, and a low-confidence pure general route is also held. Whether
+meaning came from verified preflight or full judgment, Core narrows model-facing descriptors to the minimum reviewed set for subscription
+inventory documents, Resource configuration comparisons, or gateway diagnostics. Unknown families
+retain the complete-manifest fallback. Descriptor narrowing never grants capability or authority;
+every selected declaration still comes from the exact principal manifest and the resulting plan
+still passes the ordinary verifier.
+
+General explanations, conceptual technology comparisons, and general recommendations use a
+one-shot knowledge path when their answer does not depend on current environment evidence. A typed
+`knowledge_signal` and bounded `general_answer` are authored together by one preflight model call.
+Core validates confidence, current-input and proposal digests, model and prompt provenance, profile
+digest, locale, and no-authority fields before publishing the answer. This path does not run
+adaptive planning, adaptive answering, independent review, refinement, verification, T2, ontology
+queries, or provider reads. A malformed or unavailable preflight is held without schema repair or a
+second model call. Because the answer is not independently reviewed, it reports
+`quality_status=limited` and cannot claim operational verification.
+Cloud-operations terminology alone does not make a question operational. Mixed knowledge and
+current-environment requests retain the adaptive multi-goal path.
+The Operator's initial progress label says it is determining the answer path; it does not claim
+that every turn is waiting for a semantic or investigation plan.
+
+Known operational families use a dedicated 544-token frame prompt instead of the general semantic
+frame prompt. Their complete schema-inclusive system and user request has a 64 KiB hard ceiling.
+Core records the prompt profile, system and user character counts, total request bytes, candidate
+count, and stage without recording prompt or evidence content. An oversized request holds before
+provider I/O.
+
+Full model-backed semantic judgment remains the fallback for every family or meaning that the
+restricted preflight contract cannot prove. A social expression combined with an operational
+request stays on that full path, while `social_act` is retained only as no-authority planning
+metadata. Runtime code never substitutes a canned success answer or uses deterministic text
+matching to select a capability. The one-hour expression check only verifies a model-proposed typed
+time value. No path gains execution authority.
+
+## Adaptive explanation contract
+
+An interactive turn may combine a social act, general knowledge, required operational evidence,
+and optional environment examples. These are separate answer goals, not exclusive chat modes.
+A schema-validated model selects the goals from the complete utterance and bounded history.
+Required knowledge goals cannot select an operational-only route unless a governed action or
+pending decision explicitly owns the handoff. Contradictory plans stop before operational queries.
+Conversation entry mode, keywords, and the selected agent never grant a route or execution authority.
+Pure operational, pending-decision, and incident-bound requests retain the existing verified path.
+Pure, context-independent general knowledge terminates before this multi-goal planner through the
+one-shot path above.
+
+The adaptive path has a distinct `advisory_response` terminal contract. It does not manufacture
+an operational query receipt for general knowledge. Each goal records its kind, requirement,
+answer status, and server-owned evidence references. Missing optional examples leave the general
+explanation usable; missing required operational evidence remains an explicit held goal.
+Environment examples use only the ordinary principal-scoped verified read runtime. A pair of
+versions alone is not proof of blue-green deployment, and configuration is not proof of execution.
+Pure knowledge sections form one coherent answer. They do not repeat agent memos or operational
+evidence warnings for each goal, and Korean sections use consistent polite honorific endings.
+
+The `1.6.0` request and projection contracts use `version-negotiated` compatibility, not
+`additive-ignore-unknown`: conditional relationship and advisory evidence checks stay enforced.
+The legacy translator and its matrix proof cover generic non-semantic envelopes only; semantic
+requests and advisory results cannot be downgraded. Upgrade accepting consumers before enabling
+these payloads. Offline compatibility fixtures exercise the declared producer version and do not
+replace live rollout evidence.
+
+The common conversation policy, exactly one server-owned Pantheon role, locale, and verified
+relationship context select bounded stage-specific prompt layers. User prose, prior turns,
+attachments, and tool output remain data rather than system instructions. Mapping a human to an
+agent changes relevant context, never RBAC, approval, or executor identity. Explicit target and
+durable session binding take precedence over a relationship suggestion.
+
+One independent review checks goal coverage, contradictions, unsupported operational claims,
+and role consistency. A permitted stronger-model refinement can occur at most once, followed by
+independent verification. A model confidence number alone cannot publish an operational claim.
+Time, call-count, input/output, and aggregate token budgets bound the entire adaptive turn.
+Provider rate limits, cancellation, and deadline expiry end the attempt without an unbounded retry.
+Unsafe or unreviewed drafts are not rendered as verified answers.
+
+Design critique: a generic fallback after a failed operational query would hide denials and
+invent evidence. The revised design selects advisory goals before query planning, never converts
+an authorization failure into an ungrounded answer, and preserves the normal action-draft path.
+The shared policy is versioned once, but classifiers, authors, and independent reviewers receive
+different minimal stage inputs. This avoids both contradictory agent copies and a giant universal
+prompt. This implementation starts without any live model invocation or promotion-state change.
+
+### Shared turn limits
+
+The same budget follows verified reads and governed handoffs into their Azure model adapters.
+Each physical request reserves input bytes and output tokens before dispatch, then reconciles
+measured usage. Failed attempts retain their reservation. Read scopes cancel and await active
+provider work; a provider failure cannot start another candidate in that scope.
+
+| Limit | Default |
+|-------|---------|
+| Answer goals and evidence reads | Six goals, at most two read goals |
+| Model calls | Five total, including nested query planning; reads reserve two calls for answer and review |
+| Aggregate tokens | 48000, with conservative pre-dispatch reservations |
+| Time | 60 seconds per turn and 20 seconds per adaptive stage |
+| Stronger-model refinement | At most one, followed by independent verification within the same budget |
+
+Missing ontology state or an invalid operational catalog does not disable an independently valid
+general explanation service. A successful evidence read still
+cannot support prose that the reviewer omitted or rejected. That goal keeps an explicit limitation
+while supported knowledge remains visible. Bounded raw-evidence fallback includes Markdown
+delimiters in its output limit. Governed handoffs retain model observations without counting them twice.
+Outstanding review issues keep quality incomplete even when goal coverage is complete, so a
+permitted refinement is not skipped merely because the reviewer also marked coverage complete.
 
 ## Implementation status
 
@@ -64,13 +162,16 @@ hard-coded utterances. No path gains execution authority.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Compact conversation preflight and social narrator | implemented | `conversation-preflight.v1.yaml`; `conversation-social-narrator.v1.yaml`; act-specific enforce packs; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py); focused routing, composition, transport, and prompt tests | A temperature-zero classifier separates greeting, self-introduction, explicit thanks, farewell, acknowledgement, operational, mixed, operational-context, and social-continuity turns before manifest loading. Its schema cannot carry user-facing prose. Eligible social routes compose the common temperature-0.3 persona base with exactly one typed act pack and receive no capability catalog or operational context. The classifier is 531 estimated tokens and 3,599 schema-inclusive system characters; act-specific narrator compositions range from 283-314 estimated tokens and 1,721-1,847 characters. |
-| Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. T1 is always attempted first. The default typed policy permits one same-stage T2 retry only for T1 unavailability; invalid frames, schemas, builds, and deterministic plan mismatches fail closed. |
+| Adaptive explanations and verified examples | implemented | `adaptive-plan.v4.yaml`; `adaptive-answer.v2.yaml`; `adaptive-review.v2.yaml`; focused prompt and runtime checks; authenticated Browser Entra comparison turns | Mixed knowledge/operational goals, fixed-role prompts, expiring relationship proofs, independent review, bounded refinement, and replay-safe presentation are connected. Pure general knowledge bypasses these multi-stage operations. |
+| One-shot general knowledge | validated | `conversation-preflight.v6.yaml`; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py); focused checks; ten-pass independent reviews; authenticated Korean Browser Entra turns | One confident, current-input- and profile-bound preflight call classifies and authors the bounded answer. Warmed UI variants completed in 3.321, 4.210, 4.319, and 4.691 seconds, each with one `narrator-gpt-5-4-mini` call and no plan, adaptive answer, review, refinement, verification, T2, ontology, or provider read. Output reports limited, no-authority quality. |
+| Compact conversation preflight and social narrator | implemented | `conversation-preflight.v8.yaml`; `conversation-social-narrator.v1.yaml`; act-specific enforce packs; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py); prompt contract checks and authenticated English/Korean comparison turns | A temperature-zero classifier runs on the first turn and separates greeting, self-introduction, explicit thanks, farewell, general knowledge, acknowledgement, operational, mixed, operational-context, and social-continuity turns before manifest loading. Context-independent general knowledge selects the one-shot answer path; current-environment questions retain verified or adaptive evidence paths. Reviewed operational shapes, including targetless subscription identity, Service Health, and recent Resource state-change reads, can supply provenance-bound candidate judgment fields. |
+| Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. Provenance-bound F1-F4 preflight meaning can skip the separate full-judgment call; every other request retains it. Accepted inventory-document, configuration-change, and gateway-diagnostic judgments narrow model-facing descriptors to 1, 3, and 5 reviewed declarations respectively and use the dedicated 544-token frame contract with a 64 KiB request ceiling. Unknown families retain the complete-manifest fallback. |
 | Owner-controlled aggressive T2 recovery | implemented | `conversation.t2_escalation.aggressive_enabled`; Runtime Settings projection; semantic-turn processor; 640 focused backend checks; Console model test, typecheck, production build, and authenticated Settings save | Development interactive read turns default to one bounded T2 recovery for eligible T1 clarification, unavailability, or rejected frame and plan proposals. Staging and production default off pending promotion evidence. The setting is evaluated per turn without a restart, the original clarification is preserved when T2 remains ambiguous, and Golden campaigns, actions, authorization, evidence verification, and execution authority cannot be widened. |
 | Model-backed social direct response | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py); [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py); [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py); focused model-routing, usage, redaction, and stream tests | The compact preflight authors direct text for eligible context-independent social turns. Core validates confidence, binding, context dependency, response locale, trusted profile digest, and bounded text before preserving it. Mixed, contextual, pending-decision, ambiguous, bound, and failed preflight cases use full semantic judgment. Direct responses retain measured model usage and identity without a fixed success template or lexical fallback. |
+| Principal-scoped governed document RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), focused contract, ACL, runtime, and projection checks | Semantic judgment selects `none`, `optional`, `required`, or `explicit` document evidence. Retrieval filters and revalidates the authenticated principal's exact groups, collection, revision, lifecycle, purpose, and access policy. Required evidence fails closed, while an independent optional document failure can produce only a labeled partial answer backed by completed operational evidence. The current PostgreSQL adapter reports `index_completeness_unverified`, so required and explicit production turns hold until a complete provider generation is bound. Document text remains untrusted and has no instruction or execution authority. |
 | Structured causal investigation | implemented | `semantic_investigation.py`; `semantic_investigation_planning.py`; investigation query-node and presentation tests; focused investigation checks | A target-bound causal diagnosis carries exact source spans, typed entity roles, symptom direction, temporal cues, ordered LinkType sides, competing hypotheses, evidence standard, and answer shape. Core verifies those atoms and compiles entity resolution, multi-hop expansion, aligned windows, topology diff, symptom comparison, and support/refutation waves without a model-authored plan. Generic declared-scope causal evidence keeps the existing bounded plan. If fewer than two hypothesis results reach presentation, the target and symptom comparison remain visible with an explicit evidence limitation instead of a false complete diagnosis. |
 | Production Core semantic runtime composition | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), focused semantic-query composition tests | Azure T1 and T2 planning adapters are bound separately. Principal-scoped manifests, secured ObjectSets, read functions, and bounded DAG execution are composed when prerequisites are available. |
-| Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.4.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.4.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Request 1.4 adds the bounded `include_model_trace` opt-in while preserving N-1 decode. Projections bind identity, purpose, deadlines, digests, dispositions, evidence, and observational model metadata without granting execution authority. |
+| Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.6.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.6.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Request 1.6 adds bounded authenticated principal groups and adaptive relationship fields. The producer retains 1.5 for requests that need neither surface. Projections bind identity, purpose, deadlines, digests, dispositions, evidence, and observational model metadata without granting execution authority. |
 | Durable Operator bridge and Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | The Operator owns durable acceptance, outbox claims, result projection, authenticated replay, typed holds, and `done` event adaptation. |
 | Event transport and deployment configuration | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | Logical request and projection topics share the governed physical event stream and are configured for both services. |
 | Structural and epistemic coverage foundations | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt and gate contracts exist, but complete descriptor generations, runtime question receipts, and L3/L4 certification are not delivered. |
@@ -82,6 +183,14 @@ hard-coded utterances. No path gains execution authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Added an exact Resource current-state preflight family, isolated its object-only completeness from unrelated relationship and scope-test journal gaps, and aligned the local authoritative refresh with configured scope and journal watermarks. | `current change`; focused preflight, planning, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E returned `answered` and `semantic_answer_verified`. | Retain the same result through the authenticated standard Console browser. |
+| 2026-09-07 | implemented | Added provenance-bound F1-F4 candidate meaning to compact preflight so an exact, explicit, context-independent request can skip one serial full semantic-judgment call. Added confidence, source-span, one-hour, family-shape, and Resource identity checks; all other requests retain full judgment. | `current change`; 177 focused conversation, prompt-registry, and adapter tests, targeted Ruff, and strict mypy passed. | Retain standard-stack answer-token TTFT and complete evidence outcomes for F1-F4. |
+| 2026-09-07 | implemented | Ran compact preflight on the first turn, bypassed adaptive explanation planning for explicit and contextual operational requests, and narrowed known operational families to their reviewed descriptor slices after full semantic judgment. | `current change`; 579 focused adaptive and semantic-planning tests passed; selected source passed strict mypy. | Measure first-token latency on one coherent standard-stack SHA and add verified progressive segments for compound reads that still exceed five seconds. |
+| 2026-09-06 | implemented | Revalidated the complete 11-commit testing-hardening range after the final fixes. The diff-scoped gate and direct non-database integration contracts passed without weakening required or optional document evidence behavior. | `current change`; `make test-changed DIFF=6ca4a6bd3...HEAD` passed 4,129 tests with 3 database-dependent skips and 12,568 deselections; 56 direct semantic roundtrip, composition, and judgment-assurance integration tests passed; the focused 711 RAG, 385 Operator, and 67 Console checks remained green. | Run the database-dependent integration slice only with a dedicated local FDAI PostgreSQL DSN. Retain authenticated cross-service and complete provider-owned index-generation receipts before reporting production readiness. |
+| 2026-09-06 | implemented | Completed 11 additional governed RAG testing-hardening rounds. Added boundary coverage, required-provider failure, display-digest separation, malformed-group and verifier sanitization, forged Console authority, PostgreSQL fail-closed, and strict hexadecimal digest regressions. The final independent review found no remaining Medium-or-higher defect. | `current change`; 711 focused contract, ACL, planning, runtime, processor, transport, and Operator checks passed; 385 affected Operator authentication checks passed; reader, planner, governed-query, and authentication coverage reached 98%, 98%, 100%, and 92%; selected Python files passed Ruff and format; 67 Console tests and Console typecheck passed; generated service-contract drift and documentation checks passed. | Retain an authenticated cross-service retrieval receipt before reporting production readiness. Bind and verify a complete provider-owned index generation; the current PostgreSQL adapter remains lexical and reports unverified completeness. |
+| 2026-09-06 | implemented | Added semantic document-evidence classification, principal-scoped governed retrieval, exact revision citations, required-source holds, and independently qualified optional partial answers. Authenticated Entra groups remain separate from Operator application roles and bind the request, principal scope, function invocation, and final ACL check. Completed 30 governed RAG hardening lenses; the final independent review found no remaining Medium-or-higher defect. | `current change`; 650 focused contract, ACL, planning, runtime, processor, transport, and Operator checks passed; 375 affected Operator authentication checks passed; 35 source files passed strict mypy; selected Python files passed Ruff; 67 Console tests and Console typecheck passed; generated service-contract drift check passed. | Retain an authenticated cross-service retrieval receipt before reporting production readiness. Bind and verify a complete provider-owned index generation; the current PostgreSQL adapter remains lexical and reports unverified completeness. |
+| 2026-09-06 | implemented | Completed 11 focused critique and hardening reviews covering evidence, source outages, provider failure, cancellation, budgets, identity, mixed requests, review quality, versioning, replay, and presentation. Identified Medium-or-higher defects were corrected, including catalog outage isolation, missed refinement, contradictory route/goal plans, and restored general conversations acquiring screen context. | `current change`; 653 focused Python checks, 209 Console checks, Console type checks/build, and 10 isolated synthetic E2E scenarios passed. English/Korean desktop, constrained desktop, and mobile views passed horizontal-overflow assertions and screenshot review. | Retain separately authorized live-model and deployment evidence; offline results do not claim promotion or production readiness. |
+| 2026-09-06 | in-progress | Connected adaptive goals, selected-role prompts, trusted relationship proofs, advisory transport, and shared nested-provider limits. | `current change`; `test_adaptive_runtime.py` passed 9 cases, `test_adaptive_provider_budget.py` passed 10 cases, and `test_wire_adaptive_conversation.py` passed 19 cases. | Complete final focused regression and critique evidence before delivery; live model and deployment validation remain separate. |
 | 2026-09-03 | implemented | Registered the extracted Service Health answer renderer as a reviewed presentation-only lexical path. It reads verified machine fields and does not infer operator intent from prose. | `current change`; semantic-routing baseline check and focused Service Health presentation tests. | No remaining work for this audit registration. |
 | 2026-09-03 | implemented | Added a development-default, Owner-controlled aggressive T2 recovery mode with compact typed recovery context and per-turn settings evaluation. The Golden no-T2 profile, action and server-bound holds, deterministic verification, and original clarification fallback remain authoritative. Fixed revisioned Operator settings updates and settings-projection invalidation so a saved toggle applies to later turns without a restart. | `current change`; 640 focused Core, Operator, and local-start checks passed; Console model test, typecheck, and production build passed; focused Ruff and strict mypy passed; authenticated Console save advanced revision 1 to 2 and a live question emitted the typed T2 escalation. | The configured T2 provider returned HTTP 429 during the live recovery, so retain a successful authenticated answer receipt before claiming validated or promoting the staging and production default. |
 | 2026-09-01 | implemented | Verified the bounded semantic normalization on the committed revision through the VPN-routed private Foundry endpoint. The exact ten-case source cohort passed 10/10 with no execution authority, and the stop marker plus existing assurance ledgers were restored to and verified against their original digests. | Source `31002f3db70649ceb6844dc8ea59798ba7aa4d13`; source-bound ledger digest `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`; exact result 10/10. | Propose the bilingual 20-case follow-up without starting it. Keep the 100-case campaign disabled. |
@@ -112,6 +221,8 @@ hard-coded utterances. No path gains execution authority.
 
 ### Remaining work
 
+- [x] Complete the adaptive conversation critique campaign with no unresolved finding above Low;
+  focused implementation and isolated browser evidence are recorded in the current-change history.
 - [ ] Complete release-derived descriptor generations and independently validated atomic activation for
     every readable ontology declaration and runtime availability state.
 - [ ] Bind the remaining temporal, metric-series, evidence-join, causal, relationship-side, and
@@ -358,6 +469,8 @@ from deployment data.
 |---|---|---|
 | Current screen fact | Screen snapshot | Clarify when the datum is absent |
 | Current operational state | Authoritative read capability | Partial answer with coverage gaps |
+| Explicit governed-document question | Principal-scoped document retrieval | Hold when no admissible excerpt is available |
+| Internal procedure, policy, or declared operating intent | Governed document retrieval plus catalog evidence | Qualified answer when document coverage is incomplete |
 | Public or current external fact | Approved web search | Model knowledge when freshness is not required |
 | Benchmark comparison | Screen metric plus comparable web evidence | Qualitative analysis without invented benchmarks |
 | General knowledge | Web when available or explicitly requested | Calibrated model knowledge |
@@ -369,6 +482,39 @@ states freshness limits, and never fabricates citations. This fallback is allowe
 validated goal doesn't require fresh evidence. Raw chain-of-thought is not persisted or shown.
 Bragi presents a concise conclusion, evidence, assumptions, comparison basis, limitations, and
 uncertainty.
+
+### Governed document retrieval
+
+Semantic judgment classifies whether governed documents are irrelevant, optional, required, or
+explicitly requested. It does not claim that a document contains the answer. A deterministic policy
+validates that source requirement against the accepted intent, temporal scope, and action posture,
+then binds an available `query.governed_documents` read capability.
+
+The capability receives the original bounded utterance as its search query. The server resolves the
+principal and collection scope before retrieval. Search filters by the authorized collection and
+access descriptors before ranking, then revalidates every selected document revision, lifecycle
+state, purpose, and access policy. Lexical and vector candidates may be fused, but ranking never
+widens authorization.
+
+Each returned excerpt carries an exact document revision, source locator, content digest, index
+generation, access-scope digest, and `instruction_authority=false`. Document text is untrusted data.
+It cannot supply tools, roles, approval, or execution authority, and instructions embedded in a
+document never override system or operator policy.
+
+An empty authorized result means only that the bounded search found no admissible excerpt. It is not
+proof that no relevant document exists unless the retrieval receipt also proves complete index
+coverage for the selected generation. Required or explicit document questions hold when retrieval
+is unavailable, incomplete, stale, unauthorized, or unsupported. Optional document grounding may
+continue with another authoritative lane, but the answer labels the missing document coverage.
+The current PostgreSQL adapter provides a repeatable-read snapshot identity but no complete index
+generation receipt. It therefore reports `index_completeness_unverified`; required and explicit
+turns hold, while optional retrieval can only supplement independently completed operational
+evidence.
+
+Document claims remain separate from current operational state. A runbook can describe intended
+procedure or historical context, but it cannot prove a resource's present condition. When document
+and provider evidence conflict, the answer reports the conflict and preserves the provider-observed
+state as the current-state authority.
 
 ### Contextual operational joins
 
@@ -438,8 +584,8 @@ web evidence, and low-confidence extraction asks for clarification.
 ## Answer and action boundaries
 
 Bragi streams a presentation after evidence collection and verification. The answer envelope uses
-one evidence mode: `screen_grounded`, `operational_grounded`, `web_grounded`, `mixed_grounded`,
-`model_knowledge`, `partial`, or `held_for_review`.
+one evidence mode: `screen_grounded`, `document_grounded`, `operational_grounded`, `web_grounded`,
+`mixed_grounded`, `model_knowledge`, `partial`, or `held_for_review`.
 
 A recommendation is not an executable action. An explicit change request produces a typed draft
 that enters the existing safety and approval path. The planner cannot execute, approve, promote, or

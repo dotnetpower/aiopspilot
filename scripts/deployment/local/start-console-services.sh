@@ -13,6 +13,7 @@ services=(
   inventory-reconciliation
   observation-campaign
   console-frontend
+  manual-studio
 )
 child_pids=()
 active_pids=()

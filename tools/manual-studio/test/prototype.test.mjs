@@ -64,11 +64,12 @@ test("completed manuals provide the catalog slide count and source evidence", as
     const slides = additionalManualSlides[id];
     assert.equal(slides.length, expected);
     assert.equal(new Set(slides.map((slide) => slide.title)).size, expected);
-    assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/")));
+    assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/") ||
+      /class="ontology-evidence-source" title="docs\/roadmap\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
   }
 });
 
-test("ontology foundation connects LLM, RAG, ontology, and current FDAI implementation", async () => {
+test("ontology foundation connects history, LLM limits, FDAI semantics, and worked scenarios", async () => {
   const { additionalManualSlides } = await import(new URL("manual-content.js", root));
   const slides = additionalManualSlides["ontology-foundation"];
   const titles = slides.map((slide) => slide.title).join("\n");
@@ -76,16 +77,109 @@ test("ontology foundation connects LLM, RAG, ontology, and current FDAI implemen
 
   assert.equal(slides.length, 40);
   assert.ok(slides.every((slide) => slide.layout.startsWith("ontology-")));
-  assert.match(titles, /LLM은 다음 토큰의 확률을 계산합니다/);
-  assert.match(titles, /RAG는 생성 전에 외부 근거를 회수합니다/);
-  assert.match(titles, /다섯 운영 렌즈와 다섯 선언 종류는 다릅니다/);
-  assert.match(content, /3,405/);
-  assert.match(content, /80<\/strong><span>검토된 클래스 멤버십/);
-  assert.match(content, /17<\/strong><span>지원하는 QueryNodeKind/);
-  assert.match(content, /current_state_only/);
-  assert.match(content, /384차원<\/strong><span>구현된 메모리 내 의미 검색/);
+  assert.equal(new Set(slides.map((slide) => slide.layout)).size, 40);
+  assert.match(content, /아리스토텔레스는 기원전 4세기에 존재와 범주를 탐구했습니다/);
+  assert.match(content, /ontology라는 용어를 쓰지는 않았습니다/);
+  assert.match(titles, /여섯 가지 오류/);
+  assert.match(titles, /RDF는 연결을, OWL은 형식 의미를 표현합니다/);
+  assert.match(titles, /ObjectSet은 질문의 범위와 한도를 명시합니다/);
+  assert.match(content, /존재자로서의(?:<br>|\s)존재/);
+  assert.match(content.replace(/<[^>]+>/g, " "), /explicit specification\s+of a conceptualization/);
+  assert.match(content, /OBSERVED/);
+  assert.match(content, /DERIVED/);
+  assert.match(content, /DESIRED/);
+  assert.match(content, /EXECUTION/);
+  assert.match(content, /SemanticInterpretationCandidate/);
+  assert.match(content, /VerifiedSemanticPlan/);
+  assert.match(content, /RESULT_LIMIT/);
+  assert.match(content, /CANDIDATE_LIMIT/);
+  assert.match(content, /TRAVERSAL_LIMIT/);
+  assert.match(content, /oe-agent-system/);
+  assert.match(content, /oe-category-grid/);
+  assert.match(content, /oe-timeline/);
+  assert.match(content, /oe-change-graph/);
+  assert.match(content, /oe-incident-timeline/);
+  assert.match(content, /oe-cost-options/);
+  assert.match(content, /oe-learning-paths/);
+  assert.match(content, /oe-adoption-steps/);
+  assert.match(titles, /변경의 영향은 서비스의 관계를 따라 읽습니다/);
+  assert.match(titles, /같은 시간의 이상이 같은 원인은 아닙니다/);
+  assert.match(titles, /절감과 SLO 보호를 같은 결정에서 비교합니다/);
   assert.match(content, /OntologyChangeProposal/);
-  assert.doesNotMatch(content, /77:검토된 클래스 멤버십/);
+  assert.match(content, /실행 권한을 자동으로 높이지 않습니다/);
+});
+
+test("ontology foundation preserves the presentation font floor", async () => {
+  const css = await readFile(new URL("ontology-foundation.css", root), "utf8");
+
+  assert.match(css, /@container slide \(min-width: 1101px\)/);
+  assert.match(css, /\.slide-copy h2 \{ font-size: 43px;/);
+  assert.match(css, /\.slide-copy p \{ font-size: 24px;/);
+  assert.match(css, /> strong \{ font-size: 24px;/);
+  assert.match(css, /> span \{ font-size: 20px;/);
+  assert.match(css, /> small \{ font-size: 17px;/);
+  assert.match(css, /\.ontology-evidence-source \{ font-size: 13px;/);
+});
+
+test("ontology body uses one visual and takeaway without crowding the approved cover", async () => {
+  const { buildOntologyFoundationDeck } = await import(new URL("ontology-foundation.js", root));
+  const [cover, ...slides] = buildOntologyFoundationDeck();
+  const css = await readFile(new URL("ontology-editorial.css", root), "utf8");
+  assert.equal(slides.length, 39);
+  assert.ok(!cover.layout.includes("ontology-editorial"));
+  for (const slide of slides) {
+    assert.match(slide.layout, /ontology-editorial$/);
+    assert.equal([...slide.content.matchAll(/<section class="oe-visual/g)].length, 1);
+    assert.equal([...slide.content.matchAll(/<p class="oe-takeaway"/g)].length, 1);
+    assert.match(slide.content, /class="oe-state" data-state=/);
+    assert.match(slide.content, /title="docs\/roadmap\//);
+    assert.doesNotMatch(slide.content, /result_truncated|candidate_truncated|traversal_truncated/);
+  }
+  assert.match(css, /--oe-paper: #f5f3ee/);
+  assert.match(css, /font-size: 43px/);
+  assert.match(css, /font-size: 24px/);
+  assert.match(css, /\.oe-visual::before \{ content: none/);
+  assert.match(css, /box-shadow: none/);
+  assert.match(css, /print-color-adjust: exact/);
+  for (const entry of ["index.html", "library.html"]) {
+    assert.match(await readFile(new URL(entry, root), "utf8"), /href="ontology-editorial\.css"/);
+  }
+});
+
+test("ontology opening remains a sparse title page rather than a teaching slide", async () => {
+  const { buildOntologyFoundationDeck } = await import(new URL("ontology-foundation.js", root));
+  const [cover] = buildOntologyFoundationDeck();
+  const text = cover.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+
+  assert.equal(cover.layout, "ontology-cover");
+  assert.equal(cover.title, "온톨로지");
+  assert.equal(cover.lead, "AI의 언어를 운영의 의미로");
+  assert.equal(cover.deckTitle, undefined);
+  assert.ok(`${cover.title}${cover.lead}${text}`.replace(/\s/g, "").length < 120);
+  assert.match(cover.content, /class="ontology-opening-art"[^>]+aria-hidden="true"/);
+  assert.match(cover.content, /title="docs\/roadmap\/architecture\/operating-ontology\.md \| docs\/roadmap\/architecture\/fdai-constitution\.md"/);
+  assert.doesNotMatch(cover.content, /<(?:article|figcaption|li|p|text)\b/);
+  assert.doesNotMatch(cover.content, /data-semantic-node|data-semantic-edge|<img|https?:\/\//);
+});
+
+test("ontology opening styles stay cover-scoped and ship in both viewers", async () => {
+  const css = await readFile(new URL("ontology-opening.css", root), "utf8");
+  const rules = css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g);
+  for (const [, selector] of rules) {
+    if (selector.trim().startsWith("@")) continue;
+    for (const part of selector.split(",")) {
+      assert.ok(part.trim().startsWith(".manual-slide.slide-ontology-cover"), part.trim());
+    }
+  }
+  assert.match(css, /font-size: 92px/);
+  assert.match(css, /font-size: 28px/);
+  assert.doesNotMatch(css, /ontology-opening-(?:map|journey|thesis|boundary)/);
+  assert.match(css, /print-color-adjust: exact/);
+  for (const entry of ["index.html", "library.html"]) {
+    const html = await readFile(new URL(entry, root), "utf8");
+    assert.match(html, /href="ontology-opening\.css"/);
+    assert.ok(html.indexOf('href="ontology-opening.css"') > html.indexOf('href="ontology-foundation.css"'));
+  }
 });
 
 test("non-ontology manuals use briefing layouts and preserve architecture boundaries", async () => {
@@ -151,6 +245,56 @@ test("SRE incident response deck uses decision-ready non-repeating visuals", asy
   assert.match(content, /vertical-link/);
   assert.match(content, /MTTR.*중앙값.*p90/s);
   assert.match(content, /첫 검증 시나리오 1개 선택/);
+});
+
+test("Art of the Possible deck contrasts today with the target operating day", async () => {
+  const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const slides = additionalManualSlides["art-of-possible"];
+  const content = slides.map((slide) => `${slide.title}\n${slide.lead}\n${slide.content}`).join("\n");
+  const css = await readFile(new URL("art-of-possible.css", root), "utf8");
+
+  assert.equal(slides.length, 10);
+  assert.equal(new Set(slides.map((slide) => slide.layout.split(" ")[0])).size, 10);
+  assert.ok(slides.every((slide) => slide.layout.includes("deck-art-of-possible")));
+  for (const marker of [
+    "aop-today-board",
+    "aop-day-compare",
+    "aop-scene-grid",
+    "aop-impact-map",
+    "aop-cost-ladder",
+    "aop-lane-row",
+    "aop-ceiling-chart",
+    "aop-closure-chain",
+    "aop-status-band",
+  ]) {
+    assert.match(content, new RegExp(marker));
+  }
+  assert.match(content, /Huginn\(이벤트 수집 담당\) 에이전트/);
+  assert.match(content, /Forseti\(판정 담당\) 에이전트/);
+  assert.match(content, /Njord\(비용 담당\) 에이전트/);
+  assert.match(content, /Bragi\(대화 변환 담당\) 에이전트/);
+  assert.match(content, /Saga\(감사 담당\) 에이전트/);
+  assert.match(content, /Vidar\(복구 담당\) 에이전트/);
+  assert.match(content, /검토 승인은 리소스 변경 권한이 아닙니다/);
+  assert.match(content, /침묵은 승인이 아님/);
+  assert.match(content, /가장 낮은 상한 하나가 전체 권한을 정합니다/);
+  assert.match(content, /ExpectedEffect/);
+  assert.match(content, /ObservedOutcome/);
+  assert.match(content, /A3-E 실행 연결과 자동 환경 승격은 아직 사용할 수 없습니다/);
+  for (const example of ["예시 시나리오", "예시 토폴로지", "표시된 비율은 설명을 위한 예시입니다"]) {
+    assert.ok(content.includes(example), example);
+  }
+  assert.match(css, /\.slide-copy h2 \{[\s\S]{0,220}font-size: 43px;/);
+  assert.match(css, /\.slide-copy p \{[\s\S]{0,180}font-size: 24px;/);
+  assert.match(css, /--aop-human: #a8480c/);
+  assert.match(css, /--aop-evidence: #0f6cbd/);
+  assert.match(css, /--aop-verify: #0e6f61/);
+  assert.match(css, /repeating-linear-gradient/);
+  assert.match(css, /print-color-adjust: exact/);
+  for (const entry of ["index.html", "library.html"]) {
+    const html = await readFile(new URL(entry, root), "utf8");
+    assert.match(html, /href="art-of-possible\.css"/);
+  }
 });
 
 test("completed manuals retain verified hardening rounds", async () => {
@@ -299,6 +443,7 @@ test("viewer uniformly scales one fixed presentation canvas", async () => {
     "executive-deck.css",
     "executive-story.css",
     "sre-incident-response.css",
+    "art-of-possible.css",
   ].map((path) => readFile(new URL(path, root), "utf8")));
 
   assert.match(script, /slideCanvas = Object\.freeze\(\{ width: 1536, height: 864 \}\)/);

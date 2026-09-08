@@ -24,10 +24,15 @@ from scripts.automation.developer_workflow_repository import RepositoryLocation,
 PLAYWRIGHT_POOL_SIZE = 10
 LOCAL_SERVICE_ENDPOINTS = (
     ("console-frontend", "http://localhost:5273/"),
+    ("manual-studio", "http://127.0.0.1:5474/catalog.json"),
     ("operator-api", "http://127.0.0.1:8010/healthz"),
     ("document-ingestion-api", "http://127.0.0.1:8011/healthz"),
     ("document-processing-worker", "http://127.0.0.1:8012/ready"),
     ("isolated-executor", "http://127.0.0.1:8013/ready"),
+)
+LOCAL_LOOP_SERVICES = (
+    ("inventory-reconciliation", "fdai.delivery.inventory_sync_cli"),
+    ("observation-campaign", "fdai.delivery.observation_campaign_cli"),
 )
 PRESSURE_LIMITS = {
     "cpu_some_avg10": 50.0,
@@ -40,7 +45,7 @@ MAX_WARNING_BYTES = 5 * 1_048_576
 MAX_WARNING_ROWS = 5_000
 LOCAL_PROBE_WORKERS = len(LOCAL_SERVICE_ENDPOINTS)
 CORE_HEARTBEAT_MAX_AGE_SECONDS = 10.0
-CORE_LOG_TAIL_BYTES = 64 * 1024
+CORE_LOG_TAIL_BYTES = 1024 * 1024
 UTC = timezone.utc  # noqa: UP017 - tracked diagnostics also support system Python 3.10.
 
 
@@ -116,41 +121,89 @@ def _process_records(proc_root: Path = Path("/proc")) -> list[tuple[Path, list[s
     return records
 
 
-def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
+def _module_owners(records: list[tuple[Path, list[str]]], module: str) -> set[Path]:
     owners: set[Path] = set()
     for cwd, arguments in records:
         if "pytest" in arguments:
             continue
-        if any(arguments[index : index + 2] == ["-m", "fdai"] for index in range(len(arguments))):
+        if any(arguments[index : index + 2] == ["-m", module] for index in range(len(arguments))):
             owners.add(cwd)
     return owners
+
+
+def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
+    return _module_owners(records, "fdai")
 
 
 def _core_heartbeat_ready(
     root: Path,
     *,
     now: datetime | None = None,
+    not_before: datetime | None = None,
 ) -> bool:
-    log_file = root / ".fdai" / "logs" / "core-runtime.log"
-    try:
-        with log_file.open("rb") as handle:
-            handle.seek(max(0, log_file.stat().st_size - CORE_LOG_TAIL_BYTES))
-            tail = handle.read(CORE_LOG_TAIL_BYTES).decode("utf-8", errors="replace")
-    except OSError:
-        return False
     current = now or datetime.now(UTC)
-    for line in reversed(tail.splitlines()):
+    if current.tzinfo is None or (not_before is not None and not_before.tzinfo is None):
+        raise ValueError("core readiness times MUST be timezone-aware")
+    for line in reversed(_core_log_lines(root)):
         if "pantheon_heartbeat" not in line:
             continue
-        try:
-            observed = datetime.fromisoformat(line.split(" ", 1)[0])
-        except (ValueError, IndexError):
+        observed = _log_timestamp(line)
+        if observed is None:
             continue
-        if observed.tzinfo is None:
+        if not_before is not None and observed < not_before.astimezone(UTC):
             continue
         age_seconds = (current - observed.astimezone(UTC)).total_seconds()
         return -1.0 <= age_seconds <= CORE_HEARTBEAT_MAX_AGE_SECONDS
     return False
+
+
+def _core_runtime_ready_after(
+    root: Path,
+    *,
+    not_before: datetime,
+    now: datetime | None = None,
+) -> bool:
+    """Require fresh Core life and the latency-critical semantic consumer."""
+    if not_before.tzinfo is None:
+        raise ValueError("core readiness lower bound MUST be timezone-aware")
+    semantic_started_at = max(
+        (
+            observed
+            for line in _core_log_lines(root)
+            if "event_bus_consumer_started" in line
+            and "fdai-core-semantic-turn." in line
+            and (observed := _log_timestamp(line)) is not None
+            and observed >= not_before.astimezone(UTC)
+        ),
+        default=None,
+    )
+    return semantic_started_at is not None and _core_heartbeat_ready(
+        root,
+        now=now,
+        not_before=semantic_started_at,
+    )
+
+
+def _core_log_lines(root: Path) -> tuple[str, ...]:
+    log_file = root / ".fdai" / "logs" / "core-runtime.log"
+    chunks: list[bytes] = []
+    for candidate in (log_file.with_name(f"{log_file.name}.1"), log_file):
+        try:
+            with candidate.open("rb") as handle:
+                handle.seek(max(0, candidate.stat().st_size - CORE_LOG_TAIL_BYTES))
+                chunks.append(handle.read(CORE_LOG_TAIL_BYTES))
+        except OSError:
+            continue
+    tail = b"".join(chunks)[-CORE_LOG_TAIL_BYTES:].decode("utf-8", errors="replace")
+    return tuple(tail.splitlines())
+
+
+def _log_timestamp(line: str) -> datetime | None:
+    try:
+        observed = datetime.fromisoformat(line.split(" ", 1)[0])
+    except (ValueError, IndexError):
+        return None
+    return observed.astimezone(UTC) if observed.tzinfo is not None else None
 
 
 def local_services_diagnostic(
@@ -176,9 +229,17 @@ def local_services_diagnostic(
         {"name": name, "ready": bool(ready)}
         for (name, _url), ready in zip(LOCAL_SERVICE_ENDPOINTS, readiness, strict=True)
     ]
-    core_owners = _core_runtime_owners(process_records or _process_records())
+    records = _process_records() if process_records is None else process_records
+    core_owners = _core_runtime_owners(records)
     core_ready = repo_root in core_owners and core_probe(repo_root)
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
+    services.extend(
+        {
+            "name": name,
+            "ready": repo_root in _module_owners(records, module),
+        }
+        for name, module in LOCAL_LOOP_SERVICES
+    )
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
         "ready_count": len(services) - len(unavailable),

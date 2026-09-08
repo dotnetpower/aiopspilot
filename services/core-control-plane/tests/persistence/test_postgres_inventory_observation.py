@@ -12,7 +12,11 @@ from fdai.delivery.persistence import postgres_inventory_observation as observat
 from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
+    _active_scope_projection_watermark,
     _append_records,
+    _global_projection_watermark,
+    _retained_generation_watermark,
+    _snapshot_recovery_observation,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     build_projection_replay_observation,
@@ -87,6 +91,102 @@ class _Connection:
         if "SELECT COUNT(*) AS pending" in query:
             return _Cursor([{"pending": 0}])
         return _Cursor([])
+
+
+class _GenerationWatermarkConnection:
+    def __init__(self, watermark: int) -> None:
+        self.watermark = watermark
+        self.params: object = None
+
+    async def execute(self, query: str, params: object = None) -> _Cursor:
+        assert "MAX(watermark)" in query
+        self.params = params
+        return _Cursor([{"watermark": self.watermark}])
+
+
+async def test_retained_generation_watermark_includes_confirmation_rows() -> None:
+    connection = _GenerationWatermarkConnection(23)
+
+    assert (
+        await _retained_generation_watermark(
+            connection,  # type: ignore[arg-type]
+            generation="snapshot-1",
+        )
+        == 23
+    )
+    assert connection.params == ("snapshot-1", "snapshot:snapshot-1")
+
+
+async def test_active_scope_projection_watermark_ignores_inactive_scope_rows() -> None:
+    class _ScopeWatermarkConnection:
+        def __init__(self) -> None:
+            self.query = ""
+            self.params: object = None
+
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            self.query = query
+            self.params = params
+            return _Cursor([{"projection_watermark": 41}])
+
+    connection = _ScopeWatermarkConnection()
+
+    result = await _active_scope_projection_watermark(
+        connection,  # type: ignore[arg-type]
+        high_watermark=50,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 41
+    assert "scope_ref=ANY(%s::text[])" in connection.query
+    assert connection.params == (
+        50,
+        ["scope-current"],
+        "snapshot-current",
+        NOW,
+    )
+
+
+async def test_active_scope_projection_watermark_rejects_empty_scope() -> None:
+    with pytest.raises(ValueError, match="scopes MUST NOT be empty"):
+        await _active_scope_projection_watermark(
+            _Connection({}),  # type: ignore[arg-type]
+            high_watermark=50,
+            generation="snapshot-current",
+            snapshot_started_at=NOW,
+            scope_refs=(),
+        )
+
+
+async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> None:
+    class _GlobalWatermarkConnection:
+        def __init__(self) -> None:
+            self.params: object = None
+
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            self.params = params
+            return _Cursor([{"projection_watermark": 14}])
+
+    connection = _GlobalWatermarkConnection()
+
+    result = await _global_projection_watermark(
+        connection,  # type: ignore[arg-type]
+        high_watermark=50,
+        current_projection=14,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 14
+    assert connection.params == (
+        50,
+        14,
+        "snapshot-current",
+        NOW,
+        ["scope-current"],
+    )
 
 
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
@@ -295,6 +395,7 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     )
     metadata = {
         "projection_complete": True,
+        "state_base_generation": "snapshot-0",
         "relationship_drop_classifications": [],
         "relationship_coverage": {
             "total_candidates": 1,
@@ -330,13 +431,45 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     assert observation.resources[1].last_seen is None
     assert observation.links[0].observation_metadata == link_metadata
     assert observation.relationship_drops == ()
+    assert observation.state_base_generation == "snapshot-0"
+    assert observation.state_base_generation_checked is True
+    migrated_manifest = {
+        **prior_manifest,
+        "schema_version": "1.3.0",
+        "generation": generation,
+        "manifest_digest": "sha256:" + "f" * 64,
+        "complete": True,
+        "relationship_complete": True,
+        "link_content": [],
+    }
+    migrated_replay = build_projection_replay_observation(
+        generation=generation,
+        recorded_at=NOW,
+        metadata={},
+        prior_manifest=migrated_manifest,
+        records=records,
+    )
+    assert migrated_replay.complete is True
+    assert migrated_replay.relationship_drops == ()
+    with pytest.raises(ValueError, match="incomplete for projection replay"):
+        build_projection_replay_observation(
+            generation=generation,
+            recorded_at=NOW,
+            metadata={},
+            prior_manifest={**migrated_manifest, "relationship_complete": False},
+            records=records,
+        )
     assert (
         projection_freshness_ceiling(
             {
                 "object_content": [
                     {
                         "properties": {
-                            "properties": {STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping()}
+                            "properties": {
+                                STATE_FACT_METADATA_PROPERTY: {
+                                    "availabilityState": state_fact.to_mapping()
+                                }
+                            }
                         }
                     },
                     {"properties": {"properties": {}}},
@@ -345,6 +478,89 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
         )
         == 300
     )
+
+
+def test_snapshot_recovery_rebuilds_generation_before_journal_append() -> None:
+    state_fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="provider-v1",
+        effective_at=NOW,
+        recorded_at=NOW,
+        evidence_cutoff=NOW,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory-receipt",),
+    )
+    link_metadata = LinkObservationMetadata(
+        state_fact=state_fact,
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref="verification-receipt",
+        inventory_generation="snapshot-1",
+        mapping_id="mapping-1",
+        mapping_revision="revision-1",
+        source_schema_version="provider-v1",
+        source_schema_digest="sha256:" + "1" * 64,
+    )
+    provider_evidence = {"mapping_id": "mapping-1", "mapping_revision": "revision-1"}
+    observation = _snapshot_recovery_observation(
+        generation="snapshot-1",
+        recorded_at=NOW,
+        metadata={
+            "state_base_generation": "snapshot-0",
+            "relationship_drop_classifications": [],
+            "relationship_coverage": {
+                "total_candidates": 1,
+                "materialized": 1,
+                "reviewed_unavailable": 0,
+                "unclassified": 0,
+                "complete": True,
+            },
+        },
+        prior_manifest={"object_content": [], "dropped_reasons": []},
+        resource_rows=(
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {"availabilityState": "Available"},
+                "provider_ref": (
+                    "/subscriptions/example/resourceGroups/example/providers/example/one"
+                ),
+                "last_seen": NOW,
+            },
+            {
+                "resource_id": "resource-b",
+                "resource_type": "compute.vm",
+                "props": {},
+                "provider_ref": None,
+                "last_seen": NOW,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-a",
+                "from_type": "compute.vm",
+                "link_type": "depends_on",
+                "to_id": "resource-b",
+                "to_type": "compute.vm",
+                "props": {
+                    "provider_relationship_evidence": provider_evidence,
+                    LINK_OBSERVATION_METADATA_PROPERTY: link_metadata.to_mapping(),
+                },
+            },
+        ),
+    )
+
+    assert observation.generation == "snapshot-1"
+    assert observation.resources[0].props["availabilityState"] == "Available"
+    assert observation.links[0].link_props["provider_relationship_evidence"] == provider_evidence
+    assert observation.state_base_generation == "snapshot-0"
+    assert observation.state_base_generation_checked is True
 
 
 def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None:
@@ -436,6 +652,176 @@ def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None
     assert observation.resources[0].last_seen == NOW.isoformat()
     assert observation.links[0].link_props == {"slot": "primary"}
     assert observation.links[0].observation_metadata == link_metadata
+
+
+def test_active_snapshot_bootstrap_cross_checks_identity_only_legacy_evidence() -> None:
+    generation = "snapshot-legacy"
+    observation = build_active_snapshot_observation(
+        snapshot={
+            "id": generation,
+            "completed_at": NOW,
+            "metadata": {
+                "provider_scope_coverage": {
+                    "provider_identity_complete": True,
+                },
+            },
+        },
+        resource_rows=(
+            {
+                "resource_id": "resource-b",
+                "resource_type": "network.interface",
+                "props": {},
+                "provider_ref": "provider/resource-b",
+                "last_seen": None,
+            },
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {"state": "ready"},
+                "provider_ref": "provider/resource-a",
+                "last_seen": NOW,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-b",
+                "from_type": "network.interface",
+                "link_type": "attached_to",
+                "to_id": "resource-a",
+                "to_type": "compute.vm",
+                "props": {},
+            },
+        ),
+        prior_manifest={
+            "schema_version": "1.1.0",
+            "generation": generation,
+            "ontology_release_digest": "sha256:" + "a" * 64,
+            "complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["resource-a", "resource-b"],
+            "link_keys": [["resource-b", "attached_to", "resource-a"]],
+        },
+    )
+
+    metadata = observation.links[0].observation_metadata
+    assert metadata is not None
+    assert metadata.verified is True
+    assert metadata.verification_method == "deterministic-cross-check"
+    assert metadata.inventory_generation == generation
+    assert metadata.state_fact.source_identity == "inventory-snapshot"
+    assert observation.relationship_drops == ()
+
+
+@pytest.mark.parametrize(
+    (
+        "provider_complete",
+        "manifest_complete",
+        "object_ids",
+        "link_key",
+        "extra_field",
+        "message",
+    ),
+    [
+        (
+            False,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "provider identity",
+        ),
+        (
+            True,
+            False,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "manifest is incomplete",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-b", "depends_on", "resource-a"],
+            False,
+            "relationship identities",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            True,
+            "manifest shape",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-c"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "object identities",
+        ),
+    ],
+)
+def test_active_snapshot_bootstrap_rejects_incomplete_legacy_evidence(
+    provider_complete: bool,
+    manifest_complete: bool,
+    object_ids: list[str],
+    link_key: list[str],
+    extra_field: bool,
+    message: str,
+) -> None:
+    prior_manifest = {
+        "schema_version": "1.1.0",
+        "generation": "snapshot-legacy",
+        "ontology_release_digest": "sha256:" + "a" * 64,
+        "complete": manifest_complete,
+        "dropped_reasons": [],
+        "object_ids": object_ids,
+        "link_keys": [link_key],
+    }
+    if extra_field:
+        prior_manifest["unexpected"] = True
+    with pytest.raises(ValueError, match=message):
+        build_active_snapshot_observation(
+            snapshot={
+                "id": "snapshot-legacy",
+                "completed_at": NOW,
+                "metadata": {
+                    "provider_scope_coverage": {
+                        "provider_identity_complete": provider_complete,
+                    },
+                },
+            },
+            resource_rows=(
+                {
+                    "resource_id": "resource-a",
+                    "resource_type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": NOW,
+                },
+                {
+                    "resource_id": "resource-b",
+                    "resource_type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": NOW,
+                },
+            ),
+            link_rows=(
+                {
+                    "from_id": "resource-a",
+                    "from_type": "compute.vm",
+                    "link_type": "depends_on",
+                    "to_id": "resource-b",
+                    "to_type": "compute.vm",
+                    "props": {},
+                },
+            ),
+            prior_manifest=prior_manifest,
+        )
 
 
 async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstrap_fence(

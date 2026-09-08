@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 from collections.abc import Mapping
+from concurrent.futures import CancelledError as FutureCancelledError
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 import httpx
@@ -16,6 +18,11 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
 )
 
+from fdai.core.conversation.adaptive_call_scope import (
+    call_scoped_provider,
+    run_scoped_model,
+    stop_scoped_provider_retry,
+)
 from fdai.core.conversation.conversation_preflight import ConversationPreflightProposal
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
@@ -36,6 +43,7 @@ _MAX_CANDIDATES = 8
 _MAX_PROMPT_CHARS = 32_768
 _MAX_REQUEST_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
+_MAX_PREFLIGHT_TOKENS = 768
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
     {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
 )
@@ -184,6 +192,7 @@ class AzureOpenAISemanticJudgmentModel:
         direct_response_profile: Mapping[str, Any],
         direct_response_profile_digest: str,
         schema_repair: tuple[dict[str, str], ...],
+        cancelled: asyncio.Event | None = None,
     ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None:
         """Return one compact social/operational route proposal."""
 
@@ -217,14 +226,18 @@ class AzureOpenAISemanticJudgmentModel:
                 proposal_schema=ConversationPreflightProposal.model_json_schema(),
                 system_prompt=self._config.preflight_system_prompt,
                 call_kind="conversation-preflight",
-                max_tokens=min(self._config.max_tokens, 512),
+                max_tokens=min(self._config.max_tokens, _MAX_PREFLIGHT_TOKENS),
                 temperature=0.0,
                 timeout_seconds=self._config.timeout_seconds,
+                allow_candidate_failover=False,
+                cancelled=cancelled,
             ),
             self._owner_loop,
         )
         try:
             return future.result(timeout=self._config.timeout_seconds + 1)
+        except FutureCancelledError:
+            return None
         except Exception as exc:  # noqa: BLE001 - adapter contains provider details
             future.cancel()
             _LOGGER.warning(
@@ -303,10 +316,70 @@ class AzureOpenAISemanticJudgmentModel:
         max_tokens: int,
         temperature: float,
         timeout_seconds: float,
+        allow_candidate_failover: bool = True,
+        cancelled: asyncio.Event | None = None,
+    ) -> SemanticJudgmentModelResponse | None:
+        async def complete_attempt() -> SemanticJudgmentModelResponse | None:
+            return await self._complete_attempts(
+                user_content,
+                input_digest=input_digest,
+                proposal_schema=proposal_schema,
+                system_prompt=system_prompt,
+                call_kind=call_kind,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_seconds=timeout_seconds,
+                allow_candidate_failover=allow_candidate_failover,
+            )
+
+        async def complete_or_cancel() -> SemanticJudgmentModelResponse | None:
+            if cancelled is None:
+                return await complete_attempt()
+            if cancelled.is_set():
+                raise asyncio.CancelledError
+            provider_task = asyncio.create_task(complete_attempt())
+            cancellation_task = asyncio.create_task(cancelled.wait())
+            try:
+                done, _pending = await asyncio.wait(
+                    (provider_task, cancellation_task),
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if cancellation_task in done and cancelled.is_set():
+                    provider_task.cancel()
+                    await asyncio.gather(provider_task, return_exceptions=True)
+                    raise asyncio.CancelledError
+                return await provider_task
+            finally:
+                for task in (provider_task, cancellation_task):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(
+                    provider_task,
+                    cancellation_task,
+                    return_exceptions=True,
+                )
+
+        return await run_scoped_model(complete_or_cancel)
+
+    async def _complete_attempts(
+        self,
+        user_content: str,
+        *,
+        input_digest: str,
+        proposal_schema: Mapping[str, Any],
+        system_prompt: str,
+        call_kind: str,
+        max_tokens: int,
+        temperature: float,
+        timeout_seconds: float,
+        allow_candidate_failover: bool,
     ) -> SemanticJudgmentModelResponse | None:
         response_format = _strict_response_format(proposal_schema, name=call_kind)
-        candidate_timeout = timeout_seconds / len(self._config.candidates)
-        for index, target in enumerate(self._config.candidates):
+        candidates = (
+            self._config.candidates if allow_candidate_failover else self._config.candidates[:1]
+        )
+        candidate_timeout = timeout_seconds / len(candidates)
+        for index, target in enumerate(candidates):
             try:
                 async with asyncio.timeout(candidate_timeout):
                     token = await self._identity.get_token(target.auth_audience)
@@ -323,20 +396,30 @@ class AzureOpenAISemanticJudgmentModel:
                             max_tokens=max_tokens,
                         ),
                     }
+                    if (
+                        call_kind == "conversation-preflight"
+                        and "gpt-5" in target.deployment.casefold()
+                    ):
+                        body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     messages = list(prepare_model_messages(body["messages"]).messages)
                     body["messages"] = messages
                     trace_start = start_model_trace(messages)
-                    response = await self._http.post(
-                        request.url,
-                        params=request.params,
-                        headers={
-                            "Authorization": f"Bearer {token.token}",
-                            "Content-Type": "application/json",
-                        },
-                        json=body,
-                        timeout=candidate_timeout,
+                    response, reservation = await call_scoped_provider(
+                        partial(
+                            self._http.post,
+                            request.url,
+                            params=request.params,
+                            headers={
+                                "Authorization": f"Bearer {token.token}",
+                                "Content-Type": "application/json",
+                            },
+                            json=body,
+                            timeout=candidate_timeout,
+                        ),
+                        request=body,
+                        output_tokens=max_tokens,
                     )
                     response.raise_for_status()
                     proposal, response_content, usage = _response_mapping(response)
@@ -348,15 +431,24 @@ class AzureOpenAISemanticJudgmentModel:
                         response_content=response_content,
                         usage=usage,
                     )
+                    observation = SemanticJudgmentObservation(
+                        model=target.deployment,
+                        usage=bounded_usage(usage),
+                        trace_call=trace_call,
+                    )
+                    if reservation is not None:
+                        reservation.record(observation)
                     return SemanticJudgmentModelResponse(
                         proposal=proposal,
-                        observation=SemanticJudgmentObservation(
-                            model=target.deployment,
-                            usage=bounded_usage(usage),
-                            trace_call=trace_call,
-                        ),
+                        observation=observation,
                     )
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
+                if stop_scoped_provider_retry():
+                    _LOGGER.warning(
+                        "adaptive_judgment_provider_attempt_ended",
+                        extra={"failure_type": type(exc).__name__},
+                    )
+                    return None
                 failure: dict[str, Any] = {
                     "candidate_index": index,
                     "failure_type": type(exc).__name__,

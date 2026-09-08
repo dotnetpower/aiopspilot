@@ -4,68 +4,136 @@ title: Narrator Routing and Latency
 # Narrator Routing and Latency
 
 This document owns deployment selection, latency measurement, operator preference, and public-web
-pool behavior for the presentation narrator. It preserves the boundary between T1 narration and
-system-governed T2 reasoning.
+pool behavior for conversation presentation. It separates T1 lightweight authorship and independent
+review from system-governed T2 reasoning.
+
+> **Delivery status:** Core-owned mini routing is implemented with passing focused checks. Local
+> synthetic probes and authenticated Console DOM evidence are recorded below; integrated runtime,
+> visual interaction, and whole-turn latency validation remain partial. Probe timings do not prove
+> faster conversations.
 
 ## Narrator latency routing
 
-The independent Operator Service owns the authenticated conversation HTTP boundary. In the
-standard local profile, its service-local `LocalAzureNarratorAdapters` reads the prepared resolved
-model artifact, obtains a short-lived Cognitive Services token from Azure CLI, and tries the
-ordered `narrator_candidates` without importing Core or receiving execution authority. Health is
-available only when the resolved artifact and token are usable. Model-only answers remain
-explicitly unverified until an authoritative evidence and claim-verification path supplies receipts.
+The independent Operator Service owns the authenticated conversation HTTP boundary and relays
+semantic turns over Kafka. Core owns model selection and inference in the standard local and
+deployed semantic path. Neither the Operator nor the Console selects a deployment from operator
+text, receives execution authority, or treats model availability as verified operational evidence.
 
 Core verifies the configured model audiences through a separate bounded readiness path. If model
 identity is unavailable, semantic transport remains active and returns a typed authentication hold
 before planning; it does not fall back to lexical routing or borrow the Operator HTTP identity.
 
-Production conversation delivery still requires an injected projection and stream adapter. The
-prior in-process `LatencyRoutedChatBackend` was retired with the top-level Operator implementation;
-rolling p50/TTFT selection and multimodal routing remain target behavior for the independent
-service rather than a currently composed production capability.
+### Core-owned mini candidate selection
 
-The router is scoped to T1 narrator traffic. Extending latency routing to a T2 capability requires
-separate design review. The reviewed same-publisher exception for the `t2.reasoner.primary` slot is
-owned by [LLM strategy](../architecture/llm-strategy.md#t2-primary-routing-and-governed-recovery).
-Two constraints preserve this boundary:
+Core reuses the verified narrator candidate pool and admits at most four mini candidates. Exact
+resolved deployment metadata establishes each candidate's identity, publisher, family, and provider
+binding. Deployment names are not evidence of family or capability. Held or unverified targets are
+excluded; the probe cannot discover, provision, or add a target.
 
-- **Mixed-model invariant**: `t2.reasoner.primary.publisher` differs from
-  `t2.reasoner.secondary.publisher`. Routing the whole pair by speed could collapse the required
-  cross-check to one model family.
-- **Judge and critic determinism**: composition binds `t1.judge`, `t2.critic`, and the debate
-  orchestrator to configured deployments. A runtime routing wrapper does not silently change those
-  bindings.
+Each candidate keeps a rolling window of at most eight successful probe durations. Only samples
+newer than twice the configured probe interval contribute to p50 (the median) and p95. Fresh
+measured candidates rank by p50; stale or unmeasured candidates retain configured fallback order
+without a fastest-model claim. A failed target is excluded until a later successful probe.
 
-A fork that needs a latency-routed judge declares a separate capability with its own quality gate,
-composition binding, and audit evidence.
+Normal adaptive T1 planning and answer stages use the selected author; review and verification use
+an independent eligible mini from the same pool. If no independent pair remains, the adaptive path
+stays unavailable rather than using the author as its own reviewer. A model factory freezes one
+immutable selection per turn, shared by every stage and deferred work. Later probes affect later
+turns only. Disabling probes preserves the configured model selection and makes no measured-speed
+claim.
 
-The independent local service now refreshes text and vision pools through one coalesced, bounded
-on-demand cycle. It probes each text candidate twice and each vision candidate once with a bounded
-1 px image, keeps separate eight-sample latency and time-to-first-token (TTFT) windows, and ranks
-text turns by measured p50 with bounded failover. Unmeasured candidates receive one warm-up chance.
-Failures receive a bounded penalty rather than disappearing from the pool.
+### Billed probe limits
 
-Image turns remain unavailable because the Operator Service has no server-owned resolver from an
-opaque conversation-image id to validated bounded bytes. Client-provided image fields cannot become
-that authority. A process-owned scheduler now runs one immediate refresh and later cycles at the
-validated `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` interval, which defaults to `300` and is bounded to
-`30-3600`. Provider failures wait for the next interval, and shutdown cancels the loop plus its
-coalesced probe task.
+`FDAI_T1_MINI_PROBE_ENABLED` defaults to `0`. Set it to `1` only after explicitly authorizing billed
+synthetic model requests, including in a local profile. This setting is a spending opt-in ceiling,
+not approval for resource actions, T2 use, or unrestricted model calls. Selecting a local execution
+venue does not enable probes automatically.
+
+| Limit | Value |
+|-------|-------|
+| Probe interval | `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`: default `300` seconds, bounded to `30-3600` |
+| Candidate requests per cycle | At most `4`, one per admitted mini candidate |
+| Request content | Fixed synthetic request for exactly `OK`; no operator prompt, history, or tool evidence |
+| Maximum output tokens | `256` per request |
+| Request deadline | `8` seconds |
+| Cycle deadline | `35` seconds, including projection publication |
+| StateStore write deadline | `5` seconds per publication |
+| Successful sample window | At most `8` per candidate; freshness is `2 * interval` |
+
+Core runtime supervises one immediate cycle and subsequent periodic cycles without overlap.
+Initial projection publication failure propagates before any probes start. Publication failure
+during a cycle is logged without retry; the write also remains inside the cycle deadline.
+Shutdown cancels owned work. An HTTP `429`, HTTP `503`, provider timeout, or cycle deadline ends
+that cycle without retrying the same request or substituting T2. Only a later scheduled cycle can
+measure again. A successful synthetic `OK` measures request duration, not time to first token
+(TTFT), answer quality, or end-to-end conversation latency.
+
+### Read-only health projection
+
+Core is the single writer of the versioned `conversation:t1-mini-routing:v1` StateStore projection.
+It contains sanitized deployment labels, selection reason, candidate timings and status, and
+freshness bounds with `execution_authority=false`. It contains no endpoints, credentials, operator
+content, or shared workflow authority.
+
+Operator reads this projection only after bounded shape and freshness validation and uses only
+`model` and `router` to enrich `/chat/health`. The response envelope can also carry binary documents
+or no body, so the health reader accepts unknown input and rejects every non-object value. Missing,
+invalid, or expired routing data cannot change semantic transport availability or manufacture a
+healthy model. Health availability remains the semantic bridge's transport readiness, not a
+successful inference or verified answer.
+
+The Console keeps the persistent connection badge concise and places deployment identity and
+candidate timing details in its tooltip. The tooltip distinguishes sample counts and measured,
+stale, unmeasured, or failed status. An open, visible Command Deck polls health every 30 seconds;
+the browser never runs a model probe. This read projection introduces no second writer,
+cross-service implementation import, database data rewrite, or shared decision state.
+
+### Unchanged boundaries and legacy narrator
+
+The configured T2 primary (Sol where bound) remains an optional refinement stage and is neither
+probed nor selected by mini latency. Its output still re-enters independent review. The operational
+mixed-publisher T2 invariant and the configured `t1.judge`, `t2.critic`, and debate bindings remain
+unchanged. Extending latency routing to those roles requires separate design review; the reviewed
+T2 primary exception remains owned by
+[LLM strategy](../architecture/llm-strategy.md#t2-primary-routing-and-governed-recovery).
+
+`LocalAzureNarratorAdapters` is the separate legacy local narrator, not the semantic Kafka path.
+Its ordered fallback, text/vision probes, rolling p50/TTFT windows, failure penalties, and
+Operator-owned periodic scheduler do not implement Core mini routing. Do not enable the legacy
+narrator alongside semantic Kafka to obtain model measurements. Image turns remain unavailable
+without a server-owned resolver from an opaque conversation-image id to validated bounded bytes;
+client-provided image fields cannot supply that authority.
 
 ## Interactive semantic-planning latency
 
-Interactive questions still cross the schema-validated semantic judgment boundary before Core
-selects a capability. When that boundary accepts an unambiguous read intent for a
+Interactive questions still require schema-validated model meaning before Core selects a
+capability. A provenance-bound compact preflight can provide candidate meaning only for three
+reviewed F1-F4 shapes; every other request retains full semantic judgment. When accepted meaning
+contains an unambiguous read intent for a
 bound Resource state, Resource Health, or Service Health function, Core builds the typed frame
 deterministically and skips the second frame-model call. The exact function must exist in the
 principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.
 Novel, ambiguous, action-related, or unbound questions keep the general frame-planning path.
 Provider calls use strict structured output instead of a free-form JSON object plus a repeated
-textual schema. A first-turn operational judgment does not run the social preflight because the
-accepted typed judgment already proves the turn is operational. Direct-response candidates still
-require the independent preflight before any social answer is rendered, and prior-turn requests
-keep the preflight because acknowledgement and pending-decision context can change their meaning.
+textual schema. Compact preflight now runs on the first turn before adaptive planning. Explicit and
+contextual operational signals enter verified semantic planning directly, while mixed signals retain
+adaptive goal separation. Accepted operational diagnostic intents use at most five reviewed
+descriptors and a 544-token operational frame prompt; their schema-inclusive request cannot exceed
+64 KiB. Direct-response candidates still require the independent preflight before any social answer
+is rendered.
+
+The standard local stack multiplexes logical semantic and agent topics over one physical Kafka
+topic. Its PLAINTEXT consumer applies the same bounded record-count and elapsed-time commit policy
+as the cloud SASL consumer. It never pays one broker commit for every unrelated physical event, and
+it still commits only after the caller resumes from a successfully processed envelope. Closing or
+failing mid-processing preserves at-least-once redelivery.
+
+Warm standard Browser Entra measurements reached 3.810 seconds for one F1 answer token and 4.254
+seconds for one exact F2 answer token. Both used one preflight model call. These samples do not
+qualify the SLO distribution. F1 still lacked its requested document, and targetless F3/F4
+clarifications emitted no answer token. Core restart readiness now waits for both a post-launch
+semantic logical consumer and a fresh Pantheon heartbeat. A retained restart emitted `ready` after
+both markers, and its first exact F2 request emitted an answer token in 3.948 seconds.
 
 Console starter questions expose only this contract-covered function-backed set. They ask for
 current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending
@@ -94,20 +162,34 @@ These presentation studies do not change production prompt capture, permissions,
 
 ## Per-user preference and TTFT
 
-The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and runtime latency
-evidence without endpoints or credentials. Each authenticated principal can use `Auto` routing or
-pin one deployment from the current narrator allowlist. Removed or unavailable preferences fall
-back to `Auto`; the server rejects arbitrary model ids.
+The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and
+runtime latency evidence without endpoints or credentials. Each authenticated principal can use
+`Auto` routing or pin one deployment from the current narrator allowlist. Removed or unavailable
+preferences fall back to `Auto`; the server rejects arbitrary model ids.
 
 Target preferences use explicit revisions. Creation sends revision `0`; later writes match the current
 revision. State and audit commit in one transaction, so concurrent sessions receive `409` instead
 of overwriting each other.
 
 The target streaming router records TTFT when the first non-empty model token arrives. TTFT p50/p95 and
-total-latency p50/p95 use separate rolling windows and include sample counts. Unmeasured TTFT stays
-unavailable. The preference applies only to the T1 narrator. T1 internal judgment, embeddings, and
-all T2 secondary, critic, rubric, and escalation assignments remain system-governed. The T2 primary
-pool is not personalized.
+total-latency p50/p95 use separate rolling windows and include sample counts. Unmeasured TTFT stays unavailable. The account preference applies only to the T1 narrator. T1
+internal judgment, embeddings, and all T2 secondary, critic, rubric, and escalation assignments
+remain system-governed.
+
+The Command Deck also provides a separate per-conversation model selector. `Auto` preserves the
+normal deterministic-first route, `T1` prevents optional T2 refinement for that conversation, and
+`T2` uses the active `t2.reasoner.primary` binding. A pure general-knowledge turn uses that T2
+binding for one compact preflight that classifies and authors the bounded answer together. It does
+not run adaptive plan, review, refine, or verify stages. Operational turns retain the verified T2
+planning and evidence path.
+The selected tier applies to new turns, is cached under the principal-scoped conversation key, and
+is included in the no-authority semantic request. T2 is offered when the sanitized model settings
+projection reports an active primary. The action-quality `quorum_ready` flag does not control this
+conversation choice. Pure general advice has no action authority and does not invoke the operational
+T2 quality pair. Operational T2 still preserves its separately configured independent reviewer.
+The browser cannot submit an arbitrary deployment id, choose that reviewer, or change an in-flight
+turn. An unavailable selected T2 produces an explicit held result instead of silently falling back
+to T1.
 
 Settings > Models also provides a T2 model-policy draft builder. The Operator API projects only
 publisher and family preferences from `rule-catalog/llm-registry.yaml`. Operators can select
@@ -149,7 +231,7 @@ Local and deployed Operator API composition also exposes the same service-owned,
 read-only `/agents/activity` route from the frozen parity manifest. The route reads the durable
 activity projection and carries no decision, approval, or execution authority.
 
-The web-search pool uses the same warm-up and periodic measurement pattern. Its periodic probe asks
+The separate web-search pool retains its own warm-up and periodic measurement pattern. Its periodic probe asks
 for a minimal model response without the `web_search` tool; actual searches add end-to-end latency
 to the same window. `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` defaults to `300` and cannot be below
 `30`.
@@ -228,20 +310,44 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
   --require-complete
 ```
 
+## Local mini-routing evidence (2026-09-06)
+
+The implementation session reported the following bounded evidence for the current change:
+
+- **Focused checks:** Python: `229 passed`, two PostgreSQL cases deselected; six additional opt-in
+  configuration checks passed. Console cohorts passed `147`, then `48`, then a final `160` cases.
+  These cohorts overlap and are not additive. Final Console typecheck and production build passed.
+- **Live synthetic probes:** The first two scheduled Core cycles completed eight mini probes without
+  T2. The first selected `narrator-gpt-5-mini` at `843 ms` against `1288`, `1517`, and `2086 ms`.
+  Cycles three and four switched the fastest selection to `gpt-4.1-mini`, with its latest observed
+  p50 approximately `1068 ms`. These are synthetic probe timings, not whole-turn speed or quality.
+- **Authenticated presentation:** General and screen-context Console DOM badges and tooltips matched
+  the changed selection and measurements. Electron's hidden visibility still limits raster and
+  pointer qualification; no visual pass is claimed.
+- **Runtime provenance:** Operator ran from an isolated worktree based on committed `9ed204592`
+  plus only five task-owned health files; `152` focused checks passed there. Its `auth.py` matched
+  that baseline. Unrelated `auth.py` edits in the shared checkout reject the existing token without
+  `idtyp`; this task left that source untouched. The isolated result does not validate the full
+  dirty checkout. This task created no commit or push.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Core mini routing and per-turn model selection | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [focused evidence](#local-mini-routing-evidence-2026-09-06) | Python cohort: 229 passed, two PostgreSQL cases deselected; six additional opt-in configuration checks passed. Verified mini identity, immutable author/reviewer selection, and existing T2/action quality-gate bindings remain preserved. |
+| Core supervised opt-in probes | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; [focused and local evidence](#local-mini-routing-evidence-2026-09-06) | Focused checks passed. Four scheduled cycles observed a fastest-candidate change; publication is bounded within the cycle. Synthetic timings do not prove a whole-turn speedup. |
+| Semantic health routing projection and Console badge | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/use-deck-backend-health.ts`; [evidence boundary](#local-mini-routing-evidence-2026-09-06) | Final Console cohort: 160 passed, overlapping earlier 147/48 cohorts; final typecheck/build passed. Isolated Operator: 152 passed. General and screen-context DOM badges/tooltips match measurements; visual and full-checkout runtime qualification remain incomplete. |
 | Synthetic chat and inline prompt inspection | implemented | `mocks/ui/deck-sources-v2.html`; `mocks/ui/incident-conversation.html`; `console/tests/e2e/{adaptive-prompt-mock,deck-adaptive-mock,incident-conversation-mock}.spec.ts`; focused Playwright and type checks | Mock-only presentation. The prompt viewer reads a synthetic fixture; production capture and authorization are unchanged. |
 | Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; focused deployment lifecycle tests | The service-local adapter loads a file or plan-sealed inline JSON, verifies the optional deployment SHA, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
 | Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
 | Direct Key Vault resolved-model source adapter | implemented | `adapters/resolved_models_key_vault.py`; focused Operator tests | The async adapter uses an injected token provider and HTTP client, rejects untrusted origins, redirects, mismatched secret identity, disabled or expired values, excessive size or nesting, and secret-bearing representations. Startup composition and governed runtime evidence remain open. |
 | Rolling text p50/TTFT, bounded refresh, and failover | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator tests | The independent service keeps eight-sample latency and TTFT windows, measures the first non-empty SSE token, coalesces bounded probes, ranks text candidates, preserves unanimous 429/503 status, and fails closed on malformed or oversized output. |
-| Periodic narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler and composition tests | The Operator lifecycle owns exactly one immediate-and-periodic loop, validates a 30-3600 second interval, isolates provider failures until the next cycle, and cancels in-flight probes during shutdown. It is bound only with the local Azure narrator. |
+| Legacy periodic narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler and composition tests | The Operator lifecycle owns one immediate-and-periodic loop only with the legacy local Azure narrator, never alongside semantic Kafka. These checks do not validate the new Core mini probe owner. |
 | Vision candidate probes and image-turn routing | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe and image-unavailable tests | Vision candidates have an independent measured probe window. Image turns remain unavailable until a server-owned image resolver supplies validated bounded bytes; text bindings are never borrowed. |
 | Per-user routing preference and runtime latency projection | in-progress | `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `services/operator-service/tests/test_narrator_preferences.py` | The service-local revisioned store keeps one `Auto` or allowlisted deployment per principal, rejects arbitrary model ids, returns a conflict for a stale revision, isolates principals, and degrades a removed deployment to `Auto` without discarding the stored choice. The sanitized projection exposes mode, revision, allowlist, and rolling timing evidence with no endpoint or credential material and declares that T2 bindings are not personalized. Durable persistence, the authenticated Settings route, and the deployment pinning contract remain open. |
+| Per-conversation T1/T2 selection | validated | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py`; `services/core-control-plane/src/fdai/core/conversation/{conversation_preflight,semantic_runtime}.py`; `console/src/deck/conversation-model-selection.ts`; focused contract, Core, Operator, and Console tests; one bounded local live diagnostic | The Command Deck stores `Auto`, `T1`, or `T2` per conversation. Schema 1.7 carries only an allowed tier with `execution_authority=false`. A general T2 turn uses the configured primary for one low-reasoning preflight and returns its bounded answer without adaptive plan/review/refine/verify. The measured local diagnostic completed in 4.286 seconds with `gpt-5.6-sol`; one sample is not an SLA claim. Cross-device server persistence and authenticated visible-browser evidence remain open. |
 | Environment T1/T2 binding drafts and protected planning | implemented | Shared `ModelBindingPolicy`; Operator IAM routes and PostgreSQL adapter; Console Models editor; protected resolver and deploy workflow; focused tests | Owner-only drafts persist with revision and idempotency fences. Assessment and plan requests remain authority-free, bind the active artifact digest, and reach activation only through the protected deployment workflow. Provider and rollback receipts remain open. |
 | Answer-continuity and prompt-ablation settings | implemented | Operator runtime-settings route and PostgreSQL adapter; Core startup snapshot; Console Runtime Policies; focused Core, Operator, and Console checks | Owner changes atomically persist an inert proposal and the revision-fenced Core policy record. Both settings apply after restart, prompt ablation remains subtractive, and continuity changes only held or unsupported presentation. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
@@ -255,6 +361,18 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | validated | Routed a selected T2 general-knowledge turn through one T2 preflight that classifies and authors the bounded answer together. GPT-5 preflight requests use low reasoning effort; adaptive plan/review/refine/verify remain absent from this advisory path. | `current change`; 162 focused preflight/composition checks, Ruff, strict mypy, service-boundary checks, and one local live diagnostic completed as `advisory_response` with `model=gpt-5.6-sol` in 4.286 seconds. | Retain authenticated visible-browser streaming evidence and a measured distribution before making a latency target claim. |
+| 2026-09-07 | implemented | Added a per-conversation `Auto`/`T1`/`T2` selector. T2 uses the configured primary for model-authored conversation stages while preserving the independent reviewer and no-authority request boundary. | `current change`; focused service-contract, Operator, Core routing, Console payload, persistence, localization, typecheck, and build checks. | Retain authenticated visible-browser evidence and add server-side preference persistence if cross-device continuity becomes required. |
+| 2026-09-07 | implemented | Made bounded Core readiness span `core-runtime.log.1` and the current log so rotation between semantic-consumer and heartbeat markers cannot create a false timeout. | `current change`; focused rotation-boundary regression passed. | More than one full 1 MiB rotation remains a bounded unavailable outcome. |
+| 2026-09-07 | implemented | Increased the bounded Core readiness log window to 1 MiB after verbose startup output pushed the semantic-consumer marker outside the former 64 KiB tail. | `current change`; a regression preserves marker ordering across more than 64 KiB of intervening output. | Prefer a structured readiness projection if startup output approaches the new bound. |
+| 2026-09-07 | implemented | Ordered restart readiness so the accepted fresh Pantheon heartbeat must follow the post-launch semantic consumer marker. | `current change`; focused developer-workflow test covers an earlier post-launch heartbeat and a later valid heartbeat. | Retain a bilingual latency distribution. |
+| 2026-09-07 | implemented | Made Core restart readiness require a post-launch semantic consumer and fresh Pantheon heartbeat rather than accepting a previous process's heartbeat. | `current change`; 46 focused launcher/workflow tests passed. A retained restart emitted `ready` after both markers and its first F2 answer token at 3.948 seconds. | Retain a bilingual latency distribution; one sample is not SLO qualification. |
+| 2026-09-07 | in-progress | Reduced the preflight body to about 654 estimated tokens while retaining exact schema names. Warm F1/F2 variants used one preflight call and met the 5-second answer-token gate. | Standard Browser Entra F1/F2 timings were 3.810/4.254 seconds. | Retain a bilingual distribution and make Core readiness include the semantic consumer, which started about 28 seconds after `control_loop_ready`. |
+| 2026-09-07 | implemented | Batched local PLAINTEXT Kafka consumer commits by the existing record and time bounds instead of committing every multiplexed physical event. Preserved commit-after-processing and redelivery on mid-processing close. | `current change`; focused Event Bus and multiplex tests passed. | Restart the standard Core and retain F1-F4 answer-token TTFT after the logical consumer catches up. |
+| 2026-09-07 | implemented | Added a live operational-conversation qualification gate that measures the first `onToken` callback independently from status and terminal timing and fails above 5 seconds. | `current change`; Console typecheck passed. | Run the gate after the complete standard stack starts from one exact source revision. |
+| 2026-09-07 | implemented | Moved compact preflight ahead of adaptive planning for first-turn explicit/contextual operational signals and selected a dedicated bounded frame prompt plus intent-scoped descriptors after semantic judgment. | `current change`; 1,237 focused component tests, targeted Ruff, and strict mypy passed. | Measure verified first-answer-token latency on one coherent standard-stack SHA; status frames do not satisfy the 5-second TTFT target. |
+| 2026-09-06 | implemented | Corrected the T1 health boundary after the conversation response envelope gained binary and absent bodies. The health parser now accepts unknown input and rejects non-object values, while the semantic runtime facade explicitly exports the reader that Operator composition already consumes. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py`, and focused strict mypy, Operator, and service-suite checks. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
+| 2026-09-06 | implemented | Routed the T1 health reader through the existing semantic runtime facade so local and deployed Operator composition keep the same binding while the root remains below its reviewed fanout ceiling. | `current change`; Operator boundary check reports 39 unique imports; 92 focused composition and T1 health checks passed; Ruff passed. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
 | 2026-09-05 | implemented | Refined incident and adaptive replies, retained investigation records across completion, and added inline synthetic Markdown prompt inspection without blocking chat. | `current change`; the three mock Playwright files listed above passed their focused scenarios; shared style checks and Console typecheck passed. | Production adoption requires separate review and authenticated, permission-scoped evidence; no runtime prompt capture is claimed. |
 | 2026-09-02 | implemented | Added revision-fenced answer-continuity and prompt-ablation settings, one startup-consistent Core snapshot, and localized Console controls without personalizing T2 or granting action authority. | `current change`; focused Core, Operator, and Console checks in the prompt-composition implementation record. | Retain a governed shadow campaign before claiming runtime validation. |
 | 2026-08-28 | implemented | Added the stage-owner receipt adapter so benchmark duration cannot be caller-authored and PR/canary/release environment mismatches fail closed. | `current change`; focused Core latency checks (`8 passed`); Ruff and strict mypy. | Wire receipts at authoritative stage owners and retain controlled evidence. |
@@ -271,9 +389,24 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 2026-08-23 | implemented | Added the service-owned asynchronous Key Vault source adapter for resolved-model JSON. The adapter keeps token and HTTP providers injected, accepts only current Azure Key Vault DNS suffixes with the matching cloud audience, binds response identity to the requested secret and version, and fails closed within one total deadline. | `current change`; focused Key Vault source tests and 15 critique-and-harden rounds. | Add an asynchronous startup owner, immutable source revision publication, Core/Operator parity binding, and governed local/deployed evidence before replacing the current file or inline source. |
 | 2026-08-24 | implemented | Added one environment-wide policy editor for T1/T2 `auto`, `pinned`, and `hil-only` modes, including provisioned SKU and PTU capacity, exact active-digest fencing, and separate draft, assessment, and protected-plan requests. | `current change`; shared contract, Operator route/store, Console policy editor, resolver, workflow, and Terraform checks. | Retain protected provider assessment, apply, independent verification, and rollback receipts. |
 | 2026-09-05 | implemented | Bound the service-owned source to the first Operator application lifecycle position. It loads once, validates JSON, and rejects a mismatch with `LLM_RESOLVED_MODELS_SHA256` before later services start; direct Key Vault remains the deployed source seam and configured file or inline content preserves local compatibility. | `current change`; focused Operator production composition and Key Vault source tests. | Retain one governed deployed startup receipt for the exact source revision. |
+| 2026-09-06 | in-progress | Defined Core-owned, explicitly opted-in mini probes, freshness-aware routing, immutable per-turn independent review, and a read-only Operator/Console health projection separately from the legacy narrator. | `current change`; source paths in the three new scope rows and this paired design update. Focused implementation and documentation validation are pending; no commit or runtime receipt is claimed. | Prove bounds, failures, per-turn isolation, projection validation, and visible health refresh; retain authorized measurements before claiming faster conversations. |
+| 2026-09-06 | implemented | Completed mini routing, bounded probes, health projection, and badge freshness/hidden-browser fixes while preserving T2 and independent review. | `current change`; [bounded evidence](#local-mini-routing-evidence-2026-09-06): 229 Python cases passed, two PostgreSQL cases deselected; overlapping Console cohorts passed 147 and 48; typecheck/build passed; isolated Operator cohort passed 152; eight scheduled mini probes and authenticated DOM label observed. | Complete PostgreSQL, integrated runtime, and visible-browser evidence. No whole-turn speedup, visual pass, new commit, or pushed revision is claimed. |
+| 2026-09-06 | implemented | Included projection publication in the 35-second cycle with a separate five-second write deadline and no publication retry. | `current change`; six opt-in configuration checks and final Console 160-case cohort/typecheck/build passed; third/fourth scheduled cycles changed the fastest mini, and authenticated general/screen-context DOM badges and tooltips matched. Console cohorts overlap. | PostgreSQL, integrated runtime, raster/pointer qualification, and whole-turn comparison remain open; synthetic p50 near 1068 ms is not a conversation speedup claim. |
 
 ### Remaining work
 
+- [x] Record the focused Python routing/probe cohort: 229 passed, two PostgreSQL cases deselected,
+  as detailed in [local evidence](#local-mini-routing-evidence-2026-09-06).
+- [x] Record six additional opt-in configuration checks and final Console 160-case/typecheck/build
+  passes, overlapping prior 147/48 cohorts; isolated Operator checks passed 152.
+- [x] Observe four scheduled Core cycles and a fastest-mini change, with authenticated general and
+  screen-context DOM badges/tooltips matching synthetic measurements, without T2.
+- [ ] Complete the two deselected PostgreSQL cases and retain integrated runtime evidence on one
+  reconciled source snapshot; the isolated Operator result does not validate unrelated auth edits.
+- [ ] Verify the model badge and tooltip through raster and pointer checks in a visible browser;
+  hidden Electron DOM evidence alone does not satisfy visual acceptance.
+- [ ] Retain an explicitly authorized bounded conversation comparison before claiming a live
+  latency improvement; synthetic `OK` timings alone are insufficient.
 - [x] Complete the mock-only chat and inline prompt scenarios in the three focused Playwright files above; production adoption remains outside this change.
 - [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
 - [x] Bind a periodic refresh owner with validated interval, failure isolation, duplicate-start suppression, and shutdown cleanup.
@@ -286,6 +419,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 - [x] On startup failure, attempt cleanup for every acquired lifecycle service and report cleanup failures without hiding the original source-revision fence.
 - [ ] Retain one governed proposal-only reconciler run and one deployed Operator startup receipt for the exact source revision.
 - [ ] Retain one exact environment-policy assessment and protected PTU plan/apply/rollback campaign, including independent verification that the runtime loaded the sealed policy and model version.
+- [x] Add a per-conversation `Auto`/`T1`/`T2` selector that sends an allowlisted tier on schema 1.7, uses the configured T2 primary for model-authored stages, and preserves the independent reviewer and `execution_authority=false`.
+- [ ] Retain authenticated visible-browser evidence for T1 to T2 switching, persistence after reload, disabled unavailable state, and explicit T2 provider failure without silent T1 fallback.
 
 ## Related docs
 

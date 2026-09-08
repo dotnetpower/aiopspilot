@@ -16,6 +16,7 @@ from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
 )
+from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
 
 class Credential:
@@ -95,7 +96,7 @@ class Consumer:
 
 def _request() -> dict[str, object]:
     return {
-        "schema_version": "1.5.0",
+        "schema_version": "1.6.0",
         "request_id": "00000000-0000-0000-0000-000000000001",
         "correlation_id": "correlation-1",
         "idempotency_key": "request-1",
@@ -198,6 +199,22 @@ async def test_producer_uses_managed_identity_and_idempotent_sasl_ssl(monkeypatc
     assert producer.stopped == 1
 
 
+async def test_producer_retains_canonical_target_in_v16_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus, _credential = _bus(monkeypatch)
+    request = _request()
+    request["schema_version"] = "1.6.0"
+    semantic = request["semantic_turn"]
+    assert isinstance(semantic, dict)
+    semantic["target_agent"] = "Mimir"
+    await bus.publish("operator.semantic-turn.requests", "request-1", request)
+    await bus.aclose()
+    producer = Producer.latest
+    assert producer is not None
+    assert json.loads(producer.sent[0][2]) == request
+
+
 async def test_producer_allows_only_configured_read_investigation_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
     credential = Credential()
@@ -289,6 +306,45 @@ async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
         "audit_id": "audit-1",
         "schema_version": "1.0.0",
     }
+
+
+@pytest.mark.parametrize(
+    ("physical_topic", "overrides"),
+    [
+        ("operator.semantic-turn.requests", {}),
+        ("core.semantic-turn.projections", {}),
+        ("core.semantic-turn.progress", {}),
+        (
+            "operator.read-investigation.requests",
+            {"read_investigation_topic": "operator.read-investigation.requests"},
+        ),
+        (
+            "core.read-investigation.completion",
+            {"read_investigation_completion_topic": "core.read-investigation.completion"},
+        ),
+        (
+            "core.background-task.projections",
+            {"background_task_projection_topic": "core.background-task.projections"},
+        ),
+        ("fdai.events", {"event_topic": "fdai.events"}),
+        ("fdai.hil.decisions", {"hil_decision_topic": "fdai.hil.decisions"}),
+        (
+            "fdai.notifications.delivery-receipts",
+            {"notification_receipt_topic": "fdai.notifications.delivery-receipts"},
+        ),
+        (WARA_ASSESSMENT_TOPIC, {}),
+    ],
+)
+def test_physical_topic_must_not_collide_with_any_configured_topic(
+    physical_topic: str,
+    overrides: dict[str, str],
+) -> None:
+    with pytest.raises(ValueError, match="physical topic MUST be a distinct valid topic"):
+        OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic=physical_topic,
+            **overrides,
+        )
 
 
 async def test_projection_dlq_and_subscription_require_configured_background_task_topic(  # type: ignore[no-untyped-def]

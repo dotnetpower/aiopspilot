@@ -267,6 +267,7 @@ active_owner() {
   for argument in "$@"; do
     case "$argument" in
       FDAI_RUNTIME_LOCK_FILE=*) runtime_lock="${argument#FDAI_RUNTIME_LOCK_FILE=}" ;;
+      PORT=*) port="${argument#PORT=}" ;;
       --port=*) port="${argument#--port=}" ;;
     esac
     if [[ "$previous" == "--port" ]]; then

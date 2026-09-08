@@ -230,6 +230,32 @@ async def test_resource_receipt_preserves_incomplete_source_without_query_trunca
     assert legacy.source_generation is None
 
 
+async def test_object_only_resource_receipt_ignores_relationship_completeness() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        ),
+        source_complete=False,
+    )
+
+    result = await gateway.materialize(
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+            as_of=datetime(2026, 8, 8, tzinfo=UTC),
+            purpose="operations-review",
+            include_relationships=False,
+        ),
+        projection_request=_request(),
+    )
+
+    assert result.receipt.source_complete is True
+    assert result.receipt.complete is True
+
+
 async def test_gateway_applies_only_the_definition_purpose() -> None:
     object_type = _object_type()
     gateway = await _gateway_with_records(

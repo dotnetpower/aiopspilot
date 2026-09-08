@@ -62,7 +62,8 @@ RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_core_control_plane-*.whl \
     && test -x /app/.venv/bin/fdai-core-control-plane \
-    && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python"
+    && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python" \
+    && /app/.venv/bin/python -c "import fdai.runtime.bootstrap"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 

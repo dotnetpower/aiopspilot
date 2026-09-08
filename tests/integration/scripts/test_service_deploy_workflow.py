@@ -165,7 +165,9 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     assert "startsWith(inputs.request_id, 'apply-history-')" in _LEGACY_WORKFLOW
     assert "deploy_operational_history:" not in _LEGACY_WORKFLOW
     assert "TF_VAR_enable_operational_history" in _LEGACY_WORKFLOW
+    assert "TF_VAR_operational_history_legacy_deployer_principal_id" in _LEGACY_WORKFLOW
     assert "vars.ENABLE_OPERATIONAL_HISTORY == 'true'" in _LEGACY_WORKFLOW
+    assert "-target=module.resource_group.azurerm_resource_group.primary" in target_expression
     assert "-target=module.operational_history_storage[0]" in target_expression
     assert "-target=azurerm_private_endpoint.operational_history_blob[0]" in target_expression
     assert (
@@ -470,6 +472,12 @@ def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _WORKFLOW
     assert '"$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py"' in _WORKFLOW
     assert (
+        "DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}"
+        in _WORKFLOW
+    )
+    assert '--environment "$TARGET_ENVIRONMENT"' in _WORKFLOW
+    assert '--dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"' in _WORKFLOW
+    assert (
         "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
     )
     assert "Verify protected environment approval policy before mutation" in _LEGACY_WORKFLOW
@@ -477,6 +485,12 @@ def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert 'if [[ "$APPLY" == "true" ]]' in _LEGACY_WORKFLOW
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
     assert '"$RUNNER_TEMP/verify-github-environment.py"' in _LEGACY_WORKFLOW
+    assert (
+        "DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}"
+        in _LEGACY_WORKFLOW
+    )
+    assert '--environment "$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
+    assert '--dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"' in _LEGACY_WORKFLOW
     assert _LEGACY_WORKFLOW.index("Checkout protected workflow verifier") < (
         _LEGACY_WORKFLOW.index("- name: Checkout\n")
     )
@@ -575,7 +589,7 @@ def test_platform_destructive_guard_accepts_only_exact_embedding_replacement(
             raise AssertionError(f"destructive guard accepted drifted model field: {owner}.{field}")
 
 
-def test_platform_destructive_guard_accepts_only_exact_deployer_role_handoff(
+def test_platform_destructive_guard_rejects_deployer_role_handoff(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -587,7 +601,6 @@ def test_platform_destructive_guard_accepts_only_exact_deployer_role_handoff(
     assert match is not None
     source = textwrap.dedent(match.group("source"))
     address = "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner"
-    expected_principal = "00000000-0000-0000-0000-000000000002"
     before = {
         "scope": "same-storage-account",
         "role_definition_id": "same-storage-data-owner-role",
@@ -597,7 +610,7 @@ def test_platform_destructive_guard_accepts_only_exact_deployer_role_handoff(
         "condition_version": None,
         "delegated_managed_identity_resource_id": None,
     }
-    after = {**before, "principal_id": expected_principal}
+    after = {**before, "principal_id": "00000000-0000-0000-0000-000000000002"}
     exact_change = {
         "address": address,
         "change": {"actions": ["create", "delete"], "before": before, "after": after},
@@ -605,35 +618,7 @@ def test_platform_destructive_guard_accepts_only_exact_deployer_role_handoff(
     plan_path = tmp_path / "dev.plan.review.json"
     script_path = tmp_path / "deploy_dev_destructive_guard.py"
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("EXPECTED_DEPLOYER_PRINCIPAL_ID", expected_principal)
-    monkeypatch.setenv("OPERATIONAL_HISTORY_ONLY", "true")
     script_path.write_text(source, encoding="utf-8")
-    plan_path.write_text(
-        json.dumps({"resource_changes": [exact_change]}),
-        encoding="utf-8",
-    )
-    runpy.run_path(str(script_path), run_name="__main__")
-
-    mutations = (
-        ("change", "actions", ["delete", "create"]),
-        ("after", "scope", "another-storage-account"),
-        ("after", "role_definition_id", "another-role"),
-        ("after", "role_definition_name", "Contributor"),
-        ("after", "principal_id", "00000000-0000-0000-0000-000000000003"),
-        ("before", "principal_id", expected_principal),
-    )
-    for owner, field, value in mutations:
-        changed = json.loads(json.dumps(exact_change))
-        target = changed["change"] if owner == "change" else changed["change"][owner]
-        target[field] = value
-        plan_path.write_text(
-            json.dumps({"resource_changes": [changed]}),
-            encoding="utf-8",
-        )
-        with pytest.raises(SystemExit, match="1"):
-            runpy.run_path(str(script_path), run_name="__main__")
-
-    monkeypatch.setenv("OPERATIONAL_HISTORY_ONLY", "false")
     plan_path.write_text(
         json.dumps({"resource_changes": [exact_change]}),
         encoding="utf-8",

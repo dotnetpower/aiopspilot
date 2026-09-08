@@ -181,6 +181,8 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
       type="button"
       class={`live-tile live-tile-gate-${gate}${dimmed}${contentUpdated ? " is-content-updated" : ""}`}
       data-empty="0"
+      data-event-id={tile.event_id}
+      data-stage={tile.last_stage}
       data-failed={failed}
       data-done={done}
       data-abstain={abstain}

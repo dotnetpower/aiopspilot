@@ -1,6 +1,11 @@
 import type { ViewContextIdentity } from "../deck/context";
 import { isOperationalResourceType } from "../resource-presentation";
-import { decodeRecordedResourceStates, type RecordedResourceStates } from "../recorded-resource-state";
+import {
+  decodeRecordedResourceStates,
+  type RecordedResourceStates,
+  type RecordedStateAxis,
+  type RecordedStateFact,
+} from "../recorded-resource-state";
 
 export interface OntologyInstanceResource {
   readonly id: string;
@@ -13,11 +18,23 @@ export interface OntologyInstanceResource {
   readonly capacity?: number | null;
   readonly last_seen: string | null;
   readonly selected: boolean;
+  readonly model_deployment?: OntologyInstanceModelDeployment | null;
   readonly states?: RecordedResourceStates;
+}
+
+export interface OntologyInstanceModelDeployment {
+  readonly model_name: string | null;
+  readonly model_version: string | null;
+  readonly sku_name: string | null;
+  readonly capacity_tpm: number | null;
 }
 
 export type OntologyInstanceStatusTone = "neutral" | "success" | "warning" | "danger";
 export type OntologyInstanceCapacityKind = "node" | "instance";
+export interface OntologyInstanceNodeState {
+  readonly axis: RecordedStateAxis;
+  readonly fact: RecordedStateFact;
+}
 
 /** Names the only scalable Resource types whose provider capacity is projected. */
 export function ontologyInstanceCapacityKind(
@@ -64,6 +81,36 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
     "available",
   ].some((value) => normalized.includes(value))) return "success";
   return "neutral";
+}
+
+/** Selects the most relevant recorded axis for a compact graph label without merging facts. */
+export function ontologyInstanceNodeState(
+  resource: OntologyInstanceResource,
+): OntologyInstanceNodeState | null {
+  const states = resource.states;
+  if (states === undefined) return null;
+  if (states.operational.value !== null) {
+    return { axis: "operational", fact: states.operational };
+  }
+  const operationCanFallBack = states.operational.reason === "state_not_applicable"
+    || states.operational.reason === "provider_operational_state_not_exposed";
+  if (!operationCanFallBack) {
+    return { axis: "operational", fact: states.operational };
+  }
+  if (states.availability.value !== null) {
+    return { axis: "availability", fact: states.availability };
+  }
+  if (
+    states.availability.reason !== null
+    && states.availability.reason !== "state_not_recorded"
+    && states.availability.reason !== "state_not_applicable"
+  ) {
+    return { axis: "availability", fact: states.availability };
+  }
+  if (states.provisioning.value !== null) {
+    return { axis: "provisioning", fact: states.provisioning };
+  }
+  return { axis: "operational", fact: states.operational };
 }
 
 /** Returns whether a Resource is meaningful as an operator-selected graph root. */
@@ -1035,6 +1082,13 @@ function decodeResource(value: unknown): OntologyInstanceResource {
   if (record.capacity !== undefined && record.capacity !== null && capacityKind === null) {
     throw new Error("Resource capacity MUST use a supported scalable Resource type");
   }
+  if (
+    record.model_deployment !== undefined
+    && record.model_deployment !== null
+    && resourceType !== "llm-model-deployment"
+  ) {
+    throw new Error("model deployment details MUST use the llm-model-deployment Resource type");
+  }
   return {
     id: requiredString(record.id, "Resource id", 1024),
     object_type: "Resource",
@@ -1048,7 +1102,26 @@ function decodeResource(value: unknown): OntologyInstanceResource {
       : nonNegativeInteger(record.capacity, "Resource capacity"),
     last_seen: nullableTimestamp(record.last_seen, "Resource last seen"),
     selected: boolean(record.selected, "Resource selected"),
+    model_deployment: record.model_deployment === undefined || record.model_deployment === null
+      ? null
+      : decodeModelDeployment(record.model_deployment),
     ...(record.states === undefined ? {} : { states: decodeRecordedResourceStates(record.states) }),
+  };
+}
+
+function decodeModelDeployment(value: unknown): OntologyInstanceModelDeployment {
+  const record = objectRecord(value, "model deployment details");
+  const capacityTpm = record.capacity_tpm === null
+    ? null
+    : nonNegativeInteger(record.capacity_tpm, "model deployment TPM");
+  if (capacityTpm !== null && capacityTpm > 2_147_483_647) {
+    throw new Error("model deployment TPM exceeds the provider projection bound");
+  }
+  return {
+    model_name: nullableString(record.model_name, "model deployment model name", 256),
+    model_version: nullableString(record.model_version, "model deployment model version", 256),
+    sku_name: nullableString(record.sku_name, "model deployment SKU", 256),
+    capacity_tpm: capacityTpm,
   };
 }
 

@@ -147,8 +147,8 @@ Every row shows scope, evaluation time, source revision, evidence completeness, 
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
-The shared Operator composition can add a principal-scoped conversation document reader without
-changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
+The shared Operator composition can add principal-scoped conversation document and T1 health
+readers without changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
 It delegates resolved-model source construction to focused lifecycle composition and starts the
 resulting revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA
@@ -159,8 +159,8 @@ Its inventory facts are operator context, not WARA assessment receipts. A retain
 `Succeeded` value, particularly one with unknown freshness, cannot populate recommendation
 applicability, evaluation, or satisfaction. Assessment evidence still enters through the pinned
 query and manual-evidence admission paths above, not through Dashboard colors or instance status.
-The shared family store reads the committed inventory-ontology manifest only to fence this
-operator-context query. That lookup cannot satisfy or widen WARA evidence.
+The shared family store fences WARA to the committed manifest; its effective realtime overlay is
+operator context only and cannot satisfy or widen assessment evidence.
 
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
@@ -245,6 +245,11 @@ consumer group, and PostgreSQL projection; neither profile substitutes provider 
 The shared Operator Kafka adapter may also publish notification-receipt logical records on the same
 physical transport. Topic filtering keeps those records outside the WARA consumer and grants no
 assessment authority.
+
+The shared conversation transport accepts request version `1.7.0` and projection version `1.6.0`.
+Its general explanations and goal-local support remain advisory, not WARA observations, assessment
+receipts, or satisfaction results. Default conversation relationship binding does not change WARA
+scope, consumer filtering, evidence admission, or the shadow-only assessment lifecycle.
 
 ## Related docs
 

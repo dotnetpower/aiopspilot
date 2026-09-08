@@ -70,7 +70,7 @@ Safety / cost invariants
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
@@ -238,6 +238,14 @@ class ResourceChangeFeedResult:
     next_cursor: str
 
 
+@dataclass(frozen=True, slots=True)
+class _HydrationResult:
+    """Mapped records plus every provider identity returned by hydration."""
+
+    records: Mapping[str, ResourceRecord]
+    seen_provider_refs: frozenset[str]
+
+
 class AzureResourceChangeFeed:
     """Poll ``resourcechanges``, hydrate changed resources, and build events."""
 
@@ -320,12 +328,25 @@ class AzureResourceChangeFeed:
                 continue  # ARM type outside the vocabulary - drop, don't fail closed.
             events.append(self._tombstone_event(change, resource_type=resource_type))
 
-        hydrated = await self._hydrate([change.arm_id for change in upserts])
-        for change in upserts:
-            record = hydrated.get(change.arm_id.casefold())
+        hydration_candidates = [
+            change
+            for change in upserts
+            if change.arm_type is None or change.arm_type.casefold() in self._arm_to_neutral
+        ]
+        hydration = await self._hydrate([change.arm_id for change in hydration_candidates])
+        unresolved_hydrations: list[_ChangeRow] = []
+        for change in hydration_candidates:
+            provider_key = change.arm_id.casefold()
+            record = hydration.records.get(provider_key)
             if record is None:
-                continue  # Resource vanished (or type unmapped) before hydration - benign skip.
+                if provider_key not in hydration.seen_provider_refs:
+                    unresolved_hydrations.append(change)
+                continue
             events.append(self._upsert_event(change, record=record))
+        if unresolved_hydrations:
+            raise ArgResourceChangeError(
+                "resourcechanges hydration did not resolve every mapped upsert"
+            )
 
         next_cursor = _encode_cursor(newest[0], newest[1])
         return ResourceChangeFeedResult(events=tuple(events), next_cursor=next_cursor)
@@ -421,11 +442,12 @@ class AzureResourceChangeFeed:
             return None
         return self._arm_to_neutral.get(arm_type.casefold())
 
-    async def _hydrate(self, arm_ids: Sequence[str]) -> dict[str, ResourceRecord]:
+    async def _hydrate(self, arm_ids: Sequence[str]) -> _HydrationResult:
         if not arm_ids:
-            return {}
+            return _HydrationResult(records={}, seen_provider_refs=frozenset())
         ordered_unique = list(dict.fromkeys(arm_ids))
         hydrated: dict[str, ResourceRecord] = {}
+        seen_provider_refs: set[str] = set()
         batch_size = self._config.max_hydration_batch
         for start in range(0, len(ordered_unique), batch_size):
             batch = ordered_unique[start : start + batch_size]
@@ -449,12 +471,18 @@ class AzureResourceChangeFeed:
                 max_total_response_bytes=self._config.max_total_response_bytes,
             )
             for row in rows:
+                provider_ref = row.get("id")
+                if isinstance(provider_ref, str) and provider_ref:
+                    seen_provider_refs.add(provider_ref.casefold())
                 mapped = self._map_hydrated_row(row)
                 if mapped is None:
                     continue
                 arm_id_key, record = mapped
                 hydrated[arm_id_key] = record
-        return hydrated
+        return _HydrationResult(
+            records=hydrated,
+            seen_provider_refs=frozenset(seen_provider_refs),
+        )
 
     def _map_hydrated_row(self, row: Mapping[str, Any]) -> tuple[str, ResourceRecord] | None:
         arm_id = row.get("id")
@@ -612,6 +640,7 @@ async def forward_arg_resource_changes(
     topic: str,
     scope: str,
     deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
+    clock: Callable[[], datetime] | None = None,
 ) -> int:
     """Publish one bounded ``resourcechanges`` poll and advance its cursor.
 
@@ -640,8 +669,16 @@ async def forward_arg_resource_changes(
         raise RuntimeError("resource change feed poll exceeded its deadline") from exc
     if result is None:
         raise RuntimeError("resource change feed poll produced no result")
-    if result.next_cursor != cursor:
-        await state_store.write_state(cursor_key, {"cursor": result.next_cursor})
+    polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
+    if polled_at.tzinfo is None:
+        raise RuntimeError("resource change feed clock MUST be timezone-aware")
+    await state_store.write_state(
+        cursor_key,
+        {
+            "cursor": result.next_cursor,
+            "last_polled_at": polled_at.astimezone(UTC).isoformat(),
+        },
+    )
     return len(result.events)
 
 

@@ -52,7 +52,11 @@ class ObjectSetService:
             if graph.truncated:
                 source_truncation_reason = ObjectSetTruncationReason.TRAVERSAL_LIMIT
         else:
-            exact_ids = _exact_id_values(definition.predicates)
+            exact_ids = (
+                definition.object_ids
+                if definition.object_ids is not None
+                else _exact_id_values(definition.predicates)
+            )
             if exact_ids is not None:
                 graph = await _query_exact_ids(
                     self._store,
@@ -71,13 +75,30 @@ class ObjectSetService:
                 for item in definition.predicates
                 if item.operator is ObjectPredicateOperator.EQUALS
             }
-            has_memory_predicates = len(filters) != len(definition.predicates)
+            text_in_filters = {
+                item.property: tuple(str(value) for value in item.values)
+                for item in definition.predicates
+                if item.operator is ObjectPredicateOperator.IN
+                and all(isinstance(value, str) for value in item.values)
+            }
+            pushed_predicate_count = len(filters) + len(text_in_filters)
+            has_memory_predicates = pushed_predicate_count != len(definition.predicates)
             if graph is None:
-                graph = await self._store.query_objects(
-                    object_types=concrete_types,
-                    property_equals=filters,
-                    limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
-                    include_relationships=definition.include_relationships,
+                graph = (
+                    await self._store.query_objects(
+                        object_types=concrete_types,
+                        property_equals=filters,
+                        property_text_in=text_in_filters,
+                        limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
+                        include_relationships=definition.include_relationships,
+                    )
+                    if text_in_filters
+                    else await self._store.query_objects(
+                        object_types=concrete_types,
+                        property_equals=filters,
+                        limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
+                        include_relationships=definition.include_relationships,
+                    )
                 )
                 if graph.truncated:
                     source_truncation_reason = (

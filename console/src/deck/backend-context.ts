@@ -44,7 +44,7 @@ function viewContextWithUser(
 function toBackendHistory(history: readonly BackendTurn[]): BackendTurn[] {
   return history.slice(-8).map((turn) => ({
     role: turn.role,
-    content: turn.content,
+    content: turn.adaptiveAnswer ? turn.content.slice(0, 8_000) : turn.content,
   }));
 }
 
@@ -67,6 +67,13 @@ function latestEvidenceFreshnessContext(history: readonly BackendTurn[]) {
 function latestSemanticRequestId(history: readonly BackendTurn[]): string | undefined {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const turn = history[index];
+    if (turn?.role === "assistant" && (
+      turn.semanticDisposition === "advisory_response" ||
+      turn.source?.startsWith("unavailable") || turn.source?.startsWith("partial") ||
+      turn.source === "stopped"
+    )) {
+      return undefined;
+    }
     if (
       turn?.role === "assistant" &&
       turn.semanticDisposition === "answered" &&
@@ -114,6 +121,7 @@ export function createBackendRequestPayload(
   targetAgent?: string,
   semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2",
   handoverGoalId?: string,
+  conversationModelTier?: "t1" | "t2",
 ): Record<string, unknown> {
   const locale = responseLocale(prompt);
   const includeModelTrace = readConsolePreferences().showModelTrace;
@@ -134,6 +142,7 @@ export function createBackendRequestPayload(
     ...(semanticPlanningProfile && semanticPlanningProfile !== "interactive"
       ? { semantic_planning_profile: semanticPlanningProfile }
       : {}),
+    ...(conversationModelTier ? { conversation_model_tier: conversationModelTier } : {}),
     ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(handoverGoalId ? { handover_goal_id: handoverGoalId } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),

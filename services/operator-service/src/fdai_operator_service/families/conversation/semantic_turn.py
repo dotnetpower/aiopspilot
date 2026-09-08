@@ -17,6 +17,7 @@ from fdai_service_contracts import (
     OperatorRole,
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
+    SemanticConversationModelTier,
     SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticPriorTurn,
@@ -25,17 +26,24 @@ from fdai_service_contracts import (
     canonical_ordinary_role,
     context_selection_digest,
 )
+from fdai_service_contracts.adaptive_answer import AdaptiveAgentName
+from fdai_service_contracts.adaptive_relationship import (
+    AdaptiveRelationshipProof,
+    AdaptiveRelationshipUnknownReason,
+)
 from fdai_service_contracts.codec import MAX_WIRE_BYTES, encode_wire_object
+from pydantic import TypeAdapter
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _DEFAULT_DEADLINE_SECONDS = 90
 _MAX_DEADLINE_SECONDS = 90
+_TARGET_AGENT: TypeAdapter[AdaptiveAgentName] = TypeAdapter(AdaptiveAgentName)
 
 Clock = Callable[[], datetime]
 
 
 class SemanticTurnEnvelopeBuilder:
-    """Construct no-authority v1.5 requests with retry-stable identities."""
+    """Construct no-authority requests with retry-stable identities and bounded routing."""
 
     def __init__(
         self,
@@ -52,10 +60,30 @@ class SemanticTurnEnvelopeBuilder:
         proposal: ConversationProposal,
         *,
         investigation_continuation: SemanticInvestigationContinuation | None = None,
+        relationship_proof: AdaptiveRelationshipProof | None = None,
+        relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None,
     ) -> dict[str, object]:
-        """Validate one authorized ``chat.stream`` proposal as a v1.5 wire envelope."""
+        """Validate an authorized proposal without treating role selection as a relationship."""
         if proposal.operation != "chat.stream":
             raise ValueError("semantic turn builder accepts only chat.stream proposals")
+        if any(
+            key in proposal.body
+            for key in (
+                "relationship",
+                "relationship_context",
+                "relationship_proof",
+                "verified_relationship",
+                "dialogue_profile",
+                "relationship_unknown_reason",
+            )
+        ):
+            raise ValueError("dialogue relationships require authoritative server verification")
+        target_agent = _TARGET_AGENT.validate_python(proposal.body.get("target_agent", "Bragi"))
+        if relationship_proof is not None and (
+            relationship_proof.principal_id != proposal.scope.subject_id
+            or relationship_proof.target_agent != target_agent
+        ):
+            raise ValueError("relationship proof MUST match the authenticated principal and target")
         requested_at = _aware_utc(self._clock())
         identity_seed = f"{proposal.scope.subject_id}\0{proposal.idempotency_key}"
         request_id = _request_id(proposal, identity_seed)
@@ -69,6 +97,7 @@ class SemanticTurnEnvelopeBuilder:
                 subject_id=proposal.scope.subject_id,
                 roles=roles,
                 principal_kind=proposal.scope.principal_kind,
+                groups=tuple(sorted(proposal.scope.groups)),
             ),
             session_id=session_id,
             turn_id=turn_id,
@@ -87,10 +116,28 @@ class SemanticTurnEnvelopeBuilder:
             investigation_continuation=investigation_continuation,
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
+            conversation_model_tier=_conversation_model_tier(proposal.body),
             include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
+            target_agent=target_agent,
+            relationship_proof=relationship_proof,
+            relationship_unknown_reason=relationship_unknown_reason,
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
+        schema_version = (
+            "1.7.0"
+            if semantic_turn.conversation_model_tier is not None
+            else "1.6.0"
+            if (
+                "target_agent" in proposal.body
+                or relationship_proof is not None
+                or relationship_unknown_reason is not None
+                or proposal.scope.groups
+            )
+            else "1.5.0"
+        )
+        if schema_version == "1.5.0":
+            semantic_payload.pop("target_agent", None)
         bound_context_payload = semantic_payload.get("bound_context")
         if (
             isinstance(bound_context_payload, dict)
@@ -101,8 +148,11 @@ class SemanticTurnEnvelopeBuilder:
             principal_payload = semantic_payload.get("principal")
             if isinstance(principal_payload, dict):
                 principal_payload.pop("principal_kind", None)
+        principal_payload = semantic_payload.get("principal")
+        if isinstance(principal_payload, dict) and not principal_payload.get("groups"):
+            principal_payload.pop("groups", None)
         envelope: dict[str, object] = {
-            "schema_version": "1.5.0",
+            "schema_version": schema_version,
             "request_id": request_id,
             "correlation_id": f"semantic-turn:{request_id}",
             "idempotency_key": proposal.idempotency_key,
@@ -111,7 +161,7 @@ class SemanticTurnEnvelopeBuilder:
             "requested_at": requested_at.isoformat(),
             "semantic_turn": semantic_payload,
         }
-        self._validator.validate("operator-core-request", envelope, version="1.5.0")
+        self._validator.validate("operator-core-request", envelope, version=schema_version)
         if len(encode_wire_object(envelope)) > MAX_WIRE_BYTES:
             raise ValueError("semantic turn exceeds the 256 KiB wire bound")
         return envelope
@@ -175,6 +225,20 @@ def _planning_profile(body: Mapping[str, object]) -> SemanticPlanningProfile:
         return SemanticPlanningProfile(value)
     except ValueError as exc:
         raise ValueError("semantic_planning_profile is unsupported") from exc
+
+
+def _conversation_model_tier(
+    body: Mapping[str, object],
+) -> SemanticConversationModelTier | None:
+    value = body.get("conversation_model_tier")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("conversation_model_tier is unsupported")
+    try:
+        return SemanticConversationModelTier(value)
+    except ValueError as exc:
+        raise ValueError("conversation_model_tier is unsupported") from exc
 
 
 def _deadline(body: Mapping[str, object], requested_at: datetime) -> datetime:

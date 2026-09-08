@@ -58,6 +58,38 @@ describe("Operator API authentication boundary", () => {
     );
   });
 
+  describe("Operator API Sample boundary", () => {
+    test("serves registered GET fixtures without authentication or fetch", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const transport = new OperatorApiTransport(config, auth({
+        getAuthorizationHeader: async () => {
+          throw new Error("Sample reads must not acquire a token");
+        },
+      }), {
+        sampleResponse: (path, params) => ({
+          path,
+          value: params.get("value"),
+        }),
+      });
+
+      await expect(
+        transport.getJson("/sample", new URLSearchParams({ value: "one" })),
+      ).resolves.toEqual({ path: "/sample", value: "one" });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test("rejects unregistered reads and every mutation", async () => {
+      const transport = new OperatorApiTransport(config, auth(), {
+        sampleResponse: () => undefined,
+      });
+
+      await expect(transport.getJson("/missing")).rejects.toMatchObject({ status: 404 });
+      await expect(transport.postJson("/write", {}, "sample-key"))
+        .rejects.toMatchObject({ status: 405 });
+    });
+  });
+
   test("fails closed when silent token acquisition stalls", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn();

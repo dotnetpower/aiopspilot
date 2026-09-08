@@ -1,4 +1,6 @@
 import { buildSreIncidentResponseDeck } from "./sre-incident-response.js";
+import { buildOntologyFoundationDeck } from "./ontology-foundation.js";
+import { buildArtOfPossibleDeck } from "./art-of-possible.js";
 
 const docs = {
   constitution: "docs/roadmap/architecture/fdai-constitution.md",
@@ -28,7 +30,6 @@ const docs = {
 
 const deckAssets = {
   "readiness-maturity": "assets/readiness-maturity.jpeg",
-  "art-of-possible": "assets/art-possible.jpeg",
   "value-prioritization": "assets/value-prioritization.jpeg",
   "target-architecture": "assets/target-architecture.jpeg",
   "ontology-foundation": "assets/ontology-foundation.jpeg",
@@ -43,11 +44,6 @@ const deckProfiles = {
     label: "READINESS",
     sections: ["운영 기준선", "근거와 권한", "파일럿 진입"],
     segments: [[1, "운영 기준선"], [9, "근거와 권한"], [19, "파일럿 진입"]],
-  },
-  "art-of-possible": {
-    label: "POSSIBILITIES",
-    sections: ["미래 운영 경험", "안전 경계", "가치 장면"],
-    segments: [[1, "목표 운영 경험"], [5, "안전 경계"], [8, "가치 장면"]],
   },
   "value-prioritization": {
     label: "PRIORITIZE",
@@ -442,18 +438,7 @@ const readinessMaturity = buildDeck("readiness-maturity", "준비도와 성숙�
   topic("NEXT", "다음 회의는 격차 소유권을 확정합니다", "의사결정 유형 하나, 책임자, 기준선, 차단 격차와 재검토 날짜를 남깁니다.", "선택:의사결정 유형|배정:격차 책임자|증적:완료를 입증할 자료|예약:재평가 시점", docs.constitution, "responsibility"),
 ]);
 
-const artOfPossible = buildDeck("art-of-possible", "가능성 탐색", [
-  topic("ENVISION", "통제된 자율 운영의 목표 모습을 살펴봅니다", "경영진은 무제한 자동화가 아니라 책임과 근거가 유지되는 운영 경험을 탐색합니다.", "경험:반복 판단은 검증된 규칙으로 처리|경계:고위험 작업은 사람 승인 유지|성과:독립 관측으로 완료|실패:보류, 변경 없음, 복구를 명시", docs.constitution),
-  topic("TARGET", "운영 책임자는 중요한 예외에 집중합니다", "반복 가능한 판단은 검증된 규칙과 정책으로 처리하고, 사람은 근거 충돌, 목표 충돌, 승인 요청, 정책 변경을 검토합니다.", "자동화:검증된 반복 판단|사람 검토:근거와 목표 충돌|사람 승인:권한이 필요한 작업|정책 책임:위험과 위임 범위", docs.constitution, "comparison"),
-  topic("TARGET", "장애 대응 전 과정을 하나의 추적으로 연결합니다", "각 단계는 고유 식별자를 유지하며, 공통 상관관계 ID(correlation_id)로 요청부터 복구 확인까지 연결됩니다.", "이벤트:개별 수신 단위|상관관계:작업 전체를 연결|프로세스와 인시던트:장기 작업과 문제 대응|승인과 효과:별도 권한·결과 기록", docs.operator, "flow"),
-  topic("TARGET", "변경 회의는 그래프 영향과 근거를 먼저 봅니다", "아키텍처 검토 승인 자체는 리소스 변경 권한이 아닙니다. 승인된 변경도 일반 ActionType 경로에서 정책, 위험, 승인, 안전장치를 다시 통과합니다.", "변경:정확한 리비전|영향:관계 기반 범위|검토:조건과 책임 기록|실행:일반 ActionType 경로로 재진입", docs.operator, "layers"),
-  topic("TARGET", "비용 절감은 신뢰성 목표를 지킨 뒤 비교합니다", "안전, 데이터 무결성, SLO, 변경 안전을 모두 충족한 선택지 안에서만 비용을 최적화합니다.", "먼저:상위 제약 위반 제거|그다음:적격 선택지 비교|마지막:실현된 절감 검증", docs.constitution, "tree"),
-  topic("TARGET", "대화는 명령이 아니라 요청을 구조화하는 창구입니다", "대화 변환 에이전트 Bragi는 자연어 요청을 구조화하지만 판단하거나 승인하거나 실행하지 않습니다.", "사람:목표와 질문|Bragi:의도 형식화|에이전트:책임에 따라 처리", docs.pantheon, "responsibility"),
-  topic("TARGET", "학습 결과는 바로 실행하지 않고 검토 후보로 남깁니다", "학습 에이전트 Norns가 규칙 후보를 만들면 Mimir가 독립적으로 검토합니다. 카탈로그 반영과 실행 권한 승격은 각각 별도 심사를 거칩니다.", "사례:결과와 근거 봉인|후보:실행 권한 없는 제안|카탈로그:검토된 PR 병합|실행 승격:별도 관찰 근거 심사", docs.pantheon, "timeline"),
-  topic("TARGET", "운영 성공은 독립 관측으로 마감됩니다", "실행기와 다른 관측자가 권위 있는 효과 출처를 정해진 관측 구간에 확인합니다. 출처가 충돌하면 성공으로 평균 내지 않고 검토가 필요한 상태로 남깁니다.", "계획:기대 효과와 관측 구간 정의|실행:시도와 전달 증적|관측:독립 ObservedOutcome|충돌:명시적 충돌 상태와 권한 하향", [docs.constitution, docs.ontology], "evidence"),
-  topic("BOUNDARY", "목표 운영 모습과 현재 구현을 혼합하지 않습니다", "현재 Azure 기반의 일부 경로는 검증됐지만 점진적 배포와 A3-E는 아직 목표입니다.", "현재:분리된 신원과 보호 배포|목표:자동 점진적 배포|미구현:A3-E 실행 권한", docs.security, "matrix"),
-  topic("DECISION", "탐색의 결론은 범위가 좁고 측정 가능한 시나리오 하나입니다", "가치가 크고 경계가 선명한 운영 시나리오를 선택해 우선순위 평가로 넘깁니다.", "선택:의사결정 유형 하나|조건:기준선, 안전, 복구, 효과 측정|경계:현재와 목표 상태 구분|다음:가치 우선순위화", docs.execution, "tree"),
-]);
+const artOfPossible = buildArtOfPossibleDeck({ sourceLabel, statusLabel });
 
 const valuePrioritization = buildDeck("value-prioritization", "가치 우선순위", [
   topic("FRAME", "사용 사례가 아니라 의사결정 유형 하나를 고릅니다", "포트폴리오 책임자는 반복 빈도, 기대 효과, 근거, 위험이 분명한 판단부터 검토합니다.", "단위:의사결정 유형|범위:한 대상군|완료:독립 효과 검증", docs.constitution),
@@ -626,6 +611,7 @@ const pilotProduction = buildDeck("pilot-production", "파일럿에서 프로덕
 ]);
 
 const sreIncidentResponse = buildSreIncidentResponseDeck({ sourceLabel, statusLabel });
+const ontologyFoundationSlides = buildOntologyFoundationDeck();
 
 const aiOperatingModel = buildDeck("ai-operating-model", "AI 운영 모델", [
   topic("OPERATE", "운영 모델은 책임과 운영 주기를 연결합니다", "리더는 15개 고정 역할, 플랫폼 책임, 거버넌스, FinOps, LLMOps 의사결정을 하나의 체계로 운영합니다.", "책임:최종 책임자 한 명|거버넌스:분리된 권한|운영 주기:측정된 근거|결과:독립 관측과 감사", docs.pantheon),
@@ -728,7 +714,7 @@ export const additionalManualSlides = {
   "art-of-possible": artOfPossible,
   "value-prioritization": valuePrioritization,
   "target-architecture": targetArchitecture,
-  "ontology-foundation": ontologyFoundation,
+  "ontology-foundation": ontologyFoundationSlides,
   "responsible-ai-security": responsibleAiSecurity,
   "pilot-production": pilotProduction,
   "sre-incident-response": sreIncidentResponse,

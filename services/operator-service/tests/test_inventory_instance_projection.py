@@ -23,8 +23,10 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
 )
 from fdai_operator_service.families.operations.instance_explorer import (
+    _model_deployment_projection,
     _relationship_evidence_projection,
     _resource_capacity,
+    _resource_projection,
     _resource_status,
     project_inventory_instance,
     project_inventory_instances,
@@ -378,7 +380,7 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "location": "koreacentral",
             "resource_group": "resource-group-one",
             "subscription_id": None,
-            "status": "Succeeded",
+            "status": None,
             "states": recorded_resource_states(
                 {"properties": {"provisioningState": "Succeeded"}},
                 resource_type="compute.container-app",
@@ -686,12 +688,16 @@ def test_relationship_evidence_freshness_boundaries_and_verification_level() -> 
 
 
 def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> None:
-    assert _resource_status({"phase": "Running", "ready_status": "True"}) == "Running"
-    assert _resource_status({"ready_status": "True"}) == "Ready"
-    assert _resource_status({"ready_status": "False"}) == "NotReady"
-    assert _resource_status({"ready_status": "Unknown"}) == "Ready unknown"
-    assert _resource_status({"provisioningState": "Succeeded"}) == "Succeeded"
-    assert _resource_status({"name": "kube-system"}) is None
+    assert _resource_status({"phase": "Running", "ready_status": "True"}, "kubernetes.pod") == (
+        "Running"
+    )
+    assert _resource_status({"ready_status": "True"}, "kubernetes.node") == "Ready"
+    assert _resource_status({"ready_status": "False"}, "kubernetes.node") == "NotReady"
+    assert _resource_status({"ready_status": "Unknown"}, "kubernetes.node") == "Ready unknown"
+    assert _resource_status({"provisioningState": "Succeeded"}, "kubernetes.pod") is None
+    assert _resource_status({"name": "kube-system"}, "kubernetes.namespace") is None
+    assert _resource_status({"state": "Unknown"}, "compute.function") is None
+    assert _resource_status({"state": "Bad\nState"}, "compute.function") is None
 
 
 def test_scalable_resource_capacity_uses_only_allowlisted_fields() -> None:
@@ -711,6 +717,54 @@ def test_scalable_resource_capacity_uses_only_allowlisted_fields() -> None:
         is None
     )
     assert _resource_capacity("compute.vm", {"sku": {"capacity": 3}}) is None
+
+
+def test_model_deployment_projection_allowlists_identity_sku_and_tpm() -> None:
+    properties = {
+        "name": "chat",
+        "model_name": "gpt-5.4",
+        "model_version": "2026-08-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+        "capacity_tpm_source": "properties.rateLimits",
+        "secret": "must-not-leak",
+        "properties": {"model": {"name": "unreviewed"}},
+    }
+    expected = {
+        "model_name": "gpt-5.4",
+        "model_version": "2026-08-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+    }
+
+    assert _model_deployment_projection("llm-model-deployment", properties) == expected
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="endpoint/deployments/chat",
+            resource_type="llm-model-deployment",
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+    )
+    assert projected["model_deployment"] == expected
+    assert "secret" not in projected
+    assert "capacity_tpm_source" not in projected
+    assert "properties" not in projected
+    assert _model_deployment_projection("llm-endpoint", properties) is None
+
+
+@pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])
+def test_model_deployment_projection_rejects_invalid_tpm(capacity_tpm: object) -> None:
+    assert _model_deployment_projection(
+        "llm-model-deployment",
+        {"capacity_tpm": capacity_tpm},
+    ) == {
+        "model_name": None,
+        "model_version": None,
+        "sku_name": None,
+        "capacity_tpm": None,
+    }
 
 
 async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identity(
@@ -768,3 +822,32 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
         assert "LEFT JOIN inventory_realtime_link overlay" in link_query
         assert "NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay" not in link_query
         assert "removed.change_kind='delete'" in link_query
+
+
+async def test_instance_directory_uses_the_same_realtime_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[str] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        return []
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    await store.read_inventory_instances(
+        snapshot_id="generation-1",
+        search=None,
+        limit=10,
+    )
+
+    assert len(statements) == 1
+    assert "FROM effective_resources" in statements[0]
+    assert "snapshot.props || overlay.props" in statements[0]
+    assert "removed.change_kind='delete'" in statements[0]

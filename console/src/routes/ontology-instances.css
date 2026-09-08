@@ -95,7 +95,7 @@
 .ontology-instance-dense-legend li span { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .ontology-instance-dense-legend button { min-height: 28px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font: inherit; font-size: var(--cs-type-caption-size); font-weight: 700; cursor: pointer; }
 .ontology-instance-dense-legend button:hover, .ontology-instance-dense-legend button:focus-visible { border-color: var(--accent); color: var(--fg); outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); outline-offset: 1px; }
-.ontology-instance-graph-scroll { min-width: 0; max-height: clamp(560px, calc(100vh - 300px), 900px); overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
+.ontology-instance-graph-scroll { min-width: 0; height: clamp(560px, calc(100vh - 300px), 900px); overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
 .ontology-instance-graph-scroll.is-panning { cursor: grabbing; user-select: none; }
 .ontology-instance-graph-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ontology-instance-graph-canvas { display: block; margin: 0 auto; }
@@ -156,7 +156,7 @@
 .ontology-instance-state-badge.is-danger { border-color: color-mix(in srgb, var(--danger) 42%, var(--border)); background: color-mix(in srgb, var(--danger) 11%, var(--bg-elevated)); color: var(--danger); }
 .ontology-instance-overview-status { margin: 0 0 14px; }
 .ontology-instance-overview-status .status-pill { font-size: var(--cs-type-compact-size); font-weight: 800; }
-.ontology-instance-graph-tooltip { display: grid; min-width: 180px; gap: 2px; white-space: normal; }
+.ontology-instance-graph-tooltip { display: grid; min-width: 180px; max-width: min(320px, calc(100vw - 32px)); gap: 2px; overflow-wrap: anywhere; white-space: normal; }
 .ontology-instance-graph-tooltip strong { font-size: var(--cs-type-compact-size); }
 .ontology-instance-graph-tooltip span { color: var(--fg-muted); }
 .ontology-instance-history { min-width: 0; border-top: 1px solid var(--border); background: var(--bg-elevated); }

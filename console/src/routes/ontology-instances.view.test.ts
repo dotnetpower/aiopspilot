@@ -73,6 +73,14 @@ describe("Ontology Instances view controls", () => {
     expect(inspectorSource).toContain("<StatusPill");
     expect(inspectorSource).toContain("ontologyInstanceStatusTone(root.status)");
     expect(inspectorSource).toContain("ontology.instances.nodeCount");
+    expect(inspectorSource).toContain("ontology.instances.modelName");
+    expect(inspectorSource).toContain("ontology.instances.modelVersion");
+    expect(inspectorSource).toContain("ontology.instances.deploymentSku");
+    expect(inspectorSource).toContain("ontology.instances.tokensPerMinute");
+    expect(graphSource).toContain("ontology.instances.modelTpmShort");
+    expect(graphSource).toContain("modelDeployment.model_name");
+    expect(graphSource).toContain("modelDeployment.model_version");
+    expect(instancesSource).toContain("model_deployment: resource.model_deployment");
     expect(instancesSource).toContain("installOntologyInstanceRefresh");
     expect(instancesSource).toContain("useOntologyInvalidationStream");
     expect(instancesSource).toContain("formatOntologyRefreshCountdown");
@@ -154,8 +162,9 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).not.toContain("<title>");
   });
 
-  it("gives the canvas the viewport instead of a fixed box", () => {    expect(styles).toMatch(
-      /\.ontology-instance-graph-scroll\s*\{[^}]*max-height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
+  it("keeps the graph viewport tall when its canvas content is short", () => {
+    expect(styles).toMatch(
+      /\.ontology-instance-graph-scroll\s*\{[^}]*height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
     );
     expect(graphModelSource).toContain("const INSTANCE_MAX_ROWS = 10;");
     expect(graphModelSource).toContain("const INSTANCE_SCOPE_DIRECT_LIMIT = 7;");

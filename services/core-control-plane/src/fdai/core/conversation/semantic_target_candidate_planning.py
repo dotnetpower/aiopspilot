@@ -39,44 +39,11 @@ from .semantic_planning_models import (
 )
 from .semantic_planning_value_filters import stated_subject_fragment, stated_value_filters
 from .semantic_resource_state_planning import resource_collection_definition
-
-_TARGET_SCOPED_OUTPUTS = frozenset(
-    {
-        SemanticOutputShape.CAUSAL_EVIDENCE,
-        SemanticOutputShape.INVENTORY_IMPACT,
-        SemanticOutputShape.TARGET_ACTIVITY,
-        SemanticOutputShape.TARGET_CURRENT_STATE,
-        SemanticOutputShape.TARGET_ERROR_ACTIVITY_CORRELATION,
-        SemanticOutputShape.TARGET_HEALTH_ASSESSMENT,
-        SemanticOutputShape.TARGET_INGRESS_CONFIGURATION,
-        SemanticOutputShape.TARGET_RESOURCE_METRIC,
-        SemanticOutputShape.TARGET_RESOURCE_METRIC_SERIES,
-        SemanticOutputShape.TEMPORAL_COMPARISON,
-        SemanticOutputShape.TOPOLOGY_GRAPH,
-    }
-)
-_CANDIDATE_RESOLVABLE_REQUIREMENTS = frozenset(
-    {
-        ClarificationRequirement.MEASURE,
-        ClarificationRequirement.RESOURCE_IDENTITY,
-        ClarificationRequirement.SUBJECT,
-    }
-)
-_TARGET_BOUND_OPERATING_INTENT_TYPES = frozenset(
-    {
-        "ArchitectureConstraint",
-        "ChangeWindow",
-        "CostObjective",
-        "Ownership",
-        "RecoveryObjective",
-        "ServiceObjective",
-    }
-)
-_DECISION_OUTCOME_LINEAGE_TYPES = (
-    "DecisionCase",
-    "ActionOption",
-    "ActionRun",
-    "ObservedOutcome",
+from .semantic_target_candidate_constants import (
+    CANDIDATE_RESOLVABLE_REQUIREMENTS,
+    DECISION_OUTCOME_LINEAGE_TYPES,
+    TARGET_BOUND_OPERATING_INTENT_TYPES,
+    TARGET_SCOPED_OUTPUTS,
 )
 
 
@@ -86,6 +53,7 @@ def build_stated_resource_filter_frame(
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Build a filtered collection from one source-grounded judgment facet."""
 
@@ -104,23 +72,78 @@ def build_stated_resource_filter_frame(
         or any(not isinstance(facet, str) for facet in raw_facets)
     ):
         return None
-    filters = stated_value_filters(utterance, descriptors)
-    if not filters.get(("Resource", "type")):
-        return None
     targets = semantic_judgment.get("targets")
-    target_values = (
-        [
-            target["value"]
-            for target in targets
-            if isinstance(target, Mapping)
-            and isinstance(target.get("kind"), str)
-            and (target["kind"] == "affected_target" or target["kind"].endswith("_filter"))
-            and isinstance(target.get("value"), str)
-            and target.get("canonical_value") is None
-        ]
+    typed_targets = (
+        tuple(target for target in targets if isinstance(target, Mapping))
         if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
-        else []
+        else ()
     )
+    if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
+        return None
+    filters = stated_value_filters(utterance, descriptors)
+    typed_collection = primary_intent in {
+        "query.contextual_resources",
+        "query.resource_current_state",
+        "query.resource_state_inventory",
+    } and (
+        (
+            {"resource_collection", "list"} <= set(raw_facets)
+            and any(
+                target.get("kind") in {"resource_type_filter", "resource_state_filter"}
+                for target in typed_targets
+            )
+        )
+        or (
+            bool(filters.get(("Resource", "type")))
+            and any(
+                target.get("kind") == "resource_group"
+                or (isinstance(target.get("kind"), str) and target["kind"].endswith("_filter"))
+                for target in typed_targets
+            )
+        )
+    )
+    if (
+        not typed_collection
+        and query_target_cardinality(utterance, inventory_query_language)
+        is not QueryTargetCardinality.COLLECTION
+    ):
+        return None
+    if not filters.get(("Resource", "type")):
+        if not any(target.get("kind") == "resource_type_filter" for target in typed_targets):
+            return None
+        korean = any("가" <= character <= "힣" for character in utterance)
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.RESOURCE_LIST,
+            evidence_requirements=(),
+            unresolved_terms=("resource_filter_meaning",),
+            clarification_requirements=(ClarificationRequirement.SUBJECT,),
+            clarification=(
+                "요청한 리소스 범위가 유형, 이름 포함, 또는 관계 기준인지 알려주세요?"
+                if korean
+                else "Should the resource scope use a type, a name fragment, or a relationship?"
+            ),
+            investigation=None,
+            confidence=float(semantic_judgment.get("confidence", 0.0)),
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    target_values = [
+        target["value"]
+        for target in typed_targets
+        if isinstance(target.get("kind"), str)
+        and (
+            target["kind"] == "affected_target"
+            or (
+                target["kind"].endswith("_filter")
+                and target["kind"] not in {"resource_type_filter", "resource_state_filter"}
+            )
+        )
+        and isinstance(target.get("value"), str)
+        and target.get("canonical_value") is None
+    ]
     unique_target_values = tuple(
         dict.fromkeys(
             value for value in target_values if utterance.casefold().count(value.casefold()) == 1
@@ -131,11 +154,10 @@ def build_stated_resource_filter_frame(
         if len(unique_target_values) == 1
         else stated_subject_fragment(utterance, raw_facets, descriptors)
     )
-    if fragment is None:
-        return None
+    subject_constraints = ("Resource",) if fragment is None else ("Resource", fragment)
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
-        subject_constraints=("Resource", fragment),
+        subject_constraints=subject_constraints,
         measure_concepts=("name", "type"),
         temporal_scope={},
         output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
@@ -211,7 +233,7 @@ def build_non_resource_target_clarification(
     subject_types = _non_resource_object_subjects(proposal.subject_constraints, descriptors)
     subject_types = _expand_operating_intent_subjects(subject_types, descriptors)
     allow_unknown_cardinality = bool(
-        _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(subject_types)
+        TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(subject_types)
     )
     if (
         cardinality is QueryTargetCardinality.COLLECTION
@@ -256,7 +278,7 @@ def _expand_operating_intent_subjects(
     descriptors: tuple[dict[str, Any], ...],
 ) -> tuple[str, ...]:
     selected = set(subject_types)
-    if not _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(selected) and selected != {
+    if not TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(selected) and selected != {
         "BusinessService"
     }:
         return subject_types
@@ -268,7 +290,7 @@ def _expand_operating_intent_subjects(
         if (
             isinstance(source_type, str)
             and isinstance(target_type, str)
-            and target_type in _TARGET_BOUND_OPERATING_INTENT_TYPES
+            and target_type in TARGET_BOUND_OPERATING_INTENT_TYPES
             and (source_type in selected or target_type in selected)
         ):
             selected.update((source_type, target_type))
@@ -303,7 +325,7 @@ def resource_target_candidates_apply_to_utterance(
         return False
     if cardinality is QueryTargetCardinality.SINGULAR:
         return True
-    if frame.output_shape in _TARGET_SCOPED_OUTPUTS:
+    if frame.output_shape in TARGET_SCOPED_OUTPUTS:
         return True
     residual_subject = stated_subject_fragment(
         utterance,
@@ -329,7 +351,7 @@ def resource_target_candidates_apply_to_proposal(
         return False
     if cardinality is QueryTargetCardinality.SINGULAR:
         return True
-    if proposal.output_shape in _TARGET_SCOPED_OUTPUTS:
+    if proposal.output_shape in TARGET_SCOPED_OUTPUTS:
         return True
     if ClarificationRequirement.RESOURCE_IDENTITY in proposal.clarification_requirements:
         return True
@@ -384,7 +406,7 @@ def resolve_resource_target_candidates(
     requirements = frozenset(proposal.clarification_requirements)
     target_scoped = (
         cardinality is QueryTargetCardinality.SINGULAR
-        or frame.output_shape in _TARGET_SCOPED_OUTPUTS
+        or frame.output_shape in TARGET_SCOPED_OUTPUTS
         or (residual_subject is not None and bool(frame.measure_concepts))
         or bool(
             requirements
@@ -396,7 +418,7 @@ def resolve_resource_target_candidates(
     )
     if not target_scoped:
         return proposal, frame
-    if not requirements <= _CANDIDATE_RESOLVABLE_REQUIREMENTS:
+    if not requirements <= CANDIDATE_RESOLVABLE_REQUIREMENTS:
         return proposal, frame
     filters = stated_value_filters(utterance, descriptors)
     if not filters.get(("Resource", "type")):
@@ -529,7 +551,7 @@ def normalize_decision_outcome_relationship(
     korean = re.search(r"[가-힣]", utterance) is not None
     resolved = proposal.model_copy(
         update={
-            "subject_constraints": (*_DECISION_OUTCOME_LINEAGE_TYPES, *target_constraints),
+            "subject_constraints": (*DECISION_OUTCOME_LINEAGE_TYPES, *target_constraints),
             "temporal_scope": {"kind": "historical"},
             "unresolved_terms": ("DecisionCase identity",) if needs_target else (),
             "clarification_requirements": (

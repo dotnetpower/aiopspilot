@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 26db44ca93b8afc1d0655402309ccd5edb84a7e8
-translation_revised: 2026-09-06
+translation_source_sha: 466c569e419f9fea21fff1b0fa50d8e8c9153c88
+translation_revised: 2026-09-07
 ---
 # 지속형 질문 공간
 
@@ -54,6 +54,12 @@ Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
 
+등록된 원본은 현재 논리 질문 400개를 구체화합니다. 검토된 Golden 기대값 35개, 이중 언어
+수동 질문 쌍 60개, Console 시작 질문 5개, 운영자 후보 300개로 구성됩니다. 운영자 후보 중
+50개는 정제된 인벤토리 검토에서 관측한 일반 Azure 리소스 유형 19개에 대한 읽기 전용 현재
+리소스 SRE 범위를 제공합니다. 원본은 실제 리소스 이름, 식별자, 엔드포인트 또는 공급자
+페이로드를 보존하지 않습니다.
+
 인벤토리에 포함됐다는 사실만으로 런타임 준비가 완료되지는 않습니다. 후보별로 검토된 의미
 기대값, principal 범위의 기능 연결, 근거 한계, 금지된 주장 oracle, 필수 검증을 갖추기 전에는
 Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격되지 않습니다. 권장 사항,
@@ -66,6 +72,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 통합 질문은행 인벤토리 | implemented | `eval/golden-dataset/question-bank/`, 공식 질문은행 생성기, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 생성된 인벤토리는 원본 파일 11개에서 논리 질문 400개를 구성합니다. 현재 리소스 SRE 후보 50개는 일반 Azure 리소스 유형 19개를 다루고 서버 소유 범위를 요구하며 읽기 전용 및 `execution_authority=false`를 유지합니다. 후보 등록은 런타임 연결이나 실제 운영 근거를 인증하지 않습니다. |
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
 | 구조화된 조사 보증 | implemented | `semantic_{investigation,investigation_planning,planning_cascade}.py`, `semantic_turn_presentation.py`, Azure activity 및 metric 신원 adapter, 조사, shipped catalog, query-node 및 이중 언어 표현 테스트 | 대상 결속 diagnostic 인과 사례는 정확한 entity 해석, 정렬된 근거 window, 온톨로지로 순위를 정한 관계 경로, 증상 방향, Activity Log 근거, 경쟁하는 지지 및 반증을 요구합니다. 타입이 지정된 `cause` facet은 후보 primary intent가 `query.resource_current_state`여도 current-state 빠른 경로를 차단합니다. 사용할 수 없는 causal framing은 비인과 답변으로 낮아지지 않고 사용할 수 없는 상태로 유지됩니다. T1이 정확한 Resource 대상과 causal frame을 유지했지만 중첩 조사만 누락하면 Core는 부정되지 않고 대상 identifier 밖에 있는 검토된 인과, 증상, 시작 span, 경쟁 change event 및 명시적 가설 부재, Resource-to-service path와 지연 시간, 종속성, 요청량 metric concept가 모두 검증될 때만 일반 slowness 조사를 완성합니다. 누락된 outer `Resource` type은 스키마로 검증된 semantic target이 하나이고 `kind=resource`이며 exact target 값과 일치하고 충돌하는 canonical type이 없을 때만 복원합니다. Dependency-latency와 traffic-load 경쟁 가설의 cause metric은 모두 검증된 path에 의존하며 T2를 호출하지 않습니다. 실행이 판단 보류 상태로 남아도 완료된 metric comparison은 정확한 측정 변화를 표시하고, join 결과가 없는 검증된 각 hypothesis는 evidence 없이 `unresolved`와 정확한 실행 gap으로 표시합니다. 최종 artifact와 상세 활동 13개는 대상, 증상, window, 측정된 변화, 각 query 결과, 가설 근거, limitation, evidence reference, confidence basis, `execution_authority=false`를 보존합니다. Container Apps service latency는 exact-resource `ResponseTime`을 사용합니다. Request 및 dependency span은 표준 `cloud.resource_id` 속성이 있어야 하며, 없으면 명시적인 provider gap으로 유지됩니다. Console UI 기본 설정이 영어여도 한국어 prompt는 해당 turn의 한국어 응답을 선택합니다. |
@@ -91,6 +98,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정제된 인벤토리 검토에 존재하는 일반 Azure 리소스 유형 19개를 다루는 이중 언어 현재 리소스 SRE 후보 50개를 추가했습니다. 실제 리소스 식별자를 보존하거나 실행 권한을 부여하지 않고 원본을 통합 질문은행에 등록하고 기계 판독용 인벤토리와 사람 검토용 카탈로그를 다시 생성했습니다. | `current change`, `current-resource-sre-questions.source.yaml`, 공식 질문은행 생성기가 원본 11개에서 논리 질문 400개 생성, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 후보를 Golden 또는 Console 표시 상태로 승격하기 전에 의미 기대값, 런타임 기능 연결 및 근거 한계를 검토합니다. |
 | 2026-09-04 | implemented | 커밋 범위 회귀 검사에서 탐색 없이 링크가 필요한 네트워크 경로 소비자를 발견한 뒤 첫 객체 전용 변경을 바로잡았습니다. 기본값이 직렬화에서 생략되는 하위 호환 `include_relationships` 선택 항목을 추가하고 리소스 상태 컬렉션 계획에서만 관계를 제외했습니다. | `current change`, 네트워크 의존성, 기존 직렬화, 탐색 불변 조건, ObjectSet 및 리소스 상태 회귀 검사 | 객체 전용 소비자가 링크를 사용하지 않음을 명시적으로 증명할 때까지 기본 관계 동작을 유지합니다. |
 | 2026-09-04 | implemented | 관련 없는 토폴로지 조정이 불완전해도 컬렉션 상태 조회가 검증된 일치 리소스를 유지하도록 탐색 없는 ObjectSet 완전성을 관계 완전성과 분리했습니다. | `current change`, ObjectSet, PostgreSQL 범위, 리소스 상태 기능, 의미 계획 및 Browser Entra 회귀 근거 | 리소스 유형별 상태 적용 가능성은 검토된 카탈로그 의미를 통해서만 확장합니다. 실행 상태 계약이 없는 리소스를 정상 또는 실행 중으로 간주하지 않습니다. |
 | 2026-09-03 | implemented | 예약 질문 생성에서 모델이 작성하던 의미 필드를 제거했습니다. 이제 모델은 문구만 반환하고 Core가 완전한 불변 사례 계약을 결속하여 동일한 계약을 독립 검토기에 제공합니다. | `current change`; 질문 후보, 캠페인 실행기, Azure 생성, 프롬프트 카탈로그 및 추적된 보증 회귀 검사 | 새로운 운영 답변 품질 근거를 주장하기 전에 별도로 명시한 라이브 캠페인을 실행합니다. |

@@ -44,6 +44,7 @@ EXPECTED_DEPENDENCIES = {
     "core-control-plane": {
         "aiokafka",
         "alembic",
+        "azure-core",
         "croniter",
         "cryptography",
         "fdai-github-app-auth",

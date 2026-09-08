@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f55111c907fa5a0d47fc5d4eef88c1a863cbb731
-translation_revised: 2026-09-06
+translation_source_sha: 556e3b401c45d74465e16a7da2c908f113aec997
+translation_revised: 2026-09-08
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -41,6 +41,12 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | C5 - 근거 상태 | 런타임 근거가 사용 가능하고 최신이며 완전합니까? 충돌하거나 합성된 상태입니까? | 정제된 원본 별칭, 세대, 기준 시점, 최신성, 충돌, 제외 사유 및 사용 불가 시 nullable count입니다. |
 | C6 - 거버넌스 적용 액션 | 어떤 액션이 이 선언에 의미적으로 연결되어 있습니까? | 정확한 ObjectType 또는 InterfaceType 대상 근거와 전체 ActionType 안전성 계약이며 execute control은 없습니다. |
 | C7 - 변경 안전성 | 보존된 두 release 사이에서 무엇이 바뀌었습니까? | 정확한 release 다이제스트, 선언 참조 추가/변경/제거, 호환성 판정, 이행 필요 여부 및 결정론적 diff 다이제스트입니다. |
+
+대화 계획은 스키마로 검증된 의도 분류 뒤 모델에 전달할 더 작은 변환 결과를 만들 수 있습니다.
+구독 인벤토리 문서는 `Resource`를 유지하고, 구성 비교는 검토된 구성 함수 두 개를 추가하며,
+게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
+최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
+principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
@@ -279,6 +285,12 @@ signed planner FunctionType identity를 `planner_ref`에 보존하고, 해당 li
 제공자를 하나의 쌍으로 바인딩합니다. Core는 Operator 저장과 표시 전에 정확한 번들과 Context
 메타데이터를 승인합니다. 신원, 근거, 그래프, 인용, 모순 또는 예산 문제가 있으면 응답을
 보류하며, 이 경로는 프로바이더 읽기 또는 권한을 추가하지 않습니다.
+
+컬렉션 상태 읽기는 정본 `state` 속성과 해당 `state_fact_metadata.state` 항목을 함께 사용합니다.
+재실행을 위해 유지하는 이전 평면 메타데이터 형식도 읽을 수 있습니다. 범위가 넓은 상태 ObjectSet은
+먼저 매니페스트에 선언되고 검토된 운영 상태 경로와 관측 상태 메타데이터가 있는 Resource 유형을
+선택합니다. 원본 범위가 불완전하면 검증된 일치 행을 불완전 상태로 표시할 수 있지만 빈 결과로
+부재를 판단하지 않습니다.
 
 진단 런타임은 Kubernetes 집약기 22개를 exact-release `derive` 함수로 등록합니다.
 실제 운영 프로바이더는 `diagnostic-evaluation` 용도에서 Heimdall로 레지스트리를 호출하고 각 호출

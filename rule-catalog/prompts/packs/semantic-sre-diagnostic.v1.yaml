@@ -1,0 +1,16 @@
+id: semantic-sre-diagnostic
+version: 1
+layer: pack
+applies_to:
+  - semantic.judgment
+token_budget: 220
+default_mode: enforce
+body: |-
+  Current SRE diagnostic objective:
+  - For an exact Application Gateway or API Management name with a current latency or HTTP error symptom, use query.gateway_diagnostic_evidence and add default_recent_window when no interval is stated.
+  - Keep only the exact gateway instance as a Resource target. Generic Backend Instance, API Management, GPT, and GPT family/version labels are requested facets, not additional Resource targets.
+  - For a current collection-level configuration-change question about deployed GPT resources, use query.resource_configuration_changes, preserve a resource_type_filter target grounded to llm-model-deployment, and add default_recent_window plus the requested change and potential-impact facets.
+  - The default recent window is a server-owned read policy, not evidence of causation. Preserve missing metrics, topology, baselines, and configuration history as explicit gaps.
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Supports bounded current SRE diagnostics and collection-level GPT change tracking.

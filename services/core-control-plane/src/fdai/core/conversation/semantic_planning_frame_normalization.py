@@ -46,6 +46,7 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
+from .semantic_planning_value_filters import stated_value_filters
 from .semantic_target_identity import exact_target_from_constraints
 
 _ACTION_DRAFT_TEMPORAL_SCOPE = {
@@ -106,6 +107,48 @@ def build_document_draft_frame(
         unresolved_terms=(),
         clarification_requirements=(),
         clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_inventory_document_frame(
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Bind a fresh inventory document read, never a mutation or prior-result export."""
+
+    if (
+        judgment is None
+        or judgment.primary_intent != "create.document"
+        or judgment.action_posture != "advise_only"
+        or judgment.action_subject != "none"
+        or judgment.secondary_intents
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+        or judgment.discourse_mode != "direct"
+        or set(judgment.requested_facets)
+        != {"resource_inventory", "subscription", "complete_content", "download"}
+        or any(
+            target.kind != "object_type" or target.canonical_value != "Resource"
+            for target in judgment.targets
+        )
+        or not any(
+            descriptor.get("kind") == "object" and descriptor.get("name") == "Resource"
+            for descriptor in descriptors
+        )
+    ):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource",),
+        measure_concepts=("complete_content", "download"),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.RESOURCE_LIST,
         investigation=None,
         confidence=judgment.confidence,
     )
@@ -316,9 +359,11 @@ def build_named_resource_group_membership_frame(
     ):
         return None
     target = judgment.targets[0]
+    target_type_filters = stated_value_filters(target.value, descriptors)
     if (
         target.kind != "resource_group"
         or utterance[target.source_start : target.source_end] != target.value
+        or "resource-group" in target_type_filters.get(("Resource", "type"), ())
     ):
         return None
     resolved = SemanticFrameProposal(
