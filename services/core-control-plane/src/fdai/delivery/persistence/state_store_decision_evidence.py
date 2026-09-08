@@ -35,6 +35,20 @@ _RECORD_FIELDS = frozenset(
         "record_digest",
     }
 )
+_ADMISSION_FIELDS = frozenset(
+    {
+        "receipt_digest",
+        "verification_bundle_digest",
+        "evidence_digest",
+        "scope_digest",
+        "purpose_id",
+        "source_revision",
+        "verified_at",
+        "valid_until",
+        "execution_authority",
+        "promotion_authority",
+    }
+)
 
 
 class DecisionEvidenceAdmissionRecordError(RuntimeError):
@@ -297,6 +311,8 @@ def _validate_relations(retained: RetainedDecisionEvidence) -> None:
 
 
 def _admission_from_mapping(raw: Mapping[str, Any]) -> DecisionEvidenceAdmission:
+    if set(raw) != _ADMISSION_FIELDS:
+        raise ValueError("retained decision evidence admission shape is invalid")
     if raw.get("execution_authority") is not False or raw.get("promotion_authority") is not False:
         raise ValueError("retained decision evidence admission cannot grant authority")
     return DecisionEvidenceAdmission(
