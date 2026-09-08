@@ -386,6 +386,7 @@ export interface ModelUsage {
 }
 
 export type TurnTimingPhaseName =
+  | "durable_queue"
   | "semantic_plan"
   | "evidence"
   | "generation"

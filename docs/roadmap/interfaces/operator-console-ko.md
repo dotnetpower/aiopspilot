@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0692e9d7ca7543d8130a955246fc190af4154c63
+translation_source_sha: 2eba6bc22c44d14a5644ee37773a5b99acbe7321
 translation_revised: 2026-09-08
 ---
 # FDAI Console 대화
@@ -533,7 +533,7 @@ pull 어댑터 추가. 콘솔은 이제:
 | Core/CLI translator | `Narrator`, `AzureOpenAINarratorModel`의 근거에 기반한 답변 렌더링, 조정기, 읽기 도구, Python headless 실행 장치 및 shared-API TypeScript CLI가 제공됩니다. 의도 translation과 답변 렌더링은 별도 프롬프트를 사용하며 둘 다 결정론적 도구 및 RBAC 경계를 유지합니다. |
 | 쓰기/승인 도구 | simulate, HIL, 런북, 제안 경로가 제공됩니다. Break-glass는 §7.3의 pager/감사 요청 증적까지만 제공하며 권한 상승은 없습니다. |
 | Teams/Slack 대화 | `ProductionChannelRuntime`, 인증된 유입, principal 해석, 발행기, 영속 회신 옵션이 제공됩니다. 실제 배포 활성화/자격 증명은 environment-owned입니다. |
-| Web chat and 기억 | JSON/SSE chat, principal 범위로 한정된 대화 이력/preferences/기억, AnswerPlan 및 progressive 검증이 제공됩니다. |
+| Web chat and 기억 | JSON/SSE chat, principal 범위로 한정된 대화 이력/preferences/기억, AnswerPlan 및 progressive 검증이 제공됩니다. 제한된 timing parser는 전체 timing envelope를 폐기하지 않고 Core의 영속 큐 단계를 별도로 보존합니다. |
 | 관측/발견 | `POST /read-investigations`는 Azure I/O 전에 영속 지연 시간 근거로 direct, streamed, detached 실행을 선택합니다. Direct Command Deck 및 HTTP 읽기는 owner-scoped result-replay 원장을 공유하며 streamed 응답이 닫히면 in-flight 읽기를 취소합니다. Dedicated 읽기 담당 연결이 있을 때만 등록되며 카탈로그 presence만으로 프로바이더 상태나 승격을 주장하지 않습니다. |
 | 예측 및 Dynamic learning | `GET /forecast-learning`은 예측 closure와 게시 상태를 변환 결과하고, `GET /dynamic-assurance`는 영속 scalar/그래프 모델 요약과 trajectory closure 개수를 변환 결과합니다. 두 경로 모두 Reader-only이며 detector/모델 변경, 승격, 승인 또는 실행 컨트롤을 제공하지 않습니다. |
 | 구독 프로비저닝 | `/provisioning`은 영속 단계 근거를 재생하고 예상 인벤토리 진행률을 표시하며 배포 권한 없이 검증된 준비 상태, 실패 또는 취소를 보여 줍니다. |

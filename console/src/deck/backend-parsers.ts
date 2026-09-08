@@ -27,6 +27,7 @@ const MAX_MODEL_TRACE_REDACTIONS = 16;
 const MAX_TURN_TIMING_PHASES = 8;
 const MAX_TURN_DURATION_MS = 7_200_000;
 const TURN_TIMING_PHASES = [
+  "durable_queue",
   "semantic_plan",
   "evidence",
   "generation",

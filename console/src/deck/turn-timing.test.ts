@@ -32,6 +32,19 @@ describe("parseTurnTiming", () => {
     expect(parseTurnTiming(timing())).toEqual(timing());
   });
 
+  it("accepts the Core-owned durable queue phase", () => {
+    const value = timing();
+    value.phases.unshift({
+      phase: "durable_queue",
+      status: "completed",
+      started_at: "2026-07-31T07:00:00Z",
+      completed_at: "2026-07-31T07:00:00.500Z",
+      duration_ms: 500,
+    });
+
+    expect(parseTurnTiming(value)).toEqual(value);
+  });
+
   it.each([
     { schema_version: 2 },
     { duration_ms: 3990 },
