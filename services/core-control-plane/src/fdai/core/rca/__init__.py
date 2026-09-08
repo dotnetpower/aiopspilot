@@ -104,6 +104,11 @@ from fdai.core.rca.temporal_causality import (
     TemporalCausalityConfig,
     TemporalSeries,
 )
+from fdai.core.rca.trace_continuity import (
+    TraceCauseEvidence,
+    TraceRcaCause,
+    analyze_trace_continuity_cause,
+)
 
 __all__ = [
     "CAUSAL_CLOSURE_EVIDENCE_PURPOSE",
@@ -170,6 +175,9 @@ __all__ = [
     "TemporalCausalityAnalyzer",
     "TemporalCausalityConfig",
     "TemporalSeries",
+    "TraceCauseEvidence",
+    "TraceRcaCause",
+    "analyze_trace_continuity_cause",
     "chain_to_hypothesis",
     "build_causal_hypothesis",
     "build_discriminating_observation_candidate",

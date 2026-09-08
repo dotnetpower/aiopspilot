@@ -1,8 +1,8 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 985e51682a54ddfc07e77787ef6ab6faae8af940
-translation_revised: 2026-09-04
+translation_source_sha: 2cbbe669e765f6e0674240d07513d80fb59d775b
+translation_revised: 2026-09-09
 ---
 # 근본원인 분석
 
@@ -22,6 +22,7 @@ translation_revised: 2026-09-04
 | Knowledge 근거 및 프로바이더 연결 | implemented | `core/rca/knowledge_evidence.py`, `shared/providers/knowledge.py`, `delivery/pgvector/knowledge.py`, `delivery/azure/llm/rca_model.py`, `runtime/bootstrap.py`, 집중 프로바이더, 어댑터 및 런타임 테스트 | 런타임은 Azure LLM 초기화 이후와 원격 측정 전용 모드 모두에서 구성된 pgvector 소스를 연결합니다. 다시 수집하면 문서 조각을 원자적으로 교체하고 빈 교체는 삭제하므로 오래된 개정이 검색 결과에 남지 않습니다. 연결이 없을 때는 근거를 만들어 내지 않습니다. |
 | 관리되는 자동 Incident RCA 맥락 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, `runtime/governed_rca.py`, 자동 T2 및 맥락 테스트 | 완전한 배포 바인딩이 별도 읽기 전용 DSN, 컬렉션, 접근 참조, 읽기 그룹을 제공합니다. 자동 Incident T2는 고정된 Forseti 주체와 `incident-review` 목적을 사용하고 인시던트, 리소스, 기준 시각, 온톨로지, 카탈로그 신원을 결속하며 권한 있는 문서 근거가 없으면 판단을 보류합니다. |
 | Azure 배포 이력 및 의존성 맥락 | implemented | `delivery/azure/deployment_history.py`, `delivery/persistence/postgres_provider_identity.py`, `runtime/rca_bindings.py`, topology history, 프로바이더, 런타임 및 control-loop 테스트 | 전용 Monitoring Reader가 이벤트 기준 시각의 인벤토리 세대에서 프로바이더 신원을 해석합니다. 런타임은 같은 기준 시각의 bitemporal topology를 구성하고 세대가 일치하는 성공한 정확한 범위 변경만 허용하며, 재개 lifecycle을 지원하고 맥락, 분석 및 감사를 하나의 side-path deadline으로 제한합니다. |
+| 분산 추적 원인 구분 | implemented | `core/rca/trace_continuity.py`, `tests/core/rca/test_trace_continuity.py` | 독립적으로 인용된 신호 하나로 계측, 수집기 또는 헤더 전파 원인을 구분할 수 있습니다. 근거가 없거나 충돌하거나 범위가 일치하지 않으면 검토를 위해 판단을 보류하며 결과에는 수정 참조가 없습니다. |
 | 읽기 전용 운영자 프로젝션 | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`, 집중 프로젝션 테스트 | 작업 권한 없이 감사 가설, 인용, 구조화된 인과사슬 및 연결된 대응 계획을 프로젝션합니다. |
 | 통제된 운영 RCA 정확도 | in-progress | [관측성과 감지](observability-and-detection-ko.md#구현-상태) | 티어 혼합 전체에서 실제 원인 정확도, 판단 보류 및 downstream 결과 종결을 입증하는 exact-revision cohort가 없습니다. |
 
@@ -29,6 +30,7 @@ translation_revised: 2026-09-04
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 분산 추적 불연속을 위한 결정론적 T1 구분을 추가했습니다. 분류기는 범위가 제한된 원격 측정 신호 하나만 받고, 영향을 받은 홉 또는 경계가 감지 결과와 일치하는지 확인하며, 연속성 근거와 원인 근거를 모두 인용하고, 수정 참조를 반환하지 않습니다. | `current change`; 집중 추적 RCA 검사 9건, 새 Core 범위의 Ruff 및 strict mypy가 통과했습니다. | 권위 있는 계측, 수집기, 헤더 전파 근거 생산자를 연결한 후 #142에서 추적하는 통제된 실제 cohort를 보존합니다. |
 | 2026-09-04 | implemented | T1을 historical 인벤토리 신원, append-only topology history, canonical lifecycle Incident 매칭, 전용 reader RBAC, sovereign endpoint/audience 결합 및 전체 side-path timeout을 사용하는 event-time 맥락으로 보강했습니다. Split 배포는 정확한 platform reader identity를 hydrate하고 guard합니다. | `current change`; 집중 RCA 프로바이더, 멤버, topology, timeout, hydration, plan guard, Terraform, Ruff 및 strict mypy 검사, 잔여 하드닝 라운드 1-4, 11-12, 15-16, 22-29, 32-42. | 관리되는 exact-revision 운영 cohort를 보존합니다. |
 | 2026-09-04 | implemented | 자동 Incident T2를 서버 소유의 관리되는 문서 맥락에 연결했습니다. 별도의 읽기 전용 PostgreSQL 어댑터가 lexical ranking 전에 컬렉션과 접근 참조를 필터링하고 불변 메타데이터와 정확한 읽기 그룹을 다시 확인한 뒤 인시던트, 리소스, 목적, 기준 시각, 릴리스 및 주체에 결속된 맥락을 기존 문서 근거 검증기에 전달합니다. 문서나 접근 권한이 없으면 다른 인용으로 계속하지 않고 T2 판단을 보류합니다. | `current change`; 집중 관리 맥락, 자동 T2, 문서 근거, Ruff, strict mypy 및 Core 서비스 Terraform 검사가 통과했습니다. | 관리되는 운영 RCA cohort와 배포된 문서 읽기 증적을 보존합니다. |
 | 2026-09-04 | implemented | T1 RCA를 정확한 Azure Activity Log 변경과 완전하고 최신인 의존성 그래프에 연결했습니다. 어댑터는 서버 소유 인벤토리에서 중립 ID를 해석하고, 호출자 신원을 해시하며, 읽기 작업, 실패, 범위 이탈, pagination 상한 초과, 오래된 신원 및 그래프 세대 변경을 차단하고 모든 결과를 shadow로 유지합니다. | `current change`; 집중 Azure 배포 이력, 의존성 세대, 멤버 출처 및 control-loop 테스트 28건, Ruff, strict mypy가 통과했습니다. | 정확한 개정 번호의 운영 cohort와 독립적으로 검증한 결과를 보존합니다. |
@@ -73,6 +75,23 @@ T0 구성 규칙 원인은 기본적으로 `infrastructure`를 사용하며, 더
 재사용할 때도 이를 보존합니다. T2는 선언된 enum 값만 반환할 수 있습니다. 값이 없으면
 `unknown`을 유지하고 지원되지 않는 값은 parser가 검토 대상으로 보류합니다. 이 필드가 없는
 기존 감사 레코드는 `unknown`으로 프로젝션됩니다.
+
+## 분산 추적 원인 구분
+
+연속성 감지기는 관측된 형태만 보고하며 원인을 추측하지 않습니다.
+`core/rca/trace_continuity.py`의 결정론적 T1 분류기는 감지 결과와 독립적인
+`TraceCauseEvidence` 신호 하나만 받습니다.
+
+| 원인 | 필요한 일치 조건 |
+|------|------------------|
+| `instrumentation` | 인용된 영향 홉이 컨텍스트 유실 결과에서 누락되었거나 잘못된 순서 결과에 존재합니다. |
+| `collector` | 인용된 수집기 근거가 컨텍스트 유실 결과에서 누락된 홉만 지목합니다. |
+| `header_propagation` | 인용된 경계가 컨텍스트 재생성 결과에서 끊겼거나 컨텍스트 유실 결과의 누락 홉에 인접합니다. |
+
+신호와 감지기 인용은 모두 `telemetry` 참조입니다. 신호가 없거나 두 개 이상이거나 범위가
+일치하지 않거나 결과가 불연속이 아니면 명시적인 판단 보류 결과를 만듭니다. 근거가 있는 결과는
+범위가 제한된 신뢰도의 T1 티어와 `remediation_ref=None`을 사용합니다. 관측된 원인을 설명하지만
+복구 작업을 선택하거나 승인할 수 없습니다.
 
 ## 업스트림 구현
 
