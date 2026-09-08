@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from fdai.delivery.decision_evidence_policy import (
+    DeploymentDecisionEvidencePolicy,
+    deployment_freshness_policy_digest,
+    load_deployment_decision_evidence_policy,
+)
 from fdai_service_contracts.decision_evidence import (
     DecisionCriticalEvidenceReceipt,
     EvidenceConflictStatus,
@@ -29,8 +34,6 @@ from fdai_service_contracts.ontology_query import content_digest
 _COMMIT = re.compile(r"^[a-f0-9]{40}$")
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_SOURCE_WORKFLOW = ".github/workflows/deploy-dev.yml"
-_FRESHNESS_SECONDS = 3600
 _MAX_FILE_BYTES = 1024 * 1024
 
 
@@ -46,6 +49,7 @@ def build_deployment_decision_evidence(
     expected_run_id: int,
     expected_run_attempt: int,
     evaluated_at: datetime,
+    policy: DeploymentDecisionEvidencePolicy,
 ) -> tuple[
     DecisionCriticalEvidenceReceipt,
     LiveEvidenceClaimRequirement,
@@ -63,6 +67,7 @@ def build_deployment_decision_evidence(
         expected_commit_sha=expected_commit_sha,
         expected_run_id=expected_run_id,
         expected_run_attempt=expected_run_attempt,
+        policy=policy,
     )
     metadata = _load_json(evidence_dir / "plan-metadata.json")
     preflight = _load_json(evidence_dir / "preflight-evidence.json")
@@ -79,7 +84,7 @@ def build_deployment_decision_evidence(
         expected_run_attempt=expected_run_attempt,
     )
     applied_at = _timestamp(apply_receipt, "applied_at")
-    if now < applied_at or now > applied_at + timedelta(seconds=_FRESHNESS_SECONDS):
+    if now < applied_at or now > applied_at + timedelta(seconds=policy.freshness_ceiling_seconds):
         raise DeploymentDecisionEvidenceError(
             "protected deployment evidence is outside its freshness window"
         )
@@ -90,13 +95,13 @@ def build_deployment_decision_evidence(
         "plan_metadata": content_digest(metadata),
         "preflight": content_digest(preflight),
     }
-    source_identity = f"github-actions:deploy-dev:{expected_run_id}"
+    source_identity = f"{policy.source_identity_prefix}:{expected_run_id}"
     authentication_evidence_digest = content_digest(
         {
             "commit_sha": expected_commit_sha,
             "run_attempt": expected_run_attempt,
             "run_id": expected_run_id,
-            "workflow_path": _SOURCE_WORKFLOW,
+            "workflow_path": policy.source_workflow_path,
         }
     )
     evidence_digest = content_digest(
@@ -119,13 +124,7 @@ def build_deployment_decision_evidence(
             "relationship_status": "clear",
         }
     )
-    freshness_policy_digest = content_digest(
-        {
-            "freshness_ceiling_seconds": _FRESHNESS_SECONDS,
-            "policy_id": "protected-deployment-one-hour",
-            "policy_version": "1.0.0",
-        }
-    )
+    freshness_policy_digest = deployment_freshness_policy_digest(policy)
     scope_digest = content_digest(
         {
             "context_digest": _required_digest(metadata, "context_digest"),
@@ -134,15 +133,15 @@ def build_deployment_decision_evidence(
     )
     receipt_values: dict[str, object] = {
         "schema_version": "1.0.0",
-        "authority_class": "protected_deployment",
+        "authority_class": policy.authority_class,
         "source_identity": source_identity,
         "authentication_evidence_digest": authentication_evidence_digest,
         "scope_digest": scope_digest,
-        "purpose_id": "deployment-apply",
-        "producer_id": "protected-deployment-workflow",
-        "producer_version": "1.0.0",
-        "method_id": "terraform-exact-plan-apply",
-        "method_version": "1.0.0",
+        "purpose_id": policy.purpose_id,
+        "producer_id": policy.producer_id,
+        "producer_version": policy.producer_version,
+        "method_id": policy.method_id,
+        "method_version": policy.method_version,
         "source_revision": expected_commit_sha,
         "evidence_digest": evidence_digest,
         "provenance_digest": content_digest(
@@ -154,11 +153,11 @@ def build_deployment_decision_evidence(
         "event_at": applied_at,
         "evidence_cutoff": applied_at,
         "recorded_at": now,
-        "fresh_until": applied_at + timedelta(seconds=_FRESHNESS_SECONDS),
-        "freshness_policy_id": "protected-deployment-one-hour",
-        "freshness_policy_version": "1.0.0",
+        "fresh_until": applied_at + timedelta(seconds=policy.freshness_ceiling_seconds),
+        "freshness_policy_id": policy.freshness_policy_id,
+        "freshness_policy_version": policy.freshness_policy_version,
         "freshness_policy_digest": freshness_policy_digest,
-        "freshness_ceiling_seconds": _FRESHNESS_SECONDS,
+        "freshness_ceiling_seconds": policy.freshness_ceiling_seconds,
         "completeness_basis_points": 10_000,
         "completeness_evidence_digest": completeness_evidence_digest,
         "conflict_status": EvidenceConflictStatus.CLEAR,
@@ -187,7 +186,7 @@ def build_deployment_decision_evidence(
         freshness_ceiling_seconds=receipt.freshness_ceiling_seconds,
         minimum_completeness_basis_points=10_000,
     )
-    authentication, readback = _proofs(receipt, issued_at=now)
+    authentication, readback = _proofs(receipt, issued_at=now, policy=policy)
     return receipt, requirement, authentication, readback, container_url
 
 
@@ -195,13 +194,14 @@ def _proofs(
     receipt: DecisionCriticalEvidenceReceipt,
     *,
     issued_at: datetime,
+    policy: DeploymentDecisionEvidencePolicy,
 ) -> tuple[
     DecisionEvidenceVerificationProof,
     tuple[DecisionEvidenceVerificationProof, ...],
 ]:
-    verifier_id = "github-actions.remote-evidence"
-    verifier_version = "1.0.0"
-    trust_anchor_id = "github-actions:protected-main"
+    verifier_id = policy.verifier_id
+    verifier_version = policy.verifier_version
+    trust_anchor_id = policy.trust_anchor_id
     subjects = expected_verification_subjects(
         authentication_evidence_digest=receipt.authentication_evidence_digest,
         evidence_digest=receipt.evidence_digest,
@@ -248,13 +248,14 @@ def _validate_source_run(
     expected_commit_sha: str,
     expected_run_id: int,
     expected_run_attempt: int,
+    policy: DeploymentDecisionEvidencePolicy,
 ) -> None:
     expected = {
         "id": expected_run_id,
         "run_attempt": expected_run_attempt,
         "head_sha": expected_commit_sha,
         "head_branch": "main",
-        "path": _SOURCE_WORKFLOW,
+        "path": policy.source_workflow_path,
         "event": "workflow_dispatch",
         "status": "completed",
         "conclusion": "success",
@@ -421,10 +422,12 @@ def main() -> int:
     parser.add_argument("--run-id", type=int, required=True)
     parser.add_argument("--run-attempt", type=int, required=True)
     parser.add_argument("--evaluated-at", required=True)
+    parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
         source_run = _load_json(args.source_run_json)
+        policy = load_deployment_decision_evidence_policy(args.policy)
         evidence = build_deployment_decision_evidence(
             evidence_dir=args.evidence_dir,
             source_run=source_run,
@@ -432,6 +435,7 @@ def main() -> int:
             expected_run_id=args.run_id,
             expected_run_attempt=args.run_attempt,
             evaluated_at=datetime.fromisoformat(args.evaluated_at.replace("Z", "+00:00")),
+            policy=policy,
         )
         receipt, requirement, authentication, readback, container_url = evidence
         args.output_dir.mkdir(mode=0o700, parents=True, exist_ok=False)

@@ -131,6 +131,7 @@ jobs:
               --run-id "$SOURCE_RUN_ID" \
               --run-attempt "$SOURCE_RUN_ATTEMPT" \
               --evaluated-at "$evaluated_at" \
+              --policy config/decision-evidence-deployment-policy.json \
               --output-dir "$RUNNER_TEMP/decision-evidence-inputs"
           uv run --frozen --package fdai-core-control-plane \
             python scripts/deployment/azure/decision_evidence_bundle.py \
@@ -140,6 +141,7 @@ jobs:
                 "$RUNNER_TEMP/decision-evidence-inputs/authentication-proof.json" \
               --readback-proofs "$RUNNER_TEMP/decision-evidence-inputs/readback-proofs.json" \
               --evaluated-at "$evaluated_at" \
+              --policy config/decision-evidence-deployment-policy.json \
               --output-bundle "$RUNNER_TEMP/decision-evidence-inputs/bundle.json" \
               --output-record "$RUNNER_TEMP/decision-evidence-inputs/admission-record.json"
 
