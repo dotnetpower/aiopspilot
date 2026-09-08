@@ -20,6 +20,12 @@ class RecoveryProfile(StrEnum):
     WARM = "warm"
 
 
+class RecoveryObservationLane(StrEnum):
+    """Authority boundary for measured recovery evidence."""
+
+    INDEPENDENT = "independent"
+
+
 class RecoveryMode(StrEnum):
     """Whether a plan activation is an exercise or a real incident."""
 
@@ -115,6 +121,94 @@ class RecoveryObjectives:
         _require_finite_positive("max_degraded_seconds", self.max_degraded_seconds)
         if self.max_degraded_seconds < self.rto_seconds:
             raise RecoveryPlanError("max_degraded_seconds MUST be >= rto_seconds")
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryOutcomeMeasurement:
+    """Bind observed recovery timing and integrity to one recovery epoch."""
+
+    plan_id: str
+    plan_revision: int
+    recovery_epoch: int
+    snapshot_at: datetime
+    failure_at: datetime
+    activated_at: datetime
+    verified_at: datetime
+    data_integrity_verified: bool
+    observation_lane: RecoveryObservationLane
+    observer_ref: str
+    evidence_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_text(
+            "plan_id",
+            self.plan_id,
+            max_chars=_MAX_PLAN_ID_CHARS,
+            separator_safe=True,
+        )
+        if isinstance(self.plan_revision, bool) or self.plan_revision < 1:
+            raise RecoveryPlanError("recovery outcome plan_revision MUST be >= 1")
+        _require_epoch(self.recovery_epoch)
+        if self.recovery_epoch < 1:
+            raise RecoveryPlanError("recovery outcome requires recovery_epoch >= 1")
+        _require_text(
+            "observer_ref",
+            self.observer_ref,
+            max_chars=_MAX_REF_CHARS,
+            separator_safe=True,
+        )
+        if self.observation_lane is not RecoveryObservationLane.INDEPENDENT:
+            raise RecoveryPlanError("recovery outcome requires the independent observation lane")
+        _require_unique_refs(
+            "evidence_refs",
+            self.evidence_refs,
+            max_items=_MAX_EVIDENCE_REFS,
+        )
+        for name, value in (
+            ("snapshot_at", self.snapshot_at),
+            ("failure_at", self.failure_at),
+            ("activated_at", self.activated_at),
+            ("verified_at", self.verified_at),
+        ):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise RecoveryPlanError(f"{name} MUST be timezone-aware")
+        if not self.snapshot_at <= self.failure_at <= self.activated_at <= self.verified_at:
+            raise RecoveryPlanError("recovery outcome timestamps MUST follow causal order")
+        if not isinstance(self.data_integrity_verified, bool):
+            raise RecoveryPlanError("data_integrity_verified MUST be boolean")
+
+    @property
+    def observed_rpo_seconds(self) -> float:
+        """Return measured data loss at the recovery cutoff."""
+
+        return (self.failure_at - self.snapshot_at).total_seconds()
+
+    @property
+    def observed_rto_seconds(self) -> float:
+        """Return measured activation-to-verification recovery time."""
+
+        return (self.verified_at - self.activated_at).total_seconds()
+
+    def meets(self, plan: RecoveryPlan) -> bool:
+        """Return whether the bound plan satisfies integrity, RPO, and RTO."""
+
+        return (
+            self.plan_id == plan.plan_id
+            and self.plan_revision == plan.revision
+            and self.recovery_epoch == plan.recovery_epoch
+            and plan.state
+            in {
+                RecoveryState.SERVICE_VERIFIED,
+                RecoveryState.ACTIVE_RECOVERY,
+                RecoveryState.FAILBACK_READY,
+                RecoveryState.FAILING_BACK,
+                RecoveryState.PRIMARY_VERIFIED,
+                RecoveryState.CLOSED,
+            }
+            and self.data_integrity_verified
+            and self.observed_rpo_seconds <= plan.objectives.rpo_seconds
+            and self.observed_rto_seconds <= plan.objectives.rto_seconds
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -389,7 +483,9 @@ def _normalized_principal(value: str) -> str:
 __all__ = [
     "LEGAL_RECOVERY_TRANSITIONS",
     "RecoveryMode",
+    "RecoveryObservationLane",
     "RecoveryObjectives",
+    "RecoveryOutcomeMeasurement",
     "RecoveryPlan",
     "RecoveryPlanError",
     "RecoveryPlanStateMachine",

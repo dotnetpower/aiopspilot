@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "id": "finops.vm-managed-identity-cost.004",
+  "version": "v2026.10",
+  "domain": "change",
+  "capability": "finops",
+  "tags": [
+    "cost-governance",
+    "identity-hardening"
+  ],
+  "event": {
+    "schema_version": "1.0.0",
+    "event_id": "00000000-0000-0000-0000-000000000019",
+    "idempotency_key": "scenario-19",
+    "source": "example_cost_management",
+    "event_type": "cost_governance_review",
+    "detected_at": "2026-07-05T08:00:00Z",
+    "ingested_at": "2026-07-05T08:00:01Z",
+    "mode": "shadow"
+  },
+  "expected": {
+    "tier": "t0",
+    "decision": "auto",
+    "citing_rule_ids": [
+      "example.compute.vm-managed-identity-required"
+    ],
+    "guard": {
+      "should_execute": true,
+      "should_rollback": false,
+      "should_trigger_policy_violation": false,
+      "expected_mttr_s_max": 60
+    }
+  }
+}

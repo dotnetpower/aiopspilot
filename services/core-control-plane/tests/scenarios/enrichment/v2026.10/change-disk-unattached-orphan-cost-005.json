@@ -1,0 +1,16 @@
+{
+  "scenario_id": "change.disk-unattached-orphan-cost.005",
+  "shipped_rule_id": "disk.unattached",
+  "event_payload_resource": {
+    "resource_id": "example-disk-fleet-volume",
+    "type": "disk",
+    "props": {
+      "managed_by": "",
+      "snapshot_policy_present": true
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "disk.unattached",
+  "note": "Maps the placeholder rule id `example.disk.unattached-orphan` to the shipped cost-governance rule `disk.unattached`. An empty `managed_by` trips the rule; `snapshot_policy_present=true` satisfies the co-resident `disk.snapshot-policy.required` rule so the citing set stays single-rule. `remediate.remove-orphan-resource` declares a `static_enum` blast radius (unlike `remediate.right-size`, whose `graph_derived` computation always yields an undeclared count and fail-closes at the executor's blast-radius check), so the shadow executor genuinely publishes one remediation PR here, matching should_execute=true. Cross-objective conflict role: cost."
+}

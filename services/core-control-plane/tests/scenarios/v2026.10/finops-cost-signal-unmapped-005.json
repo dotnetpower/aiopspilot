@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "id": "finops.cost-signal-unmapped.005",
+  "version": "v2026.10",
+  "domain": "dr",
+  "capability": "finops",
+  "tags": [
+    "unknown-signal",
+    "abstain"
+  ],
+  "event": {
+    "schema_version": "1.0.0",
+    "event_id": "00000000-0000-0000-0000-000000000020",
+    "idempotency_key": "scenario-20",
+    "source": "example_cost_management",
+    "event_type": "cost_signal_unmapped",
+    "detected_at": "2026-07-05T08:00:00Z",
+    "ingested_at": "2026-07-05T08:00:01Z",
+    "mode": "shadow"
+  },
+  "expected": {
+    "tier": "t1",
+    "decision": "abstain",
+    "citing_rule_ids": [],
+    "guard": {
+      "should_execute": false,
+      "should_rollback": false,
+      "should_trigger_policy_violation": false
+    }
+  }
+}

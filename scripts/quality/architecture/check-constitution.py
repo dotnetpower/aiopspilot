@@ -183,6 +183,14 @@ IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
         "services/core-control-plane/tests/agents/test_pantheon_doc_parity.py::test_agent_catalog_layer_and_ownership_match_specs_in_both_locales",
         "services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py::test_multi_message_fanout_does_not_serialize_or_steal",
     ),
+    "FDAI-CONST-005": (
+        "services/core-control-plane/tests/scenarios/test_v2026_10_frozen.py::test_v2026_10_completion_uses_only_reviewed_replay_and_outcome_bindings",
+        "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_sre_outcome_closes_recovery_and_recurrence",
+        "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_arb_outcome_binds_approval_conditions_and_post_change_verification",
+        "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_finops_outcome_requires_realized_savings_and_reliability",
+        "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_dr_outcome_binds_integrity_and_measured_rto_rpo",
+        "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_chaos_outcome_requires_human_approval_continuous_guards_and_recovery",
+    ),
     "FDAI-CONST-006": (
         "services/core-control-plane/tests/core/risk_gate/test_precedence.py::test_resilience_safety_hold_beats_change_safety_and_cost",
         "services/core-control-plane/tests/agents/test_arbitration.py::test_corrupt_impact_on_one_domain_escalates_not_silently_wins",
