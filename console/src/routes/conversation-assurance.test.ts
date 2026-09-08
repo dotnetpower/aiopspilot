@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { OperatorApiError } from "../api";
 import { decodeAssuranceDetail, decodeConversationAssurance } from "./conversation-assurance.model";
 import {
+  assessmentDetailUnavailable,
   assessmentStateKind,
   createLatestRequestTracker,
   formatPantheonScore,
@@ -68,6 +70,11 @@ describe("conversation assurance contracts", () => {
     expect(requestedAssessmentUnavailable("assessment-missing", null)).toBe(true);
     expect(requestedAssessmentUnavailable(null, null)).toBe(false);
     expect(requestedAssessmentUnavailable("assessment-1", "assessment-1")).toBe(false);
+  });
+
+  it("maps a missing retained assessment to the unavailable state", () => {
+    expect(assessmentDetailUnavailable(new OperatorApiError(404, "missing"))).toBe(true);
+    expect(assessmentDetailUnavailable(new OperatorApiError(500, "failed"))).toBe(false);
   });
 
   it("renders deferred and disputed assessments as attention states", () => {

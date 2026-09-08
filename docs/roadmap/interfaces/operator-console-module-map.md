@@ -25,6 +25,8 @@ Conversation assurance list refreshes accept only the latest in-flight response,
 read cannot replace a newer principal-scoped projection.
 A valid content-addressed assessment link can read its principal-scoped detail directly even when
 the assessment is older than the bounded list projection.
+A missing scoped detail remains an explicit unavailable state with a refresh action rather than a
+generic panel failure.
 
 ## Dependency-direction gate
 

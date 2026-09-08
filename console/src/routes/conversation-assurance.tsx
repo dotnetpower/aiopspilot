@@ -122,6 +122,10 @@ export function requestedAssessmentUnavailable(
   return requestedAssessment !== null && selectedId === null;
 }
 
+export function assessmentDetailUnavailable(error: unknown): boolean {
+  return isOptionalOperatorApiUnavailable(error);
+}
+
 function AssuranceBody({
   auth,
   client,
@@ -227,16 +231,26 @@ function AssessmentTable({ assessments, onSelect }: { readonly assessments: read
 
 function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessmentId: string | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
   const [detail, setDetail] = useState<AsyncState<AssuranceDetailPayload> | null>(null);
+  const [detailUnavailable, setDetailUnavailable] = useState(false);
   useEffect(() => {
-    if (assessmentId === null) { setDetail(null); return; }
+    if (assessmentId === null) { setDetail(null); setDetailUnavailable(false); return; }
     let cancelled = false;
+    setDetailUnavailable(false);
     setDetail({ status: "loading" });
     client.panel<unknown>(`/conversation-assurance/${encodeURIComponent(assessmentId)}`)
       .then((value) => { if (!cancelled) setDetail({ status: "ready", data: decodeAssuranceDetail(value) }); })
-      .catch((error: unknown) => { if (!cancelled) setDetail({ status: "error", message: error instanceof Error ? error.message : String(error) }); });
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (assessmentDetailUnavailable(error)) {
+          setDetail(null);
+          setDetailUnavailable(true);
+          return;
+        }
+        setDetail({ status: "error", message: error instanceof Error ? error.message : String(error) });
+      });
     return () => { cancelled = true; };
   }, [assessmentId, client]);
-  if (requestedUnavailable) {
+  if (requestedUnavailable || detailUnavailable) {
     return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={() => void onRefresh()}>{t("assurance.refreshAssessments")}</button></section>;
   }
   if (assessmentId === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;

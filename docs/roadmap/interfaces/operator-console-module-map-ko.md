@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: fbc093c8575abc87832d5901b7a92a84641aa9b7
+translation_source_sha: 9682e9049b79ccabc8a0bf574e5b4ed2ce9cf0e6
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -30,6 +30,8 @@ PostgreSQL은 계속 대화 기록 시스템으로 유지됩니다.
 principal 범위 변환 결과를 바꿀 수 없습니다.
 유효한 내용 주소 기반 평가 링크는 평가가 범위가 제한된 목록 변환 결과보다 오래되어도
 principal 범위 상세를 직접 읽을 수 있습니다.
+범위가 지정된 상세가 없으면 일반 패널 실패 대신 새로고침 동작이 있는 명시적인 사용 불가
+상태로 유지합니다.
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.

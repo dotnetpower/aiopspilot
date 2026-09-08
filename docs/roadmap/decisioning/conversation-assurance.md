@@ -44,6 +44,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Mapped a scoped detail `404` for a valid retained assessment id to the explicit unavailable state and refresh action instead of a generic panel error. | `current change`; focused route checks passed 10 tests, and Console typecheck passed. | Retain authenticated missing-detail evidence separately. |
 | 2026-09-08 | implemented | Corrected assessment-detail verification to use the ledger's raw 64-character SHA-256 format and constrained both semantic request and result reads to their indexed key families. | `current change`; focused assurance reader checks passed 5 tests. | Retain authenticated detail evidence separately. |
 | 2026-09-08 | implemented | Allowed a valid retained assessment deep link to query the principal-scoped detail endpoint even when the assessment is older than the bounded 200-row list projection. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated old-assessment evidence separately. |
 | 2026-09-08 | implemented | Added monotonic request tracking to Conversation assurance refreshes so an older response cannot overwrite a newer assessment list. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated repeated-refresh evidence separately. |
