@@ -57,13 +57,34 @@ def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
 def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
     storage = "module.operational_history_storage[0].azurerm_storage_account.case_history"
     endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
+    evidence_storage = "module.decision_evidence_storage[0].azurerm_storage_account.case_history"
+    evidence_endpoint = "azurerm_private_endpoint.decision_evidence_blob[0]"
+    evidence_reader = "azurerm_role_assignment.decision_evidence_inventory_reader[0]"
     job = "azurerm_container_app_job.operational_history_lifecycle[0]"
     ownership = "module.resource_group.terraform_data.ownership"
 
     assert enforce(
-        _plan(storage, endpoint, job, ownership),
+        _plan(
+            storage,
+            endpoint,
+            evidence_storage,
+            evidence_endpoint,
+            evidence_reader,
+            job,
+            ownership,
+        ),
         mode="operational-history",
-    ) == frozenset({storage, endpoint, job, ownership})
+    ) == frozenset(
+        {
+            storage,
+            endpoint,
+            evidence_storage,
+            evidence_endpoint,
+            evidence_reader,
+            job,
+            ownership,
+        }
+    )
     with pytest.raises(ValueError, match="outside its bounded scope"):
         enforce(
             _plan(storage, "module.compute.azurerm_container_app.core"),
