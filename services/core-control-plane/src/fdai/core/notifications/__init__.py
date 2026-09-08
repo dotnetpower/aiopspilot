@@ -18,6 +18,11 @@ The router:
 ``core/`` never constructs a channel adapter - the composition root
 registers them by kind + id and hands the router a
 :class:`ChannelRegistry`. This module holds zero vendor knowledge.
+
+:mod:`.shadow` adds a channel-shaped adapter that renders and durably
+records a message without any network call, for a binding still in
+:attr:`~fdai.shared.providers.notifications.capability.ChannelMode.SHADOW`.
+The router dispatches to it exactly like any other registered channel.
 """
 
 from .briefing import (
@@ -54,14 +59,20 @@ from .router import (
     RouteOutcome,
     RoutingResult,
 )
+from .shadow import (
+    InMemoryShadowDeliveryRecorder,
+    ShadowDeliveryRecord,
+    ShadowDeliveryRecorder,
+    ShadowNotificationChannel,
+)
 
 __all__ = [
     "ActionTally",
     "BriefingInput",
+    "ChannelBinding",
     "ChannelDeliveryClaim",
     "ChannelDeliveryRecord",
     "ChannelDeliveryState",
-    "ChannelBinding",
     "ChannelRegistry",
     "CostSnapshot",
     "DeliveryClaimStatus",
@@ -69,6 +80,7 @@ __all__ = [
     "ForecastRisk",
     "IncidentTally",
     "InMemoryNotificationDeliveryStore",
+    "InMemoryShadowDeliveryRecorder",
     "MatrixValidationError",
     "NotificationDeliveryStore",
     "NotificationDispatchPlan",
@@ -78,6 +90,9 @@ __all__ = [
     "RouteOutcome",
     "RouteSpec",
     "RoutingResult",
+    "ShadowDeliveryRecord",
+    "ShadowDeliveryRecorder",
+    "ShadowNotificationChannel",
     "StakeholderBriefing",
     "StakeholderBriefingComposer",
     "load_matrix_from_mapping",

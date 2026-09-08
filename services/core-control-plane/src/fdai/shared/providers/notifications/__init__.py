@@ -23,6 +23,12 @@ Design points
   the contract in the design doc.
 - **Fakes ship in :mod:`~fdai.shared.providers.testing.notifications`**
   so both the router unit tests and downstream forks reuse them.
+- **Capability-state and presentation are separate read-only contracts.**
+  :mod:`.capability` reports availability/enablement/authority for a
+  binding; :mod:`.presentation` is the pre-render, fail-closed redaction and
+  bound boundary every renderer - including
+  :class:`fdai.core.notifications.shadow.ShadowNotificationChannel` - MUST
+  cross before formatting or sending.
 """
 
 from .base import (
@@ -38,6 +44,7 @@ from .base import (
     Severity,
     TrustTier,
 )
+from .capability import ChannelCapabilityState, ChannelMode
 from .channels import (
     EmailChannel,
     PagerDutyChannel,
@@ -46,11 +53,21 @@ from .channels import (
     TeamsChannel,
     WebhookChannel,
 )
+from .presentation import (
+    INTERACTIVE_METADATA_KEYS,
+    NotificationPresentationEnvelope,
+    PresentationLimits,
+    PresentationRejectedError,
+    render_presentation,
+)
 
 __all__ = [
-    "ChannelDeliveryError",
+    "INTERACTIVE_METADATA_KEYS",
     "ChannelAmbiguousError",
+    "ChannelCapabilityState",
+    "ChannelDeliveryError",
     "ChannelKind",
+    "ChannelMode",
     "ChannelUnavailableError",
     "DeliveryReceipt",
     "EmailChannel",
@@ -58,11 +75,15 @@ __all__ = [
     "Link",
     "NotificationChannel",
     "NotificationMessage",
+    "NotificationPresentationEnvelope",
     "PagerDutyChannel",
+    "PresentationLimits",
+    "PresentationRejectedError",
     "Severity",
     "SlackChannel",
     "SmsChannel",
     "TeamsChannel",
     "TrustTier",
     "WebhookChannel",
+    "render_presentation",
 ]
