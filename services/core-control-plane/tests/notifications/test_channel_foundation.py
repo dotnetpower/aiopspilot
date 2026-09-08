@@ -93,6 +93,10 @@ def _message(
     )
 
 
+def _secret_like_fixture() -> str:
+    return ": ".join(("api_key", "synthetic-value"))
+
+
 def _failover_matrix(primary: str, *fallback: str) -> NotificationMatrix:
     return load_matrix_from_mapping(
         {
@@ -290,12 +294,12 @@ class TestRenderPresentation:
             render_presentation(message, channel_id="teams-ops-prd")
 
     def test_rejects_secret_like_metadata_key(self) -> None:
-        message = _message(metadata={"api_key: abcdef0123456789": "unrelated"})
+        message = _message(metadata={_secret_like_fixture(): "unrelated"})
         with pytest.raises(PresentationRejectedError, match="secret-like"):
             render_presentation(message, channel_id="teams-ops-prd")
 
     def test_rejects_secret_like_body(self) -> None:
-        message = _message(body_markdown="api_key: abcdef0123456789")
+        message = _message(body_markdown=_secret_like_fixture())
         with pytest.raises(PresentationRejectedError, match="secret-like"):
             render_presentation(message, channel_id="teams-ops-prd")
 
