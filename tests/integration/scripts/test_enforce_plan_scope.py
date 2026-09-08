@@ -59,10 +59,7 @@ def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> No
     endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
     evidence_storage = "module.decision_evidence_storage[0].azurerm_storage_account.case_history"
     evidence_endpoint = "azurerm_private_endpoint.decision_evidence_blob[0]"
-    runner_dns = (
-        "module.case_history_blob_private_endpoint[0]."
-        'azurerm_private_dns_zone_virtual_network_link.extra["ops"]'
-    )
+    runner_dns = "azurerm_private_dns_zone_virtual_network_link.decision_evidence_runner_blob[0]"
     evidence_reader = "azurerm_role_assignment.decision_evidence_inventory_reader[0]"
     job = "azurerm_container_app_job.operational_history_lifecycle[0]"
     ownership = "module.resource_group.terraform_data.ownership"
