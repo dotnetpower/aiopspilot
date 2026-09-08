@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dc0e580bffc45e9998135a66e2d2e5daa85642ae
+translation_source_sha: f146532d042d6d535a6fd9def83995ec69d9efa5
 translation_revised: 2026-09-08
 ---
 # 프로젝트 구조
@@ -477,6 +477,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 렌더링 스킬 또는 bundle 레이어에 적용됩니다.
 turn별 Operator Memory 조립은 독립적인 Resource Group 및 Resource 범위를 동시에 읽고 두
 읽기가 완료된 뒤 결정론적 계층 순서를 보존합니다.
+콘텐츠가 없는 조립 로그는 렌더링된 프롬프트나 memory 본문을 기록하지 않고 전체,
+Operator Memory, 스킬 공개 시간을 분리합니다.
 
 ### 주입 가능한 Seams
 

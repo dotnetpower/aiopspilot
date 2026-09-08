@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from pathlib import Path
 from textwrap import dedent
 
@@ -805,6 +806,28 @@ async def test_resource_and_group_memory_reads_run_concurrently(tmp_path: Path) 
     )
 
     assert len(store.task_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_prompt_composition_logs_content_free_stage_timing(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(tmp_path))
+
+    with caplog.at_level(logging.INFO, logger="fdai.core.prompts.composer"):
+        await composer.compose(capability_id="t2.proposer")
+
+    record = next(item for item in caplog.records if item.message == "prompt_composition_completed")
+    assert record.capability_id == "t2.proposer"
+    assert record.duration_ms >= 0
+    assert record.memory_duration_ms >= 0
+    assert record.skill_duration_ms >= 0
+    assert record.layer_count == 1
+    assert record.token_estimate > 0
+    assert not hasattr(record, "system_text")
 
 
 def _mem_entry(

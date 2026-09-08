@@ -484,6 +484,8 @@ Prompt disclosure budgets apply to the complete rendered skill or bundle layer, 
 trusted XML wrapper, rather than only the stored Markdown bodies.
 Per-turn Operator Memory composition reads independent resource-group and resource scopes
 concurrently and preserves deterministic hierarchy order after both reads complete.
+Content-free composition logs separate total, Operator Memory, and skill-disclosure time without
+recording any rendered prompt or memory body.
 
 ### Injectable Seams
 

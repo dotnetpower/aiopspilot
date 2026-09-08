@@ -17,6 +17,8 @@ Runtime skill disclosure is delegated to the single-purpose
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final, Literal, Protocol
@@ -61,6 +63,7 @@ if TYPE_CHECKING:
 # Rough characters-per-token estimate used until Wave 3 step D swaps
 # in a model-specific tokenizer via the ``TokenEstimator`` seam.
 _CHARS_PER_TOKEN: Final[int] = 4
+_LOG = logging.getLogger(__name__)
 
 # Delimiter between concatenated layers. Kept as a bare blank line so
 # the model receives the exact same shape the base body has today; a
@@ -203,6 +206,7 @@ class DefaultPromptComposer(PromptComposer):
         scope: OperatorScope | None = None,
         skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:
+        started = time.perf_counter()
         base = self._registry.get_base(capability_id)
         self._ablation.disables(base.layer, base.id)
         packs = self._registry.get_packs(capability_id)
@@ -227,11 +231,14 @@ class DefaultPromptComposer(PromptComposer):
         manifest_layer = self._maybe_build_tool_manifest(ablated)
         if manifest_layer is not None:
             assembled.append(manifest_layer)
+        memory_started = time.perf_counter()
         memory_layer = await self._maybe_build_operator_memory_layer(scope, ablated)
+        memory_duration_ms = max(0, round((time.perf_counter() - memory_started) * 1000))
         if memory_layer is not None:
             assembled.append(memory_layer)
         skill_records: tuple[SkillReplayRecord, ...] = ()
         skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
+        skill_duration_ms = 0
         if (
             skill_disclosure is not None
             and self._skill_catalog is not None
@@ -250,12 +257,17 @@ class DefaultPromptComposer(PromptComposer):
                     )
                 )
             else:
+                skill_started = time.perf_counter()
                 disclosure = compose_skill_disclosure(
                     catalog=self._skill_catalog,
                     verifier=self._skill_trust_verifier,
                     request=skill_disclosure,
                     bundle_catalog=self._skill_bundle_catalog,
                     bundle_verifier=self._skill_bundle_trust_verifier,
+                )
+                skill_duration_ms = max(
+                    0,
+                    round((time.perf_counter() - skill_started) * 1000),
                 )
                 for layer in disclosure.layers:
                     if self._ablation.disables(layer.layer, layer.id):
@@ -286,7 +298,7 @@ class DefaultPromptComposer(PromptComposer):
         canary_tokens = self._inject_canaries(assembled)
         system_text = _LAYER_JOIN.join(layer.body for layer in assembled)
         manifest = tuple(layer.ref for layer in assembled)
-        return ComposedPrompt(
+        composed = ComposedPrompt(
             system_text=system_text,
             layer_manifest=manifest,
             token_estimate=_estimate_tokens(system_text),
@@ -296,6 +308,20 @@ class DefaultPromptComposer(PromptComposer):
             skill_records=skill_records,
             skill_bundle_records=skill_bundle_records,
         )
+        _LOG.info(
+            "prompt_composition_completed",
+            extra={
+                "capability_id": capability_id,
+                "duration_ms": max(0, round((time.perf_counter() - started) * 1000)),
+                "memory_duration_ms": memory_duration_ms,
+                "skill_duration_ms": skill_duration_ms,
+                "layer_count": len(manifest),
+                "token_estimate": composed.token_estimate,
+                "operator_memory_included": memory_layer is not None,
+                "skill_disclosure_requested": skill_disclosure is not None,
+            },
+        )
+        return composed
 
     def _inject_canaries(self, assembled: list[_AssembledLayer]) -> Mapping[str, str]:
         """Prepend a canary token to every assembled layer body.

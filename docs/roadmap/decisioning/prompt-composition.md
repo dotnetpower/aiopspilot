@@ -68,6 +68,8 @@ authoring, other families, and T2 reasoning settings remain unchanged.
 
 Content-free stage logs report elapsed time, remaining time, status, and reserved call attempts.
 An attempted or reserved stage is not proof that a provider accepted a physical request.
+Prompt composition logs total, Operator Memory, and skill-disclosure duration with layer and token
+counts, without retaining system text, operator input, or memory bodies.
 Schema text and prepared-validator caches are bounded and contain no user input; every response
 still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not
@@ -115,6 +117,7 @@ baseline retained here is two earlier turns at 51.431 and 53.841 seconds; no new
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Added content-free prompt composition timing for total, Operator Memory, and skill-disclosure work with layer and token counts. | `current change`; focused prompt composer checks passed 57 tests. | Retain runtime timing distributions separately. |
 | 2026-09-08 | implemented | Ran independent resource-group and resource Operator Memory reads concurrently while preserving deterministic merge order. | `current change`; focused prompt composer checks passed 56 tests. | Retain PostgreSQL per-turn timing separately. |
 | 2026-09-08 | implemented | Counted rendered skill and bundle XML wrappers against the prompt body budget and rejected an over-budget selection before assembly. | `current change`; focused skill disclosure checks passed 8 tests. | Retain runtime prompt-size observations separately. |
 | 2026-09-06 | implemented | Completed ten measured latency-improvement rounds across adaptive planning, schema preparation, review budgets, display, and terminal delivery. | Round commits and combined gate recorded above; fixed-provider-clock comparisons preserve exact answer and quality outcomes. | Retain an authorized real-provider before/after comparison before claiming an end-to-end speedup. |
