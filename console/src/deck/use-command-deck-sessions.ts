@@ -291,10 +291,18 @@ export function useCommandDeckSessionController({
   draftRef.current = draft;
   const draftsRef = useRef(new Map<string, string>());
   const historiesRef = useRef(new Map<string, typeof EMPTY_HISTORY>());
-  const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
+  const hydrateDurableTurns = useCallback(async (
+    key: string,
+    missingAssessmentIdentity: boolean = false,
+  ): Promise<void> => {
     const beforeRestore = turnsRef.current;
     if (sessionKeyRef.current !== key ||
-      !shouldHydrateServerTurns(true, beforeRestore.length, beforeRestore.at(-1)?.role === "operator")) return;
+      !shouldHydrateServerTurns(
+        true,
+        beforeRestore.length,
+        beforeRestore.at(-1)?.role === "operator",
+        missingAssessmentIdentity,
+      )) return;
     const summary = conversations.find((item) => item.key === key);
     const expectsDurableHistory = shouldExposeConversationHydration(summary);
     if (expectsDurableHistory) setConversationHydration({ key, status: "loading" });
@@ -392,13 +400,8 @@ export function useCommandDeckSessionController({
         turn.source === "pantheon-conversation-assurance" &&
         turn.assessmentId === undefined,
     );
-    if (shouldHydrateServerTurns(
-      hydrate,
-      next.length,
-      next.at(-1)?.role === "operator",
-      missingAssessmentIdentity,
-    )) {
-      void hydrateDurableTurns(key);
+    if (hydrate) {
+      void hydrateDurableTurns(key, missingAssessmentIdentity);
     }
     setSearchQuery("");
     setActiveSearchMatch(0);

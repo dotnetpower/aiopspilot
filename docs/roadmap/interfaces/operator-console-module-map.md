@@ -20,6 +20,7 @@ Browser-local transcript replay validates and retains an authoritative assessmen
 terminal answer supplies one, while PostgreSQL remains the conversation system of record.
 An older cached Pantheon answer that predates this field triggers one durable history hydration so
 the cache can acquire the server identity instead of retaining a browser-only review link.
+The session controller carries that recovery reason through the hydrator's own eligibility check.
 Conversation assurance list refreshes accept only the latest in-flight response, so a slower earlier
 read cannot replace a newer principal-scoped projection.
 A valid content-addressed assessment link can read its principal-scoped detail directly even when

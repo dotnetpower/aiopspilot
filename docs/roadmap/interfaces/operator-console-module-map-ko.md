@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 2a9733fa5a0348734e375880f8fe2353ff33a601
+translation_source_sha: fbc093c8575abc87832d5901b7a92a84641aa9b7
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -25,6 +25,7 @@ WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 �
 PostgreSQL은 계속 대화 기록 시스템으로 유지됩니다.
 이 필드가 추가되기 전에 저장된 Pantheon 답변은 영속 이력을 한 번 다시 불러와 브라우저 전용
 검토 링크를 유지하는 대신 서버 식별자를 가져옵니다.
+세션 컨트롤러는 이 복구 사유를 이력 복원 구성요소 자체의 적격성 검사까지 전달합니다.
 대화 보증 목록 새로고침은 가장 최신 요청의 응답만 수락하므로 느린 이전 읽기가 더 최신인
 principal 범위 변환 결과를 바꿀 수 없습니다.
 유효한 내용 주소 기반 평가 링크는 평가가 범위가 제한된 목록 변환 결과보다 오래되어도

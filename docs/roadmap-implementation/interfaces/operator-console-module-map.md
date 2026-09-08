@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Carried the missing-assessment recovery reason through the hydrator's internal eligibility check so forced legacy hydration cannot exit immediately. | `current change`; focused conversation, transcript, and restored-session checks passed 71 tests, and Console typecheck passed. | Retain authenticated legacy-cache recovery evidence separately. |
 | 2026-09-08 | implemented | Corrected assessment-detail digest verification to the ledger's raw SHA-256 format and bounded request/result lookup to indexed semantic key prefixes. | `current change`; focused assurance reader checks passed 5 tests. | Retain authenticated detail evidence separately. |
 | 2026-09-08 | implemented | Made legacy cached Pantheon answers without an assessment identity trigger one durable hydration so existing conversations can acquire the authoritative review target. | `current change`; focused conversation, transcript, and restored-session checks passed 71 tests, and Console typecheck passed. | Retain authenticated legacy-cache recovery evidence separately. |
 | 2026-09-08 | implemented | Preserved retained assessment deep links beyond the bounded list window by querying the exact principal-scoped detail endpoint. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated old-assessment evidence separately. |
