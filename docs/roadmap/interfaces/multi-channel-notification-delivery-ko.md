@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: ba15c65e3fc54629589d4e41f13b864a939de484
+translation_source_sha: 0275c175e3b51edf33feed325466b0bc80e6c643
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -397,7 +397,8 @@ Teams와 Slack은 두 모드에서 동일한 순수 공급자 렌더러를 사�
 `Huginn -> Forseti -> Thor -> Vidar` 책임 순서를 전달할 수 있습니다. 안정적인 shadow 기록은
 일반 묶음과 정확한 공급자 JSON 바이트를 포함합니다. 메모리 기반 개발 기록기와 StateStore
 기록기는 모두 같은 기록 ID에 다른 범위 제한 콘텐츠가 들어오면 실패합니다. 따라서 충돌한 최초
-기록 근거를 덮어쓰거나 조용히 유지하지 않습니다.
+기록 근거를 덮어쓰거나 조용히 유지하지 않습니다. 또한 사용자 지정 렌더러가 자체 제한을
+빠뜨리더라도 shadow 경계는 64 KiB를 넘는 렌더링된 공급자 페이로드를 차단합니다.
 
 Slack은 연결 설정 실패를 unavailable로 분류하지만, 전송 이후 제한 시간 초과나 그 밖의 HTTP
 오류는 공급자가 요청을 받았을 수 있으므로 ambiguous로 분류합니다. 라우터는 모호한 확인 결과를

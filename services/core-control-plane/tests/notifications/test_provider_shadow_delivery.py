@@ -31,6 +31,7 @@ from fdai.shared.providers.notifications import (
     NotificationMessage,
     NotificationPayloadRenderer,
     PresentationRejectedError,
+    RenderedNotificationPayload,
     Severity,
     TrustTier,
     render_presentation,
@@ -270,6 +271,28 @@ async def test_in_memory_recorder_rejects_content_conflicts() -> None:
     await channel.send(_message())
     with pytest.raises(ShadowDeliveryConflictError, match="different bounded content"):
         await channel.send(_message(body_markdown="A different bounded body."))
+
+
+async def test_shadow_channel_rejects_unbounded_injected_renderer_payload() -> None:
+    recorder = InMemoryShadowDeliveryRecorder()
+
+    def oversized_renderer(_: object) -> RenderedNotificationPayload:
+        return RenderedNotificationPayload(
+            content_type="application/json",
+            body=b"x" * (64 * 1024 + 1),
+        )
+
+    channel = ShadowNotificationChannel(
+        channel_kind=ChannelKind.SLACK,
+        channel_id="slack-shadow",
+        trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+        recorder=recorder,
+        payload_renderer=oversized_renderer,
+    )
+
+    with pytest.raises(PresentationRejectedError, match="shadow record limit"):
+        await channel.send(_message())
+    assert recorder.entries == ()
 
 
 def test_enforce_binding_still_requires_endpoint_and_http_client(

@@ -401,7 +401,8 @@ carry canonical incident ids and the `Huginn -> Forseti -> Thor -> Vidar` respon
 without adding vendor-specific fields to `NotificationMessage`. A stable shadow record contains the
 generic envelope and the exact provider JSON bytes. Both the in-memory development recorder and the
 StateStore recorder fail when the same record id carries different bounded content instead of
-overwriting or silently retaining conflicting first-write evidence.
+overwriting or silently retaining conflicting first-write evidence. The shadow boundary also
+rejects a rendered provider payload above 64 KiB even when a custom renderer omits its own bound.
 
 Slack classifies connection establishment failures as unavailable, but a timeout or other HTTP
 error after dispatch as ambiguous because the provider may have received the request. The router

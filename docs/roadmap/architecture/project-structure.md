@@ -577,7 +577,8 @@ only when its rule id, action type, and fixed check reference still match.
   `StateStore`, and resolves no endpoint or HTTP client. Enforce bindings preserve the existing
   endpoint and credential environment references and fail startup when incomplete.
   `core/notifications` receives only provider-neutral adapters plus durable delivery stores. Both
-  in-memory and StateStore shadow recorders reject a stable record id reused with different content.
+  in-memory and StateStore shadow recorders reject a stable record id reused with different content,
+  and Core rejects a rendered shadow payload above 64 KiB before persistence.
 - A fork supplies its own config and secret-store layer without editing `core/`.
 - Feature flags gate new capabilities so they ship in **shadow-mode** (judge-and-log only)
   and are promoted to enforce per-action, in a separate reviewed change.

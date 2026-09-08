@@ -56,6 +56,7 @@ from fdai.shared.providers.notifications.presentation import (
     NotificationPayloadRenderer,
     NotificationPresentationEnvelope,
     PresentationLimits,
+    PresentationRejectedError,
     RenderedNotificationPayload,
     render_presentation,
 )
@@ -177,7 +178,12 @@ class ShadowNotificationChannel:
     recorder: ShadowDeliveryRecorder
     payload_renderer: NotificationPayloadRenderer | None = None
     limits: PresentationLimits = field(default_factory=PresentationLimits)
+    max_rendered_payload_bytes: int = 64 * 1024
     clock: Callable[[], datetime] = field(default=_utc_now)
+
+    def __post_init__(self) -> None:
+        if self.max_rendered_payload_bytes < 1:
+            raise ValueError("shadow rendered payload limit MUST be positive")
 
     async def send(self, message: NotificationMessage) -> DeliveryReceipt:
         """Render, bound, and durably record ``message`` - no network I/O.
@@ -195,6 +201,13 @@ class ShadowNotificationChannel:
         rendered_payload = (
             self.payload_renderer(envelope) if self.payload_renderer is not None else None
         )
+        if (
+            rendered_payload is not None
+            and len(rendered_payload.body) > self.max_rendered_payload_bytes
+        ):
+            raise PresentationRejectedError(
+                "rendered provider payload exceeds the shadow record limit"
+            )
         recorded_at = self.clock()
         if recorded_at.tzinfo is None:
             raise ValueError("shadow delivery clock MUST return a timezone-aware datetime")

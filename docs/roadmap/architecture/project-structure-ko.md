@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 65bd9d6372e8a708668b4c301b63335220297d29
+translation_source_sha: b04fac4000f2f171100dda7c7027a248380018f0
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -574,7 +574,8 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   엔드포인트나 HTTP 클라이언트를 해석하지 않습니다. Enforce 바인딩은 기존 엔드포인트와 자격 증명
   환경 변수 참조를 유지하며 구성이 불완전하면 시작을 실패시킵니다. `core/notifications`에는
   공급자 중립 어댑터와 영속 전달 저장소만 전달합니다. 메모리 기반 및 StateStore shadow 기록기는
-  모두 다른 콘텐츠에 안정적인 기록 ID가 재사용되면 실패합니다.
+  모두 다른 콘텐츠에 안정적인 기록 ID가 재사용되면 실패합니다. Core는 64 KiB를 넘는 렌더링된
+  shadow 페이로드를 영속화 전에 차단합니다.
 - 포크는 `core/` 편집 없이 자체 설정과 secret-store 레이어를 공급합니다.
 - 기능 플래그는 신규 능력이 **shadow-mode** (judge-and-log only)로 출시되도록 게이팅하고,
   액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.
