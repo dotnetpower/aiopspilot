@@ -15,6 +15,7 @@ from typing import Final
 import httpx
 
 from fdai.shared.providers.notifications.base import (
+    ChannelAmbiguousError,
     ChannelDeliveryError,
     ChannelKind,
     ChannelUnavailableError,
@@ -78,9 +79,13 @@ class SlackWebhookChannel:
                 headers={"Content-Type": payload.content_type},
                 timeout=self._config.timeout_seconds,
             )
-        except httpx.HTTPError as exc:
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
             raise ChannelUnavailableError(
                 f"Slack webhook transport error: {type(exc).__name__}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ChannelAmbiguousError(
+                f"Slack webhook acknowledgement was not observed: {type(exc).__name__}"
             ) from exc
         if response.status_code != 200:
             raise ChannelDeliveryError(

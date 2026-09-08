@@ -21,8 +21,10 @@ from fdai.delivery.notifications import (
 )
 from fdai.runtime.delivery import _build_notification_registry
 from fdai.shared.providers.notifications import (
+    ChannelAmbiguousError,
     ChannelKind,
     ChannelMode,
+    ChannelUnavailableError,
     Link,
     NotificationMessage,
     NotificationPayloadRenderer,
@@ -313,3 +315,32 @@ async def test_secret_like_content_is_rejected_before_provider_transport() -> No
             await channel.send(_message(body_markdown=": ".join(("api_key", "synthetic-value"))))
 
     assert calls == 0
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (httpx.ConnectError("connect"), ChannelUnavailableError),
+        (httpx.ReadTimeout("response lost"), ChannelAmbiguousError),
+    ],
+)
+async def test_slack_transport_distinguishes_unavailable_from_ambiguous(
+    error: httpx.HTTPError,
+    expected: type[Exception],
+) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        raise error
+
+    from fdai.delivery.notifications import SlackWebhookChannel, SlackWebhookConfig
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        channel = SlackWebhookChannel(
+            config=SlackWebhookConfig(
+                channel_id="slack-enforce",
+                webhook_url="https://hooks.slack.example/ops",
+                trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+            ),
+            http_client=client,
+        )
+        with pytest.raises(expected):
+            await channel.send(_message())
