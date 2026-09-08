@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 7762dbb47833672f4cf55aecaf91c6714cdf186d
-translation_revised: 2026-09-04
+translation_source_sha: 183336dde088d0e3c11a939184f9e561b6276dec
+translation_revised: 2026-09-09
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -43,6 +43,7 @@ Teams Workflows 웹훅 바인딩은
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. A1/A3는 신뢰 수준을 보존하는 대체 경로를 유지하고, A2/A4는 이름이 있는 바인딩 활성화, 채널별 영속 상태, 범위가 제한된 재시도 및 집계 결과를 갖춘 명시적 fan-out을 사용합니다. |
+| A2/A4 capability-state, presentation, shadow-delivery 계약 | implemented | [`capability.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py), [`presentation.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py), [`shadow.py`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py), [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) | [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유합니다. 읽기 전용 가용성/활성화/권한 계약, pre-render fail-closed redaction 및 범위 경계, 그리고 shadow mode에 있는 바인딩에 대해 네트워크 호출 없이 렌더링하고 영속 기록하는 `NotificationChannel`을 추가합니다. |
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
 | Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. Operator는 브로커에 게시하기 전에 각 결정의 보낼 편지함 레코드를 영속화하고 수락된 뒤에만 전달 완료로 표시합니다. Slack A1은 구성된 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 전용 아웃바운드 Slack `HilChannel`과 배포 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
@@ -66,6 +67,7 @@ Teams Workflows 웹훅 바인딩은
 | 2026-08-20 | 구현됨 | 임시 Core-local A3 prototype을 Operator 소유 전송, 렌더러, 영속 파이프라인, 감독되는 런타임, 로컬 실행 및 선택적 Container App으로 교체했습니다. Core에는 구현이 없는 rich channel 계약만 유지합니다. | `current change`, 집중 shared 및 Operator channel 검사 110개, edge package 검사 74개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator service Terraform root 검증 통과 | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 유입, 신원, persistence, publisher, lifecycle, 배포 및 replay 검토 10개로 standalone A3 edge를 hardening했습니다. Known Teams key는 범위가 제한된 TTL 뒤 갱신하고, 기한이 된 전송은 활성 binding 권한을 다시 검증하며, 로컬 secret 준비는 상속된 tracing을 끄고, 소유 resource는 한 번만 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
 | 2026-08-27 | 구현됨 | A1 또는 A3 권한 경계를 바꾸지 않고 A2/A4의 이름이 있는 fan-out 바인딩, 채널별 영속 dispatch, Teams Workflows 전송 및 독립 게시 접수 검증을 추가했습니다. | `current change`, [다중 채널 알림 전달 구현 원장](../../roadmap-implementation/interfaces/multi-channel-notification-delivery.md), 알림, 인시던트 체크포인트 및 런타임 설정 집중 검사 162개와 작업 소유 범위 Ruff 및 strict mypy 통과 | 검증됨을 주장하기 전에 통제된 Teams 및 PostgreSQL 런타임 증적을 수집합니다. |
+| 2026-09-09 | 구현됨 | `NotificationChannel`, `NotificationRouter`, fan-out 전달, 단일 감사 항목 불변식을 바꾸지 않고 [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유하는 A2/A4 capability-state, presentation, shadow-delivery 계약을 추가했습니다. 같은 날 진행한 비평 단계에서 대소문자를 구분하지 않는 interactive 키 매칭, 값뿐 아니라 key도 범위를 제한하고 스캔하는 metadata 검사, executable 링크를 거부하는 https 전용 링크 scheme, `channel_id + correlation_id + audit_id + category`에서 결정론적으로 유도한 멱등 shadow `record_id`("어댑터는 멱등 send를 구현해야 함" 기존 계약을 충족), timezone-aware shadow clock 검사, `ChannelCapabilityState`의 비어 있지 않은 `channel_id` 검사, 그리고 불변(`MappingProxyType`) presentation envelope metadata mapping을 추가로 강화했습니다. | `current change`, [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) 31건, 전체 `services/core-control-plane/tests/notifications` 스위트 178건 통과, 작업 소유 Ruff format/lint 통과, 변경된 알림 소스 파일 5개에 대한 strict mypy 통과 | 이 기반 범위에는 남은 작업이 없습니다. 구체적인 vendor 어댑터의 shadow-to-enforce 승격은 해당 어댑터 자체 행에서 추적합니다. |
 
 ### 남은 작업
 
@@ -82,6 +84,9 @@ Teams Workflows 웹훅 바인딩은
   독립 채널 프로세스에 대한 통제된 runtime 증적을 기록합니다.
 - [x] 정본 사실, 제한, 근거 참조, 권한 및 읽을 수 있는 대체 텍스트를 보존하는 순수 Teams,
   Slack 및 주입형 사용자 지정 표현 렌더러를 구현하고 동등성 테스트를 통과합니다.
+- [x] 공유 A2/A4 capability-state, presentation, shadow-delivery 계약을 추가 및 문서화하고
+  `test_channel_foundation.py`로 증명하는 unavailable/shadowed/rejected/fallback 결과와
+  라우터 idempotency에 대한 집중 테스트를 확보합니다.
 
 ## 1. 설계 원칙
 
@@ -398,6 +403,9 @@ protection, 전달 감사가 필요하며 Operator API에 속하지 않습니다
   쓰는 것과 같은 정규식 세트) 발송 전에 마지막 방어선으로.
 - **어댑터는 멱등 `send`를 구현** 해야 함: 같은 `correlation_id + audit_id + category`로
   재발행된 전송은 중복 포스트를 생성해선 안 됨.
+- **A2/A4 capability-state, pre-render presentation, shadow delivery**는
+  [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이
+  상세히 소유합니다.
 
 - **A1 결정 반환:** 정확한 Teams와 Slack 전송, 행위자, 맥락, 워크플로 라우팅, 감사 및
   영속 전달 계약은 [Operator 승인 콜백](operator-console-wire-contracts-ko.md#133-operator-api-승인-콜백-주-1)에서 소유합니다.

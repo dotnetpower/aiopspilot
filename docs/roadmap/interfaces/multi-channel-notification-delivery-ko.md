@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: f6b827091ad5d1086cf347c7e4c14f1f2e373cde
-translation_revised: 2026-09-04
+translation_source_sha: 49721524da2cf307c0f93e449e77ac841ddb27a6
+translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
 
@@ -297,6 +297,78 @@ URL을 제출하여 바인딩을 교체합니다. 영속 저장 및 테스트 �
 | 7 | 전달 콜백과 `delivered` 승격 | 독립 관찰이 감사에 기록됨 |
 | 8 | 인증된 Operator ingress와 스키마 검증 Core consumer | 서명된 콜백이 브로커를 거쳐 `accepted` 하위 항목을 `delivered`로 수렴 |
 | 9 | 명시적 배포 및 로컬 활성화 | 활성화된 바인딩은 전달하고 저장만 되었거나 placeholder인 바인딩은 전달하지 않음 |
+
+## 8. capability-state, presentation, shadow-delivery 계약
+
+A2/A4 채널은 fan-out 아래에 한 단계 더 필요한 기반 계층이 있습니다: 상태(health)와 섞이지 않고
+바인딩의 가용성을 설명하는 방법, 모든 renderer가 vendor 호출 전에 반드시 거치는 fail-closed
+렌더링 경계, 그리고 명시적으로 승격되기 전까지 네트워크 전송이 전혀 없이 새 바인딩을 도입하는
+방법입니다.
+
+### 8.1 Capability-state
+
+[`ChannelCapabilityState`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py)는
+`available`(이 프로세스가 관찰할 수 있는 전제 조건이 완비됨), `enabled`(운영자 선호), `configured`
+(시작 시 검증된 구성), `mode`(`ChannelMode.SHADOW` 또는 `ChannelMode.ENFORCE`)를 분리합니다.
+이는 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)가
+모든 capability flag에 요구하는 그대로입니다. `ready`는
+`available and enabled and configured`이며, `mode`는 그 자체로 자율성을 높이지 않습니다.
+Composition은 여전히 §1과 동일하게 나머지 세 필드로 fan-out 대상 집합을 결정합니다.
+`to_readiness_row()`는
+[`integration_row`](../../../services/core-control-plane/src/fdai/delivery/integration_readiness.py)가
+이미 만드는 것과 동일한 출처 귀속 형태를 렌더링하므로, capability-state 인스턴스와 Settings
+readiness projection이 같은 채널에 대해 서로 다른 어휘를 보고할 수 없습니다. capability state를
+생성하거나 읽는 동작은 I/O를 수행하지 않으며, 전송 시점 상태(health) 프로브가 결코 아닙니다(위 §2).
+`channel_id`는 비어 있지 않아야 합니다 - 생성자는 설정이나 composition 결함이 조용히 해당 채널의
+readiness row를 손상시키기 전에 빈 값을 거부합니다.
+
+### 8.2 Presentation 경계
+
+[`render_presentation`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py)은
+모든 renderer가 포맷팅이나 provider 호출 전에 거치는 pre-render fail-closed 경계입니다. 다음을
+잘라내거나 조용히 제거하지 않고 거부합니다:
+
+| 조건 | 결과 |
+|------|------|
+| Metadata가 interactive-content 키(`actions`, `buttons`, `interactive` 등)를 지정 - 대소문자를 구분하지 않고 비교하므로 `Actions`나 `ACTIONS`도 `actions`와 동일하게 거부됩니다 | 거부됨 - A2/A4 메시지는 절대 approval button이나 executable link를 포함하지 않습니다(`channels-and-notifications.md § 3`) |
+| Title, body, link, metadata **key 또는 value**가 제한된 `PresentationLimits` 값을 초과 | 거부됨 - 맞추기 위해 잘라내지 않습니다. key를 제한하지 않으면 value만 검사하는 검증을 우회해 과도하게 큰 payload를 밀반입할 수 있습니다 |
+| link `url`이 절대 `https://` 링크가 아님(다른 어떤 scheme이든, `http://`, `javascript:`, `data:` 포함) | 거부됨 - executable하거나 암호화되지 않은 링크는 절대 허용하지 않습니다 |
+| Title, body, link, metadata **key 또는 value**가 고신호 secret-like 패턴(bearer token, API key/secret/password 대입, 서명된 URL query parameter, private-key header, GitHub/Slack token 형태)과 일치 | 거부됨 |
+
+거부는 `ChannelDeliveryError`의 하위 클래스인 `PresentationRejectedError`를 발생시키므로,
+라우터는 이를 다른 실패한 전송과 동일하게 처리하고 다음 fallback 채널이나 제한된 재시도로
+진행합니다 - 부분 전송이나 비-redaction 전송으로 확대되지 않습니다. 반환된
+`NotificationPresentationEnvelope.metadata`는 일반 `dict`가 아니라 `MappingProxyType` view이므로,
+renderer가 생성 이후 경계 artifact를 변경할 수 없습니다.
+
+### 8.3 Shadow delivery
+
+[`ShadowNotificationChannel`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py)은
+`ChannelMode.SHADOW`에 있는 바인딩에 대해 composition root가 vendor 어댑터 대신 등록하는
+`NotificationChannel`입니다. 이 채널의 `send`는 위의 presentation 경계를 통해 메시지를 렌더링하고
+주입된 `ShadowDeliveryRecorder`를 통해 제한된 envelope를 영속적으로 기록합니다 - **네트워크 호출은
+전혀 발생하지 않습니다**. `NotificationRouter`는 실제 어댑터와 동일하게 이 채널로 dispatch하며
+`delivered=True`를 받습니다: shadow 채널의 완전한 계약상 의무(렌더링과 영속 로컬 기록)는 확인되지
+않은 외부 약속 없이 이미 완료되었으며, 이는 헌법 원칙 7("새 capability는 shadow mode에서
+시작합니다 - 판단하고 기록만 하며 실행하지 않습니다")과 일치합니다. `ChannelMode.ENFORCE`로의
+승격은 등록된 어댑터를 교체하는 명시적 composition-root 변경이며, `ShadowNotificationChannel`
+자체를 변경하지 않고, 라우터, fan-out 전달 저장소, 위의 단일 감사 항목 불변식은 변하지 않습니다.
+
+`ShadowDeliveryRecord.record_id`는 무작위 값이 아니라 `channel_id`와 메시지의 `correlation_id`,
+`audit_id`, `category`를 결정론적으로 해시한 값입니다 - `channels-and-notifications.md § 5`의 기존
+"어댑터는 멱등 `send`를 구현해야 함" 계약을 충족합니다: `InMemoryShadowDeliveryRecorder`는 같은
+`record_id`가 반복되면 아무 것도 하지 않으며, 운영용 durable recorder도 반드시 동일하게(예:
+`record_id`를 key로 하는 upsert) 동작해야 합니다. `send`는 또한 naive(timezone 없는) `clock()`
+결과를 기록 전에 `ValueError`로 거부하므로, `recorded_at`은 이 서비스가 기록하는 다른 모든
+timezone-aware timestamp와 항상 비교 가능한 상태를 유지합니다.
+
+[`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py)의
+집중 테스트는 다음을 증명합니다: 사용할 수 없는 provider도 여전히 정확히 하나의 감사 항목과 함께
+결정론적 fallback에 도달함, shadow 상태의 provider가 네트워크 호출 없이 dispatch를 충족함, 거부된
+presentation이 부분 콘텐츠를 전송하는 대신 결정론적으로 fallback함, 동일한 `audit_id`에 대한
+반복된 fan-out `dispatch()` 호출이 이미 종료된 대상을 재전송하지 않으면서도 호출마다 정확히 하나의
+감사 항목을 계속 기록함, 그리고 같은 `correlation_id + audit_id + category`로 직접 반복 호출한
+`send()`가 정확히 하나의 항목을 기록하고 같은 `provider_message_id`를 반환함.
 
 ## 관련 문서
 

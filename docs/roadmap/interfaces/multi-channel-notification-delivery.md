@@ -300,6 +300,81 @@ prepared/completed metadata.
 | 8 | Authenticated Operator ingress plus schema-validated Core consumer | Signed callback converges an `accepted` child to `delivered` through the broker |
 | 9 | Explicit deployed and local activation | An activated binding delivers; a saved-only or placeholder binding does not |
 
+## 8. Capability-state, presentation, and shadow-delivery contracts
+
+A2/A4 channels need one more foundation layer beneath fan-out: a way to describe a binding's
+availability without conflating it with health, a fail-closed rendering boundary every renderer
+crosses before a vendor call, and a way to introduce a new binding with zero network transport
+until it is explicitly promoted.
+
+### 8.1 Capability-state
+
+[`ChannelCapabilityState`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py)
+separates `available` (prerequisites this process could observe are complete), `enabled` (operator
+preference), `configured` (startup-validated wiring), and `mode` (`ChannelMode.SHADOW` or
+`ChannelMode.ENFORCE`) exactly as
+[coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
+requires for every capability flag. `ready` is `available and enabled and configured`; `mode` never
+raises autonomy on its own - composition still gates the fan-out target set on the other three
+fields exactly as §1 already does. `to_readiness_row()` renders the same source-attributed shape
+[`integration_row`](../../../services/core-control-plane/src/fdai/delivery/integration_readiness.py)
+already produces, so a capability-state instance and the Settings readiness projection can never
+drift into a different vocabulary for the same channel. Constructing or reading a capability state
+performs no I/O; it is never a send-time health probe (§2 above). `channel_id` MUST be non-empty -
+the constructor rejects an empty value rather than let a config or composition defect silently
+corrupt the readiness row emitted for it.
+
+### 8.2 Presentation boundary
+
+[`render_presentation`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py)
+is the pre-render, fail-closed boundary every renderer crosses before formatting or a provider
+call. It rejects, rather than truncates or silently strips:
+
+| Condition | Outcome |
+|-----------|---------|
+| Metadata names an interactive-content key (`actions`, `buttons`, `interactive`, ...), compared case-insensitively so `Actions` or `ACTIONS` is caught exactly like `actions` | Rejected - A2/A4 messages never contain approval buttons or executable links (`channels-and-notifications.md § 3`) |
+| Title, body, link, or metadata **key or value** exceeds a bounded `PresentationLimits` value | Rejected - never truncated to fit; an unbounded key could smuggle an oversized payload past a check that only looked at values |
+| A link `url` is not an absolute `https://` link (any other scheme, including `http://`, `javascript:`, or `data:`) | Rejected - never an executable or unencrypted link |
+| Title, body, link, or metadata **key or value** matches a high-signal secret-like pattern (bearer token, API key/secret/password assignment, signed-URL query parameter, private-key header, GitHub/Slack token shape) | Rejected |
+
+A rejection raises `PresentationRejectedError`, a `ChannelDeliveryError` subclass, so the router
+treats it exactly like any other failed send and proceeds to the next fallback channel or bounded
+retry - it never widens to a partial or unredacted send. The returned
+`NotificationPresentationEnvelope.metadata` is a `MappingProxyType` view, not a plain `dict`, so a
+renderer cannot mutate the boundary artifact after construction.
+
+### 8.3 Shadow delivery
+
+[`ShadowNotificationChannel`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py)
+is a `NotificationChannel` that composition registers instead of a vendor adapter for any binding
+still in `ChannelMode.SHADOW`. Its `send` renders the message through the presentation boundary
+above and durably records the bounded envelope through an injected `ShadowDeliveryRecorder` - **no
+network call is made**. `NotificationRouter` dispatches to it exactly like a live adapter and
+receives `delivered=True`: the shadow channel's complete contractual obligation (render plus
+durable local record) is already finished with no unconfirmed external promise outstanding,
+matching constitution principle 7 ("New capabilities start in shadow mode - judge and log only, no
+execution"). Promotion to `ChannelMode.ENFORCE` is an explicit composition-root change that swaps
+the registered adapter; it never mutates `ShadowNotificationChannel` itself, and the router,
+fan-out delivery store, and one-audit-entry invariant above are unchanged.
+
+`ShadowDeliveryRecord.record_id` is a deterministic hash of `channel_id` plus the message's
+`correlation_id`, `audit_id`, and `category` - never a random value - satisfying the pre-existing
+"Adapters MUST implement idempotent `send`" contract in `channels-and-notifications.md § 5`:
+`InMemoryShadowDeliveryRecorder` treats a repeated `record_id` as a no-op, and a durable production
+recorder MUST do the same (an upsert keyed on `record_id`). `send` also rejects a naive
+(timezone-less) `clock()` result with `ValueError` before recording, so `recorded_at` stays
+comparable with every other timezone-aware timestamp this service records.
+
+Focused coverage in
+[`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py)
+proves: an unavailable provider still reaches a deterministic fallback with exactly one audit
+entry; a shadowed provider satisfies dispatch without any network call; a rejected presentation
+falls back deterministically instead of sending partial content; a repeated fan-out `dispatch()`
+call for the same `audit_id` never re-sends an already-terminal target while still writing exactly
+one audit entry per call; and a directly repeated `send()` call for the same
+`correlation_id + audit_id + category` records exactly one entry and returns the same
+`provider_message_id`.
+
 ## Related docs
 
 | To learn about | Read |
