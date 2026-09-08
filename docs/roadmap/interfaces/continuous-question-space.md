@@ -30,7 +30,8 @@ Durable semantic execution claims are lease-bound. A waiting duplicate can recov
 instead of remaining blocked behind a failed worker until the request deadline. Store failure keeps
 the turn held rather than raising an untyped transport error.
 Core-owned partial indexes support the Operator claim ordering and principal-plus-request replay
-cursor on the shared `state_kv` table. They change no state or delivery authority.
+cursor on the shared `state_kv` table. The claim covering index avoids a separate candidate sort.
+They change no state or delivery authority.
 At Core processing start, a content-free log and the persisted turn timing separate durable queue
 delay from remaining request deadline and semantic planning. Expired backlog therefore no longer
 appears to be model or semantic-planning latency.

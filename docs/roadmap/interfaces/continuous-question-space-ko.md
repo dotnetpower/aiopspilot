@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0530efe7d7047ce2f5c489fe1c38c637ae0989d8
+translation_source_sha: fb7382de981edb3949dd2e74290c89e255f3e8dd
 translation_revised: 2026-09-08
 ---
 # 지속형 질문 공간
@@ -31,8 +31,9 @@ translation_revised: 2026-09-08
 영속 의미 실행 claim에는 lease가 적용됩니다. 대기 중인 중복 요청은 만료된 claim을 복구할 수
 있으므로 실패한 worker 때문에 요청 기한까지 차단되지 않습니다. 저장소 실패는 타입이 없는
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.
-Core 소유 부분 인덱스는 공용 `state_kv` 테이블에서 Operator claim 정렬과
-principal 및 request 범위 replay cursor를 지원합니다. 상태나 전달 권한은 변경하지 않습니다.
+Core 소유 부분 인덱스는 공용 `state_kv` 테이블에서 Operator claim 정렬과 principal 및
+request 범위 replay cursor를 지원합니다. Claim covering index는 별도의 후보 정렬을
+방지합니다. 상태나 전달 권한은 변경하지 않습니다.
 Core 처리를 시작할 때 콘텐츠가 없는 로그와 영속 turn timing이 영속 큐 지연을 남은 요청
 deadline 및 의미 계획과 분리합니다. 따라서 만료된 backlog가 모델 또는 의미 계획 지연으로
 보이지 않습니다.
