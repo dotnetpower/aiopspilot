@@ -99,6 +99,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME" in workflow
     assert "scenario-lab requires the existing central OpenAI Private DNS zone" in workflow
     assert "DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}" in workflow
+    assert (
+        "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
+    )
     assert "TF_VAR_resource_group_name" in workflow
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow

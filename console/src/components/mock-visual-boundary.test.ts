@@ -109,7 +109,7 @@ describe("mock console visual boundary", () => {
     expect(readme).toContain("transcript-first workspace with optional conversation history and current-screen context panels");
   });
 
-  test("registers the synthetic Service Map under Visualization", () => {
+  test("registers the synthetic Service Map under visualization studies", () => {
     const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
     const masterLanding = readFileSync(`${REPOSITORY_ROOT}/index.html`, "utf8");
     const navigation = readFileSync(`${MOCK_ROOT}/assets/calm-slate.js`, "utf8");
@@ -117,7 +117,9 @@ describe("mock console visual boundary", () => {
 
     expect(landing).toContain("<h3>Visualization</h3>");
     expect(landing).toContain('data-page="service-map.html"');
-    expect(masterLanding).toContain('<span class="nav-group-label">Visualization</span>');
+    expect(masterLanding).toContain(
+      '<span class="family-label">Visualization studies</span>',
+    );
     expect(masterLanding).toContain('data-page="mocks/ui/service-map.html"');
     // A literal total went stale on every added page, so assert the sum it is supposed to report.
     const groupTotal = [...masterLanding.matchAll(

@@ -7,7 +7,12 @@ const mock = readFileSync(
   "utf8",
 );
 const mockStyles = readFileSync(
-  fileURLToPath(new URL("../../../mocks/ui/assets/calm-slate.css", import.meta.url)),
+  fileURLToPath(
+    new URL(
+      "../../../mocks/ui/assets/governance-evidence-workspace.css",
+      import.meta.url,
+    ),
+  ),
   "utf8",
 );
 const route = readFileSync(
@@ -18,13 +23,17 @@ const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.u
 
 describe("Impact scope controls", () => {
   test("defines the complete control system in the mockup first", () => {
-    expect(mock).toContain('class="cs-query-panel cs-mb-24"');
-    expect(mock).toContain('class="cs-query-check-box"');
-    expect(mock).toContain('class="cs-btn is-primary"');
-    expect(mockStyles).toContain(".cs-query-input");
-    expect(mockStyles).toContain(".cs-query-check input:checked + .cs-query-check-box");
-    expect(mockStyles).toContain(".cs-btn:disabled");
-    expect(mockStyles).toContain(".cs-query-action .cs-btn { width: 100%; }");
+    expect(mock).toContain('class="fg-toolbar" data-fg-static-form');
+    expect(mock.match(/class="fg-field"/g)).toHaveLength(3);
+    expect(mock).toContain(
+      '<button class="fg-button is-primary" type="submit">Simulate impact</button>',
+    );
+    expect(mockStyles).toContain(".cs-governance-evidence .fg-toolbar");
+    expect(mockStyles).toContain(".cs-governance-evidence .fg-field input");
+    expect(mockStyles).toContain(".cs-governance-evidence .fg-field select");
+    expect(mockStyles).toContain(
+      ".cs-governance-evidence .fg-toolbar .fg-button { width: 100%; }",
+    );
   });
 
   test("maps the approved mockup controls into the production route", () => {
