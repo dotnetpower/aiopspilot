@@ -142,6 +142,17 @@ def test_platform_workflow_binds_channel_edge_identity_and_secret_scopes() -> No
     assert "operator_channel_edge_effective_secret_ids" in _LEGACY_ROOT
     assert "setunion(" in _LEGACY_ROOT
     assert "length(var.operator_channel_edge_secret_ids) >= 2" not in _LEGACY_VARIABLES
+    target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
+    target_expression = target_expression[: target_expression.index("\n")]
+    for target in (
+        "module.resource_group.azurerm_resource_group.primary",
+        "module.operator_channel_edge_identity",
+        "azurerm_role_assignment.operator_channel_edge_acr_pull",
+        "azurerm_role_assignment.operator_channel_edge_eventhubs_sender",
+        "azurerm_role_assignment.operator_channel_edge_eventhubs_receiver",
+        "azurerm_role_assignment.operator_channel_edge_kv_secrets_user",
+    ):
+        assert f"-target={target}" in target_expression
     assert 'var.channel_edge.principal_scopes_secret_id != ""' in _OPERATOR_VARIABLES
     assert "one complete Slack or Teams provider contract plus principal scopes" in (
         _OPERATOR_VARIABLES

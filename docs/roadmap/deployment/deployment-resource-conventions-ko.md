@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9b228420d4b87524248eb4c2dee04f3c81390b36
+translation_source_sha: a2ff911da96e9f310c099360f556241ce456627d
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -58,7 +58,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
-| Channel-edge 신원 기반 | implemented | `infra/main.tf`, `infra/services/operator-service/`, `deploy-channel-edge-secrets.yml`, root, 서비스 및 보호된 비밀 작업 흐름 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 프로바이더 및 주체 비밀 범위는 선택적 platform 입력이며, 서비스 root는 주체 범위와 완전한 프로바이더 계약 하나가 없으면 활성 edge를 차단합니다. 필수 CI가 통과한 정확한 개발 비밀 작업 흐름은 태그가 지정된 배포 소유 Key Vault 하나를 선택하고 안정적인 배포 신원을 사용해 고정 Slack 비밀 이름 4개만 기록합니다. 또한 값을 다시 확인하고 값이나 식별자 아티팩트를 보존하지 않습니다. 비공개 네트워크 및 RBAC 상태는 플랫폼과 tenant 정책이 계속 관리합니다. |
+| Channel-edge 신원 기반 | implemented | `infra/main.tf`, `infra/services/operator-service/`, `deploy-dev.yml`, `deploy-channel-edge-secrets.yml`, root, 서비스 및 보호된 비밀 작업 흐름 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 프로바이더 및 주체 비밀 범위는 선택적 platform 입력이며, 서비스 root는 주체 범위와 완전한 프로바이더 계약 하나가 없으면 활성 edge를 차단합니다. 전용 platform 계획은 리소스 그룹 상태 이동, 전용 신원, ACR 가져오기, 의미 Event Hubs 송수신 및 고정 비밀 범위만 대상으로 합니다. 필수 CI가 통과한 정확한 개발 비밀 작업 흐름은 태그가 지정된 배포 소유 Key Vault 하나를 선택하고 안정적인 배포 신원을 사용해 고정 Slack 비밀 이름 4개만 기록합니다. 또한 값을 다시 확인하고 값이나 식별자 아티팩트를 보존하지 않습니다. 비공개 네트워크 및 RBAC 상태는 플랫폼과 tenant 정책이 계속 관리합니다. |
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 완료된 일회성 이행 모드는 더 이상 노출하지 않습니다. 과거 Terraform `moved` 블록은 state 호환성을 위해 유지합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. 서비스 간 근거를 고정하는 Key Vault secret은 조정되지 않은 고정 만료 대신 조정된 로테이션을 사용합니다. |
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Channel-edge 신원과 해당 ACR, 의미 Event Hubs, Operator DSN 및 프로바이더와 주체 비밀 범위 4개만 대상으로 하는 전용 platform 계획 대상 집합을 추가했습니다. | `current change`, platform 작업 흐름 계약 테스트 | 삭제가 없는 계획과 단독 유지관리자 직접 개발 적용을 실행한 뒤 Operator 워크로드를 활성화합니다. |
 | 2026-09-08 | implemented | 비밀 helper를 root 최소 환경 대신 HTTP 의존성을 소유한 고정 Operator Service 패키지 환경에 결속했습니다. | 실패한 작업 흐름 `34217394441`, `current change`, 집중 helper 및 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner의 목록 변환 결과가 `properties.vaultUri`를 생략하므로 고유하게 검증된 vault 이름에서 상용 Azure Key Vault 정규 URI를 파생했습니다. Helper는 Azure Vault DNS 밖의 URI를 계속 거부합니다. | 실패한 작업 흐름 `34216680762`, `current change`, 집중 작업 흐름 및 helper 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner에서 모든 정확한 관리 플레인 읽기 방식이 거부된 후 중복 Key Vault 상태 조회를 제거했습니다. 고유한 배포 태그로 vault를 선택하고 helper가 Azure Vault URI를 검증하며 실제 데이터 플레인 쓰기 및 재확인으로 도달성을 증명합니다. 플랫폼 정책은 계속 상태 권한을 소유합니다. | 실패한 작업 흐름 `34215982420`, 이전에 확인한 값 비노출 상태 근거, `current change`, 집중 작업 흐름 및 전송 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
