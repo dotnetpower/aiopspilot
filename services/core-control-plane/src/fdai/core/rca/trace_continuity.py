@@ -180,7 +180,9 @@ def _cause_text(evidence: TraceCauseEvidence) -> str:
 def _cause_domain(cause: TraceRcaCause) -> CauseDomain:
     if cause is TraceRcaCause.COLLECTOR:
         return CauseDomain.SHARED_DEPENDENCY
-    return CauseDomain.APPLICATION
+    if cause is TraceRcaCause.INSTRUMENTATION:
+        return CauseDomain.APPLICATION
+    return CauseDomain.UNKNOWN
 
 
 def _abstained(reason: str) -> RcaResult:

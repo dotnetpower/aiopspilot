@@ -112,7 +112,7 @@ def test_header_propagation_cause_requires_the_observed_boundary() -> None:
     assert result.outcome is RcaOutcome.GROUNDED
     assert result.hypothesis is not None
     assert result.hypothesis.tier is RcaTier.T1
-    assert result.hypothesis.cause_domain is CauseDomain.APPLICATION
+    assert result.hypothesis.cause_domain is CauseDomain.UNKNOWN
     assert "application->agent" in result.hypothesis.cause
     assert result.hypothesis.remediation_ref is None
     assert all(citation.kind is CitationKind.TELEMETRY for citation in result.hypothesis.citations)

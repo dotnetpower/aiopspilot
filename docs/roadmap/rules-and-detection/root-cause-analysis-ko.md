@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 9925eb7c97ab17692c3f800da8206fde7a9a6f11
+translation_source_sha: cf0dc0bf6c81d868e162488cd0f4fd37a0ba3a0b
 translation_revised: 2026-09-09
 ---
 # 근본원인 분석
@@ -36,6 +36,7 @@ translation_revised: 2026-09-09
 | 2026-09-09 | implemented | 잘못된 구성이 항상 명시적으로 실패하도록 추적 RCA 신뢰도 하한 검증을 모든 조기 판단 보류보다 앞에 배치했습니다. | `current change`; 집중 잘못된 신뢰도 회귀 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-09 | implemented | 결합된 연속성 및 원인 인용 집합에 100개 참조 상한 하나를 적용하고 초과분을 자르는 대신 판단을 보류했습니다. | `current change`; 집중 결합 인용 상한 초과 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-09 | implemented | 감지기가 문제가 있는 홉을 식별하지 않으므로 홉 순서 발견에 대한 지원되지 않는 계측 원인 배정을 제거했습니다. | `current change`; 집중 잘못된 홉 순서 판단 보류 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
+| 2026-09-09 | implemented | 끊긴 경계만으로 소유권을 입증할 수 없으므로 헤더 전파 원인 영역을 애플리케이션에서 `unknown`으로 낮췄습니다. | `current change`; 집중 헤더 영역 회귀 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-04 | implemented | T1을 historical 인벤토리 신원, append-only topology history, canonical lifecycle Incident 매칭, 전용 reader RBAC, sovereign endpoint/audience 결합 및 전체 side-path timeout을 사용하는 event-time 맥락으로 보강했습니다. Split 배포는 정확한 platform reader identity를 hydrate하고 guard합니다. | `current change`; 집중 RCA 프로바이더, 멤버, topology, timeout, hydration, plan guard, Terraform, Ruff 및 strict mypy 검사, 잔여 하드닝 라운드 1-4, 11-12, 15-16, 22-29, 32-42. | 관리되는 exact-revision 운영 cohort를 보존합니다. |
 | 2026-09-04 | implemented | 자동 Incident T2를 서버 소유의 관리되는 문서 맥락에 연결했습니다. 별도의 읽기 전용 PostgreSQL 어댑터가 lexical ranking 전에 컬렉션과 접근 참조를 필터링하고 불변 메타데이터와 정확한 읽기 그룹을 다시 확인한 뒤 인시던트, 리소스, 목적, 기준 시각, 릴리스 및 주체에 결속된 맥락을 기존 문서 근거 검증기에 전달합니다. 문서나 접근 권한이 없으면 다른 인용으로 계속하지 않고 T2 판단을 보류합니다. | `current change`; 집중 관리 맥락, 자동 T2, 문서 근거, Ruff, strict mypy 및 Core 서비스 Terraform 검사가 통과했습니다. | 관리되는 운영 RCA cohort와 배포된 문서 읽기 증적을 보존합니다. |
 | 2026-09-04 | implemented | T1 RCA를 정확한 Azure Activity Log 변경과 완전하고 최신인 의존성 그래프에 연결했습니다. 어댑터는 서버 소유 인벤토리에서 중립 ID를 해석하고, 호출자 신원을 해시하며, 읽기 작업, 실패, 범위 이탈, pagination 상한 초과, 오래된 신원 및 그래프 세대 변경을 차단하고 모든 결과를 shadow로 유지합니다. | `current change`; 집중 Azure 배포 이력, 의존성 세대, 멤버 출처 및 control-loop 테스트 28건, Ruff, strict mypy가 통과했습니다. | 정확한 개정 번호의 운영 cohort와 독립적으로 검증한 결과를 보존합니다. |
@@ -101,6 +102,8 @@ T0 구성 규칙 원인은 기본적으로 `infrastructure`를 사용하며, 더
 만듭니다.
 잘못된 홉 순서 결과는 문제가 있는 홉을 식별하지 않습니다. 따라서 이 분류기는 임의의 관측 홉에
 계측 원인을 배정하지 않고 판단을 보류합니다.
+계측은 애플리케이션 원인 영역에, 수집기 손실은 공유 의존성 영역에 매핑합니다. 헤더 전파는 경계
+정보만으로 어느 쪽이 결함을 소유하는지 입증할 수 없으므로 `unknown`으로 유지합니다.
 각 원인 신호는 정확한 토폴로지, 시나리오, 관측 구간, 시간대가 있는 관측 시각에도 결속됩니다.
 다른 범위의 신호나 연속성 결과보다 나중에 관측된 신호는 재사용할 수 없습니다.
 신뢰도 하한은 모든 판단 보류 결과보다 먼저 검증합니다. 따라서 잘못된 구성이 누락되거나 충돌한
