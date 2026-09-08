@@ -28,9 +28,14 @@ from fdai.core.ontology_platform import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+# A generic descriptive phrase ("high-cpu", "read-only") never carries a digit,
+# while a real Azure instance name almost always does ("vm-01", "web-02",
+# "sql-prod01"). Requiring 3+ hyphenated segments alone rejects those common,
+# single-hyphen instance names, so a digit-bearing single hyphen also qualifies.
 _RUNTIME_TARGET = re.compile(
-    r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}"
-    r"(?![A-Za-z0-9_.-])"
+    r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
+    r"|(?<![A-Za-z0-9_.-])(?=[A-Za-z][A-Za-z0-9-]*[0-9])"
+    r"[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]+(?![A-Za-z0-9_.-])"
 )
 
 

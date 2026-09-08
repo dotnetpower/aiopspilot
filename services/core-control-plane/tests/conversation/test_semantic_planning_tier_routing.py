@@ -2972,6 +2972,55 @@ def test_current_state_uses_verified_runtime_target_constraint() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_current_state_uses_single_hyphen_digit_bearing_runtime_target() -> None:
+    """A common Azure instance name (`vm-01`) has only one hyphen but a digit.
+
+    The runtime-target detector previously required three or more hyphenated
+    segments, so single-hyphen instance names such as `vm-01` were never
+    recognized as an exact resource and the operator's question could not be
+    answered.
+    """
+
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(function_types=(resource_current_state_function_type(),))
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "vm-01"],
+            output_shape="target_current_state",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="What is the current power state of vm-01?",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "id",
+            "operator": "equals",
+            "equals": "vm-01",
+        }
+    ]
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_current_state_does_not_complete_multiple_runtime_targets() -> None:
     manifest, definition = _fixture(function_types=(resource_current_state_function_type(),))
     t1 = _Model(

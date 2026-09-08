@@ -7,9 +7,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+# A generic descriptive phrase ("high-cpu", "read-only") never carries a digit,
+# while a real Azure instance name almost always does ("vm-01", "web-02",
+# "sql-prod01"). Requiring 3+ hyphenated segments alone rejects those common,
+# single-hyphen instance names, so a digit-bearing single hyphen also qualifies.
 _RUNTIME_TARGET = re.compile(
-    r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}"
-    r"(?![A-Za-z0-9_.-])"
+    r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
+    r"|(?<![A-Za-z0-9_.-])(?=[A-Za-z][A-Za-z0-9-]*[0-9])"
+    r"[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]+(?![A-Za-z0-9_.-])"
 )
 _FRAME_TARGET = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+")
 _TYPED_RESOURCE_TARGET = re.compile(r"Resource\.(id|name|display_name)=(.+)")
