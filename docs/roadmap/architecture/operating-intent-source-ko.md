@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: 4e0984e6e80b7a8b1657c4ab00ee93f468435f8e
+translation_source_sha: 7d12d1cf5f98e3964f4d55074e4f512566d606ed
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -30,6 +30,8 @@ provenance를 포함한 문서 전체를 덮으므로, provenance 필드를 고�
 어느 수준에서든 인식하지 못하는 멤버를 거부하고, 수용된 모든 멤버가 digest에 포함되도록 보장합니다.
 관대한 파서였다면 추가된 멤버를 해싱 전에 버려서, 디스크의 파일이 바뀌어도 고정된 digest는 그대로
 남았을 것입니다. 고정값을 내세우지 않는 일반 `FDAI_OPERATING_MODEL_PATH` 형식은 계속 관대합니다.
+전용 출처는 operating-intent ObjectType 6종만 수락합니다. 다른 타입이 있으면 이 출처의 그래프
+소유권을 넓히지 않고 문서 전체를 거부합니다.
 
 이 바인딩은 **기본으로 켜져 있습니다**. Core 이미지가 승인된 일반 출처를
 `/app/config/operating-intent/generic-source.json`에 함께 제공하고, 배포가 재정의하지 않는 한

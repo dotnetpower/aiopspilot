@@ -71,6 +71,7 @@ title: Archived Code Map Implementation Ledger
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Restricted the deployment-owned operating-intent source to its exact six ObjectTypes after review found it could project unrelated graph objects. | `current change`; focused source-admission regression test. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Hardened operating-intent authority against future-dated durable admissions after review found that a negative age could extend authority. | `current change`; focused admission regression test. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Mapped the dedicated deploy-runner VNet link to the shared private Blob DNS zone used by governed decision-evidence publication. | `current change`; `infra/main.tf`; protected plan-scope and deployment workflow tests. | Apply the exact protected plan and retain a successful immutable admission record. |
 | 2026-09-09 | implemented | Corrected the runner DNS map to use an A record in the already-linked ops Blob zone instead of a second overlapping zone link. | `current change`; failed apply `34262053256`; `infra/main.tf`; focused Terraform and workflow checks. | Apply the exact protected plan and retain a successful immutable admission record. |

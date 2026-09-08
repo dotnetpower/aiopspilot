@@ -187,6 +187,14 @@ def test_duplicate_required_type_fails_closed() -> None:
         validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
 
 
+def test_non_operating_intent_type_fails_closed() -> None:
+    extra = _objective("resource-1", "Resource")
+    document = _document((*_complete_objects(), extra))
+
+    with pytest.raises(OperatingIntentSourceError, match="non-operating-intent ObjectTypes"):
+        validate_operating_intent_source_document(document, binding=_binding(document), now=_NOW)
+
+
 def test_below_pinned_instance_count_fails_closed() -> None:
     """A pinned count is exact in both directions, not just an upper bound.
 

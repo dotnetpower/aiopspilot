@@ -121,6 +121,12 @@ def validate_operating_intent_source_document(
     by_type: dict[str, list[OntologyObjectRecord]] = {}
     for item in snapshot.objects:
         by_type.setdefault(item.object_type, []).append(item)
+    unexpected_types = sorted(set(by_type) - REQUIRED_OPERATING_INTENT_OBJECT_TYPES)
+    if unexpected_types:
+        raise OperatingIntentSourceError(
+            "operating intent source contains non-operating-intent ObjectTypes "
+            f"{unexpected_types!r}"
+        )
 
     for object_type in sorted(REQUIRED_OPERATING_INTENT_OBJECT_TYPES):
         count = len(by_type.get(object_type, ()))
