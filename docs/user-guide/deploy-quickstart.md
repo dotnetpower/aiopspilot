@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 03a9bbee0eff0a77f2ebb42ec0eef05558f5cb65 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: ffda9f74747ebfe120a372bcee8bd07bdeede0b9 }]
 ---
 
 # Deploy Quickstart
@@ -111,7 +111,8 @@ Terraform remains an expert path.
   exists outside Terraform state, the plan adopts it after matching its scope, principal, and role;
   don't delete or recreate it manually. Post-apply checks for this bounded mode ignore unrelated
   Inventory Job image drift. A dedicated A record publishes the evidence private endpoint into the
-  Blob DNS zone already linked to the runner.
+  Blob DNS zone already linked to the runner. It omits record-set tags that the provider doesn't
+  persist.
 - To schedule Phase 4 measurement, explicitly enable only the required baseline, pattern-growth, or
   operational-promotion job. All three are disabled by default and share a dedicated measurement
   identity with image-pull, state-secret, and optional model-inference access. They never receive
