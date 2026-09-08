@@ -359,3 +359,18 @@ def test_trace_cause_confidence_is_bounded_by_evidence_and_t1_ceiling() -> None:
 
     with pytest.raises(ValueError, match="confidence MUST be finite"):
         replace(cause, confidence=float("nan"))
+
+
+def test_default_trace_confidence_floor_holds_zero_confidence_evidence() -> None:
+    cause = replace(
+        _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
+        confidence=0.0,
+    )
+
+    result = analyze_trace_continuity_cause(
+        _result(missing_hop="agent"),
+        cause_evidence=(cause,),
+    )
+
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "confidence_0.00_below_min_0.50"

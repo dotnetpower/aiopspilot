@@ -91,7 +91,7 @@ def analyze_trace_continuity_cause(
     result: TraceContinuityResult,
     *,
     cause_evidence: tuple[TraceCauseEvidence, ...],
-    min_confidence: float = 0.0,
+    min_confidence: float = 0.5,
     max_evidence_age: timedelta = timedelta(minutes=5),
 ) -> RcaResult:
     """Return one cited T1 cause or hold when evidence is absent or conflicting."""
