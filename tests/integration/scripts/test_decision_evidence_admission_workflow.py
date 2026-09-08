@@ -30,7 +30,10 @@ def test_workflow_is_exact_revision_and_source_run_bound() -> None:
 
 def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
     assert "az login --identity --client-id" in _WORKFLOW
-    assert "verify-azure-context.sh" in _WORKFLOW
+    assert (
+        'verify-azure-context.sh" \\\n            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"'
+        in _WORKFLOW
+    )
     assert "--overwrite false" in _WORKFLOW
     assert "decision evidence immutable record collision" in _WORKFLOW
     assert "decision evidence immutable metadata collision" in _WORKFLOW
