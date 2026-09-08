@@ -674,6 +674,56 @@ async def test_assurance_twin_review_detail_round_trips_an_opaque_slashed_key(
     assert review["review_key"] == "Owner/Repo#12:Change_A"
 
 
+async def test_assurance_twin_review_list_rejects_a_mismatched_durable_key(
+    monkeypatch: Any,
+) -> None:
+    body = {
+        "pr_ref": "owner/repo#12",
+        "review_key": "claimed-key",
+        "verdict": "needs_review",
+        "mode": "shadow",
+        "generated_at": "2026-07-07T00:00:00Z",
+        "freshness": "fresh",
+        "reason_codes": [],
+        "metadata": {},
+        "findings": [],
+    }
+    material = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    value = {
+        **body,
+        "activity_id": "assurance-twin.change-review:identity:completed",
+        "correlation_id": "correlation-1",
+        "evidence_digest": f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}",
+        "evidence_source_revision": f"sha256:{'1' * 64}",
+    }
+    statements: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        return [{"key": "runtime:assurance-twin-review:durable-key", "value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    result = await reader.read(_query("assurance_twin.reviews"))
+
+    assert "SELECT key, value" in statements[0]
+    assert result["available"] is False
+    assert result["reviews"] == []
+    gaps = result["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["identity"] is None
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
 async def test_assurance_twin_review_detail_requires_a_bounded_key() -> None:
     reader = RuntimeProjectionReader(
         RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),

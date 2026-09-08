@@ -33,10 +33,11 @@ def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Fi
 def _report(
     *findings: Finding,
     scope: str = "sub/00000000-0000-0000-0000-000000000001",
+    generated_at: str = "2026-07-07T00:00:00Z",
 ) -> object:
     return build_posture_assessment_report(
         scope=scope,
-        generated_at="2026-07-07T00:00:00Z",
+        generated_at=generated_at,
         mode=Mode.SHADOW,
         findings=findings,
     )
@@ -111,6 +112,31 @@ def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
         payload,
         version="1.2.0",
     )
+
+
+def test_posture_activity_identity_binds_privacy_safe_report_evidence() -> None:
+    correlation_id = "shared-correlation"
+    first = build_posture_report_activity(
+        _report(scope="scope-a"),
+        correlation_id=correlation_id,
+        freshness=OperationalFreshness.FRESH,
+    )
+    second = build_posture_report_activity(
+        _report(scope="scope-b"),
+        correlation_id=correlation_id,
+        freshness=OperationalFreshness.FRESH,
+    )
+    replay = build_posture_report_activity(
+        _report(scope="scope-a"),
+        correlation_id=correlation_id,
+        freshness=OperationalFreshness.FRESH,
+    )
+
+    assert first.activity_id != second.activity_id
+    assert first.idempotency_key != second.idempotency_key
+    assert replay.activity_id == first.activity_id
+    assert "scope-a" not in first.activity_id
+    assert correlation_id not in first.activity_id
 
 
 def test_unavailable_freshness_requires_reason_code() -> None:

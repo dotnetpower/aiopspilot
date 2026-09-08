@@ -772,11 +772,14 @@ class RuntimeProjectionReader:
 
     async def _assurance_twin_reviews(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE %s "
+            "SELECT key, value FROM state_kv WHERE key LIKE %s "
             "ORDER BY value ->> 'generated_at' DESC NULLS LAST, key ASC LIMIT 201",
             (f"{_ASSURANCE_TWIN_REVIEW_PREFIX}%",),
         )
-        return assurance_twin_review_list_projection(rows)
+        return assurance_twin_review_list_projection(
+            rows,
+            durable_key_prefix=_ASSURANCE_TWIN_REVIEW_PREFIX,
+        )
 
     async def _assurance_twin_review_detail(self, query: ProjectionQuery) -> Mapping[str, object]:
         # The review key is opaque twin identity: it is compared byte for

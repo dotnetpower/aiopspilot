@@ -128,7 +128,11 @@ export function assuranceTwinReviewIdFromSearch(search: URLSearchParams): string
 }
 
 export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): ViewSnapshot {
-  const report = data.posture.reports[0] ?? null;
+  const verdictCounts = {
+    clear: data.posture.reports.filter((report) => report.verdict === "clear").length,
+    needs_review: data.posture.reports.filter((report) => report.verdict === "needs_review").length,
+    blocked: data.posture.reports.filter((report) => report.verdict === "blocked").length,
+  };
   return {
     routeId: "assurance-twin",
     routeLabel: t("route.assuranceTwin"),
@@ -140,16 +144,17 @@ export function buildAssuranceTwinViewSnapshot(data: AssuranceTwinResponse): Vie
         tech: "PostureAssessmentReport",
       },
     ]),
-    headline: report
-      ? `${t("assuranceTwin.verdict")}: ${t(`assuranceTwin.verdictValue.${report.verdict}`)}; `
+    headline: data.posture.reports.length > 0
+      ? `${t("assuranceTwin.postureReports")}: ${data.posture.reports.length}; `
         + `${t("assuranceTwin.reviews")}: ${data.reviews.reviews.length}`
       : t("assuranceTwin.unavailable"),
     capturedAt: new Date().toISOString(),
-    facts: report
+    facts: data.posture.reports.length > 0
       ? [
-        { key: "verdict", label: t("assuranceTwin.verdict"), value: report.verdict },
-        { key: "resource_count", label: t("assuranceTwin.resourceCount"), value: report.resource_count },
-        { key: "rule_count", label: t("assuranceTwin.ruleCount"), value: report.rule_count },
+        { key: "posture_report_count", label: t("assuranceTwin.postureReports"), value: data.posture.reports.length },
+        { key: "blocked_count", label: t("assuranceTwin.verdictValue.blocked"), value: verdictCounts.blocked },
+        { key: "needs_review_count", label: t("assuranceTwin.verdictValue.needs_review"), value: verdictCounts.needs_review },
+        { key: "clear_count", label: t("assuranceTwin.verdictValue.clear"), value: verdictCounts.clear },
       ]
       : [],
     records: {
@@ -511,12 +516,15 @@ function EvidenceGaps({ reasonCodes }: { readonly reasonCodes: readonly string[]
 }
 
 function WithheldEvidence(
-  { gaps, title }: { readonly gaps: readonly AssuranceTwinEvidenceGap[]; readonly title: string },
+  { gaps, heading }: {
+    readonly gaps: readonly AssuranceTwinEvidenceGap[];
+    readonly heading: string;
+  },
 ) {
   if (gaps.length === 0) return null;
   return (
     <div class="assurance-twin-gaps" role="status">
-      <strong>{title}</strong>
+      <strong>{heading}</strong>
       <ul>
         {gaps.map((gap, index) => (
           <li key={`${gap.identity ?? "unknown"}:${gap.reason_code}:${index}`}>
@@ -560,7 +568,6 @@ function EvidenceProvenance({ record }: { readonly record: AssuranceTwinProvenan
 
 function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
   usePublishViewContext(() => buildAssuranceTwinViewSnapshot(data), [data]);
-  const report = data.posture.reports[0] ?? null;
   const reviewsHref = `${routeHref("assurance-twin")}#assurance-twin-reviews`;
   const columns: readonly Column<AssuranceTwinReviewSummary>[] = [
     {
@@ -614,9 +621,12 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
         <strong>{t("assuranceTwin.readOnlyTitle")}</strong>
         <span>{t("assuranceTwin.readOnlyBody")}</span>
       </div>
-      {report
-        ? (
-          <>
+      {data.posture.reports.length > 0
+        ? data.posture.reports.map((report) => (
+          <section class="stack" key={report.scope}>
+            <h2>
+              {t("assuranceTwin.scope")}: <span class="mono">{report.scope}</span>
+            </h2>
             <KpiGrid>
               <KpiCard
                 href={reviewsHref}
@@ -642,19 +652,27 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
             </KpiGrid>
             <EvidenceGaps reasonCodes={report.reason_codes} />
             <EvidenceProvenance record={report} />
-          </>
-        )
-        : <div class="muted">{t("assuranceTwin.noPostureReport")}</div>}
-      <WithheldEvidence gaps={data.posture.gaps} title={t("assuranceTwin.postureWithheld")} />
+          </section>
+        ))
+        : (
+          <div class="muted">
+            {t(data.posture.gaps.length > 0
+              ? "assuranceTwin.unavailable"
+              : "assuranceTwin.noPostureReport")}
+          </div>
+        )}
+      <WithheldEvidence gaps={data.posture.gaps} heading={t("assuranceTwin.postureWithheld")} />
       <div id="assurance-twin-reviews">
         <h2>{t("assuranceTwin.reviews")}</h2>
         <DataTable
           columns={columns}
           rows={data.reviews.reviews}
           keyOf={(row) => row.review_key}
-          empty={t("assuranceTwin.reviewsEmpty")}
+          empty={t(data.reviews.gaps.length > 0
+            ? "assuranceTwin.reviewsUnavailable"
+            : "assuranceTwin.reviewsEmpty")}
         />
-        <WithheldEvidence gaps={data.reviews.gaps} title={t("assuranceTwin.reviewsWithheld")} />
+        <WithheldEvidence gaps={data.reviews.gaps} heading={t("assuranceTwin.reviewsWithheld")} />
       </div>
     </div>
   );
@@ -680,7 +698,7 @@ function AssuranceTwinReviewDetailBody(
         <a href={routeHref("assurance-twin")}>{t("assuranceTwin.backToReviews")}</a>
         <WithheldEvidence
           gaps={state.gap === null ? [] : [state.gap]}
-          title={t("assuranceTwin.reviewDetailWithheld")}
+          heading={t("assuranceTwin.reviewDetailWithheld")}
         />
         <div class="muted">{t("assuranceTwin.reviewDetailUnavailable")}</div>
       </div>

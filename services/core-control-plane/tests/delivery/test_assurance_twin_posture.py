@@ -1,17 +1,13 @@
-"""Assurance Twin durable ledger + live activity-tip orchestration tests.
-
-Posture reports publish a bus tip; change reviews are durably persisted but
-never publish one (see ``fdai.delivery.assurance_twin_posture`` docstring).
-"""
+"""Assurance Twin durable ledger and unpublished activity-value tests."""
 
 from __future__ import annotations
 
 from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.delivery.assurance_twin_posture import (
+    POSTURE_CONFLICT_REASON_CODE,
     REVIEW_CONFLICT_REASON_CODE,
     AssuranceTwinPostureRecorder,
 )
-from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     StateStoreAssuranceTwinPostureLedger,
 )
@@ -36,10 +32,13 @@ def _finding(rule: str = "r-1", ref: str = "vm-a", severity: str = "high") -> Fi
     )
 
 
-def _report(*findings: Finding) -> object:
+def _report(
+    *findings: Finding,
+    generated_at: str = "2026-07-07T00:00:00Z",
+) -> object:
     return build_posture_assessment_report(
         scope=_SCOPE,
-        generated_at="2026-07-07T00:00:00Z",
+        generated_at=generated_at,
         mode=Mode.SHADOW,
         findings=findings,
     )
@@ -56,17 +55,16 @@ def _review(key: str = "k-1", *findings: Finding, verdict: str = "needs_review")
     )
 
 
-def _recorder(bus: InMemoryEventBus, store: InMemoryStateStore) -> AssuranceTwinPostureRecorder:
+def _recorder(store: InMemoryStateStore) -> AssuranceTwinPostureRecorder:
     return AssuranceTwinPostureRecorder(
         ledger=StateStoreAssuranceTwinPostureLedger(store=store),
-        publisher=EventBusOperationalActivityPublisher(event_bus=bus, topic=_TOPIC),
     )
 
 
-async def test_posture_report_is_durably_recorded_and_replayable_from_the_bus() -> None:
+async def test_posture_report_is_durably_recorded_without_an_unordered_bus_tip() -> None:
     bus = InMemoryEventBus()
     store = InMemoryStateStore()
-    recorder = _recorder(bus, store)
+    recorder = _recorder(store)
 
     result = await recorder.record_posture_report(
         _report(_finding()),
@@ -75,25 +73,19 @@ async def test_posture_report_is_durably_recorded_and_replayable_from_the_bus() 
         evidence_source_revision=_REVISION,
     )
 
-    assert result.published is True
+    assert result.published is False
     assert result.durable_write_created is True
     assert result.activity.owner_agent == "Heimdall"
     assert result.activity.execution_authority is False
 
-    # Governed-runtime replay: an independent consumer subscribing to the
-    # same topic sees the exact tip that was published, and the durable
-    # projection is readable without recomputing anything.
     envelopes = [event async for event in bus.subscribe(_TOPIC, "replay-consumer")]
-    assert len(envelopes) == 1
-    assert envelopes[0].payload["activity_id"] == result.activity.activity_id
-    assert envelopes[0].payload["kind"] == "assurance-twin.posture"
+    assert envelopes == []
 
     durable = await recorder.read_latest_posture_report(_SCOPE)
     assert durable is not None
     assert durable["verdict"] == "blocked"
-    # Event-to-report replay: the durable row names the tip that announced it.
-    assert durable["activity_id"] == envelopes[0].payload["activity_id"]
-    assert durable["correlation_id"] == envelopes[0].payload["correlation_id"]
+    assert durable["activity_id"] == result.activity.activity_id
+    assert durable["correlation_id"] == result.activity.correlation_id
     assert durable["evidence_digest"] == result.evidence_digest
     assert durable["evidence_source_revision"] == _REVISION
 
@@ -101,7 +93,7 @@ async def test_posture_report_is_durably_recorded_and_replayable_from_the_bus() 
 async def test_change_review_redelivery_is_idempotent_and_never_publishes_a_tip() -> None:
     bus = InMemoryEventBus()
     store = InMemoryStateStore()
-    recorder = _recorder(bus, store)
+    recorder = _recorder(store)
 
     first = await recorder.record_change_review(
         _review("k-1", _finding()),
@@ -129,10 +121,62 @@ async def test_change_review_redelivery_is_idempotent_and_never_publishes_a_tip(
     assert envelopes == [], "change-review activity publication is disabled entirely"
 
 
+async def test_superseded_posture_report_is_not_published() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    recorder = _recorder(store)
+
+    newer = await recorder.record_posture_report(
+        _report(_finding(rule="new"), generated_at="2026-07-07T02:00:00Z"),
+        correlation_id="posture-new",
+        freshness=OperationalFreshness.FRESH,
+        evidence_source_revision=_REVISION,
+    )
+    older = await recorder.record_posture_report(
+        _report(_finding(rule="old"), generated_at="2026-07-07T01:00:00Z"),
+        correlation_id="posture-old",
+        freshness=OperationalFreshness.FRESH,
+        evidence_source_revision=_REVISION,
+    )
+
+    assert newer.published is False
+    assert older.durable_write_created is False
+    assert older.published is False
+    assert older.activity.status.value == "superseded"
+    envelopes = [event async for event in bus.subscribe(_TOPIC, "replay-consumer")]
+    assert envelopes == []
+
+
+async def test_same_timestamp_posture_conflict_is_unavailable_and_unpublished() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    recorder = _recorder(store)
+
+    await recorder.record_posture_report(
+        _report(_finding(rule="first")),
+        correlation_id="posture-first",
+        freshness=OperationalFreshness.FRESH,
+        evidence_source_revision=_REVISION,
+    )
+    conflict = await recorder.record_posture_report(
+        _report(_finding(rule="second")),
+        correlation_id="posture-second",
+        freshness=OperationalFreshness.FRESH,
+        evidence_source_revision=_REVISION,
+    )
+
+    assert conflict.conflict is True
+    assert conflict.durable_write_created is False
+    assert conflict.published is False
+    assert conflict.activity.freshness is OperationalFreshness.UNAVAILABLE
+    assert conflict.activity.reason_codes == (POSTURE_CONFLICT_REASON_CODE,)
+    assert [event async for event in bus.subscribe(_TOPIC, "replay-consumer")] == []
+
+
 async def test_conflicting_review_key_stays_durably_unavailable_and_never_publishes() -> None:
     bus = InMemoryEventBus()
     store = InMemoryStateStore()
-    recorder = _recorder(bus, store)
+    recorder = _recorder(store)
 
     await recorder.record_change_review(
         _review("k-1", _finding()),
@@ -164,9 +208,8 @@ async def test_conflicting_review_key_stays_durably_unavailable_and_never_publis
 
 
 async def test_unavailable_source_never_grants_authority() -> None:
-    bus = InMemoryEventBus()
     store = InMemoryStateStore()
-    recorder = _recorder(bus, store)
+    recorder = _recorder(store)
 
     result = await recorder.record_posture_report(
         _report(),

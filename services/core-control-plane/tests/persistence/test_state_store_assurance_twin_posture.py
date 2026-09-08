@@ -16,6 +16,7 @@ from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.core.assurance_twin.report import PostureAssessmentReport
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     CONFLICT_MARKER_FIELD,
+    POSTURE_CONFLICT_REASON_CODE,
     REVIEW_CONFLICT_REASON_CODE,
     StateStoreAssuranceTwinPostureLedger,
     change_review_state_key,
@@ -66,10 +67,13 @@ def _findings_batch(count: int) -> tuple[Finding, ...]:
     return tuple(_finding(rule=f"r-{i}", ref=f"vm-{i}") for i in range(count))
 
 
-def _report(*findings: Finding) -> PostureAssessmentReport:
+def _report(
+    *findings: Finding,
+    generated_at: str = "2026-07-07T00:00:00Z",
+) -> PostureAssessmentReport:
     return build_posture_assessment_report(
         scope=_SCOPE,
-        generated_at="2026-07-07T00:00:00Z",
+        generated_at=generated_at,
         mode=Mode.SHADOW,
         findings=findings,
     )
@@ -109,9 +113,13 @@ async def test_posture_report_write_is_readable_and_overwrites_latest() -> None:
     assert read_back["freshness"] == "fresh"
     assert len(read_back["findings"]) == 1
 
-    # A later report for the same scope replaces the prior snapshot.
+    # A report generated later for the same scope replaces the prior snapshot.
     second = await ledger.record_posture_report(
-        _report(_finding(), _finding(rule="r-2")),
+        _report(
+            _finding(),
+            _finding(rule="r-2"),
+            generated_at="2026-07-07T01:00:00Z",
+        ),
         freshness="fresh",
         **_PROVENANCE,
     )
@@ -119,6 +127,120 @@ async def test_posture_report_write_is_readable_and_overwrites_latest() -> None:
     replaced = await ledger.read_latest_posture_report(_SCOPE)
     assert replaced is not None
     assert len(replaced["findings"]) == 2
+
+
+async def test_delayed_older_posture_report_cannot_replace_newer_evidence() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    newer = await ledger.record_posture_report(
+        _report(_finding(rule="new"), generated_at="2026-07-07T02:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    older = await ledger.record_posture_report(
+        _report(_finding(rule="old"), generated_at="2026-07-07T01:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    assert newer.created is True
+    assert older.created is False
+    retained = await ledger.read_latest_posture_report(_SCOPE)
+    assert retained is not None
+    assert retained["generated_at"] == "2026-07-07T02:00:00+00:00"
+    assert retained["findings"][0]["rule_id"] == "new"
+
+
+async def test_concurrent_posture_reports_converge_on_newest_evidence() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    await asyncio.gather(
+        ledger.record_posture_report(
+            _report(_finding(rule="old"), generated_at="2026-07-07T01:00:00Z"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_posture_report(
+            _report(_finding(rule="new"), generated_at="2026-07-07T02:00:00Z"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    retained = await ledger.read_latest_posture_report(_SCOPE)
+    assert retained is not None
+    assert retained["generated_at"] == "2026-07-07T02:00:00+00:00"
+    assert retained["findings"][0]["rule_id"] == "new"
+
+
+async def test_same_timestamp_different_posture_evidence_is_tombstoned() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    first = await ledger.record_posture_report(
+        _report(_finding(rule="first")),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    conflicting = await ledger.record_posture_report(
+        _report(_finding(rule="second")),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    assert first.created is True
+    assert conflicting.created is False
+    assert conflicting.conflict is True
+    retained = await ledger.read_latest_posture_report(_SCOPE)
+    assert retained is not None
+    assert retained["findings"][0]["rule_id"] == "first"
+    marker = retained[CONFLICT_MARKER_FIELD]
+    assert marker["reason_code"] == POSTURE_CONFLICT_REASON_CODE
+
+
+async def test_concurrent_same_timestamp_posture_evidence_converges_on_conflict() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    outcomes = await asyncio.gather(
+        ledger.record_posture_report(
+            _report(_finding(rule="first")),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_posture_report(
+            _report(_finding(rule="second")),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    assert any(outcome.conflict for outcome in outcomes)
+    retained = await ledger.read_latest_posture_report(_SCOPE)
+    assert retained is not None
+    assert retained[CONFLICT_MARKER_FIELD]["reason_code"] == POSTURE_CONFLICT_REASON_CODE
+
+
+async def test_same_timestamp_identical_posture_evidence_is_idempotent() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    first = await ledger.record_posture_report(
+        _report(_finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    replay = await ledger.record_posture_report(
+        _report(_finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    assert first.created is True
+    assert replay.created is False
+    assert replay.conflict is False
 
 
 async def test_posture_report_row_carries_replayable_provenance() -> None:

@@ -8,6 +8,9 @@ import {
   buildAssuranceTwinViewSnapshot,
   loadAssuranceTwinReviewDetail,
   loadAssuranceTwinState,
+  type AssuranceTwinFinding,
+  type AssuranceTwinPostureReport,
+  type AssuranceTwinReviewSummary,
 } from "./assurance-twin";
 
 const provenance = {
@@ -17,7 +20,7 @@ const provenance = {
   evidence_source_revision: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 };
 
-const finding = {
+const finding: AssuranceTwinFinding = {
   rule_id: "r-1",
   resource_type: "compute.vm",
   resource_ref: "vm-a",
@@ -26,7 +29,7 @@ const finding = {
   evidence_refs: [],
 };
 
-const report = {
+const report: AssuranceTwinPostureReport = {
   ...provenance,
   scope: "sub/00000000-0000-0000-0000-000000000001",
   generated_at: "2026-07-07T00:00:00Z",
@@ -52,7 +55,7 @@ const postureResponse = () => ({
   gaps: [],
 });
 
-const reviewSummary = {
+const reviewSummary: AssuranceTwinReviewSummary = {
   ...provenance,
   review_key: "Review_Key-1",
   pr_ref: "owner/repo#1",
@@ -109,7 +112,7 @@ describe("assurance twin decoder", () => {
     expect(snapshot).toMatchObject({
       routeId: "assurance-twin",
       facts: expect.arrayContaining([
-        expect.objectContaining({ key: "verdict", value: "blocked" }),
+        expect.objectContaining({ key: "blocked_count", value: 1 }),
       ]),
     });
   });
@@ -124,6 +127,26 @@ describe("assurance twin decoder", () => {
     expect(state.data.posture.reports[0]?.evidence_digest).toBe(provenance.evidence_digest);
     expect(state.data.reviews.reviews[0]?.evidence_source_revision)
       .toBe(provenance.evidence_source_revision);
+  });
+
+  it("summarizes every posture scope without hiding a blocked report", async () => {
+    const data = postureResponse();
+    const snapshot = buildAssuranceTwinViewSnapshot({
+      posture: {
+        ...data,
+        reports: [
+          { ...report, scope: "scope-clear", verdict: "clear" },
+          { ...report, scope: "scope-blocked", verdict: "blocked" },
+        ],
+      },
+      reviews: reviewsResponse(),
+    });
+
+    expect(snapshot.facts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "posture_report_count", value: 2 }),
+      expect.objectContaining({ key: "blocked_count", value: 1 }),
+      expect.objectContaining({ key: "clear_count", value: 1 }),
+    ]));
   });
 
   it("classifies an unavailable Operator API as unavailable, not an error", async () => {

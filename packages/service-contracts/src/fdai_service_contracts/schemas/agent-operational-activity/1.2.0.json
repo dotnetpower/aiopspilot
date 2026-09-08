@@ -89,6 +89,15 @@
           "observation_domain": {"type": "null"}
         }
       }
+    },
+    {
+      "if": {
+        "properties": {"producer": {"const": "assurance-twin"}},
+        "required": ["producer"]
+      },
+      "then": {
+        "properties": {"kind": {"const": "assurance-twin.posture"}}
+      }
     }
   ]
 }

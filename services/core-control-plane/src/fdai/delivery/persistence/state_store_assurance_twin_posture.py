@@ -14,16 +14,17 @@ Design invariants
 ------------------
 
 - **Durable-first**: the report/review body is the authoritative record.
-  The posture-report bus activity tip built in
-  ``core/assurance_twin/posture_activity.py`` only announces that a
-  posture-report durable write happened; the change-review recorder no
-  longer publishes an activity tip at all (see
+  ``core/assurance_twin/posture_activity.py`` builds a bounded activity value,
+  but the recorder publishes neither posture nor review tips until a
+  transactional outbox can order them with the exact durable revision (see
   ``fdai.delivery.assurance_twin_posture``).
 - **Read-only surface**: this ledger never judges, approves, or executes;
   it stores exactly the report/review the twin already computed.
-- **Idempotent by identity, fail-closed on conflict**: a posture report
-  overwrites the prior snapshot for its ``scope`` (latest-wins, matching
-  ``StateStore.write_state`` semantics). A change review is written once per
+- **Idempotent by identity, fail-closed on conflict**: a posture report advances
+  the prior snapshot for its ``scope`` only when its canonical
+  ``generated_at`` is newer. The create-or-advance sequence is linearized
+  through ``write_state_if_absent`` and revision-fenced compare-and-set, so a
+  delayed older report can never overwrite newer evidence. A change review is written once per
   ``review_key``. Redelivery of an identical review body is an idempotent
   no-op; a *different* body under the same ``review_key`` is a conflict -
   the stored evidence body is never replaced, and a durable conflict marker
@@ -51,9 +52,8 @@ Design invariants
   result is linearized per ``review_key`` through this one compare-and-set
   point. This linearizes the *durable* result only: a caller still cannot
   atomically order an activity-bus publish with this compare-and-set (a
-  separate async call after the fact), which is exactly why
-  ``fdai.delivery.assurance_twin_posture`` no longer publishes a change-
-  review activity tip at all - see that module's docstring.
+  separate async call after the fact), which is why the recorder publishes
+  neither posture nor review tips - see that module's docstring.
 - **Bounded by identity and by size**: ``review_key`` is rejected above
   256 characters, provenance identities above 512 characters, ``findings``
   above 200 entries, ``reason_codes`` and any
@@ -67,10 +67,9 @@ Design invariants
   Operator API, never a row nobody can ever read back.
 - **Replayable provenance**: every row carries the bounded activity and
   correlation identity of the record call plus the SHA-256 digest of the
-  exact evidence body, so an Operator API reader can verify that a
-  published ``agent.operational-activity`` tip and a rendered report
-  describe the same evidence. Digests and identifiers only - no finding
-  text, resource value, or customer identifier is added here.
+  exact evidence body, so a future transactional publisher can bind a tip to
+  the same rendered evidence. Digests and identifiers only - no finding text,
+  resource value, or customer identifier is added here.
 """
 
 from __future__ import annotations
@@ -92,6 +91,9 @@ CHANGE_REVIEW_STATE_PREFIX = "runtime:assurance-twin-review:"
 REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
 """Reason code carried by the durable conflict marker and the unavailable tip."""
 
+POSTURE_CONFLICT_REASON_CODE = "assurance_twin_posture_timestamp_conflict"
+"""Reason code for different posture evidence generated at the same instant."""
+
 CONFLICT_MARKER_FIELD = "conflict"
 """Row field that makes a same-key different-digest conflict durable."""
 
@@ -112,6 +114,9 @@ Each retry only happens when a concurrent writer just advanced the row
 body), so the loop terminates within one extra attempt per concurrent
 racer; the cap exists purely so a StateStore bug cannot spin forever.
 """
+
+_MAX_POSTURE_CAS_ATTEMPTS = 8
+"""Bound on retrying a posture advance after a concurrent writer wins."""
 
 _REVIEW_KEY_MAX_CHARS = 256
 """Upper bound on ``review_key`` length, enforced at write time.
@@ -291,11 +296,11 @@ class AssuranceTwinLedgerWrite:
 
     key: str
     created: bool
-    """``True`` when this call wrote a new row.
+    """``True`` when this call created or advanced the durable row.
 
-    For a posture report this is always ``True`` (latest-wins overwrite);
-    for a change review it is ``False`` on redelivery of an existing
-    ``review_key``.
+    For a posture report it is ``False`` when the same or a newer report is
+    already durable; for a change review it is ``False`` on redelivery of an
+    existing ``review_key``.
     """
 
     evidence_digest: str
@@ -355,17 +360,171 @@ class StateStoreAssuranceTwinPostureLedger:
             "reason_codes": list(reason_codes),
         }
         digest = evidence_body_digest(body)
-        await self._store.write_state(
-            key,
-            _with_provenance(
+        value = {
+            **_with_provenance(
                 body,
                 activity_id=activity_id,
                 correlation_id=correlation_identity,
                 digest=digest,
                 evidence_source_revision=evidence_source_revision,
             ),
+            _REVISION_FIELD: 1,
+        }
+        if await self._store.write_state_if_absent(key, value):
+            return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
+        existing = await self._store.read_state(key)
+        if existing is None:
+            raise RuntimeError(
+                "assurance twin posture row disappeared after losing its create race"
+            )
+        return await self._advance_posture_report(
+            key=key,
+            value=value,
+            digest=digest,
+            correlation_id=correlation_identity,
+            attempts_remaining=_MAX_POSTURE_CAS_ATTEMPTS,
+            existing=existing,
         )
-        return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
+
+    async def _advance_posture_report(
+        self,
+        *,
+        key: str,
+        value: Mapping[str, Any],
+        digest: str,
+        correlation_id: str,
+        attempts_remaining: int,
+        existing: Mapping[str, Any],
+    ) -> AssuranceTwinLedgerWrite:
+        """Atomically advance one scope only to a newer generated timestamp."""
+
+        incoming_generated_at = str(value["generated_at"])
+        existing_generated_at = _stored_canonical_timestamp(existing)
+        stored_digest = _stored_digest(existing)
+        if existing_generated_at is not None and existing_generated_at > incoming_generated_at:
+            return AssuranceTwinLedgerWrite(
+                key=key,
+                created=False,
+                evidence_digest=digest,
+                conflict=_has_conflict_marker(existing),
+                stored_evidence_digest=stored_digest,
+            )
+        if existing_generated_at == incoming_generated_at:
+            if _has_conflict_marker(existing):
+                return AssuranceTwinLedgerWrite(
+                    key=key,
+                    created=False,
+                    evidence_digest=digest,
+                    conflict=True,
+                    stored_evidence_digest=stored_digest,
+                )
+            if _stored_comparison_digest(existing) == digest:
+                return AssuranceTwinLedgerWrite(
+                    key=key,
+                    created=False,
+                    evidence_digest=digest,
+                    stored_evidence_digest=stored_digest,
+                )
+            return await self._mark_posture_conflict(
+                key=key,
+                value=value,
+                digest=digest,
+                correlation_id=correlation_id,
+                attempts_remaining=attempts_remaining,
+                existing=existing,
+            )
+        if attempts_remaining <= 0:
+            raise RuntimeError("assurance twin posture compare-and-set exceeded its retry bound")
+        current_revision = _stored_revision(existing)
+        advanced = await self._store.compare_and_set_state_with_audit(
+            key,
+            {**value, _REVISION_FIELD: current_revision + 1},
+            expected_revision=current_revision,
+            audit_entry={
+                "action_kind": "assurance_twin.posture_advanced",
+                "actor": "fdai.system",
+                "mode": "shadow",
+                "correlation_id": correlation_id,
+                "idempotency_key": (
+                    f"assurance-twin-posture-advance:{_privacy_safe_identity(key)}:{digest}"
+                ),
+            },
+        )
+        if advanced:
+            return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
+        replay = await self._store.read_state(key)
+        if replay is None:
+            raise RuntimeError(
+                "assurance twin posture row disappeared during a compare-and-set race"
+            )
+        return await self._advance_posture_report(
+            key=key,
+            value=value,
+            digest=digest,
+            correlation_id=correlation_id,
+            attempts_remaining=attempts_remaining - 1,
+            existing=replay,
+        )
+
+    async def _mark_posture_conflict(
+        self,
+        *,
+        key: str,
+        value: Mapping[str, Any],
+        digest: str,
+        correlation_id: str,
+        attempts_remaining: int,
+        existing: Mapping[str, Any],
+    ) -> AssuranceTwinLedgerWrite:
+        """Tombstone different evidence generated for one scope at one instant."""
+
+        if attempts_remaining <= 0:
+            raise RuntimeError(
+                "assurance twin posture conflict compare-and-set exceeded its retry bound"
+            )
+        stored_digest = _stored_digest(existing)
+        current_revision = _stored_revision(existing)
+        advanced = await self._store.compare_and_set_state_with_audit(
+            key,
+            {
+                **_with_conflict_marker(
+                    existing,
+                    reason_code=POSTURE_CONFLICT_REASON_CODE,
+                    stored_evidence_digest=stored_digest,
+                    rejected_evidence_digest=digest,
+                ),
+                _REVISION_FIELD: current_revision + 1,
+            },
+            expected_revision=current_revision,
+            audit_entry={
+                "action_kind": "assurance_twin.posture_conflict_marked",
+                "actor": "fdai.system",
+                "mode": "shadow",
+                "correlation_id": correlation_id,
+                "idempotency_key": (
+                    f"assurance-twin-posture-conflict:{_privacy_safe_identity(key)}:{digest}"
+                ),
+            },
+        )
+        if advanced:
+            return AssuranceTwinLedgerWrite(
+                key=key,
+                created=False,
+                evidence_digest=digest,
+                conflict=True,
+                stored_evidence_digest=stored_digest,
+            )
+        replay = await self._store.read_state(key)
+        if replay is None:
+            raise RuntimeError("assurance twin posture row disappeared during a conflict race")
+        return await self._advance_posture_report(
+            key=key,
+            value=value,
+            digest=digest,
+            correlation_id=correlation_id,
+            attempts_remaining=attempts_remaining - 1,
+            existing=replay,
+        )
 
     async def record_change_review(
         self,
@@ -489,6 +648,7 @@ class StateStoreAssuranceTwinPostureLedger:
         tombstoned = {
             **_with_conflict_marker(
                 existing,
+                reason_code=REVIEW_CONFLICT_REASON_CODE,
                 stored_evidence_digest=stored_digest,
                 rejected_evidence_digest=digest,
             ),
@@ -733,6 +893,16 @@ def _stored_revision(existing: Mapping[str, Any]) -> int:
     return revision
 
 
+def _stored_canonical_timestamp(existing: Mapping[str, Any]) -> str | None:
+    generated_at = existing.get("generated_at")
+    if not isinstance(generated_at, str):
+        return None
+    try:
+        return _canonical_timestamp(generated_at)
+    except ValueError:
+        return None
+
+
 def _has_conflict_marker(existing: Mapping[str, Any] | None) -> bool:
     return existing is not None and isinstance(existing.get(CONFLICT_MARKER_FIELD), Mapping)
 
@@ -740,6 +910,7 @@ def _has_conflict_marker(existing: Mapping[str, Any] | None) -> bool:
 def _with_conflict_marker(
     existing: Mapping[str, Any],
     *,
+    reason_code: str,
     stored_evidence_digest: str | None,
     rejected_evidence_digest: str,
 ) -> dict[str, Any]:
@@ -753,7 +924,7 @@ def _with_conflict_marker(
     return {
         **existing,
         CONFLICT_MARKER_FIELD: {
-            "reason_code": REVIEW_CONFLICT_REASON_CODE,
+            "reason_code": reason_code,
             "stored_evidence_digest": stored_evidence_digest,
             "rejected_evidence_digest": rejected_evidence_digest,
         },
@@ -763,6 +934,7 @@ def _with_conflict_marker(
 __all__ = [
     "CHANGE_REVIEW_STATE_PREFIX",
     "CONFLICT_MARKER_FIELD",
+    "POSTURE_CONFLICT_REASON_CODE",
     "POSTURE_REPORT_STATE_PREFIX",
     "REVIEW_CONFLICT_REASON_CODE",
     "AssuranceTwinLedgerWrite",

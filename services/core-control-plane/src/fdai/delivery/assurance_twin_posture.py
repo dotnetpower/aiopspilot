@@ -1,5 +1,4 @@
-"""Assurance Twin - compose the durable ledger and, for posture reports only,
-the bus activity tip.
+"""Assurance Twin - compose the durable ledger and bounded activity values.
 
 The one call site a future trusted producer binding uses to persist a
 computed report/review, and - for a posture report - announce it on the
@@ -7,41 +6,18 @@ schema-validated event bus. Wires two existing seams:
 
 - ``fdai.delivery.persistence.state_store_assurance_twin_posture`` owns the
   durable read model (authoritative content Operator API reads).
-- ``fdai.delivery.operational_activity.EventBusOperationalActivityPublisher``
-  owns the bounded, schema-validated bus tip (already used for every other
-  observation domain).
 - ``fdai.core.assurance_twin.posture_activity`` builds the tip payload from
   the report/review, pure and CSP-neutral.
 
-**Change-review activity publication is disabled.** A same-``review_key``
-redelivery's durable outcome (completed vs. conflict-tombstoned) is decided
-by the ledger's compare-and-set write, but the bus publish that would
-announce that outcome is a *separate*, unordered async call after the fact:
-nothing pins the publish to happen before, or atomically with, a concurrent
-redelivery's own compare-and-set. A completed tip built from this call's own
-result can therefore reach the bus after a concurrent redelivery has already
-durably tombstoned the same identity - or a conflict tip can reach the bus
-out of order relative to a sibling's completed tip - so either published tip
-can misrepresent the row's durable truth by the time a subscriber sees it,
-permanently (the tombstone never reverts, and each tip carries its own
-``activity_id``/``idempotency_key`` per status, so nothing supersedes an
-already-published stale tip). No trusted producer is bound to this recorder
-yet, so nothing depends on the change-review tip today; rather than add a
-speculative lock or an unshipped transactional outbox to make that ordering
-safe, ``record_change_review`` still persists durably (and still returns the
-built ``activity`` value, for the caller's own audit/logging use) but never
-calls ``publisher.publish`` for it. The durable ledger, the Operator API, and
-the Console panel remain the source of truth for change-review state; a
-durable conflict stays durably unavailable there regardless. See
+**Activity publication is disabled.** A durable compare-and-set and an event
+bus publish are separate async effects. A posture report can win its durable
+advance, pause, and publish after a newer report has advanced the same scope;
+a change review has the same ordering hazard against a conflict tombstone.
+Re-reading before publish only moves the race window. Until a transactional
+outbox can bind publication to the exact durable revision, both record methods
+return the schema-valid activity for local audit use but never publish it. The
+durable ledger, Operator API, and Console remain the source of truth. See
 [assurance-twin.md](../../../../../docs/roadmap/operations/assurance-twin.md#implementation-status).
-
-**Posture-report publication remains.** A posture report has no conflict
-tombstone: each write is a plain latest-wins overwrite for its ``scope``, and
-a published completed tip only asserts "this report was recorded," which
-stays true even after a later report supersedes it - matching every other
-observation domain's activity feed. There is no durable marker a posture
-report's publish could contradict after the fact, so the same hazard does
-not apply here.
 
 **No shipped call site.** This recorder is deliberately unbound: no trusted
 component computes twin findings yet, and an ambient ingress payload is not
@@ -62,8 +38,8 @@ from fdai.core.assurance_twin.posture_activity import (
     build_posture_report_activity,
 )
 from fdai.core.assurance_twin.report import PostureAssessmentReport
-from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
+    POSTURE_CONFLICT_REASON_CODE,
     REVIEW_CONFLICT_REASON_CODE,
     StateStoreAssuranceTwinPostureLedger,
 )
@@ -72,17 +48,13 @@ from fdai.shared.providers.iac_review import IacReview
 
 @dataclass(frozen=True, slots=True)
 class AssuranceTwinPostureRecord:
-    """Combined durable-write and live-tip outcome for one record call."""
+    """Combined durable-write and unpublished activity outcome for one call."""
 
     activity: AgentOperationalActivity
     durable_write_created: bool
     """Mirrors :class:`AssuranceTwinLedgerWrite.created` for the caller's audit trail."""
     published: bool
-    """For a posture report: ``False`` only when the bus publish itself
-    failed; the durable write already landed regardless, so a broker outage
-    never loses the report. For a change review: always ``False`` - the
-    change-review activity tip is never published (see module docstring),
-    so this never reflects a publish attempt or its outcome."""
+    """Always ``False`` until a transactional outbox orders tips with the ledger."""
     evidence_digest: str
     """SHA-256 digest of the evidence body this call carried."""
     conflict: bool = False
@@ -95,17 +67,14 @@ class AssuranceTwinPostureRecord:
 
 
 class AssuranceTwinPostureRecorder:
-    """Record a posture report (durably, with a published tip) or a change
-    review (durably, with no published tip - see module docstring)."""
+    """Record a posture report or change review without publishing a tip."""
 
     def __init__(
         self,
         *,
         ledger: StateStoreAssuranceTwinPostureLedger,
-        publisher: EventBusOperationalActivityPublisher,
     ) -> None:
         self._ledger = ledger
-        self._publisher = publisher
 
     async def record_posture_report(
         self,
@@ -116,7 +85,7 @@ class AssuranceTwinPostureRecorder:
         reason_codes: tuple[str, ...] = (),
         evidence_source_revision: str,
     ) -> AssuranceTwinPostureRecord:
-        """Persist ``report`` and publish its bounded activity tip."""
+        """Persist ``report`` and return its bounded unpublished activity."""
 
         activity = build_posture_report_activity(
             report,
@@ -132,11 +101,40 @@ class AssuranceTwinPostureRecorder:
             correlation_id=correlation_id,
             evidence_source_revision=evidence_source_revision,
         )
-        published = await self._publisher.publish(activity)
+        if write.conflict:
+            conflicted = build_posture_report_activity(
+                report,
+                correlation_id=correlation_id,
+                freshness=OperationalFreshness.UNAVAILABLE,
+                reason_codes=(POSTURE_CONFLICT_REASON_CODE,),
+            )
+            return AssuranceTwinPostureRecord(
+                activity=conflicted,
+                durable_write_created=False,
+                published=False,
+                evidence_digest=write.evidence_digest,
+                conflict=True,
+                stored_evidence_digest=write.stored_evidence_digest,
+            )
+        if not write.created:
+            superseded = build_posture_report_activity(
+                report,
+                correlation_id=correlation_id,
+                freshness=freshness,
+                reason_codes=reason_codes,
+                superseded=True,
+            )
+            return AssuranceTwinPostureRecord(
+                activity=superseded,
+                durable_write_created=False,
+                published=False,
+                evidence_digest=write.evidence_digest,
+                stored_evidence_digest=write.stored_evidence_digest,
+            )
         return AssuranceTwinPostureRecord(
             activity=activity,
             durable_write_created=write.created,
-            published=published,
+            published=False,
             evidence_digest=write.evidence_digest,
         )
 

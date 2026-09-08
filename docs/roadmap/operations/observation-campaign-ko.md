@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: d6c463cfed487a7282f6112526723ef31f79357e
-translation_revised: 2026-09-04
+translation_source_sha: 3b85fecbff23bc89595f141931d9dd55a073a786
+translation_revised: 2026-09-08
 ---
 
 # 권한 인식 관측 캠페인
@@ -36,7 +36,8 @@ translation_revised: 2026-09-04
 
 공유 활동 스키마의 Assurance Twin `1.2.0` 소유권 조건은 이 캠페인의 `1.1.0` 관측 도메인
 계약과 분리됩니다. 캠페인 출처를 추가하거나 관측 소유자, 생산자, 범위 또는 권한을 넓히지
-않습니다.
+않습니다. 역방향 스키마 조건도 `assurance-twin` 생산자를 `assurance-twin.posture` 종류에만
+예약하므로 이 생산자는 캠페인 또는 인벤토리 활동을 가장할 수 없습니다.
 
 ### 구현 이력
 

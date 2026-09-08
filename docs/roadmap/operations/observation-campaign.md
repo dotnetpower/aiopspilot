@@ -34,7 +34,9 @@ agent or the Console managed-resource execution authority.
 
 The shared activity schema's Assurance Twin `1.2.0` ownership condition is separate from this
 campaign's `1.1.0` observation-domain contract. It doesn't add a campaign source or widen any
-observation owner, producer, scope, or authority.
+observation owner, producer, scope, or authority. The inverse schema condition also reserves the
+`assurance-twin` producer for the `assurance-twin.posture` kind, so it cannot impersonate a campaign
+or inventory activity.
 
 ### Implementation history
 

@@ -6,13 +6,11 @@ or ambient :class:`~fdai.shared.providers.iac_review.IacReview` into one
 bounded, authority-free evidence channel Heimdall already uses for other
 observation domains (``resource-health``, ``metrics``, ``cost``, ...).
 
-The activity is a **live tip**, not the authoritative report body. For a
-posture report, ``fdai.delivery.assurance_twin_posture`` publishes it on the
-event bus so a Console/Operator-API subscriber knows a report was recorded,
-with its freshness and a bounded evidence count. For a change review, the
-built value is never published (see that module's docstring for why); it is
-still returned to the caller for audit/logging use, and the durable
-finding-level content is always written separately by
+The activity is a bounded **tip value**, not the authoritative report body.
+The delivery recorder doesn't publish either posture or review tips until a
+transactional outbox can order them with the durable ledger (see that module's
+docstring). The value is returned to the caller for audit/logging use, and the
+durable finding-level content is always written separately by
 ``fdai.delivery.assurance_twin_posture`` so this module stays pure and CSP
 neutral, matching every other ``core/assurance_twin/`` component
 ([module placement](../../../../../docs/roadmap/operations/assurance-twin.md#module-placement)).
@@ -36,7 +34,8 @@ Design invariants
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+import json
+from datetime import UTC, datetime
 from typing import Literal
 
 from fdai_service_contracts import (
@@ -61,6 +60,7 @@ def build_posture_report_activity(
     correlation_id: str,
     freshness: OperationalFreshness,
     reason_codes: tuple[str, ...] = (),
+    superseded: bool = False,
 ) -> AgentOperationalActivity:
     """Build one bounded activity tip for an on-demand posture report.
 
@@ -71,12 +71,15 @@ def build_posture_report_activity(
 
     if not correlation_id.strip():
         raise ValueError("posture report activity correlation_id MUST be non-empty")
-    status = _status_for(freshness, reason_codes)
+    status = (
+        OperationalActivityStatus.SUPERSEDED if superseded else _status_for(freshness, reason_codes)
+    )
+    report_identity = _posture_evidence_identity(report, freshness, reason_codes)
     correlation_identity = _privacy_safe_identity(correlation_id)
     return AgentOperationalActivity(
         schema_version="1.2.0",
-        activity_id=f"assurance-twin.posture-report:{correlation_identity}:{status.value}",
-        idempotency_key=f"assurance-twin.posture-report:{correlation_identity}:{status.value}",
+        activity_id=f"assurance-twin.posture-report:{report_identity}:{status.value}",
+        idempotency_key=f"assurance-twin.posture-report:{report_identity}:{status.value}",
         kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
         status=status,
         owner_agent=_OWNER_AGENT,
@@ -153,6 +156,21 @@ def _parse_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError("assurance-twin activity timestamp MUST include a timezone")
     return parsed
+
+
+def _posture_evidence_identity(
+    report: PostureAssessmentReport,
+    freshness: OperationalFreshness,
+    reason_codes: tuple[str, ...],
+) -> str:
+    body = {
+        **report.to_dict(),
+        "generated_at": _parse_timestamp(report.generated_at).astimezone(UTC).isoformat(),
+        "freshness": freshness.value,
+        "reason_codes": list(reason_codes),
+    }
+    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    return _privacy_safe_identity(encoded)
 
 
 def _privacy_safe_identity(value: str) -> str:

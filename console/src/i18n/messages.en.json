@@ -956,6 +956,8 @@
     "reviewDetailResourceLabel": "assurance twin change review",
     "unavailable": "Authoritative Assurance Twin evidence is unavailable.",
     "noPostureReport": "No posture report has been recorded yet.",
+    "postureReports": "Posture reports",
+    "scope": "Scope",
     "noFindings": "No findings",
     "verdict": "Verdict",
     "verdictValue": {
@@ -1004,6 +1006,7 @@
     "evidenceGaps": "Evidence gaps",
     "reviews": "Ambient change reviews",
     "reviewsEmpty": "No ambient change reviews recorded.",
+    "reviewsUnavailable": "Change-review evidence exists but is unavailable.",
     "backToReviews": "Back to reviews",
     "column": {
       "change": "Change",

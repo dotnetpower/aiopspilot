@@ -956,6 +956,8 @@
     "reviewDetailResourceLabel": "assurance twin 변경 검토",
     "unavailable": "권위 있는 Assurance Twin 근거를 사용할 수 없습니다.",
     "noPostureReport": "아직 기록된 자세 보고서가 없습니다.",
+    "postureReports": "자세 보고서",
+    "scope": "범위",
     "noFindings": "발견 사항 없음",
     "verdict": "판정",
     "verdictValue": {
@@ -1004,6 +1006,7 @@
     "evidenceGaps": "근거 공백",
     "reviews": "상시 변경 검토",
     "reviewsEmpty": "기록된 상시 변경 검토가 없습니다.",
+    "reviewsUnavailable": "변경 검토 근거가 있지만 사용할 수 없습니다.",
     "backToReviews": "검토 목록으로 돌아가기",
     "column": {
       "change": "변경",

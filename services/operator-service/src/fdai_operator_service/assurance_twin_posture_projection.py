@@ -101,10 +101,19 @@ def assurance_twin_posture_projection(rows: Sequence[Mapping[str, Any]]) -> dict
     }
 
 
-def assurance_twin_review_list_projection(rows: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+def assurance_twin_review_list_projection(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    durable_key_prefix: str | None = None,
+) -> dict[str, object]:
     """Project bounded ambient change-review summaries, newest first."""
 
-    reviews, gaps = _classify(rows, decode=_review_summary, identity_key="review_key")
+    reviews, gaps = _classify(
+        rows,
+        decode=_review_summary,
+        identity_key="review_key",
+        durable_key_prefix=durable_key_prefix,
+    )
     reviews.sort(key=lambda item: str(item["generated_at"]), reverse=True)
     return {
         "surface": "assurance-twin-review",
@@ -179,6 +188,7 @@ def _classify(
     *,
     decode: Any,
     identity_key: str,
+    durable_key_prefix: str | None = None,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Split bounded rows into usable records and explicit evidence gaps."""
 
@@ -195,6 +205,15 @@ def _classify(
         identity = _text(value.get(identity_key))
         freshness = _enum(value.get("freshness"), _FRESHNESS_STATES)
         reason_codes = _string_list(value.get("reason_codes"))
+        if durable_key_prefix is not None:
+            durable_key = row.get("key")
+            if (
+                not isinstance(durable_key, str)
+                or identity is None
+                or durable_key != f"{durable_key_prefix}{identity}"
+            ):
+                gaps.append(_gap(None, freshness, GAP_MALFORMED, reason_codes))
+                continue
         digest_reason = _digest_reason(value)
         if digest_reason is not None:
             gaps.append(_gap(identity, freshness, digest_reason, reason_codes))
