@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -36,6 +37,7 @@ _STORAGE_AUDIENCE = "https://storage.azure.com/"
 _STORAGE_API_VERSION = "2025-05-05"
 _PROOF_PATH_PREFIX = "decision-evidence/v1/"
 _MAX_PROOF_BYTES = 256 * 1024
+_LOGGER = logging.getLogger(__name__)
 
 
 class AzureManagedIdentityAttestationReader(Protocol):
@@ -288,6 +290,12 @@ class AzureBlobDecisionEvidenceAdmissionProvider:
                 path=f"{_PROOF_PATH_PREFIX}admissions/{lookup_digest}.json",
             )
         except LookupError:
+            return None
+        except RuntimeError as exc:
+            _LOGGER.warning(
+                "decision_evidence_admission_storage_unavailable",
+                extra={"failure_type": type(exc).__name__},
+            )
             return None
         if not isinstance(raw, dict):
             raise DecisionEvidenceAdmissionRecordError(
