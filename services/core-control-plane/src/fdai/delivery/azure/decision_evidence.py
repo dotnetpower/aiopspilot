@@ -270,14 +270,21 @@ class AzureBlobDecisionEvidenceAdmissionProvider:
         now = self._clock()
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("decision evidence admission clock MUST be timezone-aware")
-        token = await self._identity.get_token(_STORAGE_AUDIENCE)
-        if (
-            token.audience != _STORAGE_AUDIENCE
-            or token.expires_at.tzinfo is None
-            or token.expires_at.utcoffset() is None
-            or token.expires_at <= now
-        ):
-            raise ValueError("decision evidence admission received an invalid storage token")
+        try:
+            token = await self._identity.get_token(_STORAGE_AUDIENCE)
+            if (
+                token.audience != _STORAGE_AUDIENCE
+                or token.expires_at.tzinfo is None
+                or token.expires_at.utcoffset() is None
+                or token.expires_at <= now
+            ):
+                raise ValueError("decision evidence admission received an invalid storage token")
+        except (httpx.HTTPError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
+            _LOGGER.warning(
+                "decision_evidence_admission_identity_unavailable",
+                extra={"failure_type": type(exc).__name__},
+            )
+            return None
         lookup_digest = decision_evidence_lookup_digest(
             evidence_digest=evidence_digest,
             scope_digest=scope_digest,
