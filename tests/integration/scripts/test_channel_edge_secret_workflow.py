@@ -23,6 +23,7 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert "az resource show" not in workflow
     assert "az rest --method GET" not in workflow
     assert "materialize_channel_edge_secrets.py" in workflow
+    assert "uv run --frozen --package fdai-operator-service python" in workflow
     assert "shred --force --remove" in workflow
     assert "actions: write" not in workflow
     assert "contents: write" not in workflow
