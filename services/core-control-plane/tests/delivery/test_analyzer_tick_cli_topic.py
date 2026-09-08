@@ -14,6 +14,7 @@ from fdai.delivery.analyzer_tick_cli import (
     TOPIC_ENV,
     TRACE_WINDOW_ENV,
     AnalyzerJobReport,
+    build_decision_evidence_admission_provider,
     build_publication_ledger,
     metric_source_delays,
     parse_loop_interval,
@@ -59,6 +60,14 @@ def test_publication_ledger_accepts_the_shared_psycopg_dsn(
     monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql+psycopg://localhost/fdai")
 
     assert build_publication_ledger().__class__.__name__ == "PostgresAnalyzerPublicationLedger"
+
+
+def test_missing_state_store_leaves_target_admission_unbound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
+
+    assert build_decision_evidence_admission_provider() is None
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:
