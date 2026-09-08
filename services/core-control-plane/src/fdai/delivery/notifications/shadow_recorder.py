@@ -7,14 +7,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.core.notifications import ShadowDeliveryRecord
+from fdai.core.notifications import ShadowDeliveryConflictError, ShadowDeliveryRecord
 from fdai.shared.providers.state_store import StateStore
 
 _STATE_PREFIX = "notification-shadow:"
-
-
-class ShadowDeliveryConflictError(RuntimeError):
-    """Raised when one stable shadow id is reused for different content."""
 
 
 @dataclass(frozen=True, slots=True)

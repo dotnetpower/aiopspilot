@@ -240,6 +240,21 @@ async def test_state_store_recorder_is_idempotent_and_rejects_content_conflicts(
         await channel.send(_message(body_markdown="A different bounded body."))
 
 
+async def test_in_memory_recorder_rejects_content_conflicts() -> None:
+    recorder = InMemoryShadowDeliveryRecorder()
+    channel = ShadowNotificationChannel(
+        channel_kind=ChannelKind.SLACK,
+        channel_id="slack-shadow",
+        trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+        recorder=recorder,
+        payload_renderer=render_slack_payload,
+    )
+
+    await channel.send(_message())
+    with pytest.raises(ShadowDeliveryConflictError, match="different bounded content"):
+        await channel.send(_message(body_markdown="A different bounded body."))
+
+
 def test_enforce_binding_still_requires_endpoint_and_http_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

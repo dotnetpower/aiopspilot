@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 8df8dceb151157c41bbf689473d7060b11303843
+translation_source_sha: 6ec63f66bd1c7876cd6520eb8dcf01e99c0bf5d2
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -391,8 +391,9 @@ Teams와 Slack은 두 모드에서 동일한 순수 공급자 렌더러를 사�
 두 렌더러는 `correlation_id`, `audit_id`, 정렬된 범위 제한 메타데이터를 보존합니다. 따라서 호출자는
 `NotificationMessage`에 공급자별 필드를 추가하지 않고도 표준 인시던트 id와
 `Huginn -> Forseti -> Thor -> Vidar` 책임 순서를 전달할 수 있습니다. 안정적인 shadow 기록은
-일반 묶음과 정확한 공급자 JSON 바이트를 포함합니다. 다른 범위 제한 콘텐츠에 같은 기록 id를
-재사용하면 최초 기록 근거를 덮어쓰지 않고 실패합니다.
+일반 묶음과 정확한 공급자 JSON 바이트를 포함합니다. 메모리 기반 개발 기록기와 StateStore
+기록기는 모두 같은 기록 ID에 다른 범위 제한 콘텐츠가 들어오면 실패합니다. 따라서 충돌한 최초
+기록 근거를 덮어쓰거나 조용히 유지하지 않습니다.
 
 ## 관련 문서
 

@@ -395,8 +395,9 @@ Provider-specific bounds are narrower than the shared envelope where required:
 Both renderers preserve `correlation_id`, `audit_id`, and sorted bounded metadata. This lets a caller
 carry canonical incident ids and the `Huginn -> Forseti -> Thor -> Vidar` responsibility order
 without adding vendor-specific fields to `NotificationMessage`. A stable shadow record contains the
-generic envelope and the exact provider JSON bytes. Reusing that record id with different bounded
-content fails instead of overwriting first-write evidence.
+generic envelope and the exact provider JSON bytes. Both the in-memory development recorder and the
+StateStore recorder fail when the same record id carries different bounded content instead of
+overwriting or silently retaining conflicting first-write evidence.
 
 ## Related docs
 

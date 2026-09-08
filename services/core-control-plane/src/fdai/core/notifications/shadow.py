@@ -100,6 +100,10 @@ class ShadowDeliveryRecord:
     rendered_payload: RenderedNotificationPayload | None = None
 
 
+class ShadowDeliveryConflictError(RuntimeError):
+    """Raised when one stable shadow id is reused for different content."""
+
+
 @runtime_checkable
 class ShadowDeliveryRecorder(Protocol):
     """Sink for :class:`ShadowDeliveryRecord` entries.
@@ -127,11 +131,31 @@ class InMemoryShadowDeliveryRecorder:
         self._entries: dict[str, ShadowDeliveryRecord] = {}
 
     async def record(self, entry: ShadowDeliveryRecord) -> None:
-        self._entries.setdefault(entry.record_id, entry)
+        existing = self._entries.get(entry.record_id)
+        if existing is None:
+            self._entries[entry.record_id] = entry
+            return
+        if not _same_shadow_content(existing, entry):
+            raise ShadowDeliveryConflictError(
+                "shadow delivery id already exists with different bounded content"
+            )
 
     @property
     def entries(self) -> tuple[ShadowDeliveryRecord, ...]:
         return tuple(self._entries.values())
+
+
+def _same_shadow_content(left: ShadowDeliveryRecord, right: ShadowDeliveryRecord) -> bool:
+    return (
+        left.record_id == right.record_id
+        and left.channel_id == right.channel_id
+        and left.category == right.category
+        and left.trust_tier is right.trust_tier
+        and left.correlation_id == right.correlation_id
+        and left.envelope == right.envelope
+        and left.audit_id == right.audit_id
+        and left.rendered_payload == right.rendered_payload
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +222,7 @@ class ShadowNotificationChannel:
 
 __all__ = [
     "InMemoryShadowDeliveryRecorder",
+    "ShadowDeliveryConflictError",
     "ShadowDeliveryRecord",
     "ShadowDeliveryRecorder",
     "ShadowNotificationChannel",

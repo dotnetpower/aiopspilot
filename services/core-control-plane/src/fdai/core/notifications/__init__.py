@@ -61,6 +61,7 @@ from .router import (
 )
 from .shadow import (
     InMemoryShadowDeliveryRecorder,
+    ShadowDeliveryConflictError,
     ShadowDeliveryRecord,
     ShadowDeliveryRecorder,
     ShadowNotificationChannel,
@@ -91,6 +92,7 @@ __all__ = [
     "RouteSpec",
     "RoutingResult",
     "ShadowDeliveryRecord",
+    "ShadowDeliveryConflictError",
     "ShadowDeliveryRecorder",
     "ShadowNotificationChannel",
     "StakeholderBriefing",
