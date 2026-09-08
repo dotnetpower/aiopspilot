@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: adfb995d421bf708bb03f5edc8144b903e6b7040 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 006eb690bb82aab3b9c062e18a99e465a2172060 }]
 ---
 
 # Deploy Quickstart
@@ -109,7 +109,8 @@ Terraform remains an expert path.
   shadow-only under the inventory identity. Enforce and certify require external receipts, and
   only certify can reach the database purge gate. If the exact runner data-owner assignment already
   exists outside Terraform state, the plan adopts it after matching its scope, principal, and role;
-  don't delete or recreate it manually.
+  don't delete or recreate it manually. Post-apply checks for this bounded mode ignore unrelated
+  Inventory Job image drift.
 - To schedule Phase 4 measurement, explicitly enable only the required baseline, pattern-growth, or
   operational-promotion job. All three are disabled by default and share a dedicated measurement
   identity with image-pull, state-secret, and optional model-inference access. They never receive

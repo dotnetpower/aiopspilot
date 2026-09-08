@@ -183,3 +183,16 @@ def test_post_apply_verifies_inventory_job_image() -> None:
         'az containerapp job show --resource-group "$(terraform output -raw resource_group_name)"'
         in block
     )
+    assert 'if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in block
+
+
+def test_operational_history_apply_ignores_unrelated_inventory_image_drift() -> None:
+    start = _WORKFLOW.index("- name: Verify Terraform convergence")
+    end = _WORKFLOW.index("- name: Verify model deployment readback")
+    block = _WORKFLOW[start:end]
+
+    guard = block.index('if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then')
+    inventory_readback = block.index('inventory_job="ca-fdai-')
+    guard_end = block.index("\n          fi", inventory_readback)
+
+    assert guard < inventory_readback < guard_end
