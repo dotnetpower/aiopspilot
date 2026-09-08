@@ -118,7 +118,8 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
         if "conversation_assurance_dispute" in statement:
             return [dispute]
         if "AS question" in statement:
-            assert parameters == ("operator-a", "conversation-1", "turn-1")
+            assert "result.value ->> 'principal_id' = %s" in statement
+            assert parameters == ("operator-a", "conversation-1", "turn-1", "operator-a")
             return [{"question": "What changed?", "answer": "One database changed."}]
         return [assessment]
 

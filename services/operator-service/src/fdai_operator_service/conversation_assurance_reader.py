@@ -200,8 +200,9 @@ class ConversationAssuranceReader:
             "AND request.value #>> '{envelope,semantic_turn,session_id}' = %s "
             "AND request.value #>> '{envelope,semantic_turn,turn_id}' = %s "
             "AND result.value ->> 'kind' = 'operator.semantic_result' "
+            "AND result.value ->> 'principal_id' = %s "
             "ORDER BY result.updated_at DESC, result.key DESC LIMIT 1",
-            (principal_scope, conversation_id, turn_id),
+            (principal_scope, conversation_id, turn_id, principal_scope),
         )
         if not rows:
             return {"available": False, "question": None, "answer": None}
