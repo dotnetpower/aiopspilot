@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b0c4098154fafe5ccb168a8917de8ca603045dff
+translation_source_sha: 86b4c546684af77925832ebeb7e08362eebcf3cd
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -55,7 +55,7 @@ translation_revised: 2026-09-09
 FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 증적은 백엔드 조회가
 이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. 선택적인 정확한 백엔드 필터는 보안 객체 의존성으로 가장하지 않고 검증된 스칼라 함수 인자로 유지합니다. Azure 기본 메트릭 템플릿은
 전달 어댑터에 유지합니다. Operator의 `document_export.py`는 무관한 이전 대화가 아니라
-현재 검증된 인벤토리 결과를 문서로 변환합니다.
+현재 검증된 인벤토리 결과를 문서로 변환합니다. 관계가 없고 저장소에서 직접 처리할 수 없는 조건식은 운영 온톨로지 소유 문서의 객체 50,000개 상한 아래에서 연결 범위 후보 스냅샷 하나를 사용할 수 있으며, 관계 조회는 객체 1,000개 제한을 유지합니다.
 응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
 바이너리나 없는 내용을 모델 상태로 해석하지 않습니다.
 Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다. 명시적으로 선택한 T2
