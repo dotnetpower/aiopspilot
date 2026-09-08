@@ -30,7 +30,6 @@ from fdai.shared.providers.notifications.presentation import (
     render_presentation,
 )
 
-from ._http import truncate
 from ._rendering import truncate_with_marker
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 10.0
@@ -88,10 +87,7 @@ class SlackWebhookChannel:
                 f"Slack webhook acknowledgement was not observed: {type(exc).__name__}"
             ) from exc
         if response.status_code != 200:
-            raise ChannelDeliveryError(
-                f"Slack webhook returned HTTP {response.status_code}: "
-                f"{truncate(response.text or '')!r}"
-            )
+            raise ChannelDeliveryError(f"Slack webhook returned HTTP {response.status_code}")
         return DeliveryReceipt(
             channel_kind=ChannelKind.SLACK,
             channel_id=self._config.channel_id,

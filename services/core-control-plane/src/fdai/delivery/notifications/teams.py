@@ -32,7 +32,6 @@ from fdai.shared.providers.notifications.presentation import (
     render_presentation,
 )
 
-from ._http import truncate
 from ._rendering import truncate_with_marker
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 10.0
@@ -149,8 +148,7 @@ class TeamsWebhookChannel:
                 return response
             if response.status_code != 429 or attempt == self._config.max_attempts:
                 raise ChannelDeliveryError(
-                    "Teams Workflow request failed with "
-                    f"HTTP {response.status_code}: {truncate(response.text or '')!r}"
+                    f"Teams Workflow request failed with HTTP {response.status_code}"
                 )
             delay = min(
                 self._config.max_backoff_seconds,

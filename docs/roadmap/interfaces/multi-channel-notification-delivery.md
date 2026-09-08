@@ -411,6 +411,10 @@ A Slack webhook HTTP 200 produces `accepted`, not `delivered`. Only an independe
 observation may promote provider acceptance to delivery, and the Slack capability remains in shadow
 until that observation path and its promotion evidence are reviewed.
 
+Teams and Slack rejection errors retain only the provider name and HTTP status. Provider response
+bodies are discarded because they are untrusted and may reflect message content; they never enter
+router audit text.
+
 ## Related docs
 
 | To learn about | Read |

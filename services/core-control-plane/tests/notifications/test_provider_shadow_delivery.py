@@ -22,10 +22,12 @@ from fdai.delivery.notifications import (
 from fdai.runtime.delivery import _build_notification_registry
 from fdai.shared.providers.notifications import (
     ChannelAmbiguousError,
+    ChannelDeliveryError,
     ChannelKind,
     ChannelMode,
     ChannelUnavailableError,
     Link,
+    NotificationChannel,
     NotificationMessage,
     NotificationPayloadRenderer,
     PresentationRejectedError,
@@ -344,3 +346,44 @@ async def test_slack_transport_distinguishes_unavailable_from_ambiguous(
         )
         with pytest.raises(expected):
             await channel.send(_message())
+
+
+@pytest.mark.parametrize("provider", ["teams", "slack"])
+async def test_provider_rejection_does_not_echo_response_body(provider: str) -> None:
+    reflected = "reflected-sensitive-body"
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text=reflected)
+
+    from fdai.delivery.notifications import (
+        SlackWebhookChannel,
+        SlackWebhookConfig,
+        TeamsWebhookChannel,
+        TeamsWebhookConfig,
+    )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        channel: NotificationChannel
+        if provider == "teams":
+            channel = TeamsWebhookChannel(
+                config=TeamsWebhookConfig(
+                    channel_id="teams-enforce",
+                    webhook_url="https://flow.example.com/ops",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                ),
+                http_client=client,
+            )
+        else:
+            channel = SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-enforce",
+                    webhook_url="https://hooks.slack.example/ops",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                ),
+                http_client=client,
+            )
+
+        with pytest.raises(ChannelDeliveryError, match="HTTP 400") as captured:
+            await channel.send(_message())
+
+    assert reflected not in str(captured.value)

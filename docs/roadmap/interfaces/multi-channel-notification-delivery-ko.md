@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 83ac9642f9a12c8c88ad63a3a9f44bd6d3be80f3
+translation_source_sha: ba15c65e3fc54629589d4e41f13b864a939de484
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -406,6 +406,9 @@ Slack은 연결 설정 실패를 unavailable로 분류하지만, 전송 이후 �
 Slack webhook의 HTTP 200은 `delivered`가 아니라 `accepted`를 만듭니다. 독립적인 게시 관측만
 공급자 수락을 전달 완료로 승격할 수 있습니다. 해당 관측 경로와 승격 근거를 검토하기 전까지
 Slack 기능은 shadow에 머뭅니다.
+
+Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니다. 공급자 응답 본문은 신뢰할 수
+없고 메시지 내용을 반사할 수 있으므로 폐기하며, 라우터 감사 텍스트에 포함하지 않습니다.
 
 ## 관련 문서
 
