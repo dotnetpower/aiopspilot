@@ -185,8 +185,8 @@ Seven helpers make the runner path repeatable (all customer-agnostic, parameteri
 
 Set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` to the approved deployment target before running
 any helper. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)
-requires both axes, selects the expected subscription only after it proves the tenant, and fails
-before mutation when the identity cannot access that exact pair.
+requires both axes as explicit protected-workflow inputs, selects the expected subscription only after
+it proves the tenant, and fails before mutation when the identity cannot access that exact pair.
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair.

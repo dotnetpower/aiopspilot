@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 554a4f910074aea7df0e145ea05a046f6720c24f
+translation_source_sha: e4d4169b1251fbe6caf8e6ac731ed36ea6e04356
 translation_revised: 2026-09-09
 ---
 
@@ -23,7 +23,7 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 환경별 값을 `*.tfvars` 파일에 입력합니다. 새 PostgreSQL 서버는 보호된 입력으로 관리자 암호를 제공하거나 암호를 제공하지 않고 Terraform 생성을 활성화합니다. 이 파일은 커밋하지 마세요.
 - 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 내보내기합니다. 현재 자격
   증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
-  전에 중단합니다.
+  전에 중단합니다. 보호된 workflow는 두 값을 검증기에 명시적으로 전달합니다.
 - `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
   `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.

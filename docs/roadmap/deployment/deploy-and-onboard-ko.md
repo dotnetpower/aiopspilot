@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 006eb690bb82aab3b9c062e18a99e465a2172060
+translation_source_sha: e6087622359a36b49e61d2e8f7dccd35bd249282
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -187,8 +187,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 보조 로직 실행 전 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 승인된 배포 대상으로
 설정합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
-두 축을 모두 요구하고 테넌트를 증명한 뒤에만 예상 구독을 선택하며, 신원이
-exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
+두 축을 보호된 workflow의 명시적 입력으로 요구합니다. 테넌트를 증명한 뒤에만 예상 구독을
+선택하며, 신원이 exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
   CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.

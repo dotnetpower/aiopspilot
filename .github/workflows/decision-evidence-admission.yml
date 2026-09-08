@@ -91,7 +91,8 @@ jobs:
           az login --identity --client-id "$DEPLOY_RUNNER_CLIENT_ID" --allow-no-subscriptions \
             --output none
           az account set --subscription "$ARM_SUBSCRIPTION_ID"
-          "$GITHUB_WORKSPACE/scripts/deployment/azure/verify-azure-context.sh"
+          "$GITHUB_WORKSPACE/scripts/deployment/azure/verify-azure-context.sh" \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
 
       - name: Download exact source candidate
         env:
