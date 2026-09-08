@@ -71,6 +71,23 @@ read-only presentation after role, purpose, release, receipt, and materializatio
 path cannot grant execution or promotion authority and cannot be selected by another agent or
 purpose.
 
+An object-only ObjectSet can apply a predicate that the store cannot evaluate directly. The
+materializer first probes the ordinary 1,000-object relationship-free window. It stops when that
+window is complete or already proves the smaller result limit. Only a completeness-dependent read
+escalates to one relationship-free candidate snapshot, from one store connection, up to the
+50,000-candidate ceiling. Candidate truncation keeps the receipt incomplete. Relationship-bearing
+ObjectSets retain their bounded relationship query and never use the larger candidate scan.
+
+A broad recent Resource state-change query reads both `resource.operational_state` and
+`resource.availability_state` across every Resource that carries verified state metadata. It does
+not reuse the narrower operational-state ResourceType allowlist. A query that names a concrete
+power or runtime state remains on the operational-state axis. A concrete availability state reads
+both axes because the same normalized value can appear in provider availability or operational
+state. Both paths preserve partial verified transitions when interval coverage is incomplete, and
+neither path converts missing coverage into a complete zero-result claim. Each projected transition
+carries an explicit `conflict_free` decision so canonical omission of an empty conflict list cannot
+turn verified evidence into an unresolved row.
+
 The independently scheduled inventory process checks each mapped ResourceType target against the
 current instance graph before it builds classification links. A target absent during rolling
 catalog startup becomes the stable non-blocking drop `unseeded_resource_type`; the authoritative

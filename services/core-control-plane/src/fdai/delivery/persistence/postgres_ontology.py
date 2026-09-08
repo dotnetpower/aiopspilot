@@ -39,6 +39,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
+    MAX_ONTOLOGY_OBJECT_SCAN,
     OntologyDirection,
     OntologyGraphSnapshot,
     OntologyInstanceValidationError,
@@ -677,6 +678,31 @@ class PostgresOntologyInstanceStore:
                 property_text_in=property_text_in,
                 limit=limit,
                 include_relationships=include_relationships,
+            )
+
+    async def scan_objects(
+        self,
+        *,
+        object_types: Sequence[str] = (),
+        property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
+        candidate_limit: int = MAX_ONTOLOGY_OBJECT_SCAN,
+    ) -> OntologyGraphSnapshot:
+        """Read one bounded relationship-free candidate set on one connection."""
+        if not 1 <= candidate_limit <= MAX_ONTOLOGY_OBJECT_SCAN:
+            raise ValueError(f"candidate_limit MUST be in [1, {MAX_ONTOLOGY_OBJECT_SCAN}]")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            return await _query_objects(
+                connection,
+                releases=self._releases,
+                link_types=self._link_types,
+                object_types=object_types,
+                object_ids=(),
+                property_equals=property_equals,
+                property_text_in=property_text_in,
+                limit=candidate_limit,
+                include_relationships=False,
             )
 
     async def traverse(

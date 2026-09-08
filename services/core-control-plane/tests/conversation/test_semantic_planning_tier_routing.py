@@ -3070,15 +3070,81 @@ def test_recent_resource_changes_build_deterministic_collection_frame() -> None:
     assert plan is not None
     function_node = plan.nodes[1]
     scope_definition = ObjectSetDefinition.model_validate(plan.nodes[0].arguments["definition"])
+    assert scope_definition.predicates[0] == ObjectPredicate(
+        property="type",
+        operator=ObjectPredicateOperator.EXISTS,
+    )
     assert scope_definition.predicates[-1] == ObjectPredicate(
         property="properties",
         operator=ObjectPredicateOperator.CONTAINS,
         equals="state_fact_metadata",
     )
     assert function_node.arguments["function_name"] == RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
+    assert function_node.arguments["arguments"]["state_types"] == [
+        "resource.availability_state",
+        "resource.operational_state",
+    ]
+    assert function_node.arguments["arguments"]["to_states"] == [
+        "available",
+        "deallocated",
+        "degraded",
+        "failed",
+        "online",
+        "paused",
+        "ready",
+        "running",
+        "stopped",
+        "succeeded",
+        "unavailable",
+        "unknown",
+    ]
     assert function_node.arguments["arguments"]["result_limit"] == 5
     assert function_node.arguments["arguments"]["latest_first"] is True
     assert function_node.arguments["arguments"]["distinct_subjects"] is True
+
+
+def test_unavailable_transition_reads_both_state_axes() -> None:
+    manifest, _definition = _fixture(
+        include_resource_type=True,
+        function_types=(resource_state_transitions_function_type(),),
+    )
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource",),
+        measure_concepts=("resource_state.unavailable",),
+        temporal_scope={"lookback_seconds": 3600},
+        output_shape=SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.9,
+    )
+    plan = compile_resource_state_transition_plan(
+        frame=build_semantic_frame(
+            proposal,
+            utterance="Which resources became unavailable in the last hour?",
+            context=(),
+        ),
+        utterance="Which resources became unavailable in the last hour?",
+        manifest=manifest,
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        evaluation_time=NOW,
+        purpose="operations-review",
+    )
+
+    assert plan is not None
+    scope = ObjectSetDefinition.model_validate(plan.nodes[0].arguments["definition"])
+    assert scope.predicates[0].operator is ObjectPredicateOperator.EXISTS
+    arguments = plan.nodes[1].arguments["arguments"]
+    assert arguments["state_types"] == [
+        "resource.availability_state",
+        "resource.operational_state",
+    ]
+    assert arguments["to_states"] == ["unavailable"]
 
 
 def test_recent_resource_changes_plan_before_frame_model() -> None:

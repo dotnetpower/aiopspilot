@@ -48,6 +48,7 @@ from fdai.core.conversation.semantic_planning_models import (
 )
 from fdai.core.conversation.semantic_resource_state_planning import (
     normalize_resource_state_proposal,
+    resource_collection_definition,
 )
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import ConversationSession, Principal, Role, Turn
@@ -3963,7 +3964,38 @@ def test_historical_power_state_uses_durable_transition_function() -> None:
         "deallocated",
         "stopped",
     ]
+    assert outcome.plan.nodes[1].arguments["arguments"]["state_types"] == [
+        "resource.operational_state"
+    ]
+    scope = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert scope.predicates[0].operator is ObjectPredicateOperator.IN
     assert outcome.execution_authority is False
+
+
+def test_any_state_metadata_scope_does_not_require_operational_resource_types() -> None:
+    definition = resource_collection_definition(
+        utterance="",
+        descriptors=(
+            {
+                "kind": "object",
+                "name": "Resource",
+                "properties": {
+                    "type": {"values": ["log-workspace"]},
+                    "properties": {},
+                },
+            },
+        ),
+        evaluation_time=NOW,
+        purpose="operations-review",
+        require_state_metadata=True,
+    )
+
+    assert definition.predicates[0].operator is ObjectPredicateOperator.EXISTS
+    assert definition.predicates[1] == ObjectPredicate(
+        property="properties",
+        operator=ObjectPredicateOperator.CONTAINS,
+        equals="state_fact_metadata",
+    )
 
 
 def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:

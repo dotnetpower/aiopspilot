@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: c7f73dfd9f701da855753220c3692fa2974af1bc
-translation_revised: 2026-09-06
+translation_source_sha: f7e219ea249f1feb63cc53e8c7a113d56e2cfaa0
+translation_revised: 2026-09-09
 ---
 # 온톨로지 구조 모델
 
@@ -27,6 +27,11 @@ translation_revised: 2026-09-06
 
 이 모델은 정확한 아이덴티티, 집계, 동작, 언어, 토폴로지 힌트, 쿼리 실행, 표현을 분리합니다.
 각 관심사는 하나의 표준 표현과 범위가 제한된 소비자 계약을 가집니다.
+
+저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
+평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
+관계 없는 후보 스냅샷 하나를 제공할 수 있습니다. 더 큰 스캔은 연결 하나와 출처 세대 하나를
+사용합니다. 관계를 포함하는 조회는 이 경로를 사용하지 않으며 후보 잘림은 계속 명시됩니다.
 
 ## 구조 개념
 
@@ -384,6 +389,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
+| 범위가 제한된 ObjectSet 후보 스캔 | validated | `OntologyInstanceStore.scan_objects`, PostgreSQL 및 메모리 어댑터, `object_sets.py`, 집중 검사 및 인증된 최근 전이 재실행 | 저장소에서 직접 평가할 수 없는 객체 전용 조건식은 객체 1,000개 probe와 최대 한 번의 객체 50,000개 단일 연결 후보 스냅샷을 사용합니다. 관계 조회는 일반 제한을 유지하며 잘림은 완전한 결과로 바뀌지 않습니다. |
 | 실제 운영 인스턴스 표시 | validated | `ontology-instance-refresh.ts`, Operator 용량 및 운영 상태 허용 목록, 온톨로지 인스턴스 경로, 그래프, Inspector, 스타일, 이중 언어 카탈로그, 집중 검사, 실제 ARG 수집 및 인증된 브라우저 검사 | 표시 중인 선택 인스턴스 화면은 15초마다 그리고 브라우저가 다시 활성화될 때 재검증합니다. 의미가 있는 텍스트 배지는 정확한 프로바이더 상태를 유지하고 사용 불가, 적용 대상 아님, 기록되지 않은 값을 구분합니다. NodePool 및 VMSS 카드는 검토된 프로바이더 용량만 표시합니다. 새로 고침 실패 시 마지막 검증 응답과 명시적인 경고를 유지합니다. |
 | 내구성 있는 인스턴스 무효화 전달 | validated | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운, 인증된 AKS 전환 근거 | AKS 시작 중 SSE가 연결 상태를 유지했고 VM 및 NIC 토폴로지가 추가되고 클러스터가 `Stopped`에서 `Running`으로 전환됐습니다. 커밋된 watermark마다 권위 있는 데이터를 다시 읽었습니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
@@ -395,6 +401,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | validated | 저장소에서 실행할 수 없는 객체 전용 조건식을 위해 범위가 제한된 단일 스냅샷 후보 스캔을 추가했으며 관계 또는 그래프 권한은 변경하지 않았습니다. | `current change`, 집중 Core 검사 872개, strict mypy, Ruff, 문서 쌍 게이트, 인증된 Console 재실행 및 Medium 이상 발견 사항이 없는 집중 재검토 | 연속 전이 coverage는 이 구조 조회 계약 밖의 명시적인 근거 제한으로 유지합니다. |
 | 2026-09-06 | validated | 표준 ResourceType 80개 전체에 닫힌 운영 상태 적용 가능성 분류를 추가하고 그래프와 Inspector가 같은 이유 기반 값 레이블을 사용하도록 했습니다. | `current change`, 집중 backend 및 Console 검사, 타입 검사, 프로덕션 빌드, 실제 ARG 승격, 인증된 Application Insights, Log Analytics, 디스크 및 Resource Group 브라우저 검사가 통과했습니다. | 하위 포크의 사용자 지정 ResourceType은 자체 카탈로그 변경 전까지 명시적인 미검토 상태로 유지합니다. |
 | 2026-09-06 | validated | 정확한 카탈로그 일치를 약화하지 않고 새로 병합된 `llm-model-deployment` ResourceType까지 닫힌 운영 상태 분류를 확장했습니다. | `current change`, 병합된 main 스냅샷에서 정확한 분류 집합 일치와 집중 backend 검사 268개가 통과했습니다. | 이후 표준 ResourceType을 추가할 때는 같은 변경에서 검토된 결과를 추가해야 합니다. |
 | 2026-09-05 | validated | AKS AgentPool과 VM Scale Set을 위한 검토된 용량 변환 결과 및 표시를 추가했습니다. API는 `properties.count`와 `sku.capacity`만 읽고 그래프와 Inspector는 자식 준비 상태를 추론하지 않은 채 노드 수 또는 인스턴스 수로 표시합니다. 비평에서 지원되지 않는 유형의 값을 잘못 표시하던 경로를 Console 디코더에서 차단했습니다. | `current change`; 집중 Operator 검사 10개와 집중 Console 검사 102개, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드가 통과했습니다. 인증된 AKS 그래프는 `nodepool1`을 `노드 2개`, 해당 VMSS를 `인스턴스 2개`로 표시했고 NodePool Inspector는 활성 프로바이더 스냅샷의 노드 수 `2`를 보고했습니다. | 이후 확장 작업에서 프로바이더 변경부터 화면 반영까지의 시간을 측정한 증적을 보존합니다. Kubernetes Node 준비 상태는 별도의 런타임 근거로 유지합니다. |

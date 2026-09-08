@@ -14,6 +14,7 @@ from fdai.core.ontology_platform.inventory_projection import (
     build_inventory_ontology_projection,
 )
 from fdai.core.ontology_platform.state_transitions import (
+    RESOURCE_STATE_TRANSITION_VALUES,
     OperationalStateTransition,
     StateTransitionAuthority,
     StateTransitionBatch,
@@ -37,22 +38,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 
-_CANONICAL_STATES = frozenset(
-    {
-        "available",
-        "deallocated",
-        "degraded",
-        "failed",
-        "online",
-        "paused",
-        "ready",
-        "running",
-        "stopped",
-        "succeeded",
-        "unavailable",
-        "unknown",
-    }
-)
+_CANONICAL_STATES = frozenset(RESOURCE_STATE_TRANSITION_VALUES)
 _STATE_PATHS = {
     "resource.operational_state": "state",
     "resource.availability_state": "availabilityState",

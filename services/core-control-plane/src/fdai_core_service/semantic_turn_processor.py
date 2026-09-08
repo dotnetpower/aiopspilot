@@ -3971,14 +3971,12 @@ def _render_state_transition_answer(
     rows: list[Mapping[str, object]] = []
     unresolved = 0
     for row in projected_rows:
-        conflicts = row.get("conflicts")
         trustworthy = (
             row.get("lane") == "observed"
             and row.get("authority") in {"provider", "telemetry"}
             and row.get("complete") is True
+            and row.get("conflict_free") is True
             and row.get("synthetic") is False
-            and isinstance(conflicts, list)
-            and not conflicts
         )
         if trustworthy:
             rows.append(row)

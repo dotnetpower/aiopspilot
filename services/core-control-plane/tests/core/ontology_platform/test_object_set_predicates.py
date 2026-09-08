@@ -26,6 +26,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.providers.ontology_instance import (
+    MAX_ONTOLOGY_OBJECT_SCAN,
     OntologyGraphSnapshot,
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -41,6 +42,8 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
         self.property_equals_calls: list[Mapping[str, Any] | None] = []
         self.last_property_text_in: Mapping[str, Sequence[str]] | None = None
         self.last_limit: int | None = None
+        self.scan_calls = 0
+        self.force_scan_truncated = False
         self.force_truncated = False
 
     async def query_objects(
@@ -68,6 +71,34 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
                 objects=graph.objects,
                 links=graph.links,
                 truncated=True,
+            )
+        return graph
+
+    async def scan_objects(
+        self,
+        *,
+        object_types: Sequence[str] = (),
+        property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
+        candidate_limit: int = MAX_ONTOLOGY_OBJECT_SCAN,
+    ) -> OntologyGraphSnapshot:
+        self.scan_calls += 1
+        self.last_property_equals = property_equals
+        self.property_equals_calls.append(property_equals)
+        self.last_property_text_in = property_text_in
+        graph = await super().scan_objects(
+            object_types=object_types,
+            property_equals=property_equals,
+            property_text_in=property_text_in,
+            candidate_limit=candidate_limit,
+        )
+        if self.force_scan_truncated:
+            return OntologyGraphSnapshot(
+                objects=graph.objects,
+                links=graph.links,
+                truncated=True,
+                source_complete=graph.source_complete,
+                source_generation=graph.source_generation,
             )
         return graph
 
@@ -315,6 +346,105 @@ async def test_query_reports_candidate_limit_before_memory_filtering() -> None:
         )
     )
 
+    assert result.graph.objects == ()
+    assert result.truncated is True
+    assert result.truncation_reason is ObjectSetTruncationReason.CANDIDATE_LIMIT
+
+
+async def test_object_only_memory_filter_scans_past_first_store_page() -> None:
+    object_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "properties": PropertyDecl(type=PropertyType.OBJECT),
+        },
+    )
+    store = _RecordingStore(object_types=(object_type,))
+    for index in range(1001):
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=f"resource-{index:04d}",
+                object_type="Resource",
+                properties={"id": f"resource-{index:04d}", "properties": {}},
+            )
+        )
+    expected = OntologyObjectRecord(
+        id="resource-state",
+        object_type="Resource",
+        properties={
+            "id": "resource-state",
+            "properties": {"state_fact_metadata": {"state": "observed"}},
+        },
+    )
+    await store.upsert_object(expected)
+
+    result = await _service(store, object_type).materialize(
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+            predicates=(
+                ObjectPredicate(
+                    property="properties",
+                    operator=ObjectPredicateOperator.CONTAINS,
+                    equals="state_fact_metadata",
+                ),
+            ),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
+            include_relationships=False,
+            limit=10,
+        )
+    )
+
+    assert [item.id for item in result.graph.objects] == [expected.id]
+    assert result.graph.objects[0].properties == expected.properties
+    assert store.scan_calls == 1
+    assert result.truncated is False
+    assert result.truncation_reason is None
+
+
+async def test_object_only_memory_filter_distinguishes_result_limit() -> None:
+    object_type = _object_type()
+    store = _RecordingStore(object_types=(object_type,))
+    await _seed(store)
+    store.force_truncated = True
+
+    definition = _definition(
+        ObjectPredicate(
+            property="score",
+            operator=ObjectPredicateOperator.AT_LEAST,
+            equals=3,
+        ),
+        limit=1,
+    ).model_copy(update={"include_relationships": False})
+    result = await _service(store, object_type).materialize(definition)
+
+    assert store.scan_calls == 0
+    assert [item.id for item in result.graph.objects] == ["resource-a"]
+    assert result.truncated is True
+    assert result.truncation_reason is ObjectSetTruncationReason.RESULT_LIMIT
+
+
+async def test_object_only_memory_filter_preserves_candidate_limit() -> None:
+    object_type = _object_type()
+    store = _RecordingStore(object_types=(object_type,))
+    await _seed(store)
+    store.force_truncated = True
+    store.force_scan_truncated = True
+
+    definition = _definition(
+        ObjectPredicate(
+            property="score",
+            operator=ObjectPredicateOperator.AT_LEAST,
+            equals=100,
+        ),
+        limit=10,
+    ).model_copy(update={"include_relationships": False})
+    result = await _service(store, object_type).materialize(definition)
+
+    assert store.scan_calls == 1
     assert result.graph.objects == ()
     assert result.truncated is True
     assert result.truncation_reason is ObjectSetTruncationReason.CANDIDATE_LIMIT

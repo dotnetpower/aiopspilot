@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: f1ae7bef289f815c1ad6094fc5ecc9ade645c6a5
-translation_revised: 2026-09-08
+translation_source_sha: c6902640ead88d33fd898b0d3c5d845a4fd4fa88
+translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
 
@@ -110,6 +110,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | validated | 객체 전용 상태 범위에서 첫 페이지 후보가 잘린 것으로 잘못 판단하는 문제를 제거하고, 광범위한 최근 변경 계획에 운영 및 가용성 전이를 모두 포함하고, 명시적인 충돌 없음 판정을 정본 행 직렬화 전체에 보존했습니다. | `current change`, 집중 Core 검사 872개, strict mypy, Ruff 및 문서 게이트가 통과했습니다. 인증된 새 대화 재실행에서 최근 검증된 전이 5개를 표시했습니다. Browser timing은 대기 표시 45ms, 첫 진행 445ms, 첫 답변 7.545초, 최종 처리 7.766초였습니다. | 보존된 전이 출처가 연속 coverage를 증명할 수 있을 때까지 구간 coverage는 명시적으로 불완전한 상태를 유지합니다. 동시에 inventory 세대가 교체되면 검증된 일부 행을 버리지 않고 범위 완전성을 낮출 수 있습니다. |
 | 2026-09-08 | implemented | Schema v2에서 영속 큐 timing을 분리하고, 계획 전 최종 대기를 실패로 표시하고, 요청과 함께 thread 소유 model provider 작업을 취소하고, concurrent 의미 인덱스 재시도가 같은 이름의 relation을 다시 구성하도록 했습니다. | `current change`, 집중 Core timing 및 model-scope 테스트, Console timing parser 테스트 및 typecheck, migration inventory 검사, 로컬 인덱스 교체, PostgreSQL `EXPLAIN` | 공유 브라우저 연결을 사용할 수 있을 때 인증된 Browser 지연 시간 증적을 보존합니다. |
 | 2026-09-08 | implemented | Core 의미 처리를 시작할 때 콘텐츠가 없는 큐 지연 및 남은 deadline 관측을 추가했습니다. | `current change`, 집중 만료 요청 검사 2개가 통과했습니다. | 배포 큐 지연 분포는 별도로 보존합니다. |
 | 2026-09-08 | implemented | `state_kv`에 Operator 의미 claim 정렬과 principal 범위 replay cursor를 위한 Core 소유 부분 인덱스를 추가했습니다. | `current change`, 집중 migration 및 branch inventory 검사 65개가 통과했습니다. | 로컬 migration 후 PostgreSQL query plan 근거를 보존합니다. |

@@ -28,6 +28,30 @@ from fdai.shared.contracts.models import (
 
 RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME = "query.resource_state_transitions"
 RESOURCE_STATE_TRANSITION_TYPE = "resource.operational_state"
+RESOURCE_STATE_TRANSITION_TYPES = (
+    "resource.availability_state",
+    RESOURCE_STATE_TRANSITION_TYPE,
+)
+RESOURCE_AVAILABILITY_STATE_TRANSITION_VALUES = (
+    "available",
+    "degraded",
+    "unavailable",
+    "unknown",
+)
+RESOURCE_STATE_TRANSITION_VALUES = (
+    "available",
+    "deallocated",
+    "degraded",
+    "failed",
+    "online",
+    "paused",
+    "ready",
+    "running",
+    "stopped",
+    "succeeded",
+    "unavailable",
+    "unknown",
+)
 _MAX_TRANSITIONS = 512
 _MAX_TEXT = 512
 
@@ -509,6 +533,7 @@ def resource_state_transitions_function(
                     "source_revision": item.source_revision,
                     "evidence_refs": list(item.evidence_refs),
                     "complete": item.completeness_basis_points == 10_000,
+                    "conflict_free": not item.conflicts,
                     "conflicts": list(item.conflicts),
                     "synthetic": item.synthetic,
                     "execution_authority": False,

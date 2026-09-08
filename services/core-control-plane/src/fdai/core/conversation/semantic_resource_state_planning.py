@@ -338,12 +338,17 @@ def resource_collection_definition(
     evaluation_time: datetime,
     purpose: str,
     require_operational_state_metadata: bool = False,
+    require_state_metadata: bool = False,
 ) -> ObjectSetDefinition:
     """Build one current Resource scope narrowed only by stated catalog types."""
 
+    if require_operational_state_metadata and require_state_metadata:
+        raise ValueError("resource collection state metadata modes are mutually exclusive")
     filters = stated_value_filters(utterance, descriptors)
     type_values = filters.get(("Resource", "type"), ())
-    operational_type_values = _operational_type_values(descriptors)
+    operational_type_values = (
+        _operational_type_values(descriptors) if require_operational_state_metadata else ()
+    )
     type_predicate = (
         ObjectPredicate(
             property="type",
@@ -367,7 +372,7 @@ def resource_collection_definition(
     )
     as_of = evaluation_time.astimezone(UTC)
     predicates = [type_predicate]
-    if require_operational_state_metadata:
+    if require_operational_state_metadata or require_state_metadata:
         predicates.append(
             ObjectPredicate(
                 property="properties",

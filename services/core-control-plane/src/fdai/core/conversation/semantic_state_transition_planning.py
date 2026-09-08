@@ -18,12 +18,14 @@ from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.resource_state_queries import (
-    RESOURCE_STATE_MEASURE_CONCEPTS,
     RESOURCE_STATE_OBSERVED_CONCEPT,
     RESOURCE_STATE_QUERY_CONCEPTS,
 )
 from fdai.core.ontology_platform.state_transitions import (
+    RESOURCE_AVAILABILITY_STATE_TRANSITION_VALUES,
     RESOURCE_STATE_TRANSITION_TYPE,
+    RESOURCE_STATE_TRANSITION_TYPES,
+    RESOURCE_STATE_TRANSITION_VALUES,
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
 )
 
@@ -122,27 +124,36 @@ def compile_resource_state_transition_plan(
         or not state_concepts
     ):
         return None
+    broad_state_change = state_concepts == (RESOURCE_STATE_OBSERVED_CONCEPT,)
+    state_values = tuple(
+        concept.removeprefix("resource_state.")
+        for concept in state_concepts
+        if concept != RESOURCE_STATE_OBSERVED_CONCEPT
+    )
+    includes_availability = broad_state_change or any(
+        state in RESOURCE_AVAILABILITY_STATE_TRANSITION_VALUES for state in state_values
+    )
     definition = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,
         evaluation_time=evaluation_time,
         purpose=purpose,
-        require_operational_state_metadata=True,
+        require_operational_state_metadata=not includes_availability,
+        require_state_metadata=includes_availability,
     )
     scope_id = "resource-transition-scope"
     transition_id = "resource-state-transitions"
     start_at = evaluation_time - timedelta(seconds=lookback_seconds)
-    to_states = (
-        tuple(
-            concept.removeprefix("resource_state.") for concept in RESOURCE_STATE_MEASURE_CONCEPTS
-        )
-        if state_concepts == (RESOURCE_STATE_OBSERVED_CONCEPT,)
-        else tuple(concept.removeprefix("resource_state.") for concept in state_concepts)
+    state_types = (
+        RESOURCE_STATE_TRANSITION_TYPES
+        if includes_availability
+        else (RESOURCE_STATE_TRANSITION_TYPE,)
     )
+    to_states = RESOURCE_STATE_TRANSITION_VALUES if broad_state_change else state_values
     result_limit = _result_limit(frame.evidence_requirements)
     latest_collection = result_limit is not None
     function_arguments: dict[str, object] = {
-        "state_types": [RESOURCE_STATE_TRANSITION_TYPE],
+        "state_types": list(state_types),
         "to_states": list(to_states),
         "start_at": start_at.isoformat(),
         "end_at": evaluation_time.isoformat(),

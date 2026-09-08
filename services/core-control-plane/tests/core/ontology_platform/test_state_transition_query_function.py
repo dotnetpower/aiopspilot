@@ -153,3 +153,4 @@ async def test_incomplete_scope_preserves_verified_positive_transition() -> None
     assert result["complete"] is False
     assert result["truncation_reason"] == "resource_scope_incomplete"
     assert [row["values"]["subject_name"] for row in result["rows"]] == ["database-a"]
+    assert result["rows"][0]["values"]["conflict_free"] is True

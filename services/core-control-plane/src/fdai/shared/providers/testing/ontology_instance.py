@@ -10,6 +10,7 @@ from typing import Any
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
+    MAX_ONTOLOGY_OBJECT_SCAN,
     OntologyDirection,
     OntologyGraphSnapshot,
     OntologyInstanceValidationError,
@@ -185,6 +186,44 @@ class InMemoryOntologyInstanceStore:
             or any(not object_id or len(object_id) > 1_024 for object_id in object_ids)
         ):
             raise ValueError("object_ids MUST contain at most 1000 unique bounded identities")
+        return self._query_objects_unchecked(
+            object_types=object_types,
+            object_ids=object_ids,
+            property_equals=property_equals,
+            property_text_in=property_text_in,
+            limit=limit,
+            include_relationships=include_relationships,
+        )
+
+    async def scan_objects(
+        self,
+        *,
+        object_types: Sequence[str] = (),
+        property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
+        candidate_limit: int = MAX_ONTOLOGY_OBJECT_SCAN,
+    ) -> OntologyGraphSnapshot:
+        if not 1 <= candidate_limit <= MAX_ONTOLOGY_OBJECT_SCAN:
+            raise ValueError(f"candidate_limit MUST be in [1, {MAX_ONTOLOGY_OBJECT_SCAN}]")
+        return self._query_objects_unchecked(
+            object_types=object_types,
+            object_ids=(),
+            property_equals=property_equals,
+            property_text_in=property_text_in,
+            limit=candidate_limit,
+            include_relationships=False,
+        )
+
+    def _query_objects_unchecked(
+        self,
+        *,
+        object_types: Sequence[str],
+        object_ids: Sequence[str],
+        property_equals: Mapping[str, Any] | None,
+        property_text_in: Mapping[str, Sequence[str]] | None,
+        limit: int,
+        include_relationships: bool,
+    ) -> OntologyGraphSnapshot:
         selected_types = set(object_types)
         selected_ids = set(object_ids)
         filters = normalize_json_value(property_equals or {}, path="property_equals")

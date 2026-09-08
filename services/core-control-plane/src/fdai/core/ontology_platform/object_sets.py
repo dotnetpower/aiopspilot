@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from fdai.shared.providers.ontology_instance import (
+    MAX_ONTOLOGY_OBJECT_SCAN,
     OntologyGraphSnapshot,
     OntologyInstanceStore,
     OntologyObjectRecord,
@@ -84,28 +85,50 @@ class ObjectSetService:
             pushed_predicate_count = len(filters) + len(text_in_filters)
             has_memory_predicates = pushed_predicate_count != len(definition.predicates)
             if graph is None:
-                graph = (
-                    await self._store.query_objects(
+                if has_memory_predicates and not definition.include_relationships:
+                    graph = await self._store.query_objects(
                         object_types=concrete_types,
                         property_equals=filters,
                         property_text_in=text_in_filters,
-                        limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
-                        include_relationships=definition.include_relationships,
+                        limit=_STORE_QUERY_LIMIT,
+                        include_relationships=False,
                     )
-                    if text_in_filters
-                    else await self._store.query_objects(
-                        object_types=concrete_types,
-                        property_equals=filters,
-                        limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
-                        include_relationships=definition.include_relationships,
+                    if graph.truncated and not _result_limit_proven(
+                        graph.objects,
+                        predicates=definition.predicates,
+                        limit=definition.limit,
+                    ):
+                        graph = await self._store.scan_objects(
+                            object_types=concrete_types,
+                            property_equals=filters,
+                            property_text_in=text_in_filters,
+                            candidate_limit=MAX_ONTOLOGY_OBJECT_SCAN,
+                        )
+                    if graph.truncated:
+                        source_truncation_reason = ObjectSetTruncationReason.CANDIDATE_LIMIT
+                else:
+                    graph = (
+                        await self._store.query_objects(
+                            object_types=concrete_types,
+                            property_equals=filters,
+                            property_text_in=text_in_filters,
+                            limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
+                            include_relationships=definition.include_relationships,
+                        )
+                        if text_in_filters
+                        else await self._store.query_objects(
+                            object_types=concrete_types,
+                            property_equals=filters,
+                            limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
+                            include_relationships=definition.include_relationships,
+                        )
                     )
-                )
-                if graph.truncated:
-                    source_truncation_reason = (
-                        ObjectSetTruncationReason.CANDIDATE_LIMIT
-                        if has_memory_predicates
-                        else ObjectSetTruncationReason.RESULT_LIMIT
-                    )
+                    if graph.truncated:
+                        source_truncation_reason = (
+                            ObjectSetTruncationReason.CANDIDATE_LIMIT
+                            if has_memory_predicates
+                            else ObjectSetTruncationReason.RESULT_LIMIT
+                        )
         graph = cast(OntologyGraphSnapshot, graph)
         graph, result_limited = _filter_graph(
             graph,
@@ -114,7 +137,7 @@ class ObjectSetService:
             limit=definition.limit,
         )
         truncation_reason = source_truncation_reason
-        if truncation_reason is None and result_limited:
+        if result_limited:
             truncation_reason = ObjectSetTruncationReason.RESULT_LIMIT
         return ObjectSetMaterialization(
             definition=definition,
@@ -204,6 +227,15 @@ async def _query_exact_ids(
         source_complete=all(graph.source_complete for graph in results),
         source_generation=next(iter(generations), None),
     )
+
+
+def _result_limit_proven(
+    objects: Sequence[OntologyObjectRecord],
+    *,
+    predicates: Sequence[ObjectPredicate],
+    limit: int,
+) -> bool:
+    return sum(1 for item in objects if _matches_all(item, predicates)) > limit
 
 
 def _filter_graph(

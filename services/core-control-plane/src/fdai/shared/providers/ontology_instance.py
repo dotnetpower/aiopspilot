@@ -21,6 +21,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 OntologyDirection = Literal["outgoing", "incoming", "both"]
+MAX_ONTOLOGY_OBJECT_SCAN = 50_000
 _MAX_JSON_DEPTH = 32
 _CLASSIFICATION_EVIDENCE_PROPERTIES = frozenset(
     {"inventory_generation", "mapping_digest", "mapping_id", "verified"}
@@ -451,6 +452,17 @@ class OntologyInstanceStore(Protocol):
         """Return a bounded object selection and internal links."""
         ...
 
+    async def scan_objects(
+        self,
+        *,
+        object_types: Sequence[str] = (),
+        property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
+        candidate_limit: int = MAX_ONTOLOGY_OBJECT_SCAN,
+    ) -> OntologyGraphSnapshot:
+        """Return one relationship-free candidate snapshot for deterministic filtering."""
+        ...
+
     async def traverse(
         self,
         *,
@@ -478,6 +490,7 @@ class OntologyInstanceStore(Protocol):
 
 
 __all__ = [
+    "MAX_ONTOLOGY_OBJECT_SCAN",
     "canonical_json_mapping",
     "can_repeat_link",
     "OntologyDirection",
