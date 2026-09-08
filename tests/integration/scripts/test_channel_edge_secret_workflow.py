@@ -17,6 +17,7 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert "login-deploy-identity.sh" in workflow
     assert "exactly one development Key Vault must match the FDAI tags" in workflow
     assert 'az resource show --ids "$vault_id" --api-version 2023-07-01' in workflow
+    assert "'.rbac == true and .public == \"Disabled\"'" in workflow
     assert "the selected development Key Vault is not private and RBAC-enabled" in workflow
     assert "materialize_channel_edge_secrets.py" in workflow
     assert "shred --force --remove" in workflow
