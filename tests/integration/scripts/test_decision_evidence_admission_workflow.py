@@ -64,8 +64,8 @@ def test_retention_shell_block_is_valid_bash() -> None:
 
 def test_first_parent_check_consumes_the_complete_stream() -> None:
     command = (
-        'set -euo pipefail; target="$(git rev-parse origin/main)"; '
-        'git rev-list --first-parent origin/main | grep -Fx "$target" >/dev/null'
+        'set -euo pipefail; target="$(git rev-parse HEAD)"; '
+        'git rev-list --first-parent HEAD | grep -Fx "$target" >/dev/null'
     )
 
     result = subprocess.run(  # noqa: S603 - fixed shell validates workflow semantics

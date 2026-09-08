@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f0e38ea5f8e5778532afbe499cda7c546c67e421
+translation_source_sha: 03a60d02d8db19d09a39732ec8cf854cd35d020d
 translation_revised: 2026-09-08
 ---
 # 프로젝트 구조
@@ -422,15 +422,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
-  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다.
-- **의사 결정 근거 승인**: `StateStoreDecisionEvidenceAdmissionProvider`는 로컬과 영속 런타임의
-  동등성을 제공하며, `AzureBlobDecisionEvidenceAdmissionProvider`는 배포 조립에서 Managed
-  Identity로 보호된 변경 불가능한 기록을 읽습니다. 두 공급자는 조회할 때마다 정확한 근거,
-  범위, 목적, 출처 개정, 증명 묶음, 검증기 분리 및 만료를 다시 검증합니다. 기록이 없으면
-  보호된 축약기는 권위, 생성기, 방법, 최신성, 검증기 및 신뢰 앵커를
-  `config/decision-evidence-deployment-policy.json`에서만 로드합니다. 근거 산출물은 자신의
-  수락 기준을 정의할 수 없습니다. 기록이 없으면 승인 결과를 반환하지 않고 잘못된 기록은
-  명시적으로 실패하며, 실행 또는 승격 권한을 부여하지 않습니다.
+  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다. 의사 결정 근거 승인은 로컬에서 StateStore를 사용하고 배포 환경에서 읽기 전용 불변 Blob 기록을 사용합니다. 보호된 정책은 권위, 목적, 출처 개정, 검증기 분리 및 만료를 고정하며, 근거가 없거나 잘못되면 실행 또는 승격 권한을 부여하지 않습니다.
 - **Operational catalog 검토 및 측정**: `DeterministicCatalogValidator`는 고정 시나리오 디렉터리에서
   제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.

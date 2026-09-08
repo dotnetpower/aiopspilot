@@ -46,7 +46,7 @@ def test_operational_history_job_has_dedicated_private_storage() -> None:
     assert 'resource "azurerm_role_assignment" "deployer_data_owner"' in storage
     assert 'resource "azurerm_role_assignment" "terraform_runner_data_owner"' in storage
     assert "legacy_deployer_principal_id" in root
-    assert 'role_definition_name = "Storage Blob Data Contributor"' in storage
+    assert "role_definition_name = var.runtime_role_definition_name" in storage
 
 
 def test_operational_history_wiring_exposes_bounded_controls_and_outputs() -> None:

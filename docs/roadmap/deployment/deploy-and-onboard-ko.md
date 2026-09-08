@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2b03b710568e9a4811e3987fe740706ea44b5cff
+translation_source_sha: a0b2f87c8d27f5df7e7336635fb384deb87d7141
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -111,21 +111,9 @@ Key Vault secret metadata를 검사합니다. Mapping, 자격 증명, category �
 계획 산출물을 저장하기 전에 실패 시 차단됩니다.
 Protected 계획은 binary Terraform 계획, 범위가 제한된 preflight 근거, 함수 출처 보관을
 각각 별도 SHA-256 다이제스트와 함께 저장합니다. Exact 적용은 모든 산출물을 download하고
-검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
+검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 구성된 경우 별도 의사 결정 근거 워크플로는 보호된 `main`의 first-parent 근거만 검증하고 게시 전에 증명하며 런타임이 읽기만 할 수 있는 전용 불변 저장소에 수렴 가능한 기록을 씁니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
 preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하고 워커 8개로 최대 1000개를
 삭제하며 선택이 불완전한이거나 삭제가 하나라도 실패하면 계획을 중지합니다.
-통제된 운영 이력 저장소를 사용할 수 있으면 90일 적용 산출물에 별도 의사 결정 근거 승인
-워크플로가 사용하는 고정 계획, 사전 검사, 점유, 증적 및 비공개 컨테이너 좌표도 포함합니다.
-이 워크플로는 런타임에서 읽을 수 있는 Blob 기록을 게시하기 전에 정확한 승인 기록을
-증명합니다. 멱등 재실행은 다운로드한 기존 기록의 바이트가 자체 `fdaisha256` 메타데이터와
-일치하는지 확인한 다음 정확한 비교 또는 안정된 조회 비교를 적용합니다. 저장소 출력이
-없으면 기존 적용 증적만 유지하고 실제 근거 승인을 주장하지 않습니다.
-권한이 있는 검증기는 보호된 `main`의 first-parent 이력에 있는 커밋에서만 제어 코드를
-실행합니다. 병합된 브랜치의 중간 상위 커밋은 실행 가능한 워크플로 출처가 아닙니다.
-재시도가 이미 게시된 승인 조회에 도달하면 근거, 범위, 목적 및 출처 개정이 계속 일치하는
-최초의 최신 기록만 재사용합니다. 만료되었거나 다른 기록은 충돌로 유지되며 새 출처 근거가
-필요합니다. 저장소 워크플로 계약은 포함된 비교 프로그램을 비롯한 전체 보존 셸 블록의
-구문을 검사합니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
@@ -490,7 +478,6 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `KAFKA_SECURITY_PROTOCOL` | env | 배포 | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | 배포 | Azure 에서 `OAUTHBEARER` |
 | `FDAI_STATE_STORE_DSN` | KV 참조 | 업스트림 | 감사 + KPI 용 Postgres 연결 URI. `infra/main.tf` 의 `azurerm_key_vault_secret.state_store_dsn` 이 `module.state_store.application_dsn` 으로부터 배선하고, Container App 은 `secret{}` + `env{}` 로 노출 ([project-structure-ko.md](../architecture/project-structure-ko.md) 의 `infra/modules/compute/container-apps/` 참조). 로컬/dev는 없을 때 in-memory를 사용할 수 있지만 `RUNTIME_ENV=staging|prod`는 시작을 차단합니다. |
-| `FDAI_DECISION_EVIDENCE_CONTAINER_URL` | env | 배포 | 변경할 수 없고 내용 기반 주소를 사용하는 의사 결정 근거의 증명, 요건, 묶음 및 승인 기록을 담는 선택적 전용 비공개 Blob 컨테이너입니다. 배포 실행기만 새 기록을 쓰고 컨테이너는 90일 시간 기반 불변 정책을 적용하며, Core는 연결된 읽기 전용 Managed Identity를 사용하고 저장소 키를 받지 않습니다. 로컬 실행은 동등성 테스트에 StateStore 기반 공급자를 사용할 수 있습니다. 비공개 컨테이너가 없는 배포 런타임은 승인 공급자를 연결하지 않으며, 기록이 없으면 긍정적 의사 결정을 계속 검토 보류로 처리합니다. |
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`입니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV 참조 | 업스트림 | HIL 승인 운영자 기억 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); 배포는 코어를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV 참조 | 업스트림 | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |
