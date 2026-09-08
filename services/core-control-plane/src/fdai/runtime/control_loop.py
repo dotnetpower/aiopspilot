@@ -505,6 +505,7 @@ def _build_control_loop(
                 store=audit_store,
                 ontology_release_digest=ontology_release.digest.removeprefix("sha256:"),
                 property_semantics_digest=property_semantics.content_digest.removeprefix("sha256:"),
+                decision_evidence_provider=container.decision_evidence_admission_provider,
             )
         executor = ShadowExecutor(
             publisher=publisher,
@@ -687,6 +688,7 @@ def _build_control_loop(
             projector=container.causal_hypothesis_projection,
             method_version=_TEMPORAL_CAUSAL_METHOD_VERSION,
             intervention_receipt_verifier=container.causal_intervention_receipt_verifier,
+            decision_evidence_provider=container.decision_evidence_admission_provider,
         )
     if dynamic_runtime_coordinator is None and container.dynamic_simulation_request_provider:
         if (
@@ -716,7 +718,10 @@ def _build_control_loop(
         )
 
     process_runtime_store = _build_process_store()
-    workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(audit_store)
+    workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(
+        audit_store,
+        decision_evidence_provider=container.decision_evidence_admission_provider,
+    )
     workflow_automation_holds = StateStoreAutomationHoldLedger(audit_store)
     return ControlLoop(
         event_ingest=event_ingest,
@@ -760,6 +765,7 @@ def _build_control_loop(
             ontology_store=ontology_instance_store,
             outcome_verifier=workflow_outcome_ledger,
             architecture_evidence_provider=container.architecture_review_evidence_provider,
+            decision_evidence_provider=container.decision_evidence_admission_provider,
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,

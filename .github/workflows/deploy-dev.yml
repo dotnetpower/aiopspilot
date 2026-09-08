@@ -2268,6 +2268,18 @@ jobs:
             --name "${TF_VAR_env}/${APPLY_PLAN_ID}/apply-receipt.json" \
             --file apply-receipt.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
+          candidate="$RUNNER_TEMP/deployment-apply-artifact"
+          container_url="$(terraform output -raw decision_evidence_container_url 2>/dev/null || true)"
+          if [[ -n "$container_url" ]]; then
+            python3 ../scripts/deployment/azure/prepare_decision_evidence_candidate.py \
+              --plan-metadata plan-metadata.json --preflight-evidence plan-preflight-evidence.json \
+              --azure-preflight-evidence plan-azure-preflight-evidence.json \
+              --apply-claim apply-claim.json --apply-receipt apply-receipt.json \
+              --container-url "$container_url" --output "$candidate"
+          else
+            mkdir -m 0700 "$candidate"
+            install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
+          fi
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish sanitized apply receipt
@@ -2275,9 +2287,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-apply-receipt-${{ inputs.plan_id }}
-          path: infra/apply-receipt.json
+          path: ${{ runner.temp }}/deployment-apply-artifact
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 90
 
       - name: Publish and verify console
         if: ${{ inputs.apply && inputs.deploy_console }}
