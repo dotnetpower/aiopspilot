@@ -505,14 +505,11 @@ and downloads only sanitized plan metadata after success. Status strips only the
 request-mode prefix before checking the embedded target/context binding. The GitHub CLI uses
 provider-hosted authentication, and no credential is copied into a command argument.
 
-The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context fingerprint.
-Console, Operator API, document-ingestion, isolated-Executor, monitoring, and the exclusive RCA-reader
-bootstrap selection are sealed identically into plan and apply. The optional
-`--deploy-operator-channel-edge` selection binds the authority-free edge identity plan without
-enabling the Operator workload. The RCA selection uses a `plan-rca-*` or
-`apply-rca-*` request and permits only the dedicated identity and Monitoring Reader role. An optional runtime
-source revision is also sealed into the fingerprint; planning promotes and verifies that Core image, while
-apply restores the digest-pinned plan. Any changed input invalidates the plan before Terraform runs.
+The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
+fingerprint. Console, Operator API, document ingestion, isolated Executor, monitoring, the optional
+authority-free `--deploy-operator-channel-edge` identity plan, and the exclusive RCA reader are sealed
+identically into plan and apply. The RCA mode permits only its dedicated identity and Monitoring Reader
+role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform.
 
 Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
 reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment
@@ -533,16 +530,6 @@ fdaictl deploy plan \
   --repository <owner>/<repository> \
   --commit-sha <git-sha> \
   --run-id <run-id> \
-  --output json
-
-fdaictl deploy plan \
-  --profile .fdai/environments/dev.json \
-  --repository <owner>/<repository> \
-  --commit-sha <git-sha> \
-  --run-id <run-id> \
-  --no-deploy-console \
-  --no-deploy-operator-api \
-  --deploy-operator-channel-edge \
   --output json
 
 fdaictl deploy status \
