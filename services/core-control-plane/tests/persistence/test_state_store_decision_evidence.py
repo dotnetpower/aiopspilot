@@ -256,6 +256,37 @@ async def test_tampered_record_fails_closed() -> None:
         )
 
 
+async def test_unknown_admission_field_fails_closed() -> None:
+    store = InMemoryStateStore()
+    receipt = _receipt()
+    result = await _eligible_result(receipt)
+    await StateStoreDecisionEvidenceAdmissionRecorder(store=store).retain(receipt, result)
+    key = decision_evidence_state_key(
+        evidence_digest=receipt.evidence_digest,
+        scope_digest=receipt.scope_digest,
+        purpose_id=receipt.purpose_id,
+        source_revision=receipt.source_revision,
+    )
+    raw = await store.read_state(key)
+    assert raw is not None
+    tampered = dict(raw)
+    admission = dict(tampered["admission"])
+    admission["unexpected_authority"] = True
+    body = {name: value for name, value in tampered.items() if name != "record_digest"}
+    body["admission"] = admission
+    tampered.update(body)
+    tampered["record_digest"] = content_digest(body)
+    await store.write_state(key, tampered)
+
+    with pytest.raises(DecisionEvidenceAdmissionRecordError, match="content is invalid"):
+        await StateStoreDecisionEvidenceAdmissionProvider(store=store).admit(
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+        )
+
+
 async def test_conflicting_redelivery_fails_closed() -> None:
     store = InMemoryStateStore()
     receipt = _receipt()
