@@ -232,6 +232,7 @@ function AssessmentTable({ assessments, onSelect }: { readonly assessments: read
 function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessmentId: string | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
   const [detail, setDetail] = useState<AsyncState<AssuranceDetailPayload> | null>(null);
   const [detailUnavailable, setDetailUnavailable] = useState(false);
+  const [retryGeneration, setRetryGeneration] = useState(0);
   useEffect(() => {
     if (assessmentId === null) { setDetail(null); setDetailUnavailable(false); return; }
     let cancelled = false;
@@ -249,9 +250,14 @@ function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, on
         setDetail({ status: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return () => { cancelled = true; };
-  }, [assessmentId, client]);
+  }, [assessmentId, client, retryGeneration]);
+  const retry = () => {
+    setDetailUnavailable(false);
+    setRetryGeneration((current) => current + 1);
+    void onRefresh();
+  };
   if (requestedUnavailable || detailUnavailable) {
-    return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={() => void onRefresh()}>{t("assurance.refreshAssessments")}</button></section>;
+    return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={retry}>{t("assurance.refreshAssessments")}</button></section>;
   }
   if (assessmentId === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
   return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;

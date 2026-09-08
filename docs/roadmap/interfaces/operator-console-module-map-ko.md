@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 9682e9049b79ccabc8a0bf574e5b4ed2ce9cf0e6
+translation_source_sha: e31d9359d8e1dacac714dcad8984acacf9dfb1d2
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -32,6 +32,7 @@ principal 범위 변환 결과를 바꿀 수 없습니다.
 principal 범위 상세를 직접 읽을 수 있습니다.
 범위가 지정된 상세가 없으면 일반 패널 실패 대신 새로고침 동작이 있는 명시적인 사용 불가
 상태로 유지합니다.
+이 동작은 범위가 제한된 목록을 새로고침하는 동시에 상세 재시도 세대를 진행합니다.
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.

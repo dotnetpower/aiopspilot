@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 99a91618c7c590e79aebc07ee1d25d355bacd00c
+translation_source_sha: 8d4ff3a839ee1c30f9bdc319923971799a595d2c
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -46,6 +46,7 @@ translation_revised: 2026-09-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 사용할 수 없는 평가 동작이 같은 식별자에 상세 effect를 고정하지 않고 범위가 제한된 목록과 정확한 보존 상세 요청을 모두 다시 시도하게 했습니다. | `current change`, 집중 경로 검사 10개와 Console 타입 검사가 통과했습니다. | 인증된 복구 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 유효한 보존 평가 식별자의 범위 지정 상세 `404`를 일반 패널 오류 대신 명시적인 사용 불가 상태와 새로고침 동작으로 표시했습니다. | `current change`, 집중 경로 검사 10개와 Console 타입 검사가 통과했습니다. | 인증된 상세 누락 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 평가 상세 검증을 원장의 raw 64자 SHA-256 형식에 맞추고 의미 요청 및 결과 읽기를 인덱스가 있는 key 계열로 제한했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 상세 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 유효한 보존 평가 딥 링크가 200행으로 제한된 목록 변환 결과보다 오래된 평가도 principal 범위 상세 endpoint에서 조회하게 했습니다. | `current change`, 집중 경로 검사 9개와 Console 타입 검사가 통과했습니다. | 인증된 과거 평가 근거는 별도로 보존합니다. |

@@ -27,6 +27,7 @@ A valid content-addressed assessment link can read its principal-scoped detail d
 the assessment is older than the bounded list projection.
 A missing scoped detail remains an explicit unavailable state with a refresh action rather than a
 generic panel failure.
+That action advances the detail retry generation as well as refreshing the bounded list.
 
 ## Dependency-direction gate
 
