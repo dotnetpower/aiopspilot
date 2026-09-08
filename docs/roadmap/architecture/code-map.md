@@ -328,9 +328,9 @@ an unrelated later observation cannot retroactively admit them.
 Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
 requires a companion exact-id coverage query to observe every target under the same identity and
 deadline.
-Immutable WARA request, evidence, status, control, and result contracts live in
-`core/wara/models.py`. `core/wara/runtime.py` retains deterministic evaluation, observation
-collection, audit, and publication while re-exporting the established public contracts.
+Immutable WARA request, evidence, status, control, and result contracts live in `core/wara/models.py`.
+`core/wara/runtime.py` retains evaluation, observation, audit, and publication. Disagreeing
+admissible receipts record `evidence_conflict` and remain `not_evaluated` with `unknown` satisfaction.
 Default ControlLoop assembly now binds one event-time `IncidentRcaContextSource`. It resolves exact
 provider identity from the event's inventory generation, materializes bitemporal topology history,
 matches one lifecycle Incident, and admits deployment members only when all generations agree.

@@ -1,75 +1,10 @@
-"""Durable Assurance Twin posture/review projection over the shared StateStore.
+"""Durable Assurance Twin posture and review projection over ``StateStore``.
 
-Persists the twin's already-computed
-:class:`~fdai.core.assurance_twin.report.PostureAssessmentReport` (latest
-per scope) and ambient :class:`~fdai.shared.providers.iac_review.IacReview`
-(one row per ``review_key``) through the generic key-value ``StateStore``
-seam - the same durable contract
-``fdai/core/readiness/detection.py`` and
-``fdai/core/assurance_twin/trajectory_ledger.py`` already use. Operator API
-reads these rows directly (same physical table, service-owned role); this
-module never calls the Operator API or another service in-process.
-
-Design invariants
-------------------
-
-- **Durable-first**: the report/review body is the authoritative record.
-  ``core/assurance_twin/posture_activity.py`` builds a bounded activity value,
-  but the recorder publishes neither posture nor review tips until a
-  transactional outbox can order them with the exact durable revision (see
-  ``fdai.delivery.assurance_twin_posture``).
-- **Read-only surface**: this ledger never judges, approves, or executes;
-  it stores exactly the report/review the twin already computed.
-- **Idempotent by identity, fail-closed on conflict**: a posture report advances
-  the prior snapshot for its ``scope`` only when its canonical
-  ``generated_at`` is newer. The create-or-advance sequence is linearized
-  through ``write_state_if_absent`` and revision-fenced compare-and-set, so a
-  delayed older report can never overwrite newer evidence. A change review is written once per
-  ``review_key``. Redelivery of an identical review body is an idempotent
-  no-op; a *different* body under the same ``review_key`` is a conflict -
-  the stored evidence body is never replaced, and a durable conflict marker
-  is written onto the row so every later read renders it unavailable rather
-  than serving one of two contradictory truths. The marker is durable: once
-  a ``review_key`` has conflicted, it stays conflicted until an operator
-  removes the row, and a subsequent redelivery of either body cannot clear
-  it.
-- **Atomic tombstoning**: the read-compare-tombstone sequence a same-key
-  redelivery runs is not a single ``StateStore`` call, so it uses the row's
-  own ``revision`` counter with ``compare_and_set_state_with_audit`` (the
-  same optimistic-concurrency primitive
-  ``fdai/delivery/evidence_conflict.py`` and
-  ``fdai/delivery/persistence/state_store_case_history.py`` already use)
-  rather than a bare ``write_state``. A concurrent duplicate racing the
-  tombstone write either loses the compare-and-set and re-reads the now-
-  tombstoned row, or wins it and tombstones the row itself; either way every
-  concurrent caller observes the conflict and none reports a
-  completed/available result for a row another caller just tombstoned. A
-  *matching*-body redelivery uses the same compare-and-set to confirm its
-  read before returning non-conflict, rather than trusting the read alone:
-  a redelivery that read the row before a concurrent conflicting write
-  tombstoned it can therefore never report completed/available for the
-  identity its sibling just marked unavailable - the whole persistence
-  result is linearized per ``review_key`` through this one compare-and-set
-  point. This linearizes the *durable* result only: a caller still cannot
-  atomically order an activity-bus publish with this compare-and-set (a
-  separate async call after the fact), which is why the recorder publishes
-  neither posture nor review tips - see that module's docstring.
-- **Bounded by identity and by size**: ``review_key`` is rejected above
-  256 characters, provenance identities above 512 characters, ``findings``
-  above 200 entries, ``reason_codes`` and any
-  finding's ``evidence_refs`` above 200 entries or containing a blank,
-  over-512-character, or duplicate entry, and ``evidence_source_revision``
-  when blank or over 512 characters - all at write time, before any
-  durable write or activity publication - the same bounds the Operator
-  API's detail lookup and projection (``_strict_string_list``,
-  ``_bounded_identity``) already enforce on read. A write this ledger
-  accepts is therefore always reachable and fully renderable through the
-  Operator API, never a row nobody can ever read back.
-- **Replayable provenance**: every row carries the bounded activity and
-  correlation identity of the record call plus the SHA-256 digest of the
-  exact evidence body, so a future transactional publisher can bind a tip to
-  the same rendered evidence. Digests and identifiers only - no finding text,
-  resource value, or customer identifier is added here.
+The ledger stores already-computed shadow evidence without judging, approving,
+or executing. Posture rows advance only to newer timestamps. Review rows are
+idempotent by key, and different bodies under one key receive a durable conflict
+marker through revision-fenced compare-and-set. Write-time size and identity
+bounds mirror the Operator projection so every accepted row remains readable.
 """
 
 from __future__ import annotations
@@ -98,86 +33,32 @@ CONFLICT_MARKER_FIELD = "conflict"
 """Row field that makes a same-key different-digest conflict durable."""
 
 _REVISION_FIELD = "revision"
-"""Optimistic-concurrency counter for ``compare_and_set_state_with_audit``.
-
-Write history, like the conflict marker: excluded from the evidence digest
-so it never changes evidence identity, and bumped only by the atomic
-tombstone write so a racing duplicate's compare-and-set is checked against
-the exact row it read.
-"""
+"""Optimistic-concurrency counter excluded from evidence identity."""
 
 _MAX_CONFLICT_CAS_ATTEMPTS = 8
-"""Bound on retrying a lost compare-and-set before failing loudly.
-
-Each retry only happens when a concurrent writer just advanced the row
-(either tombstoning it, or - impossible once created - replacing its
-body), so the loop terminates within one extra attempt per concurrent
-racer; the cap exists purely so a StateStore bug cannot spin forever.
-"""
+"""Bound lost compare-and-set retries so a broken store cannot spin."""
 
 _MAX_POSTURE_CAS_ATTEMPTS = 8
 """Bound on retrying a posture advance after a concurrent writer wins."""
 
 _REVIEW_KEY_MAX_CHARS = 256
-"""Upper bound on ``review_key`` length, enforced at write time.
-
-Matches ``_ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS`` in
-``fdai_operator_service.runtime_projection_reader`` - the bound the
-Operator API's detail lookup already enforces on the same identity. The
-two services stay independently packaged (see module docstring), so the
-constant is restated here rather than imported across the service
-boundary. Rejecting an over-long key at persistence time, instead of only
-at read time, guarantees every row this ledger ever writes stays
-reachable through the Operator API's list-then-detail round trip.
-"""
+"""Match the Operator detail lookup bound without a cross-service import."""
 
 _MAX_FINDINGS = 200
-"""Upper bound on findings per report/review, enforced at write time.
-
-Matches ``_MAX_ITEMS`` in
-``fdai_operator_service.assurance_twin_posture_projection`` - the bound
-the Operator API's projection already applies when rendering a row's
-finding list (an over-long list makes the whole row ``evidence_malformed``
-there). Rejecting the write here, rather than letting an unreadable row
-land while the bus still announces it ``completed``, keeps every
-successful write's evidence actually replayable.
-"""
+"""Match the Operator finding-list bound at the write boundary."""
 
 _MAX_LIST_ITEMS = 200
 _MAX_TEXT_CHARS = 512
-"""Bounds for a single bounded string list (``reason_codes``, one
-finding's ``evidence_refs``), enforced at write time.
-
-Matches ``_MAX_ITEMS``/``_MAX_TEXT_LEN`` and ``_strict_string_list`` in
-``fdai_operator_service.assurance_twin_posture_projection``: at most
-:data:`_MAX_LIST_ITEMS` entries, each a non-blank string of at most
-:data:`_MAX_TEXT_CHARS` characters, with no duplicate entries. The
-projection renders a list that breaks any of these rules as
-``evidence_malformed`` for the whole row rather than a filtered,
-truncated, or deduplicated one, so this ledger rejects the write outright
-for the same reason :data:`_MAX_FINDINGS` does: a write this ledger
-accepts must stay fully renderable, never a row nobody can ever read back.
-"""
+"""Match the Operator list and text bounds at the write boundary."""
 
 _MAX_EVIDENCE_SOURCE_REVISION_CHARS = 512
-"""Upper bound on ``evidence_source_revision``, enforced at write time.
-
-Matches :data:`_MAX_TEXT_CHARS` - the same bound the Operator API's
-projection applies to every provenance identity string via
-``_bounded_identity`` - so a revision this ledger accepts is always
-rendered as usable provenance there too, never ``evidence_malformed``.
-"""
+"""Match the Operator provenance identity bound."""
 
 _ALLOWED_FRESHNESS = frozenset({"fresh", "stale", "unavailable", "unknown"})
 _ALLOWED_REVIEW_VERDICTS = frozenset({"clear", "needs_review", "blocked"})
 _ALLOWED_FINDING_SEVERITIES = frozenset({"low", "medium", "high", "critical"})
 
-#: Provenance fields describe *this* write, not the twin's evidence body, so
-#: they are excluded before the body digest is computed. A redelivery that
-#: differs only in correlation identity therefore still compares equal. The
-#: conflict marker and revision counter are write history too: excluding
-#: them keeps the preserved evidence body's digest verifiable after the row
-#: is tombstoned or its revision is bumped.
+#: Exclude write provenance and conflict history from evidence identity.
 _PROVENANCE_FIELDS = frozenset(
     {
         "activity_id",
@@ -199,14 +80,7 @@ def posture_report_state_key(scope: str) -> str:
 
 
 def change_review_state_key(review_key: str) -> str:
-    """Return the deterministic per-review key for ``review_key``.
-
-    Raises:
-        ValueError: when ``review_key`` is blank or exceeds
-            :data:`_REVIEW_KEY_MAX_CHARS` - the same bound the Operator
-            API's detail lookup enforces, so a key this function accepts
-            is always fetchable there too.
-    """
+    """Return the bounded deterministic key for one change review."""
 
     if not review_key.strip():
         raise ValueError("assurance twin review key MUST be non-empty")
@@ -216,22 +90,7 @@ def change_review_state_key(review_key: str) -> str:
 
 
 def _check_bounded_findings(findings: Sequence[Any]) -> None:
-    """Reject a finding list before it is ever written or announced.
-
-    Also validates each finding's ``evidence_refs`` with
-    :func:`_check_bounded_string_list`, so a finding carrying an
-    over-long, duplicate, or blank evidence ref is rejected here too,
-    rather than landing as a row the Operator API's projection can only
-    render ``evidence_malformed``.
-
-    Raises:
-        ValueError: when ``findings`` exceeds :data:`_MAX_FINDINGS`, or
-            any finding's ``evidence_refs`` fails
-            :func:`_check_bounded_string_list` - the same bounds the
-            Operator API's projection applies when rendering a row, so a
-            write this function accepts is always rendered as usable
-            evidence there too.
-    """
+    """Reject findings the Operator projection cannot render exactly."""
 
     if len(findings) > _MAX_FINDINGS:
         raise ValueError(
@@ -248,20 +107,7 @@ def _check_enum(name: str, value: str, allowed: frozenset[str]) -> None:
 
 
 def _check_bounded_string_list(items: Sequence[object], *, field: str) -> None:
-    """Reject a bounded string list before it is ever written or announced.
-
-    Mirrors ``_strict_string_list`` in
-    ``fdai_operator_service.assurance_twin_posture_projection`` exactly:
-    at most :data:`_MAX_LIST_ITEMS` entries, each a non-blank string of at
-    most :data:`_MAX_TEXT_CHARS` characters, with no duplicate entries.
-    Applies to ``reason_codes`` and to one finding's ``evidence_refs`` -
-    every list field the projection validates with the same rule.
-
-    Raises:
-        ValueError: when ``items`` breaks any of the above rules, naming
-            ``field`` so the caller can trace which write-side value
-            failed.
-    """
+    """Reject a string list the Operator projection cannot render exactly."""
 
     if len(items) > _MAX_LIST_ITEMS:
         raise ValueError(
@@ -536,38 +382,11 @@ class StateStoreAssuranceTwinPostureLedger:
         correlation_id: str,
         evidence_source_revision: str,
     ) -> AssuranceTwinLedgerWrite:
-        """Persist ``review`` once per ``review_key``.
+        """Persist one bounded review and durably tombstone key conflicts.
 
-        Identical redelivery is an idempotent no-op. A different body under
-        the same ``review_key`` returns ``conflict=True``: the stored
-        evidence body is preserved, a durable conflict marker is written
-        onto the row, and every later read renders it unavailable, so the
-        ledger never holds one truth for one reader while serving another to
-        a different reader.
-
-        The redeliver-then-tombstone sequence is not one atomic
-        ``StateStore`` call, so a same-key redelivery racing a concurrent
-        duplicate (or the tombstone write it just triggered) is resolved
-        with ``compare_and_set_state_with_audit`` against the row's own
-        ``revision`` counter rather than a bare ``write_state``: a losing
-        caller re-reads the row a concurrent write just advanced and never
-        overwrites it, so a duplicate arriving after a tombstone lands can
-        never report that identity as completed/available. This holds for
-        a *matching*-body redelivery too: it never returns non-conflict
-        from a bare read, only after confirming via the same compare-and-
-        set that no concurrent tombstone landed on the row it read (see
-        :meth:`_resolve_conflict`).
-
-        Raises:
-            ValueError: when ``review.review_key`` exceeds
-                :data:`_REVIEW_KEY_MAX_CHARS`, ``review.findings`` exceeds
-                :data:`_MAX_FINDINGS`, a finding's ``evidence_refs`` fails
-                :func:`_check_bounded_string_list`, ``reason_codes`` fails
-                :func:`_check_bounded_string_list`, or
-                ``evidence_source_revision`` is blank or exceeds
-                :data:`_MAX_EVIDENCE_SOURCE_REVISION_CHARS` - all rejected
-                before any write so a review this call persists is always
-                reachable and fully renderable by the Operator API.
+        Matching redelivery is confirmed through the same revision-fenced
+        compare-and-set used for conflicts, so it cannot return a stale
+        non-conflict result while another caller tombstones the row.
         """
 
         _check_enum("freshness", freshness, _ALLOWED_FRESHNESS)
@@ -696,32 +515,7 @@ class StateStoreAssuranceTwinPostureLedger:
         correlation_id: str,
         attempts_remaining: int,
     ) -> AssuranceTwinLedgerWrite:
-        """Confirm a matching-body redelivery against the row's live revision.
-
-        ``existing`` is a snapshot from a plain read, not a linearization
-        point: a concurrent conflicting redelivery could tombstone this
-        exact row between that read and this call returning. Returning
-        ``conflict=False`` straight from the stale read would let this
-        caller announce a completed/available result for an identity
-        another caller just marked unavailable.
-
-        So this never trusts the read alone. It re-asserts the *unchanged*
-        row through the same ``compare_and_set_state_with_audit`` primitive
-        the tombstone write uses, against the exact revision ``existing``
-        carries. Since the tombstone write is the only path that ever
-        mutates a row after creation, and it always advances
-        ``_REVISION_FIELD``, the two calls are linearized through the same
-        expected-revision check:
-
-        - The compare-and-set succeeds only when no tombstone has landed
-          since ``existing`` was read, so returning non-conflict here is
-          then provably still true at the moment of the durable write, not
-          just at the moment of the earlier read.
-        - The compare-and-set fails exactly when a concurrent tombstone won
-          the race first; this caller re-reads the now-tombstoned row and
-          recurses into :meth:`_resolve_conflict`, which reports the
-          conflict its sibling just wrote instead of a stale match.
-        """
+        """Linearize matching replay against concurrent conflict tombstones."""
 
         current_revision = _stored_revision(existing)
         confirmed = await self._store.compare_and_set_state_with_audit(
@@ -879,13 +673,7 @@ def _stored_comparison_digest(existing: Mapping[str, Any]) -> str:
 
 
 def _stored_revision(existing: Mapping[str, Any]) -> int:
-    """Return the durable row's CAS revision, defaulting a legacy row to ``0``.
-
-    Mirrors the Postgres adapter's own
-    ``COALESCE(value ->> 'revision', '0')`` fallback, so a row written
-    before this counter existed compares equal against the same expected
-    revision the real backend would accept.
-    """
+    """Return the CAS revision, matching the backend's legacy ``0`` fallback."""
 
     revision = existing.get(_REVISION_FIELD)
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:

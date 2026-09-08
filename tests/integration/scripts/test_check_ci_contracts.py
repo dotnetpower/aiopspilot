@@ -430,6 +430,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "automatic-version.yml",
         "container-supply-chain.yml",
         "deploy-dev.yml",
+        "deploy-channel-edge-secrets.yml",
         "devbox-smoke.yml",
         "destroy-env.yml",
         "infra-drift.yml",

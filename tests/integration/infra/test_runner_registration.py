@@ -10,6 +10,7 @@ import pytest
 
 _SSD_DEPLOY_WORKFLOWS = (
     "deploy-dev.yml",
+    "deploy-channel-edge-secrets.yml",
     "destroy-env.yml",
     "infra-drift.yml",
     "model-lifecycle-reconcile.yml",
