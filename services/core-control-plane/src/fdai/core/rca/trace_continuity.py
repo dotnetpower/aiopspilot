@@ -26,6 +26,7 @@ from fdai.core.rca.grounding import enforce_grounding
 _MAX_AFFECTED_ITEMS = 32
 _MAX_AFFECTED_TEXT_CHARS = 1024
 _MAX_EVIDENCE_REFS = 100
+_MAX_EVIDENCE_AGE = timedelta(hours=24)
 
 
 class TraceRcaCause(StrEnum):
@@ -97,8 +98,8 @@ def analyze_trace_continuity_cause(
 
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError("min_confidence MUST be in [0, 1]")
-    if max_evidence_age <= timedelta(0):
-        raise ValueError("max_evidence_age MUST be positive")
+    if not timedelta(0) < max_evidence_age <= _MAX_EVIDENCE_AGE:
+        raise ValueError("max_evidence_age MUST be positive and at most 24 hours")
     if result.state is not TraceContinuityState.DISCONTINUOUS:
         return _abstained("trace_not_discontinuous")
     if not result.evidence_refs:

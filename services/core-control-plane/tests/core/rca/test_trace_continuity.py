@@ -328,6 +328,12 @@ def test_stale_trace_cause_evidence_holds_with_a_bounded_age() -> None:
             cause_evidence=(cause,),
             max_evidence_age=timedelta(0),
         )
+    with pytest.raises(ValueError, match="at most 24 hours"):
+        analyze_trace_continuity_cause(
+            _result(missing_hop="agent"),
+            cause_evidence=(cause,),
+            max_evidence_age=timedelta(hours=24, microseconds=1),
+        )
 
 
 def test_trace_cause_confidence_is_bounded_by_evidence_and_t1_ceiling() -> None:
