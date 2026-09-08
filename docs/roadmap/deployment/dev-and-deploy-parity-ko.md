@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4411444906e4c3342f92a1ce2feda29f6898670d
+translation_source_sha: 6aee75a21e1fc93d9d1e4ad5dbf53c288283e1e8
 translation_revised: 2026-09-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -248,9 +248,9 @@ Client를 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored 
 
 ### 로컬 개발의 Console 데이터
 
-데이터 소스 선언, 로컬 인증, 워크로드 근거 및 인벤토리 조회 계약은
-[Console 읽기 경계](console-read-boundary-ko.md)가 소유합니다. 이 동등성 문서는 아래의 나머지
-로컬/배포 런타임 바인딩을 유지합니다.
+[Console 읽기 경계](console-read-boundary-ko.md)는 데이터 소스, 인증, 워크로드 근거 및
+인벤토리 조회를 소유합니다. 실제 WARA 동등성은 정확한 범위를 ARG가 지원하는 `in~`로
+렌더링하며, 이 문서는 아래의 나머지 로컬 및 배포 런타임 바인딩을 유지합니다.
 
 런타임 policies는 배포와 로컬 PostgreSQL이 구성된 경우 동일한 StateStore 기록을
 사용합니다. 영속 로컬 상태가 없으면 출처 매니페스트는 영속성을 주장하지 않고 settings

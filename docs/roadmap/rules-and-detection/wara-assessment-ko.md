@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 7536a04f6e82cdbb2bac4fac517851b4a515d97b
+translation_source_sha: e1af31697999ef960a43620a9ed273a98786a5fd
 translation_revised: 2026-09-08
 ---
 # WARA 근거 기반 평가
@@ -68,6 +68,10 @@ APRL 권고와 연결되며 APRL GUID를 대체, 병합 또는 중복 집계하�
 - 선언된 공급자 리소스 종류 및 목록 세대
 - 시간 제한 및 최대 행 수
 - 필수 완전성, 잘림, 시간 및 출처 필드
+
+Azure 어댑터는 정확한 리소스 ID를 Azure Resource Graph가 직접 지원하는 범위가 제한된
+대소문자 무시 `in~` 리터럴 목록으로 렌더링합니다. 지원되지 않는 동적 배열 멤버십 함수에
+의존하지 않습니다.
 
 정적 안전성은 제품 의미를 증명하지 않습니다. 정확한 평가기가 검토되기 전에는 쿼리가
 읽기 전용이어도 권고를 차단 상태로 유지합니다. 쿼리 성공은 관측 증적이며 충족 결과나 운영

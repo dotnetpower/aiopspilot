@@ -247,9 +247,9 @@ local dev-access state receive no prompt or network change.
 
 ### Console data in local development
 
-The data-source declaration, local authentication, workload evidence, and inventory query
-contracts are owned by [Console Read Boundary](console-read-boundary.md). This parity document
-retains the remaining local/deployed runtime bindings below.
+The [Console Read Boundary](console-read-boundary.md) owns data sources, authentication, workload
+evidence, and inventory queries. Live WARA parity renders exact scopes with ARG-supported `in~`;
+this document retains the remaining local and deployed runtime bindings below.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is configured. Without durable local state, the
 source manifest reports the settings store as unavailable or non-durable instead of claiming persistence. Readers see the sanitized
