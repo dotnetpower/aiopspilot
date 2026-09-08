@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from fdai.core.detection.trace_continuity import (
@@ -91,11 +91,14 @@ def analyze_trace_continuity_cause(
     *,
     cause_evidence: tuple[TraceCauseEvidence, ...],
     min_confidence: float = 0.0,
+    max_evidence_age: timedelta = timedelta(minutes=5),
 ) -> RcaResult:
     """Return one cited T1 cause or hold when evidence is absent or conflicting."""
 
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError("min_confidence MUST be in [0, 1]")
+    if max_evidence_age <= timedelta(0):
+        raise ValueError("max_evidence_age MUST be positive")
     if result.state is not TraceContinuityState.DISCONTINUOUS:
         return _abstained("trace_not_discontinuous")
     if not result.evidence_refs:
@@ -106,7 +109,11 @@ def analyze_trace_continuity_cause(
         return _abstained("trace_cause_evidence_conflicting")
 
     selected = cause_evidence[0]
-    if not _evidence_matches(result, selected):
+    if not _evidence_matches(
+        result,
+        selected,
+        max_evidence_age=max_evidence_age,
+    ):
         return _abstained("trace_cause_evidence_scope_mismatch")
 
     combined_refs = tuple(dict.fromkeys((*result.evidence_refs, *selected.evidence_refs)))
@@ -128,6 +135,8 @@ def analyze_trace_continuity_cause(
 def _evidence_matches(
     result: TraceContinuityResult,
     evidence: TraceCauseEvidence,
+    *,
+    max_evidence_age: timedelta,
 ) -> bool:
     if (
         evidence.topology_ref != result.topology_ref
@@ -135,6 +144,7 @@ def _evidence_matches(
         or evidence.window_bucket != result.window_bucket
         or result.observed_at is None
         or evidence.observed_at > result.observed_at
+        or result.observed_at - evidence.observed_at > max_evidence_age
     ):
         return False
     affected = set(evidence.affected_items)

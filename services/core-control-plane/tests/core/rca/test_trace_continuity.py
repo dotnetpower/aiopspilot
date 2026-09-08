@@ -308,6 +308,28 @@ def test_trace_cause_evidence_cannot_replay_across_scope_or_time(
     assert result.reason == "trace_cause_evidence_scope_mismatch"
 
 
+def test_stale_trace_cause_evidence_holds_with_a_bounded_age() -> None:
+    cause = replace(
+        _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
+        observed_at=_NOW - timedelta(seconds=301),
+    )
+
+    result = analyze_trace_continuity_cause(
+        _result(missing_hop="agent"),
+        cause_evidence=(cause,),
+    )
+
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "trace_cause_evidence_scope_mismatch"
+
+    with pytest.raises(ValueError, match="max_evidence_age MUST be positive"):
+        analyze_trace_continuity_cause(
+            _result(missing_hop="agent"),
+            cause_evidence=(cause,),
+            max_evidence_age=timedelta(0),
+        )
+
+
 def test_trace_cause_confidence_is_bounded_by_evidence_and_t1_ceiling() -> None:
     cause = replace(
         _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
