@@ -239,20 +239,34 @@ class ConversationAssuranceReader:
     ) -> list[dict[str, Any]]:
         if assessment_id is None:
             statement = (
-                "SELECT assessment_id, turn_id, conversation_id, rubric_version, state, "
-                "question_digest, answer_digest, decision, assessed_at "
-                "FROM conversation_assurance_assessment WHERE principal_scope = %s "
-                "ORDER BY assessed_at DESC, assessment_id LIMIT %s"
+                "SELECT assessment.assessment_id, assessment.turn_id, "
+                "assessment.conversation_id, assessment.rubric_version, "
+                "CASE WHEN EXISTS (SELECT 1 FROM conversation_assurance_dispute AS dispute "
+                "WHERE dispute.principal_scope = %s "
+                "AND dispute.assessment_id = assessment.assessment_id) "
+                "THEN 'disputed' ELSE assessment.state END AS state, "
+                "assessment.question_digest, assessment.answer_digest, "
+                "assessment.decision, assessment.assessed_at "
+                "FROM conversation_assurance_assessment AS assessment "
+                "WHERE assessment.principal_scope = %s "
+                "ORDER BY assessment.assessed_at DESC, assessment.assessment_id LIMIT %s"
             )
-            parameters: tuple[object, ...] = (principal_scope, limit)
+            parameters: tuple[object, ...] = (principal_scope, principal_scope, limit)
         else:
             statement = (
-                "SELECT assessment_id, turn_id, conversation_id, rubric_version, state, "
-                "question_digest, answer_digest, decision, assessed_at "
-                "FROM conversation_assurance_assessment "
-                "WHERE principal_scope = %s AND assessment_id = %s LIMIT 1"
+                "SELECT assessment.assessment_id, assessment.turn_id, "
+                "assessment.conversation_id, assessment.rubric_version, "
+                "CASE WHEN EXISTS (SELECT 1 FROM conversation_assurance_dispute AS dispute "
+                "WHERE dispute.principal_scope = %s "
+                "AND dispute.assessment_id = assessment.assessment_id) "
+                "THEN 'disputed' ELSE assessment.state END AS state, "
+                "assessment.question_digest, assessment.answer_digest, "
+                "assessment.decision, assessment.assessed_at "
+                "FROM conversation_assurance_assessment AS assessment "
+                "WHERE assessment.principal_scope = %s "
+                "AND assessment.assessment_id = %s LIMIT 1"
             )
-            parameters = (principal_scope, assessment_id)
+            parameters = (principal_scope, principal_scope, assessment_id)
         return await self._fetch_all(statement, parameters)
 
     async def _dispute_rows(

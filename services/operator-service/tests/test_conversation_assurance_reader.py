@@ -118,7 +118,10 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
                     "disputes": 1,
                 }
             ]
-        if "conversation_assurance_dispute" in statement:
+        if "CASE WHEN EXISTS" in statement:
+            assert parameters[:2] == ("operator-a", "operator-a")
+            return [{**assessment, "state": "disputed"}]
+        if "SELECT dispute_id" in statement:
             return [dispute]
         if "AS question" in statement:
             assert "result.value ->> 'principal_id' = %s" in statement
@@ -146,9 +149,11 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
     assert listing.body["pantheon"]["unnecessary_t2_rate"] == 0
     assert listing.body["pantheon"]["agents"][0]["agent"] == "Njord"
     assert listing.body["assessments"][0]["assessment_id"] == "assessment-1"
+    assert listing.body["assessments"][0]["state"] == "disputed"
     assert "pantheon_diagnostic" not in listing.body["assessments"][0]
     assert isinstance(detail.body, dict)
     assert detail.body["assessment"]["assessment_id"] == "assessment-1"
+    assert detail.body["assessment"]["state"] == "disputed"
     assert detail.body["turn"] == {
         "available": True,
         "question": "What changed?",
@@ -213,7 +218,7 @@ async def test_malformed_assurance_decision_fails_closed(monkeypatch: Any) -> No
                     "disputes": 0,
                 }
             ]
-        if "conversation_assurance_dispute" in statement:
+        if "SELECT dispute_id" in statement:
             return []
         return [
             {
@@ -259,7 +264,7 @@ async def test_malformed_pantheon_diagnostic_fails_closed(monkeypatch: Any) -> N
                     "disputes": 0,
                 }
             ]
-        if "conversation_assurance_dispute" in statement:
+        if "SELECT dispute_id" in statement:
             return []
         return [
             {
