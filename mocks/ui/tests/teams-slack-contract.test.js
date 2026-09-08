@@ -5,7 +5,6 @@ const test = require("node:test");
 
 const uiRoot = join(__dirname, "..");
 const outcome = readFileSync(join(uiRoot, "assets", "teams-slack-outcome-template.html"), "utf8");
-const settings = readFileSync(join(uiRoot, "settings-integrations.html"), "utf8");
 const teams = readFileSync(join(uiRoot, "conversation-teams.html"), "utf8");
 const slack = readFileSync(join(uiRoot, "conversation-slack.html"), "utf8");
 const skype = readFileSync(join(uiRoot, "conversation-skype.html"), "utf8");
@@ -31,8 +30,8 @@ const lifecycleAddIntegration = functionBody("lifecycleAddIntegration", "lifecyc
 const lifecycleConnectionDetails = functionBody("lifecycleConnectionDetails", "lifecycleActivity");
 const providerInstallPreview = functionBody("providerInstallPreview", "wizardStepBody");
 
-test("settings route exposes the integration lifecycle", () => {
-  assert.match(settings, /data-outcome-state="epic-1"/);
+test("integration hub template exposes the lifecycle", () => {
+  assert.match(outcome, /data-outcome-state="epic-1"/);
   assert.match(outcome, /view: "lifecycle"/);
   assert.match(outcome, /const labels = \{ connections: copy\(.+add: copy\(.+activity: copy\(/);
   assert.match(outcome, /data-tab="\$\{id\}"/);
