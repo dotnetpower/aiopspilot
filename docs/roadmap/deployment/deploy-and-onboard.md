@@ -291,7 +291,9 @@ storage, their private endpoints and read-only binding, and the independently de
 protected-operation workflow so the maintainer remains a distinct Environment approver. Stable resource
 IDs and the versionless Key Vault secret URI exclude unrelated compute drift. During a repository-bound
 deploy UAMI handoff, the same-scope archive `Storage Blob Data Owner` assignment is created before the
-old one is removed; all other replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan so later plans preserve these resources.
+old one is removed. If that exact assignment already exists outside Terraform state, the plan-only
+reconciliation imports it only after matching the storage scope, deploy UAMI principal, and role;
+all other replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan so later plans preserve these resources.
 The local parity profile starts the same five service packages against loopback PostgreSQL and
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 917e94bb2c9da97dcd931c16f003e83423edcc97
+translation_source_sha: e398aef2fd38c88ac101905ffe6d74c75507868b
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -291,7 +291,9 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 읽기 전용 연결 및 독립 선언한 root Job만 대상으로 지정합니다. Exact apply는 bot-owned protected-operation workflow가 다시 전달하므로
 maintainer는 별도 Environment approver로 남습니다. 안정적인 resource ID와 versionless Key Vault secret
 URI는 관련 없는 compute drift를 제외합니다. 저장소에 바인딩된 deploy UAMI로 인계할 때는 동일 범위의
-archive `Storage Blob Data Owner` 역할을 먼저 만들고 이전 역할을 제거합니다. 다른 교체는 계속 차단하며 이후 계획이 리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
+archive `Storage Blob Data Owner` 역할을 먼저 만들고 이전 역할을 제거합니다. 정확히 같은 역할 할당이
+Terraform state 외부에 이미 있으면 계획 전용 조정 단계에서 저장소 범위, deploy UAMI principal 및 역할이
+모두 일치하는지 확인한 후에만 가져옵니다. 다른 교체는 계속 차단하며 이후 계획이 리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는

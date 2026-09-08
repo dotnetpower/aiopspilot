@@ -132,6 +132,23 @@ def test_plan_only_verifies_storage_without_mutating_it() -> None:
     assert "az storage blob upload" not in block
 
 
+def test_plan_adopts_existing_operational_history_runner_role() -> None:
+    start = _WORKFLOW.index("- name: Adopt existing Azure resources")
+    end = _WORKFLOW.index("- name: Terraform format check")
+    block = _WORKFLOW[start:end]
+
+    assert 'local principal="$3"' in block
+    assert "<<< 'try(module.operational_history_storage[0].id, \"\")'" in block
+    assert (
+        "module.operational_history_storage[0].azurerm_role_assignment."
+        "terraform_runner_data_owner[0]"
+    ) in block
+    assert (
+        'role_assignment_id "$operational_history_scope" '
+        "'Storage Blob Data Owner' \"$DEPLOY_RUNNER_PRINCIPAL_ID\""
+    ) in block
+
+
 def test_gateway_publish_uses_bounded_cli_one_deploy() -> None:
     publish = _WORKFLOW.index("- name: Publish exact development operations gateway source")
     verify = _WORKFLOW.index("- name: Verify exact development operations gateway source")
