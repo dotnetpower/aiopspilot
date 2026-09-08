@@ -105,7 +105,6 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         unsupported = (
             "DEPLOY_CORE_MODEL_QUORUM",
             "DEPLOY_DESIGN_MOCKS",
-            "DEPLOY_OPERATOR_CHANNEL_EDGE",
             "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
             "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
             "VERIFY_EXECUTOR_EFFECT",
@@ -388,23 +387,26 @@ def _request_binding_prefix(
 
 
 def _deployment_context_digest(values: Mapping[str, str]) -> str:
+    selection: dict[str, bool | str] = {
+        "deploy_console": _enabled(values, "DEPLOY_CONSOLE"),
+        "deploy_dev_operations_gateway": _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY"),
+        "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
+        "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
+        "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
+        "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),
+        "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
+        "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
+        "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
+        "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
+    }
+    if _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE"):
+        selection["deploy_operator_channel_edge"] = True
     material = json.dumps(
         {
             "schema_version": "fdai.deployment-context.v1",
             "environment": values.get("TARGET_ENVIRONMENT", ""),
             "commit_sha": values.get("COMMIT_SHA", ""),
-            "selection": {
-                "deploy_console": _enabled(values, "DEPLOY_CONSOLE"),
-                "deploy_dev_operations_gateway": _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY"),
-                "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
-                "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
-                "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
-                "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),
-                "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
-                "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
-                "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
-                "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
-            },
+            "selection": selection,
         },
         ensure_ascii=True,
         separators=(",", ":"),

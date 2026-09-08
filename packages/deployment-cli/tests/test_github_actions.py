@@ -109,6 +109,44 @@ def test_plan_and_apply_share_one_context_and_exact_feature_inputs() -> None:
     assert "expected_target_binding" not in apply_fields
 
 
+def test_channel_edge_selection_is_bound_and_dispatched() -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_operator_channel_edge=True,
+    )
+
+    receipt = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="channel-edge",
+        selection=selection,
+        run=runner,
+    )
+
+    fields = _fields(runner.calls[-1])
+    assert fields["deploy_console"] == "false"
+    assert fields["deploy_operator_api"] == "false"
+    assert fields["deploy_operator_channel_edge"] == "true"
+    assert receipt.context_digest == deployment_context_digest(
+        environment="dev",
+        commit_sha=_COMMIT,
+        selection=selection,
+    )
+    assert receipt.context_digest != deployment_context_digest(
+        environment="dev",
+        commit_sha=_COMMIT,
+        selection=DeploymentSelection(
+            deploy_console=False,
+            deploy_operator_api=False,
+        ),
+    )
+
+
 def test_resume_dispatch_uses_exact_apply_with_verification_only_flag() -> None:
     runner = RecordingRunner()
 

@@ -61,6 +61,7 @@ class DeploymentSelection:
     deploy_monitoring: bool = False
     deploy_operational_history: bool = False
     deploy_operator_api: bool = True
+    deploy_operator_channel_edge: bool = False
     deploy_rca_reader_identity: bool = False
     runtime_image_revision: str = ""
 
@@ -72,6 +73,7 @@ class DeploymentSelection:
             self.deploy_isolated_executor,
             self.deploy_operational_history,
             self.deploy_operator_api,
+            self.deploy_operator_channel_edge,
         )
         if self.deploy_monitoring and not any(application_targets) and self.runtime_image_revision:
             raise ValueError("monitoring deployment cannot be combined with application targets")
@@ -89,6 +91,8 @@ class DeploymentSelection:
         """Return workflow input names in stable order."""
 
         result: dict[str, bool | str] = {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
+        if self.deploy_operator_channel_edge:
+            result["deploy_operator_channel_edge"] = True
         result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
         result["document_ocr_action"] = "preserve"
         result["runtime_image_revision"] = self.runtime_image_revision

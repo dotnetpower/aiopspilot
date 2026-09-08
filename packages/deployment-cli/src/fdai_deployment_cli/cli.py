@@ -225,6 +225,7 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
+    guided.add_argument("--deploy-operator-channel-edge", action="store_true")
     guided.add_argument("--deploy-document-ingestion", action="store_true")
     guided.add_argument("--deploy-isolated-executor", action="store_true")
     guided.add_argument("--deploy-monitoring", action="store_true")
@@ -250,6 +251,7 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
+    parser.add_argument("--deploy-operator-channel-edge", action="store_true")
     parser.add_argument("--deploy-document-ingestion", action="store_true")
     parser.add_argument("--deploy-isolated-executor", action="store_true")
     parser.add_argument("--deploy-monitoring", action="store_true")
@@ -930,6 +932,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_console=args.deploy_console,
         deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
         deploy_operator_api=args.deploy_operator_api,
+        deploy_operator_channel_edge=args.deploy_operator_channel_edge,
         deploy_document_ingestion=args.deploy_document_ingestion,
         deploy_isolated_executor=args.deploy_isolated_executor,
         deploy_monitoring=args.deploy_monitoring,
