@@ -97,6 +97,11 @@ class _Identity:
         )
 
 
+class _FailingIdentity:
+    async def get_token(self, audience: str) -> IdentityToken:
+        raise httpx.ConnectError("identity unavailable", request=httpx.Request("GET", audience))
+
+
 def _proof(kind, subject, receipt_digest):
     return DecisionEvidenceVerificationProof(
         kind=kind,
@@ -462,3 +467,28 @@ async def test_blob_admission_provider_degrades_on_storage_failure(
 
     assert resolved is None
     assert "decision_evidence_admission_storage_unavailable" in caplog.messages
+
+
+async def test_blob_admission_provider_degrades_on_identity_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    receipt = _receipt()
+
+    async with httpx.AsyncClient() as client:
+        provider = AzureBlobDecisionEvidenceAdmissionProvider(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            identity=_FailingIdentity(),
+            http_client=client,
+            clock=lambda: _NOW + timedelta(minutes=3),
+        )
+        resolved = await provider.admit(
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+        )
+
+    assert resolved is None
+    assert "decision_evidence_admission_identity_unavailable" in caplog.messages
