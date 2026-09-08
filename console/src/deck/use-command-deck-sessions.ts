@@ -291,6 +291,7 @@ export function useCommandDeckSessionController({
   draftRef.current = draft;
   const draftsRef = useRef(new Map<string, string>());
   const historiesRef = useRef(new Map<string, typeof EMPTY_HISTORY>());
+  const initialHydrationStartedRef = useRef(false);
   const hydrateDurableTurns = useCallback(async (
     key: string,
     missingAssessmentIdentity: boolean = false,
@@ -349,6 +350,14 @@ export function useCommandDeckSessionController({
     turnsRef,
     updateConversationIndex,
   ]);
+  useEffect(() => {
+    if (initialHydrationStartedRef.current) return;
+    initialHydrationStartedRef.current = true;
+    const missingAssessmentIdentity = needsAssessmentIdentityHydration(turnsRef.current);
+    if (missingAssessmentIdentity) {
+      void hydrateDurableTurns(sessionKeyRef.current, true);
+    }
+  }, [hydrateDurableTurns, sessionKeyRef, turnsRef]);
 
   const switchSession = useCallback((
     key: string,
@@ -394,12 +403,7 @@ export function useCommandDeckSessionController({
     setSessionKey(key);
     setSessionLabel(agent);
     setTurns(next);
-    const missingAssessmentIdentity = next.some(
-      (turn) =>
-        turn.role === "deck" &&
-        turn.source === "pantheon-conversation-assurance" &&
-        turn.assessmentId === undefined,
-    );
+    const missingAssessmentIdentity = needsAssessmentIdentityHydration(next);
     if (hydrate) {
       void hydrateDurableTurns(key, missingAssessmentIdentity);
     }
@@ -519,4 +523,13 @@ export function shouldHydrateServerTurns(
   missingAssessmentIdentity: boolean = false,
 ): boolean {
   return register && (turnCount === 0 || unanswered || missingAssessmentIdentity);
+}
+
+export function needsAssessmentIdentityHydration(turns: readonly Turn[]): boolean {
+  return turns.some(
+    (turn) =>
+      turn.role === "deck" &&
+      turn.source === "pantheon-conversation-assurance" &&
+      turn.assessmentId === undefined,
+  );
 }

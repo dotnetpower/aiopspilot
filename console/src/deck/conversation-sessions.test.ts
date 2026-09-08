@@ -25,7 +25,10 @@ import {
   userConversationKey,
   type ConversationSummary,
 } from "./conversation-sessions";
-import { shouldHydrateServerTurns } from "./use-command-deck-sessions";
+import {
+  needsAssessmentIdentityHydration,
+  shouldHydrateServerTurns,
+} from "./use-command-deck-sessions";
 
 const GENERAL: ConversationSummary = {
   key: "screen",
@@ -380,6 +383,26 @@ describe("durable conversation hydration", () => {
     expect(shouldHydrateServerTurns(false, 1, true)).toBe(false);
     expect(shouldHydrateServerTurns(true, 1, false, true)).toBe(true);
     expect(shouldHydrateServerTurns(false, 1, false, true)).toBe(false);
+  });
+
+  it("detects a legacy Pantheon answer without an assessment identity", () => {
+    expect(needsAssessmentIdentityHydration([{
+      id: "turn-1",
+      role: "deck",
+      text: "Answer",
+      at: "10:00:00",
+      source: "pantheon-conversation-assurance",
+      terminal: true,
+    }])).toBe(true);
+    expect(needsAssessmentIdentityHydration([{
+      id: "turn-1",
+      assessmentId: `conversation-assessment:${"a".repeat(64)}`,
+      role: "deck",
+      text: "Answer",
+      at: "10:00:00",
+      source: "pantheon-conversation-assurance",
+      terminal: true,
+    }])).toBe(false);
   });
 
   it("rebuilds navigation for legacy and stable server conversations", () => {

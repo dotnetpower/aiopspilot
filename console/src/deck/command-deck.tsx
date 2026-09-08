@@ -51,6 +51,7 @@ import { useCommandDeckEvents } from "./use-command-deck-events";
 import { useCommandDeckLifecycle } from "./use-command-deck-lifecycle";
 import {
   currentPathname,
+  needsAssessmentIdentityHydration,
   sessionStore,
   useCommandDeckSessionController,
   useCommandDeckSessionState,
@@ -463,7 +464,8 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       onMoveSearch={moveSearch}
       onNewConversation={startGeneralConversation}
       onLoadMoreConversations={loadMoreConversations}
-      onRetryConversation={() => void hydrateDurableTurns(sessionKey)}
+      onRetryConversation={() =>
+        void hydrateDurableTurns(sessionKey, needsAssessmentIdentityHydration(turns))}
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={(conversation) => {
         contextStoreRef.current.remove(conversation.key);

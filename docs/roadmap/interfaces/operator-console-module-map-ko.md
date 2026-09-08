@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e31d9359d8e1dacac714dcad8984acacf9dfb1d2
+translation_source_sha: 92002dff7226f9f1922fb4ae8c78acd92505ecf1
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -26,6 +26,7 @@ PostgreSQL은 계속 대화 기록 시스템으로 유지됩니다.
 이 필드가 추가되기 전에 저장된 Pantheon 답변은 영속 이력을 한 번 다시 불러와 브라우저 전용
 검토 링크를 유지하는 대신 서버 식별자를 가져옵니다.
 세션 컨트롤러는 이 복구 사유를 이력 복원 구성요소 자체의 적격성 검사까지 전달합니다.
+초기 세션 복원과 명시적 재시도는 같은 식별자 누락 검사를 사용합니다.
 대화 보증 목록 새로고침은 가장 최신 요청의 응답만 수락하므로 느린 이전 읽기가 더 최신인
 principal 범위 변환 결과를 바꿀 수 없습니다.
 유효한 내용 주소 기반 평가 링크는 평가가 범위가 제한된 목록 변환 결과보다 오래되어도
