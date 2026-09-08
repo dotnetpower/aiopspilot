@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: dfbb4b6074389d9b9a5400ce3bf276497e5f87ab
+translation_source_sha: cbab4568e5c690d7cc4fa77ed93d95c5b61a0588
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -46,6 +46,7 @@ translation_revised: 2026-09-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 표시하는 평가 상세를 저장된 질문 및 답변 다이제스트에 결속하고, 일반 최종 대체 답변보다 평가된 Pantheon 답변을 우선하며, 텍스트 한도를 평가 계약의 16,384자에 맞췄습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 상세 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 평가 상세에서 답변을 표시하기 전에 의미 처리 최종 결과가 담당 요청과 동일한 인증 principal을 포함하도록 요구했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 4개가 통과했습니다. | 인증된 교차 principal 차단 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 모든 행을 완료 상태처럼 보이게 하지 않고 완료, 평가 대기, 이의 제기됨 수명 주기 상태를 지역화된 Console 전용 열로 표시했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 11개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 대표 수명 주기 행을 검증합니다. |
 | 2026-09-08 | implemented | Operator 읽기 모델에서 평가, conversation, 의미 turn 식별자의 정확한 상관관계를 요구하여 범위가 제한된 principal 범위 질문과 최종 답변 상세를 추가했습니다. | `current change`, 집중 보증 읽기 구성요소 및 Operator 계열 검사 49개가 통과했습니다. | 인증된 실제 평가 상세를 별도로 검증합니다. |

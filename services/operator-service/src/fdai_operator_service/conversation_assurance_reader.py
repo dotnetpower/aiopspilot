@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Protocol, cast
 
 import psycopg
+from fdai_service_contracts.ontology_query import content_digest
 from psycopg.rows import dict_row
 
 from fdai_operator_service.conversation_assurance_diagnostics import pantheon_projection
@@ -171,6 +172,8 @@ class ConversationAssuranceReader:
             principal_scope,
             conversation_id=str(rows[0]["conversation_id"]),
             turn_id=str(rows[0]["turn_id"]),
+            question_digest=str(rows[0]["question_digest"]),
+            answer_digest=str(rows[0]["answer_digest"]),
         )
         return cast(
             JsonObject,
@@ -186,12 +189,14 @@ class ConversationAssuranceReader:
         *,
         conversation_id: str,
         turn_id: str,
+        question_digest: str,
+        answer_digest: str,
     ) -> dict[str, object]:
         rows = await self._fetch_all(
             "SELECT request.value #>> '{envelope,semantic_turn,utterance}' AS question, "
             "COALESCE("
-            "result.value #>> '{data,semantic_result,answer}', "
-            "result.value #>> '{data,payload,pantheon_assurance,answer}'"
+            "result.value #>> '{data,payload,pantheon_assurance,answer}', "
+            "result.value #>> '{data,semantic_result,answer}'"
             ") AS answer "
             "FROM state_kv AS request JOIN state_kv AS result "
             "ON result.value ->> 'request_id' = request.value ->> 'request_id' "
@@ -211,13 +216,17 @@ class ConversationAssuranceReader:
         if (
             not isinstance(question, str)
             or not question.strip()
-            or len(question) > 16_000
+            or len(question) > 16_384
             or not isinstance(answer, str)
             or not answer.strip()
-            or len(answer) > 32_000
+            or len(answer) > 16_384
         ):
             raise ConversationUnavailableError(
                 "principal-scoped conversation assurance turn is malformed"
+            )
+        if content_digest(question) != question_digest or content_digest(answer) != answer_digest:
+            raise ConversationUnavailableError(
+                "principal-scoped conversation assurance turn does not match assessment digests"
             )
         return {"available": True, "question": question, "answer": answer}
 
@@ -231,7 +240,7 @@ class ConversationAssuranceReader:
         if assessment_id is None:
             statement = (
                 "SELECT assessment_id, turn_id, conversation_id, rubric_version, state, "
-                "decision, assessed_at "
+                "question_digest, answer_digest, decision, assessed_at "
                 "FROM conversation_assurance_assessment WHERE principal_scope = %s "
                 "ORDER BY assessed_at DESC, assessment_id LIMIT %s"
             )
@@ -239,7 +248,7 @@ class ConversationAssuranceReader:
         else:
             statement = (
                 "SELECT assessment_id, turn_id, conversation_id, rubric_version, state, "
-                "decision, assessed_at "
+                "question_digest, answer_digest, decision, assessed_at "
                 "FROM conversation_assurance_assessment "
                 "WHERE principal_scope = %s AND assessment_id = %s LIMIT 1"
             )

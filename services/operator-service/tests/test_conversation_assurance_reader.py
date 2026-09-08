@@ -19,6 +19,7 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     PrincipalScope,
 )
+from fdai_service_contracts.ontology_query import content_digest
 
 
 class RecordingFallback:
@@ -48,6 +49,8 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
         "assessment_id": "assessment-1",
         "turn_id": "turn-1",
         "conversation_id": "conversation-1",
+        "question_digest": content_digest("What changed?"),
+        "answer_digest": content_digest("One database changed."),
         "rubric_version": "1.0.0",
         "state": "completed",
         "decision": {
@@ -151,6 +154,31 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
         "question": "What changed?",
         "answer": "One database changed.",
     }
+
+
+async def test_assurance_turn_detail_rejects_digest_mismatch(monkeypatch: Any) -> None:
+    async def fetch(
+        self: ConversationAssuranceReader,
+        statement: str,
+        parameters: tuple[object, ...],
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [{"question": "Question", "answer": "Different answer"}]
+
+    monkeypatch.setattr(ConversationAssuranceReader, "_fetch_all", fetch)
+    reader = ConversationAssuranceReader(
+        ConversationAssuranceReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(ConversationUnavailableError, match="assessment digests"):
+        await reader._turn_body(
+            "operator-a",
+            conversation_id="conversation-1",
+            turn_id="turn-1",
+            question_digest=content_digest("Question"),
+            answer_digest=content_digest("Assessed answer"),
+        )
 
 
 async def test_unknown_conversation_operation_delegates() -> None:
