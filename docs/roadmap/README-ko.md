@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 45219f245d9238a55be43f0fb6d61a7bf4a58df2
-translation_revised: 2026-09-05
+translation_source_sha: 7955b467130863ea5e79ce0e11c7a0babee6fce7
+translation_revised: 2026-09-09
 ---
 # FDAI 로드맵
 
