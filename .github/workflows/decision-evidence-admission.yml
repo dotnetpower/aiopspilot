@@ -219,28 +219,28 @@ jobs:
               fi
               if [[ "$replay_mode" == "stable-lookup" ]] && python3 - \
                   "$source" "$RUNNER_TEMP/existing-decision-evidence.json" <<'PY'
-              import json
-              import sys
-              from datetime import UTC, datetime
+          import json
+          import sys
+          from datetime import UTC, datetime
 
-              candidate = json.load(open(sys.argv[1], encoding="utf-8"))
-              existing = json.load(open(sys.argv[2], encoding="utf-8"))
-              fields = ("evidence_digest", "scope_digest", "purpose_id", "source_revision")
-              same_lookup = (
-                  candidate.get("lookup_digest") == existing.get("lookup_digest")
-                  and all(
-                      candidate.get("admission", {}).get(field)
-                      == existing.get("admission", {}).get(field)
-                      for field in fields
-                  )
+          candidate = json.load(open(sys.argv[1], encoding="utf-8"))
+          existing = json.load(open(sys.argv[2], encoding="utf-8"))
+          fields = ("evidence_digest", "scope_digest", "purpose_id", "source_revision")
+          same_lookup = (
+              candidate.get("lookup_digest") == existing.get("lookup_digest")
+              and all(
+                  candidate.get("admission", {}).get(field)
+                  == existing.get("admission", {}).get(field)
+                  for field in fields
               )
-              valid_until = datetime.fromisoformat(
-                  existing.get("admission", {}).get("valid_until", "")
-              )
-              if valid_until.tzinfo is None:
-                  raise SystemExit(1)
-              raise SystemExit(0 if same_lookup and datetime.now(UTC) <= valid_until else 1)
-              PY
+          )
+          valid_until = datetime.fromisoformat(
+              existing.get("admission", {}).get("valid_until", "")
+          )
+          if valid_until.tzinfo is None:
+              raise SystemExit(1)
+          raise SystemExit(0 if same_lookup and datetime.now(UTC) <= valid_until else 1)
+          PY
               then
                 rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
                 return
