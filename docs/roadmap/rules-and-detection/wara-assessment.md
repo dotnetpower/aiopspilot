@@ -251,7 +251,8 @@ Local and deployed profiles use the same pinned crosswalk, bounded read plan, sh
 consumer group, and PostgreSQL projection; neither profile substitutes provider evidence.
 The shared Operator Kafka adapter may also publish notification-receipt logical records on the same
 physical transport. Topic filtering keeps those records outside the WARA consumer and grants no
-assessment authority.
+assessment authority. Multiplexed publication resolves one configured non-null physical topic
+before encoding or sending any logical record.
 
 The shared conversation transport accepts request version `1.7.0` and projection version `1.6.0`.
 Its general explanations and goal-local support remain advisory, not WARA observations, assessment

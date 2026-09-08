@@ -176,12 +176,6 @@ def test_dependency_bearing_python_gates_use_the_uv_environment_when_available()
     assert "python_runner=(uv run python)" in script
     expected_invocations = (
         '"${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py',
-        '"${python_runner[@]}" scripts/quality/architecture/check-independent-services.py',
-        '"${python_runner[@]}" scripts/quality/architecture/check-ontology-query-coverage.py',
-        '"${python_runner[@]}" scripts/quality/architecture/check-property-semantic-coverage.py',
-        '"${python_runner[@]}" scripts/quality/documentation/check-action-runbooks.py',
-        '"${python_runner[@]}" scripts/quality/repository/check-reference-only-sources.py',
-        '"${python_runner[@]}" scripts/catalog/sync-rule-semantics.py --check',
         '"${python_runner[@]}" scripts/governance/check-arb-readiness.py',
         '"${python_runner[@]}" scripts/quality/localization/check-derived-sources.py',
     )

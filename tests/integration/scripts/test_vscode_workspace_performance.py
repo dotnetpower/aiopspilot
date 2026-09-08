@@ -301,7 +301,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert supervisor_script.index("event=started") < supervisor_script.index(
         '--wait-seconds "$readiness_seconds"'
     )
-    assert 'readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"' in (supervisor_script)
+    assert 'readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-180}"' in (supervisor_script)
     assert "run-bounded-command.py" in supervisor_script
     assert "readiness_budget_seconds=$((readiness_seconds + 5))" in supervisor_script
     assert "require_managed_locks" in supervisor_script

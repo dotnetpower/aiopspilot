@@ -211,7 +211,13 @@ class OperatorSemanticKafkaBus:
             self._config.event_topic,
             self._config.hil_decision_topic,
         }
-        multiplexed = self._config.physical_topic is not None and topic not in direct_topics
+        configured_physical_topic = self._config.physical_topic
+        multiplexed_physical_topic = (
+            configured_physical_topic
+            if configured_physical_topic is not None and topic not in direct_topics
+            else None
+        )
+        multiplexed = multiplexed_physical_topic is not None
         if multiplexed and topic != self._config.request_topic:
             logical_topic = topic.removesuffix(self._config.dlq_suffix)
             enriched = dict(payload)
@@ -223,13 +229,13 @@ class OperatorSemanticKafkaBus:
                 if topic == self._config.request_topic
                 else _encode(payload, maximum=self._config.maximum_message_bytes)
             )
-        if multiplexed:
+        if multiplexed_physical_topic is not None:
             logical_topic = topic.removesuffix(self._config.dlq_suffix)
             if topic == self._config.request_topic:
                 enriched = json.loads(encoded)
                 enriched[LOGICAL_TOPIC_FIELD] = logical_topic
                 encoded = _encode(enriched, maximum=self._config.maximum_message_bytes)
-            physical_topic = self._config.physical_topic
+            physical_topic = multiplexed_physical_topic
             if topic.endswith(self._config.dlq_suffix):
                 physical_topic += self._config.dlq_suffix
         return await producer.send_and_wait(

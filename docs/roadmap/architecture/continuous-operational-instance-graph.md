@@ -354,7 +354,8 @@ OI-01 records the exact code owner, runtime or storage binding, focused tests, s
 binding for each stage in
 [`config/continuous-operational-instance-graph-audit.json`](../../../config/continuous-operational-instance-graph-audit.json).
 The architecture checker rejects a missing stage, missing evidence path, unassigned implemented
-work, or an open stage that does not name its exact gap.
+work, or an open stage that does not name its exact gap. It validates normative ownership in this
+design and implementation status and remaining work in the linked delivery ledger.
 
 | Stage | State | Audited result |
 |-------|-------|----------------|

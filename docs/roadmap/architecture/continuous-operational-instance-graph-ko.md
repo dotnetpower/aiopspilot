@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4ed7fce85b418c2b9fa4ed232823f65d3143d09e
+translation_source_sha: 2164b34152295dec5096c2c75c29a91c2d3be9bb
 translation_revised: 2026-09-08
 ---
 # 지속형 운영 인스턴스 그래프
@@ -347,7 +347,8 @@ OI-01은 각 단계의 정확한 코드 소유자, 런타임 또는 저장소 bi
 binding을
 [`config/continuous-operational-instance-graph-audit.json`](../../../config/continuous-operational-instance-graph-audit.json)에
 기록합니다. Architecture checker는 단계 누락, 근거 경로 누락, 소유자가 없는 구현 작업,
-정확한 공백을 명시하지 않은 열린 단계를 거부합니다.
+정확한 공백을 명시하지 않은 열린 단계를 거부합니다. 정본 소유권은 이 설계에서 검증하고 구현 상태와
+남은 작업은 연결된 전달 원장에서 검증합니다.
 
 | 단계 | 상태 | 감사 결과 |
 |------|------|-----------|

@@ -12,6 +12,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 AUDIT_PATH = Path("config/continuous-operational-instance-graph-audit.json")
 DESIGN_OWNER = Path("docs/roadmap/architecture/continuous-operational-instance-graph.md")
+IMPLEMENTATION_LEDGER = Path(
+    "docs/roadmap-implementation/architecture/continuous-operational-instance-graph.md"
+)
 REQUIRED_STAGES = (
     "provider-push-ingress",
     "resumable-delta-cursor",
@@ -33,8 +36,8 @@ REQUIRED_STAGES = (
 REQUIRED_FAMILIES = frozenset({"collection", "projection", "query", "retention", "archive"})
 ALLOWED_STATES = frozenset({"implemented", "in-progress", "not-started"})
 ALLOWED_BINDING_STATES = frozenset({"bound", "partial", "unbound"})
-OWNER_DOC_FRAGMENTS = (
-    "## Source-to-store implementation audit",
+OWNER_DOC_FRAGMENT = "## Source-to-store implementation audit"
+LEDGER_FRAGMENTS = (
     "| Source-to-store implementation audit | implemented |",
     "- [x] `OI-01` records a source-to-store implementation audit",
 )
@@ -172,9 +175,20 @@ def validate(root: Path = REPO_ROOT, audit_path: Path = AUDIT_PATH) -> list[str]
         design_path = _repo_file(root, payload.get("design_owner"), "design_owner", errors)
         if design_path is not None:
             design_text = design_path.read_text(encoding="utf-8")
-            for fragment in OWNER_DOC_FRAGMENTS:
-                if fragment not in design_text:
-                    errors.append(f"design_owner is missing the OI-01 ledger fragment: {fragment}")
+            if OWNER_DOC_FRAGMENT not in design_text:
+                errors.append(
+                    f"design_owner is missing the OI-01 design fragment: {OWNER_DOC_FRAGMENT}"
+                )
+            ledger_path = root / IMPLEMENTATION_LEDGER
+            if not ledger_path.is_file():
+                errors.append(f"implementation ledger is missing: {IMPLEMENTATION_LEDGER}")
+            else:
+                ledger_text = ledger_path.read_text(encoding="utf-8")
+                for fragment in LEDGER_FRAGMENTS:
+                    if fragment not in ledger_text:
+                        errors.append(
+                            f"implementation ledger is missing the OI-01 fragment: {fragment}"
+                        )
 
     stages = payload.get("stages")
     if not isinstance(stages, list):
