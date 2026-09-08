@@ -110,7 +110,7 @@ class _AzureBlobDecisionEvidenceProofSource:
         content = bytes(response.content)
         if not content or len(content) > _MAX_PROOF_BYTES:
             raise ValueError("decision evidence proof record size is outside its bound")
-        expected_digest = response.headers.get("x-ms-meta-fdai-sha256", "")
+        expected_digest = response.headers.get("x-ms-meta-fdaisha256", "")
         if (
             len(expected_digest) != 64
             or any(character not in "0123456789abcdef" for character in expected_digest)

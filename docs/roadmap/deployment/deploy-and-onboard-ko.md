@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: df44915b0920d6de7757ac0f5d1bc89675416d55
+translation_source_sha: fd3b5c516f3642dae873c6378090a2b61e023a5f
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -117,7 +117,7 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 통제된 운영 이력 저장소를 사용할 수 있으면 90일 적용 산출물에 별도 의사 결정 근거 승인
 워크플로가 사용하는 고정 계획, 사전 검사, 점유, 증적 및 비공개 컨테이너 좌표도 포함합니다.
 이 워크플로는 런타임에서 읽을 수 있는 Blob 기록을 게시하기 전에 정확한 승인 기록을
-증명합니다. 멱등 재실행은 기존 기록의 바이트와 `fdai-sha256` 메타데이터가 모두 일치할
+증명합니다. 멱등 재실행은 기존 기록의 바이트와 `fdaisha256` 메타데이터가 모두 일치할
 때만 해당 기록을 재사용합니다. 저장소 출력이 없으면 기존 적용 증적만 유지하고 실제
 근거 승인을 주장하지 않습니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
