@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-07T11:57:44Z",
+  "generatedAt": "2026-09-08T08:13:48Z",
   "minimumSlidesByLevel": {
     "L100": 10,
     "L200": 25,
@@ -73,10 +73,10 @@
       "status": "complete",
       "title": "AI/Data Readiness & Maturity",
       "eyebrow": "READINESS & MATURITY",
-      "description": "데이터, 운영 프로세스, 책임 체계의 현재 준비 수준과 우선 보완 영역을 정리합니다.",
+      "description": "데이터 품질, AI 평가, 사람과 통제를 여섯 역량으로 진단하고, 사례 기반 성숙도와 첫 30일의 보완 계획을 설계합니다.",
       "createdAt": "2026-09-01",
-      "duration": "35분",
-      "slideCount": 25,
+      "duration": "45분",
+      "slideCount": 32,
       "coverImage": "assets/readiness-maturity.jpeg",
       "coverLabel": "READINESS",
       "featured": false
