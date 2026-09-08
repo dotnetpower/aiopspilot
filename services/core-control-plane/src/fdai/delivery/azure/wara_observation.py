@@ -323,31 +323,31 @@ def _scope_query(
     resource_ids: tuple[str, ...],
     maximum_rows: int,
 ) -> str:
-    scope = json.dumps(
-        [resource_id.casefold() for resource_id in resource_ids],
-        ensure_ascii=True,
-        separators=(",", ":"),
-    )
+    scope = _scope_literals(resource_ids)
     return (
-        f"let _fdai_wara_scope = dynamic({scope});\n"
+        "// _fdai_wara_scope\n"
         f"{query.rstrip()}\n"
-        "| where set_has_element(_fdai_wara_scope, tolower(tostring(id)))\n"
+        f"| where tostring(id) in~ ({scope})\n"
         f"| take {maximum_rows + 1}"
     )
 
 
 def _scope_coverage_query(resource_ids: tuple[str, ...]) -> str:
-    scope = json.dumps(
-        [resource_id.casefold() for resource_id in resource_ids],
-        ensure_ascii=True,
-        separators=(",", ":"),
-    )
+    scope = _scope_literals(resource_ids)
     return (
-        f"let _fdai_wara_coverage = dynamic({scope});\n"
+        "// _fdai_wara_coverage\n"
         "Resources\n"
-        "| where set_has_element(_fdai_wara_coverage, tolower(tostring(id)))\n"
+        f"| where tostring(id) in~ ({scope})\n"
         "| project id=tostring(id)\n"
         f"| take {len(resource_ids) + 1}"
+    )
+
+
+def _scope_literals(resource_ids: tuple[str, ...]) -> str:
+    """Render exact resource ids as bounded ARG-supported string literals."""
+
+    return ",".join(
+        json.dumps(resource_id.casefold(), ensure_ascii=True) for resource_id in resource_ids
     )
 
 

@@ -69,6 +69,10 @@ provider-neutral read plan containing:
 - a timeout and maximum row count;
 - required completeness, truncation, time, and provenance fields.
 
+The Azure adapter renders the exact resource ids as a bounded case-insensitive `in~` literal list,
+which Azure Resource Graph supports directly. It does not depend on unsupported dynamic-array
+membership functions.
+
 Static safety does not prove product semantics. Until an exact evaluator is reviewed, the
 recommendation remains blocked even when its query is read-only. Query success is an observation
 receipt, not a satisfaction result or operational success.
