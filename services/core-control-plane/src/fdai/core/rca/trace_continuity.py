@@ -22,6 +22,7 @@ from fdai.core.rca.contract import (
 from fdai.core.rca.grounding import enforce_grounding
 
 _MAX_AFFECTED_ITEMS = 32
+_MAX_AFFECTED_TEXT_CHARS = 1024
 _MAX_EVIDENCE_REFS = 100
 
 
@@ -50,14 +51,21 @@ class TraceCauseEvidence:
             raise ValueError(
                 f"trace cause evidence_refs MUST contain 1 to {_MAX_EVIDENCE_REFS} items"
             )
-        if any(not item or len(item) > 128 for item in self.affected_items):
+        if any(not item or item != item.strip() or len(item) > 128 for item in self.affected_items):
             raise ValueError("trace cause affected_items MUST be bounded non-empty text")
-        if any(not ref or len(ref) > 512 for ref in self.evidence_refs):
+        if sum(map(len, self.affected_items)) > _MAX_AFFECTED_TEXT_CHARS:
+            raise ValueError(
+                f"trace cause affected_items MUST contain at most "
+                f"{_MAX_AFFECTED_TEXT_CHARS} characters"
+            )
+        if any(not ref or ref != ref.strip() or len(ref) > 512 for ref in self.evidence_refs):
             raise ValueError("trace cause evidence_refs MUST be bounded non-empty text")
         if len(set(self.affected_items)) != len(self.affected_items):
             raise ValueError("trace cause affected_items MUST be unique")
         if len(set(self.evidence_refs)) != len(self.evidence_refs):
             raise ValueError("trace cause evidence_refs MUST be unique")
+        object.__setattr__(self, "affected_items", tuple(sorted(self.affected_items)))
+        object.__setattr__(self, "evidence_refs", tuple(sorted(self.evidence_refs)))
 
 
 def analyze_trace_continuity_cause(

@@ -188,3 +188,17 @@ def test_trace_cause_evidence_is_bounded_and_unique() -> None:
             affected_items=("agent",),
             evidence_refs=(),
         )
+
+
+def test_trace_cause_evidence_rejects_whitespace_and_canonicalizes_order() -> None:
+    with pytest.raises(ValueError, match="bounded non-empty text"):
+        _evidence(TraceRcaCause.INSTRUMENTATION, " agent")
+
+    evidence = TraceCauseEvidence(
+        cause=TraceRcaCause.HEADER_PROPAGATION,
+        affected_items=("agent->api-gateway", "application->agent"),
+        evidence_refs=("telemetry:z", "telemetry:a"),
+    )
+
+    assert evidence.affected_items == ("agent->api-gateway", "application->agent")
+    assert evidence.evidence_refs == ("telemetry:a", "telemetry:z")
