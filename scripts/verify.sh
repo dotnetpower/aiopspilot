@@ -168,6 +168,22 @@ if [[ -n "$missing_tools" ]]; then
     exit 125
 fi
 
+python_runner=(python3)
+managed_bash=(bash)
+if command -v uv >/dev/null 2>&1; then
+    python_runner=(uv run python)
+    managed_bash=(uv run bash)
+else
+    managed_python="$(dirname "$(command -v ruff)")/python"
+    if [[ -x "$managed_python" ]] && "$managed_python" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+        python_runner=("$managed_python")
+        managed_bash=(env "PATH=$(dirname "$managed_python"):$PATH" bash)
+    elif ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+        echo "validation-environment: Python 3.11+ is required for repository gates" >&2
+        exit 125
+    fi
+fi
+
 if command -v uv >/dev/null 2>&1; then
     run_gate_scoped "ruff format (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check services packages tests extensions/code-assurance
     run_gate_scoped "ruff lint (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check services packages tests extensions/code-assurance
@@ -183,7 +199,7 @@ else
 fi
 
 run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
-run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' python3 scripts/quality/repository/check-issue-lifecycle.py
+run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' "${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py
 run_gate_scoped "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.json$|docs/roadmap/|scripts/quality/architecture/check-constitution\.py$)' python3 scripts/quality/architecture/check-constitution.py
 design_doc_impact=(python3 scripts/quality/architecture/check-design-doc-impact.py)
@@ -199,21 +215,21 @@ run_gate "roadmap-implementation-tracking" "${roadmap_implementation_tracking[@]
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
-run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
+run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' "${python_runner[@]}" scripts/quality/architecture/check-independent-services.py
 run_gate_scoped "chat-semantic-routing" '^(services/|packages/|console/|cli/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
-run_gate_scoped "ontology-query-coverage" '^(config/ontology-query-competency\.json|packages/service-contracts/src/fdai_service_contracts/ontology_query\.py|rule-catalog/vocabulary/|services/core-control-plane/src/fdai/core/(conversation|ontology_platform)/|services/core-control-plane/src/fdai/rule_catalog/schema/|scripts/quality/architecture/check-ontology-query-coverage\.py$)' uv run python scripts/quality/architecture/check-ontology-query-coverage.py
-run_gate_scoped "property-semantic-coverage" '^(rule-catalog/(catalog|vocabulary)/|policies/|docs/roadmap/architecture/operating-ontology(-ko)?\.md$|scripts/quality/architecture/check-property-semantic-coverage\.py$)' uv run python scripts/quality/architecture/check-property-semantic-coverage.py
+run_gate_scoped "ontology-query-coverage" '^(config/ontology-query-competency\.json|packages/service-contracts/src/fdai_service_contracts/ontology_query\.py|rule-catalog/vocabulary/|services/core-control-plane/src/fdai/core/(conversation|ontology_platform)/|services/core-control-plane/src/fdai/rule_catalog/schema/|scripts/quality/architecture/check-ontology-query-coverage\.py$)' "${python_runner[@]}" scripts/quality/architecture/check-ontology-query-coverage.py
+run_gate_scoped "property-semantic-coverage" '^(rule-catalog/(catalog|vocabulary)/|policies/|docs/roadmap/architecture/operating-ontology(-ko)?\.md$|scripts/quality/architecture/check-property-semantic-coverage\.py$)' "${python_runner[@]}" scripts/quality/architecture/check-property-semantic-coverage.py
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
-run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' uv run python scripts/quality/documentation/check-action-runbooks.py
-run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' uv run python scripts/quality/repository/check-reference-only-sources.py
+run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' "${python_runner[@]}" scripts/quality/documentation/check-action-runbooks.py
+run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' "${python_runner[@]}" scripts/quality/repository/check-reference-only-sources.py
 run_gate_scoped "report-format-boundary" '^(services/core-control-plane/src/fdai/core/reporting/formats/|scripts/quality/architecture/check-report-format-boundary\.py$)' python3 scripts/quality/architecture/check-report-format-boundary.py
 # Rule-to-policy semantic drift: OPA parses every authored Rego and the catalog
 # entry MUST agree on rule_id, severity, category, and the evaluated properties.
 # Requires the pinned OPA binary; an unavailable OPA fails the gate rather than
 # skipping it.
-run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/core-control-plane/src/fdai/rule_catalog/schema/rego_semantics\.py$|scripts/catalog/sync-rule-semantics\.py$)' uv run python scripts/catalog/sync-rule-semantics.py --check
+run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/core-control-plane/src/fdai/rule_catalog/schema/rego_semantics\.py$|scripts/catalog/sync-rule-semantics\.py$)' "${python_runner[@]}" scripts/catalog/sync-rule-semantics.py --check
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py
@@ -223,15 +239,15 @@ run_gate_scoped "translations" '^(README(-ko)?\.md$|docs/.*\.md$|scripts/quality
 run_gate_scoped "translation-quality" '^(README-ko\.md$|docs/.*-ko\.md$|scripts/quality/localization/check-translation-quality\.py$)' python3 scripts/quality/localization/check-translation-quality.py
 
 run_gate_scoped "catalog-parity" '^(console|cli|src)/.*messages\.(en|ko)\.json$|^scripts/quality/localization/check-catalog-parity\.sh$' bash scripts/quality/localization/check-catalog-parity.sh
-run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|services/core-control-plane/src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh
+run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|services/core-control-plane/src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' "${managed_bash[@]}" scripts/governance/check-stewardship.sh
 run_gate_scoped "chaos-scenarios" '^(rule-catalog/chaos-scenarios/|docs/user-guide/sre/scenario-validation-inventory|scripts/catalog/)' bash scripts/catalog/check-chaos-scenarios.sh
-run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scripts/governance/check-arb-readiness\.py$)' python3 scripts/governance/check-arb-readiness.py
+run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scripts/governance/check-arb-readiness\.py$)' "${python_runner[@]}" scripts/governance/check-arb-readiness.py
 
 # User-facing docs pinned to roadmap reference docs via derives_from[].sha.
 # Fails when a roadmap source moved and the user-facing doc has not been
 # reviewed + re-pinned (scripts/quality/localization/refresh-derived-sha.py). Opt-in: only docs
 # that declare derives_from are checked.
-run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/localization/check-derived-sources\.py$)' python3 scripts/quality/localization/check-derived-sources.py
+run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/localization/check-derived-sources\.py$)' "${python_runner[@]}" scripts/quality/localization/check-derived-sources.py
 
 # Framework-surface integrity: offline signature + content verification.
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).

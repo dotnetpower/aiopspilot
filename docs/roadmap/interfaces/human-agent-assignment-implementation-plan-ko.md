@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 34124aa884fbb2100bb81b42bf80e8d9bc7a45f8
-translation_revised: 2026-09-05
+translation_source_sha: 03f9f8ec09f7b9c9d74a49a14630c0d98c2cda17
+translation_revised: 2026-09-08
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -70,7 +70,7 @@ translation_revised: 2026-09-05
 
 ## 코딩 전 계약 결정
 
-### 선제적 인수인계 대화
+### 선제적 담당자 인수인계 대화
 
 첫 번째 운영 가능 대화 범위에서는 검토된 담당 체계 변환 결과를 서버 측 배정 권한으로 사용합니다.
 Operator 서비스는 로그인한 최종 책임자에게 안전하게 다시 시도할 수 있는 초대 하나를 만들고, 고정된

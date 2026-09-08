@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 3ea53e78ba0504db49090c3e1b0743e92770e3f8
+translation_source_sha: dceb5ee50965b9dadfe8aa97150a1979458d6ecb
 translation_revised: 2026-09-08
 ---
 
@@ -95,7 +95,7 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 운영 이력 lifecycle을 활성화하려면 비밀이 아닌 `ENABLE_OPERATIONAL_HISTORY` repository
   변수를 `true`로 설정한 뒤 정확히 증명된 Core 이미지 revision을 대상으로 보호된 `history-`
   계획과 적용을 실행합니다. 예약 Job은 inventory identity를 사용하는 shadow-only 상태를
-  유지합니다. Enforce와 certify는 외부 증적을 요구하며 certify만 database purge gate에
+  유지합니다. 적용 모드(`enforce`)와 인증 모드(`certify`)는 외부 증적을 요구하며 인증 모드만 database purge gate에
   도달할 수 있습니다.
 - 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
   활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
@@ -109,13 +109,13 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   일치하는 매시간 또는 UTC 자정 일별 실행 slot을 구성하세요. Job은 인벤토리 읽기 신원을
   사용하며 기존 Pantheon 물리 토픽에만 전송할 수 있습니다. Core T1 RCA는 platform에서 내보내
   split 서비스 계획에 hydrate하는 별도 Monitoring Reader 신원을 사용합니다. 관리되는 T2 문서
-  grounding에는 별도 읽기 전용 문서 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 입력도
+  근거 확인(`grounding`)에는 별도 읽기 전용 문서 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 입력도
   필요합니다.
 
 ## 최소 인벤토리 프로비저닝
 
 먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 보호된 경로는 비공개 계획 데이터를
-VNet 연결 runner에 유지합니다. 특수 exact 적용은 bot-owned 요청이 다시 전달하므로 maintainer가
+VNet 연결 runner에 유지합니다. 특수 exact 적용은 bot-owned 요청이 다시 전달하므로 FDAI 유지관리자가
 별도 GitHub Environment approver로 남습니다. Core 및 Document Ingestion API 서비스 계획에서
 봇은 정확한 계획 산출물을 검증하고 봉인된 배포 모드에서 모델, 데이터베이스 호스트 또는
 SharePoint 전환 입력을 도출합니다.
@@ -233,7 +233,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **문서 서비스**: Document Ingestion API는 인증된 upload lifecycle 요청을 받고,
      Document Processing Worker만 영속 inspection, extraction, indexing, claim 및 reconciliation을
      소유합니다.
-   - **인수인계 수명 주기**: Core는 현재 및 마지막 성공 담당 체계 신원 상태 스냅샷을 기록하고,
+   - **담당자 인수인계 수명 주기**: Core는 현재 및 마지막 성공 운영 책임(`stewardship`) 신원 상태 스냅샷을 기록하고,
      구성된 주기에 따라 내용이 없는 목표 및 후보 이벤트를 게시하며, IAM 또는 실행기 권한 없이
      서명된 병합 근거를 소비합니다. Operator는 리비전이 일치하고 만료되지 않은 상태만 표시합니다.
    - **Isolated Executor**: 내부 `/live`와 `/ready` 프로브가 통과하고 최신 revision이 활성 상태인지

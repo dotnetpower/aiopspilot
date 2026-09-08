@@ -69,7 +69,7 @@ focused commit; don't mix unrelated worktree changes into that commit.
 
 ## Contract decisions before coding
 
-### Proactive handover conversation
+### Proactive ownership handover conversation
 
 The first production-capable conversation slice uses the reviewed ownership projection as the
 server-side assignment authority. The Operator service creates one safe-to-retry (idempotent)

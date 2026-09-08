@@ -170,6 +170,29 @@ def test_verification_entrypoints_prepend_current_checkout_source() -> None:
         assert all(entry.startswith("$repo_root/") for entry in entries), script
 
 
+def test_dependency_bearing_python_gates_use_the_uv_environment_when_available() -> None:
+    script = _VERIFY.read_text(encoding="utf-8")
+
+    assert "python_runner=(uv run python)" in script
+    expected_invocations = (
+        '"${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py',
+        '"${python_runner[@]}" scripts/quality/architecture/check-independent-services.py',
+        '"${python_runner[@]}" scripts/quality/architecture/check-ontology-query-coverage.py',
+        '"${python_runner[@]}" scripts/quality/architecture/check-property-semantic-coverage.py',
+        '"${python_runner[@]}" scripts/quality/documentation/check-action-runbooks.py',
+        '"${python_runner[@]}" scripts/quality/repository/check-reference-only-sources.py',
+        '"${python_runner[@]}" scripts/catalog/sync-rule-semantics.py --check',
+        '"${python_runner[@]}" scripts/governance/check-arb-readiness.py',
+        '"${python_runner[@]}" scripts/quality/localization/check-derived-sources.py',
+    )
+    assert all(invocation in script for invocation in expected_invocations)
+    assert "managed_bash=(bash)" in script
+    assert "managed_bash=(uv run bash)" in script
+    assert '"${managed_bash[@]}" scripts/governance/check-stewardship.sh' in script
+    assert 'managed_python="$(dirname "$(command -v ruff)")/python"' in script
+    assert "sys.version_info < (3, 11)" in script
+
+
 def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
     assert "services/core-control-plane/tests/quality_gate" in _PYTHON_TESTS.read_text(
         encoding="utf-8"

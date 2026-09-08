@@ -127,6 +127,15 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "KUBELOGIN_LINUX_AMD64_SHA256: "
         "ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f" in workflow
     )
+    assert "Install checksum-pinned Helm" in workflow
+    assert "HELM_VERSION: v3.18.6" in workflow
+    assert (
+        "HELM_LINUX_AMD64_SHA256: "
+        "3f43c0aa57243852dd542493a0f54f1396c0bc8ec7296bbb2c01e802010819ce" in workflow
+    )
+    assert '"https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"' in workflow
+    assert "required Helm installer command is unavailable" in workflow
+    assert '"$tool_dir/helm" version --short' in workflow
     assert "sha256sum --check --status" in workflow
     assert "--connect-timeout 10 --max-time 120" in workflow
     assert "--retry 2 --retry-delay 2 --retry-all-errors --retry-max-time 120" in workflow

@@ -60,7 +60,7 @@ Terraform remains an expert path.
   Each service owns its image, Terraform state, migration branch, health
   probes, and workload identity. The Isolated Executor is the only service that
   may receive an action-specific effect role.
-- In a single-maintainer repository, set the repository variable
+- In a repository with one FDAI maintainer, set the repository variable
   `DEV_DEPLOY_REQUIRED_APPROVALS=0` to run direct `dev` applies without a reviewer.
   Keep the `dev` Environment free of reviewer rules and disable administrator bypass.
   Staging, production, and bot-owned apply paths continue to require one independent reviewer.
@@ -120,14 +120,14 @@ Terraform remains an expert path.
   matching hourly or UTC-midnight daily run slot. The Job uses the inventory read identity and can
   send only to the existing Pantheon physical topic. Core T1 RCA uses a different Monitoring Reader
   identity exported by the platform and hydrated into the split service plan. Governed T2 document
-  grounding additionally requires a separate read-only document DSN secret and exact collection,
+  evidence check (`grounding`) additionally requires a separate read-only document DSN secret and exact collection,
   access-reference, and reader-group inputs.
 
 ## Provision the minimum inventory
 
 Preview first, and apply only when the plan matches what you expect. The protected
 path keeps private plan data on the VNet-connected runner. Specialized exact applies are
-re-dispatched by a bot-owned request so the maintainer remains the distinct GitHub Environment
+re-dispatched by a bot-owned request so the FDAI maintainer remains the distinct GitHub Environment
 approver. For Core and Document Ingestion API service plans, the bot validates the exact plan
 artifact and derives model, database-host, or SharePoint transition inputs from its sealed
 deployment mode.
@@ -250,7 +250,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **Document services**: the Document Ingestion API accepts authenticated
      upload lifecycle requests, while the Document Processing Worker alone owns
      durable inspection, extraction, indexing, claims, and reconciliation.
-   - **Handover lifecycle**: Core records a current and last-success stewardship
+   - **Ownership handover lifecycle**: Core records a current and last-success operational ownership (`stewardship`)
      identity-health snapshot, emits content-free goal and candidate events at the
      configured cadence, and consumes signed merge evidence without receiving IAM
      or executor authority. Operator shows only revision-matched unexpired health.
