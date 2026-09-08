@@ -80,6 +80,17 @@ def test_enabled_binding_with_incomplete_configuration_is_rejected() -> None:
         )
 
 
+def test_binding_parser_rejects_duplicate_json_keys() -> None:
+    raw = (
+        '{"teams-ops":{"kind":"teams_workflow","enabled":true,'
+        '"mode":"shadow","mode":"enforce",'
+        '"trust_tiers":["a2_operational_alert"]}}'
+    )
+
+    with pytest.raises(ValueError, match="duplicate key 'mode'"):
+        parse_notification_bindings(raw)
+
+
 def test_runtime_binds_two_named_channels(monkeypatch: pytest.MonkeyPatch) -> None:
     bindings = {
         "teams-ops": {

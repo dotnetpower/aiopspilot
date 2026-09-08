@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 6ec63f66bd1c7876cd6520eb8dcf01e99c0bf5d2
+translation_source_sha: c7c36667c6c7fc6a0f30d6b2112c98ec65e696d0
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -92,6 +92,8 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
 
 - **바인딩 id는 업스트림에서 placeholder입니다.** 엔드포인트 값, 테넌트 값, 채널 식별 정보는 배포
   시크릿 설정에 두며 이 저장소에는 두지 않습니다.
+- **모든 깊이에서 중복 JSON 키는 유효하지 않습니다.** 뒤에 나온 `mode`, `enabled` 또는 엔드포인트
+  참조가 검토자가 확인한 값을 조용히 대체할 수 없습니다.
 - **설정이 불완전한 상태의 `enabled: true`는 시작을 실패시킵니다.** 절반만 설정된 채널은 전송
   시점에 건너뛸 채널이 아니라 배포 결함입니다.
 - **`enabled: false`는 명시적 제외입니다.** 모든 대상 집합에서 제거되며 dispatch 기록에

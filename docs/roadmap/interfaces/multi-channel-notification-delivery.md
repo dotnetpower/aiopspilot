@@ -91,6 +91,8 @@ Rules:
 
 - **Binding ids are placeholders upstream.** Endpoint values, tenant values, and room identity live
   in deployment secret configuration, never in this repository.
+- **Duplicate JSON keys are invalid at every depth.** A later `mode`, `enabled`, or endpoint
+  reference cannot silently replace the value that a reviewer inspected.
 - **`enabled: true` with incomplete configuration fails startup.** A half-configured channel is a
   deployment defect, not a channel to skip at send time.
 - **`enabled: false` is an explicit exclusion.** It removes the channel from every target set and is

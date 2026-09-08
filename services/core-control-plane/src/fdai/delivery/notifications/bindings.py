@@ -80,12 +80,21 @@ def default_notification_bindings_from_env(environment: Mapping[str, str]) -> st
 def parse_notification_bindings(raw: str) -> tuple[NotificationBindingSpec, ...]:
     """Parse a channel-id keyed JSON object without resolving secret values."""
     try:
-        value = json.loads(raw)
+        value = json.loads(raw, object_pairs_hook=_unique_json_object)
     except json.JSONDecodeError as exc:
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON is not valid JSON") from exc
     if not isinstance(value, dict) or not value:
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON MUST be a non-empty object")
     return tuple(_parse_binding(channel_id, spec) for channel_id, spec in value.items())
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"notification binding JSON has duplicate key {key!r}")
+        value[key] = item
+    return value
 
 
 def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
