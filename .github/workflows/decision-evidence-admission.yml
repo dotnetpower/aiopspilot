@@ -198,7 +198,7 @@ jobs:
                 --container-name "$container" \
                 --name "$name" \
                 --auth-mode login --only-show-errors \
-                --query 'metadata."fdai-sha256"' -o tsv)"
+                --query 'metadata.fdaisha256' -o tsv)"
               [[ "$stored_digest" == "$digest" ]] || {
                 echo "decision evidence immutable metadata collision" >&2
                 exit 1
@@ -221,7 +221,7 @@ jobs:
               --container-name "$container" \
               --name "$name" \
               --file "$source" \
-              --metadata "fdai-sha256=$digest" \
+              --metadata "fdaisha256=$digest" \
               --auth-mode login --overwrite false --only-show-errors \
               --content-type application/json --output none
           }

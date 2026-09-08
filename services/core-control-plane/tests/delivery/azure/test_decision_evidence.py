@@ -247,7 +247,7 @@ async def test_blob_readers_load_content_addressed_proofs_without_retaining_toke
         return httpx.Response(
             200,
             content=content,
-            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+            headers={"x-ms-meta-fdaisha256": hashlib.sha256(content).hexdigest()},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -291,7 +291,7 @@ async def test_blob_reader_rejects_stored_content_digest_mismatch() -> None:
                 receipt.authentication_evidence_digest,
                 receipt.receipt_digest,
             ).model_dump(mode="json"),
-            headers={"x-ms-meta-fdai-sha256": "0" * 64},
+            headers={"x-ms-meta-fdaisha256": "0" * 64},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -324,7 +324,7 @@ async def test_blob_readback_rejects_missing_or_duplicate_proof_kinds() -> None:
         return httpx.Response(
             200,
             content=content,
-            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+            headers={"x-ms-meta-fdaisha256": hashlib.sha256(content).hexdigest()},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -387,7 +387,7 @@ async def test_blob_admission_provider_resolves_an_exact_current_record() -> Non
         return httpx.Response(
             200,
             content=content,
-            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+            headers={"x-ms-meta-fdaisha256": hashlib.sha256(content).hexdigest()},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
