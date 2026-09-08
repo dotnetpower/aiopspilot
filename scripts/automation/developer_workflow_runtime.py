@@ -34,6 +34,35 @@ LOCAL_LOOP_SERVICES = (
     ("inventory-reconciliation", "fdai.delivery.inventory_sync_cli"),
     ("observation-campaign", "fdai.delivery.observation_campaign_cli"),
 )
+_INVENTORY_COVERAGE_SQL = """
+WITH active_state AS (
+    SELECT active.snapshot_id, snapshot.started_at, snapshot.scopes,
+           checkpoint.value AS checkpoint
+      FROM inventory_active AS active
+      JOIN inventory_snapshot AS snapshot ON snapshot.id = active.snapshot_id
+      LEFT JOIN state_kv AS checkpoint
+        ON checkpoint.key = 'inventory-ontology:active-scope-checkpoint'
+     WHERE active.singleton = TRUE
+)
+SELECT CASE WHEN EXISTS (
+    SELECT 1
+      FROM active_state
+     WHERE checkpoint ->> 'generation' = snapshot_id
+) AND NOT EXISTS (
+    SELECT 1
+      FROM inventory_observation_journal AS pending
+      CROSS JOIN active_state
+     WHERE pending.watermark >
+           COALESCE((checkpoint ->> 'projection_high_watermark')::bigint, 0)
+       AND pending.scope_ref IN (
+           SELECT value FROM jsonb_array_elements_text(scopes)
+       )
+       AND NOT (
+           pending.source_revision = snapshot_id
+           OR pending.effective_at <= started_at
+       )
+) THEN 'ready' ELSE 'not-ready' END
+""".strip()
 PRESSURE_LIMITS = {
     "cpu_some_avg10": 50.0,
     "io_full_avg10": 5.0,
@@ -119,6 +148,38 @@ def _process_records(proc_root: Path = Path("/proc")) -> list[tuple[Path, list[s
             continue
         records.append((cwd, arguments))
     return records
+
+
+def _inventory_coverage_ready(
+    _root: Path,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> bool:
+    try:
+        result = runner(
+            [
+                "docker",
+                "exec",
+                "fdai-postgres",
+                "psql",
+                "-U",
+                "fdai",
+                "-d",
+                "fdai",
+                "-X",
+                "-A",
+                "-t",
+                "-c",
+                _INVENTORY_COVERAGE_SQL,
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "ready"
 
 
 def _module_owners(records: list[tuple[Path, list[str]]], module: str) -> set[Path]:
@@ -211,6 +272,7 @@ def local_services_diagnostic(
     *,
     probe: Callable[[str], bool] = _http_ready,
     core_probe: Callable[[Path], bool] = _core_heartbeat_ready,
+    inventory_probe: Callable[[Path], bool] = _inventory_coverage_ready,
     process_records: list[tuple[Path, list[str]]] | None = None,
     resolved: RepositoryLocation | None = None,
 ) -> dict[str, Any]:
@@ -240,6 +302,7 @@ def local_services_diagnostic(
         }
         for name, module in LOCAL_LOOP_SERVICES
     )
+    services.append({"name": "inventory-coverage", "ready": inventory_probe(repo_root)})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
         "ready_count": len(services) - len(unavailable),

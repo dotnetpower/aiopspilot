@@ -399,6 +399,7 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
         core_probe=lambda _root: True,
+        inventory_probe=lambda _root: True,
         process_records=[
             (repo, [".venv/bin/python", "-m", "fdai"]),
             (repo, [".venv/bin/python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
@@ -407,12 +408,38 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 9
-    assert result["ready_count"] == 7
+    assert result["service_count"] == 10
+    assert result["ready_count"] == 8
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
     ]
+
+
+def test_inventory_coverage_probe_requires_exact_ready_result(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def runner(arguments: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        return subprocess.CompletedProcess(arguments, 0, "ready\n", "")
+
+    assert developer_workflow_runtime._inventory_coverage_ready(
+        tmp_path,
+        runner=runner,
+    )
+    assert calls[0][:4] == ["docker", "exec", "fdai-postgres", "psql"]
+    assert "inventory-ontology:active-scope-checkpoint" in calls[0][-1]
+    assert "inventory_observation_journal" in calls[0][-1]
+
+    assert not developer_workflow_runtime._inventory_coverage_ready(
+        tmp_path,
+        runner=lambda arguments, **_kwargs: subprocess.CompletedProcess(
+            arguments,
+            0,
+            "not-ready\n",
+            "",
+        ),
+    )
 
 
 def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) -> None:
@@ -431,6 +458,7 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
+        inventory_probe=lambda _root: True,
         process_records=[
             (tmp_path / "other", ["python", "-m", "fdai"]),
             (repo, ["python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
@@ -469,6 +497,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         repo,
         probe=probe,
         core_probe=lambda _root: True,
+        inventory_probe=lambda _root: True,
         process_records=[],
     )
 
@@ -483,6 +512,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "isolated-executor",
         "inventory-reconciliation",
         "observation-campaign",
+        "inventory-coverage",
     ]
     assert result["unavailable_services"] == [
         "core-runtime",
@@ -508,6 +538,7 @@ def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
+        inventory_probe=lambda _root: True,
         process_records=[(repo, ["python", "-m", "fdai"])],
     )
 

@@ -154,10 +154,6 @@ async def refresh() -> InventoryOntologyProjectionResult:
             active_scope_projection_watermark=active_scope_watermark,
             active_scope_refs=journal_append.active_scope_refs,
         )
-        _require_current_active_scope(
-            journal_high_watermark=journal_append.journal_high_watermark,
-            active_scope_projection_watermark=active_scope_watermark,
-        )
         available = projected.status.value == "available"
         await activity_publisher.publish(
             ontology_projection_activity(
@@ -421,16 +417,6 @@ def main() -> int:
         f"resources={result.object_count} links={result.link_count} complete={result.complete}"
     )
     return 0
-
-
-def _require_current_active_scope(
-    *,
-    journal_high_watermark: int,
-    active_scope_projection_watermark: int,
-) -> None:
-    """Reject a local snapshot that left active-scope observations unprojected."""
-    if active_scope_projection_watermark != journal_high_watermark:
-        raise RuntimeError("authoritative local inventory has pending active-scope observations")
 
 
 if __name__ == "__main__":
