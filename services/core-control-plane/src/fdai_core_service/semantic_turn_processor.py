@@ -1581,6 +1581,12 @@ def _semantic_turn_timing(
         max(processing_started_at or requested_at, requested_at),
         completed_at,
     )
+    plan_status = (
+        "failed"
+        if result.disposition in {SemanticTurnDisposition.HELD, SemanticTurnDisposition.CANCELLED}
+        and result.plan_digest is None
+        else "completed"
+    )
 
     evidence_bounds = _semantic_evidence_bounds(result.intent_graph_evidence)
     phases: list[dict[str, object]] = []
@@ -1599,7 +1605,7 @@ def _semantic_turn_timing(
                 "semantic_plan",
                 processing_started_at,
                 completed_at,
-                status="completed",
+                status=plan_status,
             )
         )
     else:
@@ -1612,7 +1618,7 @@ def _semantic_turn_timing(
                     "semantic_plan",
                     processing_started_at,
                     evidence_start,
-                    status="completed",
+                    status=plan_status,
                 ),
                 _semantic_timing_phase(
                     "evidence",
@@ -1629,7 +1635,7 @@ def _semantic_turn_timing(
             )
         )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "started_at": requested_at.isoformat(timespec="milliseconds"),
         "completed_at": completed_at.isoformat(timespec="milliseconds"),
         "duration_ms": _elapsed_milliseconds(requested_at, completed_at),

@@ -34,6 +34,7 @@ describe("parseTurnTiming", () => {
 
   it("accepts the Core-owned durable queue phase", () => {
     const value = timing();
+    value.schema_version = 2;
     value.phases.unshift({
       phase: "durable_queue",
       status: "completed",
@@ -46,7 +47,18 @@ describe("parseTurnTiming", () => {
   });
 
   it.each([
-    { schema_version: 2 },
+    { schema_version: 3 },
+    {
+      phases: [
+        {
+          phase: "durable_queue",
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:00.500Z",
+          duration_ms: 500,
+        },
+      ],
+    },
     { duration_ms: 3990 },
     { phases: [{ ...timing().phases[0], phase: "unknown" }] },
     { phases: [timing().phases[0], timing().phases[0]] },

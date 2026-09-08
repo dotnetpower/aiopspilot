@@ -24,8 +24,9 @@ def upgrade() -> None:
     """Add concurrent indexes for Operator semantic claim and replay reads."""
 
     with op.get_context().autocommit_block():
+        op.execute("DROP INDEX CONCURRENTLY IF EXISTS state_kv_operator_semantic_claim_idx")
         op.execute(
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+            "CREATE INDEX CONCURRENTLY "
             "state_kv_operator_semantic_claim_idx "
             "ON state_kv ("
             "(COALESCE(value ->> 'outbox_namespace', '')), "
@@ -34,8 +35,9 @@ def upgrade() -> None:
             "key"
             ") WHERE value ->> 'kind' = 'operator.semantic_turn'"
         )
+        op.execute("DROP INDEX CONCURRENTLY IF EXISTS state_kv_operator_semantic_replay_idx")
         op.execute(
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+            "CREATE INDEX CONCURRENTLY "
             "state_kv_operator_semantic_replay_idx "
             "ON state_kv ("
             "(value ->> 'principal_id'), "

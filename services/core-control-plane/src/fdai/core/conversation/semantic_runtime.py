@@ -28,7 +28,11 @@ from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExec
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
 from fdai.core.ontology_platform.query_values import QueryTable
 
-from .adaptive_call_scope import AdaptiveBudgetExceededError, bind_adaptive_model_budget
+from .adaptive_call_scope import (
+    AdaptiveBudgetExceededError,
+    bind_adaptive_model_budget,
+    bind_model_call_scope,
+)
 from .adaptive_models import AdaptiveEvidence
 from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
 from .adaptive_wait import await_adaptive_call
@@ -59,8 +63,8 @@ _PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
     "semantic_query_progress_observer",
     default=None,
 )
-_PREFLIGHT_CANCELLATION_GRACE_SECONDS = 1.0
-_PENDING_PREFLIGHT_DRAINS: set[asyncio.Task[None]] = set()
+_MODEL_THREAD_CANCELLATION_GRACE_SECONDS = 1.0
+_PENDING_MODEL_THREAD_DRAINS: set[asyncio.Task[None]] = set()
 
 
 @contextmanager
@@ -130,7 +134,7 @@ async def _run_preflight_with_cancellation(
         try:
             await asyncio.wait_for(
                 asyncio.shield(worker),
-                timeout=_PREFLIGHT_CANCELLATION_GRACE_SECONDS,
+                timeout=_MODEL_THREAD_CANCELLATION_GRACE_SECONDS,
             )
         except TimeoutError:
 
@@ -138,11 +142,55 @@ async def _run_preflight_with_cancellation(
                 await asyncio.gather(worker, return_exceptions=True)
 
             drain = asyncio.create_task(drain_worker())
-            _PENDING_PREFLIGHT_DRAINS.add(drain)
-            drain.add_done_callback(_PENDING_PREFLIGHT_DRAINS.discard)
+            _PENDING_MODEL_THREAD_DRAINS.add(drain)
+            drain.add_done_callback(_PENDING_MODEL_THREAD_DRAINS.discard)
         raise
     finally:
         if watcher is not None:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+
+
+async def _run_planning_with_cancellation(
+    operation: Callable[[], SemanticPlanningOutcome],
+    *,
+    cancelled: asyncio.Event | None,
+) -> SemanticPlanningOutcome:
+    """Cancel thread-owned Azure provider work when the request stops."""
+    if cancelled is not None and cancelled.is_set():
+        raise asyncio.CancelledError
+    worker: asyncio.Task[SemanticPlanningOutcome] | None = None
+    watcher = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
+    try:
+        async with bind_model_call_scope():
+            worker = asyncio.create_task(asyncio.to_thread(operation))
+            if watcher is None:
+                return await asyncio.shield(worker)
+            done, _pending = await asyncio.wait(
+                {worker, watcher},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if watcher in done or cancelled.is_set():
+                raise asyncio.CancelledError
+            return worker.result()
+    except asyncio.CancelledError:
+        if worker is not None and not worker.done():
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(worker),
+                    timeout=_MODEL_THREAD_CANCELLATION_GRACE_SECONDS,
+                )
+            except TimeoutError:
+
+                async def drain_worker() -> None:
+                    await asyncio.gather(worker, return_exceptions=True)
+
+                drain = asyncio.create_task(drain_worker())
+                _PENDING_MODEL_THREAD_DRAINS.add(drain)
+                drain.add_done_callback(_PENDING_MODEL_THREAD_DRAINS.discard)
+        raise
+    finally:
+        if watcher is not None and not watcher.done():
             watcher.cancel()
             await asyncio.gather(watcher, return_exceptions=True)
 
@@ -567,20 +615,22 @@ class SemanticConversationRuntime:
                     reason=reason,
                 ),
             )
-        planning = await asyncio.to_thread(
-            self._planner.plan,
-            utterance=utterance,
-            prior_turns=prior_turns,
-            principal=principal,
-            purpose=self._purpose,
-            locale=locale,
-            bound_incident=bound_incident,
-            bound_resource_context=bound_resource_context,
-            bound_investigation_continuation=bound_investigation_continuation,
-            escalation_policy=escalation_policy,
-            conversation_model_tier=conversation_model_tier,
-            conversation_profile=conversation_profile,
-            preflight_result=preflight_result,
+        planning = await _run_planning_with_cancellation(
+            lambda: self._planner.plan(
+                utterance=utterance,
+                prior_turns=prior_turns,
+                principal=principal,
+                purpose=self._purpose,
+                locale=locale,
+                bound_incident=bound_incident,
+                bound_resource_context=bound_resource_context,
+                bound_investigation_continuation=bound_investigation_continuation,
+                escalation_policy=escalation_policy,
+                conversation_model_tier=conversation_model_tier,
+                conversation_profile=conversation_profile,
+                preflight_result=preflight_result,
+            ),
+            cancelled=cancelled,
         )
         if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:
             return _terminal("direct_response", planning.reason, planning)

@@ -137,7 +137,8 @@ function boundedCandidateField(value: unknown): string | null {
 export function parseTurnTiming(raw: unknown): TurnTiming | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
-  if (record.schema_version !== 1 || !validTimestamp(record.started_at) ||
+  if ((record.schema_version !== 1 && record.schema_version !== 2) ||
+      !validTimestamp(record.started_at) ||
       !validTimestamp(record.completed_at) ||
       !boundedInteger(record.duration_ms, 0, MAX_TURN_DURATION_MS) ||
       !durationMatches(record.started_at, record.completed_at, record.duration_ms) ||
@@ -150,11 +151,13 @@ export function parseTurnTiming(raw: unknown): TurnTiming | undefined {
     if (!phase) return undefined;
     phases.push(phase);
   }
+  if (record.schema_version === 1 &&
+      phases.some((phase) => phase.phase === "durable_queue")) return undefined;
   if (new Set(phases.map((phase) => phase.phase)).size !== phases.length) return undefined;
   if (phases.some((phase, index) => index > 0 &&
     Date.parse(phase.started_at) < Date.parse(phases[index - 1]!.started_at))) return undefined;
   return {
-    schema_version: 1,
+    schema_version: record.schema_version,
     started_at: record.started_at,
     completed_at: record.completed_at,
     duration_ms: record.duration_ms,

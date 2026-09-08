@@ -82,6 +82,7 @@ from fdai_service_contracts import (
     OperationalEvidenceProjection,
     RuleSearchReceipt,
     SemanticDirectResponseIntent,
+    SemanticTurnDisposition,
     SemanticTurnRequest,
     context_selection_digest,
     rule_search_query_digest,
@@ -2674,6 +2675,8 @@ def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> N
             Any,
             SimpleNamespace(
                 answer="Verified answer",
+                disposition=SemanticTurnDisposition.ANSWERED,
+                plan_digest=PLAN_DIGEST,
                 intent_graph_evidence={
                     "goals": [
                         {
@@ -2701,6 +2704,27 @@ def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> N
     ]
     assert [phase["duration_ms"] for phase in phases] == [2_000, 6_000, 272, 1_728]
     assert sum(cast(int, phase["duration_ms"]) for phase in phases) == timing["duration_ms"]
+
+
+def test_semantic_turn_timing_marks_pre_plan_terminal_wait_as_failed() -> None:
+    timing = _semantic_turn_timing(
+        envelope={"requested_at": NOW.isoformat()},
+        result=cast(
+            Any,
+            SimpleNamespace(
+                answer="The request deadline was exceeded.",
+                disposition=SemanticTurnDisposition.HELD,
+                plan_digest=None,
+                intent_graph_evidence=None,
+            ),
+        ),
+        completed_at=NOW + timedelta(seconds=10),
+        processing_started_at=NOW + timedelta(seconds=2),
+    )
+
+    phases = cast(list[dict[str, object]], timing["phases"])
+    assert [phase["phase"] for phase in phases] == ["durable_queue", "semantic_plan"]
+    assert [phase["status"] for phase in phases] == ["completed", "failed"]
 
 
 def _runtime_result(

@@ -11,7 +11,10 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from fdai.core.conversation.adaptive_call_scope import bind_adaptive_model_budget
+from fdai.core.conversation.adaptive_call_scope import (
+    bind_adaptive_model_budget,
+    bind_model_call_scope,
+)
 from fdai.core.conversation.adaptive_models import AdaptivePolicy
 from fdai.core.conversation.adaptive_service import _Budget
 from fdai.delivery.azure.llm.semantic_judgment import (
@@ -159,6 +162,63 @@ async def test_closing_the_read_scope_cancels_active_provider_work(kind: str) ->
             assert await asyncio.wait_for(pending, timeout=1) is None
     assert budget.calls == 1
     assert budget.tokens > 0
+
+
+@pytest.mark.parametrize("kind", ["planner", "judgment"])
+async def test_cancellation_only_scope_cancels_active_provider_work(kind: str) -> None:
+    started = asyncio.Event()
+    stopped = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        started.set()
+        try:
+            await asyncio.Future()
+        finally:
+            stopped.set()
+        raise AssertionError("cancelled provider must not return")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        invoke = _invoker(kind, client)
+        async with asyncio.TaskGroup() as tasks:
+            async with bind_model_call_scope():
+                pending = tasks.create_task(invoke())
+                await asyncio.wait_for(started.wait(), timeout=1)
+            assert stopped.is_set()
+            assert await asyncio.wait_for(pending, timeout=1) is None
+
+
+@pytest.mark.parametrize("kind", ["planner", "judgment"])
+async def test_cancellation_only_scope_preserves_candidate_failover(kind: str) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(503) if len(requests) == 1 else _response()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with bind_model_call_scope():
+            assert await _invoker(kind, client)() is not None
+
+    assert len(requests) == 2
+
+
+@pytest.mark.parametrize("kind", ["planner", "judgment"])
+async def test_nested_model_scope_preserves_adaptive_budget(kind: str) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _response()
+
+    budget = _Budget(AdaptivePolicy())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with bind_adaptive_model_budget(budget, reserved_calls=2):
+            async with bind_model_call_scope():
+                assert await _invoker(kind, client)() is not None
+
+    assert len(requests) == 1
+    assert budget.calls == 1
+    assert len(budget.observations) == 1
 
 
 @pytest.mark.parametrize("kind", ["planner", "judgment"])

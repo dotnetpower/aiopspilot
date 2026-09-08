@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: fb7382de981edb3949dd2e74290c89e255f3e8dd
+translation_source_sha: f1ae7bef289f815c1ad6094fc5ecc9ade645c6a5
 translation_revised: 2026-09-08
 ---
 # 지속형 질문 공간
@@ -33,10 +33,13 @@ translation_revised: 2026-09-08
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.
 Core 소유 부분 인덱스는 공용 `state_kv` 테이블에서 Operator claim 정렬과 principal 및
 request 범위 replay cursor를 지원합니다. Claim covering index는 별도의 후보 정렬을
-방지합니다. 상태나 전달 권한은 변경하지 않습니다.
+방지합니다. Concurrent migration을 재시도할 때는 이름이 같은 유효하지 않거나 일치하지 않는
+인덱스를 제거한 뒤 다시 구성합니다. 인덱스는 상태나 전달 권한을 변경하지 않습니다.
 Core 처리를 시작할 때 콘텐츠가 없는 로그와 영속 turn timing이 영속 큐 지연을 남은 요청
-deadline 및 의미 계획과 분리합니다. 따라서 만료된 backlog가 모델 또는 의미 계획 지연으로
-보이지 않습니다.
+deadline 및 의미 계획과 분리합니다. Timing schema v2는 검증된 계획 전에 끝난 최종 대기를
+실패한 계획으로 표시합니다. 따라서 만료된 backlog가 모델 또는 성공한 의미 계획 지연으로
+보이지 않습니다. 또한 Core는 검증된 계획이 취소되면 취소 전용 model-call scope를 닫아
+동기 planner thread에서 시작한 Azure provider 작업을 중지하고 회수합니다.
 모델 ID만 사용할 수 없을 때는 프로세스 준비 상태가 의미 consumer를 계속 실행합니다. 일반 의미
 turn은 5초 이내에 모델 대상을 확인하고 인증을 검증할 수 없으면 계획 전에 타입이 지정된 보류
 결과를 반환합니다. Operator는 먼저 도착한 최종 결과 하나를 권위 있는 결과로 영속화하고, 시간
@@ -107,6 +110,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Schema v2에서 영속 큐 timing을 분리하고, 계획 전 최종 대기를 실패로 표시하고, 요청과 함께 thread 소유 model provider 작업을 취소하고, concurrent 의미 인덱스 재시도가 같은 이름의 relation을 다시 구성하도록 했습니다. | `current change`, 집중 Core timing 및 model-scope 테스트, Console timing parser 테스트 및 typecheck, migration inventory 검사, 로컬 인덱스 교체, PostgreSQL `EXPLAIN` | 공유 브라우저 연결을 사용할 수 있을 때 인증된 Browser 지연 시간 증적을 보존합니다. |
 | 2026-09-08 | implemented | Core 의미 처리를 시작할 때 콘텐츠가 없는 큐 지연 및 남은 deadline 관측을 추가했습니다. | `current change`, 집중 만료 요청 검사 2개가 통과했습니다. | 배포 큐 지연 분포는 별도로 보존합니다. |
 | 2026-09-08 | implemented | `state_kv`에 Operator 의미 claim 정렬과 principal 범위 replay cursor를 위한 Core 소유 부분 인덱스를 추가했습니다. | `current change`, 집중 migration 및 branch inventory 검사 65개가 통과했습니다. | 로컬 migration 후 PostgreSQL query plan 근거를 보존합니다. |
 | 2026-09-08 | implemented | 다중화된 request 이외 의미 payload의 사전 인코딩 및 디코딩 단계를 제거하면서 request codec 검증을 보존했습니다. | `current change`, 집중 Operator 의미 Kafka 검사 25개가 통과했습니다. | 전송 CPU 측정은 별도로 보존합니다. |

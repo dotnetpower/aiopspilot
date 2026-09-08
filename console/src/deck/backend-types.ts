@@ -409,7 +409,7 @@ export interface TurnTimingPhase {
 }
 
 export interface TurnTiming {
-  readonly schema_version: 1;
+  readonly schema_version: 1 | 2;
   readonly started_at: string;
   readonly completed_at: string;
   readonly duration_ms: number;

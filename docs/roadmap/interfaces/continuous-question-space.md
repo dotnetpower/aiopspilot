@@ -31,10 +31,14 @@ instead of remaining blocked behind a failed worker until the request deadline. 
 the turn held rather than raising an untyped transport error.
 Core-owned partial indexes support the Operator claim ordering and principal-plus-request replay
 cursor on the shared `state_kv` table. The claim covering index avoids a separate candidate sort.
-They change no state or delivery authority.
+Concurrent migration retries remove a same-name invalid or mismatched index before rebuilding it.
+The indexes change no state or delivery authority.
 At Core processing start, a content-free log and the persisted turn timing separate durable queue
-delay from remaining request deadline and semantic planning. Expired backlog therefore no longer
-appears to be model or semantic-planning latency.
+delay from remaining request deadline and semantic planning. Timing schema v2 marks a terminal wait
+that ended before a verified plan as failed planning. Expired backlog therefore no longer appears
+to be model or successful semantic-planning latency. Core also closes a cancellation-only
+model-call scope when verified planning is cancelled, which stops and drains Azure provider work
+initiated from the synchronous planner thread.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
 ordinary semantic turn checks its model audience within five seconds and returns a typed hold before
 planning when authentication cannot be verified. Operator persists the first terminal result as
@@ -105,6 +109,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Separated durable queue timing in schema v2, marked pre-plan terminal waits as failed, cancelled thread-owned model provider work with the request, and made concurrent semantic index retries rebuild same-name relations. | `current change`; focused Core timing and model-scope tests, Console timing parser tests and typecheck, migration inventory checks, local index replacement, and PostgreSQL `EXPLAIN`. | Retain an authenticated Browser latency receipt when the shared browser connection is available. |
 | 2026-09-08 | implemented | Added content-free queue-delay and remaining-deadline observations at Core semantic processing start. | `current change`; focused expired-request checks passed 2 tests. | Retain deployed queue-delay distributions separately. |
 | 2026-09-08 | implemented | Added Core-owned partial indexes for Operator semantic claim ordering and principal-scoped replay cursors on `state_kv`. | `current change`; focused migration and branch inventory checks passed 65 tests. | Retain PostgreSQL query-plan evidence after local migration. |
 | 2026-09-08 | implemented | Removed the preliminary encode/decode cycle from multiplexed non-request semantic payloads while preserving request codec validation. | `current change`; focused Operator semantic Kafka checks passed 25 tests. | Retain transport CPU measurements separately. |

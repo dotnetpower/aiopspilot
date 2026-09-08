@@ -24,8 +24,9 @@ def upgrade() -> None:
     """Add a concurrent covering index for ordered claim reads."""
 
     with op.get_context().autocommit_block():
+        op.execute("DROP INDEX CONCURRENTLY IF EXISTS state_kv_operator_semantic_claim_order_idx")
         op.execute(
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+            "CREATE INDEX CONCURRENTLY "
             "state_kv_operator_semantic_claim_order_idx "
             "ON state_kv ("
             "(COALESCE(value ->> 'outbox_namespace', '')), "

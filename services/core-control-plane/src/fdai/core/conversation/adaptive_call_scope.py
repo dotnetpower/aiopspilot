@@ -42,7 +42,7 @@ class ModelCallReservation:
 
 
 class _CallScope:
-    def __init__(self, budget: ModelCallBudget, reserved_calls: int) -> None:
+    def __init__(self, budget: ModelCallBudget | None, reserved_calls: int) -> None:
         self.budget = budget
         self.reserved_calls = reserved_calls
         self.closed = False
@@ -88,6 +88,22 @@ async def bind_adaptive_model_budget(
         await scope.close()
 
 
+@asynccontextmanager
+async def bind_model_call_scope() -> AsyncIterator[None]:
+    """Track cancellable provider work without changing ordinary retry policy."""
+    parent = _SCOPE.get()
+    scope = _CallScope(
+        parent.budget if parent is not None else None,
+        parent.reserved_calls if parent is not None else 0,
+    )
+    token = _SCOPE.set(scope)
+    try:
+        yield
+    finally:
+        _SCOPE.reset(token)
+        await scope.close()
+
+
 async def run_scoped_model[Result](operation: Callable[[], Awaitable[Result]]) -> Result:
     """Track real async provider work even when a synchronous planner initiated it."""
     scope = _SCOPE.get()
@@ -107,6 +123,8 @@ async def call_scoped_provider[Result](
     if scope is None:
         return await operation(), None
     scope.check()
+    if scope.budget is None:
+        return await operation(), None
     size = len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode())
     amount = scope.budget.reserve(size, output_tokens, scope.reserved_calls)
     reservation = ModelCallReservation(scope.budget, amount)
@@ -123,7 +141,7 @@ async def call_scoped_provider[Result](
 def stop_scoped_provider_retry() -> bool:
     """Suppress legacy provider failover only inside a bounded adaptive read."""
     scope = _SCOPE.get()
-    if scope is None:
+    if scope is None or scope.budget is None:
         return False
     scope.closed = True
     return True

@@ -9,6 +9,7 @@ from threading import Event
 from types import SimpleNamespace
 
 import pytest
+from fdai.core.conversation.adaptive_call_scope import run_scoped_model
 from fdai.core.conversation.conversation_preflight import (
     ContextDependency,
     ConversationPreflightProposal,
@@ -19,7 +20,11 @@ from fdai.core.conversation.conversation_preflight import (
     SocialAct,
 )
 from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
-from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
+from fdai.core.conversation.semantic_planning_models import SemanticPlanningOutcome
+from fdai.core.conversation.semantic_runtime import (
+    SemanticConversationRuntime,
+    _run_planning_with_cancellation,
+)
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryNodeResult
 from fdai_service_contracts.ontology_query import (
@@ -59,6 +64,60 @@ from tests.conversation.test_semantic_planning import (
 )
 
 _MODEL_DIGEST = "sha256:" + ("a" * 64)
+
+
+@pytest.mark.parametrize("cancel_mode", ["request", "parent"])
+async def test_planning_cancellation_stops_thread_owned_provider(cancel_mode: str) -> None:
+    owner_loop = asyncio.get_running_loop()
+    provider_started = asyncio.Event()
+    provider_stopped = asyncio.Event()
+    worker_stopped = Event()
+    cancelled = asyncio.Event()
+
+    async def provider() -> None:
+        provider_started.set()
+        try:
+            await asyncio.Future()
+        finally:
+            provider_stopped.set()
+
+    def operation() -> SemanticPlanningOutcome:
+        provider_call = asyncio.run_coroutine_threadsafe(
+            run_scoped_model(provider),
+            owner_loop,
+        )
+        try:
+            provider_call.result(timeout=2)
+        finally:
+            worker_stopped.set()
+        raise AssertionError("cancelled planning must not return")
+
+    pending = asyncio.create_task(_run_planning_with_cancellation(operation, cancelled=cancelled))
+    await asyncio.wait_for(provider_started.wait(), timeout=1)
+    if cancel_mode == "request":
+        cancelled.set()
+    else:
+        pending.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await pending
+    assert provider_stopped.is_set()
+    assert worker_stopped.wait(timeout=1)
+
+
+async def test_planning_does_not_start_after_request_cancellation() -> None:
+    cancelled = asyncio.Event()
+    cancelled.set()
+    called = False
+
+    def operation() -> SemanticPlanningOutcome:
+        nonlocal called
+        called = True
+        raise AssertionError("cancelled planning must not start")
+
+    with pytest.raises(asyncio.CancelledError):
+        await _run_planning_with_cancellation(operation, cancelled=cancelled)
+    assert called is False
 
 
 def _general_preflight_result(
