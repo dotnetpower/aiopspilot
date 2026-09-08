@@ -407,6 +407,10 @@ Slack classifies connection establishment failures as unavailable, but a timeout
 error after dispatch as ambiguous because the provider may have received the request. The router
 doesn't retry an ambiguous acknowledgement through another path.
 
+A Slack webhook HTTP 200 produces `accepted`, not `delivered`. Only an independent publication
+observation may promote provider acceptance to delivery, and the Slack capability remains in shadow
+until that observation path and its promotion evidence are reviewed.
+
 ## Related docs
 
 | To learn about | Read |

@@ -344,7 +344,8 @@ class TestSlackAdapter:
             )
             receipt = await adapter.send(_message())
 
-        assert receipt.delivered is True
+        assert receipt.delivered is False
+        assert receipt.accepted is True
         import json as _json
 
         body = _json.loads(captured[0].content.decode("utf-8"))

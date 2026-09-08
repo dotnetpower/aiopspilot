@@ -95,7 +95,8 @@ class SlackWebhookChannel:
         return DeliveryReceipt(
             channel_kind=ChannelKind.SLACK,
             channel_id=self._config.channel_id,
-            delivered=True,
+            delivered=False,
+            accepted=True,
             provider_message_id=message.correlation_id,
         )
 

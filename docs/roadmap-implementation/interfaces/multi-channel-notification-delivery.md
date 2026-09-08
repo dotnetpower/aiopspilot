@@ -41,6 +41,7 @@ and resumable work for
 | 2026-09-09 | implemented | Bounded one notification binding map to 64 entries before adapter or readiness construction. | `current change`; focused binding-count regression test. | Continue the bounded channel-adapter critique campaign. |
 | 2026-09-09 | implemented | Split Slack facts into deterministic groups of at most 10 so the shared metadata ceiling cannot produce an invalid Block Kit section. | `current change`; focused Slack provider-limit regression test. | Continue the bounded channel-adapter critique campaign. |
 | 2026-09-09 | implemented | Split definitive Slack connection failures from acknowledgement ambiguity so a lost response cannot trigger unsafe fallback redelivery. | `current change`; focused Slack transport classification tests. | Continue the bounded channel-adapter critique campaign. |
+| 2026-09-09 | implemented | Lowered a Slack webhook HTTP 200 from `delivered` to `accepted`; provider acknowledgement no longer substitutes for independent publication observation. | `current change`; focused Slack receipt regression test. | Keep Slack in shadow until an independent publication receipt path and promotion evidence are reviewed. |
 
 ### Remaining work
 
