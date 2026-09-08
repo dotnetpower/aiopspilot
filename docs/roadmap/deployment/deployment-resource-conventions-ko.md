@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 2499afde9f3a74acd24a6b933c960d19cd0d7a8d
+translation_source_sha: f8950921fc39e79335e42bc9d3606ff78909a604
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -58,7 +58,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
-| Channel-edge 신원 기반 | implemented | `infra/main.tf`, `infra/services/operator-service/`, `deploy-channel-edge-secrets.yml`, root, 서비스 및 보호된 비밀 작업 흐름 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 프로바이더 및 주체 비밀 범위는 선택적 platform 입력이며, 서비스 root는 주체 범위와 완전한 프로바이더 계약 하나가 없으면 활성 edge를 차단합니다. 필수 CI가 통과한 정확한 개발 비밀 작업 흐름은 태그가 지정된 비공개 RBAC Key Vault 하나를 선택하고 안정적인 배포 신원을 사용해 고정 Slack 비밀 이름 4개만 기록하며 값 재확인을 수행하고 값이나 식별자 아티팩트를 보존하지 않습니다. |
+| Channel-edge 신원 기반 | implemented | `infra/main.tf`, `infra/services/operator-service/`, `deploy-channel-edge-secrets.yml`, root, 서비스 및 보호된 비밀 작업 흐름 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 프로바이더 및 주체 비밀 범위는 선택적 platform 입력이며, 서비스 root는 주체 범위와 완전한 프로바이더 계약 하나가 없으면 활성 edge를 차단합니다. 필수 CI가 통과한 정확한 개발 비밀 작업 흐름은 CI 검증 전에 리포지토리에 고정된 GitHub CLI를 설치하고, 태그가 지정된 비공개 RBAC Key Vault 하나를 선택하며, 안정적인 배포 신원을 사용해 고정 Slack 비밀 이름 4개만 기록합니다. 또한 값을 다시 확인하고 값이나 식별자 아티팩트를 보존하지 않습니다. |
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 완료된 일회성 이행 모드는 더 이상 노출하지 않습니다. 과거 Terraform `moved` 블록은 state 호환성을 위해 유지합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. 서비스 간 근거를 고정하는 Key Vault secret은 조정되지 않은 고정 만료 대신 조정된 로테이션을 사용합니다. |
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 새로운 self-hosted runner 슬롯에서 보호된 비밀 작업 흐름이 필수 CI를 검증하기 전에 리포지토리에 고정된 GitHub CLI를 설치하도록 수정했습니다. | 실패한 작업 흐름 `34210210151`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 52개 통과 | 필수 CI가 통과한 정확한 비밀 작업 흐름을 다시 실행하고 값 비노출 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 배포가 소유한 비공개 Key Vault에 고정 Slack channel-edge 비밀을 구체화하는 값 비노출 보호 작업 흐름을 추가했습니다. | `current change`, 비밀 전송, 작업 흐름 보안, 러너 등록, 안정적인 신원, CI 계약 및 A3 채널 테스트 | 필수 CI가 통과한 정확한 작업 흐름을 실행하고 버전 없는 비밀 식별자를 channel-edge 플랫폼 및 서비스 계획에 결속한 뒤 프로바이더 전달 및 롤백 증적을 보존합니다. |
 | 2026-09-08 | implemented | 정확한 보호 Core 이미지 계획이 Terraform의 이동 인스턴스 범위 검사에서 차단된 뒤 dev 운영 게이트웨이 대상 집합에 애플리케이션 리소스 그룹의 이동 주소를 추가했습니다. | `current change`, 변경을 적용하지 않은 실패 계획 `34145167117`, `deploy-dev.yml`, 집중 workflow 계약 테스트 58개입니다. | 삭제가 없는 새 보호 계획을 생성하고 정확한 적용 증적을 보존합니다. |
 | 2026-09-07 | implemented | OI-16에서 GitHub 산출물 만료 후 영속 대체 증적을 삭제하면 인증이 중단됨을 확인한 뒤, 24시간 보호 계획 정리 허용 목록에서 추가 전용 적용 증적을 제외했습니다. 정확한 OI-15 증적은 Storage 버전에서 복구하고 기록된 콘텐츠 다이제스트와 일치하는지 검증한 후 복원했습니다. | `current change`, 실패한 인증 `34044794294`, 복구한 증적 다이제스트 `sha256:3fe1b7d77ed4511c9e88283bae9798a8e74e2c79fc502e234fe36477d736cade`, 집중 정리 검사입니다. | 보존 수정을 게시하고 정확한 리비전의 CI와 이미지 근거를 확인한 뒤 독립 승인을 받는 새 인증 campaign을 제출합니다. |
