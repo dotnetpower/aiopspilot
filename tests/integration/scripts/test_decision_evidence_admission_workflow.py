@@ -14,6 +14,7 @@ _DEPLOY = (_ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8
 def test_workflow_is_exact_revision_and_source_run_bound() -> None:
     assert "workflow-path: .github/workflows/decision-evidence-admission.yml" in _WORKFLOW
     assert 'git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main' in _WORKFLOW
+    assert 'git rev-list --first-parent origin/main | grep -Fqx "$TARGET_COMMIT_SHA"' in (_WORKFLOW)
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in _WORKFLOW
     assert "actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" in _WORKFLOW
     assert '[[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]' in _WORKFLOW
