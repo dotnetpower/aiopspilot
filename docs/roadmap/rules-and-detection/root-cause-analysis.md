@@ -19,6 +19,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 | Knowledge evidence and provider binding | implemented | `core/rca/knowledge_evidence.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; `delivery/azure/llm/rca_model.py`; `runtime/bootstrap.py`; focused provider, adapter, and runtime tests | The runtime attaches the configured pgvector source after Azure LLM finalization as well as in telemetry-only mode. Re-ingestion atomically replaces a document's chunks and an empty replacement deletes them, so stale revisions do not remain searchable. Missing bindings never fabricate evidence. |
 | Governed automated Incident RCA context | implemented | `delivery/persistence/postgres_governed_document_read.py`; `delivery/governed_rca_context.py`; `runtime/governed_rca.py`; automated T2 and context tests | A complete deployment binding supplies a separate read-only DSN, collection, access references, and reader groups. Automated Incident T2 uses the fixed Forseti principal and `incident-review` purpose, binds incident, resource, cutoff, ontology, and catalog identity, and holds when authorized document evidence is absent. |
 | Azure deployment history and dependency context | implemented | `delivery/azure/deployment_history.py`; `delivery/persistence/postgres_provider_identity.py`; `runtime/rca_bindings.py`; topology-history, provider, runtime, and control-loop tests | A dedicated Monitoring Reader resolves provider identity from the inventory generation at the event cutoff. Runtime materializes the bitemporal topology at the same cutoff, admits only successful exact-scope mutations with matching generation, supports lifecycle reopen intervals, and bounds context, analysis, and audit in one side-path deadline. |
+| Distributed trace cause discrimination | implemented | `core/rca/trace_continuity.py`; `tests/core/rca/test_trace_continuity.py` | One independently cited signal can distinguish instrumentation, collector, or header-propagation causes. Missing, conflicting, or scope-mismatched evidence holds for review, and the result carries no remediation reference. |
 | Read-only operator projection | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`; focused projection tests | Audit hypotheses, citations, structured causal chains, and linked response plans are projected without action authority. |
 | Governed operational RCA accuracy | in-progress | [Observability and Detection](observability-and-detection.md#implementation-status) | No retained exact-revision cohort proves live cause accuracy, abstention, and downstream outcome closure across the tier mix. |
 
@@ -26,6 +27,18 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added deterministic T1 discrimination for distributed trace discontinuities. The classifier accepts exactly one bounded telemetry signal, requires its affected hop or boundary to match the detector result, cites both continuity and cause evidence, and returns no remediation reference. | `current change`; focused trace RCA checks passed 9 cases; Ruff and strict mypy passed the new Core slice. | Bind authoritative instrumentation, collector, and header-propagation evidence producers, then retain the governed live cohort tracked by issue #142. |
+| 2026-09-09 | implemented | Canonicalized bounded trace cause items and citations while rejecting whitespace, duplicates, and aggregate text overflow. | `current change`; focused trace RCA normalization checks. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Bound trace cause evidence to the exact topology, scenario, window, and observed time so citations cannot replay across incidents or later evidence. | `current change`; focused scope and time replay checks. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Moved trace RCA confidence-floor validation ahead of every early hold so invalid configuration always fails explicitly. | `current change`; focused invalid-confidence regression test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Applied one 100-reference ceiling to the combined continuity and cause citation set, holding instead of truncating overflow. | `current change`; focused combined-citation overflow test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Removed unsupported instrumentation attribution for hop-order findings because the detector does not identify an offending hop. | `current change`; focused invalid-hop-order hold test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Lowered header-propagation cause domain from application to unknown because a disconnected boundary does not prove ownership. | `current change`; focused header-domain regression test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Replaced fixed trace-cause confidence with a finite evidence score capped at the T1 ceiling before the grounding floor. | `current change`; focused confidence cap and hold tests. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Added a positive five-minute default cause-evidence age so a matching window label cannot admit stale telemetry. | `current change`; focused stale-evidence and invalid-age tests. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Capped configured trace cause evidence age at 24 hours so a large positive value cannot disable stale-evidence protection. | `current change`; focused evidence-age ceiling test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Raised the trace-specific default confidence floor from zero to `0.5` so zero-confidence evidence cannot produce a grounded cause. | `current change`; focused zero-confidence hold test. | Continue the bounded trace RCA critique campaign. |
+| 2026-09-09 | implemented | Completed 12 trace RCA critique rounds. Ten material fixes canonicalized and bounded cause evidence, prevented cross-scope and stale replay, validated confidence before holds, bounded combined citations, refused unsupported hop-order attribution, removed boundary ownership claims, capped evidence confidence and age, and required a non-zero default confidence floor. Two additional hypotheses were rejected after tracing the typed detector producer and the intentionally absent remediation reference. No finding above Low remains in this bounded slice. | `current change`; full RCA, detector, and Incident-chain slice passed 294 cases; strict mypy passed 26 RCA source files; Ruff passed. | Bind authoritative cause-evidence producers and retain the governed live cohort under issue #142. |
 | 2026-09-04 | implemented | Hardened T1 into one event-time context over historical inventory identity, append-only topology history, canonical lifecycle Incident matching, dedicated reader RBAC, sovereign endpoint/audience binding, and a complete side-path timeout. Split deployment hydrates and guards the exact platform reader identity. | `current change`; focused RCA provider, member, topology, timeout, hydration, plan-guard, Terraform, Ruff, and strict mypy checks; residual hardening rounds 1-4, 11-12, 15-16, 22-29, and 32-42. | Retain the governed exact-revision operational cohort. |
 | 2026-09-04 | implemented | Bound automated Incident T2 to a server-owned governed document context. A separate read-only PostgreSQL adapter filters by collection and access reference before lexical ranking, rechecks immutable metadata and exact reader groups, and passes an incident-, resource-, purpose-, cutoff-, release-, and principal-bound context into the existing document evidence verifier. Missing documents or access now holds T2 instead of continuing with other citations. | `current change`; focused governed context, automated T2, document evidence, Ruff, strict mypy, and Core service Terraform checks. | Retain the governed operational RCA cohort and deployed document-read receipt. |
 | 2026-09-04 | implemented | Bound T1 RCA to exact Azure Activity Log mutations and a complete current dependency graph. The adapter resolves neutral ids through the server-owned inventory, hashes caller identity, rejects reads, failures, scope escapes, pagination overflow, stale identity, and graph-generation drift, and keeps every result in shadow. | `current change`; focused Azure deployment-history, dependency-generation, member-source, and control-loop tests (`28 passed`), Ruff, and strict mypy. | Retain an exact-revision operational cohort and independently verified outcomes. |
@@ -70,6 +83,41 @@ evidence can supply a narrower domain. T1 takes the domain from the root change 
 it through resolved-case reuse. T2 can return only a declared enum value; an absent value remains
 `unknown`, and an unsupported value causes the parser to hold the hypothesis for review. Historical
 audit rows without this field project as `unknown`.
+
+## Distributed trace cause discrimination
+
+The continuity detector reports the observed shape and never guesses a cause. The deterministic T1
+classifier in `core/rca/trace_continuity.py` accepts the detector result plus exactly one independent
+`TraceCauseEvidence` signal:
+
+| Cause | Required match |
+|-------|----------------|
+| `instrumentation` | The cited affected hop is missing from a dropped-context result. |
+| `collector` | The cited collector evidence names only hops missing from a dropped-context result. |
+| `header_propagation` | The cited boundary is disconnected in a regenerated-context result or is adjacent to a missing hop in a dropped-context result. |
+
+The signal and detector citations are all `telemetry` references. No signal, more than one signal, a
+scope mismatch, or a non-discontinuous result produces an explicit held outcome. A grounded result
+uses the T1 tier with bounded confidence and `remediation_ref=None`; it explains the observed cause
+but cannot select or authorize a recovery action. Affected items and evidence references reject
+surrounding whitespace, duplicates, and aggregate text overflow, then use canonical sorted order so
+equivalent evidence produces one replay-stable hypothesis.
+An invalid-hop-order result does not identify an offending hop, so this classifier holds it rather
+than assigning an instrumentation cause from an arbitrary observed hop.
+Instrumentation maps to the application cause domain and collector loss maps to shared dependency.
+Header propagation remains `unknown` because a boundary alone does not prove which side owns the
+fault.
+Each cause signal also binds the exact topology, scenario, observation window, and timezone-aware
+observation time. A signal from another scope or later than the continuity result cannot be reused.
+The cause observation must also fall within a positive configured evidence age, five minutes by
+default and at most 24 hours, so a copied window label or unbounded configuration cannot revive
+stale telemetry.
+The confidence floor is validated before any held outcome, so invalid configuration cannot hide
+behind missing or conflicting evidence.
+Cause evidence carries a finite confidence in `[0, 1]`. The hypothesis uses the lower of that value
+and the T1 ceiling `0.85`, then applies a confidence floor that defaults to `0.5`.
+After deduplication, continuity and cause citations share one 100-reference ceiling. Overflow holds
+instead of truncating the evidence set used to ground the hypothesis.
 
 ## Upstream implementation
 
