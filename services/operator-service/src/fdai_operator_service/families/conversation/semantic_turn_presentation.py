@@ -47,6 +47,7 @@ _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
 _MAX_SEMANTIC_VERIFICATION_CLAIMS = 64
+_MAX_EXECUTION_COMMAND_CHARS = 16 * 1024
 _MAX_EXECUTION_OUTPUT_CHARS = 2_048
 _INVESTIGATION_COMPARISON_NODE_IDS = frozenset({"symptom-change", "symptom-comparison"})
 # Categorical fields worth charting once a result is complete, most specific
@@ -1720,6 +1721,13 @@ def semantic_technical_trajectory(
             evidence_count=len(refs),
             node_output=node_output,
         )
+        command = _verified_query_command(
+            capability=capability,
+            intent=intent,
+            graph_goal=graph_goal,
+            status=status,
+            node_output=node_output,
+        )
         activities.append(
             cast(
                 JsonObject,
@@ -1744,7 +1752,7 @@ def semantic_technical_trajectory(
                     "execution": {
                         "tool": "Ontology query",
                         "input_kind": "query",
-                        "command": capability,
+                        "command": command,
                         "target": _semantic_query_target(capability),
                         "redacted": True,
                         "status": status,
@@ -1775,6 +1783,71 @@ def semantic_technical_trajectory(
             "truncated_outputs": truncated_outputs,
         },
     )
+
+
+def _verified_query_command(
+    *,
+    capability: str,
+    intent: str,
+    graph_goal: Mapping[str, object],
+    status: str,
+    node_output: Mapping[str, object] | None,
+) -> str:
+    """Expose a bounded ObjectSet only when goal, receipt, and output evidence agree."""
+
+    if (
+        capability != "query.object_set"
+        or intent != "object_set"
+        or status != "completed"
+        or node_output is None
+    ):
+        return capability
+    returned_rows = node_output.get("returned_rows")
+    total_rows = node_output.get("total_rows")
+    if (
+        not isinstance(returned_rows, int)
+        or isinstance(returned_rows, bool)
+        or returned_rows < 0
+        or not isinstance(total_rows, int)
+        or isinstance(total_rows, bool)
+        or total_rows < returned_rows
+    ):
+        return capability
+    arguments = graph_goal.get("arguments")
+    return _object_set_query_command(
+        capability=capability,
+        intent=intent,
+        arguments=arguments,
+    )
+
+
+def _object_set_query_command(
+    *,
+    capability: str,
+    intent: str,
+    arguments: object,
+) -> str:
+    """Render one exact bounded ObjectSet definition without adding authority."""
+
+    if (
+        capability != "query.object_set"
+        or intent != "object_set"
+        or not isinstance(arguments, dict)
+        or set(arguments) != {"definition"}
+        or not isinstance((definition := arguments.get("definition")), dict)
+    ):
+        return capability
+    encoded = json.dumps(
+        {
+            "capability": capability,
+            "execution_authority": False,
+            "object_set": definition,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return encoded if len(encoded) <= _MAX_EXECUTION_COMMAND_CHARS else capability
 
 
 def _redacted_execution_output(
