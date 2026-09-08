@@ -231,6 +231,12 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert "stage=readiness exit_code=7" in result.stderr
 
 
+def test_supervisor_allows_bounded_inventory_recovery() -> None:
+    source = _START_SCRIPT.read_text(encoding="utf-8")
+
+    assert "FDAI_CONSOLE_START_READINESS_SECONDS:-180" in source
+
+
 def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"

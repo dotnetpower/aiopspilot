@@ -19,7 +19,7 @@ child_pids=()
 active_pids=()
 readiness_pid=""
 terminal_event=""
-readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
+readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-180}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
   exit 2
