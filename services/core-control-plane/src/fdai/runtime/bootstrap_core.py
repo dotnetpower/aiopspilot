@@ -114,6 +114,7 @@ from fdai.runtime.stewardship_identity_health import (
     build_stewardship_identity_health_worker,
 )
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 from fdai.shared.providers.state_store import StateStore
@@ -251,7 +252,7 @@ async def build_core_runtime(
             identity=identity,
             http_client=resources.http_client,
         )
-    elif environment.get("FDAI_EXECUTION_VENUE", "").strip().casefold() == "deployed":
+    elif resolve_execution_venue(environment) is ExecutionVenue.DEPLOYED:
         _LOGGER.warning(
             "decision_evidence_admission_unavailable",
             extra={"reason": "private_container_unbound"},
