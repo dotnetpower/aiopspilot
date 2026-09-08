@@ -1536,6 +1536,21 @@ resource "azurerm_private_endpoint" "decision_evidence_blob" {
   }
 }
 
+resource "azurerm_private_dns_zone_virtual_network_link" "decision_evidence_runner_blob" {
+  count = (
+    var.enable_operational_history
+    && var.enable_private_networking
+    && var.runner_vnet_id != ""
+  ) ? 1 : 0
+
+  name                  = "link-decision-evidence-runner-${var.workload}${local.full_suffix}"
+  resource_group_name   = module.resource_group.name
+  private_dns_zone_name = "privatelink.blob.core.windows.net"
+  virtual_network_id    = var.runner_vnet_id
+  registration_enabled  = false
+  tags                  = merge(local.tags, { "fdai:component" = "decision-evidence" })
+}
+
 # -----------------------------------------------------------------------
 # Rule-catalog collector snapshot storage - private, versioned Blob mirror
 # of verified watcher source snapshots. Reuses the generic case-history

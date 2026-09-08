@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b1d19789705a3256266d39e42ad95d7137e50458
-translation_revised: 2026-09-08
+translation_source_sha: d06e994da1d310fed734e8e18d78101a3c40e185
+translation_revised: 2026-09-09
 ---
 # 코드 맵
 
@@ -634,7 +634,7 @@ principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Res
 | [콘솔/](../../../console/) | 지식 원본 및 거버넌스 적용 문서 업로드 경로, 지역화된 가이드 서랍, 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
-| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | 운영자 클라이언트와 별도 배포 도구입니다. 비공개 기반 계층 계획, 상태 비교, 런타임 입력 검증을 제공합니다. 기반 계층이 애플리케이션 그룹을 소유하며 새 플랫폼 상태는 두 번째 소유자 없이 이를 참조합니다. [Genesis 진행 상태](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)를 참조하세요. |
+| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | 운영자 클라이언트와 별도 배포 도구입니다. 비공개 기반 계층 계획, 상태 비교, 런타임 입력 검증 및 통제된 근거 게시를 위한 전용 runner-Blob DNS 연결을 제공합니다. 기반 계층이 애플리케이션 그룹을 소유하며 새 플랫폼 상태는 두 번째 소유자 없이 이를 참조합니다. [Genesis 진행 상태](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)를 참조하세요. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design 맥락 읽기를 기록하고 dirty 편집 경로를 예약하며, framework 및 constitution 편집의 stale 맥락을 hard-block하고, commit 범위와 파괴적 Git을 보호하며, repository-wide 검증을 명시적인 integration 또는 release 경계로 라우팅합니다. |
 
 ## 관련 문서

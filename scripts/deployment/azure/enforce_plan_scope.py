@@ -34,7 +34,7 @@ _OPERATIONAL_HISTORY_PREFIXES = (
     "azurerm_private_endpoint.operational_history_blob[0]",
     "module.decision_evidence_storage[0].",
     "azurerm_private_endpoint.decision_evidence_blob[0]",
-    'module.case_history_blob_private_endpoint[0].azurerm_private_dns_zone_virtual_network_link.extra["ops"]',
+    "azurerm_private_dns_zone_virtual_network_link.decision_evidence_runner_blob[0]",
     "azurerm_role_assignment.decision_evidence_inventory_reader[0]",
     "azurerm_container_app_job.operational_history_lifecycle[0]",
     "module.resource_group.terraform_data.ownership",
