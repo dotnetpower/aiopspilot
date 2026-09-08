@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1b81ff4495db8f6ec1d2a893b7804883b225ccfa
+translation_source_sha: 699ae94460ef54b357b60631695c11efdfdd58fb
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -478,6 +478,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `KAFKA_SECURITY_PROTOCOL` | env | 배포 | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | 배포 | Azure 에서 `OAUTHBEARER` |
 | `FDAI_STATE_STORE_DSN` | KV 참조 | 업스트림 | 감사 + KPI 용 Postgres 연결 URI. `infra/main.tf` 의 `azurerm_key_vault_secret.state_store_dsn` 이 `module.state_store.application_dsn` 으로부터 배선하고, Container App 은 `secret{}` + `env{}` 로 노출 ([project-structure-ko.md](../architecture/project-structure-ko.md) 의 `infra/modules/compute/container-apps/` 참조). 로컬/dev는 없을 때 in-memory를 사용할 수 있지만 `RUNTIME_ENV=staging|prod`는 시작을 차단합니다. |
+| `FDAI_DECISION_EVIDENCE_CONTAINER_URL` | env | 배포 | 변경할 수 없고 내용 기반 주소를 사용하는 의사 결정 근거의 증명, 요건, 묶음 및 승인 기록을 담는 선택적 비공개 Blob 컨테이너입니다. Core는 연결된 읽기 전용 Managed Identity를 사용하며 저장소 키를 받지 않습니다. 설정하지 않으면 런타임은 StateStore 기반 공급자를 사용하고 기록이 없을 때 긍정적 의사 결정을 계속 검토 보류로 처리합니다. |
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`입니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV 참조 | 업스트림 | HIL 승인 운영자 기억 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); 배포는 코어를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV 참조 | 업스트림 | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |

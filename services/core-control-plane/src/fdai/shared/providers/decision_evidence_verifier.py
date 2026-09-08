@@ -128,6 +128,32 @@ def assess_decision_evidence_admission(
     return tuple(sorted(reasons, key=str))
 
 
+def resolve_current_decision_evidence_admission(
+    admission: DecisionEvidenceAdmission,
+    *,
+    expected_evidence_digest: str,
+    expected_scope_digest: str,
+    expected_purpose_id: str,
+    expected_source_revision: str,
+    evaluated_at: datetime,
+) -> DecisionEvidenceAdmission | None:
+    """Return one exact current admission, reject mismatch, and expire safely."""
+
+    reasons = assess_decision_evidence_admission(
+        admission,
+        expected_evidence_digest=expected_evidence_digest,
+        expected_scope_digest=expected_scope_digest,
+        expected_purpose_id=expected_purpose_id,
+        expected_source_revision=expected_source_revision,
+        evaluated_at=evaluated_at,
+    )
+    if not reasons:
+        return admission
+    if reasons == (DecisionEvidenceAdmissionRejectionReason.NOT_CURRENT,):
+        return None
+    raise ValueError("decision evidence admission does not match the exact decision input")
+
+
 class DecisionEvidenceVerifier(Protocol):
     """Return five independent proofs for one exact evidence receipt."""
 
@@ -225,4 +251,5 @@ __all__ = [
     "DecisionEvidenceVerifierBinding",
     "DecisionEvidenceVerifierRegistry",
     "assess_decision_evidence_admission",
+    "resolve_current_decision_evidence_admission",
 ]

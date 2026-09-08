@@ -8,7 +8,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.composition import Container
+from fdai.composition import (
+    Container,
+    bind_azure_decision_evidence_admission,
+    bind_decision_evidence_admission,
+)
 from fdai.composition.readiness import (
     OperationalReadinessEventHandler,
     build_operational_readiness_event_handler,
@@ -232,6 +236,22 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    container = bind_decision_evidence_admission(container, state_store=state_store)
+    decision_evidence_container_url = environment.get(
+        "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
+        "",
+    ).strip()
+    if decision_evidence_container_url:
+        if identity is None:
+            raise RuntimeError("Blob decision evidence admission requires a workload identity")
+        if resources.http_client is None:
+            resources.http_client = _new_http_client()
+        container = bind_azure_decision_evidence_admission(
+            container,
+            container_url=decision_evidence_container_url,
+            identity=identity,
+            http_client=resources.http_client,
+        )
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     if gitops_delivery_requested:
@@ -306,6 +326,7 @@ async def build_core_runtime(
         feasibility_probes=container.feasibility_probes,
         event_validator=container.event_validator,
         state_store=state_store,
+        decision_evidence=container.decision_evidence_admission_provider,
         best_practices=best_practices,
         checklist_evidence=checklist_evidence,
     )
@@ -536,6 +557,7 @@ async def build_core_runtime(
         environment=environment,
         registered_specs=(*container.startup_probe_specs, *semantic.readiness_specs),
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
+        decision_evidence=container.decision_evidence_admission_provider,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

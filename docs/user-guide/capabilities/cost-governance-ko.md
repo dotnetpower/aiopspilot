@@ -2,8 +2,8 @@
 title: 비용 거버넌스
 description: FDAI가 지출 이상을 감지하고, 라이트사이징을 권장하고, 저위험 정리를 스스로 실행하는 방법입니다. 위험한 비용 변경은 승인을 기다립니다.
 translation_of: cost-governance.md
-translation_source_sha: d8b701a7669c2042885f804400a037ac3bda1bec
-translation_revised: 2026-09-06
+translation_source_sha: d39cc9fbcf457e18e4e7c6b6ce93588b15b54449
+translation_revised: 2026-09-08
 ---
 
 # 비용 거버넌스

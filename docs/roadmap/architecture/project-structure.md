@@ -430,6 +430,12 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
   refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement.
+- **Decision-evidence admission**: `StateStoreDecisionEvidenceAdmissionProvider` supplies local and
+  durable runtime parity, while `AzureBlobDecisionEvidenceAdmissionProvider` reads immutable
+  managed-identity-protected records in deployed composition. Both providers revalidate the exact
+  evidence, scope, purpose, source revision, proof bundle, verifier separation, and expiry on every
+  lookup. Missing records return no admission, malformed records fail explicitly, and neither
+  provider grants execution or promotion authority.
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The

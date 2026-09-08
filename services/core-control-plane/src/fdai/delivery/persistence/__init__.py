@@ -226,6 +226,15 @@ from fdai.delivery.persistence.read_investigation_latency import (
 from fdai.delivery.persistence.state_store_action_promotion import (
     StateStoreActionPromotionRegistry,
 )
+from fdai.delivery.persistence.state_store_decision_evidence import (
+    DecisionEvidenceAdmissionRecordError,
+    StateStoreDecisionEvidenceAdmissionProvider,
+    StateStoreDecisionEvidenceAdmissionRecorder,
+    decision_evidence_lookup_digest,
+    decision_evidence_record_mapping,
+    decision_evidence_state_key,
+    parse_decision_evidence_record,
+)
 from fdai.delivery.persistence.state_store_hil_registry import (
     PostgresHilApprovalRegistry,
     StateStoreHilApprovalRegistry,
@@ -357,6 +366,13 @@ __all__ = [
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
     "StateStoreActionPromotionRegistry",
+    "DecisionEvidenceAdmissionRecordError",
+    "StateStoreDecisionEvidenceAdmissionProvider",
+    "StateStoreDecisionEvidenceAdmissionRecorder",
+    "decision_evidence_lookup_digest",
+    "decision_evidence_record_mapping",
+    "decision_evidence_state_key",
+    "parse_decision_evidence_record",
     "StateStoreOpenActionEvidenceProvider",
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",
