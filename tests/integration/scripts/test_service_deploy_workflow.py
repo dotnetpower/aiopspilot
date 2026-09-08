@@ -154,6 +154,12 @@ def test_platform_workflow_binds_channel_edge_identity_and_secret_scopes() -> No
     ):
         assert f"-target={target}" in target_expression
     assert 'var.channel_edge.principal_scopes_secret_id != ""' in _OPERATOR_VARIABLES
+    assert "OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}" in (
+        _WORKFLOW
+    )
+    assert "channel_edge_args+=(--operator-channel-edge-enabled true)" in _WORKFLOW
+    assert "channel_edge_args+=(--operator-channel-edge-enabled false)" in _WORKFLOW
+    assert '"${channel_edge_args[@]}"' in _WORKFLOW
     assert "one complete Slack or Teams provider contract plus principal scopes" in (
         _OPERATOR_VARIABLES
     )
@@ -811,7 +817,7 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
         _WORKFLOW.count(
             "OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}"
         )
-        == 4
+        == 5
     )
     assert (
         _WORKFLOW.count('--operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION"')

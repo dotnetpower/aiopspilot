@@ -504,6 +504,7 @@ jobs:
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
         run: |
           set -euo pipefail
           [[ -n "$SERVICE_TFVARS_JSON" ]] || {
@@ -511,6 +512,11 @@ jobs:
             exit 1
           }
           resolved_model_args=()
+          channel_edge_args=()
+          case "$OPERATOR_CHANNEL_EDGE_TRANSITION" in
+            enable) channel_edge_args+=(--operator-channel-edge-enabled true) ;;
+            disable) channel_edge_args+=(--operator-channel-edge-enabled false) ;;
+          esac
           model_endpoints_json="{}"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             resolved_model_args+=(--model-binding-transition)
@@ -658,6 +664,7 @@ jobs:
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
+                "${channel_edge_args[@]}" \
                 "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
 

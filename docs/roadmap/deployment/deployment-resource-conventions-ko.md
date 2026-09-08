@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: a2ff911da96e9f310c099360f556241ce456627d
+translation_source_sha: b634af07f950b5a8cc79f0b8ecbed5923af0b88f
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 명시적인 channel-edge 활성화 또는 비활성화 전환을 계획 guard에만 전달하지 않고 Terraform 계획 전에 서비스 tfvars 구체화에도 결속했습니다. | 실패한 서비스 계획 `34222085011`, `current change`, 집중 서비스 작업 흐름 테스트 | 완전한 프로바이더 결속으로 Operator 활성화 계획을 다시 실행하고 guard를 통과한 생성 전용 결과를 보존합니다. |
 | 2026-09-08 | implemented | Channel-edge 신원과 해당 ACR, 의미 Event Hubs, Operator DSN 및 프로바이더와 주체 비밀 범위 4개만 대상으로 하는 전용 platform 계획 대상 집합을 추가했습니다. | `current change`, platform 작업 흐름 계약 테스트 | 삭제가 없는 계획과 단독 유지관리자 직접 개발 적용을 실행한 뒤 Operator 워크로드를 활성화합니다. |
 | 2026-09-08 | implemented | 비밀 helper를 root 최소 환경 대신 HTTP 의존성을 소유한 고정 Operator Service 패키지 환경에 결속했습니다. | 실패한 작업 흐름 `34217394441`, `current change`, 집중 helper 및 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner의 목록 변환 결과가 `properties.vaultUri`를 생략하므로 고유하게 검증된 vault 이름에서 상용 Azure Key Vault 정규 URI를 파생했습니다. Helper는 Azure Vault DNS 밖의 URI를 계속 거부합니다. | 실패한 작업 흐름 `34216680762`, `current change`, 집중 작업 흐름 및 helper 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
