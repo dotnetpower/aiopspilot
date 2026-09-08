@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/refresh-authoritative-inventory.py"
 
@@ -158,3 +160,21 @@ def test_operator_projection_carries_promoted_snapshot_provenance() -> None:
     assert "SELECT s.id, s.completed_at, s.source, s.observation_kind" in source
     assert 'snapshot_id=str(snapshot["id"])' in source
     assert 'observation_kind=InventoryObservationKind(snapshot["observation_kind"])' in source
+
+
+def test_refresh_rejects_pending_active_scope_observations() -> None:
+    module = _module()
+
+    with pytest.raises(
+        RuntimeError,
+        match="pending active-scope observations",
+    ):
+        module._require_current_active_scope(
+            journal_high_watermark=9,
+            active_scope_projection_watermark=8,
+        )
+
+    module._require_current_active_scope(
+        journal_high_watermark=9,
+        active_scope_projection_watermark=9,
+    )
