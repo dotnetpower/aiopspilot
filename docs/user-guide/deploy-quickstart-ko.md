@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: e4d4169b1251fbe6caf8e6ac731ed36ea6e04356
+translation_source_sha: b7a73ba3f1fb73efe057eea9ccecad73ec37f182
 translation_revised: 2026-09-09
 ---
 
@@ -99,7 +99,7 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   도달할 수 있습니다. 정확한 runner 데이터 소유자 역할 할당이 Terraform state 외부에 이미
   있으면 계획이 범위, principal 및 역할을 확인한 뒤 가져옵니다. 이를 수동으로 삭제하거나 다시
   만들지 마세요. 이 범위 제한 모드의 적용 후 검사는 관련 없는 Inventory Job 이미지 drift를
-  검사하지 않습니다.
+  검사하지 않으며, 계획은 runner VNet을 공유 비공개 Blob DNS 영역에 연결합니다.
 - 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
   활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
   선택적 모델 추론 접근 권한만 있는 전용 측정 신원을 공유합니다. 실행기 신원이나 클라우드
