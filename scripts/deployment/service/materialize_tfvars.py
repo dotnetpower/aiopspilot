@@ -186,12 +186,13 @@ def _channel_edge_secret_id(value: object, *, expected_name: str) -> tuple[str, 
         or segments[5].lower() != "providers"
         or segments[6].lower() != "microsoft.keyvault"
         or segments[7].lower() != "vaults"
-        or not segments[8]
+        or re.fullmatch(r"[A-Za-z0-9-]{3,24}", segments[8]) is None
         or segments[9].lower() != "secrets"
         or segments[10] != expected_name
     ):
         raise TfvarsError("operator channel edge secret id is not an approved fixed secret")
-    return value, "/".join(segments[:10])
+    secret_uri = f"https://{segments[8].lower()}.vault.azure.net/secrets/{expected_name}"
+    return secret_uri, "/".join(segments[:10])
 
 
 def materialize_operator_channel_edge(

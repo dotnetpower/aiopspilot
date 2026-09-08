@@ -2847,13 +2847,18 @@ def test_tfvars_materializes_bounded_slack_channel_edge_provider(
         },
         operator_channel_edge_provider=provider,
     )
+    expected_secret_ids = {
+        key: f"https://example.vault.azure.net/secrets/{value.rsplit('/', 1)[-1]}"
+        for key, value in provider.items()
+        if key != "slack_team_id"
+    }
 
     assert selected["channel_edge"] == {
         "enabled": True,
         "name": "ca-example-dev-channel-edge",
         "slack_enabled": True,
         "teams_enabled": False,
-        **{key: value for key, value in provider.items() if key != "slack_team_id"},
+        **expected_secret_ids,
         "slack_team_id": "T00000000",
         "teams_application_id": "",
         "teams_tenant_id": "",
