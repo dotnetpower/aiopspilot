@@ -117,6 +117,9 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
             ]
         if "conversation_assurance_dispute" in statement:
             return [dispute]
+        if "AS question" in statement:
+            assert parameters == ("operator-a", "conversation-1", "turn-1")
+            return [{"question": "What changed?", "answer": "One database changed."}]
         return [assessment]
 
     monkeypatch.setattr(ConversationAssuranceReader, "_fetch_all", fetch)
@@ -143,9 +146,9 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
     assert isinstance(detail.body, dict)
     assert detail.body["assessment"]["assessment_id"] == "assessment-1"
     assert detail.body["turn"] == {
-        "available": False,
-        "question": None,
-        "answer": None,
+        "available": True,
+        "question": "What changed?",
+        "answer": "One database changed.",
     }
 
 

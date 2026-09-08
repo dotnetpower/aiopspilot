@@ -167,13 +167,58 @@ class ConversationAssuranceReader:
         )
         if not rows:
             return None
+        turn = await self._turn_body(
+            principal_scope,
+            conversation_id=str(rows[0]["conversation_id"]),
+            turn_id=str(rows[0]["turn_id"]),
+        )
         return cast(
             JsonObject,
             {
                 "assessment": _assessment(rows[0]),
-                "turn": {"available": False, "question": None, "answer": None},
+                "turn": turn,
             },
         )
+
+    async def _turn_body(
+        self,
+        principal_scope: str,
+        *,
+        conversation_id: str,
+        turn_id: str,
+    ) -> dict[str, object]:
+        rows = await self._fetch_all(
+            "SELECT request.value #>> '{envelope,semantic_turn,utterance}' AS question, "
+            "COALESCE("
+            "result.value #>> '{data,semantic_result,answer}', "
+            "result.value #>> '{data,payload,pantheon_assurance,answer}'"
+            ") AS answer "
+            "FROM state_kv AS request JOIN state_kv AS result "
+            "ON result.value ->> 'request_id' = request.value ->> 'request_id' "
+            "WHERE request.value ->> 'kind' = 'operator.semantic_turn' "
+            "AND request.value ->> 'principal_id' = %s "
+            "AND request.value #>> '{envelope,semantic_turn,session_id}' = %s "
+            "AND request.value #>> '{envelope,semantic_turn,turn_id}' = %s "
+            "AND result.value ->> 'kind' = 'operator.semantic_result' "
+            "ORDER BY result.updated_at DESC, result.key DESC LIMIT 1",
+            (principal_scope, conversation_id, turn_id),
+        )
+        if not rows:
+            return {"available": False, "question": None, "answer": None}
+        question = rows[0].get("question")
+        answer = rows[0].get("answer")
+        if (
+            not isinstance(question, str)
+            or not question.strip()
+            or len(question) > 16_000
+            or not isinstance(answer, str)
+            or not answer.strip()
+            or len(answer) > 32_000
+        ):
+            raise ConversationUnavailableError(
+                "principal-scoped conversation assurance turn is malformed"
+            )
+        return {"available": True, "question": question, "answer": answer}
 
     async def _assessment_rows(
         self,
