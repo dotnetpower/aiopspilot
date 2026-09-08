@@ -51,10 +51,14 @@ from fdai.shared.providers.notifications.base import (
     DeliveryReceipt,
     NotificationMessage,
     TrustTier,
+    require_channel_id,
 )
 from fdai.shared.providers.notifications.presentation import (
+    NotificationPayloadRenderer,
     NotificationPresentationEnvelope,
     PresentationLimits,
+    PresentationRejectedError,
+    RenderedNotificationPayload,
     render_presentation,
 )
 
@@ -95,6 +99,11 @@ class ShadowDeliveryRecord:
     envelope: NotificationPresentationEnvelope
     recorded_at: datetime
     audit_id: str | None = None
+    rendered_payload: RenderedNotificationPayload | None = None
+
+
+class ShadowDeliveryConflictError(RuntimeError):
+    """Raised when one stable shadow id is reused for different content."""
 
 
 @runtime_checkable
@@ -124,11 +133,31 @@ class InMemoryShadowDeliveryRecorder:
         self._entries: dict[str, ShadowDeliveryRecord] = {}
 
     async def record(self, entry: ShadowDeliveryRecord) -> None:
-        self._entries.setdefault(entry.record_id, entry)
+        existing = self._entries.get(entry.record_id)
+        if existing is None:
+            self._entries[entry.record_id] = entry
+            return
+        if not _same_shadow_content(existing, entry):
+            raise ShadowDeliveryConflictError(
+                "shadow delivery id already exists with different bounded content"
+            )
 
     @property
     def entries(self) -> tuple[ShadowDeliveryRecord, ...]:
         return tuple(self._entries.values())
+
+
+def _same_shadow_content(left: ShadowDeliveryRecord, right: ShadowDeliveryRecord) -> bool:
+    return (
+        left.record_id == right.record_id
+        and left.channel_id == right.channel_id
+        and left.category == right.category
+        and left.trust_tier is right.trust_tier
+        and left.correlation_id == right.correlation_id
+        and left.envelope == right.envelope
+        and left.audit_id == right.audit_id
+        and left.rendered_payload == right.rendered_payload
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,8 +177,15 @@ class ShadowNotificationChannel:
     channel_id: str
     trust_tiers: frozenset[TrustTier]
     recorder: ShadowDeliveryRecorder
+    payload_renderer: NotificationPayloadRenderer | None = None
     limits: PresentationLimits = field(default_factory=PresentationLimits)
+    max_rendered_payload_bytes: int = 64 * 1024
     clock: Callable[[], datetime] = field(default=_utc_now)
+
+    def __post_init__(self) -> None:
+        require_channel_id(self.channel_id)
+        if self.max_rendered_payload_bytes < 1:
+            raise ValueError("shadow rendered payload limit MUST be positive")
 
     async def send(self, message: NotificationMessage) -> DeliveryReceipt:
         """Render, bound, and durably record ``message`` - no network I/O.
@@ -164,6 +200,16 @@ class ShadowNotificationChannel:
         timezone-aware timestamp this service records.
         """
         envelope = render_presentation(message, channel_id=self.channel_id, limits=self.limits)
+        rendered_payload = (
+            self.payload_renderer(envelope) if self.payload_renderer is not None else None
+        )
+        if (
+            rendered_payload is not None
+            and len(rendered_payload.body) > self.max_rendered_payload_bytes
+        ):
+            raise PresentationRejectedError(
+                "rendered provider payload exceeds the shadow record limit"
+            )
         recorded_at = self.clock()
         if recorded_at.tzinfo is None:
             raise ValueError("shadow delivery clock MUST return a timezone-aware datetime")
@@ -178,6 +224,7 @@ class ShadowNotificationChannel:
                 envelope=envelope,
                 recorded_at=recorded_at,
                 audit_id=message.audit_id,
+                rendered_payload=rendered_payload,
             )
         )
         return DeliveryReceipt(
@@ -190,6 +237,7 @@ class ShadowNotificationChannel:
 
 __all__ = [
     "InMemoryShadowDeliveryRecorder",
+    "ShadowDeliveryConflictError",
     "ShadowDeliveryRecord",
     "ShadowDeliveryRecorder",
     "ShadowNotificationChannel",

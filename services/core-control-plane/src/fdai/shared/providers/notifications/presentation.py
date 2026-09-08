@@ -20,7 +20,7 @@ carries only the bounded, already-validated fields a renderer needs.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final
@@ -129,6 +129,27 @@ class NotificationPresentationEnvelope:
     audit_id: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class RenderedNotificationPayload:
+    """Immutable provider payload produced by a pure presentation renderer."""
+
+    content_type: str
+    body: bytes
+
+    def __post_init__(self) -> None:
+        if not self.content_type:
+            raise ValueError("rendered notification content_type MUST be non-empty")
+        if not self.body:
+            raise ValueError("rendered notification body MUST be non-empty")
+
+
+NotificationPayloadRenderer = Callable[
+    [NotificationPresentationEnvelope],
+    RenderedNotificationPayload,
+]
+"""Pure provider renderer used identically by shadow and enforce channels."""
+
+
 def render_presentation(
     message: NotificationMessage,
     *,
@@ -215,8 +236,10 @@ def _reject_secret_like(message: NotificationMessage) -> None:
 
 __all__ = [
     "INTERACTIVE_METADATA_KEYS",
+    "NotificationPayloadRenderer",
     "NotificationPresentationEnvelope",
     "PresentationLimits",
     "PresentationRejectedError",
+    "RenderedNotificationPayload",
     "render_presentation",
 ]

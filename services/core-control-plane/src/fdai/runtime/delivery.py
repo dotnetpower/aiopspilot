@@ -685,14 +685,21 @@ def _build_notification_router(
     """Compose the shared durable notification router for runtime workflows."""
 
     from fdai.core.notifications.router import NotificationRouter
-    from fdai.delivery.notifications import StateStoreHilEscalationSink
+    from fdai.delivery.notifications import (
+        StateStoreHilEscalationSink,
+        StateStoreShadowDeliveryRecorder,
+    )
 
     if notification_delivery_store is None:
         notification_delivery_store = build_notification_delivery_store()
     matrix = load_matrix_from_yaml(
         _resolve_catalog_root().parent / "config" / "notifications-matrix.yaml"
     )
-    registry = _build_notification_registry(http_client, endpoint_overrides)
+    registry = _build_notification_registry(
+        http_client,
+        endpoint_overrides,
+        StateStoreShadowDeliveryRecorder(state_store=audit_store),
+    )
     _validate_incident_notification_route(matrix, registry)
     return NotificationRouter(
         matrix=matrix,

@@ -572,9 +572,14 @@ only when its rule id, action type, and fixed check reference still match.
 - Secrets are read through an injected provider, never a global import-time read, and never
   written to logs, audit entries, or error messages.
 - Outbound A2/A4 notification composition resolves named bindings from
-  `FDAI_NOTIFICATION_BINDINGS_JSON`. Endpoint and credential fields name environment variables
-  populated by the deployment secret provider; enabled incomplete bindings fail startup, and
-  `core/notifications` receives only provider-neutral adapters plus durable delivery stores.
+  `FDAI_NOTIFICATION_BINDINGS_JSON`. An explicit `mode: shadow` Teams or Slack binding uses the same
+  pure provider renderer as enforce mode, writes the immutable provider payload through the injected
+  `StateStore`, and resolves no endpoint or HTTP client. Enforce bindings preserve the existing
+  endpoint and credential environment references and fail startup when incomplete.
+  `core/notifications` receives only provider-neutral adapters plus durable delivery stores. Both
+  in-memory and StateStore shadow recorders reject a stable record id reused with different content,
+  and Core rejects a rendered shadow payload above 64 KiB before persistence. A shared validator
+  keeps binding, capability, shadow, Teams, and Slack channel ids within one bounded ASCII format.
 - A fork supplies its own config and secret-store layer without editing `core/`.
 - Feature flags gate new capabilities so they ship in **shadow-mode** (judge-and-log only)
   and are promoted to enforce per-action, in a separate reviewed change.

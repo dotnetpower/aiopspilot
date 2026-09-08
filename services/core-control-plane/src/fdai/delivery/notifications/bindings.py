@@ -9,11 +9,12 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from fdai.shared.providers.notifications import TrustTier
+from fdai.shared.providers.notifications import ChannelMode, TrustTier, require_channel_id
 
 from .teams import TeamsWorkflowAuthMode
 
 _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_MAX_BINDINGS = 64
 NOTIFICATION_TRUST_TIERS: frozenset[TrustTier] = frozenset(
     {TrustTier.A2_OPERATIONAL_ALERT, TrustTier.A4_DIGEST}
 )
@@ -38,6 +39,7 @@ class NotificationBindingSpec:
     kind: NotificationBindingKind
     enabled: bool
     trust_tiers: frozenset[TrustTier]
+    mode: ChannelMode = ChannelMode.ENFORCE
     endpoint_env: str | None = None
     auth_mode: TeamsWorkflowAuthMode | None = None
     sender_address_env: str | None = None
@@ -52,6 +54,7 @@ def default_notification_bindings_from_env(environment: Mapping[str, str]) -> st
         bindings["teams-ops-prd"] = {
             "kind": "teams_workflow",
             "enabled": True,
+            "mode": "enforce",
             "trust_tiers": ["a2_operational_alert"],
             "auth_mode": "anyone",
             "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
@@ -59,6 +62,7 @@ def default_notification_bindings_from_env(environment: Mapping[str, str]) -> st
         bindings["teams-hil-prd"] = {
             "kind": "teams_workflow",
             "enabled": True,
+            "mode": "enforce",
             "trust_tiers": ["a4_digest"],
             "auth_mode": "anyone",
             "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
@@ -67,6 +71,7 @@ def default_notification_bindings_from_env(environment: Mapping[str, str]) -> st
         bindings["slack-ops-prd"] = {
             "kind": "slack_webhook",
             "enabled": True,
+            "mode": "enforce",
             "trust_tiers": ["a2_operational_alert"],
             "endpoint_env": "FDAI_SLACK_OPS_WEBHOOK_URL",
         }
@@ -76,22 +81,37 @@ def default_notification_bindings_from_env(environment: Mapping[str, str]) -> st
 def parse_notification_bindings(raw: str) -> tuple[NotificationBindingSpec, ...]:
     """Parse a channel-id keyed JSON object without resolving secret values."""
     try:
-        value = json.loads(raw)
+        value = json.loads(raw, object_pairs_hook=_unique_json_object)
     except json.JSONDecodeError as exc:
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON is not valid JSON") from exc
     if not isinstance(value, dict) or not value:
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON MUST be a non-empty object")
+    if len(value) > _MAX_BINDINGS:
+        raise ValueError(
+            f"FDAI_NOTIFICATION_BINDINGS_JSON MUST contain at most {_MAX_BINDINGS} bindings"
+        )
     return tuple(_parse_binding(channel_id, spec) for channel_id, spec in value.items())
 
 
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"notification binding JSON has duplicate key {key!r}")
+        value[key] = item
+    return value
+
+
 def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
-    if not isinstance(channel_id, str) or not channel_id:
-        raise ValueError("notification binding id MUST be a non-empty string")
+    if not isinstance(channel_id, str):
+        raise ValueError("notification binding id MUST be a string")
+    require_channel_id(channel_id)
     if not isinstance(raw, dict):
         raise ValueError(f"notification binding {channel_id!r} MUST be an object")
     allowed = {
         "kind",
         "enabled",
+        "mode",
         "trust_tiers",
         "endpoint_env",
         "auth_mode",
@@ -106,6 +126,9 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
     enabled = raw.get("enabled")
     if not isinstance(enabled, bool):
         raise ValueError(f"notification binding {channel_id!r} 'enabled' MUST be boolean")
+    mode = (
+        _enum_value(raw, "mode", ChannelMode, channel_id) if "mode" in raw else ChannelMode.ENFORCE
+    )
     trust_tiers = _trust_tiers(channel_id, raw.get("trust_tiers"))
     identity_env = _env_name(
         raw.get("identity_client_id_env", "FDAI_NOTIFICATION_MI_CLIENT_ID"),
@@ -115,19 +138,24 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
 
     if kind is NotificationBindingKind.TEAMS_WORKFLOW:
         _reject_fields(channel_id, raw, {"sender_address_env", "recipient_addresses_env"})
-        auth_mode = (
-            _enum_value(raw, "auth_mode", TeamsWorkflowAuthMode, channel_id)
-            if enabled or "auth_mode" in raw
-            else None
-        )
+        auth_mode = None
+        if "auth_mode" in raw:
+            auth_mode = _enum_value(raw, "auth_mode", TeamsWorkflowAuthMode, channel_id)
+        elif enabled and mode is ChannelMode.ENFORCE:
+            raise ValueError(
+                f"enabled enforce notification binding {channel_id!r} requires 'auth_mode'"
+            )
         endpoint_env = _optional_env_name(raw.get("endpoint_env"), channel_id, "endpoint_env")
-        if enabled and endpoint_env is None:
-            raise ValueError(f"enabled notification binding {channel_id!r} requires 'endpoint_env'")
+        if enabled and mode is ChannelMode.ENFORCE and endpoint_env is None:
+            raise ValueError(
+                f"enabled enforce notification binding {channel_id!r} requires 'endpoint_env'"
+            )
         return NotificationBindingSpec(
             channel_id=channel_id,
             kind=kind,
             enabled=enabled,
             trust_tiers=trust_tiers,
+            mode=mode,
             endpoint_env=endpoint_env,
             auth_mode=auth_mode,
             identity_client_id_env=identity_env,
@@ -145,16 +173,21 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
             },
         )
         endpoint_env = _optional_env_name(raw.get("endpoint_env"), channel_id, "endpoint_env")
-        if enabled and endpoint_env is None:
-            raise ValueError(f"enabled notification binding {channel_id!r} requires 'endpoint_env'")
+        if enabled and mode is ChannelMode.ENFORCE and endpoint_env is None:
+            raise ValueError(
+                f"enabled enforce notification binding {channel_id!r} requires 'endpoint_env'"
+            )
         return NotificationBindingSpec(
             channel_id=channel_id,
             kind=kind,
             enabled=enabled,
             trust_tiers=trust_tiers,
+            mode=mode,
             endpoint_env=endpoint_env,
         )
 
+    if mode is ChannelMode.SHADOW:
+        raise ValueError("acs_email notification bindings do not support shadow mode")
     _reject_fields(channel_id, raw, {"auth_mode"})
     endpoint_env = _optional_env_name(raw.get("endpoint_env"), channel_id, "endpoint_env")
     sender_env = _optional_env_name(
@@ -177,6 +210,7 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
         kind=kind,
         enabled=enabled,
         trust_tiers=trust_tiers,
+        mode=mode,
         endpoint_env=endpoint_env,
         sender_address_env=sender_env,
         recipient_addresses_env=recipients_env,

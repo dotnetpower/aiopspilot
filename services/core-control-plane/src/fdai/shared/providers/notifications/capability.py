@@ -21,6 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .base import require_channel_id
+
 
 class ChannelMode(StrEnum):
     """Authority axis for one channel binding - never a health signal.
@@ -56,8 +58,7 @@ class ChannelCapabilityState:
     mode: ChannelMode = ChannelMode.SHADOW
 
     def __post_init__(self) -> None:
-        if not self.channel_id:
-            raise ValueError("channel capability state channel_id MUST be non-empty")
+        require_channel_id(self.channel_id)
 
     @property
     def ready(self) -> bool:

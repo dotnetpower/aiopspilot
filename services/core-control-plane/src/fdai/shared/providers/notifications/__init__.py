@@ -43,6 +43,7 @@ from .base import (
     NotificationMessage,
     Severity,
     TrustTier,
+    require_channel_id,
 )
 from .capability import ChannelCapabilityState, ChannelMode
 from .channels import (
@@ -55,9 +56,11 @@ from .channels import (
 )
 from .presentation import (
     INTERACTIVE_METADATA_KEYS,
+    NotificationPayloadRenderer,
     NotificationPresentationEnvelope,
     PresentationLimits,
     PresentationRejectedError,
+    RenderedNotificationPayload,
     render_presentation,
 )
 
@@ -75,10 +78,12 @@ __all__ = [
     "Link",
     "NotificationChannel",
     "NotificationMessage",
+    "NotificationPayloadRenderer",
     "NotificationPresentationEnvelope",
     "PagerDutyChannel",
     "PresentationLimits",
     "PresentationRejectedError",
+    "RenderedNotificationPayload",
     "Severity",
     "SlackChannel",
     "SmsChannel",
@@ -86,4 +91,5 @@ __all__ = [
     "TrustTier",
     "WebhookChannel",
     "render_presentation",
+    "require_channel_id",
 ]

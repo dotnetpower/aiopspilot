@@ -18,6 +18,7 @@ from typing import Any, cast
 import httpx
 
 from fdai.core.notifications.router import ChannelBinding, ChannelRegistry
+from fdai.core.notifications.shadow import ShadowDeliveryRecorder
 from fdai.delivery.integration_readiness import endpoint_is_placeholder
 from fdai.shared.providers.notifications import NotificationChannel
 
@@ -29,6 +30,7 @@ _TEAMS_WORKFLOW_SCOPE = "https://service.flow.microsoft.com/.default"
 def _build_notification_registry(
     http_client: httpx.AsyncClient | None,
     endpoint_overrides: Mapping[str, str] | None = None,
+    shadow_recorder: ShadowDeliveryRecorder | None = None,
 ) -> Any:
     """Bind configured send-only notification adapters.
 
@@ -41,11 +43,12 @@ def _build_notification_registry(
     resolved_env: Mapping[str, str] = {**os.environ, **overrides}
     bindings_raw = os.environ.get("FDAI_NOTIFICATION_BINDINGS_JSON", "").strip()
     if bindings_raw:
-        if http_client is None:
-            raise RuntimeError(
-                "FDAI_NOTIFICATION_BINDINGS_JSON is set but no HTTP client is available"
-            )
-        return _build_named_notification_registry(bindings_raw, http_client, overrides)
+        return _build_named_notification_registry(
+            bindings_raw,
+            http_client,
+            overrides,
+            shadow_recorder,
+        )
 
     registry = ChannelRegistry()
     from fdai.delivery.notifications import default_notification_bindings_from_env
@@ -61,6 +64,7 @@ def _build_notification_registry(
             implicit_bindings_raw,
             http_client,
             overrides,
+            shadow_recorder,
         )
 
     endpoint = os.environ.get("FDAI_EMAIL_ENDPOINT", "").strip()
@@ -139,9 +143,14 @@ def _build_notification_registry(
 
 def _build_named_notification_registry(
     raw: str,
-    http_client: httpx.AsyncClient,
+    http_client: httpx.AsyncClient | None,
     endpoint_overrides: Mapping[str, str] | None = None,
+    shadow_recorder: ShadowDeliveryRecorder | None = None,
 ) -> ChannelRegistry:
+    from fdai.core.notifications import (
+        InMemoryShadowDeliveryRecorder,
+        ShadowNotificationChannel,
+    )
     from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
     from fdai.delivery.notifications import (
         AzureCommunicationEmailChannel,
@@ -153,7 +162,10 @@ def _build_named_notification_registry(
         TeamsWebhookConfig,
         TeamsWorkflowAuthMode,
         parse_notification_bindings,
+        render_slack_payload,
+        render_teams_payload,
     )
+    from fdai.shared.providers.notifications import ChannelKind, ChannelMode
 
     try:
         specs = parse_notification_bindings(raw)
@@ -161,8 +173,11 @@ def _build_named_notification_registry(
         raise RuntimeError(str(exc)) from exc
 
     identities: dict[str, ManagedIdentityWorkloadIdentity] = {}
+    selected_shadow_recorder = shadow_recorder or InMemoryShadowDeliveryRecorder()
 
     def identity_for(env_name: str) -> ManagedIdentityWorkloadIdentity:
+        if http_client is None:
+            raise RuntimeError("notification identity requires an HTTP client")
         identity = identities.get(env_name)
         if identity is None:
             identity = ManagedIdentityWorkloadIdentity.from_env(
@@ -183,6 +198,39 @@ def _build_named_notification_registry(
         )
         if not spec.enabled:
             continue
+        if spec.mode is ChannelMode.SHADOW:
+            if spec.kind is NotificationBindingKind.TEAMS_WORKFLOW:
+                channel_kind = ChannelKind.TEAMS
+                payload_renderer = render_teams_payload
+            elif spec.kind is NotificationBindingKind.SLACK_WEBHOOK:
+                channel_kind = ChannelKind.SLACK
+                payload_renderer = render_slack_payload
+            else:
+                raise RuntimeError(
+                    f"notification binding {spec.channel_id!r} does not support shadow mode"
+                )
+            channel = cast(
+                NotificationChannel,
+                ShadowNotificationChannel(
+                    channel_kind=channel_kind,
+                    channel_id=spec.channel_id,
+                    trust_tiers=spec.trust_tiers,
+                    recorder=selected_shadow_recorder,
+                    payload_renderer=payload_renderer,
+                ),
+            )
+            channels[spec.channel_id] = channel
+            bindings[spec.channel_id] = ChannelBinding(
+                channel_id=spec.channel_id,
+                enabled=True,
+                configured=True,
+                trust_tiers=spec.trust_tiers,
+            )
+            continue
+        if http_client is None:
+            raise RuntimeError(
+                f"enabled enforce notification binding {spec.channel_id!r} requires an HTTP client"
+            )
         if spec.endpoint_env is None:
             raise RuntimeError(
                 f"enabled notification binding {spec.channel_id!r} has no endpoint reference"
@@ -207,7 +255,7 @@ def _build_named_notification_registry(
                     return (await selected.get_token(_TEAMS_WORKFLOW_SCOPE)).token
 
                 token_provider = teams_token_provider
-            channel: NotificationChannel = cast(
+            channel = cast(
                 NotificationChannel,
                 TeamsWebhookChannel(
                     config=TeamsWebhookConfig(

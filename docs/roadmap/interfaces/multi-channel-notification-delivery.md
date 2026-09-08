@@ -75,9 +75,9 @@ credential values in the JSON itself.
   "teams-ops-primary": {
     "kind": "teams_workflow",
     "enabled": true,
+    "mode": "shadow",
     "trust_tiers": ["a2_operational_alert"],
-    "auth_mode": "workload_identity",
-    "endpoint_env": "FDAI_TEAMS_OPS_PRIMARY_ENDPOINT"
+    "auth_mode": "workload_identity"
   },
   "email-oncall": {
     "kind": "acs_email",
@@ -91,10 +91,19 @@ Rules:
 
 - **Binding ids are placeholders upstream.** Endpoint values, tenant values, and room identity live
   in deployment secret configuration, never in this repository.
+- **Binding ids are bounded ASCII machine identifiers.** They contain 1-128 letters, digits, `.`,
+  `_`, or `-`, start with a letter or digit, and contain no whitespace or path separator.
+- **Duplicate JSON keys are invalid at every depth.** A later `mode`, `enabled`, or endpoint
+  reference cannot silently replace the value that a reviewer inspected.
+- **One binding map contains at most 64 entries.** Startup rejects a larger map before constructing
+  adapters or readiness rows.
 - **`enabled: true` with incomplete configuration fails startup.** A half-configured channel is a
   deployment defect, not a channel to skip at send time.
 - **`enabled: false` is an explicit exclusion.** It removes the channel from every target set and is
   visible in the dispatch record.
+- **`mode: "shadow"` renders and records without transport.** Teams and Slack shadow bindings don't
+  require an endpoint or HTTP client. `mode: "enforce"` requires the provider endpoint and keeps the
+  existing runtime behavior. Omitting `mode` defaults to `enforce` for backward compatibility.
 - **Trust tiers stay per binding.** A digest-only room never receives A2 paging traffic.
 
 ### URL-only bootstrap
@@ -374,6 +383,40 @@ call for the same `audit_id` never re-sends an already-terminal target while sti
 one audit entry per call; and a directly repeated `send()` call for the same
 `correlation_id + audit_id + category` records exactly one entry and returns the same
 `provider_message_id`.
+
+### 8.4 Teams and Slack provider rendering
+
+Teams and Slack use one pure provider renderer in both modes. An enforce adapter passes the message
+through `render_presentation`, renders the provider payload, and then invokes its transport. A
+shadow adapter runs the same two rendering steps but persists the immutable provider payload through
+`StateStoreShadowDeliveryRecorder` and performs no HTTP call.
+
+Provider-specific bounds are narrower than the shared envelope where required:
+
+| Provider | Provider payload contract |
+|----------|---------------------------|
+| Teams | Adaptive Card envelope, 250-character title, 3000-character body, 28 KB total payload, and a `rendering: truncated` fact when provider-specific text truncation occurs |
+| Slack | Block Kit envelope, 150-character header, 3000-character section, at most 10 facts per section, 40 KB total payload, escaped fact values, and read-only Markdown links instead of interactive action blocks |
+
+Both renderers preserve `correlation_id`, `audit_id`, and sorted bounded metadata. This lets a caller
+carry canonical incident ids and the `Huginn -> Forseti -> Thor -> Vidar` responsibility order
+without adding vendor-specific fields to `NotificationMessage`. A stable shadow record contains the
+generic envelope and the exact provider JSON bytes. Both the in-memory development recorder and the
+StateStore recorder fail when the same record id carries different bounded content instead of
+overwriting or silently retaining conflicting first-write evidence. The shadow boundary also
+rejects a rendered provider payload above 64 KiB even when a custom renderer omits its own bound.
+
+Slack classifies connection establishment failures as unavailable, but a timeout or other HTTP
+error after dispatch as ambiguous because the provider may have received the request. The router
+doesn't retry an ambiguous acknowledgement through another path.
+
+A Slack webhook HTTP 200 produces `accepted`, not `delivered`. Only an independent publication
+observation may promote provider acceptance to delivery, and the Slack capability remains in shadow
+until that observation path and its promotion evidence are reviewed.
+
+Teams and Slack rejection errors retain only the provider name and HTTP status. Provider response
+bodies are discarded because they are untrusted and may reflect message content; they never enter
+router audit text.
 
 ## Related docs
 

@@ -276,7 +276,7 @@ class TestTeamsAdapter:
         assert attempts == 3
         assert delays == [0.5, 1.0]
 
-    async def test_payload_over_28_kib_fails_before_provider_call(self) -> None:
+    async def test_oversized_body_fails_at_presentation_before_provider_call(self) -> None:
         requests = 0
 
         def handler(_: httpx.Request) -> httpx.Response:
@@ -293,7 +293,7 @@ class TestTeamsAdapter:
                 ),
                 http_client=http,
             )
-            with pytest.raises(ChannelDeliveryError, match="exceeds 28672 bytes"):
+            with pytest.raises(ChannelDeliveryError, match="bounded presentation limit"):
                 await adapter.send(_message(body_markdown="x" * 30_000))
         assert requests == 0
 
@@ -344,14 +344,15 @@ class TestSlackAdapter:
             )
             receipt = await adapter.send(_message())
 
-        assert receipt.delivered is True
+        assert receipt.delivered is False
+        assert receipt.accepted is True
         import json as _json
 
         body = _json.loads(captured[0].content.decode("utf-8"))
         assert "blocks" in body
         assert body["blocks"][0]["type"] == "header"
-        # Link block appended.
-        assert any(b["type"] == "actions" for b in body["blocks"])
+        assert all(b["type"] != "actions" for b in body["blocks"])
+        assert "https://example.com/rb/1" in _json.dumps(body["blocks"])
 
     async def test_all_severities_render(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
