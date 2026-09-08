@@ -7,8 +7,10 @@ from collections.abc import Callable, Sequence
 from decimal import Decimal
 
 import pytest
+from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
+    ConversationDeliberator,
     DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
@@ -199,6 +201,8 @@ class _T2Synthesizer:
             conclusion=(
                 "Capacity evidence outweighs the bounded cost objection; disagreement remains."
             ),
+            model_identity="publisher-c:model-c",
+            model_family="family-c",
             model_key=self._model_key,
             usage=self._usage,
         )
@@ -213,7 +217,27 @@ class _T2FailureSynthesizer:
             raise self.outcome
         if self.outcome is None:
             return None
-        return SynthesisOutcome(conclusion=self.outcome)
+        return SynthesisOutcome(
+            conclusion=self.outcome,
+            model_identity="publisher-c:model-c",
+            model_family="family-c",
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_identity", "model_family"),
+    [("", "family-c"), ("publisher-c:model-c", "")],
+)
+def test_t2_synthesis_outcome_requires_exact_model_attribution(
+    model_identity: str,
+    model_family: str,
+) -> None:
+    with pytest.raises(ValueError, match="model identity and family"):
+        SynthesisOutcome(
+            conclusion="Bounded conclusion.",
+            model_identity=model_identity,
+            model_family=model_family,
+        )
 
 
 def _bind_t1_recommendations(
@@ -460,6 +484,83 @@ def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
         for agent, prompt in request.participant_prompts
     )
     assert "Authority boundary:" not in str(result)
+
+
+def test_deliberation_reuses_verified_semantic_participant_selection() -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", "scale_up"))
+    deliberator = runtime.agents["Bragi"]._deliberator  # noqa: SLF001
+    assert isinstance(deliberator, ConversationDeliberator)
+
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Forseti",
+            correlation_id="corr-semantic-route",
+            routing_decision=RoutingDecision(
+                primary_agent="Njord",
+                scores={"Njord": 3.0, "Freyr": 3.0},
+                tie_break="canonical_name",
+                contributors=("Freyr",),
+                method="semantic_judgment",
+            ),
+        )
+    )
+
+    assert result["status"] == "completed"
+    assert result["primary_agent"] == "Njord"
+    assert result["participants"] == ["Njord", "Freyr"]
+    assert result["routing_method"] == "semantic_judgment"
+    assert result["t1_evaluation"]["reason"] == "structured_conflict"
+
+
+def test_deliberation_supplements_peers_without_replacing_verified_primary() -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", "scale_up"))
+    deliberator = runtime.agents["Bragi"]._deliberator  # noqa: SLF001
+    assert isinstance(deliberator, ConversationDeliberator)
+
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Forseti",
+            correlation_id="corr-direct-route",
+            routing_decision=RoutingDecision(
+                primary_agent="Freyr",
+                scores={"Freyr": 3.0},
+                tie_break=None,
+                contributors=(),
+                method="explicit",
+            ),
+        )
+    )
+
+    assert result["status"] == "completed"
+    assert result["primary_agent"] == "Freyr"
+    assert result["participants"][0] == "Freyr"
+    assert result["routing_method"] == "explicit"
+
+
+def test_deliberation_deduplicates_reused_contributors() -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", "scale_up"))
+    deliberator = runtime.agents["Bragi"]._deliberator  # noqa: SLF001
+    assert isinstance(deliberator, ConversationDeliberator)
+
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Forseti",
+            correlation_id="corr-duplicate-peer",
+            routing_decision=RoutingDecision(
+                primary_agent="Freyr",
+                scores={"Freyr": 3.0, "Njord": 2.0},
+                tie_break=None,
+                contributors=("Njord", "Njord", "Freyr"),
+                method="semantic_judgment",
+            ),
+        )
+    )
+
+    assert result["status"] == "completed"
+    assert result["participants"] == ["Freyr", "Njord"]
 
 
 @pytest.mark.parametrize(
@@ -962,7 +1063,7 @@ async def test_a_metering_hiccup_never_costs_the_operator_the_answer() -> None:
     )
 
     assert result["t2_status"] == "completed"
-    assert result["t2_model_family"] == "gpt-test"
+    assert result["t2_model_family"] == "family-c"
     assert "metering_receipt_digest" not in result
 
 
@@ -1047,5 +1148,5 @@ async def test_a_recorded_call_states_the_currency_its_price_was_set_in() -> Non
 
     invocation = (await sink.invocations())[0]
     assert invocation.currency == "KRW"
-    assert result["t2_model_family"] == "gpt-test"
+    assert result["t2_model_family"] == "family-c"
     assert len(result["metering_receipt_digest"]) == 64

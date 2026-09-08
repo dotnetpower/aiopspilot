@@ -107,7 +107,7 @@ class DeliberationRequest:
 
 @dataclass(frozen=True, slots=True)
 class SynthesisOutcome:
-    """One T2 conclusion plus what it actually cost.
+    """One attributed T2 conclusion plus what it actually cost.
 
     The seam reports measured usage because a budget cannot meter what
     its provider never tells it. ``usage`` stays optional - a provider
@@ -117,8 +117,14 @@ class SynthesisOutcome:
     """
 
     conclusion: str
+    model_identity: str
+    model_family: str
     model_key: str = ""
     usage: TokenUsage | None = None
+
+    def __post_init__(self) -> None:
+        if not self.model_identity.strip() or not self.model_family.strip():
+            raise ValueError("T2 synthesis model identity and family MUST be non-empty")
 
 
 class T2ConversationSynthesizer(Protocol):
@@ -169,6 +175,7 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str = "",
+        routing_decision: RoutingDecision | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
         if len(question) > _MAX_QUESTION_CHARS:
@@ -183,33 +190,70 @@ class ConversationDeliberator:
             "authority": "presentation_only",
             "rounds": [],
         }
-        if self._semantic_router is None:
+        if self._semantic_router is None and routing_decision is None:
             return {**base, "status": "abstain", "reason": "t1_unavailable"}
 
-        decision = await self._semantic_router.route(
-            question,
-            t0=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
-            max_contributors=_MAX_PARTICIPANTS - 1,
-        )
-        if decision.primary_agent is None or decision.method != "t1_semantic":
+        decision = routing_decision
+        if decision is None or decision.primary_agent is None:
+            if self._semantic_router is None:
+                return {**base, "status": "abstain", "reason": "t1_no_confident_route"}
+            decision = await self._semantic_router.route(
+                question,
+                t0=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
+                max_contributors=_MAX_PARTICIPANTS - 1,
+            )
+        if decision.primary_agent is None:
             return {**base, "status": "abstain", "reason": "t1_no_confident_route"}
-        participants = (decision.primary_agent, *decision.contributors)[:_MAX_PARTICIPANTS]
+        primary_agent = decision.primary_agent
+        contributors = tuple(
+            candidate
+            for index, candidate in enumerate(decision.contributors)
+            if candidate != primary_agent and candidate not in decision.contributors[:index]
+        )[: _MAX_PARTICIPANTS - 1]
+        scores = decision.scores
+        if not contributors and self._semantic_router is not None:
+            supplemental = await self._semantic_router.route(
+                question,
+                t0=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
+                max_contributors=_MAX_PARTICIPANTS - 1,
+            )
+            peer_candidates = (supplemental.primary_agent, *supplemental.contributors)
+            contributors = tuple(
+                candidate
+                for index, candidate in enumerate(peer_candidates)
+                if candidate is not None
+                and candidate != primary_agent
+                and candidate not in peer_candidates[:index]
+            )[: _MAX_PARTICIPANTS - 1]
+            scores = {**supplemental.scores, **scores}
+        decision = RoutingDecision(
+            primary_agent=primary_agent,
+            scores=scores,
+            tie_break=decision.tie_break,
+            contributors=contributors,
+            method=decision.method,
+            semantic_score=decision.semantic_score,
+            semantic_margin=decision.semantic_margin,
+            provider_status=decision.provider_status,
+        )
+        base["routing_method"] = decision.method
+        participants = (primary_agent, *decision.contributors)[:_MAX_PARTICIPANTS]
         if len(participants) < 2:
             return {
                 **base,
                 "status": "abstain",
                 "reason": "t1_insufficient_peers",
-                "primary_agent": decision.primary_agent,
+                "primary_agent": primary_agent,
                 "participants": list(participants),
             }
 
         budget_key = _budget_key(
             correlation_id,
             question=question,
-            primary=decision.primary_agent,
+            primary=primary_agent,
         )
         primary_raw, primary_error = await self._call_responder(
-            decision.primary_agent,
+            primary_agent,
             question,
             {
                 "requester": requester,
@@ -224,13 +268,13 @@ class ConversationDeliberator:
                 **await self._escalation_counters(budget_key),
             },
         )
-        primary_claim = _claim(decision.primary_agent, primary_raw)
+        primary_claim = _claim(primary_agent, primary_raw)
         if primary_claim is None:
             return {
                 **base,
                 "status": "abstain",
                 "reason": primary_error or "primary_abstained",
-                "primary_agent": decision.primary_agent,
+                "primary_agent": primary_agent,
                 "participants": list(participants),
             }
 
@@ -253,7 +297,7 @@ class ConversationDeliberator:
                 **base,
                 "status": "abstain",
                 "reason": "peers_abstained",
-                "primary_agent": decision.primary_agent,
+                "primary_agent": primary_agent,
                 "participants": list(participants),
             }
 
@@ -262,7 +306,7 @@ class ConversationDeliberator:
             **base,
             "status": "completed",
             "tier": "T1",
-            "primary_agent": decision.primary_agent,
+            "primary_agent": primary_agent,
             "participants": [claim.agent for claim in claims],
             "rounds": [
                 {"phase": "position", "contributions": [_claim_dict(primary_claim)]},
@@ -289,7 +333,7 @@ class ConversationDeliberator:
             requester=requester,
             correlation_id=correlation_id,
             budget_key=budget_key,
-            primary_agent=decision.primary_agent,
+            primary_agent=primary_agent,
             claims=claims,
         )
 
@@ -384,7 +428,8 @@ class ConversationDeliberator:
             return result
         conclusion = outcome.conclusion if isinstance(outcome, SynthesisOutcome) else None
         if isinstance(outcome, SynthesisOutcome):
-            result["t2_model_family"] = outcome.model_key or None
+            result["t2_model_family"] = outcome.model_family
+            result["t2_model_identity"] = outcome.model_identity
             metering_receipt_digest = await self._meter(outcome, correlation_id=budget_key)
             if metering_receipt_digest is not None:
                 result["metering_receipt_digest"] = metering_receipt_digest

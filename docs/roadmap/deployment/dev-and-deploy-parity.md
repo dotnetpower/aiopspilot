@@ -8,6 +8,10 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 - **Deploy truth**: `terraform apply` provisions the Azure-side realizations of the CSP-neutral contracts. The **LLM subset is deployer-scoped**: the bootstrap resolver queries the deployer's identity against the target region's catalog, provisions **only what the deployer has permission to create**, and records the resolved `{capability → deployment}` mapping plus resolver input provenance in the artifact. Independently deployed services retain two inactive revisions so a protected apply can preserve both the pre-apply current revision and an exact last-ready rollback baseline.
 All profiles share **one control path**: only composition-root adapters and credentials differ ([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime, change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`. Teams Workflows follows the same parity rule: the local Operator Service encrypts the URL with domain-separated key material and stores only ciphertext, while deployment writes a versioned Key Vault secret through a dedicated managed identity scoped to that secret. Both modes verify the stored version before testing and return only secret-free metadata. Saving remains separate from explicit local or deployed A2/A4 activation. The standard `console: prepare full stack` task makes the local profile's activation decision explicitly through `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`; direct script users remain inactive by default. The runtime-environment cache binds this value and the optional Kubernetes lifecycle flag into its digest, so changing either input always regenerates the environment.
 Inventory invalidation uses the same read path in both profiles. Core commits normalized observations before the Operator role reads a SELECT-only watermark. The authenticated SSE contains no Resource or provider payload, and the Console re-reads the same bounded instance projection. Local and deployed profiles differ only in the configured Azure identity and network route. Cross-origin stream replay admits the authenticated `Authorization` and bounded `Last-Event-ID` headers without widening allowed origins, methods, or credentials.
+The shared Operator data-source manifest also assigns the three Assurance Twin read routes to the same service-local projection in both profiles. This ownership reports an explicit unavailable reason when PostgreSQL isn't configured and doesn't change WARA, cost-governance, or other route authority.
+Its review list verifies each durable key against the body's exact opaque review identity, and the
+Console renders every usable posture scope while labeling withheld rows as unavailable rather than
+as an empty ledger. These checks are identical in local and deployed profiles.
 ## Audit - What Works Local, What Needs Azure
 Local preparation writes `LLM_RESOLVED_MODELS_SHA256` from the exact selected model artifact, not a stale Console value, and carries the pin into the Operator environment. Startup still rejects a missing pin or changed artifact before serving requests.
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
@@ -410,6 +414,11 @@ store. The deployed headless runtime records deterministic ineligible/unsupporte
 the Azure reviewer only when two distinct model families resolve. PostgreSQL holds restart-safe
 review and draft state; the production Operator API projects those rows without sharing process memory
 or adding an approval endpoint.
+
+Local semantic-turn preparation derives a stable outbox namespace from the canonical checkout root.
+Concurrent worktrees therefore cannot claim or replay each other's Operator outbox rows even when
+they share the same loopback PostgreSQL instance. Deployment continues to supply its service-owned
+namespace through protected configuration.
 
 Approval decision delivery also keeps one shape across restarts. Production records the signed A1
 decision in PostgreSQL before publishing it, checkpoints delivery attempts, and drains eligible

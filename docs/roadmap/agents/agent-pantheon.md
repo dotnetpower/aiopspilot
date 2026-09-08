@@ -426,6 +426,14 @@ The explicit deliberation API adds one bounded T1 position and critique round af
 selection. Bragi compares only fixed high-signal facts for the same identity. Conflict-free or
 uncomparable claims finish at T1, while a verified structured conflict can invoke one budgeted T2
 synthesis. Synthesizer availability and free-form prose differences never trigger escalation.
+When the current turn already has a schema-validated semantic route, deliberation reuses that
+primary agent and contributor set instead of asking an embedding router to reinterpret the same
+question. The deliberator excludes the primary from contributors, removes duplicate peers, and
+supplements an empty peer set without replacing the verified primary. This reuse changes no
+ownership, judgment, approval, or execution authority.
+The fixed T2 assurance census explicitly retains its declared `t1_semantic` participant-selection
+path so campaign measurements remain comparable with the installed census contract. Every T2
+synthesis outcome names its exact model identity and family separately from its metering key.
 
 Winner selection is scored, not first-match, when several agents match:
 

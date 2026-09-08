@@ -454,6 +454,8 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
     observations = assurance.get("pantheon_observations")
     reviews = assurance.get("pantheon_semantic_reviews")
     diagnostic = assurance.get("pantheon_diagnostic")
+    assessment_state = assurance.get("assessment_state", "unavailable")
+    assessment_reasons = assurance.get("assessment_reasons", [])
     if (
         assurance.get("schema_version") != "1.0.0"
         or not isinstance(answer, str)
@@ -462,6 +464,9 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         or not isinstance(observations, Mapping)
         or not isinstance(reviews, list)
         or not isinstance(diagnostic, Mapping)
+        or assessment_state not in {"completed", "deferred", "unavailable"}
+        or not isinstance(assessment_reasons, list)
+        or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or assurance.get("execution_authority") is not False
     ):
         raise ValueError("stored Pantheon conversation assurance result is malformed")
@@ -474,6 +479,8 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             "answer": answer,
             "source": "pantheon-conversation-assurance",
             "assessment_id": assurance.get("assessment_id"),
+            "assessment_state": assessment_state,
+            "assessment_reasons": assessment_reasons,
             "trace_receipt_id": assurance.get("trace_receipt_id"),
             "pantheon_trace": dict(trace),
             "pantheon_observations": dict(observations),

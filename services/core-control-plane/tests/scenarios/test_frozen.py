@@ -46,6 +46,9 @@ _SENSITIVE_KEYS = frozenset(
         "accesskey",
         "accesstoken",
         "apikey",
+        "authorization",
+        "authtoken",
+        "bearertoken",
         "clientsecret",
         "connectionstring",
         "credential",
@@ -58,6 +61,7 @@ _SENSITIVE_KEYS = frozenset(
         "token",
     }
 )
+_SAFE_SENSITIVE_METADATA_SUFFIXES = frozenset({"count", "id", "name", "ref", "type"})
 _SYNTHETIC_GUID = "00000000-0000-0000-0000-000000000000"
 _ALLOWED_HOSTS = frozenset({"example.com", "localhost"})
 _MACHINE_FIELD = re.compile(r"(?:^|_)(?:id|ids|ref|refs|path|paths|type|version|key)$")
@@ -72,6 +76,71 @@ _MACHINE_FIELDS = frozenset(
         "tier",
     }
 )
+_ALL_SCENARIO_IDS = frozenset(
+    {
+        "change.drift-manual-portal-edit.003",
+        "change.nsg-allow-any-inbound.002",
+        "change.tag-owner-missing.001",
+        "dr.backup-vault-restore-rehearsal.002",
+        "dr.chaos-experiment-novel.003",
+        "dr.replica-lag-degraded.001",
+        "finops.right-size-vm-high-monthly.002",
+        "finops.stop-idle-dev-vm-off-hours.003",
+        "finops.unattached-public-ip.001",
+        "sre.cluster-diagnostics-missing.001",
+        "sre.slo-signal-source-unmapped.002",
+        "sre.telemetry-retention-excessive.003",
+    }
+)
+_SRE_CLUSTER_SCENARIO_IDS = frozenset({"sre.cluster-diagnostics-missing.001"})
+_SRE_CONFLICT_SCENARIO_IDS = frozenset(
+    {
+        "sre.cluster-diagnostics-missing.001",
+        "sre.slo-signal-source-unmapped.002",
+        "sre.telemetry-retention-excessive.003",
+    }
+)
+_REPLAY_PATH = "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py"
+_GENERIC_REPLAY_REF = f"{_REPLAY_PATH}::test_v2026_07_scenario_replays_through_control_loop"
+_REVIEWED_COVERAGE_BINDINGS = {
+    ("deterministic_replay_with_evidence", _GENERIC_REPLAY_REF): _ALL_SCENARIO_IDS,
+    ("unknown_or_deny", _GENERIC_REPLAY_REF): frozenset({"sre.slo-signal-source-unmapped.002"}),
+    ("a3e_or_non_applicability", _GENERIC_REPLAY_REF): frozenset({"dr.chaos-experiment-novel.003"}),
+    (
+        "a3e_or_non_applicability",
+        f"{_REPLAY_PATH}::test_sre_unknown_terminates_before_a3e_authority_is_applicable",
+    ): frozenset({"sre.slo-signal-source-unmapped.002"}),
+    (
+        "successful_full_loop",
+        f"{_REPLAY_PATH}::"
+        "test_sre_successful_full_loop_closes_only_on_independent_effect_observation",
+    ): _SRE_CLUSTER_SCENARIO_IDS,
+    (
+        "successful_full_loop",
+        f"{_REPLAY_PATH}::test_sre_full_loop_dispatch_without_observation_is_never_success",
+    ): _SRE_CLUSTER_SCENARIO_IDS,
+    (
+        "successful_full_loop",
+        f"{_REPLAY_PATH}::test_sre_full_loop_fails_closed_on_deficient_effect_evidence",
+    ): _SRE_CLUSTER_SCENARIO_IDS,
+    (
+        "partial_failure_recovery",
+        f"{_REPLAY_PATH}::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry",
+    ): _SRE_CLUSTER_SCENARIO_IDS,
+    (
+        "cross_objective_conflict",
+        f"{_REPLAY_PATH}::test_sre_cross_objective_conflict_reaches_governed_arbitration",
+    ): _SRE_CONFLICT_SCENARIO_IDS,
+    (
+        "cross_objective_conflict",
+        f"{_REPLAY_PATH}::"
+        "test_sre_cross_objective_conflict_closes_hil_without_arbitration_authority",
+    ): frozenset({"sre.slo-signal-source-unmapped.002"}),
+    (
+        "deterministic_replay_with_evidence",
+        f"{_REPLAY_PATH}::test_sre_cross_objective_conflict_replays_to_stable_digests",
+    ): _SRE_CONFLICT_SCENARIO_IDS,
+}
 
 
 def _load_scenario_schema() -> dict[str, Any]:
@@ -102,14 +171,34 @@ def _conflict_id_to_filename(conflict_id: str) -> str:
     return f"{set_version.replace('-', '.')}-{capability}.json"
 
 
+def _assert_conflict_version_alignment(
+    path: Path,
+    raw: dict[str, Any],
+    scenario_set_version: str,
+) -> None:
+    filename_version = path.name.split("-", 1)[0]
+    assert filename_version == scenario_set_version, (
+        f"{path}: filename version does not match manifest"
+    )
+    assert raw.get("scenario_set_version") == filename_version, (
+        f"{path}: embedded scenario_set_version does not match filename"
+    )
+
+
 def _load_conflict_specs() -> list[tuple[Path, dict[str, Any]]]:
     """Load every frozen cross-objective artifact, excluding its own schema."""
 
-    files = sorted(path for path in CONFLICT_DIR.glob("*.json") if path.name != "schema.json")
-    return [
-        (p, cast(dict[str, Any], _load_json_without_duplicates(p.read_text(encoding="utf-8"))))
-        for p in files
-    ]
+    scenario_set_version = str(_load_manifest()["scenario_set_version"])
+    files = sorted(CONFLICT_DIR.glob(f"{scenario_set_version}-*.json"))
+    specs: list[tuple[Path, dict[str, Any]]] = []
+    for path in files:
+        raw = cast(
+            dict[str, Any],
+            _load_json_without_duplicates(path.read_text(encoding="utf-8")),
+        )
+        _assert_conflict_version_alignment(path, raw, scenario_set_version)
+        specs.append((path, raw))
+    return specs
 
 
 def _manifest_conflict_spec_ids() -> list[str]:
@@ -171,6 +260,17 @@ def _test_ref_exists(test_ref: str) -> bool:
         return False
     pattern = re.compile(rf"^(?:async )?def {re.escape(test_name)}\(", re.MULTILINE)
     return pattern.search(path.read_text(encoding="utf-8")) is not None
+
+
+def _coverage_ref_supports_claim(
+    dimension: str,
+    test_ref: str,
+    scenario_id: str,
+) -> bool:
+    return _test_ref_exists(test_ref) and scenario_id in _REVIEWED_COVERAGE_BINDINGS.get(
+        (dimension, test_ref),
+        frozenset(),
+    )
 
 
 def _non_ascii_machine_fields(
@@ -296,12 +396,14 @@ def _allowed_host(host: str) -> bool:
 def _is_sensitive_key(key: str) -> bool:
     separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
     parts = tuple(part for part in re.split(r"[^a-z0-9]+", separated.casefold()) if part)
+    if parts and parts[-1] in _SAFE_SENSITIVE_METADATA_SUFFIXES:
+        return False
     normalized = "".join(parts)
     if normalized in _SENSITIVE_KEYS:
         return True
-    if "password" in parts or "credential" in parts:
+    if "authorization" in parts or "password" in parts or "credential" in parts:
         return True
-    if "secret" in parts and not {"store", "name", "ref", "id", "type", "count"} & set(parts):
+    if "secret" in parts:
         return True
     pairs = set(zip(parts, parts[1:], strict=False))
     return bool(
@@ -310,6 +412,8 @@ def _is_sensitive_key(key: str) -> bool:
             ("access", "key"),
             ("access", "token"),
             ("api", "key"),
+            ("auth", "token"),
+            ("bearer", "token"),
             ("client", "secret"),
             ("connection", "string"),
             ("private", "key"),
@@ -377,12 +481,45 @@ def test_capability_manifest_assigns_every_scenario_exactly_once() -> None:
 
 def test_capability_coverage_references_owned_scenarios_and_tests() -> None:
     manifest = _load_manifest()
-    for pack in manifest["capability_packs"].values():
+    for pack_name, pack in manifest["capability_packs"].items():
         scenario_ids = set(pack["scenario_ids"])
-        for evidence_records in pack["coverage"].values():
+        for dimension, evidence_records in pack["coverage"].items():
             for evidence in evidence_records:
                 assert evidence["scenario_id"] in scenario_ids
-                assert _test_ref_exists(evidence["test_ref"])
+                assert _coverage_ref_supports_claim(
+                    dimension,
+                    evidence["test_ref"],
+                    evidence["scenario_id"],
+                ), (
+                    f"{pack_name}.{dimension}: {evidence['test_ref']} is not reviewed "
+                    f"for {evidence['scenario_id']}"
+                )
+
+
+@pytest.mark.parametrize(
+    ("dimension", "test_ref", "scenario_id"),
+    (
+        (
+            "successful_full_loop",
+            f"{_REPLAY_PATH}::"
+            "test_sre_successful_full_loop_closes_only_on_independent_effect_observation",
+            "sre.telemetry-retention-excessive.003",
+        ),
+        (
+            "unknown_or_deny",
+            f"{_REPLAY_PATH}::"
+            "test_sre_successful_full_loop_closes_only_on_independent_effect_observation",
+            "sre.cluster-diagnostics-missing.001",
+        ),
+    ),
+)
+def test_reviewed_coverage_binding_rejects_wrong_scenario_or_dimension(
+    dimension: str,
+    test_ref: str,
+    scenario_id: str,
+) -> None:
+    assert _test_ref_exists(test_ref)
+    assert not _coverage_ref_supports_claim(dimension, test_ref, scenario_id)
 
 
 def test_complete_pack_requires_every_coverage_dimension() -> None:
@@ -420,7 +557,10 @@ def test_complete_pack_requires_every_coverage_dimension() -> None:
 def test_capability_manifest_inventories_every_conflict_spec_exactly_once() -> None:
     """Every frozen conflict artifact MUST be registered by its own id."""
 
-    specs = {raw["id"]: (path, raw) for path, raw in _load_conflict_specs()}
+    spec_rows = _load_conflict_specs()
+    spec_ids = [str(raw["id"]) for _, raw in spec_rows]
+    assert len(spec_ids) == len(set(spec_ids)), "frozen conflict artifact ids MUST be unique"
+    specs = {raw["id"]: (path, raw) for path, raw in spec_rows}
     manifest = _load_manifest()
     registered: list[str] = []
     for capability, pack in manifest["capability_packs"].items():
@@ -437,6 +577,26 @@ def test_capability_manifest_inventories_every_conflict_spec_exactly_once() -> N
         "every frozen conflict artifact MUST be inventoried by exactly one capability pack"
     )
     assert len(registered) == len(set(registered))
+
+
+@pytest.mark.parametrize(
+    ("path", "payload_version", "manifest_version"),
+    (
+        (Path("v2026.06-sre.json"), "v2026.07", "v2026.07"),
+        (Path("v2026.07-sre.json"), "v2026.06", "v2026.07"),
+    ),
+)
+def test_conflict_version_alignment_rejects_filename_or_payload_mismatch(
+    path: Path,
+    payload_version: str,
+    manifest_version: str,
+) -> None:
+    with pytest.raises(AssertionError):
+        _assert_conflict_version_alignment(
+            path,
+            {"scenario_set_version": payload_version},
+            manifest_version,
+        )
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
@@ -487,6 +647,14 @@ def test_conflict_spec_machine_fields_are_ascii(path: Path, raw: dict[str, Any])
 # customer-agnosticness guards as the scenarios, plus a completeness guard that
 # keeps every fail-closed evidence class covered and keeps dispatch receipts
 # out of the artifact.
+
+
+def test_effect_evidence_prediction_ids_are_unique_and_versioned() -> None:
+    records = _load_effect_evidence()
+    prediction_ids = [str(raw["prediction_id"]) for _, raw in records]
+    expected_suffix = str(_load_manifest()["scenario_set_version"]).replace(".", "-")
+    assert len(prediction_ids) == len(set(prediction_ids))
+    assert all(prediction_id.endswith(f"-{expected_suffix}") for prediction_id in prediction_ids)
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_effect_evidence())
@@ -647,6 +815,10 @@ def test_customer_data_scrubber_rejects_each_prohibited_class() -> None:
         ({"api_key": "not-a-real-secret"}, "sensitive_value"),
         ({"database_password": "not-a-real-secret"}, "sensitive_value"),
         ({"azure_client_secret_value": "not-a-real-secret"}, "sensitive_value"),
+        ({"auth_token": "not-a-real-token"}, "sensitive_value"),
+        ({"bearer_token": "not-a-real-token"}, "sensitive_value"),
+        ({"authorization": "not-a-real-token"}, "sensitive_value"),
+        ({"azure_auth_token_value": "not-a-real-token"}, "sensitive_value"),
         ({"operator@contoso.invalid": True}, "email"),
         ({"10.1.2.3": "healthy"}, "ip_address"),
         ({"resource_group": "customer-prod"}, "azure_resource_name"),
@@ -680,6 +852,10 @@ def test_customer_data_scrubber_allows_documented_synthetic_values() -> None:
         "email_sentence": "Contact user@example.com; then continue.",
         "loopback": "127.0.0.1",
         "client_secret": "<redacted>",
+        "auth_token_ref": "synthetic-token-reference",
+        "authorization_id": "synthetic-authorization-id",
+        "bearer_token_name": "synthetic-token-name",
+        "azure_auth_token_type": "synthetic-token-type",
     }
 
     assert _customer_data_findings(synthetic) == ()

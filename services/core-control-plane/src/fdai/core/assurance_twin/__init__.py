@@ -77,6 +77,10 @@ from fdai.core.assurance_twin.model_registry import (
     RegistryUpdate,
     StateStoreEffectModelRegistry,
 )
+from fdai.core.assurance_twin.posture_activity import (
+    build_change_review_activity,
+    build_posture_report_activity,
+)
 from fdai.core.assurance_twin.projection import (
     InMemoryProjection,
     build_baseline_projection,
@@ -220,7 +224,9 @@ __all__ = [
     "TrajectoryOutcomeStatus",
     "TypedQuery",
     "build_baseline_projection",
+    "build_change_review_activity",
     "build_posture_assessment_report",
+    "build_posture_report_activity",
     "close_trajectory_outcome",
     "execute_query",
     "question_digest",

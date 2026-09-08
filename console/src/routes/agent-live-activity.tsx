@@ -47,6 +47,7 @@ const OPERATIONAL_LANES: readonly OperationalLane[] = [
   "current-state.read",
   "inventory.ontology-projection",
   "observation",
+  "assurance-twin.posture",
 ];
 
 

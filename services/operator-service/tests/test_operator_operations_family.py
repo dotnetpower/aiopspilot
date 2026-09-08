@@ -86,6 +86,9 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/audit/{correlation_id}/what-if", "handler"),
     (("GET", "HEAD"), "/scope", "handler"),
     (("GET", "HEAD"), "/stewardship", "handler"),
+    (("GET", "HEAD"), "/assurance-twin/posture", "handler"),
+    (("GET", "HEAD"), "/assurance-twin/reviews", "handler"),
+    (("GET", "HEAD"), "/assurance-twin/review", "handler"),
     (("GET", "HEAD"), "/reports", "list_reports"),
     (("GET", "HEAD"), "/reports/registry", "get_registry"),
     (("GET", "HEAD"), "/reports/formats", "list_formats"),
@@ -225,7 +228,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 38
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 41
 
 
 def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:

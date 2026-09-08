@@ -348,6 +348,7 @@ class Bragi(Agent):
         question: str,
         requester: str,
         correlation_id: str = "",
+        reuse_semantic_route: bool = True,
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
         if self._semantic_judgment is None:
@@ -389,6 +390,7 @@ class Bragi(Agent):
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+            routing_decision=(self.route(judgment) if reuse_semantic_route else None),
         )
 
     # ---- routing -------------------------------------------------------

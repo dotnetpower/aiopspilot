@@ -832,6 +832,11 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
     assert source.configured is True
     assert source.authoritative is True
     assert "/browser-evidence" in source.routes
+    assert {
+        "/assurance-twin/posture",
+        "/assurance-twin/reviews",
+        "/assurance-twin/review",
+    } <= set(source.routes)
     assert runtime.lifecycle is None
 
 

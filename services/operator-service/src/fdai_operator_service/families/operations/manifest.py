@@ -136,6 +136,12 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/audit/{correlation_id}/what-if", "GET", "handler", "audit.what_if"),
     OperationRoute("/scope", "GET", "handler", "scope.effective"),
     OperationRoute("/stewardship", "GET", "handler", "stewardship.coverage"),
+    OperationRoute("/assurance-twin/posture", "GET", "handler", "assurance_twin.posture"),
+    OperationRoute("/assurance-twin/reviews", "GET", "handler", "assurance_twin.reviews"),
+    # The review identity is opaque twin evidence that may contain a slash
+    # (for example ``owner/repo#12``), so it travels as an exact query value
+    # instead of a path segment that a router would split or canonicalise.
+    OperationRoute("/assurance-twin/review", "GET", "handler", "assurance_twin.review_detail"),
     OperationRoute("/reports", "GET", "list_reports", "report.list"),
     OperationRoute("/reports/registry", "GET", "get_registry", "report.registry"),
     OperationRoute("/reports/formats", "GET", "list_formats", "report.formats"),

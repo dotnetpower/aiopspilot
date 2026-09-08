@@ -1231,6 +1231,8 @@ def _pantheon_assurance_payload(
     assurance = payload.get("pantheon_assurance") if isinstance(payload, Mapping) else None
     if not isinstance(assurance, Mapping):
         return None
+    assessment_state = assurance.get("assessment_state")
+    assessment_reasons = assurance.get("assessment_reasons")
     if (
         assurance.get("schema_version") != "1.0.0"
         or not isinstance(assurance.get("answer"), str)
@@ -1241,6 +1243,14 @@ def _pantheon_assurance_payload(
         or not isinstance(assurance.get("pantheon_observations"), Mapping)
         or not isinstance(assurance.get("pantheon_semantic_reviews"), list)
         or not isinstance(assurance.get("pantheon_diagnostic"), Mapping)
+        or (assessment_state is not None and assessment_state not in {"completed", "deferred"})
+        or (
+            assessment_reasons is not None
+            and (
+                not isinstance(assessment_reasons, list)
+                or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
+            )
+        )
         or assurance.get("execution_authority") is not False
     ):
         raise ValueError("Pantheon conversation assurance projection is malformed")

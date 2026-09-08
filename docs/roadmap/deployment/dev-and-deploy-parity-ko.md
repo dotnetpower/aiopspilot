@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0bdd6a39ea1cd51c5e20da2fc471099731f3e999
-translation_revised: 2026-09-07
+translation_source_sha: 4411444906e4c3342f92a1ce2feda29f6898670d
+translation_revised: 2026-09-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
@@ -11,6 +11,10 @@ translation_revised: 2026-09-07
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다. 독립 배포 service는 inactive revision 2개를 보존하므로 보호된 apply가 apply 이전 current revision과 exact last-ready rollback baseline을 모두 유지할 수 있습니다.
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
+공유 Operator 데이터 출처 매니페스트도 두 프로필에서 Assurance Twin 읽기 경로 3개를 같은 서비스 로컬 변환 결과에 할당합니다. 이 소유권은 PostgreSQL이 구성되지 않았을 때 명시적인 사용 불가 이유를 보고하며 WARA, 비용 거버넌스 또는 다른 경로의 권한을 바꾸지 않습니다.
+검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 콘솔은 사용할 수
+있는 모든 자세 범위를 표시하고 보류된 행을 빈 원장이 아니라 사용 불가로 표시합니다. 이러한
+검사는 로컬과 배포 프로필에서 동일합니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
 로컬 준비는 오래된 Console 값 대신 실제로 선택한 모델 파일에서 `LLM_RESOLVED_MODELS_SHA256`을 계산해 Operator 환경에 전달합니다. 시작 시 확인값이 없거나 파일이 변경되었으면 요청을 처리하기 전에 차단합니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
@@ -410,6 +414,11 @@ analyzing, deciding, executing, approving, auditing, 인시던트 및 인계 프
 두 모델 계열이 해석된 경우에만 Azure 검토자를 사용합니다. PostgreSQL은 restart-safe 검토
 및 초안 상태를 보관하며 운영 Operator API는 프로세스 기억을 공유하거나 승인 엔드포인트를
 추가하지 않고 해당 행을 변환 결과합니다.
+
+로컬 semantic-turn 준비는 정식 checkout 루트에서 안정적인 outbox namespace를 파생합니다.
+따라서 여러 worktree가 같은 loopback PostgreSQL을 공유해도 서로의 Operator outbox 행을
+claim하거나 재생할 수 없습니다. 배포는 보호된 구성을 통해 서비스 소유 namespace를 계속
+제공합니다.
 
 Approval 결정 전달도 재시작 전후에 같은 형태를 유지합니다. 운영은 서명된 A1
 결정을 게시하기 전에 PostgreSQL에 기록하고 전달 시도를 체크포인트하며 시작 및 주기적

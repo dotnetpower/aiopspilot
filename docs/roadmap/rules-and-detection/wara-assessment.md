@@ -140,6 +140,8 @@ that negative invariant.
 The Operator API exposes a read-only WARA inventory and optional evaluated results. The Console
 supports filters for resource type, recommendation control, impact, lifecycle, product-group
 verification, automation, mapping, applicability, evaluation, and satisfaction.
+The shared Operator composition may register unrelated read projections in `/system/data-sources`;
+those registrations don't add a WARA source, widen WARA scope, or change its shadow-only authority.
 
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional

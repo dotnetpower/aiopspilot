@@ -32,6 +32,12 @@ agent or the Console managed-resource execution authority.
 | Agent Activity observation projection | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, focused Operator and Console tests | Started and terminal source state hydrates before live delivery, uses stable activity ids, rejects malformed privacy fields, and displays localized domain labels. |
 | Governed live campaign evidence | in-progress | Local campaign `campaign-20260819t005835689445-9e1850c2`; catalog digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`; authenticated Agent Activity | The retained local campaign completed with all ten sources ready and fresh, no reason codes, and explicit successful-empty states. Equivalent deployed-revision evidence remains open. |
 
+The shared activity schema's Assurance Twin `1.2.0` ownership condition is separate from this
+campaign's `1.1.0` observation-domain contract. It doesn't add a campaign source or widen any
+observation owner, producer, scope, or authority. The inverse schema condition also reserves the
+`assurance-twin` producer for the `assurance-twin.posture` kind, so it cannot impersonate a campaign
+or inventory activity.
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -214,6 +220,15 @@ The durable Operator projection loads the current state for every source before 
 Durable and live delivery share one activity id, so reconnect and refresh cannot duplicate a row.
 Passive scheduler wakes that skip every source do not appear as new work rows and preserve the last
 coverage result instead of inventing a healthy state.
+
+The shared `agent.operational-activity` contract (schema `1.2.0`) also declares one kind outside this
+campaign: `assurance-twin.posture`, reserved for a computed Assurance Twin posture report or ambient
+change review ([assurance-twin.md](assurance-twin.md#module-placement)). It never uses
+`observation_domain` and is never produced by `observation-campaign-job`, so it does not enter the
+per-domain source-coverage check above. The Console activity decoder accepts schema `1.2.0` and
+rejects the `assurance-twin` producer on any other kind. No shipped component publishes this kind
+today: the Assurance Twin recorder that builds it is unbound because no trusted producer computes
+twin findings yet, so the campaign stream carries no `assurance-twin.posture` rows.
 
 ## Failure behavior
 

@@ -35,6 +35,10 @@ def assessment_input(
     request: SemanticTurnRequest,
     answer: str,
     trace: ConversationTurnTraceReceipt,
+    *,
+    answer_model_identity: str | None = None,
+    answer_model_family: str | None = None,
+    reference_facts: tuple[str, ...] = (),
 ) -> TurnAssessmentInput:
     """Project one private answer into the existing off-path assessment contract."""
 
@@ -56,8 +60,39 @@ def assessment_input(
         verification_reason_code=trace.verification_status,
         evidence_complete=bool(evidence_refs),
         locale=request.locale,
+        answer_model_identity=answer_model_identity,
+        answer_model_family=answer_model_family,
         deterministic_answer=False,
+        reference_facts=reference_facts,
     )
+
+
+def case_reference_facts(
+    case: PantheonCensusCase,
+    specs: Mapping[str, AgentSpec],
+) -> tuple[str, ...]:
+    """Return bounded server-owned facts for independent semantic review."""
+
+    facts = [
+        f"expected_primary_agent={case.expected_primary_agent}",
+        f"expected_routing_method={case.expected_routing_method}",
+        f"expected_t2={case.t2_expectation.value}",
+        "execution_authority=false",
+    ]
+    if case.expected_handoff_owner is not None:
+        facts.append(f"expected_handoff_owner={case.expected_handoff_owner}")
+    spec = specs.get(case.expected_primary_agent)
+    if spec is not None:
+        facts.extend(
+            (
+                f"reports_to={spec.reports_to or 'none'}",
+                f"owns={','.join(spec.owns) or 'none'}",
+                f"executes={','.join(spec.executes) or 'none'}",
+                f"initiates={','.join(spec.initiates) or 'none'}",
+                f"question_domains={','.join(spec.question_domains)}",
+            )
+        )
+    return tuple(facts)
 
 
 def pantheon_semantic_reviews(
@@ -262,6 +297,7 @@ def optional_string(value: object) -> str | None:
 __all__ = [
     "answer_text",
     "assessment_input",
+    "case_reference_facts",
     "deliberation_answer",
     "deliberation_participants",
     "diagnostic_case",

@@ -80,6 +80,7 @@ class TurnAssessmentInput:
     graph_revision: str | None = None
     locale: str = "en"
     answer_model_identity: str | None = None
+    answer_model_family: str | None = None
     deterministic_answer: bool = False
     reference_facts: tuple[str, ...] = ()
 
@@ -113,6 +114,8 @@ class TurnAssessmentInput:
             ("verification_route_id", self.verification_route_id),
             ("ontology_release", self.ontology_release),
             ("graph_revision", self.graph_revision),
+            ("answer_model_identity", self.answer_model_identity),
+            ("answer_model_family", self.answer_model_family),
         ):
             if optional_value is not None and (
                 not optional_value.strip() or len(optional_value) > 512

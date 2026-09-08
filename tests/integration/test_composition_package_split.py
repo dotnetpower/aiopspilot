@@ -241,6 +241,7 @@ _LOC_LIMITS = {
     "resolved_models_revision.py": 100,
     "wire_azure.py": 400,
     "wire_llm.py": 800,  # holds the ~308-LOC bind_azure_llm_bindings body
+    "wire_semantic_query.py": 800,
     "wire_semantic_judgment.py": 200,
 }
 
