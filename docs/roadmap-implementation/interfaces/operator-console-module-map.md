@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Made legacy cached Pantheon answers without an assessment identity trigger one durable hydration so existing conversations can acquire the authoritative review target. | `current change`; focused conversation, transcript, and restored-session checks passed 71 tests, and Console typecheck passed. | Retain authenticated legacy-cache recovery evidence separately. |
 | 2026-09-08 | implemented | Preserved retained assessment deep links beyond the bounded list window by querying the exact principal-scoped detail endpoint. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated old-assessment evidence separately. |
 | 2026-09-08 | implemented | Added monotonic request tracking to Conversation assurance list refreshes so out-of-order responses cannot restore stale data. | `current change`; focused route checks passed 9 tests, and Console typecheck passed. | Retain authenticated repeated-refresh evidence separately. |
 | 2026-09-08 | implemented | Preserved the validated assessment identity in bounded browser-local transcript serialization and parsing so answer review remains correlated after session restoration. | `current change`; focused transcript and session checks passed 42 tests, and Console typecheck passed. | Retain authenticated reload evidence separately. |

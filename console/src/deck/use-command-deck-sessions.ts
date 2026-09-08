@@ -386,7 +386,18 @@ export function useCommandDeckSessionController({
     setSessionKey(key);
     setSessionLabel(agent);
     setTurns(next);
-    if (shouldHydrateServerTurns(hydrate, next.length, next.at(-1)?.role === "operator")) {
+    const missingAssessmentIdentity = next.some(
+      (turn) =>
+        turn.role === "deck" &&
+        turn.source === "pantheon-conversation-assurance" &&
+        turn.assessmentId === undefined,
+    );
+    if (shouldHydrateServerTurns(
+      hydrate,
+      next.length,
+      next.at(-1)?.role === "operator",
+      missingAssessmentIdentity,
+    )) {
       void hydrateDurableTurns(key);
     }
     setSearchQuery("");
@@ -499,7 +510,10 @@ export function useCommandDeckSessionController({
 }
 
 export function shouldHydrateServerTurns(
-  register: boolean, turnCount: number, unanswered: boolean = false,
+  register: boolean,
+  turnCount: number,
+  unanswered: boolean = false,
+  missingAssessmentIdentity: boolean = false,
 ): boolean {
-  return register && (turnCount === 0 || unanswered);
+  return register && (turnCount === 0 || unanswered || missingAssessmentIdentity);
 }
