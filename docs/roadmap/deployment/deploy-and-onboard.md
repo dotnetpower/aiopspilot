@@ -118,7 +118,8 @@ The privileged verifier executes controls only from a commit on protected `main`
 history. A merged branch's intermediate ancestor is not an executable workflow source.
 If a retry reaches an already published admission lookup, it reuses the first current record only
 when evidence, scope, purpose, and source revision still match. An expired or different record
-remains a collision and requires new source evidence.
+remains a collision and requires new source evidence. The repository workflow contract syntax-checks
+the complete retention shell block, including its embedded comparison program.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.

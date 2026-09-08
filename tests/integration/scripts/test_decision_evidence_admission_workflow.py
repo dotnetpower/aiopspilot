@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+
+import yaml
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = (_ROOT / ".github/workflows/decision-evidence-admission.yml").read_text(
@@ -32,6 +35,26 @@ def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
     assert '--metadata "fdaisha256=$digest"' in _WORKFLOW
     assert '"decision-evidence/v1/admissions/${lookup_digest}.json" stable-lookup' in (_WORKFLOW)
     assert "datetime.now(UTC) <= valid_until" in _WORKFLOW
+
+
+def test_retention_shell_block_is_valid_bash() -> None:
+    workflow = yaml.safe_load(_WORKFLOW)
+    steps = workflow["jobs"]["verify-retain-attest"]["steps"]
+    step = next(
+        item
+        for item in steps
+        if item.get("name") == "Retain attested immutable decision evidence records"
+    )
+
+    result = subprocess.run(
+        ["/bin/bash", "-n"],
+        input=step["run"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
     assert "secrets." not in _WORKFLOW
 
 
