@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -64,6 +65,10 @@ def _evidence(
 ) -> TraceCauseEvidence:
     return TraceCauseEvidence(
         cause=cause,
+        topology_ref="synthetic-agent-request",
+        scenario_id="scenario-trace-1",
+        window_bucket="2026-09-09T00:00Z",
+        observed_at=_NOW + timedelta(seconds=4),
         affected_items=affected_items,
         evidence_refs=(f"telemetry:cause:{cause.value}",),
     )
@@ -185,6 +190,10 @@ def test_trace_cause_evidence_is_bounded_and_unique() -> None:
     with pytest.raises(ValueError, match="evidence_refs MUST contain 1"):
         TraceCauseEvidence(
             cause=TraceRcaCause.COLLECTOR,
+            topology_ref="synthetic-agent-request",
+            scenario_id="scenario-trace-1",
+            window_bucket="2026-09-09T00:00Z",
+            observed_at=_NOW,
             affected_items=("agent",),
             evidence_refs=(),
         )
@@ -196,9 +205,39 @@ def test_trace_cause_evidence_rejects_whitespace_and_canonicalizes_order() -> No
 
     evidence = TraceCauseEvidence(
         cause=TraceRcaCause.HEADER_PROPAGATION,
+        topology_ref="synthetic-agent-request",
+        scenario_id="scenario-trace-1",
+        window_bucket="2026-09-09T00:00Z",
+        observed_at=_NOW,
         affected_items=("agent->api-gateway", "application->agent"),
         evidence_refs=("telemetry:z", "telemetry:a"),
     )
 
     assert evidence.affected_items == ("agent->api-gateway", "application->agent")
     assert evidence.evidence_refs == ("telemetry:a", "telemetry:z")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"topology_ref": "other-topology"},
+        {"scenario_id": "other-scenario"},
+        {"window_bucket": "other-window"},
+        {"observed_at": _NOW + timedelta(seconds=5)},
+    ],
+)
+def test_trace_cause_evidence_cannot_replay_across_scope_or_time(
+    change: dict[str, object],
+) -> None:
+    cause = replace(
+        _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
+        **change,
+    )
+
+    result = analyze_trace_continuity_cause(
+        _result(missing_hop="agent"),
+        cause_evidence=(cause,),
+    )
+
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "trace_cause_evidence_scope_mismatch"

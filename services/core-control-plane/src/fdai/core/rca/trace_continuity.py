@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 from fdai.core.detection.trace_continuity import (
@@ -39,10 +40,23 @@ class TraceCauseEvidence:
     """Independent telemetry evidence supporting one bounded cause class."""
 
     cause: TraceRcaCause
+    topology_ref: str
+    scenario_id: str
+    window_bucket: str
+    observed_at: datetime
     affected_items: tuple[str, ...]
     evidence_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        for name, value in (
+            ("topology_ref", self.topology_ref),
+            ("scenario_id", self.scenario_id),
+            ("window_bucket", self.window_bucket),
+        ):
+            if not value or value != value.strip() or len(value) > 512:
+                raise ValueError(f"trace cause {name} MUST be bounded non-empty text")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("trace cause observed_at MUST be timezone-aware")
         if not 1 <= len(self.affected_items) <= _MAX_AFFECTED_ITEMS:
             raise ValueError(
                 f"trace cause affected_items MUST contain 1 to {_MAX_AFFECTED_ITEMS} items"
@@ -109,6 +123,14 @@ def _evidence_matches(
     result: TraceContinuityResult,
     evidence: TraceCauseEvidence,
 ) -> bool:
+    if (
+        evidence.topology_ref != result.topology_ref
+        or evidence.scenario_id != result.scenario_id
+        or evidence.window_bucket != result.window_bucket
+        or result.observed_at is None
+        or evidence.observed_at > result.observed_at
+    ):
+        return False
     affected = set(evidence.affected_items)
     if evidence.cause is TraceRcaCause.HEADER_PROPAGATION:
         allowed = set(result.disconnected_boundaries)
