@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b6ce48116c9aad4673d7136fee3e8b87f1826bce
+translation_source_sha: 85f6fb41a49772a91f0f458d491101a2e53fe973
 translation_revised: 2026-09-09
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -62,7 +62,7 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 |-----------|-------------|--------------|
 | 런타임 상태 저장소 및 서비스 통합 | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
-| Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
+| Event 버스 (통합 테스트) | 최소 두 partition을 사용하는 Redpanda on `:19092` (Kafka wire) | 최소 두 partition을 사용하는 Event Hubs Kafka on `:9093` |
 ### 고정 workspace 포트
 커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는
 `5474`에서 실행되며 인증된 Console full stack과 함께 시작됩니다. 따라서 별도 명령 없이 제품
@@ -92,7 +92,9 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬
 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,
 문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결하고, 로컬 이벤트 전송은 `127.0.0.1:19092`의
-Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`를 설정하고
+Docker Redpanda를 사용합니다. 준비 과정은 두 partition을 기본값으로 설정하고 필요한 경우 기존
+의미 physical topic을 확장하여 배포된 Event Hubs 하한과 일치시킵니다. Azure에 배포된 프로세스는
+`FDAI_EXECUTION_VENUE=deployed`를 설정하고
 서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
 프로바이더 계약 Docker 작업은 격리된 검증 PostgreSQL 포트 `5433`과 Redpanda 호스트 포트
