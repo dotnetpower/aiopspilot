@@ -247,6 +247,7 @@
         "config/decision-boundary-inventory.json",
         "scripts/deployment/azure/decision_evidence_bundle.py",
         "scripts/deployment/azure/deployment_decision_evidence.py",
+        "scripts/deployment/azure/prepare_decision_evidence_candidate.py",
         "scripts/quality/architecture/check-decision-boundary-coverage.py",
         "services/core-control-plane/src/fdai/delivery/azure/decision_evidence.py",
         "services/core-control-plane/src/fdai/delivery/persistence/state_store_decision_evidence.py",

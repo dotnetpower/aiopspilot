@@ -16,9 +16,8 @@ def test_workflow_is_exact_revision_and_source_run_bound() -> None:
     assert 'git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main' in _WORKFLOW
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in _WORKFLOW
     assert "actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" in _WORKFLOW
-    assert "governed-deployment-evidence-candidate-${SOURCE_RUN_ID}-${SOURCE_RUN_ATTEMPT}" in (
-        _WORKFLOW
-    )
+    assert '[[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]' in _WORKFLOW
+    assert "deployment-apply-receipt-${PLAN_ID}" in _WORKFLOW
 
 
 def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
@@ -46,15 +45,15 @@ def test_workflow_retains_all_proof_layers_and_attests_record() -> None:
 
 
 def test_deploy_workflow_emits_fixed_candidate_artifact() -> None:
-    assert "Prepare governed decision evidence candidate" in _DEPLOY
-    assert "governed-deployment-evidence-candidate-${{ github.run_id }}-" in _DEPLOY
+    assert 'candidate="$RUNNER_TEMP/deployment-apply-artifact"' in _DEPLOY
+    assert "name: deployment-apply-receipt-${{ inputs.plan_id }}" in _DEPLOY
     assert "terraform output -raw operational_history_container_url" in _DEPLOY
+    assert "retention-days: 90" in _DEPLOY
     for name in (
         "plan-metadata.json",
         "preflight-evidence.json",
         "azure-preflight-evidence.json",
         "apply-claim.json",
         "apply-receipt.json",
-        "decision-evidence-container-url.txt",
     ):
         assert name in _DEPLOY

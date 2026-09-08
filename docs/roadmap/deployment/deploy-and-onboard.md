@@ -108,6 +108,10 @@ wheel or the separately distributed `fdaictl` package. Missing mappings, credent
 or probe results fail closed before a plan artifact is stored.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply verifies every artifact; peer receipts download each allowlisted isolated backend blob directly with the authenticated runner identity and a bounded timeout, avoiding repeated provider initialization without changing the state bytes. Service rollback removes only post-apply secret names absent from the immutable snapshot before restoring its exact Key Vault references. Independent-service Container App plans also seal a lowercase plan-time revision suffix into the saved Terraform plan, guaranteeing a fresh revision after an out-of-band verified image rollback left the desired Terraform image unchanged. The guard permits only that bounded suffix beside the exact image update, and health still requires a new revision running the attested image before recording an apply receipt.
+When governed operational-history storage is available, that 90-day apply artifact also carries the
+fixed plan, preflight, claim, receipt, and private-container coordinates consumed by the separate
+decision-evidence admission workflow. Without the storage output, the existing apply receipt remains
+available and no live evidence admission is claimed.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
