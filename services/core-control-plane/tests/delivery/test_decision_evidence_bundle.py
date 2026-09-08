@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import stat
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -115,3 +116,20 @@ async def test_rejects_expired_proof_window(builder: ModuleType) -> None:
             readback_proofs=readback,
             evaluated_at=_NOW + timedelta(minutes=9),
         )
+
+
+def test_output_writer_refuses_symlink_and_uses_owner_only_mode(
+    builder: ModuleType,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "bundle.json"
+    builder._write(output, {"safe": True})
+
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    target = tmp_path / "target.json"
+    target.write_text("{}\n", encoding="utf-8")
+    link = tmp_path / "linked.json"
+    link.symlink_to(target)
+    with pytest.raises(builder.DecisionEvidenceBundleError, match="new regular file"):
+        builder._write(link, {"unsafe": True})
+    assert target.read_text(encoding="utf-8") == "{}\n"
