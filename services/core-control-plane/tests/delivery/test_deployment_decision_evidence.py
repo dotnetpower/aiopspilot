@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import stat
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -174,3 +175,18 @@ def test_rejects_stale_deployment_evidence(verifier: ModuleType, tmp_path: Path)
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW + timedelta(hours=2),
         )
+
+
+def test_output_writer_refuses_existing_path_and_uses_owner_only_mode(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "receipt.json"
+    verifier._write(output, {"safe": True})
+
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    with pytest.raises(
+        verifier.DeploymentDecisionEvidenceError,
+        match="new regular file",
+    ):
+        verifier._write(output, {"unsafe": True})
