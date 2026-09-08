@@ -1552,7 +1552,6 @@ resource "azurerm_private_dns_a_record" "decision_evidence_runner_blob" {
     azurerm_private_endpoint.decision_evidence_blob[0]
     .private_service_connection[0].private_ip_address
   ]
-  tags = merge(local.tags, { "fdai:component" = "decision-evidence" })
 }
 
 # -----------------------------------------------------------------------
