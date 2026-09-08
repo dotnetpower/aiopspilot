@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: b83d8a6489df884ede40dd652f3dd8d5edd689b0
-translation_revised: 2026-09-07
+translation_source_sha: c2fa280843d48be8fe3d255cc714f527d6ce4f6f
+translation_revised: 2026-09-09
 ---
 # 기록된 리소스 상태
 
@@ -172,6 +172,8 @@ ResourceType을 선언합니다.
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.
 - 런타임 화면 근거에는 현재 인증된 5273 Browser Entra 세션이 필요합니다. 만료된 캡처나 테스트
   인증으로 대체한 결과는 표준 운영자 화면을 검증하지 않습니다.
+- Static Web App 런타임 검증은 활성 세대의 모든 대상을 확인합니다. 각 대상은 정확한 기본 환경 운영
+  값과 최신성 설명을 표시해야 하며, 검토된 출처 사실이 있으면 미제공으로 대체하지 않습니다.
 - frontend 또는 Operator API를 교체한 뒤에는 표준 화면에서 선택한 축 레이블을 다시 검증합니다.
   따라서 유용한 가용성이나 프로비저닝 사실이 적용 대상이 아닌 운영 축 뒤에 다시 숨지 않습니다.
 - 확장된 Resource Health 검증은 ResourceType별 대상, 값 및 메타데이터 수를 비교합니다. 공급자가

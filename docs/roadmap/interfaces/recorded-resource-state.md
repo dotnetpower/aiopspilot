@@ -173,6 +173,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Resource inspection and selection do not grant approval or execution authority.
 - Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired
   capture or test-authenticated replacement does not validate the standard operator screen.
+- Static Web App runtime validation checks every target in the active generation. Each target must
+  show its exact default-environment operational value and freshness qualification, without falling
+  back to Not provided when the reviewed source fact is present.
 - After a frontend or Operator API replacement, runtime validation rechecks the selected axis label
   on the standard page so a useful availability or provisioning fact cannot regress behind an
   inapplicable operational axis.
