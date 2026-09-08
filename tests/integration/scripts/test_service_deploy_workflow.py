@@ -188,12 +188,19 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     assert "-target=module.operational_history_storage[0]" in target_expression
     assert "-target=azurerm_private_endpoint.operational_history_blob[0]" in target_expression
     assert (
-        "-target=module.case_history_blob_private_endpoint[0]."
-        'azurerm_private_dns_zone_virtual_network_link.extra[\\"ops\\"]' in target_expression
+        "-target=azurerm_private_dns_zone_virtual_network_link."
+        "decision_evidence_runner_blob[0]" in target_expression
     )
     assert (
         "-target=azurerm_container_app_job.operational_history_lifecycle[0]"
     ) in target_expression
+    assert (
+        'resource "azurerm_private_dns_zone_virtual_network_link" '
+        '"decision_evidence_runner_blob"' in _LEGACY_ROOT
+    )
+    assert 'private_dns_zone_name = "privatelink.blob.core.windows.net"' in _LEGACY_ROOT
+    assert "virtual_network_id    = var.runner_vnet_id" in _LEGACY_ROOT
+    assert "registration_enabled  = false" in _LEGACY_ROOT
     assert "OPERATIONAL_HISTORY_ONLY:" in _LEGACY_WORKFLOW
     assert "mode=operational-history" in _LEGACY_WORKFLOW
 
