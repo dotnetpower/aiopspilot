@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from fdai.core.conversation_assurance import (
     ConversationAssuranceCoordinator,
     ConversationTurnTraceReceipt,
     PantheonCensusCase,
+    T2Expectation,
     build_pantheon_census,
     content_digest,
     evaluate_pantheon_turn,
@@ -29,6 +31,7 @@ from .pantheon_assurance_evidence import (
 from .pantheon_assurance_evidence import (
     assessment_input as _assessment_input,
 )
+from .pantheon_assurance_evidence import case_reference_facts as _case_reference_facts
 from .pantheon_assurance_evidence import (
     deliberation_answer as _deliberation_answer,
 )
@@ -96,6 +99,8 @@ class RuntimePantheonConversationAssurance:
             answer, trace_fields = await self._deliberation_turn(request, case)
         else:
             answer, trace_fields = await self._agent_turn(request, case)
+        answer_model_identity = _optional_string(trace_fields.pop("answer_model_identity", None))
+        answer_model_family = _optional_string(trace_fields.pop("answer_model_family", None))
         latency_ms = max(0, round((time.monotonic() - started) * 1000))
         trace = ConversationTurnTraceReceipt(
             campaign_id=campaign_id,
@@ -108,9 +113,33 @@ class RuntimePantheonConversationAssurance:
             **trace_fields,
         )
         observations = _observed_rubrics(case, answer, trace, specs=self._specs)
-        assessment_input = _assessment_input(request, answer, trace)
-        review = await self._coordinator.review(assessment_input)
-        semantic_reviews = _pantheon_semantic_reviews(review.evaluator_outputs)
+        assessment_input = _assessment_input(
+            request,
+            answer,
+            trace,
+            answer_model_identity=answer_model_identity,
+            answer_model_family=answer_model_family,
+            reference_facts=_case_reference_facts(case, self._specs),
+        )
+        review = await self._coordinator.review_semantically(assessment_input)
+        hold_reason: str | None = None
+        if case.t2_expectation is T2Expectation.REQUIRED and trace.t2_status != "completed":
+            hold_reason = f"required_t2_incomplete:{trace.t2_status}"
+        elif case.t2_expectation is T2Expectation.FORBIDDEN and trace.t2_attempted:
+            hold_reason = "forbidden_t2_attempted"
+        if hold_reason is not None:
+            review = replace(
+                review,
+                decision=replace(
+                    review.decision,
+                    reasons=(*review.decision.reasons, hold_reason),
+                ),
+            )
+        semantic_reviews = (
+            _pantheon_semantic_reviews(review.evaluator_outputs)
+            if review.semantic_review_valid
+            else ()
+        )
         diagnostic = evaluate_pantheon_turn(
             case=_diagnostic_case(case),
             trace=trace,
@@ -126,6 +155,8 @@ class RuntimePantheonConversationAssurance:
             "schema_version": "1.0.0",
             "answer": answer,
             "assessment_id": record.assessment_id,
+            "assessment_state": record.state.value,
+            "assessment_reasons": list(record.decision.reasons),
             "trace_receipt_id": trace.receipt_digest,
             "pantheon_trace": trace.to_dict(),
             "pantheon_observations": {rubric.value: passed for rubric, passed in observations},
@@ -209,6 +240,7 @@ class RuntimePantheonConversationAssurance:
             question=request.utterance,
             requester="Bragi",
             correlation_id=request.turn_id,
+            reuse_semantic_route=False,
         )
         answer = _deliberation_answer(result)
         participants, evidence_refs = _deliberation_participants(
@@ -221,6 +253,7 @@ class RuntimePantheonConversationAssurance:
         conflicts = t1.get("conflicts")
         conflict_count = len(conflicts) if isinstance(conflicts, list) else 0
         t2_status = str(result.get("t2_status") or "not_required")
+        t1_reason = str(t1.get("reason") or result.get("reason") or "unavailable")
         t2_attempted = t2_status in {
             "completed",
             "error",
@@ -229,6 +262,7 @@ class RuntimePantheonConversationAssurance:
             "sensitive_output",
         }
         actual_primary = result.get("primary_agent")
+        routing_method = result.get("routing_method")
         semantic_score = result.get("semantic_score")
         semantic_margin = result.get("semantic_margin")
         return answer, {
@@ -238,7 +272,9 @@ class RuntimePantheonConversationAssurance:
             "locale": case.locale,
             "expected_primary_agent": case.expected_primary_agent,
             "actual_primary_agent": actual_primary if isinstance(actual_primary, str) else None,
-            "routing_method": "t1_semantic",
+            "routing_method": (
+                routing_method if isinstance(routing_method, str) else "unavailable"
+            ),
             "semantic_score": (
                 float(semantic_score) if isinstance(semantic_score, int | float) else None
             ),
@@ -254,7 +290,7 @@ class RuntimePantheonConversationAssurance:
             "answer_digest": content_digest(answer),
             "verification_status": "verified" if evidence_refs else "unverified",
             "verification_authority": "pantheon_owned_projection",
-            "t1_reason": str(t1.get("reason") or result.get("reason") or "unavailable"),
+            "t1_reason": t1_reason,
             "t1_signal_count": _non_negative_int(t1.get("signal_count")),
             "t1_conflict_count": conflict_count,
             "t1_conclusion_preserved": bool(answer),
@@ -262,6 +298,8 @@ class RuntimePantheonConversationAssurance:
             "t2_attempted": t2_attempted,
             "t2_status": t2_status,
             "t2_model_family": _optional_string(result.get("t2_model_family")),
+            "answer_model_identity": _optional_string(result.get("t2_model_identity")),
+            "answer_model_family": _optional_string(result.get("t2_model_family")),
             "budget_reserved": t2_attempted,
             "metering_receipt_digest": _optional_string(result.get("metering_receipt_digest")),
             "hard_zero_violations": _hard_zero_violations(result, answer),

@@ -42,7 +42,7 @@ test("completed manuals provide the catalog slide count and source evidence", as
   const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
   const { additionalManualSlides } = await import(new URL("manual-content.js", root));
   const expectedSlides = {
-    "readiness-maturity": 25,
+    "readiness-maturity": 32,
     "art-of-possible": 10,
     "value-prioritization": 25,
     "target-architecture": 25,
@@ -65,7 +65,7 @@ test("completed manuals provide the catalog slide count and source evidence", as
     assert.equal(slides.length, expected);
     assert.equal(new Set(slides.map((slide) => slide.title)).size, expected);
     assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/") ||
-      /class="ontology-evidence-source" title="docs\/roadmap\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
+      /class="(?:ontology-evidence-source|rm-source)" title="docs\/roadmap\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
   }
 });
 

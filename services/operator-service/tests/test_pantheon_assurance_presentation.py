@@ -16,6 +16,8 @@ def _assurance() -> dict[str, object]:
         "schema_version": "1.0.0",
         "answer": "Bounded Pantheon answer.",
         "assessment_id": "conversation-assessment:test",
+        "assessment_state": "completed",
+        "assessment_reasons": ["mixed_family_consensus"],
         "trace_receipt_id": "a" * 64,
         "pantheon_trace": {"receipt_digest": "a" * 64},
         "pantheon_observations": {"read_only": True},
@@ -52,6 +54,8 @@ def test_pantheon_assurance_projection_becomes_one_bounded_terminal_answer() -> 
 
     assert done["status"] == "answered"
     assert done["answer"] == "Bounded Pantheon answer."
+    assert done["assessment_state"] == "completed"
+    assert done["assessment_reasons"] == ["mixed_family_consensus"]
     assert done["source"] == "pantheon-conversation-assurance"
     assert done["execution_authority"] is False
 

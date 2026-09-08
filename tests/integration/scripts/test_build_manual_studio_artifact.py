@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -40,6 +41,16 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
         "ontology-story-contracts.js",
         "ontology-story-operations.js",
         "presentation-standard.css",
+        "readiness-action-plan.js",
+        "readiness-ai.js",
+        "readiness-diagrams.css",
+        "readiness-diagrams.js",
+        "readiness-foundations.js",
+        "readiness-maturity-model.js",
+        "readiness-maturity.css",
+        "readiness-maturity.js",
+        "readiness-slide-kit.js",
+        "readiness-visuals.css",
         "sre-incident-response.css",
         "sre-incident-response.js",
         "styles.css",
@@ -48,10 +59,26 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
     assert "assets/provenance.json" in copied_names
     assert "server.mjs" not in copied_names
     assert "package.json" not in copied_names
+    assert "readiness-maturity-plan.md" not in copied_names
     assert not any(name.startswith("test/") for name in copied_names)
     assert (output / "catalog.json").read_bytes() == (
         _ROOT / "tools" / "manual-studio" / "catalog.json"
     ).read_bytes()
+
+
+def test_build_artifact_resolves_module_and_stylesheet_dependencies(tmp_path: Path) -> None:
+    output = tmp_path / "manuals"
+    copied = _MODULE.build_artifact(_ROOT, output)
+
+    for path in copied:
+        if path.suffix == ".js":
+            imports = re.findall(r"\bfrom\s+[\"'](\./[^\"']+)[\"']", path.read_text())
+            for imported in imports:
+                assert (path.parent / imported).is_file(), (path.name, imported)
+
+    html = (output / "library.html").read_text()
+    for stylesheet in re.findall(r'href="([^"]+\.css)"', html):
+        assert (output / stylesheet).is_file(), stylesheet
 
 
 def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:

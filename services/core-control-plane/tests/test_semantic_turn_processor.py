@@ -2261,6 +2261,8 @@ class _PantheonAssurance:
             "schema_version": "1.0.0",
             "answer": "Bounded Pantheon answer.",
             "assessment_id": "conversation-assessment:test",
+            "assessment_state": "completed",
+            "assessment_reasons": ["mixed_family_consensus"],
             "trace_receipt_id": "a" * 64,
             "pantheon_trace": {"receipt_digest": "a" * 64},
             "pantheon_observations": {"read_only": True},
@@ -2665,6 +2667,8 @@ async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> Non
     assert projection["semantic_result"]["disposition"] == "held"
     assurance = projection["payload"]["pantheon_assurance"]
     assert assurance["answer"] == "Bounded Pantheon answer."
+    assert assurance["assessment_state"] == "completed"
+    assert assurance["assessment_reasons"] == ["mixed_family_consensus"]
     assert assurance["execution_authority"] is False
 
 

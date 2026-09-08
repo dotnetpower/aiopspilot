@@ -504,6 +504,8 @@ jobs:
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
+          OPERATOR_CHANNEL_EDGE_PROVIDER_JSON: ${{ secrets.OPERATOR_CHANNEL_EDGE_PROVIDER_JSON }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
         run: |
           set -euo pipefail
           [[ -n "$SERVICE_TFVARS_JSON" ]] || {
@@ -511,6 +513,11 @@ jobs:
             exit 1
           }
           resolved_model_args=()
+          channel_edge_args=()
+          case "$OPERATOR_CHANNEL_EDGE_TRANSITION" in
+            enable) channel_edge_args+=(--operator-channel-edge-enabled true) ;;
+            disable) channel_edge_args+=(--operator-channel-edge-enabled false) ;;
+          esac
           model_endpoints_json="{}"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             resolved_model_args+=(--model-binding-transition)
@@ -552,6 +559,7 @@ jobs:
           observation_context_binding="null"
           rca_reader_identity_binding="null"
           stewardship_gitops_binding="null"
+          operator_channel_edge_identity_binding="null"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             observation_context_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
@@ -630,6 +638,22 @@ jobs:
               stewardship_gitops_binding=null
             fi
           fi
+          if [[ "$SERVICE" == "operator-service" \
+            && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "enable" ]]; then
+            operator_channel_edge_identity_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json operator_channel_edge_identity
+            )"
+            jq -e '
+              type == "object" and
+              keys == ["client_id", "principal_id", "resource_id"] and
+              all(.[]; type == "string" and length > 0) and
+              (.resource_id | ascii_downcase | endswith("-channel-edge"))
+            ' <<<"$operator_channel_edge_identity_binding" >/dev/null || {
+              echo "Platform state returned an invalid Operator channel-edge identity." >&2
+              exit 1
+            }
+          fi
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
                 --service "${{ inputs.service }}" \
@@ -654,10 +678,13 @@ jobs:
                 --environment "${{ inputs.environment }}" \
                 --identity-json "$rca_reader_identity_binding" \
             | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
+              OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding" \
+              OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
+                "${channel_edge_args[@]}" \
                 "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
 

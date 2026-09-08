@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,19 @@ from service_contract import ServiceContractError, resolve_service
 
 class TfvarsError(ValueError):
     """Raised when protected service tfvars are missing or ambiguous."""
+
+
+_CHANNEL_EDGE_SECRET_NAMES = {
+    "principal_scopes_secret_id": "fdai-channel-edge-principal-scopes",
+    "slack_signing_secret_id": "fdai-channel-edge-slack-signing-secret",
+    "slack_bot_token_secret_id": "fdai-channel-edge-slack-bot-token",
+    "slack_principal_map_secret_id": "fdai-channel-edge-slack-principal-map",
+}
+_AZURE_GUID = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+_SLACK_TEAM_ID = re.compile(r"^[A-Z0-9]{2,64}$")
 
 
 def _resolved_models_digest(payload: dict[str, Any]) -> str:
@@ -147,6 +161,116 @@ def _web_search_domains(values: list[str] | None) -> list[str]:
     return normalized
 
 
+def _channel_edge_name(operator_name: object) -> str:
+    if not isinstance(operator_name, str):
+        raise TfvarsError("operator service name cannot derive a channel edge name")
+    for suffix in ("-operator-api", "-readapi"):
+        if operator_name.endswith(suffix):
+            name = f"{operator_name[: -len(suffix)]}-channel-edge"
+            if len(name) <= 32:
+                return name
+    raise TfvarsError("operator service name cannot derive a valid channel edge name")
+
+
+def _channel_edge_secret_id(value: object, *, expected_name: str) -> tuple[str, str]:
+    if not isinstance(value, str) or not value.isprintable() or value != value.strip():
+        raise TfvarsError("operator channel edge secret ids must be non-empty strings")
+    segments = value.split("/")
+    if (
+        len(segments) != 11
+        or segments[0] != ""
+        or segments[1].lower() != "subscriptions"
+        or _AZURE_GUID.fullmatch(segments[2]) is None
+        or segments[3].lower() != "resourcegroups"
+        or not segments[4]
+        or segments[5].lower() != "providers"
+        or segments[6].lower() != "microsoft.keyvault"
+        or segments[7].lower() != "vaults"
+        or re.fullmatch(r"[A-Za-z0-9-]{3,24}", segments[8]) is None
+        or segments[9].lower() != "secrets"
+        or segments[10] != expected_name
+    ):
+        raise TfvarsError("operator channel edge secret id is not an approved fixed secret")
+    secret_uri = f"https://{segments[8].lower()}.vault.azure.net/secrets/{expected_name}"
+    return secret_uri, "/".join(segments[:10])
+
+
+def materialize_operator_channel_edge(
+    provider: dict[str, Any],
+    *,
+    operator_name: object,
+) -> dict[str, Any]:
+    """Build the complete Slack edge contract from a bounded provider binding."""
+    expected_keys = {*_CHANNEL_EDGE_SECRET_NAMES, "slack_team_id"}
+    if set(provider) != expected_keys:
+        raise TfvarsError("operator channel edge provider binding has unexpected keys")
+
+    secret_ids: dict[str, str] = {}
+    vaults: set[str] = set()
+    for key, expected_name in _CHANNEL_EDGE_SECRET_NAMES.items():
+        secret_id, vault = _channel_edge_secret_id(provider.get(key), expected_name=expected_name)
+        secret_ids[key] = secret_id
+        vaults.add(vault.lower())
+    if len(vaults) != 1:
+        raise TfvarsError("operator channel edge secrets must belong to one Key Vault")
+
+    slack_team_id = provider.get("slack_team_id")
+    if not isinstance(slack_team_id, str) or _SLACK_TEAM_ID.fullmatch(slack_team_id) is None:
+        raise TfvarsError("operator channel edge Slack workspace id has an invalid shape")
+
+    return {
+        "enabled": True,
+        "name": _channel_edge_name(operator_name),
+        "slack_enabled": True,
+        "teams_enabled": False,
+        **secret_ids,
+        "slack_team_id": slack_team_id,
+        "teams_application_id": "",
+        "teams_tenant_id": "",
+        "teams_principal_map_secret_id": "",
+        "teams_allowed_service_urls": "",
+        "teams_jwks_url": "",
+        "health": {
+            "port": 8014,
+            "liveness_path": "/health/live",
+            "readiness_path": "/health/ready",
+            "startup_path": "/health/ready",
+            "interval_seconds": 15,
+            "timeout_seconds": 3,
+            "failure_count_threshold": 3,
+            "startup_failure_count": 30,
+        },
+        "scaling": {
+            "min_replicas": 1,
+            "max_replicas": 2,
+            "cpu": 0.5,
+            "memory": "1Gi",
+        },
+    }
+
+
+def _operator_channel_edge_identity(binding: dict[str, Any]) -> dict[str, str]:
+    if set(binding) != {"client_id", "principal_id", "resource_id"}:
+        raise TfvarsError("operator channel edge identity binding has unexpected keys")
+    client_id = binding.get("client_id")
+    principal_id = binding.get("principal_id")
+    resource_id = binding.get("resource_id")
+    if (
+        not isinstance(client_id, str)
+        or _AZURE_GUID.fullmatch(client_id) is None
+        or not isinstance(principal_id, str)
+        or _AZURE_GUID.fullmatch(principal_id) is None
+        or not isinstance(resource_id, str)
+        or not resource_id.lower().startswith("/subscriptions/")
+        or not resource_id.lower().endswith("-channel-edge")
+    ):
+        raise TfvarsError("operator channel edge identity binding is invalid")
+    return {
+        "edge_resource_id": resource_id,
+        "edge_client_id": client_id,
+    }
+
+
 def materialize_core_llm(
     resolved_models: dict[str, Any],
     *,
@@ -209,6 +333,8 @@ def select_tfvars(
     service: str,
     environment: str,
     operator_channel_edge_enabled: bool | None = None,
+    operator_channel_edge_identity: dict[str, Any] | None = None,
+    operator_channel_edge_provider: dict[str, Any] | None = None,
     resolved_models: dict[str, Any] | None = None,
     resolved_models_digest: str = "",
     model_endpoints: object = None,
@@ -234,9 +360,26 @@ def select_tfvars(
         if service != "operator-service":
             raise TfvarsError("operator channel edge override is valid only for operator-service")
         channel_edge = materialized.get("channel_edge")
-        if not isinstance(channel_edge, dict):
+        if operator_channel_edge_enabled and operator_channel_edge_provider is not None:
+            channel_edge = materialize_operator_channel_edge(
+                operator_channel_edge_provider,
+                operator_name=materialized.get("name"),
+            )
+            materialized["channel_edge"] = channel_edge
+        elif channel_edge is None and not operator_channel_edge_enabled:
+            pass
+        elif not isinstance(channel_edge, dict):
             raise TfvarsError("operator tfvars must contain a channel_edge object")
-        channel_edge["enabled"] = operator_channel_edge_enabled
+        else:
+            channel_edge["enabled"] = operator_channel_edge_enabled
+        if operator_channel_edge_enabled:
+            identity = materialized.get("identity")
+            if not isinstance(identity, dict):
+                raise TfvarsError("operator tfvars must contain an identity object")
+            if operator_channel_edge_identity is not None:
+                identity.update(_operator_channel_edge_identity(operator_channel_edge_identity))
+            if not identity.get("edge_resource_id") or not identity.get("edge_client_id"):
+                raise TfvarsError("operator channel edge identity binding is missing")
     if resolved_models is not None:
         if service != "core-control-plane":
             raise TfvarsError("resolved model binding is valid only for core-control-plane")
@@ -331,9 +474,19 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             operator_channel_edge_enabled=edge_enabled,
+            operator_channel_edge_identity=(
+                _optional_object_environment("OPERATOR_CHANNEL_EDGE_IDENTITY_JSON")
+                if edge_enabled
+                else None
+            ),
+            operator_channel_edge_provider=(
+                _optional_object_environment("OPERATOR_CHANNEL_EDGE_PROVIDER_JSON")
+                if edge_enabled
+                else None
+            ),
             resolved_models=resolved_models,
             resolved_models_digest=os.environ.get("RESOLVED_MODELS_DIGEST", ""),
-            model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "")),
+            model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "{}")),
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
             stewardship_gitops=_optional_object_environment("STEWARDSHIP_GITOPS_JSON"),

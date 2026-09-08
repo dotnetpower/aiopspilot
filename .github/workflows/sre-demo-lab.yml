@@ -60,6 +60,7 @@ jobs:
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       SCENARIO_LAB_RESOURCE_GROUP_NAME: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
@@ -517,6 +518,82 @@ jobs:
           REQUESTED_ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
+          print_plan_diagnostic() {
+            python3 - "$1" <<'PY_PLAN'
+          import re
+          import sys
+          from pathlib import Path
+
+          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          address_pattern = re.compile(
+              r"\bwith\s+((?:module\.[A-Za-z0-9_]+\.)*"
+              r"(?:azurerm|random|terraform)_[A-Za-z0-9_]+\.[A-Za-z0-9_]+"
+              r"(?:\[[0-9]+\])?),"
+          )
+          code_patterns = (
+              re.compile(r'\bCode[=:]\s*"?([A-Za-z][A-Za-z0-9_.-]{1,127})"?'),
+              re.compile(r'"code"\s*:\s*"([A-Za-z][A-Za-z0-9_.-]{1,127})"'),
+          )
+          category_patterns = {
+              "authorization": re.compile(r"\bauthoriz(?:ation|ed)\b", re.IGNORECASE),
+              "capacity_or_quota": re.compile(r"\b(?:capacity|quota)\b", re.IGNORECASE),
+              "invalid_function_argument": re.compile(
+                  r"\binvalid function argument\b", re.IGNORECASE
+              ),
+              "invalid_input_variable": re.compile(
+                  r"\binvalid value for input variable\b", re.IGNORECASE
+              ),
+              "missing_required_argument": re.compile(
+                  r"\bmissing required argument\b", re.IGNORECASE
+              ),
+              "provider_read": re.compile(
+                  r"\berror:\s+(?:reading|retrieving|listing)\b", re.IGNORECASE
+              ),
+              "reference_to_undeclared_resource": re.compile(
+                  r"\breference to undeclared resource\b", re.IGNORECASE
+              ),
+              "request_disallowed_by_policy": re.compile(
+                  r"\brequestdisallowedbypolicy\b", re.IGNORECASE
+              ),
+              "resource_already_exists": re.compile(
+                  r"\balready exists\b", re.IGNORECASE
+              ),
+              "resource_not_found": re.compile(
+                  r"\b(?:parentresource|resourcegroup|resource)notfound\b", re.IGNORECASE
+              ),
+              "subscription_not_registered": re.compile(
+                  r"\bsubscriptionnotregistered\b", re.IGNORECASE
+              ),
+              "timeout": re.compile(r"\b(?:timed out|timeout)\b", re.IGNORECASE),
+              "unsupported_attribute": re.compile(
+                  r"\bunsupported attribute\b", re.IGNORECASE
+              ),
+          }
+          addresses = sorted(set(address_pattern.findall(text)))
+          codes = sorted(
+              {
+                  match
+                  for pattern in code_patterns
+                  for match in pattern.findall(text)
+              }
+          )
+          categories = sorted(
+              name for name, pattern in category_patterns.items() if pattern.search(text)
+          )
+          print(
+              "Terraform plan diagnostic categories: "
+              + (", ".join(categories) or "unclassified")
+          )
+          print(
+              "Terraform plan diagnostic addresses: "
+              + (", ".join(addresses) or "unavailable")
+          )
+          print(
+              "Terraform plan diagnostic Azure codes: "
+              + (", ".join(codes) or "unavailable")
+          )
+          PY_PLAN
+          }
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
           plan_log="$RUNNER_TEMP/sre-demo-lab-plan.log"
           if [[ "$REQUESTED_ACTION" == "destroy" ]]; then
@@ -526,6 +603,7 @@ jobs:
           fi
           if ! terraform plan "${plan_args[@]}" -input=false -lock-timeout=5m \
             -out="$plan_file" >"$plan_log" 2>&1; then
+            print_plan_diagnostic "$plan_log"
             echo "scenario-lab Terraform plan failed; raw output remains runner-local." >&2
             exit 1
           fi

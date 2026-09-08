@@ -107,6 +107,7 @@
     "promotionGates": "Promotion gates",
     "contextSelectionComparisons": "Context policy comparisons",
     "browserEvidence": "Browser evidence",
+    "assuranceTwin": "Assurance Twin",
     "ruleTrace": "Trace",
     "agentActivity": "Agent activity",
     "rules": "Rules",
@@ -204,6 +205,7 @@
       "contextSelectionComparisons": "Context policy comparisons",
       "browserEvidence": "Browser evidence",
       "forecastLearning": "Forecast learning",
+      "assuranceTwin": "Assurance Twin",
       "dashboard": "Dashboard",
       "operatingOutcomes": "Operating outcomes",
       "controlAssurance": "Control assurance",
@@ -259,6 +261,7 @@
       "contextSelectionComparisons": "Baseline and shadow context-selection evidence",
       "browserEvidence": "Immutable redacted evidence from allowlisted browser captures",
       "forecastLearning": "Prediction closure, miss origin, publication, and retention evidence",
+      "assuranceTwin": "Posture report, ambient change reviews, and evidence gaps",
       "dashboard": "Healthy, risk, and cost, sourced from the audit log",
       "operatingOutcomes": "Trends, baselines, and contributors for core operating metrics",
       "controlAssurance": "Guard evidence, release blockers, and promotion readiness",
@@ -411,6 +414,9 @@
         },
         "current-state": {
           "read": "Current state"
+        },
+        "assurance-twin": {
+          "posture": "Assurance Twin posture"
         },
         "observation": "Observation campaign"
       },
@@ -940,6 +946,79 @@
       "integrity": "Integrity",
       "isolation": "Isolation",
       "retention": "Retention"
+    }
+  },
+  "assuranceTwin": {
+    "subtitle": "Read-only Assurance Twin posture report and ambient change reviews. Findings never grant approval or execution authority.",
+    "readOnlyTitle": "Inspection only.",
+    "readOnlyBody": "The twin proposes and reviews; approval and execution controls are not available in this view.",
+    "resourceLabel": "assurance twin posture and reviews",
+    "reviewDetailResourceLabel": "assurance twin change review",
+    "unavailable": "Authoritative Assurance Twin evidence is unavailable.",
+    "noPostureReport": "No posture report has been recorded yet.",
+    "postureReports": "Posture reports",
+    "scope": "Scope",
+    "noFindings": "No findings",
+    "verdict": "Verdict",
+    "verdictValue": {
+      "clear": "Clear",
+      "needs_review": "Needs review",
+      "blocked": "Blocked"
+    },
+    "resourceCount": "Resources",
+    "ruleCount": "Rules",
+    "highestSeverity": "Highest severity",
+    "severityValue": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "freshness": "Freshness",
+    "freshnessValue": {
+      "fresh": "Fresh",
+      "stale": "Stale",
+      "unavailable": "Unavailable",
+      "unknown": "Unknown"
+    },
+    "mode": {
+      "shadow": "Shadow",
+      "enforce": "Enforce"
+    },
+    "postureWithheld": "Withheld posture evidence",
+    "reviewsWithheld": "Withheld change-review evidence",
+    "reviewDetailWithheld": "Withheld review evidence",
+    "reviewDetailUnavailable": "This change review cannot be rendered as usable evidence.",
+    "gap": {
+      "unknownIdentity": "Unknown",
+      "evidence_malformed": "Stored evidence is malformed or missing provenance",
+      "evidence_digest_mismatch": "Stored evidence does not match its recorded digest",
+      "evidence_conflict": "Conflicting evidence exists for this identity",
+      "evidence_not_fresh": "Evidence is not fresh, so it is not rendered as a result",
+      "evidence_truncated": "Older evidence was not read within the bounded page"
+    },
+    "provenance": {
+      "activity": "Activity",
+      "correlation": "Correlation",
+      "evidenceDigest": "Evidence digest",
+      "sourceRevision": "Evidence source revision"
+    },
+    "evidenceGaps": "Evidence gaps",
+    "reviews": "Ambient change reviews",
+    "reviewsEmpty": "No ambient change reviews recorded.",
+    "reviewsUnavailable": "Change-review evidence exists but is unavailable.",
+    "backToReviews": "Back to reviews",
+    "column": {
+      "change": "Change",
+      "verdict": "Verdict",
+      "mode": "Mode",
+      "findings": "Findings",
+      "freshness": "Freshness",
+      "generatedAt": "Generated",
+      "rule": "Rule",
+      "resource": "Resource",
+      "severity": "Severity",
+      "reason": "Reason"
     }
   },
   "workflowApps": {

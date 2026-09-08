@@ -1,0 +1,94 @@
+{
+  "scenario_id": "finops.vm-managed-identity-cost.004",
+  "shipped_rule_id": "compute.vm.managed-identity.assigned",
+  "event_payload_resource": {
+    "resource_id": "example-finops-vm",
+    "type": "compute.vm",
+    "props": {
+      "identity_type": "None",
+      "tags": {
+        "environment": "prod"
+      },
+      "cpu_p95_percent": 60,
+      "memory_p95_percent": 60,
+      "network_p95_bytes": 500000
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "compute.vm.managed-identity.assigned",
+  "effect_evidence": {
+    "note": "Frozen independent effect evidence for the FinOps `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, conflicting, and not-yet-recorded.",
+    "prediction_id": "finops-successful-full-loop-v2026-09",
+    "metric": "managed_identity_assigned_count",
+    "acceptable_min": 1,
+    "acceptable_max": 1,
+    "predicted_at": "2026-07-05T08:00:02Z",
+    "observation_deadline": "2026-07-05T08:05:02Z",
+    "authoritative_observation": {
+      "observation_source": "example-managed-identity-readback",
+      "value": 1,
+      "observed_at": "2026-07-05T08:01:02Z"
+    },
+    "negative_cases": [
+      {
+        "kind": "missing",
+        "note": "No authoritative observation was produced before closure was attempted.",
+        "observation": null,
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_unavailable",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "stale",
+        "note": "The only observation arrived after the prediction's observation deadline.",
+        "observation": {
+          "observation_source": "example-managed-identity-readback",
+          "value": 1,
+          "observed_at": "2026-07-05T08:06:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_after_deadline",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "incomplete",
+        "note": "The observation does not cover the predicted metric, so the evidence set is incomplete.",
+        "observation": {
+          "observation_source": "example-managed-identity-readback",
+          "metric": "managed_identity_readback_attempts",
+          "value": 1,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "metric_mismatch",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "conflicting",
+        "note": "The authoritative observation contradicts the prediction it is correlated to.",
+        "observation": {
+          "observation_source": "example-managed-identity-readback",
+          "value": 0,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "mismatch",
+        "expected_verification_reason": "value_outside_acceptable_range",
+        "expected_response_label": "mismatch"
+      },
+      {
+        "kind": "not_yet_recorded",
+        "note": "The observation carries a value the prediction accepts and a time inside the effect window, but a time later than the moment the comparison is recorded on the replay timeline, so it has not happened yet from the recorder's point of view and cannot be scored.",
+        "observation": {
+          "observation_source": "example-managed-identity-readback",
+          "value": 1,
+          "observed_at": "2026-07-05T08:02:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_not_yet_recorded",
+        "expected_response_label": "unscorable"
+      }
+    ]
+  },
+  "note": "FinOps evidence precondition: a fleet VM with no managed identity has no attestable workload identity, so the change-safety objective is unmeasurable until the identity is assigned. Props fire ONLY managed-identity.assigned; a present environment tag and healthy utilisation satisfy the co-resident compute.vm rules so the citing set stays single-rule."
+}

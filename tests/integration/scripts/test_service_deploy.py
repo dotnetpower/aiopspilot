@@ -5,12 +5,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
 import textwrap
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
@@ -2798,6 +2800,228 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     assert selected["channel_edge"]["enabled"] is False
     assert selected["channel_edge"]["principal_scopes_secret_id"] == "secret-reference"
     assert payload["environments"]["dev"]["operator-service"]["channel_edge"]["enabled"] is True
+
+
+def test_tfvars_cli_disables_channel_edge_without_model_endpoint_input(
+    tfvars: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "service.tfvars.json"
+    monkeypatch.delenv("MODEL_ENDPOINTS_JSON", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "environments": {
+                        "dev": {
+                            "operator-service": {
+                                "name": "ca-example-dev-operator-api",
+                                "channel_edge": {"enabled": True},
+                            }
+                        }
+                    }
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "materialize_tfvars.py",
+            "--service",
+            "operator-service",
+            "--environment",
+            "dev",
+            "--operator-channel-edge-enabled",
+            "false",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert tfvars.main() == 0
+    assert json.loads(output.read_text(encoding="utf-8"))["channel_edge"]["enabled"] is False
+
+
+def test_tfvars_materializes_bounded_slack_channel_edge_provider(
+    tfvars: ModuleType,
+) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    provider = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "slack_signing_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-signing-secret",
+        "slack_bot_token_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-bot-token",
+        "slack_team_id": "T00000000",
+        "slack_principal_map_secret_id": (f"{vault}/secrets/fdai-channel-edge-slack-principal-map"),
+    }
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "ca-example-dev-operator-api",
+                    "identity": {
+                        "runtime_resource_id": "runtime-resource",
+                        "runtime_client_id": "00000000-0000-0000-0000-000000000001",
+                        "command_resource_id": "command-resource",
+                        "command_client_id": "00000000-0000-0000-0000-000000000002",
+                    },
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+        operator_channel_edge_enabled=True,
+        operator_channel_edge_identity={
+            "resource_id": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000"
+                "/resourceGroups/example/providers/Microsoft.ManagedIdentity"
+                "/userAssignedIdentities/id-example-channel-edge"
+            ),
+            "client_id": "00000000-0000-0000-0000-000000000003",
+            "principal_id": "00000000-0000-0000-0000-000000000004",
+        },
+        operator_channel_edge_provider=provider,
+    )
+    expected_secret_ids = {
+        key: f"https://example.vault.azure.net/secrets/{value.rsplit('/', 1)[-1]}"
+        for key, value in provider.items()
+        if key != "slack_team_id"
+    }
+
+    assert selected["channel_edge"] == {
+        "enabled": True,
+        "name": "ca-example-dev-channel-edge",
+        "slack_enabled": True,
+        "teams_enabled": False,
+        **expected_secret_ids,
+        "slack_team_id": "T00000000",
+        "teams_application_id": "",
+        "teams_tenant_id": "",
+        "teams_principal_map_secret_id": "",
+        "teams_allowed_service_urls": "",
+        "teams_jwks_url": "",
+        "health": {
+            "port": 8014,
+            "liveness_path": "/health/live",
+            "readiness_path": "/health/ready",
+            "startup_path": "/health/ready",
+            "interval_seconds": 15,
+            "timeout_seconds": 3,
+            "failure_count_threshold": 3,
+            "startup_failure_count": 30,
+        },
+        "scaling": {
+            "min_replicas": 1,
+            "max_replicas": 2,
+            "cpu": 0.5,
+            "memory": "1Gi",
+        },
+    }
+    assert selected["identity"]["edge_resource_id"].endswith("-channel-edge")
+    assert selected["identity"]["edge_client_id"] == "00000000-0000-0000-0000-000000000003"
+    assert "channel_edge" not in payload["environments"]["dev"]["operator-service"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        (
+            lambda provider: provider.update({"unexpected": "value"}),
+            "unexpected keys",
+        ),
+        (
+            lambda provider: provider.update({"slack_team_id": "invalid-team"}),
+            "workspace id",
+        ),
+        (
+            lambda provider: provider.update(
+                {
+                    "slack_bot_token_secret_id": (
+                        "/subscriptions/00000000-0000-0000-0000-000000000000"
+                        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+                        "/secrets/wrong-name"
+                    )
+                }
+            ),
+            "approved fixed secret",
+        ),
+    ],
+)
+def test_tfvars_rejects_invalid_channel_edge_provider_binding(
+    tfvars: ModuleType,
+    mutation: Callable[[dict[str, str]], object],
+    error: str,
+) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    provider = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "slack_signing_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-signing-secret",
+        "slack_bot_token_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-bot-token",
+        "slack_team_id": "T00000000",
+        "slack_principal_map_secret_id": (f"{vault}/secrets/fdai-channel-edge-slack-principal-map"),
+    }
+    mutation(provider)
+
+    with pytest.raises(tfvars.TfvarsError, match=error):
+        tfvars.select_tfvars(
+            {
+                "environments": {
+                    "dev": {
+                        "operator-service": {
+                            "name": "ca-example-dev-operator-api",
+                            "identity": {},
+                        }
+                    }
+                }
+            },
+            service="operator-service",
+            environment="dev",
+            operator_channel_edge_enabled=True,
+            operator_channel_edge_identity={
+                "resource_id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000"
+                    "/resourceGroups/example/providers/Microsoft.ManagedIdentity"
+                    "/userAssignedIdentities/id-example-channel-edge"
+                ),
+                "client_id": "00000000-0000-0000-0000-000000000003",
+                "principal_id": "00000000-0000-0000-0000-000000000004",
+            },
+            operator_channel_edge_provider=provider,
+        )
+
+
+def test_tfvars_rejects_missing_channel_edge_identity_binding(tfvars: ModuleType) -> None:
+    with pytest.raises(tfvars.TfvarsError, match="identity binding is missing"):
+        tfvars.select_tfvars(
+            {
+                "environments": {
+                    "dev": {
+                        "operator-service": {
+                            "name": "ca-example-dev-operator-api",
+                            "identity": {},
+                            "channel_edge": {"enabled": False},
+                        }
+                    }
+                }
+            },
+            service="operator-service",
+            environment="dev",
+            operator_channel_edge_enabled=True,
+        )
 
 
 def test_state_migration_resolves_exact_source_and_destination(

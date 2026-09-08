@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 2ea62839e567485fcec7220fd267e82b33e9c76d
-translation_revised: 2026-08-31
+translation_source_sha: c14cf9eb845a4e7e0547c5546b1294c9a2e60bc6
+translation_revised: 2026-09-08
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -40,8 +40,12 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 ## 구현 상태
 
 결정론적 Twin 코어와 스칼라 및 그래프 시뮬레이션 기본 기능은 구현되어 집중 테스트로
-검증됩니다. 운영 인벤토리, 자연어, 검토 전달, 전용 운영자 패널 연결은 미완성이므로 운영
-환경에서 검증 완료된 영역으로 표시하지 않습니다.
+검증됩니다. 자세/검토 표면은 **부분 구현**입니다. 운영 `state_kv` 원장, 읽기 전용
+Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 검증되지만 이 행을 쓰는
+구성 요소가 없습니다. Twin 발견 사항을 계산하는 신뢰된 생산자가 없으므로, 신뢰할 수 없는
+선제적 수집 페이로드를 근거로 삼는 대신 레코더를 의도적으로 연결하지 않은 상태로 둡니다.
+운영 인벤토리, 자연어, 검토 전달 연결은 아직 미완성이고 통제된 실제 런타임 증적도
+수집하지 않았으므로 실제 Azure 근거로 검증 완료된 영역으로 표시하지 않습니다.
 
 ### 구현 범위
 
@@ -54,12 +58,22 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
-| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | not-started | 위의 보고 및 검토 기본 기능은 입력을 제공하지만 전용 Operator API 또는 콘솔 경로는 없습니다. | 구현된 Security Assessment 보고서는 더 넓은 Twin 자세 패널이나 액션 연결 작업 흐름을 충족하지 않습니다. |
+| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`(전달)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/review?review_key=` Operator API 경로, [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx), 그리고 집중 테스트 | 부분 구현입니다. 레코더는 자세 보고서와 변경 검토 양쪽 모두에 대해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처와 함께 영속 `state_kv` 본문을 쓰고, Operator API 변환 결과가 읽을 때 적용하는 것과 동일한 쓰기 측 경계(`review_key` <= 256자, 발견 사항 <= 200개, 범위가 제한되고 중복 없는 비어 있지 않은 <= 512자 `reason_codes`/`evidence_refs` 항목, 비어 있지 않은 <= 512자 `evidence_source_revision`)를 강제하므로 수락된 쓰기는 항상 표시할 수 있습니다. 자세 범위는 `generated_at`이 더 새로운 경우에만 개정 번호로 보호된 비교 후 설정을 통해 진행합니다. 늦게 도착한 보고서는 대체됨으로 남고, 같은 시각의 동일 보고서는 멱등 재현으로 처리하며, 같은 시각의 다른 근거는 해당 범위를 영속 충돌 상태로 표식합니다. 자세 활동 신원은 호출자 상관관계 값 대신 정규화된 보고서 근거의 SHA-256 다이제스트에 결속됩니다. 자세와 변경 검토 활동 값은 모두 게시하지 않습니다. 영속 비교 후 설정과 별도 비동기 게시는 트랜잭션 아웃박스 없이는 더 새로운 자세 진행 또는 검토 충돌 표식과 안전하게 순서를 맞출 수 없습니다. 레코더는 로컬 감사용으로 스키마가 유효한 값을 반환하고 영속 원장은 권위 있는 상태를 유지합니다. 하나의 `review_key`에 대해 상충하는 재전달은 영속 본문을 대체하지 않고 해당 행을 영속적으로 표식합니다. 검토 목록 읽기는 `state_kv` 키 접미사를 본문의 정확하고 불투명한 `review_key`와 대조합니다. Operator API와 콘솔은 저장된 근거를 그대로 표시하고 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치, 키 불일치, 충돌 표식이 있는 행은 명시적인 공백으로 보류합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하고 보류된 근거를 실제 빈 원장과 구분합니다. **신뢰된 생산자는 연결되어 있지 않습니다.** Twin 발견 사항을 계산하거나 이 행을 쓰는 구성 요소가 없고, 공격자가 영향을 줄 수 있는 선제적 수집 페이로드는 Twin 근거로 받아들이지 않으므로 레코더에는 런타임 호출 지점이 없습니다. 운영 `Inventory` 연결, 신뢰된 생산자, 수정 제안 연결, 트랜잭션 활동 게시 설계, 통제된 실제 증적은 모두 남은 작업입니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | in-progress | 영속성, 활동 신원, 스키마 소유권, Operator 변환 결과 신원, 콘솔 상태 표현에서 마지막 Medium 이상 검토 결과를 해결했습니다. 자세 쓰기는 가장 최근에 생성된 근거로 수렴하고, 활동 키는 개인정보를 노출하지 않는 보고서 근거에 결속됩니다. 스키마는 `assurance-twin` 생산자가 다른 활동 종류를 가장하는 것을 차단합니다. 검토 목록은 영속 키를 정확한 본문 신원에 결속하고, 모든 자세 범위를 표시하며, 보류된 행을 빈 원장으로 표현하지 않습니다. | `current change`; 집중 Core, 계약, Operator, 콘솔 회귀 검사는 지연되거나 동시 발생한 자세 쓰기, 오래된 게시 억제, 범위 간 활동 신원, 생산자 가장, 영속 키 불일치, 다중 범위 요약, 보류 상태 레이블을 검증합니다. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존합니다. 이 강화만으로 연결되지 않은 화면이 운영 검증 완료 상태가 되지는 않습니다. |
+| 2026-09-06 | in-progress | Assurance Twin 소유권을 Python 및 콘솔 검증기뿐 아니라 공개 `agent-operational-activity` `1.2.0` JSON 스키마에도 결속했습니다. 이제 자세 활동은 Heimdall 소유권, `assurance-twin` 생산자, 관측 도메인 없음 조건을 모두 충족해야 하므로 스키마만 사용하는 소비자도 위조된 소유권을 수락할 수 없습니다. | `current change`; 위조된 소유자, 생산자 및 도메인 거부 사례를 포함해 집중 운영 활동 계약 테스트 15개 통과. | 이후 모든 스키마 버전과 생성된 소비자에서 같은 관계를 보존합니다. |
+| 2026-09-06 | in-progress | 원장의 쓰기 경계를 Operator 변환 결과의 열거형과 일치시켰습니다. 이제 알 수 없는 최신성, 검토 판정 또는 발견 사항 심각도 값은 모든 읽기 구성 요소가 형식 오류로 보류해야 하는 성공 행을 만들지 않고 영속화 전에 실패합니다. | `current change`; 세 열거형 모두 쓰기가 발생하지 않음을 확인하는 회귀 사례를 포함해 집중 영속성 테스트 33개 통과. | 변환 결과 계약이 변경될 때 쓰기와 읽기 열거형 집합을 함께 동기화합니다. |
+| 2026-09-06 | in-progress | 타임스탬프 표준화 이전에 기록한 검토 행의 멱등 재현을 보존했습니다. 이제 충돌 비교 자료에서만 레거시 행의 타임스탬프를 정규화하고 보존된 행과 기록된 다이제스트는 바이트 호환 상태로 유지하므로, 같은 시각의 다른 오프셋 때문에 영구적인 잘못된 충돌 표식이 생기지 않습니다. | `current change`; 레거시 `Z` 행을 같은 시각의 다른 오프셋으로 재현하는 사례를 포함해 집중 영속성 테스트 32개 통과. | 레거시 행이 남아 있지 않다는 통제된 이행 근거를 확보한 뒤에만 호환 경로를 제거합니다. |
+| 2026-09-06 | in-progress | Assurance Twin 읽기 경로 3개를 Operator Service의 `operational-state` 데이터 출처에 모두 등록했습니다. 이제 `/system/data-sources`가 권위 있는 PostgreSQL 소유자와 사용 불가 이유를 보고하므로, 해당 변환 결과가 구성되지 않았을 때 콘솔이 소유자 없는 읽기를 요청하지 않습니다. | `current change`; Operator Service 조립 및 집중 출처 소유권 테스트 통과. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존해야 합니다. 출처 소유권은 기존 읽기 표면의 상태를 설명할 수 있게 할 뿐입니다. |
+| 2026-09-06 | in-progress | 저장되는 모든 자세 및 검토 `generated_at` 값을 다이제스트 계산과 쓰기 전에 표준 UTC로 정규화했습니다. 이제 같은 시각을 나타내는 서로 다른 오프셋 타임스탬프는 멱등성을 유지하고, 범위가 제한된 검토 조회는 오프셋 차이 때문에 더 최신 시각을 제외하지 않고 문자열 기준 최신순 정렬을 유지할 수 있습니다. | `current change`; `state_store_assurance_twin_posture.py`; 집중 영속성 테스트 31개 통과. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존해야 합니다. 표준 타임스탬프 저장만으로 연결되지 않은 레코더가 운영 검증 완료 상태가 되지는 않습니다. |
+| 2026-09-02 | in-progress | Heimdall이 소유하는 범위 제한 자세/검토 활동 신호(`agent.operational-activity` 스키마 `1.2.0`, `assurance-twin.posture` 종류), 운영 `state_kv` 자세 보고서 및 변경 검토 원장, 읽기 전용 `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/reviews/{review_id}` Operator API 연산, 드릴다운 검토 상세를 갖춘 지역화된 읽기 전용 콘솔 패널을 추가했습니다. | `current change`; 집중 core, Operator API, 콘솔 검사 32개 통과. 콘솔 타입 검사, 빌드, 지역화 카탈로그 일치성 게이트 통과. | 운영 `Inventory` 출처를 연결하고, 선제적 변경 이벤트를 운영 게시자에 연결하고, 수정 제안 연결을 추가합니다. |
+| 2026-09-03 | in-progress | 독립 검토에서 발견한 결함 일곱 건을 보완했습니다. 조립 루트에서 레코더를 Heimdall의 기존 `object.event` 구독 위 책임 주체 트리거에 연결했고, 상충하는 `review_key` 재전달이 진실을 둘로 나누는 대신 명시적인 사용 불가 신호로 실패 시 닫히도록 했으며, 이벤트-보고서 재생을 위해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처를 저장하고 노출했습니다. Operator API와 콘솔은 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치 행을 사용 가능한 결과 대신 명시적 공백으로 보류합니다. `agent-operational-activity` N/N-1 호환성 경계와 재생성한 Python/TypeScript 산출물, 스키마 `1.2.0`을 인식하는 콘솔 디코더를 추가했고, 콘솔 라우팅에서 불투명한 검토 키 식별자를 그대로 보존합니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사 110건과 서비스 호환성 focused 게이트, 계약 생성, 프로젝트 ruff 및 strict mypy, 콘솔 타입 검사와 빌드, 카탈로그 일치/번역/로드맵 추적 게이트가 통과했습니다. | 통제된 실제 런타임 증적은 없습니다. 선제적 Twin 후보 이벤트를 게시하는 상류 구성 요소가 아직 없고 운영 `Inventory` 연결과 수정 제안 연결도 미착수입니다. |
+| 2026-09-03 | in-progress | 두 번째 독립 검토 이후 같은 표면을 바로잡았습니다. 선제적 `object.event`/Huginn 트리거와 Heimdall 및 조립 루트 연결을 제거했습니다. 공격자가 영향을 줄 수 있는 수집 속성은 권위 있는 Twin 근거가 될 수 없기 때문입니다. 신뢰할 수 없는 다른 수집 경로로 대체하지 않았으므로 레코더는 현재 연결되지 않은 상태입니다. 상충하는 `review_key` 재전달은 영속 충돌 표식을 기록해 Operator API와 콘솔이 해당 식별자를 항상 사용 불가로 표시하도록 했습니다. `blocks_action`은 반드시 존재하는 boolean이어야 하며, 값이 없거나 문자열이면 `evidence_malformed` 사용 불가로 표시합니다. 검토 드릴다운을 정확한 질의 값(`/assurance-twin/review?review_key=`, 콘솔 `/assurance-twin?review=`)으로 옮겨 `/`가 포함된 불투명한 키가 정규화 없이 바이트 그대로 왕복하도록 했습니다. `agent-operational-activity` 호환성 행렬 경계를 되돌려, 과거 독립 서비스 실제 증적과 로컬 전환 근거를 다시 표시하지 않고 변경 전 값으로 복원했습니다. | `current change`; 집중된 코어, Operator API, 콘솔 검사와 ruff, strict mypy, 콘솔 타입 검사/빌드, 카탈로그 일치/번역/로드맵 추적/설계 게이트가 통과했습니다. | 신뢰된 생산자가 없어 이 행을 쓰는 구성 요소가 없고, 운영 `Inventory` 연결과 수정 제안 연결은 미착수이며, 통제된 실제 런타임 증적도 없습니다. |
+| 2026-09-03 | in-progress | 연결되지 않은 표면에서 독립 검토 발견 사항 두 건을 추가로 해결했습니다. (1) 변경 검토 활동 신호는 원장의 CAS 기반 영속 충돌 표식과 원자적으로 순서를 맞출 수 없습니다. 영속 쓰기와 버스 게시는 순서가 보장되지 않는 별도의 비동기 단계이므로, 완료 신호든 사용 불가 신호든 동시 재전달이 이미 영속적으로 대체한 행의 상태를 설명하는 신호가 구독자에게 도달할 수 있고, 이미 게시된 오래된 신호를 철회할 방법도 없습니다. 추측성 잠금이나 아직 만들어지지 않은 트랜잭션 아웃박스를 추가하는 대신, `record_change_review`는 이제 두 결과 어느 쪽에 대해서도 `publisher.publish`를 호출하지 않습니다. 영속 원장, Operator API, 콘솔이 검토 상태에 대한 유일한 근거로 남고, 충돌은 여전히 그곳에서 영속적으로 사용 불가로 표시됩니다. 자세 보고서 게시는 영향을 받지 않습니다. 자세 쓰기에는 충돌 표식이 없으므로, 게시된 완료 신호는 "이 보고서가 기록되었다"는 사실만 주장하며 이후 보고서가 이를 대체해도 계속 참으로 남습니다. (2) 원장의 쓰기 경로는 이제 Operator API 투영이 읽을 때 이미 강제하는 모든 쓰기측 경계를 강제합니다. 발견 사항의 `evidence_refs`와 보고서/검토의 `reason_codes`는 각각 200개 항목을 초과하거나 비어 있거나 512자를 초과하거나 중복된 항목이 있으면 거부되고, `evidence_source_revision`은 비어 있거나 512자를 초과하면 거부됩니다. 이 모든 검증은 영속화나 게시 이전에 이루어지며 `assurance_twin_posture_projection.py`의 `_strict_string_list`/`_bounded_identity`를 정확히 그대로 반영합니다. | `current change`; 집중 core, delivery, persistence, Operator API 검사 278건(core-control-plane 229건 + operator-service 49건) 통과, 모든 수정 파일에 대한 ruff check/format과 mypy --strict(오류 0건) 통과. | 신뢰된 생산자가 없어 이 행을 쓰는 구성 요소가 없습니다. 운영 `Inventory` 연결, 수정 제안 연결, CAS/비동기 게시 순서 위험을 견디는 변경 검토 활동 게시 설계는 모두 남은 작업이며, 통제된 실제 런타임 증적도 없습니다. |
 | 2026-08-31 | implemented | 엄격한 의미 컴파일러 조정기와 런타임 조립 경계를 추가했습니다. 검증은 정확한 질문 계보, 컴파일러 개정, 근거 인용, 결과 한계를 요구합니다. 유효하지 않은 계획은 명시적 모호성으로 바뀌고 내용 없는 무권한 발견 공백만 게시합니다. | `current change`; 집중 질의 및 런타임 조립 검사 50개 통과. | 통제된 모델 컴파일러와 발견 sink를 연결한 뒤 인증된 런타임 증적 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 Twin 기본 기능과 연결되지 않은 전달 표면을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 어슈어런스 트윈, Security Assessment, 보고 집중 테스트. | 운영 근거와 전달 표면을 연결한 다음 거버넌스가 적용된 런타임 증적을 수집합니다. |
 | 2026-08-21 | in-progress | 기본 Twin 컴파일러에서 lexical 자연어 grammar를 제거했습니다. 바인딩되지 않은 컴파일은 `semantic_model_unavailable`을 반환하며 결정론적 읽기 전용 검증기는 주입된 모든 컴파일러에 계속 authoritative합니다. | `current change`; 집중 Assurance Twin 검사 45개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 자연어 컴파일을 사용할 수 있다고 설명하기 전에 Twin 전용 모델 projection과 ChatOps 입력을 연결합니다. |
@@ -74,10 +88,19 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 - [ ] 구체적인 통제 모델 컴파일러와 ChatOps 입력을 연결하고 인증된 런타임 증적을 보존합니다.
 - [ ] 선제적 변경 이벤트를 운영 `IacReviewPublisher`에 연결하고 변경, 발견 사항, 규칙 근거,
   게시된 검토를 연결하는 거버넌스 적용 shadow 증적을 기록합니다.
+- [ ] CAS/비동기 게시 순서 위험을 견디는 트랜잭션 자세/검토 활동 게시 경로를 설계합니다. 영속
+  자세 진행 또는 검토 충돌 표식과 버스 게시는 서로 분리되고 순서가 보장되지 않는 단계입니다.
+  아웃박스가 정확한 영속 개정 번호를 게시와 결속할 때까지 두 레코드는 Operator API/콘솔로 읽을
+  수 있지만 활동 신호를 게시하지 않습니다.
 - [ ] 판단 보류된 질문과 수정 제안을 발견 및 정상 risk-gate 액션 경로로 보내고 Twin이 실행하거나
   권한을 높이지 않는지 테스트합니다.
-- [ ] 읽기 전용 Twin 자세 API와 콘솔 패널을 추가한 다음 하나의 전체 인벤토리-보고서 렌더링에
-  대한 거버넌스 적용 런타임 증적을 수집합니다.
+- [ ] Twin 발견 사항을 계산하고 자세/검토 레코더를 호출하는 신뢰된 생산자를 연결합니다.
+  읽기 전용 레코더, 영속 원장, Operator API, 콘솔 패널은 존재하고 집중 테스트로 검증되지만,
+  신뢰된 생산자가 생기기 전까지 이 표면은 부분 구현으로 남습니다. 공격자가 영향을 줄 수 있는
+  선제적 수집 페이로드는 권위 있는 Twin 근거가 될 수 없습니다.
+- [ ] 하나의 전체 인벤토리-보고서 렌더링에 대한 통제된 런타임 증적을 수집합니다. 이 항목은
+  운영 `Inventory` 연결과 신뢰된 생산자를 필요로 하므로 구현도 검증도 완료되지 않았습니다.
+  실제 증적은 아직 없으며 대체 증적을 만들어 넣어서도 안 됩니다.
 
 ## 왜 챗봇이 아닌가
 
@@ -350,6 +373,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory 불변식을 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
 | `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
+| `posture_activity` | 계산된 `PostureAssessmentReport` 또는 `IacReview` 에 대해 범위가 제한되고 스키마 검증된 `agent.operational-activity` 신호(Heimdall 소유, `assurance-twin.posture` 종류)를 만듭니다. 발견 사항은 담지 않고 범위가 제한된 근거 개수와 신선도만 담습니다. 런타임 호출 지점은 없습니다. [`delivery/assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py)의 레코더는 Twin 발견 사항을 계산하는 신뢰된 생산자가 생길 때까지 연결되지 않은 상태로 남으며, 선제적 수집 페이로드를 그 대체물로 받아들이지 않습니다. |
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는

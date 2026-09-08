@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from fdai.core.conversation_assurance.consensus import MixedFamilyAssuranceReviewer
@@ -36,6 +36,7 @@ class AssuranceReview:
     decision: AssuranceDecision
     model_set_digest: str
     evaluator_outputs: tuple[EvaluatorOutput, ...] = ()
+    semantic_review_valid: bool = False
 
 
 class ConversationAssuranceCoordinator:
@@ -131,6 +132,62 @@ class ConversationAssuranceCoordinator:
             decision=decision,
             model_set_digest=model_set_digest,
             evaluator_outputs=outputs,
+            semantic_review_valid=(
+                bool(outputs) and decision.verdict is not AssuranceVerdict.INCONCLUSIVE
+            ),
+        )
+
+    async def review_semantically(self, turn: TurnAssessmentInput) -> AssuranceReview:
+        """Run semantic diagnostics while preserving the deterministic verdict gate."""
+
+        model_set_digest = self._reviewer.model_set_digest if self._reviewer else "none"
+        deterministic = assess_deterministically(turn)
+        if self._reviewer is None:
+            decision = AssuranceDecision(
+                verdict=AssuranceVerdict.INCONCLUSIVE,
+                content_score=0.0,
+                confidence=0.0,
+                reasons=("mixed_family_reviewer_unavailable",),
+            )
+            outputs: tuple[EvaluatorOutput, ...] = ()
+        else:
+            decision, outputs = await self._reviewer.review_with_outputs(turn)
+        semantic_review_valid = (
+            bool(outputs) and decision.verdict is not AssuranceVerdict.INCONCLUSIVE
+        )
+        if not semantic_review_valid and not any(
+            _is_deferred_reason(reason) for reason in decision.reasons
+        ):
+            decision = replace(
+                decision,
+                reasons=(*decision.reasons, "semantic_review_invalid"),
+            )
+        if deterministic.verdict is not None:
+            reasons = deterministic.reasons
+            semantic_holds = tuple(
+                reason for reason in decision.reasons if _is_deferred_reason(reason)
+            )
+            reasons = (*reasons, *semantic_holds)
+            decision = AssuranceDecision(
+                verdict=deterministic.verdict,
+                content_score=decision.content_score,
+                confidence=(
+                    1.0 if deterministic.verdict is not AssuranceVerdict.INCONCLUSIVE else 0.0
+                ),
+                criteria=decision.criteria,
+                reasons=reasons,
+                evaluator_identities=decision.evaluator_identities,
+                disagreement=decision.disagreement,
+                model_calls=decision.model_calls,
+                prompt_tokens=decision.prompt_tokens,
+                completion_tokens=decision.completion_tokens,
+                cost_microusd=decision.cost_microusd,
+            )
+        return AssuranceReview(
+            decision=decision,
+            model_set_digest=model_set_digest,
+            evaluator_outputs=outputs,
+            semantic_review_valid=semantic_review_valid,
         )
 
     async def persist(
@@ -172,7 +229,7 @@ class ConversationAssuranceCoordinator:
             return existing
         state = (
             AssessmentState.DEFERRED
-            if "model_budget_deferred" in decision.reasons
+            if any(_is_deferred_reason(reason) for reason in decision.reasons)
             else AssessmentState.COMPLETED
         )
         record = AssessmentRecord(
@@ -229,6 +286,16 @@ class ConversationAssuranceCoordinator:
         )
         latency_sample_from_stage_receipt(receipt)
         sink(receipt)
+
+
+def _is_deferred_reason(reason: str) -> bool:
+    return reason in {
+        "model_budget_deferred",
+        "mixed_family_reviewer_unavailable",
+        "answer_model_cannot_self_evaluate",
+        "forbidden_t2_attempted",
+        "semantic_review_invalid",
+    } or reason.startswith(("evaluator_error:", "tie_breaker_error:", "required_t2_incomplete:"))
 
 
 def _assessment_id(

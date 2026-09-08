@@ -580,16 +580,10 @@ class PantheonRuntime:
         requester: str,
         correlation_id: str = "",
     ) -> dict[str, Any] | None:
-        """Agent-to-agent (A2A) conversational-port entry point.
+        """Route one read-only agent-to-agent question through Bragi.
 
-        Lets one pantheon agent (``requester``) ask another a
-        natural-language question through Bragi (agent-pantheon.md 6.2) -
-        e.g. Odin asking Saga "who executed correlation abc" when the typed
-        schema is not a fit. Read-only: the answer never mutates, and a
-        request phrased as a command re-enters the typed pipeline (7.7).
-        Returns ``None`` when Bragi is disabled (the conversational port is
-        off). ``correlation_id`` threads the shared trace so the A2A answer
-        stays correlated with the incident it is about.
+        Commands re-enter the typed pipeline. ``correlation_id`` keeps the
+        answer on the shared trace, and a disabled Bragi returns ``None``.
         """
         if self._bragi is None:
             return None
@@ -606,6 +600,7 @@ class PantheonRuntime:
         question: str,
         requester: str,
         correlation_id: str = "",
+        reuse_semantic_route: bool = True,
     ) -> dict[str, Any]:
         """Run bounded read-only T1/T2 discussion through Bragi."""
         if self._bragi is None:
@@ -620,6 +615,7 @@ class PantheonRuntime:
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+            reuse_semantic_route=reuse_semantic_route,
         )
 
     def plan_conversation_tools(

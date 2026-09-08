@@ -137,6 +137,12 @@ async def test_zero_rows_are_satisfied_with_exact_scoped_query() -> None:
     assert body["subscriptions"] == [SUBSCRIPTION_ID]
     assert exact_query.decoded_body().rstrip() in body["query"]
     assert plan.resource_ids[0].casefold() in body["query"]
+    assert " in~ (" in body["query"]
+    assert "set_has_element" not in body["query"]
+    coverage_body = json.loads(captured[0].content)
+    assert "_fdai_wara_coverage" in coverage_body["query"]
+    assert " in~ (" in coverage_body["query"]
+    assert "set_has_element" not in coverage_body["query"]
     assert body["options"]["$top"] == plan.maximum_rows + 1
     assert captured[1].headers["Authorization"].startswith("Bearer ")
     assert receipt.satisfied is True

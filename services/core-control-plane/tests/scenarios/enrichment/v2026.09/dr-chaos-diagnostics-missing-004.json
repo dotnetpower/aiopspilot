@@ -1,0 +1,93 @@
+{
+  "scenario_id": "dr.chaos-diagnostics-missing.004",
+  "shipped_rule_id": "postgresql-server.diagnostic-settings-required",
+  "event_payload_resource": {
+    "resource_id": "example-chaos-recovery-postgresql",
+    "type": "postgresql-server",
+    "props": {
+      "ha_mode": "ZoneRedundant",
+      "encryption_at_rest_enabled": true,
+      "ssl_enforcement": "enabled",
+      "backup_retention_days": 35,
+      "cpu_p95_percent": 80,
+      "diagnostic_settings": []
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "postgresql-server.diagnostic-settings-required",
+  "effect_evidence": {
+    "note": "Frozen independent effect evidence for the Chaos `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, conflicting, and not-yet-recorded.",
+    "prediction_id": "chaos-successful-full-loop-v2026-09",
+    "metric": "diagnostic_settings_configured_count",
+    "acceptable_min": 1,
+    "acceptable_max": 1,
+    "predicted_at": "2026-07-05T08:00:02Z",
+    "observation_deadline": "2026-07-05T08:05:02Z",
+    "authoritative_observation": {
+      "observation_source": "example-diagnostic-settings-readback",
+      "value": 1,
+      "observed_at": "2026-07-05T08:01:02Z"
+    },
+    "negative_cases": [
+      {
+        "kind": "missing",
+        "note": "No authoritative observation was produced before closure was attempted.",
+        "observation": null,
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_unavailable",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "stale",
+        "note": "The only observation arrived after the prediction's observation deadline.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 1,
+          "observed_at": "2026-07-05T08:06:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_after_deadline",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "incomplete",
+        "note": "The observation does not cover the predicted metric, so the evidence set is incomplete.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "metric": "diagnostic_settings_readback_attempts",
+          "value": 1,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "metric_mismatch",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "conflicting",
+        "note": "The authoritative observation contradicts the prediction it is correlated to.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 0,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "mismatch",
+        "expected_verification_reason": "value_outside_acceptable_range",
+        "expected_response_label": "mismatch"
+      },
+      {
+        "kind": "not_yet_recorded",
+        "note": "The observation carries a value the prediction accepts and a time inside the effect window, but a time later than the moment the comparison is recorded on the replay timeline, so it has not happened yet from the recorder's point of view and cannot be scored.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 1,
+          "observed_at": "2026-07-05T08:02:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_not_yet_recorded",
+        "expected_response_label": "unscorable"
+      }
+    ]
+  },
+  "note": "Chaos recovery-observation precondition: a recovery-plan postgresql-server with no diagnostic settings has no attestable log-plane trail, so the recovery plan's own change-safety objective is unmeasurable until diagnostics are attached. Props fire ONLY diagnostic-settings-required; ha_mode=ZoneRedundant, encryption_at_rest_enabled=true, ssl_enforcement=enabled, backup_retention_days=35, and cpu_p95_percent=80 satisfy the co-resident postgresql rules so the citing set stays single-rule. `remediate.enable-diagnostic-settings` declares a `static_enum` blast radius and an `enforce_auto` t0 ceiling, so the shadow executor genuinely publishes one remediation PR, matching should_execute=true."
+}

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add to Slack - expected mock</title>
+  <style>
+    :root { color: #1d1c1d; background: #f8f8f8; font: 14px/1.55 "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .topbar { height: 50px; display: flex; align-items: center; padding: 0 22px; background: #fff; border-bottom: 1px solid #ddd; } .brand { color: #1d1c1d; font-size: 19px; font-weight: 800; } .brand::before { content: "✣"; margin-right: 6px; color: #611f69; }
+    .main { display: grid; justify-items: center; padding: 48px 20px 60px; background: #f8f8f8; } .main-head { width: min(720px, 100%); margin-bottom: 20px; } .breadcrumb { color: #6b696b; font-size: 12px; } h1 { margin: 8px 0 5px; font-size: 27px; font-weight: 700; } .lead { margin: 0; color: #616064; }
+    .oauth { width: min(560px, 100%); border: 1px solid #ddd; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(29,28,29,.12); } .oauth-head { padding: 28px 30px 24px; text-align: center; border-bottom: 1px solid #eee; } .icon { width: 64px; height: 64px; display: grid; place-items: center; margin: 0 auto 14px; border-radius: 8px; background: #2e7065; color: #fff; font-size: 26px; font-weight: 700; } h2, h3 { margin: 0; } h2 { font-size: 21px; } h3 { font-size: 15px; } .muted { color: #6b696b; font-size: 12px; }
+    .content { padding: 24px 30px 28px; } .workspace { display: flex; justify-content: space-between; gap: 14px; margin: 0 0 24px; padding: 12px 14px; border: 1px solid #c9c7c9; border-radius: 4px; } .workspace strong { display: block; } .workspace span { color: #6b696b; font-size: 12px; } .chevron { color: #6b696b; } .permissions { display: grid; gap: 0; margin: 14px 0 22px; } .permission { display: flex; gap: 10px; padding: 13px 0; border-bottom: 1px solid #eee; } .permission > span:first-child { color: #611f69; } .permission strong { display: block; } .permission span { color: #6b696b; font-size: 12px; }
+    .notice { padding: 12px; border: 1px solid #d3d0cd; border-radius: 4px; background: #eef6f4; color: #5f6260; font-size: 12px; } .actions { display: flex; gap: 9px; margin-top: 22px; } button, a { min-height: 36px; padding: 8px 15px; border-radius: 4px; font: inherit; font-size: 12px; text-decoration: none; } button { border: 1px solid #611f69; background: #611f69; color: #fff; } button[disabled] { opacity: .55; cursor: not-allowed; } a { border: 1px solid #d3d0cd; color: #2e7065; background: #fff; } .mock-label { width: min(560px, 100%); margin-top: 16px; color: #777; font-size: 11px; } @media (max-width: 720px) { .main { padding: 30px 14px 44px; } .oauth-head, .content { padding-left: 20px; padding-right: 20px; } }
+  </style>
+</head>
+<body>
+  <header class="topbar"><span class="brand">slack</span></header>
+  <main class="main"><div class="main-head"><div class="breadcrumb">App directory / Add to Slack</div><h1>Add to Slack</h1><p class="lead">Review the permissions requested by FDAI Operations before adding it to your workspace.</p></div><section class="oauth"><div class="oauth-head"><div class="icon">F</div><h2>FDAI Operations</h2><div class="muted">would like to connect to your Slack workspace</div></div><div class="content"><div class="workspace"><span><strong>FDAI workspace</strong><span>Choose a workspace</span></span><span class="chevron">⌄</span></div><h3>FDAI Operations can:</h3><div class="permissions"><div class="permission"><span>●</span><span><strong>Send messages and notifications</strong>Post redacted operational updates to approved channels.</span></div><div class="permission"><span>●</span><span><strong>Read and reply in selected channels</strong>Support controlled conversation ingress and replies.</span></div><div class="permission"><span>●</span><span><strong>Request approvals</strong>Route approval actions through the configured human review queue.</span></div></div><p class="notice">Slack에서 앱 설치와 권한 승인을 완료한 뒤 FDAI로 돌아가 연결 결과와 공유 채널 범위를 확인합니다. 이 Mock은 OAuth나 token을 실행하지 않습니다.</p><div class="actions"><button disabled>Allow (expected state)</button><a href="../settings-integrations.html">FDAI로 돌아가기</a></div></div></section><div class="mock-label">Expected provider surface · static mock · no authorization is performed</div></main>
+</body>
+</html>

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: e233f94df0947ce77784327bebed104023a71575
+translation_source_sha: eee96fadb549abcaec1075474a881c7b819da171
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -137,6 +137,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 | 2026-08-21 | 구현됨 | 결정론적 표현 계획을 넓은 블록 선택에서 온톨로지에 근거한 시각화 선택 10개로 확장했습니다. 엄격한 v2 artifact는 추가적인 hint 또는 타입이 지정된 scatter와 heatmap 블록을 전달합니다. Console은 공유 차트 primitive를 렌더링하고 Slack과 Teams는 exact 사실로 축약합니다. 종류에 맞지 않는 hint는 fail closed하며 이전 v2 artifact는 새 필드를 합성하지 않고 round-trip합니다. | `current change`, planner 및 compiler 검사 67개, Console artifact 및 registry 검사 28개, 채널 renderer 검사 5개, Console typecheck 통과 | 이 기능을 `검증됨`으로 올리기 전에 인증된 Web 및 통제된 Slack/Teams 런타임 증적을 보존합니다. |
 | 2026-08-22 | 구현됨 | Renderer-neutral semantic metadata를 Core 종단 producer에 연결하고 전체 선택 경계를 강화했습니다. 명시적 비교 역할은 generic temporal 필드보다 우선합니다. Semantic field-role map은 shape별 exact 집합을 따릅니다. Ranking, part-to-whole, cumulative, matrix variant는 행 수준 증명을 요구합니다. 중복 matrix 좌표와 감소하는 cumulative 값은 의미를 만들지 않고 대체 경로로 이동합니다. | `current change`, 집중 Core projector/wiring 및 Operator planner/compiler 검사 90개, Console parser/registry/primitive 검사 45개, 채널 축약 검사 13개, Ruff 및 Console typecheck 통과 | 이 기능을 `검증됨`으로 올리기 전에 인증된 Web 및 통제된 Slack/Teams 런타임 증적을 보존합니다. |
 | 2026-08-22 | 구현됨 | 48개가 넘는 check로 독립적인 적대적 검토 3회를 완료하고 확인된 Medium 이상 잔여가 없을 때까지 집중 hardening을 반복했습니다. 수락한 수정은 상한을 넘는 근거 참조와 exact cell을 fail closed하고, 의미 label과 공유 RFC 3339 순서를 요구하며, chart 값, tone, role, 참조, table, text bound, slot, envelope type, item schema, v1 integer, control character에 대해 Web과 Slack/Teams 계약을 일치시킵니다. 범위가 제한된 읽기 쉬운 6-column table, 유효한 음수 comparison/scatter 도메인, sparse heatmap placeholder는 다시 검토하고 유지했습니다. | `current change`, 집중 semantic presentation 검사 137개, Console deck 검사 693개, desktop/mobile chart Playwright 검사 4개, Ruff, strict mypy, Console typecheck 및 production build 통과 | Low 표시 tradeoff만 남습니다. Sparse heatmap 공백은 명시적인 `-`를 사용하며 일부 안전한 chart fallback은 generic reason을 사용합니다. Exact 기술 행은 계속 확인할 수 있습니다. `검증됨`으로 올리려면 통제된 Web 및 Slack/Teams 런타임 증적이 여전히 필요합니다. |
+| 2026-09-08 | 구현됨 | 행 수는 표시하지만 검증된 쿼리 입력을 기능 이름으로 줄이던 ObjectSet 실행 기록 경계를 수정했습니다. 이제 완료 증적으로 뒷받침되는 활동은 범위가 제한된 정확한 ObjectSet 정의를 행 수 및 완전성 메타데이터와 함께 표시합니다. 실행 중인 진행 상황은 기능 이름만 유지하며, 유효하지 않거나 모순된 행 수는 축약된 기록으로 남습니다. | `current change`, [Issue #241](https://github.com/dotnetpower/fdai/issues/241), 집중 Operator 테스트 153개, Ruff, 서식 검사, 엄격한 소스 mypy, Console 타입 검사, 세 뷰포트 fixture 및 인증된 데스크톱, 제약된 데스크톱, 모바일 실행 기록 시나리오 통과 | ObjectSet 실행 기록과 가로 오버플로 기준에 남은 작업은 없습니다. |
 
 ### 남은 작업
 

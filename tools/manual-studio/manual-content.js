@@ -1,6 +1,7 @@
 import { buildSreIncidentResponseDeck } from "./sre-incident-response.js";
 import { buildOntologyFoundationDeck } from "./ontology-foundation.js";
 import { buildArtOfPossibleDeck } from "./art-of-possible.js";
+import { buildReadinessMaturityDeck } from "./readiness-maturity.js";
 
 const docs = {
   constitution: "docs/roadmap/architecture/fdai-constitution.md",
@@ -29,7 +30,6 @@ const docs = {
 };
 
 const deckAssets = {
-  "readiness-maturity": "assets/readiness-maturity.jpeg",
   "value-prioritization": "assets/value-prioritization.jpeg",
   "target-architecture": "assets/target-architecture.jpeg",
   "ontology-foundation": "assets/ontology-foundation.jpeg",
@@ -40,11 +40,6 @@ const deckAssets = {
 };
 
 const deckProfiles = {
-  "readiness-maturity": {
-    label: "READINESS",
-    sections: ["운영 기준선", "근거와 권한", "파일럿 진입"],
-    segments: [[1, "운영 기준선"], [9, "근거와 권한"], [19, "파일럿 진입"]],
-  },
   "value-prioritization": {
     label: "PRIORITIZE",
     sections: ["후보 정의", "근거 기반 평가", "포트폴리오 결정"],
@@ -410,33 +405,7 @@ function buildOntologyDeck(topics) {
   });
 }
 
-const readinessMaturity = buildDeck("readiness-maturity", "준비도와 성숙도", [
-  topic("ASSESS", "자동화보다 먼저 운영 준비도를 확인합니다", "전환 리더는 기술 구매가 아니라 의사결정 기반의 준비 상태를 평가합니다.", "대상:의사결정 유형 하나|기준선:현재 사람이 수행하는 업무|종료 조건:관찰 모드 진입 판단", docs.constitution),
-  topic("CRITERIA", "현재 운영 목표가 측정 가능한지 확인합니다", "SLO, 복구, 비용, 변경 안전 목표가 없으면 결과를 검증할 수 없습니다.", "목표:단위, 기준선, 측정 구간|책임:최종 책임자와 보호 목표|근거:권위 있는 측정 출처", [docs.metrics, docs.ontology], "matrix"),
-  topic("CRITERIA", "반복 사건과 예외를 분리합니다", "반복 가능한 결정은 규칙 후보이고 새롭거나 모호한 사건은 사람 검토 대상입니다.", "반복:동일 입력과 절차|예외:근거 부족 또는 충돌|경계:판단 보류 기준", docs.constitution, "tree"),
-  topic("CRITERIA", "IaC가 변경의 기준선인지 점검합니다", "검토하고 재현할 수 있는 목표 상태가 파일럿 대상의 중요한 도입 조건입니다.", "현재 상태:권위 있는 관측|목표 상태:IaC 또는 GitOps|차이:추측이 아닌 근거", docs.deployment, "evidence"),
-  topic("CRITERIA", "운영 데이터의 출처를 먼저 등록합니다", "누락과 접근 불가를 정상으로 해석하지 않도록 출처, 목적, 범위, 완전성을 명시합니다.", "출처:인증된 시스템과 생산자|목적:이 판단에 허용된 사용|범위:관측 대상과 제외 영역|완전성:보지 못한 영역", docs.constitution, "comparison"),
-  topic("CRITERIA", "판단에 사용한 시간 기준을 함께 보존합니다", "변화 시점과 기록 시점만으로는 부족합니다. 사실의 유효 기간, 근거 마감 시점, 최신성 기준, 기준 시계를 함께 남깁니다.", "유효 시간:사실이 외부에서 참이었던 구간|사건 시각:변화가 발생한 시점|기록 시각:FDAI가 수집한 시점|기준 시점:판단이 사용한 관측 마감|최신성:근거가 허용되는 기간|신뢰 시계:재생에 사용한 시간 권위", [docs.constitution, docs.ontology], "comparison"),
-  topic("CRITERIA", "서비스와 리소스 연결 상태를 평가합니다", "비즈니스 서비스(BusinessService), 워크로드(Workload), 리소스(Resource)의 연결은 운영 영향과 책임자를 찾는 최소 구조입니다.", "서비스:가치, 목표, 소유권|워크로드:배포와 운영 단위|리소스:관측된 실제 대상", docs.ontology, "flow"),
-  topic("CRITERIA", "미분류 리소스를 숨기지 않습니다", "검토된 매핑이 없으면 unclassified-resource와 unknown_service로 남기고 추정으로 빈칸을 채우지 않습니다.", "분류됨:검토된 타입|미분류:원본 타입 보존|미매핑:서비스 추정 금지", docs.ontology, "matrix"),
-  topic("CRITERIA", "책임과 실행 경로가 분리되어 있는지 확인합니다", "판단, 승인, 실행, 감사, 복구를 한 주체에 모으지 않습니다.", "Forseti:근거에 따른 판단|Var:사람 승인 기록 전달|Thor:적격 작업 전달|Saga와 Vidar:감사와 복구", docs.pantheon, "responsibility"),
-  topic("CRITERIA", "사람 승인도 재현 가능한 근거로 관리합니다", "승인은 인증된 승인자, 정확한 ActionType과 대상, 중복 억제 키, 정족수, 만료 시각에 묶입니다. 침묵은 승인이 아닙니다.", "승인자:실행자와 분리된 인증 주체|범위:행동, 대상, 계획 리비전|정족수:위험에 필요한 승인 인원|만료:시간 초과 시 실행하지 않음", [docs.security, docs.standingAuthority], "evidence"),
-  topic("CRITERIA", "실행 신원의 최소 권한을 검토합니다", "현재 Azure 구현은 Managed Identity 참조를 분리하고 알 수 없는 참조를 거부합니다. 작업별 허용 목록과 리소스 역할은 배포가 연결합니다.", "공통 구현:Managed Identity 참조 분리|배포 책임:리소스 범위와 행동 허용 목록|거부:알 수 없거나 누락된 신원 참조", docs.security, "cards"),
-  topic("CRITERIA", "일곱 안전장치는 실행 전에 모두 증명합니다", "하나라도 빠지면 자율 상태 변경을 시작할 준비가 끝난 것이 아닙니다. 복구 계약과 감사 시작도 부수 효과 전에 준비합니다.", "중지 조건:실행 중 평가 가능한 중단 기준|검증된 복구:시험된 되돌리기 또는 전진 복구|영향 범위:최대 변경 대상 제한|가상 실행:현재 계획 리비전에 결합|대상 잠금:논리 대상의 동시 실행 차단|중복 억제:재전송을 변경 없음으로 처리|2단계 감사:의도 선기록과 결과 마감", [docs.constitution, docs.security], "comparison"),
-  topic("CRITERIA", "독립적으로 효과를 관측할 수 있는지 확인합니다", "API 성공이나 메시지 브로커 수락만으로 운영 성공을 판단할 수 없습니다.", "예상 효과:실행 전에 지표와 방향 정의|관측자:실행기와 다른 책임 주체|출처:권위 있는 효과 데이터|관측 구간:종료와 충돌 처리 명시", docs.constitution, "evidence"),
-  topic("CRITERIA", "관찰 모드 기준선은 같은 시나리오로 비교합니다", "사람 기준선과 FDAI 처리 결과를 같은 고정 시나리오, 기간, 표본, 리비전에서 비교해야 개선을 말할 수 있습니다.", "5:성공 지표 묶음|4:정확히 0이어야 하는 안전 지표|30+:각 기준선과 처리군의 최소 표본|동일:시나리오, 기간, 리비전", docs.metrics, "numbers"),
-  topic("VALIDATED", "다섯 독립 서비스와 실행 권한 전환을 확인합니다", "보존된 배포 근거는 격리 실행기가 SD-08 전환 뒤 실제 변경 권한을 보유할 수 있는 유일한 서비스임을 검증했습니다. 모든 실행 경로의 종단 증적은 아직 진행 중입니다.", "Core:판단과 기존 전환 복구 경계|Operator API:제안과 조회|수집 API:문서 수신|수집 Worker:검사와 처리|격리 실행기:전환 뒤 유일한 변경 권한 후보", [docs.deployment, docs.security], "comparison"),
-  topic("IMPLEMENTED", "프로덕션 계획의 보안·내구성 입력을 점검합니다", "사설 네트워크, 서명 이미지, 내구성, 모니터링, 비용 입력이 없으면 프로덕션 계획이 차단됩니다. 정확한 리비전의 운영 적용 증적은 별도 과제입니다.", "네트워크:사설 데이터 서비스|공급망:고정되고 서명된 이미지|내구성:HA, 백업, 복구 기준|운영:경고, 수신처, 예산", docs.hardening, "matrix"),
-  topic("IN_PROGRESS", "A3-E 사전 조건부 승인은 아직 실행에 사용할 수 없습니다", "관련 계약과 저장 기능은 구현되어 있지만 판단·실행 경로에는 연결되지 않았습니다. 현재는 관찰 모드에서만 검증합니다.", "구현됨:평가기, 불변 리비전, PostgreSQL 저장소, 차단 장치|의도적 미연결:위험 게이트, 제어 루프, 실행기|열린 설계:효과가 끝날 때까지 유지되는 잠금 또는 임대|미확보:실운영 집단과 독립 승격 검토", [docs.standingAuthority, docs.security], "comparison"),
-  topic("IN_PROGRESS", "워크플로 변경 적용 경로의 운영 증적이 부족합니다", "Operator API는 관찰 모드 제안만 받습니다. Core의 적용 경로는 존재하지만 소유자 승인, 모든 안전장치, 로컬·배포 동등성을 입증한 보존 증적이 남아 있습니다.", "현재:리비전에 묶인 관찰 모드 제안|구현:Core의 통제된 단계 실행|필요:소유자 승인과 종단 안전장치|필요:로컬·배포의 동일 권한 경로 증적", docs.operator, "evidence"),
-  topic("NOT_STARTED", "자동 점진적 배포는 목표로 분리합니다", "환경 자동 승격, 트래픽 분할 카나리, SLO 기반 되돌리기, Console 블루/그린 배포는 아직 구현되지 않았습니다.", "현재:보호된 계획과 독립 서비스 배포|목표:동일 서명 산출물의 환경 승격|목표:카나리와 SLO 기반 되돌리기|목표:Console 블루/그린 배포", docs.deployment, "timeline"),
-  topic("PROPOSAL", "준비도 등급은 권한이 아니라 다음 행동을 정합니다", "이 설명서의 등급은 도입 논의를 위한 제안 모델입니다. 낮은 등급은 보완 계획으로, 높은 등급은 관찰 모드 검토로 이어지며 실행 권한을 만들지 않습니다.", "기초:목표와 책임자 보완|관찰 가능:데이터와 시간 품질 보완|파일럿 가능:관찰 모드 진입 검토|승격 준비:별도 운영 근거 심사", docs.constitution, "tree"),
-  topic("PROPOSAL", "격차 목록을 의사결정 유형에 묶습니다", "플랫폼 전체가 아니라 선택한 판단에 필요한 격차부터 닫습니다.", "필수:파일럿 차단 요소|후속:확장 전 강화|제외:가치와 무관한 범위", docs.execution, "cards"),
-  topic("PROPOSAL", "준비도 워크숍의 책임자를 지정합니다", "전환 리더가 결과를 책임지고 운영, 데이터, 보안 담당자가 근거를 제공합니다.", "전환 리더:진행 또는 보류 결정|운영 책임자:현재 기준선|플랫폼과 보안:근거와 권한 경계", docs.pantheon, "responsibility"),
-  topic("PROPOSAL", "30일 보완 계획에 검증 지점을 둡니다", "각 격차는 산출물 제출이 아니라 관측 가능한 종료 조건으로 닫습니다.", "1주:대상과 기준선|2주:데이터와 권한|4주:관찰 모드 준비도 검토", docs.operator, "timeline"),
-  topic("DECISION", "파일럿 진입은 조건부 판정입니다", "모든 전제가 충족되어도 실행 승인이 아니라 관찰 모드 검토 자격만 얻습니다.", "진행:관찰 모드 비교 시작|보류:근거 보완|중단:현행 운영 유지", docs.security, "tree"),
-  topic("NEXT", "다음 회의는 격차 소유권을 확정합니다", "의사결정 유형 하나, 책임자, 기준선, 차단 격차와 재검토 날짜를 남깁니다.", "선택:의사결정 유형|배정:격차 책임자|증적:완료를 입증할 자료|예약:재평가 시점", docs.constitution, "responsibility"),
-]);
+const readinessMaturity = buildReadinessMaturityDeck();
 
 const artOfPossible = buildArtOfPossibleDeck({ sourceLabel, statusLabel });
 

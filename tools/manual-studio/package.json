@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check app.js && node --check server.mjs && node --check ontology-foundation.js && npm test"
+    "check": "node --check app.js && node --check server.mjs && node --check manual-content.js && node --check ontology-foundation.js && node --check art-of-possible.js && node --check readiness-maturity.js && node --check readiness-slide-kit.js && node --check readiness-foundations.js && node --check readiness-ai.js && node --check readiness-maturity-model.js && node --check readiness-action-plan.js && node --check readiness-diagrams.js && npm test"
   },
   "engines": {
     "node": ">=22"

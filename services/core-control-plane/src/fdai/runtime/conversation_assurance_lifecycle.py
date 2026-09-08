@@ -271,8 +271,18 @@ class BilingualBlindPolicyTrialMeasurer:
             return None
         latency_ms = max(0.0, (time.monotonic() - started) * 1_000)
         answer = reply.get("answer")
-        model = reply.get("model")
-        if not isinstance(answer, str) or not answer.strip() or not isinstance(model, str):
+        model_family = reply.get("model")
+        model_identity = reply.get("model_identity")
+        if (
+            not isinstance(answer, str)
+            or not answer.strip()
+            or not isinstance(model_family, str)
+            or not model_family.strip()
+            or (
+                model_identity is not None
+                and (not isinstance(model_identity, str) or not model_identity.strip())
+            )
+        ):
             return None
         narrator_cost = self._cost_estimator(reply)
         if narrator_cost is None or narrator_cost < 0:
@@ -295,7 +305,8 @@ class BilingualBlindPolicyTrialMeasurer:
             checks_completed=len(scenario.reference_facts),
             checks_total=len(scenario.reference_facts),
             locale=scenario.locale,
-            answer_model_identity=model,
+            answer_model_identity=model_identity,
+            answer_model_family=model_family,
             reference_facts=scenario.reference_facts,
         )
         decision = await self._reviewer.review(turn)

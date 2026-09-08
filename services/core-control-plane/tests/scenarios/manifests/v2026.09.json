@@ -1,0 +1,461 @@
+{
+  "schema_version": "1.3.0",
+  "scenario_set_version": "v2026.09",
+  "status": "incomplete",
+  "capability_packs": {
+    "sre": {
+      "status": "partial",
+      "scenario_ids": [
+        "sre.cluster-diagnostics-missing.001",
+        "sre.slo-signal-source-unmapped.002",
+        "sre.telemetry-retention-excessive.003"
+      ],
+      "conflict_spec_ids": [
+        "sre.cross-objective-conflict.v2026-09"
+      ],
+      "required_outcome": {
+        "id": "recovery_and_recurrence_closure",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves independently verified SRE recovery and recurrence closure."
+      },
+      "coverage": {
+        "successful_full_loop": [
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation"
+          },
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence"
+          },
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_dispatch_without_observation_is_never_success"
+          }
+        ],
+        "unknown_or_deny": [
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          }
+        ],
+        "cross_objective_conflict": [
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "sre.telemetry-retention-excessive.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_closes_hil_without_arbitration_authority"
+          }
+        ],
+        "partial_failure_recovery": [
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry"
+          }
+        ],
+        "a3e_or_non_applicability": [
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "deterministic_replay_with_evidence": [
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "sre.telemetry-retention-excessive.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "sre.cluster-diagnostics-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "sre.slo-signal-source-unmapped.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "sre.telemetry-retention-excessive.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          }
+        ]
+      }
+    },
+    "arb_change_safety": {
+      "status": "partial",
+      "scenario_ids": [
+        "change.drift-manual-portal-edit.003",
+        "change.nsg-allow-any-inbound.002",
+        "change.tag-owner-missing.001",
+        "change.vm-managed-identity-missing.004",
+        "change.disk-unattached-orphan-cost.005",
+        "change.container-registry-signal-unmapped.006"
+      ],
+      "conflict_spec_ids": [
+        "arb_change_safety.cross-objective-conflict.v2026-09"
+      ],
+      "required_outcome": {
+        "id": "approval_conditions_and_post_change_verification",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves ARB approval conditions and independently observed post-change verification."
+      },
+      "coverage": {
+        "successful_full_loop": [
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation"
+          },
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence"
+          },
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_dispatch_without_observation_is_never_success"
+          }
+        ],
+        "unknown_or_deny": [
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          }
+        ],
+        "cross_objective_conflict": [
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "change.disk-unattached-orphan-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_closes_hil_without_arbitration_authority"
+          }
+        ],
+        "partial_failure_recovery": [
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry"
+          }
+        ],
+        "a3e_or_non_applicability": [
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "deterministic_replay_with_evidence": [
+          {
+            "scenario_id": "change.drift-manual-portal-edit.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.nsg-allow-any-inbound.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.tag-owner-missing.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.disk-unattached-orphan-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "change.vm-managed-identity-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "change.disk-unattached-orphan-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "change.container-registry-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          }
+        ]
+      }
+    },
+    "finops": {
+      "status": "partial",
+      "scenario_ids": [
+        "finops.cost-signal-unmapped.005",
+        "finops.right-size-vm-high-monthly.002",
+        "finops.stop-idle-dev-vm-off-hours.003",
+        "finops.unattached-public-ip.001",
+        "finops.vm-managed-identity-cost.004"
+      ],
+      "conflict_spec_ids": [
+        "finops.cross-objective-conflict.v2026-09"
+      ],
+      "required_outcome": {
+        "id": "realized_savings_with_reliability_valid",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves realized savings while protected reliability objectives remain valid."
+      },
+      "coverage": {
+        "successful_full_loop": [
+          {
+            "scenario_id": "finops.vm-managed-identity-cost.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation"
+          }
+        ],
+        "unknown_or_deny": [
+          {
+            "scenario_id": "finops.cost-signal-unmapped.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "cross_objective_conflict": [
+          {
+            "scenario_id": "finops.vm-managed-identity-cost.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          }
+        ],
+        "partial_failure_recovery": [
+          {
+            "scenario_id": "finops.vm-managed-identity-cost.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry"
+          }
+        ],
+        "a3e_or_non_applicability": [
+          {
+            "scenario_id": "finops.cost-signal-unmapped.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "deterministic_replay_with_evidence": [
+          {
+            "scenario_id": "finops.cost-signal-unmapped.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "finops.right-size-vm-high-monthly.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "finops.stop-idle-dev-vm-off-hours.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "finops.unattached-public-ip.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "finops.vm-managed-identity-cost.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "finops.vm-managed-identity-cost.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          }
+        ]
+      }
+    },
+    "dr": {
+      "status": "partial",
+      "scenario_ids": [
+        "dr.backup-vault-restore-rehearsal.002",
+        "dr.replica-lag-degraded.001",
+        "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+        "dr.load-balancer-unused-backend-cost.005",
+        "dr.recovery-vault-signal-unmapped.006"
+      ],
+      "conflict_spec_ids": [
+        "dr.cross-objective-conflict.v2026-09"
+      ],
+      "required_outcome": {
+        "id": "data_integrity_and_measured_rto_rpo",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves recovery data integrity with measured RTO and RPO."
+      },
+      "coverage": {
+        "successful_full_loop": [
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation"
+          },
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence"
+          },
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_full_loop_dispatch_without_observation_is_never_success"
+          }
+        ],
+        "unknown_or_deny": [
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          }
+        ],
+        "cross_objective_conflict": [
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          },
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_closes_hil_without_arbitration_authority"
+          }
+        ],
+        "partial_failure_recovery": [
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry"
+          }
+        ],
+        "a3e_or_non_applicability": [
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "deterministic_replay_with_evidence": [
+          {
+            "scenario_id": "dr.backup-vault-restore-rehearsal.002",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.replica-lag-degraded.001",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.postgres-diagnostics-missing-in-recovery-plan.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "dr.load-balancer-unused-backend-cost.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          },
+          {
+            "scenario_id": "dr.recovery-vault-signal-unmapped.006",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          }
+        ]
+      }
+    },
+    "chaos": {
+      "status": "partial",
+      "scenario_ids": [
+        "dr.chaos-diagnostics-missing.004",
+        "dr.chaos-experiment-novel.003",
+        "dr.chaos-load-balancer-unused-backend.005"
+      ],
+      "conflict_spec_ids": [
+        "chaos.cross-objective-conflict.v2026-09"
+      ],
+      "required_outcome": {
+        "id": "human_approved_injection_and_verified_recovery",
+        "status": "missing",
+        "evidence": [],
+        "gap": "No frozen scenario proves explicitly human-approved fault injection with continuous stop guards and verified recovery."
+      },
+      "coverage": {
+        "successful_full_loop": [
+          {
+            "scenario_id": "dr.chaos-diagnostics-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation"
+          }
+        ],
+        "unknown_or_deny": [
+          {
+            "scenario_id": "dr.chaos-experiment-novel.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "cross_objective_conflict": [
+          {
+            "scenario_id": "dr.chaos-diagnostics-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_reaches_governed_arbitration"
+          }
+        ],
+        "partial_failure_recovery": [
+          {
+            "scenario_id": "dr.chaos-diagnostics-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry"
+          }
+        ],
+        "a3e_or_non_applicability": [
+          {
+            "scenario_id": "dr.chaos-experiment-novel.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_unknown_terminates_before_a3e_authority_is_applicable"
+          }
+        ],
+        "deterministic_replay_with_evidence": [
+          {
+            "scenario_id": "dr.chaos-diagnostics-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.chaos-experiment-novel.003",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.chaos-load-balancer-unused-backend.005",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_v2026_09_scenario_replays_through_control_loop"
+          },
+          {
+            "scenario_id": "dr.chaos-diagnostics-missing.004",
+            "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py::test_sre_cross_objective_conflict_replays_to_stable_digests"
+          }
+        ]
+      }
+    }
+  }
+}

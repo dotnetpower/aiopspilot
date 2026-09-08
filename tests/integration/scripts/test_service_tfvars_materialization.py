@@ -807,3 +807,17 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert "Core service tfvars has no LLM configuration" not in _WORKFLOW
     assert "output -json ohl_observation_context_binding" in _WORKFLOW
     assert "hydrate_observation_context.py" in _WORKFLOW
+
+
+def test_workflow_binds_channel_edge_provider_through_github_secrets() -> None:
+    assert (
+        "OPERATOR_CHANNEL_EDGE_PROVIDER_JSON: ${{ secrets.OPERATOR_CHANNEL_EDGE_PROVIDER_JSON }}"
+    ) in _WORKFLOW
+    assert (
+        'OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON"'
+    ) in _WORKFLOW
+    assert "${{ vars.OPERATOR_CHANNEL_EDGE_PROVIDER_JSON }}" not in _WORKFLOW
+    assert "output -json operator_channel_edge_identity" in _WORKFLOW
+    assert (
+        'OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding"'
+    ) in _WORKFLOW

@@ -317,6 +317,29 @@ def test_operational_history_deployment_is_exclusive_and_context_bound() -> None
         )
 
 
+def test_channel_edge_identity_request_is_context_bound() -> None:
+    values = _request(
+        DEPLOY_OPERATOR_CHANNEL_EDGE="true",
+        COMMIT_SHA=_COMMIT,
+    )
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"plan-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+
+    validate(values, checkout_commit=_COMMIT)
+    without_edge = _request(COMMIT_SHA=_COMMIT)
+    assert _MODULE._deployment_context_digest(without_edge) != context
+
+
 def test_document_intelligence_round_trip_updates_context_digest() -> None:
     values = _request(DEPLOY_DOCUMENT_INTELLIGENCE="true", COMMIT_SHA=_COMMIT)
     context = _MODULE._deployment_context_digest(values)

@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 0c08d4babc4c81b12b7da9b5bd964101327943d4
+translation_source_sha: a54022286c0ac582de797bc14e79f75ab3b2037a
 translation_revised: 2026-09-08
 ---
 # WARA 근거 기반 평가
@@ -69,6 +69,10 @@ APRL 권고와 연결되며 APRL GUID를 대체, 병합 또는 중복 집계하�
 - 시간 제한 및 최대 행 수
 - 필수 완전성, 잘림, 시간 및 출처 필드
 
+Azure 어댑터는 정확한 리소스 ID를 Azure Resource Graph가 직접 지원하는 범위가 제한된
+대소문자 무시 `in~` 리터럴 목록으로 렌더링합니다. 지원되지 않는 동적 배열 멤버십 함수에
+의존하지 않습니다.
+
 정적 안전성은 제품 의미를 증명하지 않습니다. 정확한 평가기가 검토되기 전에는 쿼리가
 읽기 전용이어도 권고를 차단 상태로 유지합니다. 쿼리 성공은 관측 증적이며 충족 결과나 운영
 성공이 아닙니다.
@@ -117,7 +121,9 @@ Console 세부 화면은 근거 종류, 권위 있는 생성자, 정확한 범�
 정확한 범위에 대한 완전하고 최신이며 충돌하거나 잘리지 않은 비합성 근거만 `satisfied`
 또는 `failed`를 만들 수 있습니다. 공급자 또는 관측 실패는 `not_evaluated` 및 `unknown`을
 생성합니다. `not_applicable`에는 검토된 조건부 처리 결과와 별도 승인 증적이 추가로
-필요합니다. 다른 모든 경우는 `unknown` 또는 `blocked`로 유지됩니다.
+필요합니다. 개별적으로 허용 가능한 증적이 서로 다른 결과를 내면 런타임은 근거 집합을
+충돌 상태로 표시하고 `not_evaluated`와 `unknown`을 반환합니다. 다른 모든 경우는 `unknown`
+또는 `blocked`로 유지됩니다.
 
 결과에는 출처 및 구현 다이제스트, 평가한 GUID, 근거 참조, 이벤트 및 기록 시각, 집계 수량,
 제한 사항, `execution_authority: false`가 포함됩니다. 결정론적 재현은 동일한 요청 및 근거
@@ -139,6 +145,8 @@ Framework, FrameworkControl 및 WARA 평가 객체는 `AccessGrant`,
 Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제공합니다. Console은 리소스
 종류, 권고 컨트롤, 영향도, 수명 주기, 제품 그룹 검증, 자동화, 매핑, 적용 가능성, 평가,
 충족 상태 필터를 지원합니다.
+공유 Operator 조립은 관련 없는 읽기 변환 결과를 `/system/data-sources`에 등록할 수 있습니다.
+이 등록은 WARA 출처를 추가하거나 WARA 범위를 넓히거나 shadow 전용 권한을 바꾸지 않습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면

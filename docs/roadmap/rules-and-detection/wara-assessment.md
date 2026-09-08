@@ -69,6 +69,10 @@ provider-neutral read plan containing:
 - a timeout and maximum row count;
 - required completeness, truncation, time, and provenance fields.
 
+The Azure adapter renders the exact resource ids as a bounded case-insensitive `in~` literal list,
+which Azure Resource Graph supports directly. It does not depend on unsupported dynamic-array
+membership functions.
+
 Static safety does not prove product semantics. Until an exact evaluator is reviewed, the
 recommendation remains blocked even when its query is read-only. Query success is an observation
 receipt, not a satisfaction result or operational success.
@@ -118,7 +122,8 @@ Each per-recommendation result keeps these states independent:
 Only complete, current, non-conflicting, non-truncated, non-synthetic evidence for the exact scope
 can produce `satisfied` or `failed`. A provider or observation failure produces `not_evaluated` and
 `unknown`. `not_applicable` additionally requires a reviewed conditional disposition and a separate
-approval receipt. All other cases remain `unknown` or `blocked`.
+approval receipt. If separately admissible receipts disagree, the runtime marks the evidence set as
+conflicting and returns `not_evaluated` with `unknown`. All other cases remain `unknown` or `blocked`.
 
 The result includes source and implementation digests, evaluated GUIDs, evidence references,
 event and recorded times, aggregate counts, limitations, and `execution_authority: false`.
@@ -140,6 +145,8 @@ that negative invariant.
 The Operator API exposes a read-only WARA inventory and optional evaluated results. The Console
 supports filters for resource type, recommendation control, impact, lifecycle, product-group
 verification, automation, mapping, applicability, evaluation, and satisfaction.
+The shared Operator composition may register unrelated read projections in `/system/data-sources`;
+those registrations don't add a WARA source, widen WARA scope, or change its shadow-only authority.
 
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional

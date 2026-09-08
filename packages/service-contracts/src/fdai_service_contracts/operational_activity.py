@@ -21,6 +21,7 @@ class OperationalActivityKind(StrEnum):
     INVENTORY_ONTOLOGY_PROJECTION = "inventory.ontology-projection"
     CURRENT_STATE_READ = "current-state.read"
     OBSERVATION = "observation"
+    ASSURANCE_TWIN_POSTURE = "assurance-twin.posture"
 
 
 class ObservationDomain(StrEnum):
@@ -61,7 +62,7 @@ class AgentOperationalActivity(ContractBase):
     """Carry bounded factual work evidence without action authority or target data."""
 
     type: Literal["agent.operational-activity"] = "agent.operational-activity"
-    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
     activity_id: Annotated[str, Field(min_length=1, max_length=512)]
     idempotency_key: Annotated[str, Field(min_length=1, max_length=512)]
     kind: OperationalActivityKind
@@ -71,6 +72,7 @@ class AgentOperationalActivity(ContractBase):
         "inventory-sync-job",
         "core-control-plane",
         "observation-campaign-job",
+        "assurance-twin",
     ]
     observation_domain: ObservationDomain | None = None
     observed_at: datetime
@@ -131,6 +133,17 @@ class AgentOperationalActivity(ContractBase):
         elif self.kind is OperationalActivityKind.CURRENT_STATE_READ:
             if self.owner_agent != "Heimdall" or self.producer != "core-control-plane":
                 raise ValueError("current-state reads MUST be Heimdall-owned Core evidence")
+        elif self.kind is OperationalActivityKind.ASSURANCE_TWIN_POSTURE:
+            if self.schema_version != "1.2.0":
+                raise ValueError("assurance-twin posture activity MUST use schema 1.2.0")
+            if self.owner_agent != "Heimdall" or self.producer != "assurance-twin":
+                raise ValueError(
+                    "assurance-twin posture activity MUST be Heimdall-owned twin evidence"
+                )
+            if any(not _OBSERVATION_REASON_CODE.fullmatch(code) for code in self.reason_codes):
+                raise ValueError(
+                    "assurance-twin posture reason_codes MUST be machine-safe identifiers"
+                )
         elif self.owner_agent != "Heimdall" or self.producer != "inventory-sync-job":
             raise ValueError("ontology projection MUST be Heimdall-owned job evidence")
         if (

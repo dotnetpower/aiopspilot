@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 220afbe4abe4eaedb823c902b8487edd414e87a4
-translation_revised: 2026-09-06
+translation_source_sha: 7fad02ec8a80ed33625610171f7d775be9b9c301
+translation_revised: 2026-09-08
 ---
 # 설치형 배포 CLI
 
@@ -507,12 +507,11 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 전에 검토된 요청 모드 prefix만 제거합니다. GitHub CLI는 공급자가 호스팅하는 인증을 사용하며
 자격 증명을 명령 인수로 복사하지 않습니다.
 
-전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다. Console,
-Operator API, 문서 수집, 격리된 Executor, 모니터링 및 exclusive RCA-reader bootstrap 선택을
-계획과 적용에 동일하게 봉인합니다. RCA 선택은 `plan-rca-*` 또는 `apply-rca-*` 요청을 사용하며
-전용 identity와 Monitoring Reader 역할만 허용합니다. 선택적인 런타임 소스 revision도 지문에
-포함됩니다. 계획은 Core 이미지를 승격하고 검증하며 적용은 digest-pinned 계획을 복원합니다.
-입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
+전달 본문에는 `apply=false`, 환경, 정확한 커밋 및 SHA-256 배포 맥락 지문을 전달합니다. Console,
+Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 없는
+`--deploy-operator-channel-edge` 신원 계획 및 전용 RCA reader를 계획과 적용에 동일하게
+봉인합니다. RCA 모드는 전용 신원과 Monitoring Reader 역할만 허용합니다. 선택적 런타임
+리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
 
 적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
 관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는

@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8d4ff3a839ee1c30f9bdc319923971799a595d2c
+translation_source_sha: 9e1e0f0cb9ae7d7b50896bf931119556167cf5bb
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -40,7 +40,15 @@ translation_revised: 2026-09-08
 | Watchdog hardening 격리 | implemented | 로컬 watchdog 안전 계약 테스트 및 `conversational-assurance` skill | 후보 생성 전에 실패를 분류하고 코드 결함만 hardening에 진입할 수 있습니다. 단계별 집중 검사가 전체 저장소 후보 게이트를 대체하며 검증된 브랜치만 검토용으로 보존합니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 | Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 진단 케이스는 일관된 handoff 담당자, 고유한 기여자 및 범위가 제한된 의미 임계값을 요구합니다. 독립 의미 검토는 공백이 아닌 신원과 모델 계열 및 엄격한 boolean 결과를 요구합니다. 신규 진단 결과는 정확히 30개인 모든 원자 루브릭의 정식 순서를 요구합니다. 원자 결과가 없는 과거 schema-v1 행은 저장된 바이트를 다시 쓰지 않고 명시적인 qualification 실패로만 읽을 수 있습니다. |
-| 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고, 서버 소유 추적을 만들고, 서로 다른 모델 계열의 의미 검토를 사용하며, 상관관계가 연결된 진단을 PostgreSQL에 추가합니다. 비공개 로컬 캠페인 원장은 다이제스트로 연결된 추적을 평가와 분리해 보존하고, 하나의 정리된 리비전에서 정확히 230개 사례를 다룬 경우에만 집계 근거를 생성합니다. 라이브 캠페인 근거는 아직 보존하지 않았습니다. |
+| 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고 서버 소유 추적을 만듭니다. 진단 의미에는 항상 구성된 mixed-family 검토자를 실행하지만 영속 assurance 결정은 결정론적 검증과 모델 예산 또는 평가자 오류 연기 상태를 계속 따릅니다. T2 종합은 정확한 모델 신원을 제공하므로 검토자가 자신의 답변을 평가할 수 없습니다. |
+최종 캠페인 변환 결과는 영속 assessment 상태와 범위가 제한된 사유 코드를 전달합니다.
+CLI는 해당 코드를 검증하고 보존하며, 연기된 assessment의 의미 검토 누락을 답변 실패로 채점하지
+않고 캠페인을 보류합니다.
+평가자 출력은 독립 검토 결정이 유효한 경우에만 30점 의미 루브릭에 들어갑니다. 유효하지 않은
+의미 검토 출력, `completed`가 아닌 필수 T2 결과 또는 시도된 금지 T2는 assessment를 연기하고
+캠페인을 보류합니다.
+Blind 정책 시험도 narrator 모델 계열을 전달하므로 이름이 다른 같은 계열 평가자가 해당 답변을
+검토할 수 없습니다.
 
 ### 구현 이력
 
@@ -59,6 +67,7 @@ translation_revised: 2026-09-08
 | 2026-09-08 | implemented | Operator 읽기 모델에서 평가, conversation, 의미 turn 식별자의 정확한 상관관계를 요구하여 범위가 제한된 principal 범위 질문과 최종 답변 상세를 추가했습니다. | `current change`, 집중 보증 읽기 구성요소 및 Operator 계열 검사 49개가 통과했습니다. | 인증된 실제 평가 상세를 별도로 검증합니다. |
 | 2026-09-08 | implemented | 모호한 빈 선택 상태를 principal 범위 평가 사용 불가 안내와 범위가 제한된 새로고침 동작으로 대체했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 10개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 처리 중 및 보존 이력 범위 밖 사례를 검증합니다. |
 | 2026-09-08 | implemented | Console 평가 선택기가 현재 답변의 권위 있는 평가 식별자와 기존 딥 링크의 서버 turn 식별자를 모두 해석하게 했습니다. | `current change`, `npm --prefix console test -- --run src/routes/conversation-assurance.test.ts`에서 테스트 6개가 통과했습니다. | 인증된 Browser Entra 세션에서 두 링크 형식을 모두 검증합니다. |
+| 2026-09-06 | implemented | 일반 숙의에서 현재 스키마 검증 완료 Bragi 라우팅을 재사용하고 유효한 mixed-family 출력만 의미 점수에 반영하며, 완료되지 않은 필수 T2 또는 시도된 금지 T2의 범위 제한 hold 사유를 보존합니다. | `current change`; Pantheon 숙의, 런타임 보증 및 집중 테스트; Ruff 및 strict mypy. | 실패별 T2 결과를 강제하기 전에 별도로 관리되는 시나리오 fault control을 추가하고 두 모델 계열을 사용할 수 있게 된 뒤 정리된 230개 사례 캠페인을 보존합니다. |
 | 2026-09-01 | implemented | 정확한 Golden 예상 처리 결과 적용, 여러 주체가 있는 기본 프레임 변환, Rule 상태, 구성 드리프트, 리소스 활동 및 서비스 상태에 대한 일반 타입 기반 의미 복구, 검증된 Operator 로케일 보존을 추가했습니다. | `current change`; 의미, Golden, 프롬프트 및 Operator 집중 테스트 575개, watchdog 안전 테스트 135개, Ruff 및 mypy, 새로 실행한 검토 canary의 정확한 통과가 0/10에서 5/10으로 개선되었습니다. | canary를 확대하기 전에 여러 관계가 있는 Rule 및 서비스 담당 체계 계획을 검증된 방식으로 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 남은 관계 근거 공백을 해소합니다. |
 | 2026-09-01 | implemented | Watchdog의 결속 추정을 semantic runtime이 등록한 콜백과 권한의 변경할 수 없는 스냅샷으로 대체했습니다. 스키마 전용 함수는 정확한 메모리 내 release를 사용하며, 공급자 함수는 현재 probe가 성공하지 않으면 근거 준비 상태가 될 수 없습니다. | `current change`; semantic 함수 레지스트리, semantic runtime 조합, 런타임 준비 상태 테스트, 집중 watchdog 테스트, Ruff 및 mypy. | 리소스 상태, Resource Health, 계측, DR 및 Chaos 공급자 질문이 캠페인에 들어가기 전에 현재 범위 probe를 추가합니다. |
 | 2026-09-01 | implemented | 로컬 watchdog 후보 경계를 hardening 전 5가지 실패 분류, 코드 결함 전용 후보 생성, Core 및 Operator 대화 소유 범위, 단계별 기한, 기준선 독립 판정, 최종 시간 초과 처리 및 검토 전용 검증 브랜치로 강화했습니다. | `current change`; 로컬 watchdog 범위, 캠페인, 분류, 기한 및 브랜치 수명 주기 테스트; 집중 watchdog 안전 계약; Ruff. | 별도로 승인된 향후 캠페인을 실행하여 이 흐름의 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |

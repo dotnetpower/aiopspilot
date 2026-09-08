@@ -5838,6 +5838,7 @@ def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
         "pantheon_observations",
         "pantheon_diagnostic",
     )
+    assessment_reasons = result.get("assessment_reasons")
     if (
         result.get("schema_version") != "1.0.0"
         or not isinstance(result.get("answer"), str)
@@ -5846,6 +5847,9 @@ def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
         or not isinstance(result.get("trace_receipt_id"), str)
         or any(not isinstance(result.get(key), Mapping) for key in required_mappings)
         or not isinstance(result.get("pantheon_semantic_reviews"), list)
+        or result.get("assessment_state") not in {"completed", "deferred"}
+        or not isinstance(assessment_reasons, list)
+        or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or result.get("execution_authority") is not False
     ):
         raise ValueError("Pantheon conversation assurance result is malformed")
