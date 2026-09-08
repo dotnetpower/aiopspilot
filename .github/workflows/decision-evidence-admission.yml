@@ -94,6 +94,9 @@ jobs:
           "$GITHUB_WORKSPACE/scripts/deployment/azure/verify-azure-context.sh" \
             "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
 
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
       - name: Download exact source candidate
         env:
           GH_TOKEN: ${{ github.token }}

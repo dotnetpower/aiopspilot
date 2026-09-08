@@ -34,6 +34,10 @@ def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
         'verify-azure-context.sh" \\\n            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"'
         in _WORKFLOW
     )
+    installer = _WORKFLOW.index("Install pinned GitHub CLI")
+    download = _WORKFLOW.index("Download exact source candidate")
+    assert "install-pinned-github-cli.sh" in _WORKFLOW[installer:download]
+    assert installer < download
     assert "--overwrite false" in _WORKFLOW
     assert "decision evidence immutable record collision" in _WORKFLOW
     assert "decision evidence immutable metadata collision" in _WORKFLOW
