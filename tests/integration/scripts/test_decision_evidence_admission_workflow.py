@@ -25,6 +25,8 @@ def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
     assert "verify-azure-context.sh" in _WORKFLOW
     assert "--overwrite false" in _WORKFLOW
     assert "decision evidence immutable record collision" in _WORKFLOW
+    assert "decision evidence immutable metadata collision" in _WORKFLOW
+    assert "--query 'metadata.\"fdai-sha256\"' -o tsv" in _WORKFLOW
     assert '--metadata "fdai-sha256=$digest"' in _WORKFLOW
     assert "secrets." not in _WORKFLOW
 

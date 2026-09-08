@@ -111,8 +111,9 @@ source archive with separate SHA-256 digests. Exact apply verifies every artifac
 When governed operational-history storage is available, that 90-day apply artifact also carries the
 fixed plan, preflight, claim, receipt, and private-container coordinates consumed by the separate
 decision-evidence admission workflow. That workflow attests the exact admission record before it
-publishes any runtime-readable Blob record. Without the storage output, the existing apply receipt
-remains available and no live evidence admission is claimed.
+publishes any runtime-readable Blob record. An idempotent replay reuses an existing record only when
+both its bytes and `fdai-sha256` metadata match. Without the storage output, the existing apply
+receipt remains available and no live evidence admission is claimed.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
