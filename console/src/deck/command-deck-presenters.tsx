@@ -62,6 +62,7 @@ export type { BackendTooltipView } from "./backend-health-presentation";
 
 export interface Turn {
   readonly id: string;
+  readonly assessmentId?: string;
   readonly role: "operator" | "deck";
   readonly text: string;
   readonly attachments?: readonly TurnAttachment[];
@@ -183,7 +184,9 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
                 <code>{candidate.deployment}<small> {candidate.status}</small></code>
                 <span><small>p50</small>{candidate.p50}</span>
                 <span><small>p95</small>{candidate.p95}</span>
-                <span><small>n</small>{candidate.samples}</span>
+                <span><small>TTFT p50</small>{candidate.ttftP50}</span>
+                <span><small>TTFT p95</small>{candidate.ttftP95}</span>
+                <span><small>n</small>{candidate.samples}/{candidate.ttftSamples}</span>
               </span>
             ))}
           </span>
@@ -206,7 +209,9 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
                 <code>{candidate.deployment}<small> {candidate.status}</small></code>
                 <span><small>p50</small>{candidate.p50}</span>
                 <span><small>p95</small>{candidate.p95}</span>
-                <span><small>n</small>{candidate.samples}</span>
+                <span><small>TTFT p50</small>{candidate.ttftP50}</span>
+                <span><small>TTFT p95</small>{candidate.ttftP95}</span>
+                <span><small>n</small>{candidate.samples}/{candidate.ttftSamples}</span>
               </span>
             ))}
           </span>
@@ -615,7 +620,7 @@ export function TurnBubble({
         </div>
       ) : isDeck ? (
         <GroundedReply
-          turnId={turn.id}
+          turnId={turn.assessmentId ?? turn.id}
           text={turn.text}
           citations={turn.citations}
           source={turn.source}

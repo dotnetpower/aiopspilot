@@ -415,6 +415,7 @@ describe("durable transcript restoration", () => {
             execution_receipt_digest: `sha256:${"d".repeat(64)}`,
             execution_authority: false,
           },
+          assessment_id: `conversation-assessment:${"e".repeat(64)}`,
         }),
       },
     });
@@ -422,6 +423,7 @@ describe("durable transcript restoration", () => {
     expect(assistant).toMatchObject({
       recordedAt: "2026-07-16T07:00:03Z",
       source: "llm:test-model / 3000ms",
+      assessmentId: `conversation-assessment:${"e".repeat(64)}`,
       agent: "Bragi",
       answerPlan: { intent: "status", format: "prose" },
       delegation: { primary_agent: "Bragi", contributors: ["Heimdall"] },

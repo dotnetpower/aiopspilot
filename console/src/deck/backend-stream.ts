@@ -10,6 +10,7 @@ import { semanticUnavailable } from "./backend-unavailable";
 import {
   newRequestId,
   parseConfirmedAnswerSegment,
+  parseConversationAssessmentId,
   parseEvidenceBranch,
   parseAnswerVerification,
   parseDelegation,
@@ -638,6 +639,7 @@ export async function askBackendStream(
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
   const intentGraph = parseIntentGraph(done.intent_graph);
   const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
+  const assessmentId = parseConversationAssessmentId(done.assessment_id);
   const conversationBinding = normalizeIncidentBinding(done.conversation_context);
   const chosen = conversationReplyModel(model, router?.chose, callbacks.conversationModelTier);
   const explicitSource = typeof done.source === "string" ? done.source : null;
@@ -671,6 +673,7 @@ export async function askBackendStream(
   };
   return {
     ...base,
+    ...(assessmentId ? { assessmentId } : {}),
     ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(router ? { router } : {}),
     ...(delegation ? { delegation } : {}),

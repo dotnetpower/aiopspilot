@@ -668,6 +668,7 @@ export function useCommandDeckSubmit({
                   followUps: reply.followUps,
                   source: reply.source,
                   agent: replyAgent(reply),
+                  ...(reply.assessmentId ? { assessmentId: reply.assessmentId } : {}),
                   ...(reply.verification ? { verification: reply.verification } : {}),
                   ...(reply.confirmed ? { confirmed: reply.confirmed } : {}),
                   ...(reply.router ? { router: reply.router } : {}),

@@ -26,6 +26,7 @@ import {
 } from "./backend-parsers";
 import {
   parseAnswerVerification,
+  parseConversationAssessmentId,
   parseDelegation,
   parseEvidenceFreshnessContext,
   parseResourceContext,
@@ -41,6 +42,7 @@ const MAX_REPLAY_PAYLOAD_CHARS = 512 * 1024;
 
 export interface RestoredTurn {
   readonly adaptiveAnswer?: AdaptiveAnswer;
+  readonly assessmentId?: string;
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
@@ -118,6 +120,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     verification,
   );
   const semanticReceipt = parseSemanticProjectionReceipt(replay?.semantic_receipt);
+  const assessmentId = parseConversationAssessmentId(replay?.assessment_id);
   const source = (advisoryAnswer ? "semantic-advisory-response" : turn.metadata.source) ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
   const agent = adaptiveAnswer?.role_agent ?? turn.metadata.agent ?? delegation?.primary_agent;
@@ -132,6 +135,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     at: time,
     recordedAt: turn.recorded_at,
     terminal: true,
+    ...(assessmentId ? { assessmentId } : {}),
     ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(source ? { source } : {}),

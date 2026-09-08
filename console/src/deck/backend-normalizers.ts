@@ -40,6 +40,7 @@ const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const SEMANTIC_DIRECT_RESPONSE_INTENTS = new Set(["greeting", "self_introduction"] as const);
 const SEMANTIC_REASON_PATTERN = /^[a-z0-9_]{1,128}$/;
 const SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
+const CONVERSATION_ASSESSMENT_ID_PATTERN = /^conversation-assessment:[0-9a-f]{64}$/;
 const SEMANTIC_OPERATIONS = new Set<SemanticAssuranceFrame["operation"]>([
   "select",
   "aggregate",
@@ -85,6 +86,12 @@ const SEMANTIC_ROUTE_BY_DISPOSITION: Partial<Record<SemanticProjectionReceipt["d
   action_draft: "semantic_action_draft",
   cancelled: "semantic_cancellation",
 };
+
+export function parseConversationAssessmentId(value: unknown): string | undefined {
+  return typeof value === "string" && CONVERSATION_ASSESSMENT_ID_PATTERN.test(value)
+    ? value
+    : undefined;
+}
 
 export function parseSemanticProjectionReceipt(
   raw: unknown,

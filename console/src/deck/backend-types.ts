@@ -36,6 +36,10 @@ export interface RouterCandidate {
   readonly p95_ms: number | null;
   readonly samples: number;
   readonly history_ms: readonly number[];
+  readonly ttft_p50_ms?: number | null;
+  readonly ttft_p95_ms?: number | null;
+  readonly ttft_samples?: number;
+  readonly ttft_history_ms?: readonly number[];
   readonly status?: "measured" | "unmeasured" | "failed" | "stale";
   readonly measured_at?: string;
 }
@@ -673,6 +677,7 @@ export interface ConversationDocumentArtifact {
 }
 
 export type ProgressiveAnswer = Answer & {
+  readonly assessmentId?: string;
   readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly source: string;
   readonly router?: RouterSnapshot;

@@ -65,6 +65,7 @@ test("accepts an evidence-bound ontology query done frame", async () => {
         status: "answered",
         answer: "Verified ontology query completed.",
         source: "ontology-query",
+        assessment_id: `conversation-assessment:${"b".repeat(64)}`,
         semantic_receipt: {
           schema_version: "1.0.0",
           projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
@@ -135,6 +136,7 @@ test("accepts an evidence-bound ontology query done frame", async () => {
 
   expect(reply.text).toBe("Verified ontology query completed.");
   expect(reply.source).toBe("ontology-query");
+  expect(reply.assessmentId).toBe(`conversation-assessment:${"b".repeat(64)}`);
   expect(reply.verification?.status).toBe("verified");
   expect(reply.verification?.evidence_refs).toEqual(["inventory:evidence-1"]);
   expect(reply.intentGraphEvidence?.evidence_mode).toBe("operational_grounded");

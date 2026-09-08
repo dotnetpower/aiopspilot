@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 008cc79db55aedb83b6a40a1ea1842ef8e646c03
+translation_source_sha: b8f7025a42b3a24821af2c7f807d34487076c3cd
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -53,6 +53,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 Console 검사 | `semantic_clarification_required`를 `Context required`로 표시하면서 범위가 제한된 서버 작성 질문을 기본 답변으로 보존합니다. 질문이 잘못되었거나 없으면 지역화된 대체 문구를 사용합니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 타입 기반 근거 보류 표현 | 검증됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 스트림 및 Console 검사, Core 부분 인과 표현 검사, 인증된 표준 Console 브라우저 근거 | `semantic_evidence_held`와 `semantic_evidence_incomplete`는 검증 결과에 비어 있지 않은 서버 권한이 있고, 완료된 검사에 비어 있지 않은 근거가 유지되며, 같은 요청의 보류 증적이 일치하는 사유, 계획, 실행, 권한 없음 digest와 `authoritative_evidence_unavailable`을 보고할 때만 범위가 제한된 정본 최종 답변을 보존합니다. 파생 함수 증적은 타입 기반 권한 입력을 보존하므로 Operator가 유효한 보류를 지원되지 않는 주장으로 다시 표시하지 않고 정확한 원본 계보를 검증할 수 있습니다. assurance 관측에도 수행된 읽기, 읽기 전용 권한 및 fresh가 아닌 근거 상태가 기록되어야 합니다. 정확한 이름을 해석할 수 없으면 같은 유형에서 관측된 제안을 표시할 수 있지만 어떤 후보도 자동 선택하지 않았다고 명확히 알립니다. 검증 사유가 증적 검증 전에 타입 기반 보류 주장을 식별하므로 누락되거나 다른 요청에 속하거나 불일치하거나 권한이 없는 증적은 거부를 우회할 수 없습니다. 정본 최종 본문이 없거나 공백뿐이면 대기 중인 token을 내보내기 전에 거부하고, 단조 증가하는 미검증 revision과 token pump generation 무효화로 이미 표시된 초안과 로컬 burst token을 철회한 뒤 지역화 대체 문구를 표시합니다. |
+| 대화 보증 검토 식별자 | implemented | `backend-normalizers.ts`, `backend-stream.ts`, `command-deck-session.ts`, `grounded-reply.tsx`, 집중 스트림, 복원 및 답변 검사 | 최종 답변은 엄격히 검증된 서버 평가 식별자를 실제 처리와 영속 재현 전체에 전달합니다. 답변 품질 링크는 브라우저 전용 표현 turn 식별자 대신 이 식별자를 사용합니다. |
 | 의미 모델 투명성 | 구현됨 | `semantic_planning.py`, `semantic_planning_cascade.py`, Azure 의미 계획 어댑터, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core 및 Operator 검사 | 완료된 모든 의미 판단, 프레임, 계획 모델 호출은 표현을 위해 범위가 제한된 실측 모델, 처리 시간 및 토큰 metadata를 보존합니다. 요청과 응답 본문은 요청에서 명시적으로 활성화한 경우에만 projection하며 결정론적으로 민감정보를 제거하고 범위를 제한합니다. 이 정보는 계획 근거나 실행 권한이 되지 않습니다. |
 | 실시간 의미 조회 진행 상황 | 구현됨 | `SemanticQueryProgress`, `query_execution.py`, Core semantic consumer, Operator semantic bridge, 집중 progress 검사 25개 통과 | Core는 검증된 실제 조회 노드의 시작 및 최종 관측만 별도 best-effort topic으로 발행합니다. Operator는 실제 내부 조회를 렌더링하고 권위 있는 최종 receipt가 도착하면 일시적인 진행 상태를 폐기합니다. 진행 정보는 범위가 제한되고 읽기 전용이며 `execution_authority=false`로 고정됩니다. 인증된 Command Deck 증적은 열린 상태입니다. |
 | 현재 화면 컨텍스트 게시 | 구현됨 | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), [`view-contract.test.ts`](../../../console/src/routes/view-contract.test.ts), 집중 Console 컨텍스트 및 경로 검사, 데스크톱 브라우저 검사 | 등록된 모든 패널은 로딩, 사용 불가, 오류, 경로 전환 상태에서 자신을 식별합니다. 특화 게시기는 이전 경로의 스냅샷을 넘기지 않고 대체 정보를 범위가 제한된 표시 사실과 공통 카탈로그 용어집으로 교체할 수 있습니다. |
@@ -66,6 +67,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 권위 있는 대화 평가 식별자를 실제 처리 및 복원된 Web turn 전체에 전달하여 답변 품질 링크가 일치하는 평가를 선택하게 했습니다. | `current change`, 집중 Console 스트림, 세션 및 근거 기반 답변 검사 43개와 Console 타입 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 정확한 딥 링크를 검증합니다. |
 | 2026-09-08 | implemented | 불완전한 원본 범위를 근거 기반 답변의 기본 차단 사유로 유지하면서, 별도로 기록된 충돌 표시를 간결한 Web 바닥글에 보존했습니다. | `current change`, `npm --prefix console test -- --run src/deck/grounded-reply.test.ts src/deck/grounded-sources.test.ts`에서 테스트 60개가 통과했습니다. | 인증된 Browser Entra 검증은 별도 근거로 유지합니다. |
 | 2026-09-06 | implemented | 기존 이력 경로로 사용자 범위의 의미 처리 최종 결과를 복원하고, 답변 없는 질문으로 끝나는 캐시를 모델 재호출 없이 보완했습니다. | `current change`; 집중 Python 검사 162개, Console 검사 81개 및 양 언어 복원 브라우저 검사 2개 통과. 보고된 대화의 저장 결과를 읽기 전용으로 복원해 744자 답변을 반환했고 인증된 세션 브라우저에서 실제 표시를 확인했습니다. | 최종 답변 복원을 수정했습니다. 관측된 작성, 검토, 보강 및 재검증 지연 51.4초는 별도의 최적화 대상입니다. |
 | 2026-09-06 | implemented | 기존 회귀 테스트를 직접 응답과 자문 응답의 내부 경로 배지 숨김 및 명시적인 담당 관계 미확인 계약에 맞췄습니다. | `current change`; 표현 및 자문 검사 44개, 외부 공급자 없는 의미 요청 왕복 검사 15개 통과. 통합된 메인 코드에서 합성 대화 진입점 브라우저 검사 10개도 모두 통과했습니다. | 실제 모델 품질, 로컬 기동 및 정확한 커밋의 CI는 별도 근거입니다. |
