@@ -206,21 +206,29 @@ class OperatorSemanticKafkaBus:
             if payload.get("schema_version") == "1.6.0"
             else CORE_REQUEST_PRODUCER_V15
         )
-        encoded = (
-            request_codec.encode(payload)
-            if topic == self._config.request_topic
-            else _encode(payload, maximum=self._config.maximum_message_bytes)
-        )
         physical_topic = topic
         direct_topics = {
             self._config.event_topic,
             self._config.hil_decision_topic,
         }
-        if self._config.physical_topic is not None and topic not in direct_topics:
+        multiplexed = self._config.physical_topic is not None and topic not in direct_topics
+        if multiplexed and topic != self._config.request_topic:
             logical_topic = topic.removesuffix(self._config.dlq_suffix)
-            enriched = json.loads(encoded)
+            enriched = dict(payload)
             enriched[LOGICAL_TOPIC_FIELD] = logical_topic
             encoded = _encode(enriched, maximum=self._config.maximum_message_bytes)
+        else:
+            encoded = (
+                request_codec.encode(payload)
+                if topic == self._config.request_topic
+                else _encode(payload, maximum=self._config.maximum_message_bytes)
+            )
+        if multiplexed:
+            logical_topic = topic.removesuffix(self._config.dlq_suffix)
+            if topic == self._config.request_topic:
+                enriched = json.loads(encoded)
+                enriched[LOGICAL_TOPIC_FIELD] = logical_topic
+                encoded = _encode(enriched, maximum=self._config.maximum_message_bytes)
             physical_topic = self._config.physical_topic
             if topic.endswith(self._config.dlq_suffix):
                 physical_topic += self._config.dlq_suffix

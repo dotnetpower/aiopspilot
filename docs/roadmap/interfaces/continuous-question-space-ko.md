@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 466c569e419f9fea21fff1b0fa50d8e8c9153c88
-translation_revised: 2026-09-07
+translation_source_sha: 411c41aea4ef8ba4283bf5d0d7ad37deff468cec
+translation_revised: 2026-09-08
 ---
 # 지속형 질문 공간
 
@@ -36,6 +36,9 @@ turn은 5초 이내에 모델 대상을 확인하고 인증을 검증할 수 없
 결과를 반환합니다. Operator는 먼저 도착한 최종 결과 하나를 권위 있는 결과로 영속화하고, 시간
 초과 보류를 실제 fallback 시각에 기록하며, 뒤늦은 변환 결과는 두 번째 최종 답변이 아닌 진단
 정보로 처리합니다.
+배포가 logical topic을 다중화하면 request 이외 의미 payload는 한 번의 범위 제한 인코딩 전에
+logical-topic 표시를 받습니다. 스키마로 검증되는 request payload는 다중화 전에 producer-codec
+검증을 유지합니다.
 모델이 검증한 정확한 이름의 리소스 그룹 멤버 목록 요청은 `Resource.parent_id`를 멤버십 속성으로
 사용합니다. Core는 타입이 지정된 판단에서 이 프레임을 직접 만들고 작성된 그룹 이름을 해당
 조건식에 근거로 연결합니다. 별도 모델 프레임 호출을 실행하거나 리소스 그룹 객체 자체를 요청한
@@ -98,6 +101,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 다중화된 request 이외 의미 payload의 사전 인코딩 및 디코딩 단계를 제거하면서 request codec 검증을 보존했습니다. | `current change`, 집중 Operator 의미 Kafka 검사 25개가 통과했습니다. | 전송 CPU 측정은 별도로 보존합니다. |
 | 2026-09-07 | implemented | 정제된 인벤토리 검토에 존재하는 일반 Azure 리소스 유형 19개를 다루는 이중 언어 현재 리소스 SRE 후보 50개를 추가했습니다. 실제 리소스 식별자를 보존하거나 실행 권한을 부여하지 않고 원본을 통합 질문은행에 등록하고 기계 판독용 인벤토리와 사람 검토용 카탈로그를 다시 생성했습니다. | `current change`, `current-resource-sre-questions.source.yaml`, 공식 질문은행 생성기가 원본 11개에서 논리 질문 400개 생성, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 후보를 Golden 또는 Console 표시 상태로 승격하기 전에 의미 기대값, 런타임 기능 연결 및 근거 한계를 검토합니다. |
 | 2026-09-04 | implemented | 커밋 범위 회귀 검사에서 탐색 없이 링크가 필요한 네트워크 경로 소비자를 발견한 뒤 첫 객체 전용 변경을 바로잡았습니다. 기본값이 직렬화에서 생략되는 하위 호환 `include_relationships` 선택 항목을 추가하고 리소스 상태 컬렉션 계획에서만 관계를 제외했습니다. | `current change`, 네트워크 의존성, 기존 직렬화, 탐색 불변 조건, ObjectSet 및 리소스 상태 회귀 검사 | 객체 전용 소비자가 링크를 사용하지 않음을 명시적으로 증명할 때까지 기본 관계 동작을 유지합니다. |
 | 2026-09-04 | implemented | 관련 없는 토폴로지 조정이 불완전해도 컬렉션 상태 조회가 검증된 일치 리소스를 유지하도록 탐색 없는 ObjectSet 완전성을 관계 완전성과 분리했습니다. | `current change`, ObjectSet, PostgreSQL 범위, 리소스 상태 기능, 의미 계획 및 Browser Entra 회귀 근거 | 리소스 유형별 상태 적용 가능성은 검토된 카탈로그 의미를 통해서만 확장합니다. 실행 상태 계약이 없는 리소스를 정상 또는 실행 중으로 간주하지 않습니다. |

@@ -147,6 +147,8 @@ projection absence renders as unavailable; malformed or unexpected responses rem
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
 The shared Operator composition can add principal-scoped conversation document and T1 health
 readers without changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
+Multiplexed WARA and other non-request payloads add their logical-topic marker before one bounded
+encode; semantic request payloads still pass their versioned producer codec first.
 It delegates resolved-model source construction to focused lifecycle composition and starts the
 resulting revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA

@@ -26,6 +26,8 @@ The session controller carries that recovery reason through the hydrator's own e
 Initial session restoration and explicit retry both use the same missing-identity detector.
 Conversation assurance list refreshes accept only the latest in-flight response, so a slower earlier
 read cannot replace a newer principal-scoped projection.
+Multiplexed non-request Kafka publications add their logical-topic marker before the single bounded
+encode, while schema-validated semantic requests retain their producer-codec boundary.
 A valid content-addressed assessment link can read its principal-scoped detail directly even when
 the assessment is older than the bounded list projection.
 A missing scoped detail remains an explicit unavailable state with a refresh action rather than a

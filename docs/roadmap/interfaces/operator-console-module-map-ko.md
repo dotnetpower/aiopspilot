@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 32d74ca255ae7bf9e5d8157b78f16b484abea37a
+translation_source_sha: b50f8f4248b37dd7ca5cf3882117adf06082f45f
 translation_revised: 2026-09-08
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -31,6 +31,8 @@ PostgreSQL은 계속 대화 기록 시스템으로 유지됩니다.
 초기 세션 복원과 명시적 재시도는 같은 식별자 누락 검사를 사용합니다.
 대화 보증 목록 새로고침은 가장 최신 요청의 응답만 수락하므로 느린 이전 읽기가 더 최신인
 principal 범위 변환 결과를 바꿀 수 없습니다.
+다중화된 request 이외 Kafka 게시는 한 번의 범위 제한 인코딩 전에 logical-topic 표시를
+추가하며, 스키마로 검증되는 의미 요청은 producer-codec 경계를 유지합니다.
 유효한 내용 주소 기반 평가 링크는 평가가 범위가 제한된 목록 변환 결과보다 오래되어도
 principal 범위 상세를 직접 읽을 수 있습니다.
 범위가 지정된 상세가 없으면 일반 패널 실패 대신 새로고침 동작이 있는 명시적인 사용 불가

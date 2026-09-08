@@ -34,6 +34,9 @@ ordinary semantic turn checks its model audience within five seconds and returns
 planning when authentication cannot be verified. Operator persists the first terminal result as
 authoritative, records a timeout hold at the actual fallback time, and treats a later projection as
 diagnostic rather than a second terminal answer.
+When the deployment multiplexes logical topics, non-request semantic payloads receive their
+logical-topic marker before one bounded encode. Schema-validated request payloads retain their
+producer-codec validation before multiplexing.
 For a model-validated request that lists members of one exact named resource group, the frame uses
 `Resource.parent_id` as the membership property. Core builds this frame directly from the typed
 judgment, grounds the written group name into the predicate, and does not issue a separate model
@@ -96,6 +99,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Removed the preliminary encode/decode cycle from multiplexed non-request semantic payloads while preserving request codec validation. | `current change`; focused Operator semantic Kafka checks passed 25 tests. | Retain transport CPU measurements separately. |
 | 2026-09-07 | implemented | Added 50 bilingual current-resource SRE candidates covering the 19 generic Azure resource types present in a sanitized inventory review. Registered the source in the federated question bank and regenerated the machine inventory and human review catalog without retaining live resource identities or granting execution authority. | `current change`; `current-resource-sre-questions.source.yaml`; official question-bank generator rendered 400 logical questions from 11 sources; focused question-bank and Golden dataset checks passed 19 cases. | Review semantic expectations, runtime capability bindings, and evidence limitations before promoting any candidate to Golden or Console-visible status. |
 | 2026-09-04 | implemented | Corrected the first object-only change after commit-scoped regression exposed a network-path consumer that needs links without traversal. Added a backward-compatible `include_relationships` option whose default is omitted from serialized definitions, and opted out only for resource-state collection plans. | `current change`; network dependency, legacy serialization, traversal invariant, ObjectSet, and resource-state regressions. | Keep the default relationship behavior until each object-only consumer explicitly proves it does not use links. |
 | 2026-09-04 | implemented | Separated non-traversal ObjectSet completeness from relationship completeness so collection state reads retain verified matching resources even while unrelated topology reconciliation is incomplete. | `current change`; ObjectSet, PostgreSQL coverage, resource-state function, semantic planning, and Browser Entra regression evidence. | Expand resource-type state applicability only through reviewed catalog semantics; never treat a resource without a running-state contract as healthy or running. |

@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 44620346e1f6e8cff12fcf18e1eac6866d60ea90
-translation_revised: 2026-09-07
+translation_source_sha: 0c08d4babc4c81b12b7da9b5bd964101327943d4
+translation_revised: 2026-09-08
 ---
 # WARA 근거 기반 평가
 
@@ -146,6 +146,9 @@ Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제�
 잘린 식별자는 네이티브 title 속성 대신 공유 Tooltip을 통해 전체 값을 표시합니다.
 공유 Operator 조립에 principal 범위 대화 문서 및 T1 상태 판독기를 추가해도 WARA의 고정
 crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 변경되지 않습니다. 해석 모델 출처 구성은
+다중화된 WARA 및 다른 request 이외 payload는 한 번의 범위 제한 인코딩 전에 logical-topic
+표시를 추가하며, 의미 request payload는 먼저 버전 지정 producer codec을 통과합니다.
+해석 모델 출처 구성은
 수명 주기 전용 조립에 위임하고 그 결과인 리비전 경계를 WARA 변환 결과 bridge보다 먼저
 시작합니다.
 따라서 모델 다이제스트가 불일치하면 WARA 근거, 평가, 변환 결과 또는 개선 권한을 바꾸지

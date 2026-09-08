@@ -283,6 +283,15 @@ async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    encode_calls = 0
+    original_encode = kafka_module._encode
+
+    def recording_encode(payload, *, maximum):  # type: ignore[no-untyped-def]
+        nonlocal encode_calls
+        encode_calls += 1
+        return original_encode(payload, maximum=maximum)
+
+    monkeypatch.setattr(kafka_module, "_encode", recording_encode)
     bus = OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
             bootstrap_servers="example.servicebus.windows.net:9093",
@@ -306,6 +315,7 @@ async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
         "audit_id": "audit-1",
         "schema_version": "1.0.0",
     }
+    assert encode_calls == 1
 
 
 @pytest.mark.parametrize(
