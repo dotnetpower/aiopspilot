@@ -911,6 +911,55 @@ async def test_a_departing_replica_cannot_quarantine_a_newer_rollout(tmp_path: P
     assert status["status"] == "projected"
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"max_age_seconds": 0},
+        {"max_age_seconds": -1},
+        {"max_age_seconds": 86_401},
+        {"validated_at": (_RETRIEVED_AT + timedelta(days=1)).isoformat()},
+    ],
+)
+async def test_a_departing_replica_cannot_overwrite_an_unusable_newer_admission(
+    tmp_path: Path,
+    overrides: dict[str, object],
+) -> None:
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    await _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="2",
+    ).admit(now=fresh_at)
+    current = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert current is not None
+    await state_store.write_state(
+        OPERATING_INTENT_SOURCE_ADMISSION_KEY,
+        {**current, **overrides},
+    )
+
+    departing = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+        FDAI_OPERATING_INTENT_SOURCE_GENERATION="1",
+    )
+    await departing.admit(now=fresh_at)
+
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["binding_generation"] == 2
+
+
 async def test_a_newer_rollout_admission_does_not_authorize_an_old_replica(
     tmp_path: Path,
 ) -> None:

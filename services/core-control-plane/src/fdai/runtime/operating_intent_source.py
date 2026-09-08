@@ -361,11 +361,19 @@ class OperatingIntentSourceRuntime:
         if validated_at.tzinfo is None:
             return True
         max_age_seconds = record.get("max_age_seconds")
-        if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int):
+        if max_age_seconds is None and record.get("status") in {"quarantined", "unavailable"}:
             # A denying record declares no window of its own; bound it by this
             # replica's so a quarantine from a departed rollout still ages out.
             max_age_seconds = self.admission_validity_seconds
-        return (now - validated_at).total_seconds() <= max_age_seconds
+        if (
+            isinstance(max_age_seconds, bool)
+            or not isinstance(max_age_seconds, int)
+            or max_age_seconds < 1
+            or max_age_seconds > MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS
+        ):
+            return True
+        age_seconds = (now - validated_at).total_seconds()
+        return age_seconds < 0 or age_seconds <= max_age_seconds
 
 
 async def bind_operating_intent_source_from_env(

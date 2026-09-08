@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: dcf1a8dff3bd3df9cff6d27c952cc49609322209
+translation_source_sha: 4e0984e6e80b7a8b1657c4ab00ee93f468435f8e
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -100,7 +100,8 @@ Stale 판정은 혼동해서는 안 되는 독립적인 두 축을 씁니다. �
 기록을 덮어쓰지 않고, 소비자는 자기 세대가 아닌 기록을 거부합니다. 따라서 이전 replica는 자신을 대체한
 롤아웃을 승인할 수도 격리할 수도 없고, 새 롤아웃의 증명이 검증한 적 없는 그래프를 읽는 replica에게
 권한을 주지도 않습니다. 배포 전역 잠금은 쓰기를 직렬화할 뿐 어느 릴리스가 이겨야 하는지는 말하지
-않으며, 그 순서를 세대가 정합니다.
+않으며, 그 순서를 세대가 정합니다. 최신 세대 record의 유효 기간이 잘못됐거나 증명 시각이 미래이면
+이전 replica는 계속 차단됩니다. 형식이 잘못된 상태로는 rollback이 안전하다고 증명할 수 없기 때문입니다.
 
 **소유권.** 승인 기록은 그 승인이 보증하는 객체 식별자를 열거합니다. 일반
 `FDAI_OPERATING_MODEL_PATH` 스냅샷과 지속형 operating-model worker도 `ChangeWindow`를 투영할 수 있고
