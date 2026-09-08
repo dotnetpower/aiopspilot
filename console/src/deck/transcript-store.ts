@@ -244,12 +244,27 @@ export function serializeTurns(
         ...(conversationBinding ? { conversationBinding } : {}),
       };
     });
-  let serialized = JSON.stringify(persisted);
-  while (serialized.length > MAX_TRANSCRIPT_JSON_CHARS && persisted.length > 0) {
-    persisted.shift();
-    serialized = JSON.stringify(persisted);
+  return serializePersistedTurnsWithinLimit(persisted);
+}
+
+export function serializePersistedTurnsWithinLimit(
+  persisted: readonly PersistedTurn[],
+  stringify: (value: readonly PersistedTurn[]) => string = JSON.stringify,
+): string {
+  const complete = stringify(persisted);
+  if (complete.length <= MAX_TRANSCRIPT_JSON_CHARS) return complete;
+
+  let first = 0;
+  let pastLast = persisted.length;
+  while (first < pastLast) {
+    const candidate = first + Math.floor((pastLast - first) / 2);
+    if (stringify(persisted.slice(candidate)).length <= MAX_TRANSCRIPT_JSON_CHARS) {
+      pastLast = candidate;
+    } else {
+      first = candidate + 1;
+    }
   }
-  return serialized;
+  return stringify(persisted.slice(first));
 }
 
 /** Parse a persisted transcript defensively. Any malformed input yields ``[]``. */

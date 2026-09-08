@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseTurns,
+  serializePersistedTurnsWithinLimit,
   serializeTurns,
   MAX_TRANSCRIPT_JSON_CHARS,
   MAX_TRANSCRIPT_TURNS,
@@ -21,6 +22,26 @@ describe("transcriptKeyFor", () => {
 });
 
 describe("serializeTurns", () => {
+  it("bounds oversized transcript serialization logarithmically", () => {
+    const turns: PersistedTurn[] = Array.from({ length: MAX_TRANSCRIPT_TURNS }, (_, index) => ({
+      id: `turn-${index}`,
+      role: "deck",
+      text: "x".repeat(200_000),
+      at: "10:00:00",
+      terminal: true,
+    }));
+    let stringifyCalls = 0;
+
+    const serialized = serializePersistedTurnsWithinLimit(turns, (value) => {
+      stringifyCalls += 1;
+      return JSON.stringify(value);
+    });
+
+    expect(serialized.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_JSON_CHARS);
+    expect(parseTurns(serialized).length).toBeGreaterThan(0);
+    expect(stringifyCalls).toBeLessThanOrEqual(8);
+  });
+
   it("round-trips an exact no-authority semantic receipt", () => {
     const semanticReceipt = {
       schema_version: "1.0.0" as const,

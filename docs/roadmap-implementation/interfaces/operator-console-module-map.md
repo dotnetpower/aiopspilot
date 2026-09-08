@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Replaced linear repeated encoding of oversized browser transcripts with a logarithmic search for the longest suffix under the existing byte ceiling. | `current change`; focused transcript checks passed 24 tests, and Console typecheck passed. | Retain browser main-thread timing as separate evidence. |
 | 2026-09-08 | implemented | Applied missing-assessment hydration to the initially restored session and preserved the same force reason on explicit retry. | `current change`; focused conversation, transcript, and restored-session checks passed 72 tests, and Console typecheck passed. | Retain authenticated initial-load recovery evidence separately. |
 | 2026-09-08 | implemented | Made the unavailable assessment action retry both list and exact retained-detail reads with a new detail generation. | `current change`; focused route checks passed 10 tests, and Console typecheck passed. | Retain authenticated recovery evidence separately. |
 | 2026-09-08 | implemented | Mapped a scoped retained-assessment `404` to the explicit unavailable state and refresh action. | `current change`; focused route checks passed 10 tests, and Console typecheck passed. | Retain authenticated missing-detail evidence separately. |
