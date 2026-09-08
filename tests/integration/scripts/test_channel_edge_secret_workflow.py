@@ -16,10 +16,9 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert "the exact commit does not have a successful required CI check" in workflow
     assert "login-deploy-identity.sh" in workflow
     assert "exactly one development Key Vault must match the FDAI tags" in workflow
-    assert "az rest --method GET" in workflow
-    assert '"https://management.azure.com${vault_id}?api-version=2023-07-01"' in workflow
-    assert ".properties.enableRbacAuthorization == true" in workflow
-    assert '.properties.publicNetworkAccess == "Disabled"' in workflow
+    assert "az keyvault show" in workflow
+    assert '--name "$vault_name" --subscription "$ARM_SUBSCRIPTION_ID"' in workflow
+    assert "'.rbac == true and .public == \"Disabled\"'" in workflow
     assert "the selected development Key Vault is not private and RBAC-enabled" in workflow
     assert "materialize_channel_edge_secrets.py" in workflow
     assert "shred --force --remove" in workflow
