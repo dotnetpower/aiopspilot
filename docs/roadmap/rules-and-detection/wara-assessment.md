@@ -118,7 +118,8 @@ Each per-recommendation result keeps these states independent:
 Only complete, current, non-conflicting, non-truncated, non-synthetic evidence for the exact scope
 can produce `satisfied` or `failed`. A provider or observation failure produces `not_evaluated` and
 `unknown`. `not_applicable` additionally requires a reviewed conditional disposition and a separate
-approval receipt. All other cases remain `unknown` or `blocked`.
+approval receipt. If separately admissible receipts disagree, the runtime marks the evidence set as
+conflicting and returns `not_evaluated` with `unknown`. All other cases remain `unknown` or `blocked`.
 
 The result includes source and implementation digests, evaluated GUIDs, evidence references,
 event and recorded times, aggregate counts, limitations, and `execution_authority: false`.

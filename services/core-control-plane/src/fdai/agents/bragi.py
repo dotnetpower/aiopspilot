@@ -663,14 +663,12 @@ class Bragi(Agent):
                 "reason_code": judgment_result.receipt.reason_code,
                 "execution_authority": False,
             }
-
         attach_pantheon_diagnostics(
             answer=answer,
             decision=decision,
             question=question,
             session_id=session_id,
         )
-
         turn_index = _next_turn_index(session)
         if answer.get("handoff_needed") and materialize_handoff:
             answer["handoff_status"] = await self._publish_handoff(

@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 92423919ccff64b9f72e250caab6ade94a2c3c38
+translation_source_sha: 7536a04f6e82cdbb2bac4fac517851b4a515d97b
 translation_revised: 2026-09-08
 ---
 # WARA 근거 기반 평가
@@ -117,7 +117,9 @@ Console 세부 화면은 근거 종류, 권위 있는 생성자, 정확한 범�
 정확한 범위에 대한 완전하고 최신이며 충돌하거나 잘리지 않은 비합성 근거만 `satisfied`
 또는 `failed`를 만들 수 있습니다. 공급자 또는 관측 실패는 `not_evaluated` 및 `unknown`을
 생성합니다. `not_applicable`에는 검토된 조건부 처리 결과와 별도 승인 증적이 추가로
-필요합니다. 다른 모든 경우는 `unknown` 또는 `blocked`로 유지됩니다.
+필요합니다. 개별적으로 허용 가능한 증적이 서로 다른 결과를 내면 런타임은 근거 집합을
+충돌 상태로 표시하고 `not_evaluated`와 `unknown`을 반환합니다. 다른 모든 경우는 `unknown`
+또는 `blocked`로 유지됩니다.
 
 결과에는 출처 및 구현 다이제스트, 평가한 GUID, 근거 참조, 이벤트 및 기록 시각, 집계 수량,
 제한 사항, `execution_authority: false`가 포함됩니다. 결정론적 재현은 동일한 요청 및 근거
