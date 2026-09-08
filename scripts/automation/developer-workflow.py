@@ -70,6 +70,7 @@ LOCAL_SERVICE_NAMES = (
     "isolated-executor",
     "inventory-reconciliation",
     "observation-campaign",
+    "inventory-coverage",
 )
 __all__ = [
     "_browser_runner_diagnostic",

@@ -237,6 +237,12 @@ def test_supervisor_allows_bounded_inventory_recovery() -> None:
     assert "FDAI_CONSOLE_START_READINESS_SECONDS:-180" in source
 
 
+def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
+    source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert "--only inventory-coverage" in source
+
+
 def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
@@ -355,6 +361,7 @@ set -euo pipefail
 case "$1" in
     */run-bounded-command.py) shift; exec {str(sys.executable)!r} {str(_BOUNDED_RUNNER)!r} "$@" ;;
   */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
+  */developer-workflow.py) exit 0 ;;
   */sync-entra-spa-redirect.py) exit 0 ;;
     */service-migrations/migrate.py) exit 0 ;;
   *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;

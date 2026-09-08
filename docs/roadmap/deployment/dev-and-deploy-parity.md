@@ -81,6 +81,8 @@ start static design mocks or fixture applications.
 The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Local readiness and the 10-minute watchdog include all three processes plus the active-scope inventory coverage fence, so a stopped help library, stopped inventory producer, or checkpoint that does not match the active generation and exact scope set keeps the stack unavailable. Newer pending observations lower answer completeness but do not make a continuously collecting process unready.
 The startup supervisor gives generation recovery and graph projection a bounded 180-second readiness
 window before it reports failure and stops its child processes.
+The preparation cache reuses the authoritative inventory stage only when that same checkpoint check
+passes; unchanged files cannot hide a stale database generation.
 
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document

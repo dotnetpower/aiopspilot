@@ -156,6 +156,14 @@ stage_reusable() {
   [[ "$force_preparation" == "0" ]] || return 1
   [[ -f "$marker" ]] || return 1
   [[ "$(<"$marker")" == "$digest" ]] || return 1
+  if [[ "$name" == "authoritative-inventory" ]] && ! \
+    "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/automation/developer-workflow.py" \
+      local-services \
+      --wait-seconds 0 \
+      --only inventory-coverage >/dev/null; then
+    return 1
+  fi
   for output in "$@"; do
     [[ -s "$output" ]] || return 1
   done
