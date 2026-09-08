@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: eebe790e62c51d293f9e13876ccaffb760046982
+translation_source_sha: e233f94df0947ce77784327bebed104023a71575
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -40,7 +40,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 |------|------|------|------|
 | 적응형 답변 출처와 재실행 표현 | implemented | `adaptive-answer.test.ts` 33개, `turn-history.test.ts` 및 `command-deck.session.test.ts` 20개, Console 타입 검사와 빌드 통과 | 일반 지식에는 전체 답변의 조회 증적을 부여하지 않습니다. 목표별 근거와 별도 초안 설명은 스트림 및 복원 후에도 유지하며, 잘못된 스트림은 미검증 텍스트를 지웁니다. 브라우저 런타임 검증은 별도입니다. |
 | 일반 대화 예시 질문 즉시 전송 | 구현됨 | `general-conversation-intro.tsx`, `command-deck-view.tsx`, `conversation-entry.spec.ts` | 양 언어의 예시 버튼 세 개는 클릭하거나 키보드로 실행하면 표시된 질문을 선택한 맥락에 맞는 일반 전송 경로로 보냅니다. 툴팁은 즉시 전송 동작을 안내합니다. 실제 모델 호출 없이 합성 응답으로 예시 질문 검사 6개와 기존 진입점 검사 2개를 통과했습니다. |
-| Web 점진적 스트림 집약 | implemented | Operator `semantic_turn_runtime.py`, [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), 집중 Operator 및 Console 스트림 검사 | 검증된 답변 완료 변환 결과는 `done` 전에 증적에 결속된 누적 확정 구간을 최대 64개 내보냅니다. Raw 토큰은 최종 일치 전까지 숨기고, 증적, 텍스트, 개정 번호, 잘못된 프레임, 중단, 오류 및 순서 실패 시 최종 전 내용을 철회합니다. 이 행은 Browser, Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
+| Web 점진적 스트림 집약 | implemented | Operator `semantic_turn_runtime.py`, [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`use-command-deck-lifecycle.test.ts`](../../../console/src/deck/use-command-deck-lifecycle.test.ts), 집중 Operator 및 Console 스트림 검사 | 검증된 답변 완료 변환 결과는 `done` 전에 증적에 결속된 누적 확정 구간을 최대 64개 내보냅니다. Raw 토큰은 최종 일치 전까지 숨기고, 증적, 텍스트, 개정 번호, 잘못된 프레임, 중단, 오류 및 순서 실패 시 최종 전 내용을 철회합니다. 취소하면 관측한 조사 활동과 근거는 보존하면서 잠정 답변 텍스트와 확인만 철회합니다. 이 행은 Browser, Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | 계약으로 검증된 시작 질문 | 구현됨 | `intro-suggestions.ts`, 이중 언어 Console 카탈로그, `semantic_operational_summary_planning.py`, 질문 은행 산출물, 집중 Core, Console 및 질문 은행 검사 | 비어 있는 Deck에는 검토된 Resource 상태, Resource Health, Service Health 질문 5개만 표시합니다. 수락되고 모호하지 않은 타입 기반 함수 intent는 두 번째 모델 호출 없이 결정론적으로 검증된 프레임을 재사용할 수 있습니다. 구현되지 않은 화면 요약, tier 구성, 승인, 실패 원인, 기회 질문은 준비된 예시로 표시하지 않습니다. |
 | 인시던트 바인딩 맥락 격리 | 구현됨 | `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 및 인증된 Browser Entra 요청 확인 | 자동 인시던트 조사는 Dashboard 사실이나 레코드 없이 정확한 인시던트 바인딩을 제출합니다. 검증된 답변은 `query.incident_evidence`를 읽습니다. 경로 메타데이터는 표현 맥락으로만 남고 답변 근거가 되지 않습니다. |
