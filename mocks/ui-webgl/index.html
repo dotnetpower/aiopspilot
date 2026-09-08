@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FDAI - WebGL Sand UI</title>
+  <link rel="stylesheet" href="../ui/assets/experimental-preview.css" />
+  <script src="../ui/assets/experimental-preview.js" defer></script>
   <style>
     :root { --bg1: #FCFBFA; --bg2: #F1EEEA; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,7 +38,7 @@
     <a href="index.html" class="active">Intro</a>
     <a href="dashboard.html">Console</a>
   </nav>
-  <div id="loading">Loading...</div>
+  <div id="loading" class="experiment-loading" role="status" aria-busy="true"><span>Loading experimental preview</span><div class="experiment-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>
   <noscript>This WebGL demo requires JavaScript.</noscript>
 
   <script type="importmap">
@@ -47,6 +49,6 @@
       }
     }
   </script>
-  <script type="module" src="./main.js"></script>
+  <script type="module">import("./main.js").catch(() => window.dispatchEvent(new Event("error")));</script>
 </body>
 </html>

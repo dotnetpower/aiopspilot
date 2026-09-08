@@ -17,7 +17,9 @@ test("typography has direct, kit, and master navigation entries", () => {
   assert.match(navigation, /\["typography\.html", "Typography", "is-steel"\]/);
   assert.match(landing, /data-page="typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /data-page="mocks\/ui\/typography\.html"[^>]*data-title="Typography"/);
-  assert.match(masterLanding, /<h3>Console navigation<\/h3><span class="count">51 pages<\/span>/);
+  const consoleMarkup = masterLanding.split('<nav class="console-groups"')[1].split("</nav>")[0];
+  const pageCount = [...consoleMarkup.matchAll(/data-page="mocks\/ui\//g)].length;
+  assert.match(masterLanding, new RegExp(`<h3>Console navigation</h3><span class="count">${pageCount} pages</span>`));
   assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">1<\/span>/);
 });
 
@@ -34,8 +36,8 @@ test("master navigation keeps one quiet, collapsible hierarchy", () => {
   assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 7);
   assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 5);
   assert.doesNotMatch(masterLanding, /<button[^>]*>[^<]*<h[1-6]>/);
-  assert.match(masterLanding, /\.side \.nav-group a \.dot \{ visibility: hidden; \}/);
-  assert.match(masterLanding, /\.side \.nav-group a\.is-active \.dot \{ visibility: visible; \}/);
+  assert.match(masterLanding, /\.side a \.dot \{ display: none; \}/);
+  assert.match(masterLanding, /\.side a\.is-active \{ border: 1px solid/);
   assert.match(masterLanding, /function revealPageGroup\(page\)/);
   assert.match(masterLanding, /function setFamilyExpanded\(family, expanded\)/);
 });
@@ -92,7 +94,7 @@ test("component gallery exposes a quiet category index", () => {
 });
 
 test("component gallery keeps the remediated interaction and accessibility contracts", () => {
-  assert.equal((components.match(/<section class="cs-section" id="[^"]+" aria-labelledby="[^"]+">/g) || []).length, 23);
+  assert.equal((components.match(/<section class="cs-section" id="[^"]+" aria-labelledby="[^"]+">/g) || []).length, registry.components.length);
   assert.doesNotMatch(components, /class="cs-alert-bar/);
   assert.ok((components.match(/<button\b[^>]*>/g) || []).every((button) => /\btype="button"/.test(button)));
   assert.ok((components.match(/<th\b[^>]*>/g) || []).every((heading) => /\bscope="col"/.test(heading)));
@@ -128,8 +130,8 @@ test("component registry completely documents every specimen", () => {
     .sort();
   const registryIds = registry.components.map((component) => component.id).sort();
   assert.deepEqual(registryIds, sectionIds);
-  assert.equal(new Set(registryIds).size, 23);
-  assert.equal(registry.reviewed_at, "2026-09-01");
+  assert.equal(new Set(registryIds).size, registry.components.length);
+  assert.equal(registry.reviewed_at, "2026-09-06");
   assert.deepEqual(registry.status_vocabulary, ["Documented", "Review required"]);
   const classTokens = [...components.matchAll(/class="([^"]+)"/g)]
     .flatMap((match) => match[1].split(/\s+/));
@@ -143,7 +145,7 @@ test("component registry completely documents every specimen", () => {
     "standard_action",
     "whole_card",
   ]);
-  assert.deepEqual(registry.inline_style_policy.scopes, ["tabs-meters", "data-views"]);
+  assert.deepEqual(registry.inline_style_policy.scopes, ["tabs-meters", "data-views", "colors"]);
   assert.deepEqual(registry.inline_style_policy.allowed_properties, [
     "--*",
     "width",
@@ -167,7 +169,7 @@ test("component registry completely documents every specimen", () => {
       "routes",
     ].forEach((field) => assert.ok(component[field]?.length, `${component.id}.${field}`));
   });
-  assert.match(components, /fetch\("assets\/component-registry\.json\?v=7"\)/);
+  assert.match(components, /fetch\("assets\/component-registry\.json\?v=11"\)/);
   assert.doesNotMatch(components, /Canonical specimens/);
   assert.doesNotMatch(components, /function statusFor/);
   assert.doesNotMatch(components, /function guidanceFor/);

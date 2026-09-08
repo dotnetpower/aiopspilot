@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Root cause analysis - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
+  <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
+  <link rel="stylesheet" href="assets/focused-final-workspaces.css?v=1" />
+  <link rel="stylesheet" href="assets/focused-operational-polish.css?v=2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
     .rc-lookup { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 16px; }
@@ -100,14 +104,11 @@
     }
   </style>
 </head>
-<body>
-  <main class="cs-container cs-page">
+<body class="cs-governance-evidence">
+  <main class="cs-container cs-page rca-page">
     <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">History &middot; grounded root-cause hypothesis</div>
-      <h1>Root cause analysis</h1>
-      <p class="cs-lead">Inspect what most likely caused an incident, which evidence grounds that
-        hypothesis, how the failure propagated, and what response plan is linked to it. RCA explains
-        why; the risk gate and verifier still decide whether any action can run.</p>
+      <h1><span class="cs-page-domain">Evidence</span><span aria-hidden="true"> / </span>Root cause analysis</h1>
+      <p class="cs-lead">Review the most likely cause, grounding evidence, propagation path, and linked response plan. Risk and verification still decide whether action is eligible.</p>
     </div>
 
     <div class="cs-readonly-banner">
@@ -115,7 +116,8 @@
       ungrounded result abstains and moves to Approval required instead of presenting a cause.
     </div>
 
-    <form class="rc-lookup" id="rca-lookup">
+    <div class="lookup-summary"><div><strong>inc-01J2-API-LATENCY</strong><small>Selected correlation / result loaded</small></div><button class="fg-button" type="button" data-rca-query-toggle>Change correlation</button></div>
+    <form class="rc-lookup" id="rca-lookup" hidden>
       <label for="rca-correlation">Correlation id</label>
       <input id="rca-correlation" name="correlation" value="inc-01J2-API-LATENCY" required />
       <button type="submit">Load RCA</button>
@@ -140,6 +142,7 @@
     </div>
 
     <div class="rc-grounded" data-rca-panel="grounded">
+      <div class="hypothesis-tier"><strong>Primary hypothesis</strong><span class="fg-badge is-info">T1 correlation</span><span class="fg-badge">Enforce evidence</span><span class="fg-badge is-success">Grounded</span></div>
       <section class="rc-hero" aria-labelledby="rc-hypothesis-title">
         <div class="rc-hypothesis">
           <div class="rc-hypothesis-tags">
@@ -198,10 +201,10 @@
               <div class="rc-plan-fact"><span>Action</span><strong class="cs-mono">config.rollback</strong></div>
               <div class="rc-plan-fact"><span>Rollback ref</span><strong class="cs-mono">rbk-01J2-773</strong></div>
             </div>
-            <div class="rc-plan-step"><span class="rc-plan-num">1</span><div><strong>Freeze rollout</strong><span>Stop further revision propagation.</span></div></div>
-            <div class="rc-plan-step"><span class="rc-plan-num">2</span><div><strong>Revert configuration</strong><span>GitOps revert applied to one revision.</span></div></div>
-            <div class="rc-plan-step"><span class="rc-plan-num">3</span><div><strong>Verify recovery</strong><span>Compare p95 and pool headroom for five minutes.</span></div></div>
-            <div class="rc-plan-step"><span class="rc-plan-num">4</span><div><strong>Seal audit</strong><span>Resolve incident only after guard metrics recover.</span></div></div>
+            <div class="rc-plan-step"><span class="rc-plan-num">1</span><div><strong>Freeze rollout</strong><span>Stop further revision propagation.</span><span class="fg-badge is-success rc-plan-state">Complete</span></div></div>
+            <div class="rc-plan-step"><span class="rc-plan-num">2</span><div><strong>Revert configuration</strong><span>GitOps revert applied to one revision.</span><span class="fg-badge is-success rc-plan-state">Complete</span></div></div>
+            <div class="rc-plan-step"><span class="rc-plan-num">3</span><div><strong>Verify recovery</strong><span>Compare p95 and pool headroom for five minutes.</span><span class="fg-badge is-info rc-plan-state">Observing</span></div></div>
+            <div class="rc-plan-step"><span class="rc-plan-num">4</span><div><strong>Seal audit</strong><span>Resolve incident only after guard metrics recover.</span><span class="fg-badge rc-plan-state">Pending</span></div></div>
           </div>
         </div>
       </section>
@@ -222,6 +225,12 @@
         <div class="rc-abstained-fact"><span>Terminal state</span><strong>hil</strong></div>
         <div class="rc-abstained-fact"><span>Missing evidence</span><strong>root change citation</strong></div>
       </div>
+      <div class="rc-evidence-status" aria-label="Missing RCA evidence" style="padding:0 22px 22px">
+        <article><strong>Initiating change</strong><small>No resolvable deployment or configuration citation.</small><span class="fg-badge is-danger">Missing</span></article>
+        <article><strong>Telemetry alignment</strong><small>Symptom window is current but cannot establish cause alone.</small><span class="fg-badge is-warning">Insufficient</span></article>
+        <article><strong>Recovery action</strong><small>Request additional source evidence; no action is proposed.</small><span class="fg-badge">No-op</span></article>
+      </div>
+      <div class="no-response" style="margin:0 22px 22px"><strong>No response action recorded</strong><small>The RCA abstained before an action option became eligible. Additional source evidence may start a new evaluation; this attempt remains a terminal no-op.</small></div>
     </section>
   </main>
 
@@ -231,6 +240,7 @@
       var panels = Array.from(document.querySelectorAll("[data-rca-panel]"));
       var form = document.getElementById("rca-lookup");
       var input = document.getElementById("rca-correlation");
+      var queryToggle = document.querySelector("[data-rca-query-toggle]");
 
       var params = new URLSearchParams(window.location.search);
       if (params.get("correlation")) input.value = params.get("correlation");
@@ -247,8 +257,16 @@
         });
       });
 
+      queryToggle.addEventListener("click", function () {
+        form.hidden = !form.hidden;
+        queryToggle.textContent = form.hidden ? "Change correlation" : "Cancel change";
+        if (!form.hidden) input.focus();
+      });
+
       form.addEventListener("submit", function (event) {
         event.preventDefault();
+        form.hidden = true;
+        queryToggle.textContent = "Change correlation";
         document.querySelectorAll(".rc-context .cs-tag strong").forEach(function (label) {
           if (label.closest(".cs-tag").textContent.indexOf("recorded") === -1) label.textContent = input.value;
         });

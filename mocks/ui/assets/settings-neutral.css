@@ -11,6 +11,13 @@ html:has(body.cs-settings-neutral) { scrollbar-gutter: stable; }
   color: var(--cs-text);
   background: var(--cs-card);
 }
+.cs-settings-neutral.cs-settings-surface > main.cs-settings-content {
+  max-width: 1280px;
+  padding: 32px 24px 64px;
+}
+@media (max-width: 680px) {
+  .cs-settings-neutral.cs-settings-surface > main.cs-settings-content { padding: 24px 16px 48px; }
+}
 
 .cs-settings-specimen {
   container-type: inline-size;

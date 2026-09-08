@@ -11,7 +11,7 @@
       --panel-2: #0B1015;
       --chrome: #1B242C;
       --text: #C7CDD2;
-      --dim: #7C848B;
+      --dim: #A4B0BA;
       --hair: #24303A;
       --teal: #63A69C;   /* T0 */
       --steel: #6E9BCB;  /* T1 */
@@ -56,6 +56,7 @@
     }
     .controls { display: flex; gap: 8px; align-items: center; }
     .controls button, .toggle {
+      min-height: 36px;
       font: inherit; font-size: 12px; color: var(--text);
       background: var(--chrome); border: 1px solid var(--hair);
       border-radius: 7px; padding: 4px 10px; cursor: pointer;
@@ -119,13 +120,13 @@
     .bars .bar-fill { }
 
     .card {
-      border: 1px solid var(--hair); border-left-width: 3px;
+      border: 1px solid var(--hair);
       border-radius: 9px; padding: 10px 13px; margin: 8px 0;
       background: rgba(255,255,255,.02);
     }
-    .card.med { border-left-color: var(--terra); }
-    .card.high { border-left-color: var(--dusty); }
-    .card.low { border-left-color: var(--sage); }
+    .card.med .hdr { color: var(--terra); }
+    .card.high .hdr { color: var(--dusty); }
+    .card.low .hdr { color: var(--sage); }
     .card .hdr { display: flex; justify-content: space-between; gap: 10px; }
     .card .kv { color: var(--dim); }
     .card .keys {
@@ -164,6 +165,14 @@
       color: var(--dim); font-size: 12px; line-height: 1.6;
     }
     .note code { color: var(--text); }
+    button:focus-visible { outline: 2px solid var(--steel); outline-offset: 3px; }
+    @media (max-width: 760px) {
+      .topbar, .statusbar { flex-wrap: wrap; gap: 12px; }
+      .controls { flex-wrap: wrap; }
+      .controls button { min-height: 44px; }
+      .term-body { padding-inline: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
   </style>
 </head>
 <body>

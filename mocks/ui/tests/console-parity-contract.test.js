@@ -12,6 +12,10 @@ const navigation = readFileSync(join(uiRoot, "assets", "calm-slate.js"), "utf8")
 const parityScript = readFileSync(join(uiRoot, "assets", "console-parity.js"), "utf8");
 const parityStyles = readFileSync(join(uiRoot, "assets", "console-parity.css"), "utf8");
 const sharedStyles = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
+const governanceEvidenceStyles = readFileSync(
+  join(uiRoot, "assets", "governance-evidence-workspace.css"),
+  "utf8",
+);
 const knowledgeGraph = readFileSync(join(uiRoot, "ontology-knowledge-graph.html"), "utf8");
 const settingsMocks = [
   "settings.html",
@@ -21,6 +25,27 @@ const settingsMocks = [
   "settings-iam.html",
   "settings-integrations.html",
   "settings-diagnostics.html",
+];
+const governanceEvidenceMocks = [
+  "ontology.html",
+  "handover.html",
+  "rules.html",
+  "workflow-builder.html",
+  "capabilities.html",
+  "skills.html",
+  "blast-radius.html",
+  "promotion.html",
+  "context-selection-comparisons.html",
+  "scope.html",
+  "audit.html",
+  "browser-evidence.html",
+  "forecast-learning.html",
+  "conversation-search.html",
+  "conversation-assurance.html",
+  "reports.html",
+  "rule-trace.html",
+  "rca.html",
+  "documents.html",
 ];
 
 const consoleNav = masterLanding.slice(
@@ -58,8 +83,8 @@ function mockPanelIds() {
 }
 
 test("master mock navigation mirrors every production Console panel", () => {
-  assert.equal(consoleMockPaths.length, 51);
-  assert.equal(new Set(consoleMockPaths).size, 51);
+  assert.equal(consoleMockPaths.length, 53);
+  assert.equal(new Set(consoleMockPaths).size, 53);
   assert.deepEqual(mockPanelIds(), consolePanelIds());
   consoleMockPaths.forEach((path) => {
     assert.ok(existsSync(join(repoRoot, path)), `missing Console mock: ${path}`);
@@ -89,7 +114,7 @@ test("nested and direct mock navigation expose the same Console destinations", (
     assert.ok(nestedPaths.includes(path), `nested index missing ${path}`);
     assert.ok(directPaths.includes(path), `direct mock navigation missing ${path}`);
   });
-  assert.equal(new Set(directPaths).size, 72);
+  assert.equal(new Set(directPaths).size, 75);
 });
 
 test("every parity wrapper resolves to a rendered specification", () => {
@@ -98,7 +123,7 @@ test("every parity wrapper resolves to a rendered specification", () => {
     .map((file) => [file, readFileSync(join(uiRoot, file), "utf8")])
     .filter(([, html]) => html.includes("data-console-parity-page"));
 
-  assert.equal(wrappers.length, 23);
+  assert.equal(wrappers.length, 12);
   wrappers.forEach(([file, html]) => {
     const pageId = html.match(/data-console-page="([^"]+)"/)?.[1];
     assert.ok(pageId, `${file} is missing a Console page id`);
@@ -124,13 +149,186 @@ test("master navigation can filter all mock families without losing the active r
   assert.match(masterLanding, /data-nav-search/);
   assert.match(masterLanding, /function filterNavigation\(query\)/);
   assert.match(masterLanding, /if \(!normalized\) revealPageGroup\(currentPage\)/);
-  assert.match(masterLanding, /Filter 91 design mocks/);
+  assert.match(masterLanding, /navSearch\.placeholder = 'Filter ' \+ items\.length \+ ' design mocks'/);
 });
 
 test("knowledge graph renders every generated ontology node kind", () => {
   assert.match(knowledgeGraph, /function_type:\{label:"FunctionType",fill:/);
   assert.match(knowledgeGraph, /interface_type:\{label:"InterfaceType",fill:/);
   assert.match(knowledgeGraph, /nodeStyles\[node\.kind\]\|\|\{fill:"#6e747b"\}/);
+});
+
+test("Governance and Evidence mocks share the refined workspace while Architecture stays unchanged", () => {
+  governanceEvidenceMocks.forEach((file) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /governance-evidence-workspace\.css/, `${file} is missing the shared workspace`);
+    assert.match(html, /<body class="[^"]*cs-governance-evidence/, `${file} is missing the shared workspace class`);
+  });
+  assert.doesNotMatch(
+    readFileSync(join(uiRoot, "architecture.html"), "utf8"),
+    /governance-evidence-workspace\.css|cs-governance-evidence/,
+  );
+});
+
+test("Ontology mock mirrors the Console semantic-model workbench", () => {
+  const ontology = readFileSync(join(uiRoot, "ontology.html"), "utf8");
+  const ontologyPreview = readFileSync(join(uiRoot, "assets", "ontology-semantic-preview.js"), "utf8");
+  assert.match(ontology, /data-ontology-tab="map"/);
+  assert.match(ontology, /data-ontology-lens="relationship"/);
+  assert.match(ontology, /data-ontology-bands/);
+  assert.match(ontology, /data-ontology-inspector/);
+  assert.match(ontologyPreview, /BusinessCapability/);
+  assert.match(ontologyPreview, /ObservedOutcome/);
+  assert.match(ontologyPreview, /mutation authority/i);
+});
+
+test("Audit and catalog-backed Governance and Evidence mocks expose review workspaces", () => {
+  const audit = readFileSync(join(uiRoot, "audit.html"), "utf8");
+  assert.match(audit, /audit-workbench/);
+  assert.match(audit, /focused-final-workspaces\.css/);
+  [
+    "audit",
+    "capabilities",
+    "skills",
+    "context-selection-comparisons",
+    "scope",
+    "browser-evidence",
+    "forecast-learning",
+    "conversation-search",
+    "conversation-assurance",
+    "reports",
+    "documents",
+  ].forEach((pageId) => {
+    assert.match(
+      parityScript,
+      new RegExp(`"${pageId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}": \\{[\\s\\S]*?type: "workspace"`),
+      `${pageId} must expose a selected-record workspace`,
+    );
+  });
+  assert.match(parityScript, /code\("storage\.public-blob\.deny", "rule-trace\.html\?correlation=/);
+  assert.match(parityScript, /link\("Observed", "audit\.html\?record=/);
+});
+
+test("five focused Governance and Evidence mocks use selectable review workspaces", () => {
+  const focusedPages = {
+    "handover.html": [/oversight-workbench/, /data-oversight-agent/, /Fixed agents/],
+    "workflow-builder.html": [/workflow-workbench/, /data-fg-select="workflow-step"/, /Published definition/],
+    "blast-radius.html": [/impact-workbench/, /data-fg-select="impact"/, /Unknown coverage/],
+    "promotion.html": [/promotion-workbench/, /data-fg-select="promotion"/, /Zero policy escapes/],
+    "rule-trace.html": [/trace-workbench/, /data-fg-select="trace"/, /Read-only reconstruction/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-governance-workspaces\.css/);
+    assert.match(html, /focused-governance-workspaces\.js/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+  const handover = readFileSync(join(uiRoot, "handover.html"), "utf8");
+  assert.equal((handover.match(/data-oversight-agent(?:\s|>)/g) || []).length, 15);
+  const interactions = readFileSync(join(uiRoot, "assets", "focused-governance-workspaces.js"), "utf8");
+  assert.match(interactions, /function activate\(group, value\)/);
+  assert.match(interactions, /function bindOversight\(\)/);
+});
+
+test("second focused batch visualizes each domain instead of generic tables", () => {
+  const focusedPages = {
+    "context-selection-comparisons.html": [/context-workbench/, /context-columns/, /Pinned preserved/],
+    "scope.html": [/scope-workbench/, /scope-axis is-action/, /Observation is not authority/],
+    "conversation-assurance.html": [/assurance-workbench/, /assurance-score-track/, /Original answer is immutable/],
+    "forecast-learning.html": [/forecast-workbench/, /forecast-stages/, /Outcome-closed learning/],
+    "reports.html": [/reports-workbench/, /report-widget-grid/, /Weekly operations review/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-evidence-workspaces\.css/);
+    assert.match(html, /focused-governance-workspaces\.js/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+});
+
+test("third focused batch exposes contract and custody review workflows", () => {
+  const focusedPages = {
+    "capabilities.html": [/catalog-workbench/, /Independent contract axes/, /Declaration only/],
+    "skills.html": [/skill-dependency/, /Eligibility chain/, /Composition metadata/],
+    "browser-evidence.html": [/custody-workbench/, /custody-timeline/, /Payload not exposed/],
+    "conversation-search.html": [/search-workbench/, /transcript/, /Selected context only/],
+    "documents.html": [/ingestion-panel/, /scan-gates/, /Consent before transfer/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-catalog-custody-workspaces\.css/);
+    assert.match(html, /focused-governance-workspaces\.js/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+});
+
+test("final focused batch completes core governance and evidence review surfaces", () => {
+  const focusedPages = {
+    "audit.html": [/audit-workbench/, /Two-phase evidence path/, /Immutable evidence/],
+    "rules.html": [/rules-workbench/, /rule-lifecycle/, /Definitions are not pass results/],
+    "ontology.html": [/ontology-release-strip/, /ontology-band-legend/, /Digest verified/],
+    "blast-radius.html": [/impact-legend/, /impact-node is-gap/, /Relationship unavailable/],
+    "rca.html": [/rc-evidence-status/, /Initiating change/, /Observing/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-final-workspaces\.css/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+});
+
+test("fifth focused batch exposes evolution, gaps, branches, conflicts, and priorities", () => {
+  const focusedPages = {
+    "context-selection-comparisons.html": [/Context policy evolution/, /state-legend/, /Version 8 candidate/],
+    "conversation-search.html": [/search-mode-toggle/, /1 result unavailable/, /Source gap/],
+    "rule-trace.html": [/trace-branches/, /If quality verification fails/, /Source recovery branch/],
+    "scope.html": [/scope-conflict/, /Resolved boundary overlap/, /scope-history/],
+    "forecast-learning.html": [/Forecast cohort comparison/, /Action required/, /calibration-quadrant/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-decision-polish\.css/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+});
+
+test("sixth focused batch clarifies operational result and fallback states", () => {
+  const focusedPages = {
+    "promotion.html": [/result-summary/, /Blocking gaps/, /gap-count/],
+    "capabilities.html": [/representative declarations/, /Preview zero-result state/, /empty-preview/],
+    "audit.html": [/append-boundary/, /Append next 25/, /Existing rows and ordering remain unchanged/],
+    "reports.html": [/variable-contract/, /Partial render retained/, /3 of 4 widgets/],
+    "rca.html": [/lookup-summary/, /Primary hypothesis/, /No response action recorded/],
+  };
+  Object.entries(focusedPages).forEach(([file, patterns]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /focused-operational-polish\.css/);
+    patterns.forEach((pattern) => assert.match(html, pattern, `${file} is missing ${pattern}`));
+  });
+});
+
+test("Governance and Evidence workspaces prioritize work over dashboard chrome", () => {
+  assert.match(governanceEvidenceStyles, /Compact non-dashboard framing/);
+  assert.match(governanceEvidenceStyles, /\.fg-page > \.fg-boundary/);
+  assert.match(governanceEvidenceStyles, /\.fg-page > \.fg-metrics/);
+  assert.match(governanceEvidenceStyles, /\.compact-disclosure summary/);
+  assert.match(governanceEvidenceStyles, /\.rca-page > \.rc-context/);
+  assert.match(governanceEvidenceStyles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+
+  governanceEvidenceMocks.forEach((file) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, /governance-evidence-workspace\.css\?v=9/);
+  });
+
+  [
+    "promotion.html",
+    "context-selection-comparisons.html",
+    "forecast-learning.html",
+    "reports.html",
+  ].forEach((file) => {
+    assert.match(readFileSync(join(uiRoot, file), "utf8"), /<details class="compact-disclosure">/);
+  });
+  assert.match(readFileSync(join(uiRoot, "rca.html"), "utf8"), /class="cs-container cs-page rca-page"/);
 });
 
 test("every settings mock uses the production-aligned route surface", () => {

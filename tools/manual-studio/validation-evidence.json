@@ -45,10 +45,11 @@
       "hardening": [
         {"round": 1, "focus": "아키텍처 사실성·경계·누락", "finding": "사람이 예외만 본다는 과장, 하나의 ID로 읽히는 추적, ARB 승인이 곧 실행으로 이어지는 인상, 학습과 실행 승격의 혼합이 있었습니다.", "correction": "사람의 정책·승인 책임, 구분된 식별자와 공통 상관관계, ActionType 재진입, 규칙 검토와 실행 승격의 별도 경계를 반영했습니다.", "rerendered": "passed"},
         {"round": 2, "focus": "경영 서사·한국어·L100 적합성", "finding": "미래 장면, 의도 번역 창구, 비활성 후보 같은 표현이 L100 독자에게 기술적이고 부자연스러웠습니다.", "correction": "책임 있는 운영 모습, 요청을 구조화하는 대화, 바로 실행하지 않는 검토 후보로 풀어 썼습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "열 장 모두 같은 세 칸 패턴에 가까워 미래 경험과 안전 경계의 차이가 약했습니다.", "correction": "상관관계 흐름, 제약 계층, 학습 승격 타임라인, 실행기·관측자 증거 사슬을 서로 다른 Executive Briefing형 레이아웃으로 구성했습니다.", "rerendered": "passed"}
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "열 장 모두 같은 세 칸 패턴에 가까워 미래 경험과 안전 경계의 차이가 약했습니다.", "correction": "상관관계 흐름, 제약 계층, 학습 승격 타임라인, 실행기·관측자 증거 사슬을 서로 다른 Executive Briefing형 레이아웃으로 구성했습니다.", "rerendered": "passed"},
+        {"round": 4, "focus": "PPT 대체 가독성·전용 시각 체계·내용 밀도", "finding": "공용 briefing 빌더를 쓰는 동안 본문은 13-15px, 라벨은 11px까지 내려갔고 슬라이드당 세 네 개의 짧은 구절만 남아 본문 영역의 절반 이상이 빈 카드였습니다. 색은 단일 보라색 장식이어서 사람·FDAI·근거·검증·경계를 구분하지 못했습니다.", "correction": "art-of-possible.js와 art-of-possible.css를 독립 모듈로 분리해 제목 43px, 리드 24px, 판단 문구 21-27px, 보조 라벨 15-19px, 근거 13px의 고정 크기를 적용하고 슬라이드 10장에 서로 다른 전용 시각(하루 구성 스트립, 이중 레인 비교, 장면 3열, 영향 그래프, 제약 계단과 절감 막대, 책임 레인, 권한 상한 막대, 효과 마감 사슬, 상태 밴드와 결정 카드)을 줌습니다. 사람·FDAI·근거·검증·경계를 문자 라벨과 함께 쓰는 색 체계로 바꾸고, 제외 막대에는 색 외에 사선 패턴을 더했습니다. 모든 예시 수치에 예시 배지와 측정 창을 표기했습니다.", "rerendered": "passed"}
       ],
-      "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 10, "aspectRatio": "16:9", "clippedTextFindings": 0},
-      "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/agents/agent-pantheon.md"]
+      "validation": {"responsiveRoundsPassed": 4, "fullscreenRoundsPassed": 4, "pdfRoundsPassed": 4, "pdfPages": 10, "aspectRatio": "16:9", "clippedTextFindings": 0},
+      "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/agents/agent-pantheon.md", "docs/roadmap/decisioning/execution-model.md", "docs/roadmap/architecture/goals-and-metrics.md"]
     },
     {
       "id": "value-prioritization",
@@ -84,6 +85,129 @@
         {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "Executive Briefing형 5열 장표의 긴 기술 식별자와 조정 종료 상태가 390x844 화면에서 일부 잘렸고 표지 시각 요소의 overflow 판정이 남았습니다.", "correction": "핵심 수치와 설명을 분리하고 긴 식별자를 짧은 한국어 표제로 바꾸며 모바일 글자·여백을 조정했습니다. 표지 overflow와 40장 전체 경계를 다시 측정했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 40, "aspectRatio": "16:9", "clippedTextFindings": 0},
+      "historicalValidationScope": "Earlier deck snapshots only. The current opening review is scoped and versioned separately below.",
+      "slideReviews": [
+        {
+          "reviewId": "ontology-opening-2026-09-07",
+          "reviewedAt": "2026-09-07T13:34:57Z",
+          "slides": [1],
+          "scope": "Opening content and presentation only; slides 2-40 retain their content and desktop layout.",
+          "contentDigestMethod": "SHA-256 of JSON.stringify(buildOntologyFoundationDeck()[0])",
+          "contentDigest": "8c8c030c35e3969f31f3324531af1fcb2c0d0a67209bec2b6b1fd73f47ca2da3",
+          "stylesheetDigests": {
+            "ontology-opening.css": "854a23701b8fdc01fd0e8f892bf4901bb3760917937af290eef88d25600f5ba0",
+            "ontology-foundation.css": "f58c017b7cc654e7f4a2367a5860a2e674ffe6f6651f85db5d87c7bf25bcf563"
+          },
+          "method": "Local Chromium with explicit viewport assertions, text and region bounds, computed contrast, SVG endpoint checks, real Fullscreen API, and print CSS review.",
+          "viewports": ["1440x900", "993x641", "390x844"],
+          "coverModesPassed": ["desktop", "tablet", "mobile", "fullscreen", "print"],
+          "minimumTextContrastRatio": 5.48,
+          "titleLines": 2,
+          "leadLines": 2,
+          "connectorCount": 4,
+          "maximumConnectorGapPx": 0,
+          "clippedTextFindings": 0,
+          "regionOverlapFindings": 0,
+          "failedRequests": 0,
+          "unchangedNeighboringSlides": 39,
+          "pdf": {
+            "pages": 40,
+            "mediaBoxesChecked": 40,
+            "aspectRatio": "16:9",
+            "scope": "Page-object count and every MediaBox checked; visual print review covers slide 1 only."
+          },
+          "artifacts": "Session-local PNG, PDF, and measurement files outside the repository. No external artwork added."
+        },
+        {
+          "reviewId": "ontology-title-minimal-2026-09-07",
+          "reviewedAt": "2026-09-07T13:47:25Z",
+          "slides": [1],
+          "feedback": "The operator found the previous opening too dense and insufficiently elegant for a title slide.",
+          "correction": "Removed explanations, agenda, boxed diagram, and authority callout. Retained a one-line title, a short subtitle, small metadata, and unlabeled decorative architectural artwork.",
+          "scope": "Slide 1 only; slides 2-40 retain their content and desktop layout.",
+          "contentDigestMethod": "SHA-256 of JSON.stringify(buildOntologyFoundationDeck()[0])",
+          "contentDigest": "f2b5c9d54768d54699ef5cda561cf85b72b368c540707ce3e52ccae3b4abfaac",
+          "stylesheetDigests": {
+            "ontology-opening.css": "92b4f11d8d1e20b6c16f440d3c83e42e40f2c634515dc19f775366890a4805f4",
+            "ontology-foundation.css": "f58c017b7cc654e7f4a2367a5860a2e674ffe6f6651f85db5d87c7bf25bcf563"
+          },
+          "viewports": ["1440x900", "993x641", "390x844"],
+          "coverModesPassed": ["desktop", "tablet", "mobile", "fullscreen", "print"],
+          "visibleTextElements": 7,
+          "titleLines": 1,
+          "leadLines": 1,
+          "minimumTextContrastRatio": 5.6,
+          "clippedTextFindings": 0,
+          "regionOverlapFindings": 0,
+          "failedRequests": 0,
+          "unchangedNeighboringSlides": 39,
+          "pdf": {"pages": 40, "mediaBoxesChecked": 40, "aspectRatio": "16:9", "visualReviewScope": "Slide 1 only"},
+          "artifacts": "Session-local minimal-cover captures, PDF, and measurements outside the repository. No external assets."
+        },
+        {
+          "reviewId": "ontology-editorial-body-2026-09-07",
+          "reviewedAt": "2026-09-07T14:35:50Z",
+          "slides": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+          "correction": "Rebuilt all 39 body slides with restrained ivory layouts, one primary visual, and one takeaway. Preserved chronology, semantic and authority distinctions, bounded-query receipts, independent effects, and labeled operational examples.",
+          "coverPreserved": "The approved slide 1 content digest and complete desktop layout signature match the pre-edit baseline.",
+          "deckDigestMethod": "SHA-256 of JSON.stringify(buildOntologyFoundationDeck())",
+          "deckDigest": "8bb3c44c2a138f1149c3fb93fccae8512a1fb48d722954f67cbbb7fbd961f76a",
+          "sourceDigests": {
+            "ontology-foundation.css": "267a60ce2cf834f68b9ef6f5a8e059e1153fbced07805f7a6eabae220ebb44ee",
+            "ontology-editorial.css": "b20b235cee15fd7137452bf7288128fc69257fe59bbf57a51cad80e61186d812",
+            "ontology-slide-kit.js": "bc4fa20abf5601188fa14e3bb5acab3959a2f6920c7454d9c7f8bb3d387ae3d7",
+            "ontology-story-foundations.js": "4255c84683c8561cdd55aa5b158f8d74edac60e66b21342a6e3d2268dc619078",
+            "ontology-story-contracts.js": "38d2aa42f9a6ab006aa30a52716690517d3bc677cd327da52be315a1240e5e86",
+            "ontology-story-operations.js": "233c297ab848d3393196afb28ef0429df7787936cfa775c7ac34d6c5bb3bd75c",
+            "ontology-opening.css": "92b4f11d8d1e20b6c16f440d3c83e42e40f2c634515dc19f775366890a4805f4"
+          },
+          "method": "Local Chromium 145.0.7632.6 with asserted viewport sizes, visible text ranges, component bounds, overlapping text, computed contrast, and connector endpoint measurements. All 40 slides reviewed in full-size fullscreen captures and five contact sheets.",
+          "viewports": ["1440x900", "993x641", "390x844"],
+          "modesPassed": ["desktop", "tablet", "mobile", "fullscreen", "print"],
+          "slideModeChecks": 200,
+          "primaryBodyFontFloorPx": 24,
+          "minimumTextContrastRatio": 5.09,
+          "maximumTitleLines": 1,
+          "maximumLeadLines": 1,
+          "diagramConnectorsPerPass": 12,
+          "maximumConnectorGapPx": 0,
+          "clippedTextFindings": 0,
+          "regionOverlapFindings": 0,
+          "failedRequests": 0,
+          "pdf": {"pages": 40, "mediaBoxesChecked": 40, "aspectRatio": "16:9", "scope": "All slides measured with print CSS; every PDF page object and MediaBox counted."},
+          "artifacts": "Session-local before/after PNG files, full-size fullscreen captures, five contact sheets, measurement JSON, and the 40-page PDF outside the repository. No external images or live model calls."
+        },
+        {
+          "reviewId": "ontology-diagram-refinement-2026-09-07",
+          "reviewedAt": "2026-09-07T15:16:13Z",
+          "slides": [3, 19, 29, 31, 34],
+          "correction": "Refined five text-heavy slides into interpretation branches, an expiry timeline, a bounded query graph, independent event-bus ports, and a terminal-versus-pending outcome comparison. The approved palette and title page remain unchanged.",
+          "preservation": "Only the five selected slide objects differ from the task baseline. The other 35 desktop PNG captures, including the approved cover, are byte-identical to the preceding editorial review.",
+          "deckDigestMethod": "SHA-256 of JSON.stringify(buildOntologyFoundationDeck())",
+          "deckDigest": "842b64f69da029c231ea50b600743ee1599af454386748f83fdab546a0b918b3",
+          "sourceDigests": {
+            "ontology-editorial.css": "a5dc6cabaad845f5d2545b35f3d0dcc571ccb046c8eb5c740d790c15b8a22174",
+            "ontology-story-foundations.js": "4ce55ead349cd638e52c6dac373c1347bb9810f73ba5ea4790d7a855a3d541c4",
+            "ontology-story-contracts.js": "b7e4bd7ede8e899198b9c4964fc599e94749f9d6e434305ba2854214b90d85f3",
+            "ontology-story-operations.js": "fb4d6ef0547fbff1822894445d7f5003e8bad66467703ced8010a59b70802ada",
+            "test/ontology-diagrams.test.mjs": "982e217373e95c1b5739fffdf39521249036985b6929dc7a9f8d5a208c82f53c"
+          },
+          "method": "Local Chromium at asserted viewport sizes, actual text bounds and contrast, graph-node text containment, SVG endpoint checks, branch-rail continuity, event-bus port bounds, and freshness-order checks. Five revised slides received full-size visual review.",
+          "viewports": ["1440x900", "993x641", "390x844"],
+          "modesPassed": ["desktop", "tablet", "mobile", "fullscreen", "print"],
+          "slideModeChecks": 200,
+          "primaryBodyFontFloorPx": 24,
+          "minimumTextContrastRatio": 5.09,
+          "diagramConnectorsPerPass": 25,
+          "maximumConnectorGapPx": 0,
+          "clippedTextFindings": 0,
+          "regionOverlapFindings": 0,
+          "failedRequests": 0,
+          "focusedTests": {"manualStudioPassed": 26, "artifactPassed": 3, "newDiagramContracts": 6},
+          "pdf": {"pages": 40, "mediaBoxesChecked": 40, "aspectRatio": "16:9", "scope": "All slides measured with print CSS; every PDF page object and MediaBox counted."},
+          "artifacts": "Session-local before/after captures, measurement JSON, and PDF outside the repository. No external assets or live model calls."
+        }
+      ],
       "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/architecture/llm-strategy.md", "docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/architecture/ontology-structural-model.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/architecture/data-governance.md", "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md", "docs/roadmap/interfaces/behavior-knowledge.md", "docs/roadmap/rules-and-detection/document-ontology-distillation.md"]
     },
     {

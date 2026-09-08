@@ -9,7 +9,7 @@
        stylesheet it browses. Palette mirrors calm-slate. */
     :root {
       --cs-bg: #FBFAF9; --cs-card: #FFFFFF;
-      --cs-text: #2C333A; --cs-text-soft: #6B7178;
+      --cs-text: #2C333A; --cs-text-soft: #565E67;
       --cs-hairline: #E3E1DE; --cs-shade: #F4F2F0;
       --cs-steel: #44688E; --cs-navy: #3E4C59;
       --cs-sage: #5E8259; --cs-terracotta: #BC7449;
@@ -58,6 +58,14 @@
     /* ---------- Preview frame ---------- */
     .preview { grid-row: 2 / 3; position: relative; background: var(--cs-bg); }
     .preview iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--cs-bg); }
+    .kit-toggle { min-height: 36px; padding: 6px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; color: var(--cs-text); background: var(--cs-card); font: inherit; cursor: pointer; }
+    .app.is-rail-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--hdr-h) minmax(0, 1fr); }
+    .app.is-rail-collapsed .side { display: none; }
+    .app.is-rail-collapsed .preview { grid-column: 1; grid-row: 2; }
+    .brand-logo { width: 34px; height: 24px; object-fit: contain; }
+    :is(a, button):focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+    @media (max-width: 900px) { .hdr .now .path, .brand-tag { display: none; } }
+    @media (max-width: 620px) { .hdr { gap: 8px; padding-inline: 8px; } .hdr .now .open { display: none; } .kit-toggle { min-height: 44px; } }
 
     /* Compact mobile: sidebar becomes a scrollable strip above the frame. */
     @media (max-width: 780px) {
@@ -71,7 +79,8 @@
   <div class="app">
     <!-- ============================ Header ============================ -->
     <header class="hdr">
-      <span class="brand"><span class="brand-mark">AW</span> FDAI <span class="brand-tag">calm-slate kit</span></span>
+      <button class="kit-toggle" type="button" aria-expanded="true" aria-controls="kit-navigation">Kit menu</button>
+      <span class="brand"><img class="brand-logo" src="../../console/public/brand/fdai-logo.png" alt="" /> FDAI <span class="brand-tag">calm-slate kit</span></span>
       <span class="now">
         <strong id="now-title">Overview</strong>
         <span class="path" id="now-path">dashboard.html</span>
@@ -80,7 +89,7 @@
     </header>
 
     <!-- ============================ Sidebar ============================ -->
-    <aside class="side" aria-label="Kit navigation">
+    <aside class="side" id="kit-navigation" aria-label="Kit navigation">
       <h3>Overview</h3>
       <ul>
         <li><a data-page="dashboard.html"            data-title="Dashboard"><span class="dot is-sage"></span>Dashboard</a></li>
@@ -307,6 +316,14 @@
         if (route.page) open(route.page, '', route.section);
       });
 
+      const toggle = document.querySelector('.kit-toggle');
+      const app = document.querySelector('.app');
+      function setRail(expanded) {
+        app.classList.toggle('is-rail-collapsed', !expanded);
+        toggle.setAttribute('aria-expanded', String(expanded));
+      }
+      toggle.addEventListener('click', () => setRail(app.classList.contains('is-rail-collapsed')));
+      setRail(window.self === window.top && !window.matchMedia('(max-width: 780px)').matches);
       const initial = parseRouteHash();
       open(initial.page || 'dashboard.html', '', initial.section);
     })();

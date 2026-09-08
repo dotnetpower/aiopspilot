@@ -10,7 +10,7 @@
       <input class="cs-control-input" id="tw-webhook-url" type="text" disabled autocomplete="off" spellcheck="false" placeholder="URL entry is disabled in this design preview" aria-describedby="tw-url-boundary tw-preview-boundary" />
       <button class="cs-control-button is-primary" type="button" disabled aria-describedby="tw-preview-boundary">Save and send test</button>
     </div>
-    <p class="tw-note" id="tw-url-boundary">FDAI never returns the saved URL. Leave the field empty to keep the current binding; an Owner enters a new URL in the Console to replace it.</p>
+    <p class="tw-note" id="tw-url-boundary">The authenticated Console can reveal the saved URL to Contributor, Approver, and Owner roles through an audited no-store read. Only an Owner can replace it. This preview never accepts or reveals a URL.</p>
     <p class="tw-note" id="tw-preview-boundary">Synthetic preview only. No URL is accepted, no binding is saved, and no test is sent.</p>
   </div>
   <details class="tw-details cs-settings-disclosure tw-accounts">
@@ -51,8 +51,8 @@
         <div class="tw-details-body">
           <p>Teams Workflows supports outbound A2 operational alerts and A4 scheduled digests. It cannot carry A1 human approvals or provide A3 bidirectional conversations.</p>
           <p>In the Console, an FDAI Owner submits a new URL. FDAI saves and independently verifies a new binding version, then sends one fixed synthetic Adaptive Card.</p>
-          <p>A deployment stores the URL in a dedicated Key Vault secret. The local profile stores only encrypted ciphertext in its private Operator database. FDAI verifies the saved version before testing, never returns the URL, and never prefills it. Saving and testing do not activate runtime delivery.</p>
-          <ul><li>Contributor, Approver, and Owner roles can view saved-binding metadata only.</li><li>Only an FDAI Owner can replace the URL and send a test.</li><li>Reader and BreakGlass roles cannot view saved-binding metadata.</li><li>A missing or failed binding read remains explicit; it does not prove that delivery is ready.</li></ul>
+          <p>A deployment stores the URL in a dedicated Key Vault secret. The local profile stores only encrypted ciphertext in its private Operator database. FDAI verifies the exact saved version before testing. Authorized reveals are audited without storing the URL in the audit record. Saving and testing do not activate runtime delivery.</p>
+          <ul><li>Contributor, Approver, and Owner roles can inspect the saved binding through the authenticated Console.</li><li>Only an FDAI Owner can replace the URL and send a test.</li><li>Reader and BreakGlass roles cannot reveal the saved URL.</li><li>A missing or failed binding read remains explicit; it does not prove that delivery is ready.</li></ul>
         </div>
       </details>
       <details class="tw-details cs-settings-disclosure tw-receipt">

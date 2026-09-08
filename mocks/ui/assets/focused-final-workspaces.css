@@ -1,0 +1,72 @@
+/* Final focused pass: audit, rules, ontology, impact coverage, and RCA states. */
+.audit-workbench { grid-template-columns: 290px minmax(0, 1fr); }
+.audit-record { grid-template-columns: minmax(0, 1fr) auto; }
+.audit-record strong { font-family: var(--cs-font-mono); }
+.audit-phase { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 7px; }
+.audit-phase article { min-width: 0; padding: 11px; border-right: 1px solid var(--cs-hairline); background: var(--cs-card); }
+.audit-phase article:last-child { border-right: 0; }
+.audit-phase span, .audit-phase strong, .audit-phase small { display: block; }
+.audit-phase span { color: var(--cs-text-soft); font-size: 8.5px; text-transform: uppercase; }
+.audit-phase strong { margin-top: 4px; font-size: 10.5px; }
+.audit-phase small { margin-top: 3px; color: var(--cs-text-soft); font-size: 9px; line-height: 1.4; }
+.audit-json { margin: 0; padding: 12px; overflow: auto; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-bg); color: var(--cs-text); font: 10px/1.55 var(--cs-font-mono); white-space: pre-wrap; }
+
+.rules-workbench { grid-template-columns: 220px minmax(0, 1fr); }
+.rules-catalog-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.rules-catalog-table th, .rules-catalog-table td { padding: 9px 10px; border-bottom: 1px solid var(--cs-hairline); text-align: left; vertical-align: top; }
+.rules-catalog-table th { color: var(--cs-text-soft); font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; }
+.rules-catalog-table tbody tr:hover { background: var(--cs-shade); }
+.rule-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rule-detail-grid article { padding: 11px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); }
+.rule-detail-grid strong, .rule-detail-grid small { display: block; }
+.rule-detail-grid strong { font-size: 10.5px; }
+.rule-detail-grid small { margin-top: 4px; color: var(--cs-text-soft); font-size: 9px; line-height: 1.4; }
+.rule-lifecycle { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 12px; overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 7px; }
+.rule-lifecycle span { min-width: 0; padding: 9px 5px; border-right: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 9px; text-align: center; }
+.rule-lifecycle span:last-child { border-right: 0; }
+.rule-lifecycle .is-current { background: color-mix(in srgb, var(--cs-steel) 8%, var(--cs-card)); color: var(--cs-steel); font-weight: 700; }
+
+.ontology-release-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 18px 0 6px; border-block: 1px solid var(--cs-hairline); }
+.ontology-release-strip div { min-width: 0; padding: 12px 14px; border-right: 1px solid var(--cs-hairline); }
+.ontology-release-strip div:last-child { border-right: 0; }
+.ontology-release-strip span, .ontology-release-strip strong { display: block; }
+.ontology-release-strip span { color: var(--cs-text-soft); font-size: 9px; text-transform: uppercase; }
+.ontology-release-strip strong { margin-top: 4px; overflow-wrap: anywhere; font-size: 11px; }
+.ontology-band-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--cs-text-soft); font-size: 9.5px; }
+.ontology-band-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ontology-band-legend i { width: 9px; height: 9px; border-radius: 2px; background: var(--legend); }
+
+.impact-legend { position: absolute; z-index: 3; top: 12px; left: 12px; display: flex; flex-wrap: wrap; gap: 6px 11px; max-width: calc(100% - 24px); padding: 7px 9px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: color-mix(in srgb, var(--cs-card) 92%, transparent); color: var(--cs-text-soft); font-size: 9px; }
+.impact-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.impact-legend i { width: 16px; border-top: 2px solid var(--line); }
+.impact-legend .is-unavailable { border-top-style: dashed; }
+.impact-lines .is-runtime { stroke: var(--cs-steel); }
+.impact-lines .is-containment { stroke: var(--cs-teal); }
+.impact-lines .is-unavailable { stroke: var(--cs-terracotta); stroke-dasharray: 6 5; }
+.impact-node.is-gap { left: 50%; top: 84%; border-style: dashed; border-color: var(--cs-terracotta); background: color-mix(in srgb, var(--cs-terracotta) 6%, var(--cs-card)); }
+.impact-gap-note { margin-top: 10px; padding: 10px; border: 1px dashed color-mix(in srgb, var(--cs-terracotta) 45%, var(--cs-hairline)); border-radius: 7px; background: color-mix(in srgb, var(--cs-terracotta) 5%, var(--cs-card)); color: var(--cs-text-soft); font-size: 10px; line-height: 1.45; }
+
+.rc-evidence-status { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.rc-evidence-status article { padding: 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); }
+.rc-evidence-status strong, .rc-evidence-status small { display: block; }
+.rc-evidence-status strong { font-size: 10.5px; }
+.rc-evidence-status small { margin-top: 4px; color: var(--cs-text-soft); font-size: 9px; line-height: 1.4; }
+.rc-plan-state { margin-left: auto; }
+.cs-governance-evidence .rc-node.is-root { border-width: 2px; background: color-mix(in srgb, var(--cs-plum) 8%, var(--cs-card)); }
+.cs-governance-evidence .rc-node.is-failure { border-width: 2px; background: color-mix(in srgb, var(--cs-dusty-red) 8%, var(--cs-card)); }
+.cs-governance-evidence .rc-confidence-ring { box-shadow: 0 0 0 1px var(--cs-hairline), 0 8px 20px rgba(46,54,64,.08); }
+
+@media (max-width: 900px) {
+  .audit-workbench, .rules-workbench { grid-template-columns: 1fr; }
+  .audit-workbench .fg-rail, .rules-workbench .fg-rail { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
+}
+@media (max-width: 620px) {
+  .audit-phase, .ontology-release-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .audit-phase article:nth-child(2), .ontology-release-strip div:nth-child(2) { border-right: 0; }
+  .audit-phase article:nth-child(-n+2), .ontology-release-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+  .rule-detail-grid, .rc-evidence-status { grid-template-columns: 1fr; }
+  .rule-lifecycle { grid-template-columns: 1fr; }
+  .rule-lifecycle span { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
+  .rule-lifecycle span:last-child { border-bottom: 0; }
+  .impact-node.is-gap { left: 50%; top: 91%; }
+}

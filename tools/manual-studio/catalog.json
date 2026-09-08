@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-03T01:52:31Z",
+  "generatedAt": "2026-09-07T11:57:44Z",
   "minimumSlidesByLevel": {
     "L100": 10,
     "L200": 25,
@@ -137,7 +137,7 @@
       "status": "complete",
       "title": "Data & Ontology Foundation",
       "eyebrow": "FDAI DIFFERENTIATOR",
-      "description": "기업의 데이터, 업무 개념, 관계를 AI가 이해하고 통제할 수 있는 비즈니스 의미 체계로 만듭니다.",
+      "description": "아리스토텔레스의 존재와 범주 질문부터 LLM 단독 사용의 한계, 현대 지식 표현, FDAI의 운영 온톨로지와 실제 의사결정 사례까지 연결합니다.",
       "createdAt": "2026-09-01",
       "duration": "60분",
       "slideCount": 40,

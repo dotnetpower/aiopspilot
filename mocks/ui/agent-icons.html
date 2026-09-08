@@ -26,6 +26,10 @@
     }
     * { box-sizing: border-box; }
     body {
+      --cs-text: #e7edf6;
+      --cs-text-soft: #a7b4c7;
+      --cs-steel: #8cb9e6;
+      --muted: #a7b4c7;
       margin: 0;
       background: radial-gradient(1200px 600px at 20% -10%, #16203010, transparent), var(--bg);
       color: var(--text);
@@ -33,6 +37,12 @@
       padding: 40px 24px 64px;
     }
     body.cs-has-sidebar { padding-left: calc(var(--cs-sidebar-w) + 24px); }
+    body[data-icon-theme="light"] {
+      --bg: #f4f6fb; --panel: #fff; --panel-2: #f8f9fc; --line: #cdd5df;
+      --text: #26313d; --muted: #536172; --cs-text: #26313d;
+      --cs-text-soft: #536172; --cs-steel: #365d86;
+    }
+    body[data-icon-theme="light"] .group-tag { color: #43576b !important; }
     header { max-width: 1100px; margin: 0 auto 28px 0; }
     h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: .3px; }
     .lead { color: var(--muted); margin: 0; max-width: 720px; }
@@ -61,7 +71,7 @@
     .badge svg { width: 34px; height: 34px; }
     .name { font-weight: 650; font-size: 15px; }
     .role { color: var(--muted); font-size: 12px; margin-top: 2px; }
-    .glyph { color: var(--muted); font-size: 11px; margin-top: 8px; opacity: .8; }
+    .glyph { color: var(--muted); font-size: 12px; margin-top: 8px; }
     .group-tag {
       font-size: 10px; text-transform: uppercase; letter-spacing: .8px;
       padding: 2px 7px; border-radius: 999px; margin-top: 10px; border: 1px solid transparent;
@@ -86,7 +96,7 @@
     <button onclick="setSize(28)">28px</button>
     <button onclick="setSize(34)">34px</button>
     <button onclick="setSize(48)">48px</button>
-    <button onclick="toggleBg()">Toggle background</button>
+    <button type="button" id="icon-theme-toggle" aria-pressed="false" onclick="toggleBg()">Toggle background</button>
   </div>
 
   <main class="grid" id="grid"></main>
@@ -182,9 +192,8 @@
     let darkBg = true;
     function toggleBg() {
       darkBg = !darkBg;
-      document.querySelectorAll('.badge').forEach(b => { b.style.background = darkBg ? '#0c1220' : '#f4f6fb'; });
-      document.body.style.background = darkBg ? '' : '#e9edf4';
-      document.body.style.color = darkBg ? '' : '#0b0f16';
+      document.body.dataset.iconTheme = darkBg ? 'dark' : 'light';
+      document.getElementById('icon-theme-toggle').setAttribute('aria-pressed', String(!darkBg));
     }
   </script>
 </body>

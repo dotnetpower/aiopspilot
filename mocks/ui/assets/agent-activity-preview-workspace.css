@@ -8,7 +8,7 @@
 .ap-column-picker { position: relative; }
 .ap-column-picker summary { list-style: none; }
 .ap-column-menu { position: absolute; z-index: 4; right: 0; top: calc(100% + 6px); min-width: 180px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); padding: 8px; box-shadow: var(--cs-shadow); }
-.ap-column-menu label { display: flex; gap: 8px; align-items: center; min-height: var(--cs-control-height); padding: 4px; font-size: var(--cs-type-compact-size); }
+.ap-column-menu label { display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 4px 8px; font-size: var(--cs-type-compact-size); cursor: pointer; }
 .ap-column-menu input { accent-color: var(--cs-steel); }
 .ap-lanes { padding: 8px 12px; border-bottom: 1px solid var(--cs-hairline); gap: 6px; }
 .ap-lanes small { margin-left: 8px; font-size: var(--cs-type-label-size); }
@@ -56,6 +56,15 @@ body.ap-fullscreen { overflow: hidden; }
 .ap-lifecycle { display: flex; flex-wrap: wrap; list-style: none; padding: 0; gap: 16px; }
 .ap-lifecycle li { min-width: 120px; }
 .ap-lifecycle :is(strong, small) { display: block; font-size: var(--cs-type-label-size); }
+.agent-activity-preview :is(.ap-journal-head .ap-meta, .ap-lanes small, .ap-log-scroll th,
+  .ap-log-scroll td[data-column="time"], .ap-log-scroll td small, .ap-log-scroll td code,
+  .ap-journal-footer, .ap-waterfall-group summary small, .ap-waterfall-open,
+  .ap-step-detail pre, .ap-lifecycle strong, .ap-lifecycle small) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.agent-activity-preview .ap-log-scroll [data-column="detail"] { min-width: 320px; }
+.agent-activity-preview .ap-column-menu label:hover { background: var(--cs-shade); }
 @media (min-width: 1200px) {
   .ap-waterfall-layout:has(.ap-step-detail:not([hidden])) { grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); align-items: start; }
   .ap-waterfall-layout:has(.ap-step-detail:not([hidden])) .ap-waterfall-row { grid-template-columns: 80px minmax(90px, 1fr); }
@@ -68,6 +77,7 @@ body.ap-fullscreen { overflow: hidden; }
 }
 @media (max-width: 700px) {
   .ap-column-menu label { min-height: var(--cs-control-height-touch); }
+  .ap-column-menu { right: auto; left: 0; min-width: 180px; max-width: calc(100vw - 120px); }
   .ap-waterfall-row { grid-template-columns: 80px minmax(0, 1fr); gap: 8px; }
   .ap-waterfall-open { grid-column: 1 / -1; }
   .ap-log-scroll { max-height: 480px; }

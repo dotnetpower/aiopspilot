@@ -10,6 +10,7 @@
 html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral [hidden] { display: none !important; }
 .cs-operator-neutral > main { width: 100%; max-width: 1280px; margin-inline: auto; padding: 32px 24px 64px; min-width: 0; }
+.cs-operator-neutral.cs-settings-surface > main.cs-settings-content { max-width: 1280px; padding-inline: 24px; }
 .cs-operator-neutral h1 { font-size: var(--cs-type-page-title-size); line-height: var(--cs-type-page-title-line-height); font-weight: 600; letter-spacing: 0; }
 .cs-operator-neutral h2 { font-size: var(--cs-type-section-title-size); line-height: var(--cs-type-section-title-line-height); font-weight: 600; letter-spacing: 0; }
 .cs-operator-neutral h3 { font-size: var(--cs-type-panel-title-size); letter-spacing: 0; }
@@ -32,6 +33,8 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral .dashboard-v2 .dr-legend button { padding-inline: 4px; }
 .cs-operator-neutral :is(.cs-lead, .cp-header p, .cs-live-lead) { color: var(--cs-settings-muted); font-size: var(--cs-type-body-size); line-height: var(--cs-type-body-line-height); }
 .cs-operator-neutral :is(p, td, dd, code, small) { overflow-wrap: anywhere; }
+.cs-operator-neutral small { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.cs-operator-neutral code { font-size: .95em; }
 .cs-operator-neutral :is(.cs-page-header, .cp-header, .cs-live-header) { margin-bottom: 24px; }
 .cs-operator-neutral :is(.cs-readonly-banner, .op-boundary) { display: block; padding: 12px 16px; border: 0; border-radius: var(--cs-radius-sm); background: var(--cs-bg); color: var(--cs-settings-muted); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 .cs-operator-neutral :is(.cp-kpis, .op-summary) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 0; border: 0; border-radius: var(--cs-radius-sm); background: var(--cs-bg); }
@@ -79,9 +82,14 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral .cp-workspace-list button[aria-pressed="true"] { border-color: var(--cs-hairline); background: var(--cs-card); }
 .cs-operator-neutral .cp-workspace-list :is(strong, small) { display: block; overflow-wrap: anywhere; }
 .cs-operator-neutral .cp-workspace-list small { margin-top: 4px; color: var(--cs-settings-muted); font-size: var(--cs-type-compact-size); }
-.cs-operator-neutral .cp-facts { gap: 16px 24px; }
+.cs-operator-neutral .cp-facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px 24px; }
+.cs-operator-neutral .cp-facts > div { min-width: 0; }
 .cs-operator-neutral .cp-facts > div { padding-block: 10px; }
 .cs-operator-neutral .cp-workspace-body { padding: 16px; }
+.cs-operator-neutral .cp-workspace-detail > h3 { min-height: 52px; padding: 16px; margin: 0; border-bottom: 1px solid var(--cs-hairline); }
+.cs-operator-neutral .cp-kpi { display: grid; align-content: start; gap: 4px; }
+.cs-operator-neutral .cp-kpi > span { min-height: 2lh; }
+.cs-operator-neutral .cp-kpi strong { font-variant-numeric: tabular-nums; }
 .cs-operator-neutral .cp-workspace-body > p:first-child { margin-top: 0; }
 .cs-operator-neutral .cp-facts dt { color: var(--cs-settings-muted); font-size: var(--cs-type-compact-size); }
 .cs-operator-neutral .cp-facts dd { font-size: var(--cs-type-body-size); }
@@ -126,6 +134,25 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral :is(.pv-button, .in-filter button, .in-intervention-actions button, .in-intervene-button, .ob-refresh) { min-height: var(--cs-control-height); font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font); border-radius: var(--cs-radius-sm); }
 .cs-operator-neutral :is(.in-command, .in-roster, .in-detail, .ob-kpi, .cs-tile) { box-shadow: none; }
 .cs-operator-neutral .cs-live-kpi-meta { white-space: normal; overflow: visible; text-overflow: clip; }
+.cs-operator-neutral :is(.cs-live-kpi-meta, .lc-timezone, .lc-date-field, .lc-range-error,
+  .lc-tooltip-row, .lc-model-pill, .in-summary-foot, .in-filter-note, .in-incident-age,
+  .in-incident-context, .in-stage-name, .in-stage-name b, .in-handoff-agent span,
+  .in-handoff-step p, .in-meta span, .in-current-facts dt, .in-section-label,
+  .pv-label, .pv-status, .pv-progress-head, .pv-progress-foot, .ob-count) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+  text-transform: none;
+}
+.cs-operator-neutral :is(.lc-range-option, .cs-live-attention-items button,
+  .cs-live-filterbar button, .cs-live-view-toggle button, .in-roster-foot button,
+  .in-intervention-summary button) { min-height: var(--cs-control-height); font-size: var(--cs-type-compact-size); }
+.cs-operator-neutral .in-intervene-button { color: #fff; background: var(--cs-navy); }
+.cs-operator-neutral .in-summary-foot { white-space: normal; overflow: visible; }
+.cs-operator-neutral .in-handoff-agent { flex-wrap: wrap; }
+.cs-operator-neutral .in-agent-handoff { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cs-operator-neutral .in-handoff-step:nth-child(2) { border-right: 0; }
+.cs-operator-neutral .in-handoff-step:nth-child(n+3) { border-top: 1px solid var(--cs-hairline); }
+.cs-operator-neutral .cs-live-kpis { align-items: stretch; }
 .cs-operator-neutral .ob-header { align-items: start; }
 .cs-operator-neutral .ob-header .cs-page-header { margin-bottom: 0; }
 .cs-operator-neutral .ob-header .op-toolbar { flex: 0 0 auto; margin: 0; padding: 0; background: transparent; }
@@ -148,16 +175,20 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 @media (min-width: 740px) {
   .cs-operator-neutral .dr-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 }
-@media (max-width: 1000px) {
-  .cs-operator-neutral .ov-route-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .cs-operator-neutral .ov-route-arrow { display: none; }
+@media (max-width: 1280px) {
   .cs-operator-neutral .cp-table:has(th:nth-child(7)),
   .cs-operator-neutral .cp-table:has(th:nth-child(7)) tbody { display: block; }
   .cs-operator-neutral .cp-table:has(th:nth-child(7)) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .cs-operator-neutral .cp-table:has(th:nth-child(7)) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); }
+  .cs-operator-neutral .cp-table:has(th:nth-child(7)) tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); overflow: hidden; }
   .cs-operator-neutral .cp-table:has(th:nth-child(7)) td { display: block; }
   .cs-operator-neutral .cp-table:has(th:nth-child(7)) td:first-child { grid-column: 1 / -1; }
+  .cs-operator-neutral .cp-table:has(th:nth-child(7)) td:first-child { background: var(--cs-bg); font-weight: 600; }
   .cs-operator-neutral .cp-table:has(th:nth-child(7)) td::before { content: attr(data-label); display: block; margin-bottom: 4px; color: var(--cs-settings-muted); font-weight: 500; }
+}
+@media (max-width: 1000px) {
+  .cs-operator-neutral .ov-route-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .cs-operator-neutral .ov-route-arrow { display: none; }
+  .cs-operator-neutral .cp-table:has(th:nth-child(7)) tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 680px) {
   .cs-operator-neutral > main { padding: 24px 16px 48px; }

@@ -3,203 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Promotion - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=polish-campaign-v1" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <title>Promotion gates - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=focused-governance-v1" />
+  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
+  <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
+  <link rel="stylesheet" href="assets/focused-operational-polish.css?v=1" />
+  <script src="assets/focused-governance-workspaces.js?v=1" defer></script>
+  <script src="assets/calm-slate.js?v=focused-governance-v1" defer></script>
 </head>
-<body>
-  <main class="cs-container cs-page">
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Shadow &rarr; Enforce</div>
-      <h1>Promotion gate</h1>
-      <p class="cs-lead">Every new capability ships judge-and-log in <span class="cs-mode shadow">shadow</span>.
-        Promotion to <span class="cs-mode enforce">enforce</span> is explicit, per ActionType, and only
-        passes if the promotion gate is green on the frozen scenario set: measured accuracy, zero
-        policy-violation escapes, no guard-metric regression.</p>
-    </div>
+<body class="cs-governance-evidence">
+  <main class="cs-container cs-page fg-page">
+    <header class="fg-header"><div><h1><span class="cs-page-domain">Governance</span><span aria-hidden="true"> / </span>Promotion gates</h1><p>Review shadow evidence, frozen-cohort accuracy, policy escapes, guard regressions, and safety-contract completeness before any ActionType mode change.</p></div><div class="fg-header-meta"><span>Frozen cohort</span><strong>promotion-2026-08 / revision 18</strong></div></header>
+    <div class="fg-boundary" role="note"><strong>Promotion is a reviewed change.</strong><span>This surface explains readiness. It cannot promote, demote, approve, or modify an ActionType.</span></div>
 
-    <div class="cs-readonly-banner">
-      <strong>Promotion is a PR, not a button.</strong> This page shows candidates and their gates.
-      The actual promotion is a reviewed change in the ontology repo.
-    </div>
+    <section class="fg-metrics" aria-label="Promotion summary"><div class="fg-metric"><span>In shadow</span><strong>12</strong><small>current candidate set</small></div><div class="fg-metric"><span>Gate green</span><strong>3</strong><small>eligible for review</small></div><div class="fg-metric"><span>Blocked</span><strong>2</strong><small>accuracy or policy escape</small></div><div class="fg-metric"><span>Demoted</span><strong>1</strong><small>last 30 days</small></div></section>
 
-    <!-- Summary strip -->
-    <div class="cs-grid cs-grid-4 cs-mb-24">
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">In shadow</span>
-        <span class="cs-kpi-value">12</span>
-        <span class="cs-kpi-foot">7-day rolling</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Ready for promotion</span>
-        <span class="cs-kpi-value">3</span>
-        <span class="cs-kpi-foot">gate green</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Blocked</span>
-        <span class="cs-kpi-value">2</span>
-        <span class="cs-kpi-foot">guard breach or low accuracy</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Demoted (last 30d)</span>
-        <span class="cs-kpi-value">1</span>
-        <span class="cs-kpi-foot">auto-rollback to shadow</span>
-      </div>
-    </div>
+    <details class="compact-disclosure"><summary><span>Promotion criteria</span><strong>4 reviewed gates</strong></summary><section class="promotion-criteria" aria-label="Promotion criteria"><article><strong>Reference accuracy</strong><small>Meets the ActionType threshold on the same frozen cohort.</small></article><article><strong>Zero policy escapes</strong><small>One unsafe candidate blocks promotion regardless of average accuracy.</small></article><article><strong>Guard stability</strong><small>Failure, false-positive, and rollback rates stay within budget.</small></article><article><strong>Safety contract</strong><small>Rollback, stop, dry-run, lock, idempotency, impact, and audit pass.</small></article></section></details>
 
-    <!-- Filter -->
-    <div class="cs-filterbar">
-      <span class="cs-fb-label">Status</span>
-      <div class="cs-chipset">
-        <button class="cs-chip cs-active">All</button>
-        <button class="cs-chip">Ready</button>
-        <button class="cs-chip">Blocked</button>
-        <button class="cs-chip">Demoted</button>
-      </div>
-      <span class="cs-fb-label" style="margin-left:8px">Category</span>
-      <div class="cs-chipset">
-        <button class="cs-chip cs-active">All</button>
-        <button class="cs-chip">Remediation</button>
-        <button class="cs-chip">Ops</button>
-        <button class="cs-chip">Governance</button>
-      </div>
-    </div>
+    <form class="fg-toolbar" data-fg-static-form><label class="fg-field"><span>Search ActionTypes</span><input type="search" placeholder="ActionType or blocker" /></label><label class="fg-field"><span>Gate state</span><select><option>All states</option><option>Ready</option><option>Blocked</option><option>Demoted</option></select></label><label class="fg-field"><span>Category</span><select><option>All categories</option><option>Remediation</option><option>Operations</option><option>Governance</option></select></label><a class="fg-button" href="audit.html?kind=promotion">Open audit</a></form>
+    <section class="fg-workbench promotion-workbench" aria-label="Promotion candidate review">
+      <div class="promotion-list"><header class="fg-pane-head"><div><h2>ActionType candidates</h2><p>One evidence window and cohort revision</p></div><span class="fg-count">6 shown</span></header><div class="result-summary"><span><strong>6 of 12 candidates shown</strong> from frozen cohort promotion-2026-08.</span><div class="active-filter-list"><span class="filter-token">All gate states</span><span class="filter-token">All categories</span></div></div><table class="promotion-table"><thead><tr><th>ActionType</th><th>Shadow age</th><th>Samples</th><th>Accuracy</th><th>Escapes</th><th>Guard</th><th>Gate</th></tr></thead><tbody>
+        <tr class="promotion-row is-selected" data-fg-row-group="promotion" data-fg-row-value="pitr"><td><button type="button" data-fg-select="promotion" data-fg-value="pitr" aria-pressed="true">database.enable-pitr</button></td><td>74 days</td><td>184</td><td>98.9%</td><td>0</td><td>Within budget</td><td><span class="fg-badge is-success">Ready</span></td></tr>
+        <tr class="promotion-row" data-fg-row-group="promotion" data-fg-row-value="autoscale"><td><button type="button" data-fg-select="promotion" data-fg-value="autoscale" aria-pressed="false">compute.autoscale.raise-floor</button></td><td>66 days</td><td>96</td><td>96.1%</td><td>0</td><td>Within budget</td><td><span class="fg-badge is-success">Ready</span></td></tr>
+        <tr class="promotion-row" data-fg-row-group="promotion" data-fg-row-value="firewall"><td><button type="button" data-fg-select="promotion" data-fg-value="firewall" aria-pressed="false">network.firewall.deny-orphan</button></td><td>80 days</td><td>412</td><td>99.4%</td><td>0</td><td>Within budget</td><td><span class="fg-badge is-success">Ready</span></td></tr>
+        <tr class="promotion-row" data-fg-row-group="promotion" data-fg-row-value="rightsize"><td><button type="button" data-fg-select="promotion" data-fg-value="rightsize" aria-pressed="false">cost.rightsize.downshift-cpu</button></td><td>58 days</td><td>58</td><td>87.9%</td><td>0</td><td>CFR +0.6 pp</td><td><span class="fg-badge is-warning">Blocked</span></td></tr>
+        <tr class="promotion-row" data-fg-row-group="promotion" data-fg-row-value="cert"><td><button type="button" data-fg-select="promotion" data-fg-value="cert" aria-pressed="false">identity.cert.rotate</button></td><td>61 days</td><td>73</td><td>93.1%</td><td>1</td><td>Escape</td><td><span class="fg-badge is-danger">Blocked</span></td></tr>
+        <tr class="promotion-row" data-fg-row-group="promotion" data-fg-row-value="rbac"><td><button type="button" data-fg-select="promotion" data-fg-value="rbac" aria-pressed="false">k8s.rbac.narrow-admin</button></td><td>Demoted</td><td>132</td><td>94.4%</td><td>0</td><td>FPR +1.4 pp</td><td><span class="fg-badge is-danger">Demoted</span></td></tr>
+      </tbody></table></div>
 
-    <!-- Table -->
-    <section class="cs-section" style="margin-top:8px">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">1</span>
-        <div class="cs-section-title"><h2>Candidates</h2><p class="cs-desc">One row per <code>ActionType</code>. Click a row to open the shadow log.</p></div>
-      </div>
-      <div class="cs-table-wrap">
-        <table class="cs-table">
-          <thead>
-            <tr>
-              <th>ActionType</th>
-              <th>Category</th>
-              <th style="width:90px">Samples</th>
-              <th style="width:110px">Accuracy</th>
-              <th style="width:110px">Escapes</th>
-              <th style="width:130px">Guard delta</th>
-              <th style="width:160px">Gate</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>database.enable-pitr</code><div class="cs-muted" style="font-size:12px">shadow since 2026-06-14</div></td>
-              <td><span class="cs-cat remediation">remediation</span></td>
-              <td>184</td>
-              <td><strong>98.9%</strong></td>
-              <td><strong>0</strong></td>
-              <td><span class="cs-guard ok">within budget</span></td>
-              <td><span class="cs-status ok">gate green</span><div class="cs-muted" style="font-size:12px">promote via PR</div></td>
-            </tr>
-            <tr>
-              <td><code>compute.autoscale.raise-floor</code><div class="cs-muted" style="font-size:12px">shadow since 2026-06-22</div></td>
-              <td><span class="cs-cat ops">ops</span></td>
-              <td>96</td>
-              <td><strong>96.1%</strong></td>
-              <td><strong>0</strong></td>
-              <td><span class="cs-guard ok">within budget</span></td>
-              <td><span class="cs-status ok">gate green</span><div class="cs-muted" style="font-size:12px">promote via PR</div></td>
-            </tr>
-            <tr>
-              <td><code>network.firewall.deny-orphan</code><div class="cs-muted" style="font-size:12px">shadow since 2026-06-08</div></td>
-              <td><span class="cs-cat remediation">remediation</span></td>
-              <td>412</td>
-              <td><strong>99.4%</strong></td>
-              <td><strong>0</strong></td>
-              <td><span class="cs-guard ok">within budget</span></td>
-              <td><span class="cs-status ok">gate green</span><div class="cs-muted" style="font-size:12px">promote via PR</div></td>
-            </tr>
-            <tr>
-              <td><code>cost.rightsize.downshift-cpu</code><div class="cs-muted" style="font-size:12px">shadow since 2026-06-30</div></td>
-              <td><span class="cs-cat remediation">remediation</span></td>
-              <td>58</td>
-              <td><strong>87.9%</strong></td>
-              <td><strong>0</strong></td>
-              <td><span class="cs-guard warn">CFR +0.6pp</span></td>
-              <td><span class="cs-status wait">blocked</span><div class="cs-muted" style="font-size:12px">accuracy &lt; 95%</div></td>
-            </tr>
-            <tr>
-              <td><code>identity.cert.rotate</code><div class="cs-muted" style="font-size:12px">shadow since 2026-06-27</div></td>
-              <td><span class="cs-cat remediation">remediation</span></td>
-              <td>73</td>
-              <td><strong>93.1%</strong></td>
-              <td><strong>1</strong></td>
-              <td><span class="cs-guard brk">escapes &gt; 0</span></td>
-              <td><span class="cs-status err">blocked</span><div class="cs-muted" style="font-size:12px">zero-escape required</div></td>
-            </tr>
-            <tr>
-              <td><code>k8s.rbac.narrow-cluster-admin</code><div class="cs-muted" style="font-size:12px">demoted 2026-07-02</div></td>
-              <td><span class="cs-cat governance">governance</span></td>
-              <td>132</td>
-              <td><strong>94.4%</strong></td>
-              <td><strong>0</strong></td>
-              <td><span class="cs-guard brk">FPR +1.4pp</span></td>
-              <td><span class="cs-status err">demoted</span><div class="cs-muted" style="font-size:12px">back to shadow</div></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- What the gate actually checks -->
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">2</span>
-        <div class="cs-section-title"><h2>What the gate checks</h2><p class="cs-desc">All four must be green at the same scenario-set version. A single amber demotes.</p></div>
-      </div>
-      <div class="cs-grid cs-grid-2">
-        <div class="cs-alert is-success"><div class="cs-alert-bar"></div><div>
-          <h4>Accuracy against reference</h4>
-          <p>Shadow verdict matches the pinned reference agent on the frozen scenario set (per
-             ActionType threshold, usually &ge; 95%).</p>
-        </div></div>
-        <div class="cs-alert is-info"><div class="cs-alert-bar"></div><div>
-          <h4>Zero policy-violation escapes</h4>
-          <p>Any shadow verdict that would have violated a Rego policy blocks promotion outright -
-             not softenable by average accuracy.</p>
-        </div></div>
-        <div class="cs-alert is-warn"><div class="cs-alert-bar"></div><div>
-          <h4>Guard metrics within budget</h4>
-          <p>Change failure rate, false-positive rate, and rollback rate must not exceed the
-             baseline plus their alert budget on the same window.</p>
-        </div></div>
-        <div class="cs-alert is-success"><div class="cs-alert-bar"></div><div>
-          <h4>Safety invariants complete</h4>
-          <p>The ActionType declares its stop-condition, rollback contract, blast-radius cap, and
-             audit hook - and each has a passing test.</p>
-        </div></div>
-      </div>
-    </section>
-
-    <!-- Demotion path -->
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">3</span>
-        <div class="cs-section-title"><h2>Automatic demotion</h2><p class="cs-desc">Regression in enforce demotes back to shadow without a human step.</p></div>
-      </div>
-      <div class="cs-card">
-        <div class="cs-flex cs-wrap cs-gap-12">
-          <span class="cs-tag is-steel">detect regression</span>
-          <span class="cs-muted">&rarr;</span>
-          <span class="cs-tag is-terracotta">demote to shadow</span>
-          <span class="cs-muted">&rarr;</span>
-          <span class="cs-tag">audit entry (with cause)</span>
-          <span class="cs-muted">&rarr;</span>
-          <span class="cs-tag is-plum">re-open promotion candidate</span>
-        </div>
-        <p class="cs-help" style="margin-top:12px">Cause of demotion is one of: guard-metric breach, policy-violation escape, or a per-ActionType stop-condition trigger. The audit entry links the offending event.</p>
-      </div>
+      <aside class="promotion-inspector">
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="pitr"><header class="fg-detail-head"><div><span class="fg-kicker">Selected candidate</span><h2><code>database.enable-pitr</code></h2><p>All frozen-cohort gates are green. A separate reviewed catalog change is still required.</p></div><span class="fg-badge is-success">Gate green</span></header><section class="fg-section"><h3>Gate evidence</h3><ul class="fg-review-list"><li><span><strong>Accuracy</strong><small>98.9% / threshold 95%</small></span><span class="fg-badge is-success">Pass</span></li><li><span><strong>Policy escapes</strong><small>0 / required 0</small></span><span class="fg-badge is-success">Pass</span></li><li><span><strong>Guard delta</strong><small>Within frozen budget</small></span><span class="fg-badge is-success">Pass</span></li><li><span><strong>Safety invariants</strong><small>7 / 7 verified</small></span><span class="fg-badge is-success">Pass</span></li></ul></section><section class="fg-section"><h3>Evidence timeline</h3><ol class="promotion-timeline"><li><strong>Shadow activated</strong>74 days ago</li><li><strong>Minimum sample reached</strong>32 days ago</li><li><strong>Latest cohort closed</strong>2 hours ago</li><li><strong>Review eligible</strong>No mode change yet</li></ol></section></article>
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="autoscale" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Selected candidate</span><h2><code>compute.autoscale.raise-floor</code></h2><p>Accuracy and guard evidence meet the current promotion contract.</p></div><span class="fg-badge is-success">Ready</span></header></article>
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="firewall" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Selected candidate</span><h2><code>network.firewall.deny-orphan</code></h2><p>The largest candidate cohort has zero recorded policy escapes.</p></div><span class="fg-badge is-success">Ready</span></header></article>
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="rightsize" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Blocked candidate</span><h2><code>cost.rightsize.downshift-cpu</code></h2><p>Reference accuracy is below threshold and change-failure rate increased by 0.6 percentage points.</p></div><span class="fg-badge is-warning">2 gaps</span></header><section class="fg-section"><h3>Blocking gaps</h3><div class="gap-summary"><span class="gap-count">1</span><span><strong>Reference accuracy</strong><small>87.9% measured / 95% required</small></span></div><div class="gap-summary"><span class="gap-count">2</span><span><strong>Change failure rate</strong><small>+0.6 percentage points above budget</small></span></div><p>Remain in shadow, expand the reviewed cohort, and resolve false-positive causes before a new review.</p></section></article>
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="cert" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Blocked candidate</span><h2><code>identity.cert.rotate</code></h2><p>One policy-violation escape is terminal for this cohort. Average accuracy cannot override it.</p></div><span class="fg-badge is-danger">1 gap</span></header><section class="fg-section"><div class="gap-summary"><span class="gap-count">1</span><span><strong>Policy escape</strong><small>Zero escapes required; one unsafe candidate retained</small></span></div></section></article>
+        <article class="fg-detail-panel" data-fg-panel="promotion" data-fg-value="rbac" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Demoted capability</span><h2><code>k8s.rbac.narrow-admin</code></h2><p>A false-positive regression triggered automatic return to shadow mode and an immutable audit record.</p></div><span class="fg-badge is-danger">Demoted</span></header></article>
+      </aside>
     </section>
   </main>
-
-  <footer class="cs-footer">
-    <div class="cs-container cs-flex-between cs-wrap">
-      <span>FDAI console mock - Calm Slate. Read-only surface, synthetic values.</span>
-      <span class="cs-muted">generic-scope &middot; no customer data</span>
-    </div>
-  </footer>
 </body>
 </html>

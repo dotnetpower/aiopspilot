@@ -5,8 +5,12 @@
     return { kind: "status", text: text, tone: tone || "neutral" };
   }
 
-  function code(text) {
-    return { kind: "code", text: text };
+  function code(text, href) {
+    return { kind: "code", text: text, href: href };
+  }
+
+  function link(text, href) {
+    return { kind: "link", text: text, href: href };
   }
 
   var common = {
@@ -141,6 +145,27 @@
         ] }
       ]
     },
+    "audit": {
+      group: "Evidence",
+      title: "Audit log",
+      subtitle: "Reconstruct decisions, authority, dispatch, verification, rollback, and terminal outcomes from one append-only ledger.",
+      note: "Ledger rows are immutable evidence references. Search, filtering, export, and judge-only replay never re-execute an action.",
+      kpis: [["Ledger entries", "1,842", "24-hour bounded window"], ["Terminally closed", "99.6%", "effect or no-op recorded"], ["Human review", "16%", "HIL, abstain, or deny"], ["Rollback paths", "7", "all linked and tested"]],
+      sections: [
+        { id: "audit-query", title: "Query the ledger", description: "Narrow immutable records without changing their order or interpretation.", type: "form", fields: [["Search", "search", "Event, correlation, rule, actor, or idempotency key", 3], ["Decision", "select", ["All decisions", "Auto", "HIL", "Abstain", "Deny", "Rollback"], 2], ["Mode", "select", ["All modes", "Shadow", "Enforce", "HIL"], 2], ["Tier", "select", ["All tiers", "T0", "T1", "T2"], 1], ["Window", "select", ["Last 24 hours", "Last 7 days", "Last 30 days"], 2]], action: "Apply query", inlineAction: true, actionSpan: 2 },
+        { title: "Audit ledger", description: "Newest first. Each identity opens the narrowest evidence view for that record.", type: "table", columns: ["Recorded", "Event / rule", "Tier", "Decision", "Mode", "Actor", "Effect verification"], rows: [
+          ["10:15:04Z", code("storage.public-blob.deny", "rule-trace.html?correlation=evt-storage-104"), "T0", status("PR opened", "success"), status("Enforce", "info"), "executor / workload identity", link("Observed", "audit.html?record=aud-104")],
+          ["10:14:52Z", code("compute.autoscale.floor.min-2", "rule-trace.html?correlation=evt-scale-103"), "T1", status("Learned action reused", "success"), status("Shadow", "neutral"), "shadow judge", link("No effect expected", "audit.html?record=aud-103")],
+          ["10:14:31Z", code("network.firewall.orphan-rule", "rca.html?correlation=evt-network-102"), "T2", status("Abstain to HIL", "warning"), status("HIL", "warning"), "quality gate", link("No-op sealed", "audit.html?record=aud-102")],
+          ["10:13:58Z", code("cost.rightsize.candidate", "rule-trace.html?correlation=evt-cost-101"), "T0", status("Compliant no-op", "neutral"), status("No action", "neutral"), "trust router", link("No-op sealed", "audit.html?record=aud-101")],
+          ["10:13:21Z", code("k8s.rbac.cluster-admin.narrow", "rule-trace.html?correlation=evt-rbac-100"), "T0", status("Denied by policy", "danger"), status("Deny", "danger"), "risk gate", link("No dispatch", "audit.html?record=aud-100")],
+          ["10:11:03Z", code("governance.exemption.review", "rules.html#rules-overrides"), "-", status("Override revised", "info"), status("Enforce", "info"), "two human principals", link("Revision observed", "audit.html?record=aud-099")],
+          ["09:41:52Z", code("compute.autoscale.raise-floor", "rca.html?correlation=evt-scale-098"), "T2", status("Rollback verified", "warning"), status("Enforce", "info"), "executor / workload identity", link("Recovered", "audit.html?record=aud-098")]
+        ] },
+        { title: "Selected record", description: "Decision and effect evidence remain distinct through terminal closure.", type: "workspace", listTitle: "Related records", detailTitle: "Audit record aud-104", list: [["aud-104", "Intent and eligibility"], ["aud-105", "Dispatch accepted"], ["aud-106", "Effect independently observed"], ["aud-107", "Terminal closure"]], detail: "A deterministic rule proposed a reversible configuration change. Policy, dry-run, target lock, idempotency, approval, and rollback references were captured before dispatch; independent observation closed the expected effect.", facts: [["Correlation", code("corr-storage-031")], ["Idempotency", code("idem-storage-031")], ["Rollback", code("pr-revert:2148")], ["Expected effect", "Public access disabled"], ["Observation source", "Provider configuration"], ["Terminal state", status("Verified", "success")]] },
+        { title: "Ledger guarantees", description: "Evidence semantics that remain true for every filtered or exported view.", type: "facts", items: [["Ordering", "Per-target serialized"], ["Replay", "Judge only; no execution"], ["Retention", "Policy controlled"], ["Sensitive values", "Redacted before persistence"], ["Authority", "Actor and executor remain distinct"], ["Integrity", "Append-only terminal closure"]] }
+      ]
+    },
     "browser-evidence": {
       group: "Evidence",
       title: "Browser evidence",
@@ -148,12 +173,14 @@
       note: "Captured payloads remain outside this metadata-only view. Untrusted content never becomes an instruction.",
       kpis: [["Artifacts", "847", "retained metadata"], ["Expired", "142", "policy applied"], ["Redactions", "2,318", "before retention"], ["Isolation verified", "98%", "measured"]],
       sections: [
+        { id: "browser-evidence-query", title: "Review captured evidence", description: "Search metadata without exposing captured payloads.", type: "form", fields: [["Artifact or policy", "search", "Artifact id or redaction policy", 6], ["Custody", "select", ["All states", "Retained", "Expired", "Legal hold"], 3], ["Isolation", "select", ["All results", "Verified", "Unavailable"], 3]], action: "Apply filters" },
         { title: "Evidence custody", type: "table", columns: ["Artifact", "Policy", "Origin", "Captured", "Expires", "Selectors", "Redactions", "Isolation", "Legal hold"], rows: [
-          [code("bev-82a1"), code("browser-redaction-v4"), "Allowlisted host", "Aug 27 10:04", "Sep 26", "18", "7", status("Verified", "success"), "No"],
+          [code("bev-82a1", "audit.html?artifact=bev-82a1"), code("browser-redaction-v4"), "Allowlisted host", "Aug 27 10:04", "Sep 26", "18", "7", status("Verified", "success"), "No"],
           [code("bev-819c"), code("browser-redaction-v4"), "Allowlisted host", "Aug 27 09:48", "Sep 26", "11", "3", status("Verified", "success"), "Yes"],
           [code("bev-80f2"), code("browser-redaction-v3"), "Allowlisted host", "Aug 26 21:17", "Expired", "9", "2", status("Unavailable", "warning"), "No"]
         ] },
-        { title: "Boundary", type: "facts", items: [["Captured content", "Not exposed"], ["Prompt-injection findings", "3 metadata records"], ["Source URL", "Redacted"], ["Execution authority", "None"]] }
+        { title: "Selected artifact", type: "workspace", listTitle: "Custody chain", detailTitle: "Artifact bev-82a1", list: [["10:04:11Z", "Capture admitted"], ["10:04:12Z", "Redaction completed"], ["10:04:12Z", "Isolation verified"], ["10:04:13Z", "Metadata sealed"]], detail: "The artifact remains outside this metadata-only surface. Selectors, redaction counts, policy revision, and isolation outcome are retained for reproducible review.", facts: [["Policy", code("browser-redaction-v4")], ["Payload visibility", "Not exposed"], ["Origin", "Allowlisted host"], ["Redactions", "7"], ["Isolation", status("Verified", "success")], ["Audit", link("Open record", "audit.html?artifact=bev-82a1")]] },
+        { title: "Boundary", type: "facts", items: [["Captured content", "Not exposed"], ["Prompt-injection findings", "3 metadata records"], ["Source URL", "Redacted"], ["Execution authority", "None"], ["Retention policy", "30 days"], ["Legal holds", "12"]] }
       ]
     },
     "forecast-learning": {
@@ -162,13 +189,15 @@
       subtitle: "Prediction closure, miss origin, publication, and retention evidence.",
       kpis: [["Episodes", "342", "retained"], ["Closed", "298", "87%"], ["Overdue", "6", "needs closure"], ["Complete evidence", "89%", "measured"]],
       sections: [
+        { title: "Learning closure", description: "Compare predictions only after the authoritative outcome window closes.", type: "bars", items: [["Correct", 71, "244"], ["Missed signal", 11, "38"], ["Wrong scope", 8, "27"], ["Held for review", 10, "33"]] },
         { title: "Outcome distribution", type: "table", columns: ["Outcome", "Miss origin", "Count", "Share"], rows: [
           ["Correct", "-", "244", "71%"],
           ["Missed signal", "observation", "38", "11%"],
           ["Wrong scope", "context selection", "27", "8%"],
           ["Held for review", "insufficient evidence", "33", "10%"]
         ] },
-        { title: "Publication and retention debt", type: "facts", items: [["Publication pending", "5"], ["Oldest pending", "19 hours"], ["Dead-lettered", "1"], ["Retention overdue", "2"]] }
+        { title: "Selected episode", type: "workspace", listTitle: "Recent episodes", detailTitle: "Forecast episode fc-2841", list: [["fc-2841", "Closed - wrong scope"], ["fc-2838", "Closed - correct"], ["fc-2829", "Awaiting outcome"], ["fc-2817", "Held for review"]], detail: "The forecast correctly anticipated resource pressure but selected a broader service boundary than the observed outcome. The miss is attributed to context selection, not model confidence.", facts: [["Prediction window", "24 hours"], ["Closed at", common.asOf], ["Confidence", "0.82"], ["Evidence completeness", "96%"], ["Miss origin", status("Context selection", "warning")], ["Audit", link("Open episode", "audit.html?episode=fc-2841")]] },
+        { title: "Publication and retention debt", type: "facts", items: [["Publication pending", "5"], ["Oldest pending", "19 hours"], ["Dead-lettered", "1"], ["Retention overdue", "2"], ["Calibration drift", "1.8 pp"], ["Review cohort", code("forecast-v12")]] }
       ]
     },
     "conversation-search": {
@@ -183,7 +212,9 @@
           ["Promotion blockers for database failover", "Assistant - Aug 27, 09:42", "The evidence shows two blocked safeguards and one unavailable rollback receipt."],
           ["Why is detector readiness partial?", "Operator - Aug 26, 18:04", "The target is missing a current probe receipt. No absence claim was made."],
           ["Cost anomaly evidence", "Assistant - Aug 25, 14:21", "Attribution is incomplete for two shared services."]
-        ] }
+        ] },
+        { title: "Selected result context", type: "workspace", listTitle: "Authorized turns", detailTitle: "Promotion blockers", list: [["09:41", "Operator question"], ["09:42", "Assistant evidence summary"], ["09:43", "Operator follow-up"], ["09:44", "Assurance assessment"]], detail: "Only the selected authorized result loads surrounding context. Search snippets do not silently widen purpose, role, or session scope.", facts: [["Session", code("conv-18")], ["Purpose", "Operational review"], ["Loaded turns", "4"], ["Evidence refs", "6"], ["Authorization", status("Current", "success")], ["Audit", link("Search access record", "audit.html?conversation=conv-18")]] },
+        { title: "Search boundary", type: "facts", items: [["Authorization filter", "Server owned"], ["Context loading", "Operator selected"], ["Cross-session scope", "Purpose bounded"], ["Unavailable results", "Explained, not inferred"], ["Mutation authority", "None"], ["Retention", "Policy controlled"]] }
       ]
     },
     "conversation-assurance": {
@@ -197,7 +228,9 @@
           [code("turn-8a31"), status("Incomplete", "warning"), "67%", "$0.012", "Open"],
           [code("turn-89f2"), status("Correct", "success"), "100%", "$0.009", "No"],
           [code("turn-87c4"), status("Unsupported claim", "danger"), "33%", "$0.015", "Resolved"]
-        ] }
+        ] },
+        { title: "Decision calibration", description: "Measured outcomes by assurance class for the retained cohort.", type: "bars", items: [["Correct", 86, "134"], ["Incomplete", 7, "11"], ["Unsupported", 3, "4"], ["Disputed", 4, "7"]] },
+        { title: "Assurance boundary", type: "facts", items: [["Cohort", code("assurance-v9")], ["Independent judges", "3"], ["Human disputes", "7 open or retained"], ["Answer mutation", "None"], ["Promotion authority", "None"], ["Ledger", link("Assessment records", "audit.html?kind=conversation-assurance")]] }
       ]
     },
     "reports": {
@@ -212,7 +245,13 @@
           ["Operating posture", "Measured", "73% auto-resolution with 8 pending approvals."],
           ["Control assurance", "Attention", "One guard remains below its evidence threshold."],
           ["Evidence freshness", "Current", "Four sources current; one source unavailable."]
-        ] }
+        ] },
+        { title: "Recent renders", description: "Each render remains pinned to its catalog definition and bounded source revisions.", type: "table", columns: ["Report", "Window", "Sources", "State", "Render", "Evidence digest"], rows: [
+          ["Weekly operations review", "7 days", "5 / 5", status("Complete", "success"), "684 ms", code("rep-84a1")],
+          ["Control assurance", "30 days", "4 / 5", status("Partial", "warning"), "721 ms", code("rep-839f")],
+          ["Cost governance", "30 days", "3 / 3", status("Complete", "success"), "592 ms", code("rep-82d0")]
+        ] },
+        { title: "Report contract", type: "facts", items: [["Definition", code("weekly-operations@7")], ["Variables", "Window + scope"], ["Source revisions", "Pinned"], ["Unavailable handling", "Explicit"], ["Workflow execution", "None"], ["Audit", link("Render evidence", "audit.html?report=weekly-operations")]] }
       ]
     },
     "architecture": {
@@ -234,11 +273,16 @@
       note: "The catalog describes eligibility. It grants no role, approval, or execution authority.",
       kpis: [["Declared", "142", "exact release"], ["Read-only", "89", "side effect class"], ["Observation mode", "23", "no changes applied"], ["Role restricted", "8", "current principal"]],
       sections: [
+        { id: "capability-query", title: "Review capability contracts", description: "Filter declarations by operator intent and authority boundary.", type: "form", fields: [["Search", "search", "Capability id or summary", 6], ["Side effect", "select", ["All classes", "Read", "Simulate", "Execute"], 2], ["Mode", "select", ["All modes", "Observation", "Enforcement"], 2], ["Role", "select", ["All roles", "Reader", "Operator", "Executor"], 2]], action: "Apply filters" },
         { title: "Capability declarations", type: "table", columns: ["Capability", "Category", "Summary", "Side effect", "Mode", "Required role"], rows: [
-          [code("inventory.read"), "Observation", "Read bounded inventory projection", status("Read", "info"), status("Enforcement", "success"), "Reader"],
-          [code("impact.simulate"), "Safety", "Compute stored-direction impact scope", status("Simulate", "info"), status("Enforcement", "success"), "Operator"],
-          [code("resource.restart"), "Execution", "Restart an approved workload", status("Execute", "warning"), status("Observation", "warning"), "Executor"]
-        ] }
+          [code("inventory.read", "ontology.html?view=actions"), "Observation", "Read bounded inventory projection", status("Read", "info"), status("Enforcement", "success"), "Reader"],
+          [code("impact.simulate", "blast-radius.html"), "Safety", "Compute stored-direction impact scope", status("Simulate", "info"), status("Enforcement", "success"), "Operator"],
+          [code("resource.restart", "promotion.html"), "Execution", "Restart an approved workload", status("Execute", "warning"), status("Observation", "warning"), "Executor"],
+          [code("workflow.inspect", "workflow-builder.html"), "Orchestration", "Read process definition and durable state", status("Read", "info"), status("Enforcement", "success"), "Reader"],
+          [code("evidence.export", "audit.html"), "Evidence", "Export authorized immutable metadata", status("Read", "info"), status("Enforcement", "success"), "Operator"]
+        ] },
+        { title: "Selected declaration", type: "workspace", listTitle: "Contract facets", detailTitle: "impact.simulate", list: [["Intent", "Safety analysis"], ["Authority", "No managed-resource effect"], ["Inputs", "Target + bounded depth"], ["Evidence", "Stored directed graph"]], detail: "Computes a bounded what-if reachability projection. Unknown relationship coverage is reported explicitly and never treated as zero impact.", facts: [["Declaration source", "Ontology release"], ["Default mode", status("Enforcement", "success")], ["Required role", "Operator"], ["Mutation authority", "None"], ["Owner", "Risk gate"], ["Audit route", link("Filtered ledger", "audit.html?capability=impact.simulate")]] },
+        { title: "Catalog health", type: "facts", items: [["Release", code("capabilities-v18")], ["Schema validation", status("Passed", "success")], ["Missing owners", "0"], ["Missing authority class", "0"], ["Promotion blockers", "3"], ["Last reviewed", common.asOf]] }
       ]
     },
     "skills": {
@@ -248,12 +292,16 @@
       note: "Skill eligibility describes runtime composition. Loading a skill does not grant authority.",
       kpis: [["Installed", "23", "current bundle"], ["Enabled", "20", "eligible"], ["Missing tools", "3", "blocked"], ["Diagnostics", "2", "needs review"]],
       sections: [
+        { id: "skill-query", title: "Inspect runtime skills", description: "Separate installation, eligibility, and accountable agent assignment.", type: "form", fields: [["Search", "search", "Skill or tool", 6], ["Eligibility", "select", ["All states", "Eligible", "Blocked", "Disabled"], 3], ["Agent", "select", ["All agents", "Huginn", "Bragi", "Muninn", "Njord"], 3]], action: "Apply filters" },
         { title: "Runtime skills", type: "table", columns: ["Skill", "Version", "Status", "Required tools", "Allowed agents", "Eligibility"], rows: [
-          [code("azure-inventory"), "2.4.1", status("Enabled", "success"), "az, jq", "Huginn", "Eligible"],
-          [code("cost-analysis"), "1.8.0", status("Enabled", "success"), "python", "Bragi, Muninn", "Eligible"],
-          [code("kubernetes-debug"), "0.9.3", status("Blocked", "warning"), "kubectl", "Huginn", "Tool missing"]
+          [code("azure-inventory"), "2.4.1", status("Enabled", "success"), "az, jq", "Huginn", status("Eligible", "success")],
+          [code("cost-analysis"), "1.8.0", status("Enabled", "success"), "python", "Bragi, Muninn", status("Eligible", "success")],
+          [code("kubernetes-debug"), "0.9.3", status("Blocked", "warning"), "kubectl", "Huginn", status("Tool missing", "warning")],
+          [code("evidence-correlation"), "1.6.2", status("Enabled", "success"), "python", "Heimdall, Forseti", status("Eligible", "success")],
+          [code("browser-observation"), "1.3.0", status("Disabled", "neutral"), "browser", "Huginn", status("Operator disabled", "neutral")]
         ] },
-        { title: "Bundles and diagnostics", type: "facts", items: [["Core bundle", "Compatible"], ["Operations bundle", "Compatible"], ["Optional bundle", "4 incompatibilities"], ["Load failures", "2 retained"]] }
+        { title: "Selected skill", type: "workspace", listTitle: "Skill contracts", detailTitle: "azure-inventory 2.4.1", list: [["Purpose", "Bounded provider inventory"], ["Tools", "az + jq"], ["Agent", "Huginn"], ["Authority", "Read only"]], detail: "Loads only when the provider toolchain and role-scoped source are available. Tool presence, enabled state, and action authority remain independent.", facts: [["Package source", code("core-skills@18")], ["Allowed agents", "Huginn"], ["Network boundary", "Provider API allowlist"], ["Mutation authority", "None"], ["Last diagnostic", status("Passed", "success")], ["Audit evidence", link("Open ledger", "audit.html?skill=azure-inventory")]] },
+        { title: "Bundles and diagnostics", type: "facts", items: [["Core bundle", status("Compatible", "success")], ["Operations bundle", status("Compatible", "success")], ["Optional bundle", status("4 incompatibilities", "warning")], ["Load failures", "2 retained"], ["Unowned skills", "0"], ["Signed manifest", status("Verified", "success")]] }
       ]
     },
     "documents": {
@@ -268,7 +316,9 @@
           ["handover-platform.pdf", "Operational handovers", status("Ready", "success"), "Clean", "Protected", "2 min ago"],
           ["network-review.docx", "Architecture reviews", status("Processing", "info"), "Clean", "Pending index", "18 sec ago"],
           ["legacy-runbook.pdf", "Runbooks", status("Failed", "danger"), "Rejected", "Not stored", "14 min ago"]
-        ] }
+        ] },
+        { title: "Selected document", type: "workspace", listTitle: "Processing receipts", detailTitle: "handover-platform.pdf", list: [["Upload", "Authorized and hashed"], ["Malware scan", "Clean"], ["Protection", "Applied"], ["Index", "Ready"]], detail: "The document was admitted for knowledge grounding after explicit consent, malware scanning, protection, and collection authorization. Content is not exposed in this metadata review.", facts: [["Collection", "Operational handovers"], ["Purpose", "Knowledge grounding"], ["Protection", status("Applied", "success")], ["Index state", status("Ready", "success")], ["Digest", code("doc-3f8a")], ["Audit", link("Ingestion receipts", "audit.html?document=doc-3f8a")]] },
+        { title: "Ingestion boundary", type: "facts", items: [["Consent", "Explicit"], ["Malware scan", "Required"], ["Failed payloads", "Not retained"], ["Collection ACL", "Server enforced"], ["Execution authority", "None"], ["Retention", "Collection policy"]] }
       ]
     },
     "context-selection-comparisons": {
@@ -278,11 +328,14 @@
       note: "Comparisons are read-only evaluations. Candidate policy output cannot change production selection.",
       kpis: [["Comparisons", "47", "current cohort"], ["Successful", "44", "93.6%"], ["Failures", "3", "reason retained"], ["Mutation controls", "0", "read only"]],
       sections: [
+        { id: "context-query", title: "Compare policy output", description: "Inspect one baseline and shadow candidate over the same frozen cohort.", type: "form", fields: [["Baseline", "select", ["baseline-v7", "baseline-v6"], 3], ["Candidate", "select", ["candidate-v8", "candidate-v9"], 3], ["Outcome", "select", ["All outcomes", "Successful", "Failed"], 3], ["Search", "search", "Evaluation or omission", 3]], action: "Apply comparison" },
         { title: "Policy evaluations", type: "table", columns: ["Evaluation", "Baseline", "Candidate", "Tokens", "Overlap", "Omissions", "Pinned", "Latency", "Failure"], rows: [
           [code("ctx-41a8"), code("baseline-v7"), code("candidate-v8"), "4,200 / 3,800", "94%", "0", status("Preserved", "success"), "84 ms", "-"],
           [code("ctx-4092"), code("baseline-v7"), code("candidate-v8"), "3,880 / 3,510", "91%", "1", status("Preserved", "success"), "78 ms", "-"],
           [code("ctx-3ff1"), code("baseline-v7"), code("candidate-v8"), "-", "-", "-", status("Missing", "danger"), "91 ms", "source_unavailable"]
-        ] }
+        ] },
+        { title: "Selected evaluation", type: "workspace", listTitle: "Comparison dimensions", detailTitle: "Evaluation ctx-41a8", list: [["Pinned evidence", "Preserved"], ["Source diversity", "Equivalent"], ["Token budget", "-9.5%"], ["Answer support", "No omissions"]], detail: "The candidate retained every pinned evidence item while reducing duplicate context. It remains shadow output and cannot change production selection until the review cohort closes.", facts: [["Baseline", code("baseline-v7")], ["Candidate", code("candidate-v8")], ["Overlap", "94%"], ["Pinned items", "12 / 12"], ["Decision", status("Candidate better", "success")], ["Audit", link("Evaluation evidence", "audit.html?evaluation=ctx-41a8")]] },
+        { title: "Evaluation contract", type: "facts", items: [["Cohort", code("context-policy-v8")], ["Frozen queries", "47"], ["Pinned evidence loss", "0 allowed"], ["Authority", "Shadow only"], ["Failures retained", "3"], ["Review cutoff", common.asOf]] }
       ]
     },
     "scope": {
@@ -292,12 +345,14 @@
       note: "Monitoring scope never implies action authority. The executor boundary is evaluated independently.",
       kpis: [["Monitoring entries", "24", "effective"], ["Action entries", "18", "more restrictive"], ["Subscriptions", "3", "authorized"], ["Executor boundary", "1", "isolated"]],
       sections: [
+        { id: "scope-query", title: "Inspect effective scope", description: "Resolve monitoring and action axes independently for one logical boundary.", type: "form", fields: [["Search", "search", "Logical scope or resource group", 6], ["Axis", "select", ["All axes", "Monitoring", "Action"], 3], ["State", "select", ["All states", "Included", "Excluded"], 3]], action: "Apply filters" },
         { title: "Effective scope", type: "table", columns: ["Subscription", "Axis", "State", "Resource group", "Address"], rows: [
           [code("sub-platform"), "Monitoring", status("Included", "success"), "rg-platform-prod", code("/subscriptions/.../rg-platform-prod")],
           [code("sub-platform"), "Action", status("Included", "warning"), "rg-platform-prod", code("/subscriptions/.../rg-platform-prod")],
           [code("sub-shared"), "Action", status("Excluded", "danger"), "rg-shared-data", code("/subscriptions/.../rg-shared-data")]
         ] },
-        { title: "Boundary evidence", type: "facts", items: [["Policy release", "scope-v12"], ["IAM snapshot", "current"], ["Action target locks", "18"], ["Wildcard grants", "0"]] }
+        { title: "Selected boundary", type: "workspace", listTitle: "Independent axes", detailTitle: "platform-production", list: [["Monitoring", "Included"], ["Action", "Included with ceiling"], ["Approval", "Action dependent"], ["Executor", "Logical target lock"]], detail: "Monitoring inclusion authorizes observation only. Action eligibility is narrower and is re-evaluated with role, risk, approval, target lock, and promotion state for every request.", facts: [["Policy release", code("scope-v12")], ["IAM snapshot", status("Current", "success")], ["Action targets", "18"], ["Wildcard grants", "0"], ["Executor identity", "Isolated"], ["Audit", link("Boundary changes", "audit.html?scope=platform-production")]] },
+        { title: "Boundary evidence", type: "facts", items: [["Policy release", code("scope-v12")], ["IAM snapshot", status("Current", "success")], ["Action target locks", "18"], ["Wildcard grants", "0"], ["Unresolved subjects", "0"], ["Last convergence", common.asOf]] }
       ]
     },
     "labs": {
@@ -399,8 +454,8 @@
       return '<div class="cp-field" style="--cp-field-span:' + span + '"><label for="' + id + '">' +
         escapeHtml(field[0]) + "</label>" + control + "</div>";
     }).join("");
-    return '<form class="cp-form" data-cp-form><p class="cp-form-note">Synthetic controls mirror the Console form and do not submit data.</p>' +
-      fields + '<div class="cp-form-actions"><button class="cs-control-button is-primary" type="submit"' + (section.disabled ? " disabled" : "") + ">" +
+    return '<form class="cp-form' + (section.inlineAction ? " has-inline-action" : "") + '" data-cp-form><p class="cp-form-note">Synthetic controls mirror the Console form and do not submit data.</p>' +
+      fields + '<div class="cp-form-actions"' + (section.actionSpan ? ' style="--cp-action-span:' + section.actionSpan + '"' : "") + '><button class="cs-control-button is-primary" type="submit"' + (section.disabled ? " disabled" : "") + ">" +
       escapeHtml(section.action) + "</button></div></form>";
   }
 

@@ -7,23 +7,31 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=operator-workspaces-v1" />
   <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/approvals-workspace.css?v=1" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/approvals-preview.js?v=1" defer></script>
+  <script src="assets/approvals-preview.js?v=2" defer></script>
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+<body class="cs-operator-neutral approvals-page" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
-    <header class="cp-header"><div class="cp-header-copy"><h1>Approvals</h1><p>Inspect pending proposals, their safety facts, and related evidence.</p></div><span class="op-source-note">Demo data</span></header>
-    <p class="op-boundary">Read-only queue. Decisions belong to the authenticated approval channel; expiry and silence never grant approval. Approval is separate from execution.</p>
-    <div class="op-toolbar">
-      <span class="cs-status wait">3 pending</span><span class="cs-status err">1 expired</span><span class="op-source-note" data-approval-count role="status">3 of 3 shown</span>
-      <label>Search proposals<input class="cs-control-input" type="search" maxlength="200" placeholder="Action, target, event, reason or rule" data-approval-search /></label>
+    <header class="cp-header"><div class="cp-header-copy"><h1>Approvals</h1><p>Review the proposed change, its deadline, and the evidence needed for a human decision.</p></div><div class="approval-cutoff"><strong>Synthetic snapshot</strong><time datetime="2026-09-06T04:00:00Z">06 Sep 2026, 04:00 UTC</time></div></header>
+    <p class="op-boundary"><strong>Read-only review.</strong> Decide only in the authenticated approval channel. Silence or expiry grants no approval, and approval is not execution.</p>
+    <dl class="approval-summary" aria-label="Queue at the fixed snapshot time">
+      <div><dt>Pending review</dt><dd data-approval-total="pending">2</dd></div>
+      <div><dt>Expired</dt><dd data-approval-total="expired">1</dd></div>
+      <div><dt>Applied by this preview</dt><dd>None</dd></div>
+    </dl>
+    <div class="approval-filters" role="search" aria-label="Filter proposals">
+      <label>Search proposals<input class="cs-control-input" type="search" maxlength="200" placeholder="Action, target, reason or evidence" data-approval-search /></label>
+      <label>Status<select class="cs-control-select" data-approval-status><option value="all">All proposals</option><option value="pending">Pending review</option><option value="expired">Expired</option></select></label>
+      <button class="cs-control-button is-quiet" type="button" data-clear-approvals>Clear filters</button>
+      <span class="approval-result" data-approval-count role="status" aria-live="polite" aria-atomic="true">3 of 3 shown</span>
     </div>
     <div class="op-approval-list">
-      <article class="op-approval" data-approval>
-        <header><h2><a href="workflow-builder.html?action=database.enable-pitr">Enable point-in-time recovery</a></h2><span class="cs-status wait">Pending approval</span><span class="cs-status idle">Shadow</span></header>
-        <p><strong>What:</strong> Enable a recovery policy for <code>example-database</code>.</p>
-        <p><strong>Why:</strong> The recorded recovery requirement is not satisfied. A governed proposal is waiting for independent human review.</p>
-        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+      <article class="op-approval" data-approval data-approval-state="pending">
+        <header><h2><a href="workflow-builder.html?action=database.enable-pitr">Enable point-in-time recovery</a></h2><span class="cs-status wait">Pending review</span><span class="cs-status idle">Observation mode</span></header>
+        <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-database">example-database</a></span><span>Expires <time datetime="2026-09-06T05:00:00Z">06 Sep, 05:00 UTC</time></span><span>Impact: one logical database</span></div>
+        <p class="approval-reason">The recorded recovery requirement is not satisfied. The proposed recovery policy needs independent human review.</p>
+        <details><summary aria-label="Safety and authority for point-in-time recovery">Safety and authority <span>4 safeguard receipts not recorded</span></summary><dl class="cp-facts">
           <div><dt>Approval ID</dt><dd><code>example-approval-1</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-1</code></dd></div>
           <div><dt>Target</dt><dd><a href="architecture.html?resource=example-database">example-database</a></dd></div><div><dt>Blast radius</dt><dd>One logical database; bounded proposal scope</dd></div>
           <div><dt>Rollback</dt><dd>Tested PR revert - example recovery receipt</dd></div><div><dt>Stop condition</dt><dd>Expected target revision changes or approval expires</dd></div>
@@ -32,11 +40,11 @@
         </dl></details>
         <nav class="op-evidence-links" aria-label="Related evidence for recovery proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-1">Incident</a><a href="rule-trace.html?correlation=example-correlation-1">Trace</a><a href="audit.html?correlation=example-correlation-1">Audit</a><a href="rca.html?correlation=example-correlation-1">RCA</a></nav>
       </article>
-      <article class="op-approval" data-approval>
-        <header><h2><a href="workflow-builder.html?action=compute.adjust-capacity">Adjust workload capacity</a></h2><span class="cs-status wait">Pending approval</span><span class="cs-status idle">Shadow</span></header>
-        <p><strong>What:</strong> Review a bounded capacity change for <code>example-workload</code>.</p>
-        <p><strong>Why:</strong> Recorded utilization and risk evidence require a human decision before a protected workflow may proceed.</p>
-        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+      <article class="op-approval" data-approval data-approval-state="pending">
+        <header><h2><a href="workflow-builder.html?action=compute.adjust-capacity">Adjust workload capacity</a></h2><span class="cs-status wait">Pending review</span><span class="cs-status idle">Observation mode</span></header>
+        <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-workload">example-workload</a></span><span>Expires <time datetime="2026-09-06T05:10:00Z">06 Sep, 05:10 UTC</time></span><span>Impact: one workload</span></div>
+        <p class="approval-reason">Recorded utilization and risk evidence require a human decision before the protected capacity workflow can proceed.</p>
+        <details><summary aria-label="Safety and authority for workload capacity">Safety and authority <span>4 safeguard receipts not recorded</span></summary><dl class="cp-facts">
           <div><dt>Approval ID</dt><dd><code>example-approval-2</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-2</code></dd></div>
           <div><dt>Target</dt><dd><a href="architecture.html?resource=example-workload">example-workload</a></dd></div><div><dt>Blast radius</dt><dd>One workload; bounded rate</dd></div>
           <div><dt>Rollback</dt><dd>Scripted restoration to the recorded capacity</dd></div><div><dt>Stop condition</dt><dd>Health threshold or target revision diverges</dd></div>
@@ -45,11 +53,11 @@
         </dl></details>
         <nav class="op-evidence-links" aria-label="Related evidence for capacity proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-2">Incident</a><a href="rule-trace.html?correlation=example-correlation-2">Trace</a><a href="audit.html?correlation=example-correlation-2">Audit</a><a href="rca.html?correlation=example-correlation-2">RCA</a></nav>
       </article>
-      <article class="op-approval" data-approval>
+      <article class="op-approval" data-approval data-approval-state="expired">
         <header><h2><a href="workflow-builder.html?action=identity.rotate-certificate">Rotate a signing certificate</a></h2><span class="cs-status err">Expired approval</span></header>
-        <p><strong>What:</strong> Review certificate rotation for <code>example-signing-service</code>.</p>
-        <p><strong>Why:</strong> The request TTL elapsed. This record is not current authorization and cannot be used to execute a change.</p>
-        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+        <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-signing-service">example-signing-service</a></span><span>Expired <time datetime="2026-09-05T03:00:00Z">05 Sep, 03:00 UTC</time></span><span>Impact: one signing service</span></div>
+        <p class="approval-reason">The request expired before the snapshot. A new governed request and fresh review are required; this record grants no authority.</p>
+        <details><summary aria-label="Safety and authority for certificate rotation">Safety and authority <span>Expired / no current authorization</span></summary><dl class="cp-facts">
           <div><dt>Approval ID</dt><dd><code>example-approval-3</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-3</code></dd></div>
           <div><dt>Target</dt><dd>example-signing-service</dd></div><div><dt>Blast radius</dt><dd>One signing service</dd></div>
           <div><dt>Rollback</dt><dd>Previous certificate reference retained</dd></div><div><dt>Stop condition</dt><dd>Expired authorization</dd></div>
@@ -59,7 +67,7 @@
         <nav class="op-evidence-links" aria-label="Related evidence for expired proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-3">Incident</a><a href="rule-trace.html?correlation=example-correlation-3">Trace</a><a href="audit.html?correlation=example-correlation-3">Audit</a><a href="rca.html?correlation=example-correlation-3">RCA</a></nav>
       </article>
     </div>
-    <section class="op-empty" data-approval-empty hidden><h2>No matching proposals</h2><p>Try another action, target or evidence reference.</p><button class="cs-control-button" type="button" data-clear-approvals>Clear search</button></section>
+    <section class="op-empty" data-approval-empty hidden><h2>No matching proposals</h2><p>Try another action, target or evidence reference, or clear the filters above.</p></section>
     <p class="op-source-note">Synthetic queue at a fixed example time. No approval, rejection, expiry processing or execution is performed by this preview.</p>
   </main>
 </body>
