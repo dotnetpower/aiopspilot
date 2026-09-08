@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
@@ -2798,6 +2799,131 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     assert selected["channel_edge"]["enabled"] is False
     assert selected["channel_edge"]["principal_scopes_secret_id"] == "secret-reference"
     assert payload["environments"]["dev"]["operator-service"]["channel_edge"]["enabled"] is True
+
+
+def test_tfvars_materializes_bounded_slack_channel_edge_provider(
+    tfvars: ModuleType,
+) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    provider = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "slack_signing_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-signing-secret",
+        "slack_bot_token_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-bot-token",
+        "slack_team_id": "T00000000",
+        "slack_principal_map_secret_id": (f"{vault}/secrets/fdai-channel-edge-slack-principal-map"),
+    }
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "ca-example-dev-operator-api",
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+        operator_channel_edge_enabled=True,
+        operator_channel_edge_provider=provider,
+    )
+
+    assert selected["channel_edge"] == {
+        "enabled": True,
+        "name": "ca-example-dev-channel-edge",
+        "slack_enabled": True,
+        "teams_enabled": False,
+        **{key: value for key, value in provider.items() if key != "slack_team_id"},
+        "slack_team_id": "T00000000",
+        "teams_application_id": "",
+        "teams_tenant_id": "",
+        "teams_principal_map_secret_id": "",
+        "teams_allowed_service_urls": "",
+        "teams_jwks_url": "",
+        "health": {
+            "port": 8014,
+            "liveness_path": "/health/live",
+            "readiness_path": "/health/ready",
+            "startup_path": "/health/ready",
+            "interval_seconds": 15,
+            "timeout_seconds": 3,
+            "failure_count_threshold": 3,
+            "startup_failure_count": 30,
+        },
+        "scaling": {
+            "min_replicas": 1,
+            "max_replicas": 2,
+            "cpu": 0.5,
+            "memory": "1Gi",
+        },
+    }
+    assert "channel_edge" not in payload["environments"]["dev"]["operator-service"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        (
+            lambda provider: provider.update({"unexpected": "value"}),
+            "unexpected keys",
+        ),
+        (
+            lambda provider: provider.update({"slack_team_id": "invalid-team"}),
+            "workspace id",
+        ),
+        (
+            lambda provider: provider.update(
+                {
+                    "slack_bot_token_secret_id": (
+                        "/subscriptions/00000000-0000-0000-0000-000000000000"
+                        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+                        "/secrets/wrong-name"
+                    )
+                }
+            ),
+            "approved fixed secret",
+        ),
+    ],
+)
+def test_tfvars_rejects_invalid_channel_edge_provider_binding(
+    tfvars: ModuleType,
+    mutation: Callable[[dict[str, str]], object],
+    error: str,
+) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    provider = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "slack_signing_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-signing-secret",
+        "slack_bot_token_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-bot-token",
+        "slack_team_id": "T00000000",
+        "slack_principal_map_secret_id": (f"{vault}/secrets/fdai-channel-edge-slack-principal-map"),
+    }
+    mutation(provider)
+
+    with pytest.raises(tfvars.TfvarsError, match=error):
+        tfvars.select_tfvars(
+            {
+                "environments": {
+                    "dev": {
+                        "operator-service": {
+                            "name": "ca-example-dev-operator-api",
+                        }
+                    }
+                }
+            },
+            service="operator-service",
+            environment="dev",
+            operator_channel_edge_enabled=True,
+            operator_channel_edge_provider=provider,
+        )
 
 
 def test_state_migration_resolves_exact_source_and_destination(
