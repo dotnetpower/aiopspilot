@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
 
@@ -27,11 +26,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .conversation_preflight import (
-    DIRECT_SOCIAL_ACTS,
-    ContextDependency,
     ConversationPreflightResult,
-    OperationalSignal,
-    SocialAct,
     preflight_operational_judgment,
 )
 from .conversation_preflight_targets import (
@@ -74,7 +69,6 @@ from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
     SemanticDescriptorSelector,
-    SemanticDirectResponseIntent,
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
@@ -84,11 +78,11 @@ from .semantic_planning_models import (
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
 from .semantic_planning_preflight import (
     DIRECT_RESPONSE_PROFILE,
-    PREFLIGHT_DIRECT_CONFIDENCE,
 )
 from .semantic_planning_preflight import (
     preflight_descriptor_intent as _preflight_descriptor_intent,
 )
+from .semantic_planning_preflight_router import PreflightDirectResponseRouter
 from .semantic_planning_specialized_plans import (
     build_anchored_incident_plan,
     build_stated_value_filter_plan,
@@ -179,99 +173,26 @@ class SemanticPlanningService:
         manifest_digest: str | None = None
         accepted_frame: SemanticProblemFrame | None = None
         model_observations: list[SemanticJudgmentObservation] = []
-        preflight_social_act = SocialAct.NONE
-        preflight_vetoes_direct = False
-        preflight_ran = False
         response_profile = dict(DIRECT_RESPONSE_PROFILE)
         if conversation_profile is not None:
             response_profile["identity"] = conversation_profile["identity"]
             response_profile["role"] = conversation_profile["role"]
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
-        supplied_preflight_consumed = False
-        effective_preflight_result: ConversationPreflightResult | None = None
-
-        def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
-            updated = outcome
-            recorded_observations = tuple(model_observations)
-            if recorded_observations and outcome.model_observations != recorded_observations:
-                updated = replace(updated, model_observations=recorded_observations)
-            if updated.social_act is not preflight_social_act:
-                updated = replace(updated, social_act=preflight_social_act)
-            return updated
-
-        def run_preflight(context: Sequence[str]) -> SemanticPlanningOutcome | None:
-            nonlocal preflight_ran, preflight_social_act, preflight_vetoes_direct
-            nonlocal effective_preflight_result, supplied_preflight_consumed
-            if self._semantic_judgment is None:
-                return None
-            preflight_ran = True
-            if preflight_result is not None and not supplied_preflight_consumed:
-                preflight = preflight_result
-                supplied_preflight_consumed = True
-            else:
-                preflight = self._semantic_judgment.preflight(
-                    utterance=utterance,
-                    context=context,
-                    locale=locale,
-                    direct_response_profile=response_profile,
-                )
-            effective_preflight_result = preflight
-            model_observations.extend(preflight.observations)
-            preflight_vetoes_direct = preflight.failure_kind == "malformed"
-            proposal = preflight.proposal
-            if proposal is None:
-                return None
-            preflight_vetoes_direct = (
-                proposal.social_act is SocialAct.ACKNOWLEDGEMENT
-                or proposal.operational_signal is not OperationalSignal.NONE
-                or proposal.context_dependency
-                not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
-            )
-            preflight_social_act = proposal.social_act
-            direct_intent = (
-                SemanticDirectResponseIntent.SELF_INTRODUCTION
-                if proposal.social_act is SocialAct.SELF_INTRODUCTION
-                else SemanticDirectResponseIntent.GREETING
-                if proposal.social_act in DIRECT_SOCIAL_ACTS
-                else None
-            )
-            if (
-                direct_intent is None
-                or proposal.confidence < PREFLIGHT_DIRECT_CONFIDENCE
-                or proposal.operational_signal is not OperationalSignal.NONE
-                or proposal.context_dependency
-                not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
-                or not unbound_conversation
-            ):
-                return None
-            narrated = self._semantic_judgment.narrate_social(
-                utterance=utterance,
-                locale=locale,
-                social_act=proposal.social_act,
-                continued=proposal.context_dependency is ContextDependency.SOCIAL_CONTINUITY,
-                direct_response_profile=response_profile,
-            )
-            model_observations.extend(narrated.observations)
-            response = narrated.draft
-            if response is None:
-                return _outcome(
-                    SemanticPlanningDisposition.UNAVAILABLE,
-                    "social_response_narrator_unavailable",
-                    social_act=proposal.social_act,
-                )
-            return _outcome(
-                SemanticPlanningDisposition.DIRECT_RESPONSE,
-                "conversation_preflight_direct_response",
-                direct_response_intent=direct_intent,
-                direct_response_answer=response.answer,
-                social_act=proposal.social_act,
-            )
+        preflight_router = PreflightDirectResponseRouter(
+            semantic_judgment=self._semantic_judgment,
+            utterance=utterance,
+            locale=locale,
+            response_profile=response_profile,
+            unbound_conversation=unbound_conversation,
+            supplied_preflight_result=preflight_result,
+            model_observations=model_observations,
+        )
 
         try:
             context = _bounded_context(prior_turns)
-            preflight_outcome = run_preflight(context)
+            preflight_outcome = preflight_router.run(context)
             if preflight_outcome is not None:
-                return finish(preflight_outcome)
+                return preflight_router.finish(preflight_outcome)
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
             scope_mismatch = manifest.principal_role.value != principal.role.value
@@ -283,7 +204,7 @@ class SemanticPlanningService:
                 limit=_MAX_DESCRIPTORS,
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
-            preflight_intent = _preflight_descriptor_intent(effective_preflight_result)
+            preflight_intent = _preflight_descriptor_intent(preflight_router.effective_result)
             if preflight_intent is not None:
                 descriptors = _descriptors_for_operational_intent(descriptors, preflight_intent)
                 _LOGGER.info(
@@ -309,10 +230,10 @@ class SemanticPlanningService:
                 )
                 promoted_preflight = (
                     preflight_operational_judgment(
-                        effective_preflight_result,
+                        preflight_router.effective_result,
                         utterance=utterance,
                     )
-                    if effective_preflight_result is not None
+                    if preflight_router.effective_result is not None
                     else None
                 )
                 if promoted_preflight is not None:
@@ -443,12 +364,12 @@ class SemanticPlanningService:
                 else None
             )
             if direct_response is not None:
-                if not preflight_ran:
-                    preflight_outcome = run_preflight(context)
+                if not preflight_router.ran:
+                    preflight_outcome = preflight_router.run(context)
                     if preflight_outcome is not None:
-                        return finish(preflight_outcome)
-                if not preflight_vetoes_direct:
-                    return finish(
+                        return preflight_router.finish(preflight_outcome)
+                if not preflight_router.vetoes_direct:
+                    return preflight_router.finish(
                         _outcome(
                             SemanticPlanningDisposition.UNAVAILABLE,
                             "social_response_narrator_unavailable",
@@ -456,7 +377,7 @@ class SemanticPlanningService:
                     )
                 _LOGGER.info(
                     "semantic_direct_response_blocked_by_preflight",
-                    extra={"social_act": preflight_social_act.value},
+                    extra={"social_act": preflight_router.social_act.value},
                 )
                 semantic_judgment = None
                 judgment_proposal = None
@@ -469,7 +390,7 @@ class SemanticPlanningService:
                 bound_incident=bound_incident is not None,
             )
             if pre_frame_outcome is not None:
-                return finish(pre_frame_outcome)
+                return preflight_router.finish(pre_frame_outcome)
             stage = "frame_proposal"
             frame_result = deterministic_pre_frame_selection(
                 judgment=judgment_proposal,
@@ -487,7 +408,7 @@ class SemanticPlanningService:
                 and judgment_proposal is not None
                 and judgment_proposal.primary_intent == "query.resource_configuration_changes"
             ):
-                return finish(
+                return preflight_router.finish(
                     _outcome(
                         SemanticPlanningDisposition.UNAVAILABLE,
                         "semantic_configuration_frame_unavailable",
@@ -509,7 +430,7 @@ class SemanticPlanningService:
                     observations=model_observations,
                 )
             if frame_result is None:
-                return finish(
+                return preflight_router.finish(
                     _outcome(
                         SemanticPlanningDisposition.UNAVAILABLE,
                         "semantic_frame_unavailable",
@@ -534,7 +455,7 @@ class SemanticPlanningService:
                     descriptors=descriptors,
                 ),
             ):
-                return finish(
+                return preflight_router.finish(
                     _outcome(
                         SemanticPlanningDisposition.UNAVAILABLE,
                         "semantic_operational_judgment_required",
@@ -581,7 +502,7 @@ class SemanticPlanningService:
                 inventory_query_language=self._inventory_query_language,
             )
             if isinstance(normalized_frame, SemanticPlanningOutcome):
-                return finish(normalized_frame)
+                return preflight_router.finish(normalized_frame)
             proposal, frame, investigation_intent = normalized_frame
             accepted_frame = frame
             lookback_seconds = frame.temporal_scope.get("lookback_seconds")
@@ -663,7 +584,7 @@ class SemanticPlanningService:
                 ),
             )
             if isinstance(dispatched, SemanticPlanningOutcome):
-                return finish(dispatched)
+                return preflight_router.finish(dispatched)
             dispatch_result: PlanDispatchResult = dispatched
             proposal = dispatch_result.proposal
             frame = dispatch_result.frame
@@ -692,7 +613,7 @@ class SemanticPlanningService:
                 plan=plan,
                 confidence=proposal.confidence,
             )
-            return finish(
+            return preflight_router.finish(
                 _outcome(
                     SemanticPlanningDisposition.PLANNED,
                     "semantic_plan_verified",
@@ -704,7 +625,7 @@ class SemanticPlanningService:
                 )
             )
         except PermissionError:
-            return finish(
+            return preflight_router.finish(
                 _outcome(
                     SemanticPlanningDisposition.UNSUPPORTED,
                     "semantic_scope_denied",
@@ -725,7 +646,7 @@ class SemanticPlanningService:
                 if disposition is SemanticPlanningDisposition.UNAVAILABLE
                 else "semantic_plan_invalid"
             )
-            return finish(
+            return preflight_router.finish(
                 _outcome(
                     disposition,
                     reason,
@@ -752,7 +673,7 @@ class SemanticPlanningService:
                 if disposition is SemanticPlanningDisposition.UNAVAILABLE
                 else "semantic_plan_invalid"
             )
-            return finish(
+            return preflight_router.finish(
                 _outcome(
                     disposition,
                     reason,
@@ -765,7 +686,7 @@ class SemanticPlanningService:
                 "semantic_planning_failed",
                 extra={"principal_role": principal.role.value, "purpose": purpose},
             )
-            return finish(
+            return preflight_router.finish(
                 _outcome(
                     SemanticPlanningDisposition.UNAVAILABLE,
                     "semantic_planning_failed",

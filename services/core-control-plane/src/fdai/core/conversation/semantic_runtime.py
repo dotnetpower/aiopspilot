@@ -31,7 +31,6 @@ from fdai.core.ontology_platform.query_values import QueryTable
 from .adaptive_call_scope import (
     AdaptiveBudgetExceededError,
     bind_adaptive_model_budget,
-    bind_model_call_scope,
 )
 from .adaptive_models import AdaptiveEvidence
 from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
@@ -57,14 +56,16 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
+from .semantic_runtime_cancellation import (
+    _run_planning_with_cancellation,
+    _run_preflight_with_cancellation,
+)
 from .session import Principal, Turn
 
 _PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
     "semantic_query_progress_observer",
     default=None,
 )
-_MODEL_THREAD_CANCELLATION_GRACE_SECONDS = 1.0
-_PENDING_MODEL_THREAD_DRAINS: set[asyncio.Task[None]] = set()
 
 
 @contextmanager
@@ -83,116 +84,6 @@ def _resolve_progress_observer(
     explicit: QueryProgressObserver | None,
 ) -> QueryProgressObserver | None:
     return explicit or _PROGRESS_OBSERVER.get()
-
-
-async def _run_preflight_with_cancellation(
-    planner: SemanticPlanningService,
-    *,
-    utterance: str,
-    prior_turns: tuple[Turn, ...],
-    locale: str,
-    conversation_profile: Mapping[str, str] | None,
-    cancelled: asyncio.Event | None,
-    conversation_model_tier: SemanticConversationModelTier | None,
-) -> ConversationPreflightResult:
-    """Bridge task or request cancellation into the thread-owned provider call."""
-    provider_cancelled = asyncio.Event()
-
-    async def forward_request_cancellation() -> None:
-        if cancelled is None:
-            return
-        await cancelled.wait()
-        provider_cancelled.set()
-
-    def invoke_preflight() -> ConversationPreflightResult:
-        if conversation_model_tier is None:
-            return planner.preflight(
-                utterance=utterance,
-                prior_turns=prior_turns,
-                locale=locale,
-                conversation_profile=conversation_profile,
-                cancelled=provider_cancelled,
-            )
-        return planner.preflight(
-            utterance=utterance,
-            prior_turns=prior_turns,
-            locale=locale,
-            conversation_profile=conversation_profile,
-            cancelled=provider_cancelled,
-            conversation_model_tier=conversation_model_tier,
-        )
-
-    worker = asyncio.create_task(asyncio.to_thread(invoke_preflight))
-    watcher = asyncio.create_task(forward_request_cancellation()) if cancelled is not None else None
-    try:
-        result = await asyncio.shield(worker)
-        if provider_cancelled.is_set():
-            raise asyncio.CancelledError
-        return result
-    except asyncio.CancelledError:
-        provider_cancelled.set()
-        try:
-            await asyncio.wait_for(
-                asyncio.shield(worker),
-                timeout=_MODEL_THREAD_CANCELLATION_GRACE_SECONDS,
-            )
-        except TimeoutError:
-
-            async def drain_worker() -> None:
-                await asyncio.gather(worker, return_exceptions=True)
-
-            drain = asyncio.create_task(drain_worker())
-            _PENDING_MODEL_THREAD_DRAINS.add(drain)
-            drain.add_done_callback(_PENDING_MODEL_THREAD_DRAINS.discard)
-        raise
-    finally:
-        if watcher is not None:
-            watcher.cancel()
-            await asyncio.gather(watcher, return_exceptions=True)
-
-
-async def _run_planning_with_cancellation(
-    operation: Callable[[], SemanticPlanningOutcome],
-    *,
-    cancelled: asyncio.Event | None,
-) -> SemanticPlanningOutcome:
-    """Cancel thread-owned Azure provider work when the request stops."""
-    if cancelled is not None and cancelled.is_set():
-        raise asyncio.CancelledError
-    worker: asyncio.Task[SemanticPlanningOutcome] | None = None
-    watcher = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
-    try:
-        async with bind_model_call_scope():
-            worker = asyncio.create_task(asyncio.to_thread(operation))
-            if watcher is None:
-                return await asyncio.shield(worker)
-            done, _pending = await asyncio.wait(
-                {worker, watcher},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            if watcher in done or cancelled.is_set():
-                raise asyncio.CancelledError
-            return worker.result()
-    except asyncio.CancelledError:
-        if worker is not None and not worker.done():
-            try:
-                await asyncio.wait_for(
-                    asyncio.shield(worker),
-                    timeout=_MODEL_THREAD_CANCELLATION_GRACE_SECONDS,
-                )
-            except TimeoutError:
-
-                async def drain_worker() -> None:
-                    await asyncio.gather(worker, return_exceptions=True)
-
-                drain = asyncio.create_task(drain_worker())
-                _PENDING_MODEL_THREAD_DRAINS.add(drain)
-                drain.add_done_callback(_PENDING_MODEL_THREAD_DRAINS.discard)
-        raise
-    finally:
-        if watcher is not None and not watcher.done():
-            watcher.cancel()
-            await asyncio.gather(watcher, return_exceptions=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -605,7 +496,8 @@ class SemanticConversationRuntime:
         preflight_result: ConversationPreflightResult | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
-        if self._planner is None:
+        planner = self._planner
+        if planner is None:
             reason = self._verified_unavailable_reason or "semantic_query_runtime_unavailable"
             return SemanticTurnResult(
                 disposition="held",
@@ -616,7 +508,7 @@ class SemanticConversationRuntime:
                 ),
             )
         planning = await _run_planning_with_cancellation(
-            lambda: self._planner.plan(
+            lambda: planner.plan(
                 utterance=utterance,
                 prior_turns=prior_turns,
                 principal=principal,
