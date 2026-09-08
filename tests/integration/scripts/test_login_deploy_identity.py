@@ -17,6 +17,7 @@ _CLIENT_ID = "00000000-0000-0000-0000-000000000003"
 _PRINCIPAL_ID = "00000000-0000-0000-0000-000000000004"
 _WORKFLOWS = (
     "deploy-dev.yml",
+    "deploy-channel-edge-secrets.yml",
     "destroy-env.yml",
     "infra-drift.yml",
     "model-lifecycle-reconcile.yml",

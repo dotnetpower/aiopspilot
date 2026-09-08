@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: e1b06f3d2f92be1f8dab0e30f9691f8e22358d38
-translation_revised: 2026-09-06
+translation_source_sha: 9bcdd7821293c293fe8ed963305647bbfd0d291f
+translation_revised: 2026-09-08
 ---
 # 운영 A3 채널 런타임
 
@@ -80,6 +80,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 보호된 Slack 비밀 구체화 | 구현됨 | `deploy-channel-edge-secrets.yml`, `materialize_channel_edge_secrets.py`, 집중 작업 흐름 및 전송 테스트 | 필수 CI가 통과한 정확한 개발 리비전은 GitHub Secrets 5개를 태그가 지정된 단일 비공개 RBAC Key Vault의 고정 비밀 4개로 전송할 수 있습니다. VNet 러너는 안정적인 배포 신원을 검증하고 값이 인자나 아티팩트에 기록되지 않게 하며 모든 값을 다시 읽어 확인한 뒤 식별자 인벤토리를 파기합니다. 이 단계는 채널, 승인 또는 실행 권한을 부여하지 않습니다. |
 | A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. 통제된 프로바이더 및 배포 근거는 열린 상태입니다. |
 | 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
@@ -93,6 +94,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | 구현됨 | 값 로깅이나 아티팩트 보존 없이 프로바이더가 호스팅하는 GitHub Secrets에서 고정 Slack A3 비밀을 구체화하고 다시 읽어 확인하는 정확한 리비전 기반 VNet 러너 작업 흐름을 추가했습니다. | `current change`, 집중 비밀 전송, 작업 흐름 보안, 러너 등록, 로그인 결속 및 CI 계약 테스트 | 필수 CI가 통과한 리비전에서 작업 흐름을 실행하고 생성된 버전 없는 비밀 식별자를 플랫폼과 Operator 계획에 결속한 뒤 전달 및 롤백 증적을 보존합니다. |
 | 2026-08-19 | 진행 중 | Operator API 공동 hosting과 여섯 번째 service distribution을 비평에서 모두 거부한 뒤 권한 없는 edge workload 설계를 승인했습니다. | `current change`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), route, tracking, translation 및 link 검사 | 구현, hardening, 검증 및 통제된 로컬/배포 증적 보존이 남았습니다. |
 | 2026-08-19 | 구현됨 | Slack A3 exact-body verifier, 닫힌 workspace/sender admission, opaque file 정규화, 범위가 제한된 queue adapter, 고정 Web API publisher 및 확정/모호 확인 응답 구분을 추가했습니다. | `current change`, 집중 Slack, renderer 및 gateway 검사 76개와 Ruff, formatting, strict mypy 및 editor diagnostics 통과 | 활성화된 A3 경로를 주장하기 전에 Teams 전송과 운영 런타임 조립을 구현합니다. |
 | 2026-08-19 | 구현됨 | 범위가 제한된 주입형 JWKS를 사용하는 고정 algorithm Bot Framework token 검증, exact tenant/principal/service URL admission, URL 없는 파일 정규화, 인증된 endpoint registry, 범위가 제한된 queue, 고정 Connector path와 audience 및 엄격한 확인 응답 parsing을 추가했습니다. Queue 거절은 endpoint binding을 남기지 않습니다. | `current change`, 집중 channel 및 gateway 검사 92개와 Ruff, formatting, strict mypy 및 editor diagnostics 통과 | 두 전송 중 하나라도 활성화하기 전에 영속 store와 fail-closed 런타임 조립을 추가합니다. |
