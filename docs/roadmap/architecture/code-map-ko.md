@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 86b4c546684af77925832ebeb7e08362eebcf3cd
+translation_source_sha: 384ff5717ee4f5856c87397c581b855a59fad7b8
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -25,6 +25,10 @@ translation_revised: 2026-09-09
   승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
+- **온톨로지 영속성 경계:** `postgres_ontology.py`는 저장소를 조정하고,
+  `postgres_ontology_graph.py`는 그래프 조회를 담당하며, `postgres_ontology_records.py`는 영속
+  행을 변환합니다. `postgres_ontology_inventory.py`는 인벤토리 상태 기준의 완전성과 객체 소유권을
+  검증합니다. 이 분리는 다른 기록기나 권한 표면을 만들지 않고 기존 변환 계약을 유지합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
