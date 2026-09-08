@@ -32,6 +32,9 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "observation_journal.append_promoted_snapshot(observation)" in source
     assert "journal_high_watermark=journal_append.journal_high_watermark" in source
     assert "projection_high_watermark=journal_append.projection_high_watermark" in source
+    assert "active_scope_watermark = journal_append.active_scope_projection_watermark" in source
+    assert "active_scope_projection_watermark=active_scope_watermark" in source
+    assert "active_scope_refs=journal_append.active_scope_refs" in source
 
 
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:

@@ -146,10 +146,13 @@ async def refresh() -> InventoryOntologyProjectionResult:
             observation.links
         )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
+        active_scope_watermark = journal_append.active_scope_projection_watermark
         projected = await projector.apply(
             observation,
             journal_high_watermark=journal_append.journal_high_watermark,
             projection_high_watermark=journal_append.projection_high_watermark,
+            active_scope_projection_watermark=active_scope_watermark,
+            active_scope_refs=journal_append.active_scope_refs,
         )
         available = projected.status.value == "available"
         await activity_publisher.publish(
