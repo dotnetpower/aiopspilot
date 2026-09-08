@@ -251,6 +251,7 @@ def _validate_source_run(
         "id": expected_run_id,
         "run_attempt": expected_run_attempt,
         "head_sha": expected_commit_sha,
+        "head_branch": "main",
         "path": _SOURCE_WORKFLOW,
         "event": "workflow_dispatch",
         "status": "completed",
