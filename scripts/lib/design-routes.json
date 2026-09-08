@@ -244,12 +244,14 @@
       "paths": [
         ".github/workflows/decision-evidence-admission.yml",
         ".github/workflows/deploy-dev.yml",
+        "config/decision-evidence-deployment-policy.json",
         "config/decision-boundary-inventory.json",
         "scripts/deployment/azure/decision_evidence_bundle.py",
         "scripts/deployment/azure/deployment_decision_evidence.py",
         "scripts/deployment/azure/prepare_decision_evidence_candidate.py",
         "scripts/quality/architecture/check-decision-boundary-coverage.py",
         "services/core-control-plane/src/fdai/delivery/azure/decision_evidence.py",
+        "services/core-control-plane/src/fdai/delivery/decision_evidence_policy.py",
         "services/core-control-plane/src/fdai/delivery/persistence/state_store_decision_evidence.py",
         "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py",
         "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py",
@@ -267,7 +269,7 @@
       "validate": [
         "python3 scripts/quality/architecture/check-decision-boundary-coverage.py",
         "uv run pytest -q --no-cov tests/integration/scripts/test_decision_boundary_coverage.py",
-        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_decision_evidence_bundle.py services/core-control-plane/tests/delivery/test_deployment_decision_evidence.py services/core-control-plane/tests/delivery/azure/test_decision_evidence.py services/core-control-plane/tests/persistence/test_state_store_decision_evidence.py tests/integration/scripts/test_decision_evidence_admission_workflow.py"
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_decision_evidence_policy.py services/core-control-plane/tests/delivery/test_decision_evidence_bundle.py services/core-control-plane/tests/delivery/test_deployment_decision_evidence.py services/core-control-plane/tests/delivery/azure/test_decision_evidence.py services/core-control-plane/tests/persistence/test_state_store_decision_evidence.py tests/integration/scripts/test_decision_evidence_admission_workflow.py"
       ]
     },
     {

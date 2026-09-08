@@ -427,8 +427,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   동등성을 제공하며, `AzureBlobDecisionEvidenceAdmissionProvider`는 배포 조립에서 Managed
   Identity로 보호된 변경 불가능한 기록을 읽습니다. 두 공급자는 조회할 때마다 정확한 근거,
   범위, 목적, 출처 개정, 증명 묶음, 검증기 분리 및 만료를 다시 검증합니다. 기록이 없으면
-  승인 결과를 반환하지 않고 잘못된 기록은 명시적으로 실패하며, 실행 또는 승격 권한을
-  부여하지 않습니다.
+  보호된 축약기는 권위, 생성기, 방법, 최신성, 검증기 및 신뢰 앵커를
+  `config/decision-evidence-deployment-policy.json`에서만 로드합니다. 근거 산출물은 자신의
+  수락 기준을 정의할 수 없습니다. 기록이 없으면 승인 결과를 반환하지 않고 잘못된 기록은
+  명시적으로 실패하며, 실행 또는 승격 권한을 부여하지 않습니다.
 - **Operational catalog 검토 및 측정**: `DeterministicCatalogValidator`는 고정 시나리오 디렉터리에서
   제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.

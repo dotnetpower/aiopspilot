@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from fdai.core.readiness.decision_evidence import DecisionEvidenceReadinessGate
+from fdai.delivery.decision_evidence_policy import (
+    DeploymentDecisionEvidencePolicy,
+    deployment_freshness_policy_digest,
+    load_deployment_decision_evidence_policy,
+)
 from fdai.delivery.persistence.state_store_decision_evidence import (
     RetainedDecisionEvidence,
     decision_evidence_record_mapping,
@@ -57,6 +62,7 @@ async def build_decision_evidence_artifacts(
     authentication_proof: DecisionEvidenceVerificationProof,
     readback_proofs: tuple[DecisionEvidenceVerificationProof, ...],
     evaluated_at: datetime,
+    policy: DeploymentDecisionEvidencePolicy,
 ) -> tuple[DecisionEvidenceVerificationBundle, dict[str, object]]:
     """Validate five proofs and return their bundle plus immutable admission record."""
 
@@ -75,6 +81,14 @@ async def build_decision_evidence_artifacts(
     verifier_id = next(iter(verifier_ids))
     verifier_version = next(iter(verifier_versions))
     trust_anchor_id = next(iter(trust_anchor_ids))
+    _validate_trusted_policy(
+        receipt=receipt,
+        requirement=requirement,
+        verifier_id=verifier_id,
+        verifier_version=verifier_version,
+        trust_anchor_id=trust_anchor_id,
+        policy=policy,
+    )
     bundle = DecisionEvidenceVerificationBundle.create(
         receipt_digest=receipt.receipt_digest,
         verifier_id=verifier_id,
@@ -121,6 +135,70 @@ async def build_decision_evidence_artifacts(
     return result.verification_bundle, record
 
 
+def _validate_trusted_policy(
+    *,
+    receipt: DecisionCriticalEvidenceReceipt,
+    requirement: LiveEvidenceClaimRequirement,
+    verifier_id: str,
+    verifier_version: str,
+    trust_anchor_id: str,
+    policy: DeploymentDecisionEvidencePolicy,
+) -> None:
+    static_receipt = (
+        receipt.authority_class,
+        receipt.purpose_id,
+        receipt.producer_id,
+        receipt.producer_version,
+        receipt.method_id,
+        receipt.method_version,
+        receipt.freshness_policy_id,
+        receipt.freshness_policy_version,
+        receipt.freshness_ceiling_seconds,
+        receipt.freshness_policy_digest,
+    )
+    static_policy = (
+        policy.authority_class,
+        policy.purpose_id,
+        policy.producer_id,
+        policy.producer_version,
+        policy.method_id,
+        policy.method_version,
+        policy.freshness_policy_id,
+        policy.freshness_policy_version,
+        policy.freshness_ceiling_seconds,
+        deployment_freshness_policy_digest(policy),
+    )
+    if static_receipt != static_policy:
+        raise DecisionEvidenceBundleError(
+            "decision evidence receipt does not match the trusted policy"
+        )
+    if (
+        requirement.allowed_authority_classes != (policy.authority_class,)
+        or requirement.allowed_source_identities != (receipt.source_identity,)
+        or requirement.scope_digest != receipt.scope_digest
+        or requirement.purpose_id != policy.purpose_id
+        or requirement.producer_id != policy.producer_id
+        or requirement.producer_version != policy.producer_version
+        or requirement.method_id != policy.method_id
+        or requirement.method_version != policy.method_version
+        or requirement.source_revision != receipt.source_revision
+        or requirement.freshness_policy_digest != deployment_freshness_policy_digest(policy)
+        or requirement.freshness_ceiling_seconds != policy.freshness_ceiling_seconds
+        or not receipt.source_identity.startswith(policy.source_identity_prefix + ":")
+    ):
+        raise DecisionEvidenceBundleError(
+            "decision evidence requirement does not match the trusted policy"
+        )
+    if (
+        verifier_id != policy.verifier_id
+        or verifier_version != policy.verifier_version
+        or trust_anchor_id != policy.trust_anchor_id
+    ):
+        raise DecisionEvidenceBundleError(
+            "decision evidence verifier does not match the trusted policy"
+        )
+
+
 def _load(path: Path) -> Any:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_INPUT_BYTES:
         raise DecisionEvidenceBundleError("decision evidence input MUST be a bounded regular file")
@@ -149,6 +227,7 @@ async def _run(args: argparse.Namespace) -> None:
     try:
         receipt = DecisionCriticalEvidenceReceipt.model_validate(_load(args.receipt))
         requirement = LiveEvidenceClaimRequirement.model_validate(_load(args.requirement))
+        policy = load_deployment_decision_evidence_policy(args.policy)
         authentication = DecisionEvidenceVerificationProof.model_validate(
             _load(args.authentication_proof)
         )
@@ -176,6 +255,7 @@ async def _run(args: argparse.Namespace) -> None:
         authentication_proof=authentication,
         readback_proofs=readback_proofs,
         evaluated_at=evaluated_at,
+        policy=policy,
     )
     _write(args.output_bundle, bundle.model_dump(mode="json"))
     _write(args.output_record, record)
@@ -190,6 +270,7 @@ def main() -> int:
     parser.add_argument("--authentication-proof", type=Path, required=True)
     parser.add_argument("--readback-proofs", type=Path, required=True)
     parser.add_argument("--evaluated-at", required=True)
+    parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--output-bundle", type=Path, required=True)
     parser.add_argument("--output-record", type=Path, required=True)
     args = parser.parse_args()

@@ -11,6 +11,9 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from fdai.delivery.decision_evidence_policy import (
+    load_deployment_decision_evidence_policy,
+)
 from fdai_service_contracts.decision_evidence_verification import (
     EvidenceVerificationProofKind,
 )
@@ -24,6 +27,11 @@ _PLAN_DIGEST = "b" * 64
 _CONTEXT_DIGEST = "c" * 64
 _RUN_ID = 123
 _RUN_ATTEMPT = 1
+_POLICY_PATH = _ROOT / "config/decision-evidence-deployment-policy.json"
+
+
+def _policy():
+    return load_deployment_decision_evidence_policy(_POLICY_PATH)
 
 
 @pytest.fixture(scope="module")
@@ -109,6 +117,7 @@ def test_builds_five_non_authorizing_proofs(
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW,
+            policy=_policy(),
         )
     )
 
@@ -132,6 +141,7 @@ def test_rejects_source_run_mismatch(verifier: ModuleType, tmp_path: Path) -> No
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW,
+            policy=_policy(),
         )
 
 
@@ -150,6 +160,7 @@ def test_rejects_source_run_from_non_main_branch(
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW,
+            policy=_policy(),
         )
 
 
@@ -162,6 +173,7 @@ def test_rejects_non_applied_receipt(verifier: ModuleType, tmp_path: Path) -> No
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW,
+            policy=_policy(),
         )
 
 
@@ -174,6 +186,7 @@ def test_rejects_stale_deployment_evidence(verifier: ModuleType, tmp_path: Path)
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW + timedelta(hours=2),
+            policy=_policy(),
         )
 
 
@@ -210,4 +223,5 @@ def test_rejects_symlinked_source_artifact(
             expected_run_id=_RUN_ID,
             expected_run_attempt=_RUN_ATTEMPT,
             evaluated_at=_NOW,
+            policy=_policy(),
         )

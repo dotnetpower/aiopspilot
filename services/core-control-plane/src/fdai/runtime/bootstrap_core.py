@@ -236,7 +236,6 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
-    container = bind_decision_evidence_admission(container, state_store=state_store)
     decision_evidence_container_url = environment.get(
         "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
         "",
@@ -252,6 +251,13 @@ async def build_core_runtime(
             identity=identity,
             http_client=resources.http_client,
         )
+    elif environment.get("FDAI_EXECUTION_VENUE", "").strip().casefold() == "deployed":
+        _LOGGER.warning(
+            "decision_evidence_admission_unavailable",
+            extra={"reason": "private_container_unbound"},
+        )
+    else:
+        container = bind_decision_evidence_admission(container, state_store=state_store)
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     if gitops_delivery_requested:

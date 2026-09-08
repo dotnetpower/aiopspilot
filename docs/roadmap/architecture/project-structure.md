@@ -434,8 +434,10 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   durable runtime parity, while `AzureBlobDecisionEvidenceAdmissionProvider` reads immutable
   managed-identity-protected records in deployed composition. Both providers revalidate the exact
   evidence, scope, purpose, source revision, proof bundle, verifier separation, and expiry on every
-  lookup. Missing records return no admission, malformed records fail explicitly, and neither
-  provider grants execution or promotion authority.
+  lookup. The protected reducer loads authority, producer, method, freshness, verifier, and trust
+  anchor only from `config/decision-evidence-deployment-policy.json`; evidence artifacts cannot
+  define their own acceptance criteria. Missing records return no admission, malformed records fail
+  explicitly, and neither provider grants execution or promotion authority.
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
