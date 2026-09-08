@@ -617,16 +617,30 @@ jobs:
           role_assignment_id() {
             local scope="$1"
             local role="$2"
-            az role assignment list --scope "$scope" --assignee "$inventory_principal" \
+            local principal="$3"
+            [ -z "$scope" ] && return 0
+            [ -z "$principal" ] && return 0
+            az role assignment list --scope "$scope" --assignee "$principal" \
               --query "[?roleDefinitionName=='$role'].id | [0]" -o tsv 2>/dev/null || true
           }
 
           import_if_missing 'azurerm_role_assignment.inventory_reader' \
-            "$(role_assignment_id "$subscription_scope" 'Reader')"
+            "$(role_assignment_id "$subscription_scope" 'Reader' "$inventory_principal")"
           import_if_missing 'azurerm_role_assignment.inventory_acr_pull' \
-            "$(role_assignment_id "$acr_scope" 'AcrPull')"
+            "$(role_assignment_id "$acr_scope" 'AcrPull' "$inventory_principal")"
           import_if_missing 'azurerm_role_assignment.inventory_eventhubs_sender' \
-            "$(role_assignment_id "$eventhubs_scope" 'Azure Event Hubs Data Sender')"
+            "$(role_assignment_id "$eventhubs_scope" 'Azure Event Hubs Data Sender' "$inventory_principal")"
+
+          if [[ "$TF_VAR_enable_operational_history" == "true" ]]; then
+            operational_history_scope="$(
+              terraform console \
+                <<< 'try(module.operational_history_storage[0].id, "")' |
+                tr -d '"'
+            )"
+            import_if_missing \
+              'module.operational_history_storage[0].azurerm_role_assignment.terraform_runner_data_owner[0]' \
+              "$(role_assignment_id "$operational_history_scope" 'Storage Blob Data Owner' "$DEPLOY_RUNNER_PRINCIPAL_ID")"
+          fi
 
           if [ "${TF_VAR_enable_llm}" = "true" ]; then
             import_if_missing 'module.llm_azure_openai[0].azurerm_cognitive_account.primary' \

@@ -286,12 +286,12 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 16 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `fdai.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 | 17 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**opt-in**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, capacity `1`; manual Consumption Job | bounded non-production target and normal-ingress shadow proposal for governed `ops.scale-out` evidence | dev, private networking, and the operations gateway are required; the deployment supplies an exact region-available image version and rejects mutable `latest`; a dedicated `/27` subnet has no public IP; the proposal UAMI has only ACR pull and primary Event Hub send; protected provider staging may increase capacity only to `2` before verified rollback |
-The protected `history-` request mode targets only the operational-history and decision-evidence
-storage, their private endpoints and read-only binding, and the independently declared root Job. Exact apply is re-dispatched by the bot-owned
-protected-operation workflow so the maintainer remains a distinct Environment approver. Stable resource
-IDs and the versionless Key Vault secret URI exclude unrelated compute drift. During a repository-bound
-deploy UAMI handoff, the same-scope archive `Storage Blob Data Owner` assignment is created before the
-old one is removed; all other replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan so later plans preserve these resources.
+The protected `history-` request mode targets only the operational-history and decision-evidence storage,
+their private endpoints and read-only binding, and the independently declared root Job. Exact apply is
+re-dispatched by the bot-owned protected-operation workflow so the maintainer remains a distinct Environment
+approver. Stable resource IDs and the versionless Key Vault secret URI exclude unrelated compute drift. The
+deploy UAMI assignment is additive; if it exists outside Terraform state, the plan imports it only after its
+storage scope, principal, and role match. Replacements remain blocked. Set `ENABLE_OPERATIONAL_HISTORY=true` before the initial plan.
 The local parity profile starts the same five service packages against loopback PostgreSQL and
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed
