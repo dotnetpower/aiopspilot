@@ -24,7 +24,8 @@ operator pins `FDAI_OPERATING_INTENT_SOURCE_REVISION` and `FDAI_OPERATING_INTENT
 once, out of band, after review - mirroring the frozen `configuration_drift` baseline precedent.
 That digest covers the whole document, provenance included, so rewriting any provenance field, or
 forward-dating a retrieval to defeat the freshness check, fails the pin exactly like editing an
-objective.
+objective. Configuration and durable admission records accept only `sha256:` followed by 64
+lowercase hexadecimal characters.
 
 The pin is only as honest as the parser under it. The intent-source parser therefore rejects any
 member it does not recognize - at the document, `provenance`, object, and link level - so every
@@ -149,6 +150,7 @@ racing.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Enforced lowercase hexadecimal SHA-256 syntax at both configured-binding and durable-admission boundaries. | `current change`; focused binding and admission regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Rejected every ObjectType outside the exact six-type operating-intent inventory so the dedicated source cannot project unrelated graph objects. | `current change`; focused source-admission regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Kept older replicas fenced when a newer-generation admission has an invalid validity window or future proof time. | `current change`; focused rolling-replica regression tests. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Rejected future-dated durable admissions so clock skew cannot produce a negative age that extends authority. | `current change`; focused admission regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |

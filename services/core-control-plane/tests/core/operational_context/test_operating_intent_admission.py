@@ -150,6 +150,7 @@ def test_a_foreign_binding_or_generation_denies(overrides: dict[str, object]) ->
         {"status": "projected"},
         {"source_revision": ""},
         {"snapshot_digest": "not-a-digest"},
+        {"snapshot_digest": f"sha256:{'g' * 64}"},
         {"binding_generation": 0},
         {"binding_generation": True},
         {"binding_generation": "2"},
@@ -198,6 +199,7 @@ def test_naive_now_is_rejected() -> None:
     [
         ({"expected_revision": " "}, "non-empty"),
         ({"expected_sha256": "not-a-digest"}, "SHA-256"),
+        ({"expected_sha256": f"sha256:{'g' * 64}"}, "SHA-256"),
         ({"generation": 0}, ">= 1"),
         ({"generation": True}, "integer"),
     ],

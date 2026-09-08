@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: 7d12d1cf5f98e3964f4d55074e4f512566d606ed
+translation_source_sha: ab07e32b41b43c44f833534896b9c7c1c2cfea21
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -25,6 +25,7 @@ replica 사이의 투영을 직렬화하는 잠금이 여기에 속합니다.
 out-of-band로 한 번 고정합니다. 이는 고정된 `configuration_drift` 기준선 선례를 따릅니다. 이 digest는
 provenance를 포함한 문서 전체를 덮으므로, provenance 필드를 고쳐 쓰거나 신선도 검사를 회피하려고
 조회 시각을 미래로 당겨 적으면 objective를 수정한 것과 똑같이 고정값 검사에서 실패합니다.
+구성과 durable 승인 record는 `sha256:` 뒤에 소문자 16진수 64자가 오는 형식만 수락합니다.
 
 고정값은 그 아래 파서만큼만 정직합니다. 그래서 intent 출처 파서는 문서, `provenance`, 객체, 링크
 어느 수준에서든 인식하지 못하는 멤버를 거부하고, 수용된 모든 멤버가 digest에 포함되도록 보장합니다.

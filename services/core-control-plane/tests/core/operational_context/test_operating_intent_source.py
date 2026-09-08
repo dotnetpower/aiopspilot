@@ -339,6 +339,14 @@ def test_binding_rejects_malformed_sha256() -> None:
         OperatingIntentSourceBinding(expected_revision=_REVISION, expected_sha256="not-a-digest")
 
 
+def test_binding_rejects_non_hex_digest() -> None:
+    with pytest.raises(ValueError, match="SHA-256"):
+        OperatingIntentSourceBinding(
+            expected_revision=_REVISION,
+            expected_sha256=f"sha256:{'g' * 64}",
+        )
+
+
 def test_binding_rejects_empty_revision() -> None:
     with pytest.raises(ValueError, match="expected_revision"):
         OperatingIntentSourceBinding(

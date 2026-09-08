@@ -17,6 +17,7 @@ that anchors the second axis, so neither axis can be rewritten without failing t
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -28,6 +29,8 @@ from fdai.shared.providers.operating_model import (
     OperatingIntentSourceProvenance,
     operating_intent_source_document_digest,
 )
+
+_SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class OperatingIntentSourceError(RuntimeError):
@@ -61,7 +64,7 @@ class OperatingIntentSourceBinding:
     def __post_init__(self) -> None:
         if not self.expected_revision.strip():
             raise ValueError("OperatingIntentSourceBinding.expected_revision MUST be non-empty")
-        if not self.expected_sha256.startswith("sha256:") or len(self.expected_sha256) != 71:
+        if _SHA256.fullmatch(self.expected_sha256) is None:
             raise ValueError("OperatingIntentSourceBinding.expected_sha256 MUST be SHA-256")
         for object_type, count in self.expected_instance_counts.items():
             if object_type not in REQUIRED_OPERATING_INTENT_OBJECT_TYPES:

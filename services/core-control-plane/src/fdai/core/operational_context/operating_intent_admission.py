@@ -39,12 +39,15 @@ its own.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
 from fdai.shared.providers.state_store import StateStore
+
+_SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 OPERATING_INTENT_SOURCE_ADMISSION_KEY = "operating-intent-source:admission"
 """Durable state key holding the most recent operating-intent source admission."""
@@ -97,7 +100,7 @@ class OperatingIntentAdmissionExpectation:
             raise ValueError(
                 "OperatingIntentAdmissionExpectation.expected_revision MUST be non-empty"
             )
-        if not self.expected_sha256.startswith("sha256:") or len(self.expected_sha256) != 71:
+        if _SHA256.fullmatch(self.expected_sha256) is None:
             raise ValueError("OperatingIntentAdmissionExpectation.expected_sha256 MUST be SHA-256")
         if isinstance(self.generation, bool) or not isinstance(self.generation, int):
             raise ValueError("OperatingIntentAdmissionExpectation.generation MUST be an integer")
@@ -189,11 +192,7 @@ def evaluate_operating_intent_admission(
     snapshot_digest = raw.get("snapshot_digest")
     if not isinstance(source_revision, str) or not source_revision.strip():
         return _malformed("admitted operating intent admission is missing source_revision")
-    if (
-        not isinstance(snapshot_digest, str)
-        or not snapshot_digest.startswith("sha256:")
-        or len(snapshot_digest) != 71
-    ):
+    if not isinstance(snapshot_digest, str) or _SHA256.fullmatch(snapshot_digest) is None:
         return _malformed("admitted operating intent admission is missing a SHA-256 digest")
     generation = raw.get("binding_generation")
     if isinstance(generation, bool) or not isinstance(generation, int) or generation < 1:
