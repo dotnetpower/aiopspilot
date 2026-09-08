@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 14f006c40dcc9bcfcd1911a9535db6894af190ab
+translation_source_sha: 7d63acaf009466945a03fe3c7bedee427142998f
 translation_revised: 2026-09-08
 ---
 # 코드 맵
@@ -324,10 +324,8 @@ WARA 평가 서비스는 이제 평가 전에 적합한 모든 exact-bound 읽�
 일치 행 WARA 평가기가 위반 0건을 충족으로 처리하기 전에 Azure 어댑터는 같은 신원과 제한
 시간을 사용하는 보조 정확한 ID 커버리지 쿼리에서 모든 대상을 관측하도록 요구합니다.
 변경할 수 없는 WARA 요청, 근거, 상태, 컨트롤 및 결과 계약은 `core/wara/models.py`에 있습니다.
-`core/wara/runtime.py`는 결정론적 평가, 관측 수집, 감사 및 게시를 유지하면서 기존 공개 계약을
-다시 내보냅니다. 개별적으로 허용 가능한 증적이 서로 다른 결과를 내면 런타임은
-`evidence_conflict`를 기록하고 어느 한 결과를 선택하는 대신 컨트롤을 `not_evaluated`와
-`unknown` 충족 상태로 유지합니다.
+`core/wara/runtime.py`는 평가, 관측, 감사 및 게시를 유지합니다. 허용 가능한 증적이 서로 다른
+결과를 내면 `evidence_conflict`를 기록하고 `not_evaluated` 및 `unknown` 상태로 유지합니다.
 기본 ControlLoop 조립은 event-time `IncidentRcaContextSource` 하나를 연결합니다. 이벤트의
 인벤토리 세대에서 정확한 프로바이더 신원을 해석하고 bitemporal topology history를 구성하며
 lifecycle Incident 하나를 매칭하고 모든 세대가 일치할 때만 배포 멤버를 허용합니다. 전용 읽기

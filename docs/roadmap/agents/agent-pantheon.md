@@ -692,7 +692,7 @@ LLM bindings; only a few do so in the hot-path.
 | Heimdall | no | no | yes |
 | Vidar | no | no | yes |
 | Var | no | no | yes |
-| Bragi | yes (translator only) | no | yes |
+| Bragi | yes (translator and diagnostic presenter only) | no | yes |
 | Saga | no | no | yes |
 | Mimir | no | no | yes |
 | Muninn | no | no | yes |

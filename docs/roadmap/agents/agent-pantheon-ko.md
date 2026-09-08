@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7d5f0076351b856522df67f8c834a08a68c9e257
-translation_revised: 2026-09-06
+translation_source_sha: 9bace1a77dfeb260e936520e1fc714fc2714bc28
+translation_revised: 2026-09-08
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -682,7 +682,7 @@ bindings 를 사용할 수 있지만, 소수만 hot-path 에서 그렇게 한다
 | Heimdall | no | no | yes |
 | Vidar | no | no | yes |
 | Var | no | no | yes |
-| Bragi | yes (translator 만) | no | yes |
+| Bragi | yes (번역 및 진단 표시 전용) | no | yes |
 | Saga | no | no | yes |
 | Mimir | no | no | yes |
 | Muninn | no | no | yes |
