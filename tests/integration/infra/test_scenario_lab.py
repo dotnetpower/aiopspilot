@@ -153,7 +153,12 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "Terraform apply diagnostic addresses:" in workflow
     assert "Terraform apply diagnostic Azure codes:" in workflow
     assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
+    assert "Terraform plan diagnostic categories:" in workflow
+    assert "Terraform plan diagnostic addresses:" in workflow
+    assert "Terraform plan diagnostic Azure codes:" in workflow
+    assert 'print_plan_diagnostic "$plan_log"' in workflow
     assert 'cat "$RUNNER_TEMP/sre-demo-lab-apply.log"' not in workflow
+    assert 'cat "$plan_log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
     assert '"field\\t\\($address)\\t\\($path | map(tostring) | join("."))"' in workflow
     assert '"before_value"' not in workflow
@@ -227,6 +232,44 @@ def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path
     assert "private deployment value" not in result.stdout
     assert "/subscriptions/" not in result.stdout
     assert "resourceGroups" not in result.stdout
+
+
+def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    script_match = re.search(
+        r'python3 - "\$1" <<\'PY_PLAN\'\n(?P<script>.*?)\n          PY_PLAN',
+        workflow,
+        re.DOTALL,
+    )
+    assert script_match is not None
+    script = "\n".join(
+        line.removeprefix("          ") for line in script_match.group("script").splitlines()
+    )
+    raw_log = tmp_path / "plan.log"
+    raw_log.write_text(
+        "Error: retrieving private deployment value: "
+        'Code="RequestDisallowedByPolicy" Message="private resource name"\n\n'
+        "  with module.private.azurerm_private_endpoint.azure_openai,\n"
+        '  on data-services.tf line 128, in resource "azurerm_private_endpoint" "azure_openai":\n',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and extracted repository script.
+        [sys.executable, "-", str(raw_log)],
+        input=script,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "provider_read" in result.stdout
+    assert "request_disallowed_by_policy" in result.stdout
+    assert "module.private.azurerm_private_endpoint.azure_openai" in result.stdout
+    assert "RequestDisallowedByPolicy" in result.stdout
+    assert "private deployment value" not in result.stdout
+    assert "private resource name" not in result.stdout
 
 
 def test_runner_scripts_fail_before_external_commands_without_authority() -> None:

@@ -65,7 +65,9 @@ Resource Manager access token.
 Run [.github/workflows/sre-demo-lab.yml](../../.github/workflows/sre-demo-lab.yml) from an exact
 commit already present on protected `main`:
 
-1. Run `action=plan` and review the resource counts and any quota or policy failures.
+1. Run `action=plan` and review the resource counts and any quota or policy failures. A failed plan
+   reports only allowlisted diagnostic categories, Terraform addresses, and Azure error codes. The
+   raw provider log stays runner-local and is shredded during cleanup.
 2. Run `action=apply` with an RFC 3339 `expires_at_utc`. The protected environment approval gates
    the apply, and the workflow refuses delete or replacement actions.
 3. Set `run_reference_sweep=true` only with a current `approval_ref`. The workflow prepares the
