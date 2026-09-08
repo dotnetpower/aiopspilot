@@ -20,6 +20,10 @@ on:
         description: "Successful deploy-dev workflow run attempt."
         type: string
         required: true
+      plan_id:
+        description: "Exact protected plan id consumed by the source deployment."
+        type: string
+        required: true
 
 permissions:
   actions: read
@@ -65,11 +69,13 @@ jobs:
           TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          PLAN_ID: ${{ inputs.plan_id }}
         run: |
           set -euo pipefail
           [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
           [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
@@ -91,13 +97,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          PLAN_ID: ${{ inputs.plan_id }}
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" \
             > "$RUNNER_TEMP/source-run.json"
           gh run download "$SOURCE_RUN_ID" \
             --attempt "$SOURCE_RUN_ATTEMPT" \
-            --name "governed-deployment-evidence-candidate-${SOURCE_RUN_ID}-${SOURCE_RUN_ATTEMPT}" \
+            --name "deployment-apply-receipt-${PLAN_ID}" \
             --dir "$RUNNER_TEMP/source-evidence"
 
       - name: Install pinned uv

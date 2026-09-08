@@ -2268,50 +2268,28 @@ jobs:
             --name "${TF_VAR_env}/${APPLY_PLAN_ID}/apply-receipt.json" \
             --file apply-receipt.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
-          echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Prepare governed decision evidence candidate
-        if: ${{ inputs.apply && success() }}
-        id: decision_evidence_candidate
-        run: |
-          set -euo pipefail
+          candidate="$RUNNER_TEMP/deployment-apply-artifact"
           container_url="$(terraform output -raw operational_history_container_url 2>/dev/null || true)"
-          if [[ -z "$container_url" ]]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Decision evidence candidate skipped: governed storage is unavailable." \
-              >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [[ -n "$container_url" ]]; then
+            python3 ../scripts/deployment/azure/prepare_decision_evidence_candidate.py \
+              --plan-metadata plan-metadata.json --preflight-evidence plan-preflight-evidence.json \
+              --azure-preflight-evidence plan-azure-preflight-evidence.json \
+              --apply-claim apply-claim.json --apply-receipt apply-receipt.json \
+              --container-url "$container_url" --output "$candidate"
+          else
+            mkdir -m 0700 "$candidate"
+            install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
           fi
-          candidate="$RUNNER_TEMP/governed-deployment-evidence-candidate"
-          mkdir "$candidate"
-          install -m 0600 plan-metadata.json "$candidate/plan-metadata.json"
-          install -m 0600 plan-preflight-evidence.json "$candidate/preflight-evidence.json"
-          install -m 0600 plan-azure-preflight-evidence.json \
-            "$candidate/azure-preflight-evidence.json"
-          install -m 0600 apply-claim.json "$candidate/apply-claim.json"
-          install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
-          printf '%s\n' "$container_url" \
-            > "$candidate/decision-evidence-container-url.txt"
-          chmod 0600 "$candidate/decision-evidence-container-url.txt"
-          echo "enabled=true" >> "$GITHUB_OUTPUT"
-
-      - name: Upload governed decision evidence candidate
-        if: ${{ steps.decision_evidence_candidate.outputs.enabled == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: governed-deployment-evidence-candidate-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/governed-deployment-evidence-candidate
-          if-no-files-found: error
-          retention-days: 90
+          echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish sanitized apply receipt
         if: ${{ inputs.apply && success() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-apply-receipt-${{ inputs.plan_id }}
-          path: infra/apply-receipt.json
+          path: ${{ runner.temp }}/deployment-apply-artifact
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 90
 
       - name: Publish and verify console
         if: ${{ inputs.apply && inputs.deploy_console }}
