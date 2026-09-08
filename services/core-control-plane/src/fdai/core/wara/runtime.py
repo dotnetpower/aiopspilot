@@ -187,19 +187,27 @@ class WaraAssessmentRuntime:
             )
 
         outcomes = {item.outcome for item in admitted}
-        if outcomes == {WaraSatisfactionStatus.NOT_APPLICABLE}:
+        if len(outcomes) > 1:
+            limitations.append("evidence_conflict")
+            satisfaction = WaraSatisfactionStatus.UNKNOWN
+            evaluation = WaraEvaluationStatus.NOT_EVALUATED
+        elif outcomes == {WaraSatisfactionStatus.NOT_APPLICABLE}:
             applicability = WaraApplicabilityStatus.NOT_APPLICABLE
             satisfaction = WaraSatisfactionStatus.NOT_APPLICABLE
+            evaluation = WaraEvaluationStatus.EVALUATED
         elif outcomes == {WaraSatisfactionStatus.SATISFIED}:
             satisfaction = WaraSatisfactionStatus.SATISFIED
+            evaluation = WaraEvaluationStatus.EVALUATED
         elif WaraSatisfactionStatus.FAILED in outcomes:
             satisfaction = WaraSatisfactionStatus.FAILED
+            evaluation = WaraEvaluationStatus.EVALUATED
         else:
             satisfaction = WaraSatisfactionStatus.UNKNOWN
+            evaluation = WaraEvaluationStatus.EVALUATED
         return _control_result(
             record,
             applicability,
-            WaraEvaluationStatus.EVALUATED,
+            evaluation,
             satisfaction,
             admitted,
             limitations,

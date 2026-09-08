@@ -177,6 +177,26 @@ def test_incomplete_stale_failed_or_synthetic_evidence_stays_unknown(
     assert limitation in control.limitations
 
 
+def test_conflicting_admitted_outcomes_stay_unknown() -> None:
+    runtime, catalog, record = _runtime_and_record()
+    base = replace(_request(record), crosswalk_digest=catalog.crosswalk_digest)
+    satisfied = _admitted_evidence(base, record)
+    failed = replace(
+        satisfied,
+        evidence_ref="evidence:manual-review-2",
+        evidence_digest="sha256:" + "b" * 64,
+        outcome=WaraSatisfactionStatus.FAILED,
+    )
+
+    result = runtime.assess(replace(base, evidence=(satisfied, failed)))
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+
+    assert control.evaluation is WaraEvaluationStatus.NOT_EVALUATED
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
+    assert control.evidence_complete is False
+    assert "evidence_conflict" in control.limitations
+
+
 def test_missing_resource_never_becomes_not_applicable() -> None:
     runtime, catalog, record = _runtime_and_record()
     request = replace(

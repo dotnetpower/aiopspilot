@@ -330,7 +330,9 @@ requires a companion exact-id coverage query to observe every target under the s
 deadline.
 Immutable WARA request, evidence, status, control, and result contracts live in
 `core/wara/models.py`. `core/wara/runtime.py` retains deterministic evaluation, observation
-collection, audit, and publication while re-exporting the established public contracts.
+collection, audit, and publication while re-exporting the established public contracts. When
+individually admissible receipts disagree, the runtime records `evidence_conflict` and keeps the
+control `not_evaluated` with `unknown` satisfaction instead of selecting either outcome.
 Default ControlLoop assembly now binds one event-time `IncidentRcaContextSource`. It resolves exact
 provider identity from the event's inventory generation, materializes bitemporal topology history,
 matches one lifecycle Incident, and admits deployment members only when all generations agree.
