@@ -1,8 +1,8 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: 7a24db8a887ac07495debf22777bb98b5d244f2a
-translation_revised: 2026-09-05
+translation_source_sha: dcf1a8dff3bd3df9cff6d27c952cc49609322209
+translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
 
@@ -71,7 +71,8 @@ Stale 판정은 혼동해서는 안 되는 독립적인 두 축을 씁니다. �
 수행합니다. 각 재검증은 고정된 개정 번호, 문서 전체 digest, 검증 시각, 그리고 그 승인이 권한을
 뒷받침할 수 있는 유효 기간을 담은 durable한 승인 기록을 남깁니다. 유효 기간은 재검증 간격의
 배수이므로 한 번 늦은 재검증이 곧바로 권한을 회수하지는 않지만, 멈추었거나 계속 실패하는 worker는
-추가 조치 없이 승인을 만료시킵니다.
+추가 조치 없이 승인을 만료시킵니다. 판단 시각보다 이후인 검증 시각은 형식 오류로 처리하며 권한을
+부여하지 않습니다.
 
 실패한 재검증은 삭제가 아니라 격리입니다. 투영된 객체는 증거와 이력으로 계속 읽을 수 있고 intent
 권한만 회수됩니다. 이후 유효한 갱신이 오면 재시작 없이 다시 승인하며, 변경 없이 이미 투영된 문서를

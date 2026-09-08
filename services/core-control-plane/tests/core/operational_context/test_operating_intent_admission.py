@@ -160,6 +160,7 @@ def test_a_foreign_binding_or_generation_denies(overrides: dict[str, object]) ->
         {"owned_object_ids": ["x"] * (MAX_ADMITTED_OBJECT_IDS + 1)},
         {"validated_at": "not-a-timestamp"},
         {"validated_at": "2026-08-27T12:00:00"},
+        {"validated_at": (_NOW + timedelta(seconds=1)).isoformat()},
         {"max_age_seconds": 0},
         {"max_age_seconds": 86_401},
         {"max_age_seconds": True},

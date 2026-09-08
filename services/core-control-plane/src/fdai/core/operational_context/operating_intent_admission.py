@@ -227,6 +227,8 @@ def evaluate_operating_intent_admission(
     ):
         return _malformed("admitted operating intent admission has an unusable max_age_seconds")
     age_seconds = (now - validated_at).total_seconds()
+    if age_seconds < 0:
+        return _malformed("admitted operating intent admission has a future validated_at")
     if age_seconds > max_age_seconds:
         return OperatingIntentAdmission(
             status=OperatingIntentAdmissionStatus.EXPIRED,
