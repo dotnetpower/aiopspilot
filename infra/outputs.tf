@@ -422,6 +422,16 @@ output "operational_history_container_url" {
   value       = length(module.operational_history_storage) > 0 ? module.operational_history_storage[0].container_url : ""
 }
 
+output "decision_evidence_storage_account_name" {
+  description = "Private immutable decision-evidence storage account name."
+  value       = length(module.decision_evidence_storage) > 0 ? module.decision_evidence_storage[0].name : ""
+}
+
+output "decision_evidence_container_url" {
+  description = "Private immutable decision-evidence container URL consumed by Core."
+  value       = length(module.decision_evidence_storage) > 0 ? module.decision_evidence_storage[0].container_url : ""
+}
+
 output "rule_catalog_snapshot_storage_account_name" {
   description = "Private versioned rule-catalog collector snapshot storage account name."
   value = (

@@ -59,7 +59,7 @@ def test_workflow_retains_all_proof_layers_and_attests_record() -> None:
 def test_deploy_workflow_emits_fixed_candidate_artifact() -> None:
     assert 'candidate="$RUNNER_TEMP/deployment-apply-artifact"' in _DEPLOY
     assert "name: deployment-apply-receipt-${{ inputs.plan_id }}" in _DEPLOY
-    assert "terraform output -raw operational_history_container_url" in _DEPLOY
+    assert "terraform output -raw decision_evidence_container_url" in _DEPLOY
     assert "retention-days: 90" in _DEPLOY
     for name in (
         "plan-metadata.json",
