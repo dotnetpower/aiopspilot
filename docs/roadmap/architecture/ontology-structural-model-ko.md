@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: f7e219ea249f1feb63cc53e8c7a113d56e2cfaa0
+translation_source_sha: 8c6aee83153ad1c44ceefe3b881354ec6cedf0ab
 translation_revised: 2026-09-09
 ---
 # 온톨로지 구조 모델
@@ -131,6 +131,9 @@ writer가 리소스와 독립적으로 검증된 링크를 원자적으로 승�
 API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되지 않으면 명시적인 사용
 불가 상태를 기록합니다. 카탈로그 선언은 계속 의미만 정의하며 관찰 또는 실행 권한을 부여하지
 않습니다.
+PostgreSQL 인스턴스 저장소 파사드는 순수 행 및 인벤토리 매니페스트 검증을 records 모듈에
+위임합니다. 따라서 트랜잭션, 저장 방향, 쿼리 동작 또는 import 호환성을 바꾸지 않고 persistence
+경계를 강제 크기 제한 아래로 유지합니다.
 
 인스턴스 화면은 다른 온톨로지 아이덴티티를 만들지 않고 ResourceType별 읽기 전용 상세 객체를
 연결할 수 있습니다. `llm-model-deployment`에서 Operator 변환 결과는 해당 객체를 정확한

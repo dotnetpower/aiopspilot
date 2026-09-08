@@ -132,6 +132,9 @@ These producers do not infer topology from names alone. The Kubernetes source bi
 cluster Resource identity, keeps namespace and cluster scope checks, and records explicit
 unavailability when the API endpoint, CA bundle, or mounted service-account token is not configured.
 Catalog declarations remain meaning only and never grant observation or execution authority.
+The PostgreSQL instance-store facade delegates pure row and inventory-manifest validation to its
+records module so the persistence boundary remains below its enforced size limit without changing
+transactions, stored direction, query behavior, or import compatibility.
 
 An instance presentation can attach a ResourceType-specific read-only detail object without
 creating another ontology identity. For `llm-model-deployment`, the Operator projection binds that

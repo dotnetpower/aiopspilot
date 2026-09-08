@@ -20,10 +20,13 @@ from fdai.delivery.persistence.postgres_ontology_graph import (
     _traverse,
 )
 from fdai.delivery.persistence.postgres_ontology_records import (
+    _inventory_manifest_object_ids,
+    _inventory_state_base_available,
     _link_from_row,  # noqa: F401
     _object_from_row,
     _require_projection_revision,
     _require_type_ref,
+    _unavailable_inventory_projection_status,
     _validate_limit,
 )
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
@@ -780,43 +783,6 @@ class PostgresOntologyInstanceStore:
     async def _set_timeout(self, connection: psycopg.AsyncConnection[Any]) -> None:
         timeout = int(self._config.statement_timeout_ms)
         await connection.execute(f"SET LOCAL statement_timeout = {timeout}")
-
-
-def _inventory_state_base_available(
-    manifest: Mapping[str, Any],
-    status: Mapping[str, Any],
-    *,
-    expected_generation: str,
-) -> bool:
-    if manifest.get("generation") != expected_generation or manifest.get("complete") is not True:
-        return False
-    return (
-        status.get("generation") == expected_generation
-        and status.get("status") == "available"
-        and status.get("complete") is True
-    ) or _unavailable_inventory_projection_status(status)
-
-
-def _unavailable_inventory_projection_status(value: object) -> bool:
-    return (
-        isinstance(value, Mapping)
-        and value.get("status") == "unavailable"
-        and value.get("complete") is False
-    )
-
-
-def _inventory_manifest_object_ids(manifest: Mapping[str, Any]) -> frozenset[str]:
-    content = manifest.get("object_content")
-    if not isinstance(content, list):
-        raise ValueError("inventory ontology manifest object ownership is unavailable")
-    identifiers: list[str] = []
-    for item in content:
-        if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
-            raise ValueError("inventory ontology manifest object ownership is malformed")
-        identifiers.append(str(item["id"]))
-    if len(identifiers) != len(set(identifiers)):
-        raise ValueError("inventory ontology manifest object ownership is duplicated")
-    return frozenset(identifiers)
 
 
 __all__ = ["PostgresOntologyInstanceStore", "PostgresOntologyInstanceStoreConfig"]
