@@ -17,11 +17,10 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert '"Authorization": "Bearer " + os.environ["GITHUB_TOKEN"]' in workflow
     assert "install-pinned-github-cli.sh" not in workflow
     assert "login-deploy-identity.sh" in workflow
-    assert "exactly one development Key Vault must match the FDAI tags" in workflow
-    assert "az keyvault show" in workflow
-    assert '--name "$vault_name" --subscription "$ARM_SUBSCRIPTION_ID"' in workflow
-    assert "'.rbac == true and .public == \"Disabled\"'" in workflow
-    assert "the selected development Key Vault is not private and RBAC-enabled" in workflow
+    assert "exactly one deployment-owned development Key Vault" in workflow
+    assert "az keyvault show" not in workflow
+    assert "az resource show" not in workflow
+    assert "az rest --method GET" not in workflow
     assert "materialize_channel_edge_secrets.py" in workflow
     assert "shred --force --remove" in workflow
     assert "actions: write" not in workflow
