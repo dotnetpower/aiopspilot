@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 5e3e8e4a9d577973e218e54083f63f05d40cbb6d
+translation_source_sha: 48d5ee5b749389a8839dcda091d06c51d7910fb9
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -46,6 +46,7 @@ translation_revised: 2026-09-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 평가 상세 검증을 원장의 raw 64자 SHA-256 형식에 맞추고 의미 요청 및 결과 읽기를 인덱스가 있는 key 계열로 제한했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 상세 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 유효한 보존 평가 딥 링크가 200행으로 제한된 목록 변환 결과보다 오래된 평가도 principal 범위 상세 endpoint에서 조회하게 했습니다. | `current change`, 집중 경로 검사 9개와 Console 타입 검사가 통과했습니다. | 인증된 과거 평가 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | 대화 보증 새로고침에 단조 증가하는 요청 추적을 추가하여 이전 응답이 더 최신 평가 목록을 덮어쓰지 못하게 했습니다. | `current change`, 집중 경로 검사 9개와 Console 타입 검사가 통과했습니다. | 인증된 반복 새로고침 근거는 별도로 보존합니다. |
 | 2026-09-08 | implemented | principal 범위 이의 제기 레코드에서 Console 평가 수명 주기 상태를 파생하여 추가 전용 이의가 있는 평가가 완료로 표시되지 않게 했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 이의 제출 근거는 별도로 보존합니다. |

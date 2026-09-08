@@ -7,13 +7,13 @@ Authority and state: Read-only; dispute writes continue through the existing pro
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, cast
 
 import psycopg
-from fdai_service_contracts.ontology_query import content_digest
 from psycopg.rows import dict_row
 
 from fdai_operator_service.conversation_assurance_diagnostics import pantheon_projection
@@ -200,10 +200,13 @@ class ConversationAssuranceReader:
             ") AS answer "
             "FROM state_kv AS request JOIN state_kv AS result "
             "ON result.value ->> 'request_id' = request.value ->> 'request_id' "
-            "WHERE request.value ->> 'kind' = 'operator.semantic_turn' "
+            "WHERE (request.key LIKE 'operator-semantic-outbox:%' "
+            "OR request.key LIKE 'operator-semantic-namespaced-outbox:%') "
+            "AND request.value ->> 'kind' = 'operator.semantic_turn' "
             "AND request.value ->> 'principal_id' = %s "
             "AND request.value #>> '{envelope,semantic_turn,session_id}' = %s "
             "AND request.value #>> '{envelope,semantic_turn,turn_id}' = %s "
+            "AND result.key LIKE 'operator-semantic-result:%' "
             "AND result.value ->> 'kind' = 'operator.semantic_result' "
             "AND result.value ->> 'principal_id' = %s "
             "ORDER BY result.updated_at DESC, result.key DESC LIMIT 1",
@@ -224,7 +227,7 @@ class ConversationAssuranceReader:
             raise ConversationUnavailableError(
                 "principal-scoped conversation assurance turn is malformed"
             )
-        if content_digest(question) != question_digest or content_digest(answer) != answer_digest:
+        if _content_digest(question) != question_digest or _content_digest(answer) != answer_digest:
             raise ConversationUnavailableError(
                 "principal-scoped conversation assurance turn does not match assessment digests"
             )
@@ -341,6 +344,10 @@ def _assessment(
         "rubric_version": str(row["rubric_version"]),
         "assessed_at": _timestamp(row["assessed_at"]),
     }
+
+
+def _content_digest(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _dispute(row: Mapping[str, object]) -> dict[str, object]:

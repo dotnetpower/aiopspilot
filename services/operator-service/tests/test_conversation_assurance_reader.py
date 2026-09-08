@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,7 +20,6 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     PrincipalScope,
 )
-from fdai_service_contracts.ontology_query import content_digest
 
 
 class RecordingFallback:
@@ -49,8 +49,8 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
         "assessment_id": "assessment-1",
         "turn_id": "turn-1",
         "conversation_id": "conversation-1",
-        "question_digest": content_digest("What changed?"),
-        "answer_digest": content_digest("One database changed."),
+        "question_digest": hashlib.sha256(b"What changed?").hexdigest(),
+        "answer_digest": hashlib.sha256(b"One database changed.").hexdigest(),
         "rubric_version": "1.0.0",
         "state": "completed",
         "decision": {
@@ -125,6 +125,8 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
             return [dispute]
         if "AS question" in statement:
             assert "result.value ->> 'principal_id' = %s" in statement
+            assert "request.key LIKE 'operator-semantic-outbox:%'" in statement
+            assert "result.key LIKE 'operator-semantic-result:%'" in statement
             assert parameters == ("operator-a", "conversation-1", "turn-1", "operator-a")
             return [{"question": "What changed?", "answer": "One database changed."}]
         return [assessment]
@@ -181,8 +183,8 @@ async def test_assurance_turn_detail_rejects_digest_mismatch(monkeypatch: Any) -
             "operator-a",
             conversation_id="conversation-1",
             turn_id="turn-1",
-            question_digest=content_digest("Question"),
-            answer_digest=content_digest("Assessed answer"),
+            question_digest=hashlib.sha256(b"Question").hexdigest(),
+            answer_digest=hashlib.sha256(b"Assessed answer").hexdigest(),
         )
 
 
