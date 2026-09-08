@@ -29,6 +29,8 @@ compatibility imports for deterministic fallback helpers.
 Durable semantic execution claims are lease-bound. A waiting duplicate can recover an expired claim
 instead of remaining blocked behind a failed worker until the request deadline. Store failure keeps
 the turn held rather than raising an untyped transport error.
+Core-owned partial indexes support the Operator claim ordering and principal-plus-request replay
+cursor on the shared `state_kv` table. They change no state or delivery authority.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
 ordinary semantic turn checks its model audience within five seconds and returns a typed hold before
 planning when authentication cannot be verified. Operator persists the first terminal result as
@@ -99,6 +101,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Added Core-owned partial indexes for Operator semantic claim ordering and principal-scoped replay cursors on `state_kv`. | `current change`; focused migration and branch inventory checks passed 65 tests. | Retain PostgreSQL query-plan evidence after local migration. |
 | 2026-09-08 | implemented | Removed the preliminary encode/decode cycle from multiplexed non-request semantic payloads while preserving request codec validation. | `current change`; focused Operator semantic Kafka checks passed 25 tests. | Retain transport CPU measurements separately. |
 | 2026-09-07 | implemented | Added 50 bilingual current-resource SRE candidates covering the 19 generic Azure resource types present in a sanitized inventory review. Registered the source in the federated question bank and regenerated the machine inventory and human review catalog without retaining live resource identities or granting execution authority. | `current change`; `current-resource-sre-questions.source.yaml`; official question-bank generator rendered 400 logical questions from 11 sources; focused question-bank and Golden dataset checks passed 19 cases. | Review semantic expectations, runtime capability bindings, and evidence limitations before promoting any candidate to Golden or Console-visible status. |
 | 2026-09-04 | implemented | Corrected the first object-only change after commit-scoped regression exposed a network-path consumer that needs links without traversal. Added a backward-compatible `include_relationships` option whose default is omitted from serialized definitions, and opted out only for resource-state collection plans. | `current change`; network dependency, legacy serialization, traversal invariant, ObjectSet, and resource-state regressions. | Keep the default relationship behavior until each object-only consumer explicitly proves it does not use links. |

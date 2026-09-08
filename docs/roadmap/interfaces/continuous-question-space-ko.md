@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 411c41aea4ef8ba4283bf5d0d7ad37deff468cec
+translation_source_sha: d359c34f944e15515a7b99840f93946ce400391e
 translation_revised: 2026-09-08
 ---
 # 지속형 질문 공간
@@ -31,6 +31,8 @@ translation_revised: 2026-09-08
 영속 의미 실행 claim에는 lease가 적용됩니다. 대기 중인 중복 요청은 만료된 claim을 복구할 수
 있으므로 실패한 worker 때문에 요청 기한까지 차단되지 않습니다. 저장소 실패는 타입이 없는
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.
+Core 소유 부분 인덱스는 공용 `state_kv` 테이블에서 Operator claim 정렬과
+principal 및 request 범위 replay cursor를 지원합니다. 상태나 전달 권한은 변경하지 않습니다.
 모델 ID만 사용할 수 없을 때는 프로세스 준비 상태가 의미 consumer를 계속 실행합니다. 일반 의미
 turn은 5초 이내에 모델 대상을 확인하고 인증을 검증할 수 없으면 계획 전에 타입이 지정된 보류
 결과를 반환합니다. Operator는 먼저 도착한 최종 결과 하나를 권위 있는 결과로 영속화하고, 시간
@@ -101,6 +103,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | `state_kv`에 Operator 의미 claim 정렬과 principal 범위 replay cursor를 위한 Core 소유 부분 인덱스를 추가했습니다. | `current change`, 집중 migration 및 branch inventory 검사 65개가 통과했습니다. | 로컬 migration 후 PostgreSQL query plan 근거를 보존합니다. |
 | 2026-09-08 | implemented | 다중화된 request 이외 의미 payload의 사전 인코딩 및 디코딩 단계를 제거하면서 request codec 검증을 보존했습니다. | `current change`, 집중 Operator 의미 Kafka 검사 25개가 통과했습니다. | 전송 CPU 측정은 별도로 보존합니다. |
 | 2026-09-07 | implemented | 정제된 인벤토리 검토에 존재하는 일반 Azure 리소스 유형 19개를 다루는 이중 언어 현재 리소스 SRE 후보 50개를 추가했습니다. 실제 리소스 식별자를 보존하거나 실행 권한을 부여하지 않고 원본을 통합 질문은행에 등록하고 기계 판독용 인벤토리와 사람 검토용 카탈로그를 다시 생성했습니다. | `current change`, `current-resource-sre-questions.source.yaml`, 공식 질문은행 생성기가 원본 11개에서 논리 질문 400개 생성, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 후보를 Golden 또는 Console 표시 상태로 승격하기 전에 의미 기대값, 런타임 기능 연결 및 근거 한계를 검토합니다. |
 | 2026-09-04 | implemented | 커밋 범위 회귀 검사에서 탐색 없이 링크가 필요한 네트워크 경로 소비자를 발견한 뒤 첫 객체 전용 변경을 바로잡았습니다. 기본값이 직렬화에서 생략되는 하위 호환 `include_relationships` 선택 항목을 추가하고 리소스 상태 컬렉션 계획에서만 관계를 제외했습니다. | `current change`, 네트워크 의존성, 기존 직렬화, 탐색 불변 조건, ObjectSet 및 리소스 상태 회귀 검사 | 객체 전용 소비자가 링크를 사용하지 않음을 명시적으로 증명할 때까지 기본 관계 동작을 유지합니다. |

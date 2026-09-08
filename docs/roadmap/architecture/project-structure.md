@@ -613,6 +613,8 @@ only when its rule id, action type, and fixed check reference still match.
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
   for the five backend services and TypeScript types for Console. These files are read-only
   development views; runtime validation continues to use the canonical JSON Schema.
+  Core-owned partial indexes on `state_kv` support Operator semantic claim ordering and
+  principal-scoped replay without transferring table ownership.
   `operator-core-request` is at `1.5.0`. Version 1.3 added the server-owned
   `semantic_turn.bound_context`, version 1.4 added the bounded
   `semantic_turn.include_model_trace` opt-in, and version 1.5 added the server-resolved
