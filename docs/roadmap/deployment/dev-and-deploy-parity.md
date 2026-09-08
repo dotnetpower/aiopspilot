@@ -58,7 +58,7 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 |-----------|---------------|--------------|
 | Runtime state store and service integration | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
-| Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
+| Event bus (integration tests) | Redpanda on `:19092` with at least two partitions (Kafka wire) | Event Hubs Kafka on `:9093` with at least two partitions |
 ### Fixed workspace ports
 Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
 on `5474` and starts with the authenticated Console full stack so the in-product help library is
@@ -87,7 +87,9 @@ The task-backed `console: start full stack` supervisor additionally starts Manua
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
 Ingestion API, Document Processing Worker, and Isolated Executor, and local event transport uses Docker
-Redpanda on `127.0.0.1:19092`. A deployed Azure process sets `FDAI_EXECUTION_VENUE=deployed` and uses its
+Redpanda on `127.0.0.1:19092`. Preparation sets a two-partition default and expands the existing
+semantic physical topic when required, matching the deployed Event Hubs floor. A deployed Azure
+process sets `FDAI_EXECUTION_VENUE=deployed` and uses its
 service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state, human identity, or executor authority. Move schema parity through the legacy and five service-owned migrations, then regenerate target Settings, catalog, ontology, and inventory projections from their authoritative inputs. Never clone local `audit_log`, `state_kv`, approvals, idempotency records, leases, or executor receipts into a deployed environment; those records retain the source venue's causality and authority.
 
 The provider-contract Docker job uses only the isolated validation PostgreSQL port `5433` and

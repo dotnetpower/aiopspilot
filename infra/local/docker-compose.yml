@@ -69,6 +69,10 @@ services:
     ports:
       - "127.0.0.1:19092:19092"
       - "127.0.0.1:9644:9644"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - redpandadata:/var/lib/redpanda/data
     healthcheck:

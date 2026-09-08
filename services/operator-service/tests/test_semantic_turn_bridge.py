@@ -2182,6 +2182,54 @@ async def test_outbox_publish_lease_loss_is_retryable() -> None:
     assert await drainer.run_once() is False
 
 
+async def test_outbox_partitions_same_session_together_and_isolates_other_sessions() -> None:
+    class RecordingPublisher:
+        def __init__(self) -> None:
+            self.keys: list[str] = []
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, payload
+            self.keys.append(key)
+            return object()
+
+    store = _MemorySemanticStore()
+    publisher = RecordingPublisher()
+    drainer = SemanticTurnOutboxDrainer(store, publisher, "replica-a")
+    builder = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC))
+
+    async def publish(session_id: str, idempotency_key: str) -> str:
+        proposal = ConversationProposal(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            idempotency_key=idempotency_key,
+            body={"prompt": "Show evidence.", "session_id": session_id},
+        )
+        envelope = builder.build(proposal)
+        await store.append_semantic_turn(
+            principal_id="operator-1",
+            idempotency_key=idempotency_key,
+            request_digest="digest",
+            envelope=envelope,
+        )
+        assert await drainer.run_once() is True
+        return cast(str, envelope["request_id"])
+
+    first_request = await publish("session-a", "turn-a-1")
+    second_request = await publish("session-a", "turn-a-2")
+    other_request = await publish("session-b", "turn-b-1")
+
+    assert publisher.keys[0] == publisher.keys[1]
+    assert publisher.keys[0] != publisher.keys[2]
+    assert all(key.startswith("operator-conversation:") for key in publisher.keys)
+    assert not {first_request, second_request, other_request} & set(publisher.keys)
+    assert all("session-" not in key for key in publisher.keys)
+
+
 async def test_result_consumer_rejects_invalid_codec_payload() -> None:
     store = _MemorySemanticStore()
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
