@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
@@ -41,13 +41,17 @@ export function ConversationAssuranceRoute({
 }) {
   const [state, setState] = useState<AsyncState<ConversationAssurancePayload>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const loadTracker = useRef(createLatestRequestTracker());
   const load = async () => {
+    const request = loadTracker.current.begin();
     try {
       const data = decodeConversationAssurance(await client.panel<unknown>("/conversation-assurance"));
+      if (!loadTracker.current.isCurrent(request)) return;
       setState({ status: "ready", data });
       const requestedTurn = currentRoute().search.get("turn");
       setSelectedId((current) => selectedAssessmentId(data, requestedTurn, current));
     } catch (error) {
+      if (!loadTracker.current.isCurrent(request)) return;
       const unavailable = isOptionalOperatorApiUnavailable(error);
       setState({
         status: unavailable ? "unavailable" : "error",
@@ -77,6 +81,20 @@ export function ConversationAssuranceRoute({
       </AsyncBoundary>
     </div>
   );
+}
+
+export function createLatestRequestTracker(): {
+  readonly begin: () => number;
+  readonly isCurrent: (request: number) => boolean;
+} {
+  let current = 0;
+  return {
+    begin: () => {
+      current += 1;
+      return current;
+    },
+    isCurrent: (request) => request === current,
+  };
 }
 
 export function selectedAssessmentId(

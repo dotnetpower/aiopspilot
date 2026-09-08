@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeAssuranceDetail, decodeConversationAssurance } from "./conversation-assurance.model";
 import {
   assessmentStateKind,
+  createLatestRequestTracker,
   formatPantheonScore,
   pantheonSafetyTone,
   requestedAssessmentUnavailable,
@@ -71,6 +72,15 @@ describe("conversation assurance contracts", () => {
     expect(assessmentStateKind("completed")).toBe("success");
     expect(assessmentStateKind("deferred")).toBe("warning");
     expect(assessmentStateKind("disputed")).toBe("danger");
+  });
+
+  it("rejects an out-of-order assurance refresh result", () => {
+    const tracker = createLatestRequestTracker();
+    const first = tracker.begin();
+    const second = tracker.begin();
+
+    expect(tracker.isCurrent(first)).toBe(false);
+    expect(tracker.isCurrent(second)).toBe(true);
   });
 
   it("decodes a bounded read-mostly projection", () => {

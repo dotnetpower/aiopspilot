@@ -18,6 +18,8 @@ Grounded source controls include primary and secondary evidence-posture labels i
 names so assistive technology receives the same warning as the visible footer.
 Browser-local transcript replay validates and retains an authoritative assessment identity when the
 terminal answer supplies one, while PostgreSQL remains the conversation system of record.
+Conversation assurance list refreshes accept only the latest in-flight response, so a slower earlier
+read cannot replace a newer principal-scoped projection.
 
 ## Dependency-direction gate
 
