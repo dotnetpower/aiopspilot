@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 91a9420b22fc00d53a330c13b8cf12b7d437e91f
-translation_revised: 2026-09-07
+translation_source_sha: 477cace3d218a5b2ff430bb8d327f2760b00bace
+translation_revised: 2026-09-08
 ---
 
 # 계층형 대화 계획
@@ -78,6 +78,9 @@ Gateway preflight 재사용은 명시된 과거 1시간 target을 검증하거�
 서술자만 모델에 전달합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. 서술자 축소는
 기능이나 권한을 부여하지 않습니다. 선택한 모든 선언은 정확한 principal 매니페스트에서 오며 결과
 계획은 기존 검증기를 그대로 통과해야 합니다.
+전체 의미 판단을 실행한 경우 운영 요약 frame에는 수락된 일치 판단이 필요합니다. 확신도가 낮거나
+수락되지 않았거나 형식이 잘못된 판단은 이후 구독 또는 Resource 요약 frame으로 다시 진입할 수
+없습니다. 직접 상태 목록과 상태 확인 목록은 누락된 보조 의도 없이 각각 정확한 기본 의도가 필요하며, 결합 조건 요약에는 정확한 상태 및 상태 확인 의도 집합이 필요합니다. 정확한 Resource 대상은 컬렉션 요약으로 넓힐 수 없지만 선언된 Resource 타입 값과 그룹은 컬렉션 범위로 유지합니다. 판단 경계가 없어도 모델 frame은 이름이 지정된 범위나 원문에서 독립적으로 확인한 정확한 대상 감지를 우회하거나, 함께 요청한 Service Health를 구독 신원으로 축소하거나, 결정론적 카탈로그 및 서술자 일치가 두 구성 요소를 근거로 확인하지 않은 결합 조건을 만들 수 없습니다. 카탈로그와 서술자의 상태 일치는 합치지만 Health 권한이 부여된 원문 범위에 인벤토리 상태 권한을 함께 부여하지 않습니다. 대상 없는 구독 요약은 타입이 지정된 대상과 영어 `subscription` 명사 앞뒤에 범위가 제한된 Unicode 이름을 쓴 경우를 모두 차단합니다. 정확한 한국어 요청 서술어는 일반 문구로 처리하되 실제 Unicode 이름을 숨기지 않으며, 일반 한정사와 설명 토큰은 현재 범위 참조로 유지합니다.
 
 답변이 현재 환경 근거에 의존하지 않는 일반 설명, 개념적인 기술 비교 및 일반 권고는 one-shot 지식
 경로를 사용합니다. 한 번의 preflight 모델 호출이 타입 기반 `knowledge_signal`과 범위가 제한된
@@ -195,6 +198,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 의미 판단 이후 제안된 모든 운영 요약이 수락된 타입 기반 판단과 일치하도록 하고, 영어 명사 순서에서 범위가 제한된 Unicode 구독 이름을 감지하도록 확장했습니다. | `current change`, 수락되지 않은 판단, 구독 범위, 혼합 언어, 정확한 Resource 및 Resource 계획 집중 검사 통과 | 인증된 표준 Console 근거는 별도로 보존합니다. 이번 로컬 하드닝은 기존 런타임 검증 상태를 변경하지 않습니다. |
 | 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight 유형을 추가하고, 객체 전용 완전성을 관련 없는 관계 및 `scope-test` journal 공백과 분리했으며, 로컬 authoritative refresh의 구성 범위와 journal watermark를 정렬했습니다. | `current change`; 집중 preflight, 계획, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `answered`와 `semantic_answer_verified`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | Compact preflight에 출처가 결속된 F1-F4 후보 의미를 추가해 정확하고 명시적이며 맥락과 독립적인 요청이 직렬 전체 의미 판단 호출 하나를 생략할 수 있게 했습니다. 확신도, 원문 범위, 한 시간, 유형별 형식 및 Resource 신원 검사를 추가했고 다른 모든 요청은 전체 의미 판단을 유지합니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 F1-F4의 답변 token TTFT와 완전한 근거 결과를 보존합니다. |
 | 2026-09-07 | implemented | 첫 번째 턴에서 Compact preflight를 실행하고, 명시적 및 맥락 의존 운영 요청이 Adaptive 설명 계획을 우회하도록 했으며, 전체 의미 판단 뒤 알려진 운영 유형을 검토된 서술자 범위로 축소했습니다. | `current change`; Adaptive 및 의미 계획 집중 테스트 579개가 통과했고 선택한 소스가 strict mypy를 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 첫 토큰 지연 시간을 측정하고 5초를 넘는 복합 읽기에 검증된 점진 구간을 추가합니다. |

@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.core.conversation.conversation_preflight_targets import (
+    collection_summary_exact_target_requested,
+    named_subscription_requested,
+)
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
@@ -49,6 +53,98 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticJudgmentTier,
 )
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "현재 구독",
+        "내 구독",
+        "이 구독",
+        "그 구독",
+        "subscription 상태를 보여줘",
+        "subscription 정보를 보여줘",
+        "subscription 세부 정보를 보여줘",
+        "subscription 리소스를 보여줘",
+        "subscription 구성을 보여줘",
+        "subscription 좀 알려줘",
+        "subscription 정보도 보여줘",
+        "제 subscription 상태를 보여줘",
+        "지금 subscription 상태를 보여줘",
+        "subscription 알려줘",
+        "subscription 보여줘",
+        "subscription 확인해줘",
+        "subscription 뭐야",
+        "subscription 자세히 알려줘",
+        "subscription 다시 보여줘",
+        "subscription 조회해줘",
+        "subscription 알려주세요",
+        "subscription 보여주세요",
+        "subscription 부탁드립니다",
+        "subscription 알려줄래?",
+        "subscription 보여줄래?",
+        "Show the current subscription please.",
+        "무슨구독인지 알려줘",
+        "어느구독을 보여줘",
+        "어떤구독이야",
+        "subscription 의 상태를 보여줘",
+        "현재 subscription 상태를 보여줘",
+    ),
+)
+def test_generic_korean_subscription_scope_is_not_treated_as_a_name(utterance: str) -> None:
+    assert not named_subscription_requested(utterance)
+
+
+def test_actual_korean_subscription_name_remains_named_scope() -> None:
+    assert named_subscription_requested("고객운영 구독")
+    assert named_subscription_requested("subscription 고객운영")
+    assert named_subscription_requested("동해 구독의 Service Health를 보여줘.")
+    assert named_subscription_requested("운영구독 상태를 보여줘.")
+
+
+def test_collection_summary_detects_source_target_without_confusing_type_filter() -> None:
+    assert collection_summary_exact_target_requested(
+        "Show the state of db-prod.",
+        subject_constraints=("Resource",),
+    )
+    assert collection_summary_exact_target_requested(
+        "Show the state of dbprod.",
+        subject_constraints=("Resource",),
+    )
+    assert collection_summary_exact_target_requested(
+        "Show dbprod status.",
+        subject_constraints=("Resource", "dbprod"),
+    )
+    assert collection_summary_exact_target_requested(
+        "동해 상태를 보여줘.",
+        subject_constraints=("Resource", "동해"),
+    )
+    assert not collection_summary_exact_target_requested(
+        "Show application-service resources.",
+        subject_constraints=("Resource", "application-service"),
+        catalog_constraints=frozenset({"application-service"}),
+    )
+    assert not collection_summary_exact_target_requested(
+        "Show non-running resources.",
+        subject_constraints=("Resource",),
+    )
+    assert not collection_summary_exact_target_requested(
+        "리소스 상태를 보여줘.",
+        subject_constraints=("Resource",),
+    )
+    assert not collection_summary_exact_target_requested(
+        "Show the state of all resources.",
+        subject_constraints=("Resource",),
+    )
+    assert not collection_summary_exact_target_requested(
+        "Show the state of resources.",
+        subject_constraints=("Resource",),
+    )
+    assert not collection_summary_exact_target_requested(
+        "What is the current power state of each existing virtual machine in the authorized scope?",
+        subject_constraints=("Resource",),
+    )
+
 
 DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 9, 5, 12, tzinfo=UTC)
@@ -104,6 +200,13 @@ class _JudgmentModel:
             "action_subject": "none",
             "execution_authority": False,
         }
+
+
+class _LowConfidenceJudgmentModel(_JudgmentModel):
+    def judge(self, **kwargs: Any) -> dict[str, object]:
+        proposal = super().judge(**kwargs)
+        proposal["confidence"] = 0.4
+        return proposal
 
 
 def _frame() -> SemanticProblemFrame:
@@ -192,7 +295,7 @@ def test_service_health_summary_rejects_requested_other_subscription() -> None:
         judgment,
         utterance=utterance,
         context=(),
-        descriptors=_manifest().descriptors,
+        descriptors=_manifest(include_unrelated=True).descriptors,
         inventory_query_language=None,
     )
 
@@ -218,7 +321,7 @@ def test_subscription_summary_requires_an_accepted_judgment() -> None:
         judgment_accepted=False,
         utterance="Show the current Azure subscription.",
         context=(),
-        descriptors=_manifest().descriptors,
+        descriptors=_manifest(include_unrelated=True).descriptors,
     )
 
     assert result is None
@@ -230,6 +333,7 @@ def test_subscription_summary_requires_an_accepted_judgment() -> None:
         (SUBSCRIPTION_SCOPE_FUNCTION_NAME, "Show subscription named prod."),
         ("query.subscription_service_health", "Show Service Health for the prod subscription."),
         ("query.subscription_service_health", "고객운영 구독의 Service Health를 보여줘."),
+        ("query.subscription_service_health", "고객운영 subscription의 Service Health를 보여줘."),
     ],
 )
 def test_targetless_summary_rejects_named_subscription_in_source(
@@ -253,11 +357,46 @@ def test_targetless_summary_rejects_named_subscription_in_source(
         judgment,
         utterance=utterance,
         context=(),
-        descriptors=_manifest().descriptors,
+        descriptors=_manifest(include_unrelated=True).descriptors,
         inventory_query_language=None,
     )
 
     assert result is None
+
+
+def test_low_confidence_subscription_judgment_cannot_fall_back_to_model_summary() -> None:
+    judgment_model = _LowConfidenceJudgmentModel()
+    frame_model = _FrameModel()
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=frame_model,
+        manifests=_ManifestProvider(_manifest(include_unrelated=True)),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        semantic_judgment=judgment,
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Show the current Azure subscription.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_operational_judgment_required"
+    assert outcome.plan is None
+    assert judgment_model.calls == 1
+    assert frame_model.calls == 1
 
 
 def _manifest(*, bound: bool = True, include_unrelated: bool = False) -> QueryManifest:

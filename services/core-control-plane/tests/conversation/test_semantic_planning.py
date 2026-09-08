@@ -2271,6 +2271,212 @@ def test_operational_frame_requires_accepted_matching_judgment() -> None:
         judgment=None,
         judgment_accepted=False,
     )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=judgment,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    targeted_subscription = SemanticJudgmentProposal(
+        primary_intent="query.subscription_scope_identity",
+        targets=(
+            {
+                "kind": "subscription",
+                "value": "prod",
+                "source_start": 18,
+                "source_end": 22,
+            },
+        ),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=targeted_subscription,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=targeted_subscription.model_copy(
+            update={"primary_intent": "query.resource_state_inventory"}
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    combined = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        secondary_intents=(),
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_condition_sections",
+        judgment=combined,
+        judgment_accepted=False,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_condition_sections",
+        judgment=combined,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    combined_with_both_intents = combined.model_copy(
+        update={"secondary_intents": ("query.resource_health_inventory",)}
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_condition_sections",
+        judgment=combined_with_both_intents,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_condition_sections",
+        judgment=combined_with_both_intents.model_copy(
+            update={"targets": targeted_subscription.targets}
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_health_list",
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_health_inventory",
+            targets=(),
+            requested_facets=(),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_health_list",
+        judgment=combined,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    targeted_state = combined.model_copy(
+        update={
+            "targets": (
+                SemanticTarget(
+                    kind="resource",
+                    value="db-prod",
+                    source_start=18,
+                    source_end=25,
+                ),
+            )
+        }
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=targeted_state,
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=combined.model_copy(
+            update={
+                "targets": (
+                    SemanticTarget(
+                        kind="resource_group",
+                        value="rg-prod",
+                        source_start=18,
+                        source_end=25,
+                    ),
+                )
+            }
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=False,
+        utterance="Show subscription named prod.",
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=False,
+        utterance="Show the current subscription and Service Health.",
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_service_health",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=False,
+        utterance="Show Service Health together with the current subscription.",
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=False,
+        utterance="Show the state of db-prod.",
+        exact_resource_targeted=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="subscription_scope_identity",
+        judgment=None,
+        judgment_accepted=False,
+        judgment_evaluated=False,
+        utterance="Show the current subscription.",
+    )
+    for utterance in (
+        "구독의 서비스 상태 결과를 보여줘.",
+        "구독 서비스 상태를 도와줘.",
+        "Show active incidents and planned maintenance from Service Health "
+        "for the current subscription.",
+    ):
+        assert _operational_frame_matches_accepted_judgment(
+            output_shape="subscription_service_health",
+            judgment=None,
+            judgment_accepted=False,
+            judgment_evaluated=False,
+            utterance=utterance,
+        )
+    for utterance in (
+        "Show Service Health as well as current subscription.",
+        "서비스 상태 그리고 현재 구독도 보여줘.",
+        "Show the current subscription, together with Service Health.",
+        "현재 구독 그리고 서비스 상태도 보여줘.",
+        "서비스 상태뿐만 아니라 현재 구독도 보여줘.",
+        "현재 구독뿐만 아니라 서비스 상태도 보여줘.",
+    ):
+        assert not _operational_frame_matches_accepted_judgment(
+            output_shape="subscription_service_health",
+            judgment=None,
+            judgment_accepted=False,
+            judgment_evaluated=False,
+            utterance=utterance,
+        )
 
 
 @pytest.mark.parametrize(
@@ -3471,6 +3677,63 @@ def test_collection_state_correction_requires_scope_and_no_exact_target(
 
     assert normalized.output_shape == "target_current_state"
     assert normalized.measure_concepts == SERVICE_HEALTH_MEASURE_CONCEPTS
+
+
+def test_descriptor_state_is_preserved_with_catalog_health_condition() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_health=True,
+        include_resource_state=True,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["resource_state.online"],
+            output_shape="resource_state_list",
+        )
+    )
+
+    normalized = normalize_resource_state_proposal(
+        proposal,
+        utterance="ßß Show online or not ready resources.",
+        descriptors=manifest.descriptors,
+        inventory_query_language=_inventory_query_language(),
+    )
+
+    assert normalized.output_shape == "resource_condition_sections"
+    assert normalized.measure_concepts == (
+        "resource_health.not_ready",
+        "resource_state.online",
+    )
+
+
+def test_catalog_and_descriptor_states_are_unioned_without_health_overlap() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_health=True,
+        include_resource_state=True,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["resource_state.running"],
+            output_shape="resource_state_list",
+        )
+    )
+
+    normalized = normalize_resource_state_proposal(
+        proposal,
+        utterance="Show available, running, or not ready resources.",
+        descriptors=manifest.descriptors,
+        inventory_query_language=_inventory_query_language(),
+    )
+
+    assert normalized.output_shape == "resource_condition_sections"
+    assert normalized.measure_concepts == (
+        "resource_health.not_ready",
+        "resource_state.available",
+        "resource_state.running",
+    )
 
 
 def test_current_resource_state_cannot_substitute_for_historical_events() -> None:

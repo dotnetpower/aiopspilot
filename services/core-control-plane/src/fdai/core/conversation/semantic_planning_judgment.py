@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +16,7 @@ from fdai_service_contracts.semantic_judgment import (
 )
 from pydantic import ValidationError
 
+from .conversation_preflight_targets import named_subscription_requested
 from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_models import (
     SemanticDirectResponseIntent,
@@ -60,10 +62,48 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
         }
     ),
 }
-_OPERATIONAL_OUTPUT_INTENTS = {
+_PRIMARY_OPERATIONAL_OUTPUT_INTENTS = {
     "resource_configuration_changes": "query.resource_configuration_changes",
     "gateway_diagnostic_evidence": "query.gateway_diagnostic_evidence",
 }
+_SUMMARY_OPERATIONAL_OUTPUT_INTENTS = {
+    "resource_health_list": "query.resource_health_inventory",
+    "resource_state_list": "query.resource_state_inventory",
+    "subscription_scope_identity": "query.subscription_scope_identity",
+    "subscription_service_health": "query.subscription_service_health",
+}
+_DERIVED_RESOURCE_OUTPUT_INTENTS = {
+    "resource_condition_sections": frozenset(
+        {
+            "query.resource_health_inventory",
+            "query.resource_state_inventory",
+        }
+    ),
+}
+_PRIMARY_ONLY_SUMMARY_OUTPUTS = frozenset(
+    {
+        "resource_health_list",
+        "resource_state_list",
+        "subscription_scope_identity",
+        "subscription_service_health",
+    }
+)
+_RESOURCE_COLLECTION_SUMMARY_OUTPUTS = frozenset(
+    {"resource_condition_sections", "resource_health_list", "resource_state_list"}
+)
+_SERVICE_HEALTH_SOURCE_PATTERN = re.compile(r"(?i)(?:\bservice\s+health\b|서비스\s*(?:상태|헬스))")
+_COMBINED_SUBSCRIPTION_REQUEST_PATTERN = re.compile(
+    r"(?is)(?:\bservice\s+health\b|서비스\s*(?:상태|헬스)).*"
+    r"(?:\btogether\s+with\b|\bas\s+well\s+as\b|\balong\s+with\b|\bplus\b|\band\b|"
+    r"뿐만\s+아니라|(?<!\S)(?:그리고|및|같이)(?!\S)|하고\s+|(?:와|과)\s+).*"
+    r"(?:\bsubscription\b|구독)"
+)
+_COMBINED_SUBSCRIPTION_REQUEST_REVERSE_PATTERN = re.compile(
+    r"(?is)(?:\bsubscription\b|구독).*"
+    r"(?:\btogether\s+with\b|\bas\s+well\s+as\b|\balong\s+with\b|\bplus\b|\band\b|"
+    r"뿐만\s+아니라|(?<!\S)(?:그리고|및|같이)(?!\S)|하고\s+|(?:와|과)\s+).*"
+    r"(?:\bservice\s+health\b|서비스\s*(?:상태|헬스))"
+)
 _SAFE_VALIDATION_REASONS = frozenset(
     {
         "investigation declaration is absent or ambiguous",
@@ -174,13 +214,76 @@ def _operational_frame_matches_accepted_judgment(
     output_shape: str,
     judgment: SemanticJudgmentProposal | None,
     judgment_accepted: bool,
+    judgment_evaluated: bool = False,
+    utterance: str = "",
+    exact_resource_targeted: bool = False,
+    derived_resource_intents_grounded: bool = False,
 ) -> bool:
     """Require accepted typed intent for operational frame families."""
 
-    required_intent = _OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
-    if required_intent is None:
+    required_primary_intent = _PRIMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
+    required_summary_intent = _SUMMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
+    required_derived_intents = _DERIVED_RESOURCE_OUTPUT_INTENTS.get(output_shape)
+    if (
+        required_primary_intent is None
+        and required_summary_intent is None
+        and required_derived_intents is None
+    ):
         return True
-    return judgment_accepted and judgment is not None and judgment.primary_intent == required_intent
+    if (
+        required_summary_intent is not None or required_derived_intents is not None
+    ) and not judgment_evaluated:
+        if (
+            output_shape in _PRIMARY_ONLY_SUMMARY_OUTPUTS
+            or output_shape in _RESOURCE_COLLECTION_SUMMARY_OUTPUTS
+        ) and named_subscription_requested(utterance):
+            return False
+        if output_shape in _RESOURCE_COLLECTION_SUMMARY_OUTPUTS and exact_resource_targeted:
+            return False
+        if output_shape == "resource_condition_sections":
+            return derived_resource_intents_grounded
+        if output_shape == "subscription_service_health" and (
+            _COMBINED_SUBSCRIPTION_REQUEST_PATTERN.search(utterance) is not None
+            or _COMBINED_SUBSCRIPTION_REQUEST_REVERSE_PATTERN.search(utterance) is not None
+        ):
+            return False
+        return not (
+            output_shape == "subscription_scope_identity"
+            and _SERVICE_HEALTH_SOURCE_PATTERN.search(utterance) is not None
+        )
+    if not judgment_accepted or judgment is None:
+        return False
+    if required_primary_intent is not None:
+        return judgment.primary_intent == required_primary_intent
+    if required_derived_intents is not None:
+        return not _has_unsupported_collection_target(judgment) and required_derived_intents == {
+            judgment.primary_intent,
+            *judgment.secondary_intents,
+        }
+    if output_shape in _PRIMARY_ONLY_SUMMARY_OUTPUTS:
+        targets_match = (
+            not _has_unsupported_collection_target(judgment)
+            if output_shape in _RESOURCE_COLLECTION_SUMMARY_OUTPUTS
+            else not judgment.targets
+        )
+        return (
+            targets_match
+            and not judgment.secondary_intents
+            and judgment.primary_intent == required_summary_intent
+        )
+    return required_summary_intent in {
+        judgment.primary_intent,
+        *judgment.secondary_intents,
+    }
+
+
+def _has_unsupported_collection_target(judgment: SemanticJudgmentProposal) -> bool:
+    """Return whether collection output would discard an exact or foreign-scope target."""
+
+    return any(
+        target.kind not in {"resource_state_filter", "resource_type_filter"}
+        for target in judgment.targets
+    )
 
 
 def _descriptors_for_judgment(

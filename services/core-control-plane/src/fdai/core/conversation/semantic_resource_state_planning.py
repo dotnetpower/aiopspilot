@@ -77,6 +77,12 @@ def normalize_resource_state_proposal(
         utterance,
         registry=inventory_query_language,
     )
+    stated_measures = _descriptor_state_measures(
+        utterance,
+        value_groups=value_groups,
+        registry=inventory_query_language,
+    )
+    source_state_measures = catalog_state_measures | stated_measures
     if (
         proposal.operation is SemanticOperation.SELECT
         and proposal.output_shape
@@ -87,11 +93,11 @@ def normalize_resource_state_proposal(
         }
         and catalog_health_measures
     ):
-        if catalog_state_measures:
+        if source_state_measures:
             return proposal.model_copy(
                 update={
                     "measure_concepts": tuple(
-                        sorted(catalog_state_measures | catalog_health_measures)
+                        sorted(source_state_measures | catalog_health_measures)
                     ),
                     "output_shape": SemanticOutputShape.RESOURCE_CONDITION_SECTIONS,
                 }
@@ -102,11 +108,8 @@ def normalize_resource_state_proposal(
                 "output_shape": SemanticOutputShape.RESOURCE_HEALTH_LIST,
             }
         )
-    stated_measures = _stated_state_measures(utterance, value_groups=value_groups)
-    state_measures = (
-        catalog_state_measures
-        or stated_measures
-        or declared_measures.intersection(proposal.measure_concepts)
+    state_measures = source_state_measures or declared_measures.intersection(
+        proposal.measure_concepts
     )
     if (
         proposal.operation is SemanticOperation.SELECT
@@ -165,6 +168,49 @@ def _catalog_state_measures(
         else:
             state_measures.update(normalized)
     return frozenset(state_measures), frozenset(health_measures)
+
+
+def resource_condition_intents_grounded(
+    utterance: str,
+    *,
+    registry: InventoryQueryLanguageRegistry | None,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    """Return whether catalog evidence grounds both state and health condition reads."""
+
+    _declared, value_groups = _state_descriptor_metadata(descriptors)
+    catalog_state_measures, health_measures = _catalog_state_measures(
+        utterance,
+        registry=registry,
+    )
+    state_measures = catalog_state_measures | _descriptor_state_measures(
+        utterance, value_groups=value_groups, registry=registry
+    )
+    return bool(state_measures and health_measures)
+
+
+def _descriptor_state_measures(
+    utterance: str,
+    *,
+    value_groups: tuple[tuple[str, tuple[str, ...]], ...],
+    registry: InventoryQueryLanguageRegistry | None,
+) -> frozenset[str]:
+    folded = utterance.casefold()
+    masked = list(folded)
+    catalog_terms = (
+        ()
+        if registry is None
+        else tuple(term for state in registry.states.values() for term in state.terms)
+    )
+    for term in catalog_terms:
+        needle = term.casefold().strip()
+        start = folded.find(needle)
+        while start != -1:
+            end = start + len(needle)
+            if not needle.isascii() or _ascii_term_is_bounded(folded, start, end):
+                masked[start:end] = " " * (end - start)
+            start = folded.find(needle, start + 1)
+    return _stated_state_measures("".join(masked), value_groups=value_groups)
 
 
 def compile_resource_state_plan(
@@ -442,4 +488,5 @@ __all__ = [
     "compile_resource_state_plan",
     "normalize_resource_state_proposal",
     "resource_collection_definition",
+    "resource_condition_intents_grounded",
 ]

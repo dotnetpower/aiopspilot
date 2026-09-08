@@ -34,6 +34,10 @@ from .conversation_preflight import (
     SocialAct,
     preflight_operational_judgment,
 )
+from .conversation_preflight_targets import (
+    collection_summary_exact_target_requested,
+    resource_catalog_constraints,
+)
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
 from .semantic_planning_alignment import verify_frame_plan_alignment
@@ -98,6 +102,7 @@ from .semantic_planning_support import (
     _validated_descriptors,
     _validated_metric_concepts,
 )
+from .semantic_resource_state_planning import resource_condition_intents_grounded
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
@@ -516,6 +521,18 @@ class SemanticPlanningService:
                 output_shape=frame.output_shape,
                 judgment=judgment_proposal,
                 judgment_accepted=(judgment_decision is not None and judgment_decision.accepted),
+                judgment_evaluated=judgment_decision is not None,
+                utterance=utterance,
+                exact_resource_targeted=collection_summary_exact_target_requested(
+                    utterance,
+                    subject_constraints=frame.subject_constraints,
+                    catalog_constraints=resource_catalog_constraints(descriptors),
+                ),
+                derived_resource_intents_grounded=resource_condition_intents_grounded(
+                    utterance,
+                    registry=self._inventory_query_language,
+                    descriptors=descriptors,
+                ),
             ):
                 return finish(
                     _outcome(
