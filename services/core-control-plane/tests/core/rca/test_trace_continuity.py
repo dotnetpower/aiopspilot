@@ -183,6 +183,15 @@ def test_continuous_trace_never_produces_a_cause() -> None:
     assert result.reason == "trace_not_discontinuous"
 
 
+def test_invalid_confidence_configuration_is_never_hidden_by_an_early_hold() -> None:
+    with pytest.raises(ValueError, match="min_confidence MUST be in"):
+        analyze_trace_continuity_cause(
+            _result(),
+            cause_evidence=(),
+            min_confidence=1.1,
+        )
+
+
 def test_trace_cause_evidence_is_bounded_and_unique() -> None:
     with pytest.raises(ValueError, match="affected_items MUST be unique"):
         _evidence(TraceRcaCause.INSTRUMENTATION, "agent", "agent")

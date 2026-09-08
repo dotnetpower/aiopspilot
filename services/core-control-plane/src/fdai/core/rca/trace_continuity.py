@@ -90,6 +90,8 @@ def analyze_trace_continuity_cause(
 ) -> RcaResult:
     """Return one cited T1 cause or hold when evidence is absent or conflicting."""
 
+    if not 0.0 <= min_confidence <= 1.0:
+        raise ValueError("min_confidence MUST be in [0, 1]")
     if result.state is not TraceContinuityState.DISCONTINUOUS:
         return _abstained("trace_not_discontinuous")
     if not result.evidence_refs:
