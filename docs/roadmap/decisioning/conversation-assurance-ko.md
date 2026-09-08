@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 9e1e0f0cb9ae7d7b50896bf931119556167cf5bb
+translation_source_sha: a40f159eb71a8ce41cedba6c9a5db7b11732a71e
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -12,101 +12,6 @@ translation_revised: 2026-09-08
 > FDAI는 각 구독에서 검증된 사용 근거가 쌓일수록 답변 정확도를 개선할 수 있지만, 이는 보장이
 > 아니라 측정 결과입니다. 동일한 고정 시나리오 세트에서 통계적으로 뒷받침되는 향상과 하드
 > 안전성 이탈 0건을 확인해야 승격할 수 있습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
-| 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 가드 실패는 계속 롤백할 수 있지만 긍정적인 단계 전진에는 후보와 측정된 시험에 연결된 현재 유효한 공유 의사 결정 근거 승인 결과가 필요합니다. 이는 운영 승격을 증명하지 않습니다. |
-| Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
-| Qualification 의사 결정 근거 승인 | implemented | [`quality_qualification.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_qualification.py), [`test_quality_qualification.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_qualification.py) | 축약기는 모든 관측과 입력을 정식 다이제스트에 연결하고 독립적인 `DecisionCriticalEvidenceReceipt` 묶음 검증 후 생성된 현재 유효한 승인 결과가 있을 때만 `qualified=true`를 보고합니다. 독립 실행형 CLI에는 검증기 결속이 없으므로 점수는 보존하지만 자격 없음으로 차단합니다. |
-| 5단계 지연 시간 qualification 근거 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | 고정 SLO 계약과 축약기는 콘텐츠가 없는 p50/p95/p99 근거를 생성하며 완전한 추적 범위를 추론하지 않습니다. 통제된 벤치마크 증적은 보존되지 않았습니다. |
-| 단계 소유자 latency 증적 adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), 집중 Core 검사 | 기간은 monotonic 소유자 값에서 파생하며 일치하지 않는 PR/카나리/릴리스 환경을 차단합니다. Runtime 증적을 주장하지 않습니다. |
-| 결정론 검증 timing 생산자 | implemented | [`service.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/service.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py) | 조정기는 명시적 benchmark 환경과 sink를 주입한 경우에만 콘텐츠가 없는 증적을 생성합니다. 기본 runtime 동작은 계측하지 않습니다. |
-| 8단계 상관관계 추적 근거 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`test_quality_trace.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_trace.py) | 축약기는 세션부터 감사까지의 정확한 연결, 하나의 상관관계 약속값, 이전 레코드 연결, 권위 있는 타임스탬프 및 출처 이력 약속값을 요구합니다. 라이브 추적 증적은 보존되지 않았습니다. |
-| Timing qualification 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), [`test_quality_timing.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_timing.py) | 500개 완전 추적 집합이 latency 산출물의 출처 리비전, 추적 수, 추적 집합 약속값 및 설치된 SLO 계약과 일치해야 timing boolean이 하드 상한 축약기로 전달됩니다. |
-| 제한된 말뭉치 동결 경계 | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | 로컬 동결 도구는 `content` 또는 `label`을 출력하지 않고 소유자 전용 제한 산출물에서 공개 매니페스트를 파생합니다. 제한된 말뭉치 또는 독립 `label` 집합은 저장소에 보존하지 않습니다. |
-| 독립 말뭉치 검토 축약기 | implemented | [`chatops_quality_corpus_review.py`](../../../scripts/evaluation/chatops_quality_corpus_review.py), [`test_chatops_quality_corpus_review.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_review.py) | 두 소유자 전용 검토는 서로 다른 신원과 계열로 모든 동결 label 약속값을 다루고 합의율 0.80 이상을 충족하며 모든 불일치에 세 번째 계열 검토를 제공해야 합니다. 출력에는 집계 수와 다이제스트만 들어갑니다. |
-| 동결된 hidden corpus v1 | validated | [`hidden-corpus-manifest.v1.json`](../../../eval/chatops-quality/hidden-corpus-manifest.v1.json), [`hidden-corpus-review.v1.json`](../../../eval/chatops-quality/hidden-corpus-review.v1.json) | 공개 근거는 균형 잡힌 500턴, 다중 턴 대화 150개, 모든 하위 집합 및 루브릭 하한, 기본 합의율 `0.876`, 완료된 tie-break 62개, 최종 수락 label 500개를 기록합니다. 제한된 콘텐츠와 사례별 결정은 저장소 밖에 유지합니다. |
-| Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
-| 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
-| 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
-| Golden 최종 처리 결과 게이트 | implemented | [`golden_question_dataset.py`](../../../services/core-control-plane/src/fdai/delivery/golden_question_dataset.py), [`test_golden_question_dataset.py`](../../../services/core-control-plane/tests/delivery/test_golden_question_dataset.py) | 인증은 범위 행의 정확한 예상 최종 처리 결과를 사용합니다. 새 근거를 사용하는 답변 및 작업 초안 사례는 모든 의미, 기능, 사실, 근거, 권한, 전송 및 하드 제로 게이트를 유지합니다. 예상 비답변 사례는 읽기 전에 존재할 수 없는 실행 파생 필드만 비적용으로 처리합니다. |
-| Watchdog 런타임 기능 준비 상태 | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | 질문 선택은 선언, 실제 콜백 결속, 공급자 도달 가능성, 근거 준비 상태 및 권한을 구분합니다. 변경할 수 없는 런타임 결속 스냅샷이 등록된 권한을 제공합니다. 스키마 전용 함수는 정확한 메모리 내 release에서 근거 준비 상태가 되지만, 공급자 함수에는 현재 probe가 계속 필요합니다. 사용할 수 없는 질문은 점수를 매기지 않은 범위 backlog로 남습니다. 라이브 캠페인 근거를 주장하지 않습니다. |
-| Watchdog 답변 게이트 v2 | implemented | [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py), [`test_conversation_assurance_answer_gate.py`](../../../tests/integration/scripts/test_conversation_assurance_answer_gate.py) | 10개 루브릭 구조는 적용 가능한 항목 수를 분모로 사용하며, 6개 답변 루브릭과 선언된 각 객관적 오라클은 별도 필수 게이트를 구성합니다. 객관적으로 결정 가능한 개수는 현재 권위 소스에서 계산한 기대값과 구조화된 답변 값을 비교합니다. 제품 기술 검증과 품질 보증 성공은 별도 필드로 유지하며 v1 원장 행은 변경하지 않습니다. |
-| Watchdog hardening 격리 | implemented | 로컬 watchdog 안전 계약 테스트 및 `conversational-assurance` skill | 후보 생성 전에 실패를 분류하고 코드 결함만 hardening에 진입할 수 있습니다. 단계별 집중 검사가 전체 저장소 후보 게이트를 대체하며 검증된 브랜치만 검토용으로 보존합니다. |
-| 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
-| Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 진단 케이스는 일관된 handoff 담당자, 고유한 기여자 및 범위가 제한된 의미 임계값을 요구합니다. 독립 의미 검토는 공백이 아닌 신원과 모델 계열 및 엄격한 boolean 결과를 요구합니다. 신규 진단 결과는 정확히 30개인 모든 원자 루브릭의 정식 순서를 요구합니다. 원자 결과가 없는 과거 schema-v1 행은 저장된 바이트를 다시 쓰지 않고 명시적인 qualification 실패로만 읽을 수 있습니다. |
-| 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고 서버 소유 추적을 만듭니다. 진단 의미에는 항상 구성된 mixed-family 검토자를 실행하지만 영속 assurance 결정은 결정론적 검증과 모델 예산 또는 평가자 오류 연기 상태를 계속 따릅니다. T2 종합은 정확한 모델 신원을 제공하므로 검토자가 자신의 답변을 평가할 수 없습니다. |
-최종 캠페인 변환 결과는 영속 assessment 상태와 범위가 제한된 사유 코드를 전달합니다.
-CLI는 해당 코드를 검증하고 보존하며, 연기된 assessment의 의미 검토 누락을 답변 실패로 채점하지
-않고 캠페인을 보류합니다.
-평가자 출력은 독립 검토 결정이 유효한 경우에만 30점 의미 루브릭에 들어갑니다. 유효하지 않은
-의미 검토 출력, `completed`가 아닌 필수 T2 결과 또는 시도된 금지 T2는 assessment를 연기하고
-캠페인을 보류합니다.
-Blind 정책 시험도 narrator 모델 계열을 전달하므로 이름이 다른 같은 계열 평가자가 해당 답변을
-검토할 수 없습니다.
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-08 | implemented | 사용할 수 없는 평가 동작이 같은 식별자에 상세 effect를 고정하지 않고 범위가 제한된 목록과 정확한 보존 상세 요청을 모두 다시 시도하게 했습니다. | `current change`, 집중 경로 검사 10개와 Console 타입 검사가 통과했습니다. | 인증된 복구 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 유효한 보존 평가 식별자의 범위 지정 상세 `404`를 일반 패널 오류 대신 명시적인 사용 불가 상태와 새로고침 동작으로 표시했습니다. | `current change`, 집중 경로 검사 10개와 Console 타입 검사가 통과했습니다. | 인증된 상세 누락 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 평가 상세 검증을 원장의 raw 64자 SHA-256 형식에 맞추고 의미 요청 및 결과 읽기를 인덱스가 있는 key 계열로 제한했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 상세 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 유효한 보존 평가 딥 링크가 200행으로 제한된 목록 변환 결과보다 오래된 평가도 principal 범위 상세 endpoint에서 조회하게 했습니다. | `current change`, 집중 경로 검사 9개와 Console 타입 검사가 통과했습니다. | 인증된 과거 평가 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 대화 보증 새로고침에 단조 증가하는 요청 추적을 추가하여 이전 응답이 더 최신 평가 목록을 덮어쓰지 못하게 했습니다. | `current change`, 집중 경로 검사 9개와 Console 타입 검사가 통과했습니다. | 인증된 반복 새로고침 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | principal 범위 이의 제기 레코드에서 Console 평가 수명 주기 상태를 파생하여 추가 전용 이의가 있는 평가가 완료로 표시되지 않게 했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 이의 제출 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 빈 근거 충돌 배열이 보조 Console 경고에 사용되는 `evidence.conflicts` 사실을 만들지 않게 했습니다. | `current change`, 집중 의미 보증 변환 결과 검사 21개가 통과했습니다. | 인증된 혼합 상태 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 표시하는 평가 상세를 저장된 질문 및 답변 다이제스트에 결속하고, 일반 최종 대체 답변보다 평가된 Pantheon 답변을 우선하며, 텍스트 한도를 평가 계약의 16,384자에 맞췄습니다. | `current change`, 집중 보증 읽기 구성요소 검사 5개가 통과했습니다. | 인증된 상세 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 평가 상세에서 답변을 표시하기 전에 의미 처리 최종 결과가 담당 요청과 동일한 인증 principal을 포함하도록 요구했습니다. | `current change`, 집중 보증 읽기 구성요소 검사 4개가 통과했습니다. | 인증된 교차 principal 차단 근거는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 모든 행을 완료 상태처럼 보이게 하지 않고 완료, 평가 대기, 이의 제기됨 수명 주기 상태를 지역화된 Console 전용 열로 표시했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 11개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 대표 수명 주기 행을 검증합니다. |
-| 2026-09-08 | implemented | Operator 읽기 모델에서 평가, conversation, 의미 turn 식별자의 정확한 상관관계를 요구하여 범위가 제한된 principal 범위 질문과 최종 답변 상세를 추가했습니다. | `current change`, 집중 보증 읽기 구성요소 및 Operator 계열 검사 49개가 통과했습니다. | 인증된 실제 평가 상세를 별도로 검증합니다. |
-| 2026-09-08 | implemented | 모호한 빈 선택 상태를 principal 범위 평가 사용 불가 안내와 범위가 제한된 새로고침 동작으로 대체했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 10개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 처리 중 및 보존 이력 범위 밖 사례를 검증합니다. |
-| 2026-09-08 | implemented | Console 평가 선택기가 현재 답변의 권위 있는 평가 식별자와 기존 딥 링크의 서버 turn 식별자를 모두 해석하게 했습니다. | `current change`, `npm --prefix console test -- --run src/routes/conversation-assurance.test.ts`에서 테스트 6개가 통과했습니다. | 인증된 Browser Entra 세션에서 두 링크 형식을 모두 검증합니다. |
-| 2026-09-06 | implemented | 일반 숙의에서 현재 스키마 검증 완료 Bragi 라우팅을 재사용하고 유효한 mixed-family 출력만 의미 점수에 반영하며, 완료되지 않은 필수 T2 또는 시도된 금지 T2의 범위 제한 hold 사유를 보존합니다. | `current change`; Pantheon 숙의, 런타임 보증 및 집중 테스트; Ruff 및 strict mypy. | 실패별 T2 결과를 강제하기 전에 별도로 관리되는 시나리오 fault control을 추가하고 두 모델 계열을 사용할 수 있게 된 뒤 정리된 230개 사례 캠페인을 보존합니다. |
-| 2026-09-01 | implemented | 정확한 Golden 예상 처리 결과 적용, 여러 주체가 있는 기본 프레임 변환, Rule 상태, 구성 드리프트, 리소스 활동 및 서비스 상태에 대한 일반 타입 기반 의미 복구, 검증된 Operator 로케일 보존을 추가했습니다. | `current change`; 의미, Golden, 프롬프트 및 Operator 집중 테스트 575개, watchdog 안전 테스트 135개, Ruff 및 mypy, 새로 실행한 검토 canary의 정확한 통과가 0/10에서 5/10으로 개선되었습니다. | canary를 확대하기 전에 여러 관계가 있는 Rule 및 서비스 담당 체계 계획을 검증된 방식으로 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 남은 관계 근거 공백을 해소합니다. |
-| 2026-09-01 | implemented | Watchdog의 결속 추정을 semantic runtime이 등록한 콜백과 권한의 변경할 수 없는 스냅샷으로 대체했습니다. 스키마 전용 함수는 정확한 메모리 내 release를 사용하며, 공급자 함수는 현재 probe가 성공하지 않으면 근거 준비 상태가 될 수 없습니다. | `current change`; semantic 함수 레지스트리, semantic runtime 조합, 런타임 준비 상태 테스트, 집중 watchdog 테스트, Ruff 및 mypy. | 리소스 상태, Resource Health, 계측, DR 및 Chaos 공급자 질문이 캠페인에 들어가기 전에 현재 범위 probe를 추가합니다. |
-| 2026-09-01 | implemented | 로컬 watchdog 후보 경계를 hardening 전 5가지 실패 분류, 코드 결함 전용 후보 생성, Core 및 Operator 대화 소유 범위, 단계별 기한, 기준선 독립 판정, 최종 시간 초과 처리 및 검토 전용 검증 브랜치로 강화했습니다. | `current change`; 로컬 watchdog 범위, 캠페인, 분류, 기한 및 브랜치 수명 주기 테스트; 집중 watchdog 안전 계약; Ruff. | 별도로 승인된 향후 캠페인을 실행하여 이 흐름의 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
-| 2026-09-01 | implemented | 정확한 구조화 객관적 오라클 비교, 필수 답변 품질 게이트, 비적용 루브릭 중립 처리, 분리된 제품 검증 및 품질 보증 결과를 포함하는 v2 Watchdog 답변 게이트를 추가했습니다. 기존 v1 평가는 변경할 수 없는 이력으로 유지합니다. | `current change`; [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py); 추적되는 테스트와 집중 로컬 Watchdog 테스트; Ruff. | 별도로 승인된 향후 캠페인에서 v2 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
-| 2026-09-01 | implemented | FunctionType 존재 여부로 질문을 선택하던 방식을 타입 기반 런타임 준비 상태와 정확한 권한 일치 검사로 교체했습니다. 로컬 watchdog은 누락된 공급자, 접근할 수 없는 권한 또는 불완전한 근거를 답변 실패가 아닌 unavailable backlog로 기록합니다. | `current change`; [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py); [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py); 집중 watchdog 및 런타임 준비 상태 테스트. | 해당 질문을 캠페인에 포함하기 전에 리소스 상태, Resource Health, 사용량 측정, DR 및 Chaos 공급자의 근거 probe를 추가해야 합니다. |
-| 2026-08-31 | implemented | 재실행 가능한 라이브 캠페인 근거 축약을 추가했습니다. 명시적 CLI는 콘텐츠 없는 턴 추적을 보존하고 증적 다이제스트로 진단과 연결합니다. 불완전하거나 서로 다른 리비전이 섞인 시리즈를 차단하고, 정확히 230개 사례를 다룬 후에만 고정된 라우팅, T2, 점수 하한 및 하드 제로 지표를 기록합니다. | `current change`; [`conversation_assurance_qualification.py`](../../../scripts/automation/conversation_assurance_qualification.py); 집중 캠페인, 진단, 적격성 및 CLI 테스트; Ruff 및 엄격한 mypy. | 별도로 승인된 라이브 census를 정리된 고정 리비전에서 실행하고 집계 근거를 보존해야 합니다. |
-| 2026-08-30 | implemented | 범위가 구분된 비평 11회를 완료하고 진단 경계를 하드닝했습니다. 낮은 신뢰도의 검토, 롤링 전송 호환성, 비공개 파일 및 소켓 처리, 캠페인 잠금, 보고서 출력, T1 보존, 범위가 제한된 Console 변환 결과 및 중요 상태 표현을 강화했습니다. | `current change`; 범위가 구분된 검토 11회; 집중 Core, Operator, CLI, Console, 보안, 지역화 및 무결성 검사. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
-| 2026-08-30 | implemented | 콘텐츠 없는 Pantheon 추적 조각, 분리된 30점 프롬프트 및 턴 진단, 균형 잡힌 230개 영어/한국어 census, 명시적으로만 실행되는 제한된 캠페인 제어, 비공개 원장, 인증된 Operator-Bragi 측정, 영속적인 혼합 계열 평가, 읽기 전용 Console 변환 결과 및 하드닝 적격성 가드를 추가했습니다. | `current change`; Pantheon, 대화 품질 보증, Core-Operator 전송, CLI 및 Console 집중 테스트; Ruff 및 엄격한 mypy. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
-| 2026-08-29 | implemented | 긍정적인 채팅 정책 단계 승격을 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 승인 결과는 시험 근거 다이제스트, 후보, principal 범위, 클러스터, 대상, 정책 리비전 및 측정 시각을 연결합니다. 승인 결과가 없거나 수락되지 않으면 현재 단계를 유지하지만 독립적인 가드 실패는 자동 롤백 경로를 유지합니다. | `current change`; 정책 전환 및 런타임 측정기, 집중 learning, 수명 주기 및 런타임 수명 주기 테스트, Ruff 및 strict mypy. | 런타임 측정기를 신뢰할 수 있는 승인 프로바이더에 연결하고 통제된 시험 묶음을 보존합니다. |
-| 2026-08-29 | implemented | ChatOps qualification 의사 결정 경계를 공유 의사 결정 핵심 근거 계약으로 마이그레이션했습니다. 축약기는 전체 묶음에서 예상 근거와 범위 다이제스트를 파생하고 고정 목적, 출처 리비전 및 승인 유효 구간을 다시 검사하며, 누락되거나 일치하지 않거나 만료된 근거를 명시적으로 자격 없음으로 유지합니다. | `current change`; qualification 축약기, 공유 승인 결과, 집중 준비 상태 및 qualification 테스트, CLI 실패 시 차단 검사, Ruff 및 strict mypy. | 독립적으로 검증된 프로덕션 qualification 증적과 묶음을 보존해야 합니다. 다른 FDAI-CONST-002 의사 결정 경계는 별도 작업으로 남아 있습니다. |
-| 2026-08-28 | implemented | 과거 맥락/로케일 모듈 및 테스트 경로를 통합 기여 API의 호환 연결로 복원했습니다. | `current change`; 집중 호환 검사; 저장소 링크 검증. | 과거 링크 복구에 남은 작업은 없습니다. |
-| 2026-08-28 | validated | 고객과 무관한 hidden corpus v1을 동결하고 독립적으로 검토했습니다. 서로 다른 두 기본 모델 계열이 500개 사례 전체를 검토했고 세 번째 계열이 불일치 62개를 모두 해결하여 label 500개가 수락되고 차단된 label은 0개가 됐습니다. | `current change`; 공개 매니페스트 다이제스트 `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; 검토 증적 다이제스트 `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; 매니페스트 및 검토 축약기 통과. | 완전한 blind qualification 실행 3회를 수행해야 합니다. 이 변경에는 정책 승격이 포함되지 않습니다. |
-| 2026-08-28 | implemented | 정확한 기본 검토 범위, 계열 분리, 합의율 임계값 및 완전한 tie-break 적용을 갖춘 콘텐츠 없는 독립 검토 축약기를 추가했습니다. | `current change`; 집중 검토 검사(`6 passed`); Ruff 및 strict mypy. | 실행 중인 세 번째 계열 검토를 완료하고 검토된 산출물을 동결한 뒤 공개 증적을 보존해야 합니다. |
-| 2026-08-28 | implemented | 명시적 PR benchmark 구성에서 Core 소유 결정론 검증 호출을 타입이 지정된 timing 증적에 연결했습니다. | `current change`; 집중 평가 및 latency 검사(`24 passed`); Ruff 및 strict mypy. | 나머지 단계 소유자를 연결하고 일치하는 통제 집합을 보존해야 합니다. |
-| 2026-08-28 | implemented | 호출자가 작성한 기간과 환경 대체를 차단하는 단계 소유자 latency 증적을 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자를 연결하고 통제 증적을 보존해야 합니다. |
-| 2026-08-28 | implemented | 검증되지 않은 boolean으로 9.6 하드 상한을 해제하지 못하도록 설치된 계약, 출처 리비전, 추적 수 및 추적 집합 다이제스트로 latency와 trace 근거를 연결했습니다. | `current change`; `quality_timing.py`; 집중 timing 연결 검사(`4 passed`); 결합 latency/trace/timing 검사(`23 passed`). | 권위 있는 runtime 생산자를 연결하고 일치하는 통제 근거를 보존해야 합니다. |
-| 2026-08-28 | implemented | 세션, 요청, 턴, 도구/에이전트 근거, 제안, 결정, 전달 및 감사의 정확한 연결에 대해 콘텐츠가 없는 완전 추적 근거를 추가했습니다. | `current change`; `quality_trace.py`; `chatops_quality_trace.py`; 집중 Core 및 CLI 검사(`8 passed`). | 하드 상한이 해제됐다고 주장하기 전에 권위 있는 레코드 생산자를 연결하고 완전한 통제 추적 하나를 보존해야 합니다. |
-| 2026-08-28 | implemented | PR 회귀, 라이브 카나리 및 릴리스 환경을 위한 5단계 지연 시간 SLO 계약과 결정론 벤치마크 근거를 추가했습니다. | `current change`; `quality_latency.py`; `chatops_quality_latency.py`; 집중 Core 및 CLI 검사(`11 passed`). | 9.6 하드 상한을 해제하기 전에 통과한 통제 벤치마크 근거와 독립적으로 완전한 상관관계 추적을 보존해야 합니다. |
-| 2026-08-28 | implemented | 소유자 전용 제한 산출물에서 사례별 `content` 및 `label` 약속값을 파생하고, 전체 숨겨진 페이로드를 연결하고, 모든 매니페스트 하한을 검증하고, 숨겨진 값을 노출하지 않은 채 공개 매니페스트를 원자적으로 생성하는 동결 도구를 추가했습니다. | `current change`; [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py); 집중 동결 및 매니페스트 검사(`22 passed`); Ruff 및 strict mypy. | 제한된 500턴 산출물을 제공하고 독립적으로 `label`을 지정한 다음 동결된 말뭉치를 주장하기 전에 통제된 공개 매니페스트를 보존해야 합니다. |
-| 2026-08-28 | implemented | 이전에 검증한 1-35번 항목 어댑터를 활성 브랜치에 복구하고, 별도 41-45번 점수표 묶음을 로케일에 연결된 공용 턴 묶음 기여로 교체했습니다. | `current change`; `quality_{action,answer,grounding,intent,orchestration,sre,context_locale}_observations.py`; 집중 qualification 검사(`108 passed`); Docker PostgreSQL 영속성 재시작 검사(`1 passed`). | validation을 주장하기 전에 Issues #299 및 #300에서 통제된 이중 언어 hidden corpus와 완전한 운영 유사 qualification 실행을 보존해야 합니다. |
-| 2026-08-28 | implemented | 점수표 41-45번 항목에 대한 결정론 어댑터를 추가하여 로케일 동등성, 영속성 fidelity, 개인화 정확성, 맥락 격리, 화면 인식을 기존 하드 상한 계약 위에서 범위가 제한된 콘텐츠 없는 관측으로 측정하도록 했습니다. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); 집중 scorecard, persistence, answer-plan, Deck 격리 검사와 작업 범위 Ruff, strict mypy, translation, roadmap 검증. | 점수표 validation을 주장하기 전에 고정된 리비전에서 통제된 50개 항목 이중 언어 qualification 실행을 보존해야 합니다. |
-| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
-
-### 남은 작업
-
-- [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고,
-  모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존하며, 묶음을 현재 유효하고
-  독립적으로 검증된 `DecisionCriticalEvidenceReceipt` 묶음에 연결합니다.
-- [ ] 승격된 정책을 보고하기 전에 통계적으로 뒷받침되는 개선, 하드 안전성 이탈 0건 및 로케일
-	회귀 없음을 보여 주는 블라인드 홀드아웃 재실행 근거를 보존합니다.
-- [ ] 측정된 회귀 후 통제된 자동 롤백을 한 번 실행하고 정책 전환, 복원된 불변 버전 및 감사
-	증적을 보존합니다.
-- [ ] 고정된 리비전에서 실제 인증된 Operator API를 대상으로 230개 Pantheon census를
-  실행하고 명시적 라우팅 정확도, 담당자 라우팅 F1, 누락되거나 불필요한 T2 비율, 로케일별
-  점수 하한 및 하드 안전성 이탈 0건을 보존합니다.
-- [x] 명시적, 암시적 및 T2 census 사례에서 인증된 Operator 대화 경로를 Bragi에 연결하고,
-  권위 있는 터미널 증적을 조립하며, 기존 혼합 계열 평가기를 실행한 뒤 상관관계가 있는
-  평가와 함께 진단을 영속화합니다.
-
 ## 설계 요약
 
 Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 평가하고, Saga는 각 평가와
@@ -651,6 +556,7 @@ p95 지연, 승격 및 롤백을 보고합니다.
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/conversation-assurance.md) |
 | 기존 post-turn 학습 | [Post-Turn Improvement 검토](post-turn-improvement-review-ko.md) |
 | 감점 전용 모델 점수 | [Hallucination 평가 기준 게이트](hallucination-rubric-gate-ko.md) |
 | 운영자 화면 경계 | [Operator Console](../interfaces/operator-console-ko.md) |

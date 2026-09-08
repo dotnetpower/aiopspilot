@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a0604601b5bb4c226f2c6f1856efe98a32e7e7f5
+translation_source_sha: 5756abedde4128ee54549e60ae2e96e256e595a6
 translation_revised: 2026-09-08
 ---
 # 프로젝트 구조
@@ -311,11 +311,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   신뢰할 수 없는 페이로드 한도를 넓히지 않고도 관계가 많은 리소스를 원자적으로 삭제할 수 있습니다.
   기존 effective `resource_id`의 리소스 타입도 realtime 갱신 전체에서 유지됩니다. 모순된 타입은
   리소스 행 또는 관계가 변경되기 전에 거부됩니다.
-  realtime 리소스 오버레이가 하나라도 pending 상태이면 base 스냅샷이 최신성 예산 안에 있어도
-  그래프 최신성은 `unknown`이고 읽기 변환 결과는 degraded 상태입니다. 완전한 조정
-  승격이 포함된 오버레이를 정리하면 스냅샷 기반 최신성이 복원됩니다.
-  읽기 전용 상태 전이 조회는 사용 가능한 Resource 범위의 검증된 양성 행을 유지할 수 있지만,
-  결과를 불완전하게 유지하며 누락 범위로 부재를 증명할 수 없습니다.
+  realtime 리소스 오버레이가 하나라도 pending 상태이면 base 스냅샷이 최신성 예산 안에 있어도 그래프 최신성은 `unknown`이고 읽기 변환 결과는 degraded 상태입니다. 완전한 조정 승격이 포함된 오버레이를 정리하면 스냅샷 기반 최신성이 복원됩니다. 읽기 전용 상태 전이 조회는 사용 가능한 Resource 범위의 검증된 양성 행을 유지할 수 있지만, 결과를 불완전하게 유지하며 누락 범위로 부재를 증명할 수 없습니다.
   각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` 타입이 지정된
   결과가 포함됩니다. 스냅샷 및 정렬 suppression은 이벤트 id와 범위가 제한된 사유를 포함한
   `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 갱신을 구분할 수 있게 합니다. 기존
@@ -412,13 +408,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   Council 기록이 없으면 abstention을 유지하고 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
-- **적응형 대화**: `build_semantic_query_runtime(adaptive_service=...)`에는 `AdaptiveModel`과
-  `AdaptivePolicy`를 주입한 `AdaptiveConversationService`를 전달할 수 있습니다. 고정 역할,
-  독립 검토, 프로바이더의 공통 사용량 제한 및 검증된 근거 조회기는 그대로 필요합니다. 검증된 의미
-  계획은 동기 planner thread와 비동기 Azure provider 작업 전체에 취소 전용 model-call scope를
-  연결합니다. 따라서 요청 취소는 일반 후보 fallback을 변경하지 않고 provider 작업을 중지하고
-  회수합니다. 컬렉션 Resource 상태 계획과 상태 사실 해석은 결정론적 Core 온톨로지 플랫폼이 계속
-  소유하며 표현 계층은 검증된 행만 사용합니다.
+- **적응형 대화**: `build_semantic_query_runtime(adaptive_service=...)`에는 `AdaptiveModel`과 `AdaptivePolicy`를 주입한 `AdaptiveConversationService`를 전달할 수 있습니다. 고정 역할, 독립 검토, 프로바이더의 공통 사용량 제한 및 검증된 근거 조회기는 그대로 필요합니다. 검증된 의미 계획은 동기 planner thread와 비동기 Azure provider 작업 전체에 취소 전용 model-call scope를 연결합니다. 따라서 요청 취소는 일반 후보 fallback을 변경하지 않고 provider 작업을 중지하고 회수합니다. 컬렉션 Resource 상태 계획과 상태 사실 해석은 결정론적 Core 온톨로지 플랫폼이 계속 소유하며 표현 계층은 검증된 행만 사용합니다.
 - **현재 T1 reuse 근거**: `CurrentReuseVerifier`는 변경할 수 없는 operational 사례를 위해 fresh
   리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은
   범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent
@@ -475,14 +465,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 
 ### 기능 번들
 
-검증된 번들, 확장, trusted-artifact, 스킬 공개 및 철회 수명 주기는
-[기능 번들 수명 주기](capability-bundle-lifecycle-ko.md)에서 소유합니다.
-프롬프트 공개 예산은 저장된 Markdown 본문만이 아니라 trusted XML wrapper를 포함한 완전한
-렌더링 스킬 또는 bundle 레이어에 적용됩니다.
-turn별 Operator Memory 조립은 독립적인 Resource Group 및 Resource 범위를 동시에 읽고 두
-읽기가 완료된 뒤 결정론적 계층 순서를 보존합니다.
-콘텐츠가 없는 조립 로그는 렌더링된 프롬프트나 memory 본문을 기록하지 않고 전체,
-Operator Memory, 스킬 공개 시간을 분리합니다.
+검증된 번들, 확장, trusted-artifact, 스킬 공개 및 철회 수명 주기는 [기능 번들 수명 주기](capability-bundle-lifecycle-ko.md)에서 소유합니다. 프롬프트 공개 예산은 저장된 Markdown 본문만이 아니라 trusted XML wrapper를 포함한 완전한 렌더링 스킬 또는 bundle 레이어에 적용됩니다. turn별 Operator Memory 조립은 독립적인 Resource Group 및 Resource 범위를 동시에 읽고 두 읽기가 완료된 뒤 결정론적 계층 순서를 보존합니다. 콘텐츠가 없는 조립 로그는 렌더링된 프롬프트나 memory 본문을 기록하지 않고 전체, Operator Memory, 스킬 공개 시간을 분리합니다.
 
 ### 주입 가능한 Seams
 
@@ -613,9 +596,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
   Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
-  변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다.
-  `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim
-  정렬과 principal 범위 replay를 지원합니다.
+  변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다. `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim 정렬과 principal 범위 replay를 지원합니다.
   `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
   `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
   `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을

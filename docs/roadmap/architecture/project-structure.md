@@ -321,11 +321,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   widening the untrusted payload limit.
   An existing effective `resource_id` also keeps its resource type across realtime updates. A
   contradictory type is rejected before the resource row or its relationships can change.
-  While any realtime resource overlay remains pending, graph freshness is `unknown` and the read
-  projection is degraded even when the base snapshot is within budget. A complete reconciliation
-  promotion clears covered overlays and restores snapshot-derived freshness.
-  Read-only state-transition queries may retain verified positive rows from the available Resource
-  scope, but they keep the result incomplete and cannot use the missing scope to prove absence.
+  While any realtime resource overlay remains pending, graph freshness is `unknown` and the read projection is degraded even when the base snapshot is within budget. A complete reconciliation promotion clears covered overlays and restores snapshot-derived freshness. Read-only state-transition queries may retain verified positive rows from the available Resource scope, but they keep the result incomplete and cannot use the missing scope to prove absence.
   Each projector result carries a typed outcome: `applied`, `not_applicable`, `snapshot_covered`,
   or `ordering_rejected`. Snapshot and ordering suppression also emit `inventory_delta_ignored`
   with the event id and bounded reason, so a safe no-op is distinguishable from an applied update.
@@ -419,14 +415,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
-- **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an
-  `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles,
-  independent review, shared provider budgets, and the verified evidence reader remain required.
-  Verified semantic planning binds a cancellation-only model-call scope across its synchronous
-  planner thread and asynchronous Azure provider tasks, so request cancellation stops and drains
-  provider work without changing ordinary candidate failover. Collection Resource-state planning
-  and state-fact decoding remain deterministic Core ontology-platform responsibilities;
-  presentation only consumes their verified rows.
+- **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles, independent review, shared provider budgets, and the verified evidence reader remain required. Verified semantic planning binds a cancellation-only model-call scope across its synchronous planner thread and asynchronous Azure provider tasks, so request cancellation stops and drains provider work without changing ordinary candidate failover. Collection Resource-state planning and state-fact decoding remain deterministic Core ontology-platform responsibilities; presentation only consumes their verified rows.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
   freshness is evaluated against the current evaluation clock with bounded age and future skew,
@@ -483,14 +472,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 
 ### Capability Bundles
 
-The validated bundle, extension, trusted-artifact, skill disclosure, and revocation lifecycle is
-owned by [Capability bundle lifecycle](capability-bundle-lifecycle.md).
-Prompt disclosure budgets apply to the complete rendered skill or bundle layer, including its
-trusted XML wrapper, rather than only the stored Markdown bodies.
-Per-turn Operator Memory composition reads independent resource-group and resource scopes
-concurrently and preserves deterministic hierarchy order after both reads complete.
-Content-free composition logs separate total, Operator Memory, and skill-disclosure time without
-recording any rendered prompt or memory body.
+The validated bundle, extension, trusted-artifact, skill disclosure, and revocation lifecycle is owned by [Capability bundle lifecycle](capability-bundle-lifecycle.md). Prompt disclosure budgets apply to the complete rendered skill or bundle layer, including its trusted XML wrapper, rather than only the stored Markdown bodies. Per-turn Operator Memory composition reads independent resource-group and resource scopes concurrently and preserves deterministic hierarchy order after both reads complete. Content-free composition logs separate total, Operator Memory, and skill-disclosure time without recording any rendered prompt or memory body.
 
 ### Injectable Seams
 
@@ -617,9 +599,7 @@ only when its rule id, action type, and fixed check reference still match.
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
   for the five backend services and TypeScript types for Console. These files are read-only
-  development views; runtime validation continues to use the canonical JSON Schema.
-  Core-owned partial indexes on `state_kv` support Operator semantic claim ordering and
-  principal-scoped replay without transferring table ownership.
+  development views; runtime validation continues to use the canonical JSON Schema. Core-owned partial indexes on `state_kv` support Operator semantic claim ordering and principal-scoped replay without transferring table ownership.
   `operator-core-request` is at `1.5.0`. Version 1.3 added the server-owned
   `semantic_turn.bound_context`, version 1.4 added the bounded
   `semantic_turn.include_model_trace` opt-in, and version 1.5 added the server-resolved
