@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e1beed1c5eb8523401a80d7dd674451ce221f6df
+translation_source_sha: 3b646db28eaeb974073bfc8f073456882226374a
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Runner의 목록 변환 결과가 `properties.vaultUri`를 생략하므로 고유하게 검증된 vault 이름에서 상용 Azure Key Vault 정규 URI를 파생했습니다. Helper는 Azure Vault DNS 밖의 URI를 계속 거부합니다. | 실패한 작업 흐름 `34216680762`, `current change`, 집중 작업 흐름 및 helper 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner에서 모든 정확한 관리 플레인 읽기 방식이 거부된 후 중복 Key Vault 상태 조회를 제거했습니다. 고유한 배포 태그로 vault를 선택하고 helper가 Azure Vault URI를 검증하며 실제 데이터 플레인 쓰기 및 재확인으로 도달성을 증명합니다. 플랫폼 정책은 계속 상태 권한을 소유합니다. | 실패한 작업 흐름 `34215982420`, 이전에 확인한 값 비노출 상태 근거, `current change`, 집중 작업 흐름 및 전송 테스트 | 비밀 구체화를 다시 실행하고 성공한 값 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 채널 비밀 초기 구성에서 runner 실행 중 GitHub CLI 다운로드를 제거하고 작업 흐름 토큰을 메모리에서만 사용하는 범위가 제한된 Python 검사 실행 조회로 교체했습니다. | 실패한 작업 흐름 `34214928124`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | Runner에서 거부된 일반 ARM REST 조회를 고유한 태그 기반 선택에서 파생한 지원되는 Key Vault 이름 및 구독 읽기로 교체했습니다. | 실패한 작업 흐름 `34214223069`, 값을 노출하지 않은 직접 Key Vault 이름 기반 상태 검사, `current change`, 집중 작업 흐름 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
