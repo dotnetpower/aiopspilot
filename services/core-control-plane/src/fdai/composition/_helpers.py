@@ -81,6 +81,7 @@ from ..shared.contracts.registry import SchemaRegistry
 from ..shared.contracts.validation import ContractValidator, EventValidator
 from ..shared.providers.blast_probe import LiveBlastProbe
 from ..shared.providers.change_feed import ChangeFeed, EmptyChangeFeed
+from ..shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from ..shared.providers.distiller import AbstainingDistiller, Distiller
 from ..shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
@@ -255,6 +256,7 @@ class Container:
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
+    decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None
     distiller: Distiller = field(default_factory=AbstainingDistiller)
     manual_source: ManualSource = field(default_factory=EmptyManualSource)
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)

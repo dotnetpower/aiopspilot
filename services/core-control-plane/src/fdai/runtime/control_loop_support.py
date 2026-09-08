@@ -43,6 +43,7 @@ from fdai.core.workflow import (
     WorkflowTriggerIndex,
 )
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -65,6 +66,7 @@ def build_workflow_coordinator(
     ontology_store: Any | None = None,
     outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
     architecture_evidence_provider: ProductionEvidenceProvider | None = None,
+    decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -122,7 +124,10 @@ def build_workflow_coordinator(
         if ontology_store is not None
         else architecture_guard
     )
-    guard_evaluator = AdmittedWorkflowGuardEvaluator(inner=inner_guard)
+    guard_evaluator = AdmittedWorkflowGuardEvaluator(
+        inner=inner_guard,
+        decision_evidence_provider=decision_evidence_provider,
+    )
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=action_types_by_name,
@@ -130,6 +135,7 @@ def build_workflow_coordinator(
         process_store=runtime_store,
         guard_evaluator=guard_evaluator,
         approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
+        approval_decision_evidence_provider=decision_evidence_provider,
         outcome_verifier=outcome_verifier,
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})

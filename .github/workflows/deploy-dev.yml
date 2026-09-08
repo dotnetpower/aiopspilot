@@ -2270,6 +2270,40 @@ jobs:
             --only-show-errors --content-type application/json --output none
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prepare governed decision evidence candidate
+        if: ${{ inputs.apply && success() }}
+        id: decision_evidence_candidate
+        run: |
+          set -euo pipefail
+          container_url="$(terraform output -raw operational_history_container_url 2>/dev/null || true)"
+          if [[ -z "$container_url" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Decision evidence candidate skipped: governed storage is unavailable." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          candidate="$RUNNER_TEMP/governed-deployment-evidence-candidate"
+          mkdir "$candidate"
+          install -m 0600 plan-metadata.json "$candidate/plan-metadata.json"
+          install -m 0600 plan-preflight-evidence.json "$candidate/preflight-evidence.json"
+          install -m 0600 plan-azure-preflight-evidence.json \
+            "$candidate/azure-preflight-evidence.json"
+          install -m 0600 apply-claim.json "$candidate/apply-claim.json"
+          install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
+          printf '%s\n' "$container_url" \
+            > "$candidate/decision-evidence-container-url.txt"
+          chmod 0600 "$candidate/decision-evidence-container-url.txt"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload governed decision evidence candidate
+        if: ${{ steps.decision_evidence_candidate.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: governed-deployment-evidence-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/governed-deployment-evidence-candidate
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Publish sanitized apply receipt
         if: ${{ inputs.apply && success() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -25,6 +25,7 @@ module "core_control_plane" {
   governed_rca                        = var.governed_rca
   configuration_drift                 = var.configuration_drift
   diagnostic_ingest                   = var.diagnostic_ingest
+  decision_evidence_container_url     = var.decision_evidence_container_url
   scaling                             = var.scaling
   tags                                = var.tags
 }

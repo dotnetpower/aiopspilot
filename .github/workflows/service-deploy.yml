@@ -638,6 +638,13 @@ jobs:
               stewardship_gitops_binding=null
             fi
           fi
+          decision_evidence_container_url=""
+          if [[ "$SERVICE" == "core-control-plane" ]]; then
+            decision_evidence_container_url="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -raw operational_history_container_url 2>/dev/null || true
+            )"
+          fi
           if [[ "$SERVICE" == "operator-service" \
             && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "enable" ]]; then
             operator_channel_edge_identity_binding="$(
@@ -681,6 +688,7 @@ jobs:
               OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding" \
               OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
+              DECISION_EVIDENCE_CONTAINER_URL="$decision_evidence_container_url" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

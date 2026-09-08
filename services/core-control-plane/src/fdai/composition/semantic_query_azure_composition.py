@@ -214,6 +214,7 @@ def compose_azure_semantic_query_runtime(
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,
+            decision_evidence_admission_provider=(container.decision_evidence_admission_provider),
         )
     except (OSError, LookupError, TypeError, ValueError) as exc:
         _LOGGER.warning(

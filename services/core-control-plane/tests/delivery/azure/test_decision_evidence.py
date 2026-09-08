@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from fdai.delivery.azure.decision_evidence import (
+    AzureBlobDecisionEvidenceAdmissionProvider,
+    AzureBlobDecisionEvidenceProofConfig,
+    AzureBlobManagedIdentityAttestationReader,
+    AzureBlobProviderEvidenceReadbackReader,
     AzureManagedIdentityDecisionEvidenceVerifier,
 )
+from fdai.delivery.persistence.state_store_decision_evidence import (
+    RetainedDecisionEvidence,
+    decision_evidence_record_mapping,
+)
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.workload_identity import IdentityToken
 from fdai_service_contracts.decision_evidence import (
     DecisionCriticalEvidenceReceipt,
@@ -15,6 +27,7 @@ from fdai_service_contracts.decision_evidence import (
     decision_critical_evidence_receipt_digest,
 )
 from fdai_service_contracts.decision_evidence_verification import (
+    DecisionEvidenceVerificationBundle,
     DecisionEvidenceVerificationProof,
     EvidenceVerificationProofKind,
     expected_verification_subjects,
@@ -207,3 +220,216 @@ async def test_azure_verifier_rejects_naive_token_expiry() -> None:
             _receipt(),
             trust_anchor_id="azure:managed-identity",
         )
+
+
+async def test_blob_readers_load_content_addressed_proofs_without_retaining_token() -> None:
+    receipt = _receipt()
+    subjects = expected_verification_subjects(
+        authentication_evidence_digest=receipt.authentication_evidence_digest,
+        evidence_digest=receipt.evidence_digest,
+        completeness_evidence_digest=receipt.completeness_evidence_digest,
+        conflict_evidence_digest=receipt.conflict_evidence_digest,
+        freshness_policy_digest=receipt.freshness_policy_digest,
+    )
+    proofs = tuple(
+        _proof(kind, subject, receipt.receipt_digest) for kind, subject in subjects.items()
+    )
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer transient-token"
+        seen_paths.append(request.url.path)
+        if "/authentication/" in request.url.path:
+            payload: object = proofs[0].model_dump(mode="json")
+        else:
+            payload = {"proofs": [proof.model_dump(mode="json") for proof in proofs[1:]]}
+        content = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return httpx.Response(
+            200,
+            content=content,
+            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        config = AzureBlobDecisionEvidenceProofConfig(container_url="https://example.com/evidence")
+        bundle = await AzureManagedIdentityDecisionEvidenceVerifier(
+            identity=_Identity(),
+            attestation_reader=AzureBlobManagedIdentityAttestationReader(
+                config=config,
+                http_client=client,
+            ),
+            readback_reader=AzureBlobProviderEvidenceReadbackReader(
+                config=config,
+                http_client=client,
+            ),
+            verifier_id="azure.readback",
+            verifier_version="1.0.0",
+            clock=lambda: _NOW + timedelta(minutes=3),
+        ).verify(
+            receipt,
+            trust_anchor_id="azure:managed-identity",
+        )
+
+    digest = receipt.receipt_digest.removeprefix("sha256:")
+    assert seen_paths == [
+        f"/evidence/decision-evidence/v1/authentication/{digest}.json",
+        f"/evidence/decision-evidence/v1/readback/{digest}.json",
+    ]
+    assert bundle.proofs == tuple(sorted(proofs, key=lambda proof: proof.kind.value))
+    assert "transient-token" not in bundle.model_dump_json()
+
+
+async def test_blob_reader_rejects_stored_content_digest_mismatch() -> None:
+    receipt = _receipt()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(
+            200,
+            json=_proof(
+                EvidenceVerificationProofKind.AUTHENTICATION,
+                receipt.authentication_evidence_digest,
+                receipt.receipt_digest,
+            ).model_dump(mode="json"),
+            headers={"x-ms-meta-fdai-sha256": "0" * 64},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        reader = AzureBlobManagedIdentityAttestationReader(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            http_client=client,
+        )
+        with pytest.raises(ValueError, match="digest mismatched"):
+            await reader.attest(
+                token="transient-token",
+                receipt=receipt,
+                trust_anchor_id="azure:managed-identity",
+            )
+
+
+async def test_blob_readback_rejects_missing_or_duplicate_proof_kinds() -> None:
+    receipt = _receipt()
+    proof = _proof(
+        EvidenceVerificationProofKind.EVIDENCE,
+        receipt.evidence_digest,
+        receipt.receipt_digest,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        payload = {"proofs": [proof.model_dump(mode="json")] * 4}
+        content = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return httpx.Response(
+            200,
+            content=content,
+            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        reader = AzureBlobProviderEvidenceReadbackReader(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            http_client=client,
+        )
+        with pytest.raises(ValueError, match="proofs mismatched"):
+            await reader.readback(
+                token="transient-token",
+                receipt=receipt,
+                trust_anchor_id="azure:managed-identity",
+            )
+
+
+async def test_blob_admission_provider_resolves_an_exact_current_record() -> None:
+    receipt = _receipt()
+    subjects = expected_verification_subjects(
+        authentication_evidence_digest=receipt.authentication_evidence_digest,
+        evidence_digest=receipt.evidence_digest,
+        completeness_evidence_digest=receipt.completeness_evidence_digest,
+        conflict_evidence_digest=receipt.conflict_evidence_digest,
+        freshness_policy_digest=receipt.freshness_policy_digest,
+    )
+    proofs = tuple(
+        _proof(kind, subject, receipt.receipt_digest) for kind, subject in subjects.items()
+    )
+    bundle = DecisionEvidenceVerificationBundle.create(
+        receipt_digest=receipt.receipt_digest,
+        verifier_id="azure.readback",
+        verifier_version="1.0.0",
+        trust_anchor_id="azure:managed-identity",
+        verified_at=_NOW + timedelta(minutes=2),
+        valid_until=_NOW + timedelta(minutes=8),
+        proofs=proofs,
+    )
+    admission = DecisionEvidenceAdmission(
+        receipt_digest=receipt.receipt_digest,
+        verification_bundle_digest=bundle.bundle_digest,
+        evidence_digest=receipt.evidence_digest,
+        scope_digest=receipt.scope_digest,
+        purpose_id=receipt.purpose_id,
+        source_revision=receipt.source_revision,
+        verified_at=bundle.verified_at,
+        valid_until=bundle.valid_until,
+    )
+    record = decision_evidence_record_mapping(
+        RetainedDecisionEvidence(
+            receipt=receipt,
+            verification_bundle=bundle,
+            admission=admission,
+        )
+    )
+    content = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "/decision-evidence/v1/admissions/" in request.url.path
+        return httpx.Response(
+            200,
+            content=content,
+            headers={"x-ms-meta-fdai-sha256": hashlib.sha256(content).hexdigest()},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureBlobDecisionEvidenceAdmissionProvider(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            identity=_Identity(token_audience="https://storage.azure.com/"),
+            http_client=client,
+            clock=lambda: _NOW + timedelta(minutes=3),
+        )
+        resolved = await provider.admit(
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+        )
+
+    assert resolved == admission
+
+
+async def test_blob_admission_provider_returns_none_for_missing_record() -> None:
+    receipt = _receipt()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureBlobDecisionEvidenceAdmissionProvider(
+            config=AzureBlobDecisionEvidenceProofConfig(
+                container_url="https://example.com/evidence"
+            ),
+            identity=_Identity(token_audience="https://storage.azure.com/"),
+            http_client=client,
+            clock=lambda: _NOW + timedelta(minutes=3),
+        )
+        resolved = await provider.admit(
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+        )
+
+    assert resolved is None
