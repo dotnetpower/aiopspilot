@@ -38,6 +38,7 @@ describe("serializeTurns", () => {
 
     const parsed = parseTurns(serializeTurns([{
       id: "turn-semantic-receipt",
+      assessmentId: `conversation-assessment:${"e".repeat(64)}`,
       role: "deck",
       text: "Grounded answer",
       at: "10:00:00",
@@ -46,6 +47,7 @@ describe("serializeTurns", () => {
     }]));
 
     expect(parsed[0]?.semanticReceipt).toEqual(semanticReceipt);
+    expect(parsed[0]?.assessmentId).toBe(`conversation-assessment:${"e".repeat(64)}`);
   });
 
   it("round-trips verified and unverified mixed presentations", () => {

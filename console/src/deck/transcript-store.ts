@@ -41,6 +41,7 @@ import {
 } from "./backend";
 import {
   parseAnswerVerification,
+  parseConversationAssessmentId,
   parseDelegation,
   parseModelUsage,
   parseResourceContext,
@@ -94,6 +95,7 @@ export function transcriptKeyFor(sessionKey: string): string {
 /** The persisted shape - a lean subset of the in-memory turn. */
 export interface PersistedTurn {
   readonly id: string;
+  readonly assessmentId?: string;
   readonly role: "operator" | "deck";
   readonly text: string;
   readonly attachments?: readonly TurnAttachment[];
@@ -186,6 +188,7 @@ export function serializeTurns(
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
       const semanticReceipt = parseSemanticProjectionReceipt(t.semanticReceipt);
+      const assessmentId = parseConversationAssessmentId(t.assessmentId);
       const adaptiveAnswer = parseAdaptiveAnswer(
         t.adaptiveAnswer, semanticReceipt?.disposition === "action_draft" ? undefined : t.text,
       );
@@ -200,6 +203,7 @@ export function serializeTurns(
       const attachments = parseTurnAttachments(t.attachments);
       return {
         ...base,
+        ...(assessmentId ? { assessmentId } : {}),
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
           ? { groundingText: t.groundingText }
           : {}),
@@ -304,6 +308,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
     const semanticReceipt = parseSemanticProjectionReceipt(rec.semanticReceipt);
+    const assessmentId = parseConversationAssessmentId(rec.assessmentId);
     const draftExplanation = semanticReceipt?.disposition === "action_draft";
     const adaptiveAnswer = parseAdaptiveAnswer(rec.adaptiveAnswer, draftExplanation ? undefined : rec.text);
     if (!draftExplanation && (
@@ -328,6 +333,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       role: rec.role,
       text: rec.text,
       at: rec.at,
+      ...(assessmentId ? { assessmentId } : {}),
       ...(boundedTimestamp(rec.recordedAt) ? { recordedAt: rec.recordedAt } : {}),
       ...(boundedString(rec.groundingText, MAX_TURN_TEXT_CHARS)
         ? { groundingText: rec.groundingText }

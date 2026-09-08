@@ -16,6 +16,8 @@ and owner are required, but it exposes no evidence writer or remediation control
 The Ontology Instances projection keeps observed `runtime_calls` separate from generic direct relationships in the Inspector, dense legend, and current-screen evidence context. It preserves the stored source-to-target direction and cannot infer a call when the runtime source is unavailable. The Console panel registry keeps every route module behind a lazy import. Named route exports use one typed adapter, routes that share a module reuse one loader, and the production entry-bundle check verifies the required lazy boundaries and enforces both raw and gzip limits.
 Grounded source controls include primary and secondary evidence-posture labels in their accessible
 names so assistive technology receives the same warning as the visible footer.
+Browser-local transcript replay validates and retains an authoritative assessment identity when the
+terminal answer supplies one, while PostgreSQL remains the conversation system of record.
 
 ## Dependency-direction gate
 
