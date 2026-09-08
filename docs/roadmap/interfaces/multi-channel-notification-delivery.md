@@ -93,6 +93,8 @@ Rules:
   in deployment secret configuration, never in this repository.
 - **Duplicate JSON keys are invalid at every depth.** A later `mode`, `enabled`, or endpoint
   reference cannot silently replace the value that a reviewer inspected.
+- **One binding map contains at most 64 entries.** Startup rejects a larger map before constructing
+  adapters or readiness rows.
 - **`enabled: true` with incomplete configuration fails startup.** A half-configured channel is a
   deployment defect, not a channel to skip at send time.
 - **`enabled: false` is an explicit exclusion.** It removes the channel from every target set and is

@@ -91,6 +91,22 @@ def test_binding_parser_rejects_duplicate_json_keys() -> None:
         parse_notification_bindings(raw)
 
 
+def test_binding_parser_rejects_unbounded_binding_count() -> None:
+    raw = json.dumps(
+        {
+            f"slack-{index}": {
+                "kind": "slack_webhook",
+                "enabled": False,
+                "trust_tiers": ["a2_operational_alert"],
+            }
+            for index in range(65)
+        }
+    )
+
+    with pytest.raises(ValueError, match="at most 64 bindings"):
+        parse_notification_bindings(raw)
+
+
 def test_runtime_binds_two_named_channels(monkeypatch: pytest.MonkeyPatch) -> None:
     bindings = {
         "teams-ops": {

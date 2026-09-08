@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: c7c36667c6c7fc6a0f30d6b2112c98ec65e696d0
+translation_source_sha: 6f5048d7c9666a18dd7b7f90f82c54f8b998e74b
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -94,6 +94,8 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
   시크릿 설정에 두며 이 저장소에는 두지 않습니다.
 - **모든 깊이에서 중복 JSON 키는 유효하지 않습니다.** 뒤에 나온 `mode`, `enabled` 또는 엔드포인트
   참조가 검토자가 확인한 값을 조용히 대체할 수 없습니다.
+- **하나의 바인딩 맵에는 최대 64개 항목을 둘 수 있습니다.** 시작 시 더 큰 맵은 어댑터나 준비 상태
+  행을 만들기 전에 차단됩니다.
 - **설정이 불완전한 상태의 `enabled: true`는 시작을 실패시킵니다.** 절반만 설정된 채널은 전송
   시점에 건너뛸 채널이 아니라 배포 결함입니다.
 - **`enabled: false`는 명시적 제외입니다.** 모든 대상 집합에서 제거되며 dispatch 기록에

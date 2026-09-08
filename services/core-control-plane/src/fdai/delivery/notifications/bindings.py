@@ -14,6 +14,7 @@ from fdai.shared.providers.notifications import ChannelMode, TrustTier
 from .teams import TeamsWorkflowAuthMode
 
 _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_MAX_BINDINGS = 64
 NOTIFICATION_TRUST_TIERS: frozenset[TrustTier] = frozenset(
     {TrustTier.A2_OPERATIONAL_ALERT, TrustTier.A4_DIGEST}
 )
@@ -85,6 +86,10 @@ def parse_notification_bindings(raw: str) -> tuple[NotificationBindingSpec, ...]
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON is not valid JSON") from exc
     if not isinstance(value, dict) or not value:
         raise ValueError("FDAI_NOTIFICATION_BINDINGS_JSON MUST be a non-empty object")
+    if len(value) > _MAX_BINDINGS:
+        raise ValueError(
+            f"FDAI_NOTIFICATION_BINDINGS_JSON MUST contain at most {_MAX_BINDINGS} bindings"
+        )
     return tuple(_parse_binding(channel_id, spec) for channel_id, spec in value.items())
 
 
