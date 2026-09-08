@@ -59,6 +59,30 @@ def _result(*, missing_hop: str | None = None, regenerate_at: int | None = None)
     )
 
 
+def _order_invalid_result():
+    spans = tuple(
+        _span("trace-front", hop, sequence)
+        for sequence, hop in (
+            (0, "app-gateway"),
+            (1, "application"),
+            (3, "agent"),
+            (2, "api-gateway"),
+            (4, "model-endpoint"),
+        )
+    )
+    return TraceContinuityDetector(clock=lambda: _NOW).evaluate(
+        TraceTopologyObservation(
+            topology_ref="synthetic-agent-request",
+            scenario_id="scenario-trace-1",
+            resource_ref="trace-topology/synthetic-agent-request",
+            window_bucket="2026-09-09T00:00Z",
+            expected_hops=_HOPS,
+            spans=spans,
+            completed=True,
+        )
+    )
+
+
 def _evidence(
     cause: TraceRcaCause,
     *affected_items: str,
@@ -167,6 +191,16 @@ def test_mismatched_cause_scope_holds_for_review() -> None:
                 "agent->api-gateway",
             ),
         ),
+    )
+
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "trace_cause_evidence_scope_mismatch"
+
+
+def test_hop_order_does_not_guess_an_offending_instrumentation_hop() -> None:
+    result = analyze_trace_continuity_cause(
+        _order_invalid_result(),
+        cause_evidence=(_evidence(TraceRcaCause.INSTRUMENTATION, "agent"),),
     )
 
     assert result.outcome is RcaOutcome.ABSTAINED

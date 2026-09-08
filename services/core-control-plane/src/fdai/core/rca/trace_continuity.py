@@ -147,18 +147,8 @@ def _evidence_matches(
             and affected <= allowed
         )
     if evidence.cause is TraceRcaCause.INSTRUMENTATION:
-        allowed_hops = (
-            set(result.missing_hops)
-            if result.reason is TraceContinuityReason.CONTEXT_DROPPED
-            else set(result.observed_hops)
-        )
-        return (
-            result.reason
-            in {
-                TraceContinuityReason.CONTEXT_DROPPED,
-                TraceContinuityReason.HOP_ORDER_INVALID,
-            }
-            and affected <= allowed_hops
+        return result.reason is TraceContinuityReason.CONTEXT_DROPPED and affected <= set(
+            result.missing_hops
         )
     return result.reason is TraceContinuityReason.CONTEXT_DROPPED and affected <= set(
         result.missing_hops
