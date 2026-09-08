@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: c010315a7ba1266cff1d1f01e42bd2fa1872ef05
+translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
 translation_revised: 2026-09-09
 ---
 # FDAI 운영 온톨로지
@@ -554,13 +554,6 @@ deletion과 비정상 종료 복구를 위해 이전 및 현재 owned 신원의 
 `FDAI_OPERATING_MODEL_MAX_BYTES` 상한의 기본값은 16 MiB입니다. `GET /ontology/graph`는 변환 결과
 상태, 출처 개정 번호, 집계 개수만 노출하며 배포 인스턴스 속성은 반환하지 않습니다.
 
-`ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`,
-`ChangeWindow`는 risk gate가 읽는 보호 대상 objective와 constraint를 담으므로 운영자가 고정하는
-별도의 `FDAI_OPERATING_INTENT_SOURCE_PATH` 바인딩을 사용합니다. 이 바인딩은 cross-release, missing,
-duplicate, incomplete, stale 출처에서 fail closed하고, 유계 간격으로 재검증하며, 출처가 스스로를 더
-이상 증명하지 못하면 투영된 그래프가 아니라 intent 권한만 격리합니다.
-[operating-intent-source-ko.md](operating-intent-source-ko.md)가 그 계약을 소유합니다.
-
 Promoted 인벤토리 변환 결과는 그래프 변환 결과 전에 모든 리소스 및 링크 기록을 검증합니다.
 Malformed 신원, 속성 또는 관측 시각은 시도를 실패시킵니다. 인증된 하나의 프로바이더 행에서
 반복된 byte-identical 참조는 세대 검증 전에 하나의 후보로 합치며, 충돌하거나 관측 간에
@@ -680,7 +673,6 @@ O0 이후 첫 코드 구획은 semantic-spine 선언, 링크 제약, 조회 고�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/operating-ontology.md) |
-| 배포 소유 six-type intent 출처 | [Operating-intent 출처](operating-intent-source-ko.md) |
 | 선언 종류, operational 관점, 상태 및 맥락 경계 | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 현재 리소스, 룰, 신호, 발견 사항 기반 | [LLM strategy](llm-strategy-ko.md#ontology-foundation) |
 | 런타임 온톨로지 저장소 | [Rule 조회 온톨로지 저장소](rule-lookup-ontology-storage-ko.md) |

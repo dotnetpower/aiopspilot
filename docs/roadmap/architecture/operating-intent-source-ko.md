@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: aeb5fcd9a38fa2a6c97f7883dbabd174b3721678
+translation_source_sha: 76a2a70e100a888cad50799154128e7f2522e8f6
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처

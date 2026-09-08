@@ -567,13 +567,6 @@ ownership across revisions. The optional
 `FDAI_OPERATING_MODEL_MAX_BYTES` ceiling defaults to 16 MiB. `GET /ontology/graph` exposes only the
 projection status, source revision, and aggregate counts, never deployment instance properties.
 
-`ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, and
-`ChangeWindow` use a distinct, operator-pinned `FDAI_OPERATING_INTENT_SOURCE_PATH` binding because
-they carry protected objectives and constraints the risk gate reads. It fails closed on a
-cross-release, missing, duplicate, incomplete, or stale source, revalidates on a bounded interval,
-and quarantines intent authority - never the projected graph - once the source stops proving itself.
-[operating-intent-source.md](operating-intent-source.md) owns that contract.
-
 The promoted inventory projection validates every resource and link record before graph projection.
 Malformed identities, properties, or observation timestamps fail the attempt. Byte-identical
 references repeated within one authenticated provider row are coalesced into one candidate before
@@ -699,7 +692,6 @@ separately validated slices.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/operating-ontology.md) |
-| Deployment-owned six-type intent source | [Operating-intent source](operating-intent-source.md) |
 | Declaration kinds, operational lenses, state, and context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Current resource, rule, signal, and finding foundation | [LLM strategy](llm-strategy.md#ontology-foundation) |
 | Runtime ontology storage | [Rule lookup ontology storage](rule-lookup-ontology-storage.md) |

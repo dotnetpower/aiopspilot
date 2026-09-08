@@ -129,14 +129,6 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
-Core Runtime reads the same `FDAI_OPERATING_MODEL_PATH` and `FDAI_OPERATING_INTENT_SOURCE_PATH` env
-vars in both venues, so a venue difference is only which value is set, never a different code path.
-The [operating-intent source](../architecture/operating-intent-source.md) binding also requires
-`FDAI_OPERATING_INTENT_SOURCE_REVISION`, `FDAI_OPERATING_INTENT_SOURCE_SHA256`,
-`FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON`, `FDAI_OPERATING_INTENT_SOURCE_GENERATION`, and
-optional `FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS`, threaded through the Core Terraform
-`operating_intent_source` variable. Per-attribute defaults keep the shipped generic binding on under
-a partial override; both venues serialize projection and fence admission by rollout generation.
 An optional local configuration-baseline conversation binds three ignored artifacts through `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and `FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces that file.
 Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops Operator API startup; callers cannot replace the pinned scope, version, digest, or document. When the binding succeeds, local composition registers the same context for deterministic chat and the GET-only Configuration baselines panel.
 The panel runs the configured observation source per request, reports an absent binding as unavailable, never substitutes fixtures or cached Azure state, and binds campaign state to PostgreSQL when available.

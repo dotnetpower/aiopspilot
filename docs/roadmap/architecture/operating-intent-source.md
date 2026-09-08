@@ -155,6 +155,7 @@ racing.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Kept the detailed contract in this focused owner and removed duplicate growth from four legacy oversized roadmap documents. | `current change`; document-size, translation, and roadmap-tracking gates. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Rejected duplicate JSON object keys before normalization so last-write-wins parsing cannot hide raw document changes from the canonical digest. | `current change`; focused duplicate-key regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Replaced the separate file-size check and unbounded text read with one bounded binary read, closing the replacement/growth race. | `current change`; focused stale-stat regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Replaced raw exception persistence and logging with bounded reason codes and exception-type-only diagnostics. | `current change`; focused validation, lock, and projection failure regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
