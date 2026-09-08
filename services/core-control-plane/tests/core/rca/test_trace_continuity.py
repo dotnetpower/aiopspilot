@@ -192,6 +192,25 @@ def test_invalid_confidence_configuration_is_never_hidden_by_an_early_hold() -> 
         )
 
 
+def test_combined_trace_citations_hold_instead_of_truncating() -> None:
+    continuity = replace(
+        _result(missing_hop="agent"),
+        evidence_refs=tuple(f"telemetry:continuity:{index}" for index in range(100)),
+    )
+    cause = replace(
+        _evidence(TraceRcaCause.INSTRUMENTATION, "agent"),
+        evidence_refs=tuple(f"telemetry:cause:{index}" for index in range(100)),
+    )
+
+    result = analyze_trace_continuity_cause(
+        continuity,
+        cause_evidence=(cause,),
+    )
+
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "trace_citation_limit_exceeded"
+
+
 def test_trace_cause_evidence_is_bounded_and_unique() -> None:
     with pytest.raises(ValueError, match="affected_items MUST be unique"):
         _evidence(TraceRcaCause.INSTRUMENTATION, "agent", "agent")

@@ -105,10 +105,10 @@ def analyze_trace_continuity_cause(
     if not _evidence_matches(result, selected):
         return _abstained("trace_cause_evidence_scope_mismatch")
 
-    citations = tuple(
-        Citation(kind=CitationKind.TELEMETRY, ref=ref)
-        for ref in dict.fromkeys((*result.evidence_refs, *selected.evidence_refs))
-    )
+    combined_refs = tuple(dict.fromkeys((*result.evidence_refs, *selected.evidence_refs)))
+    if len(combined_refs) > _MAX_EVIDENCE_REFS:
+        return _abstained("trace_citation_limit_exceeded")
+    citations = tuple(Citation(kind=CitationKind.TELEMETRY, ref=ref) for ref in combined_refs)
     hypothesis = RootCauseHypothesis(
         tier=RcaTier.T1,
         cause=_cause_text(selected),
