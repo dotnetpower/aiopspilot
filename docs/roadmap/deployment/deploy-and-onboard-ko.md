@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: cbd2a0e8293f984ba0d76b1a33ed5bc7fc8e71ec
+translation_source_sha: f7446c2af2b6810fe09c5839177ae4a122dd58f5
 translation_revised: 2026-09-08
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -116,7 +116,9 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 삭제하며 선택이 불완전한이거나 삭제가 하나라도 실패하면 계획을 중지합니다.
 통제된 운영 이력 저장소를 사용할 수 있으면 90일 적용 산출물에 별도 의사 결정 근거 승인
 워크플로가 사용하는 고정 계획, 사전 검사, 점유, 증적 및 비공개 컨테이너 좌표도 포함합니다.
-저장소 출력이 없으면 기존 적용 증적만 유지하고 실제 근거 승인을 주장하지 않습니다.
+이 워크플로는 런타임에서 읽을 수 있는 Blob 기록을 게시하기 전에 정확한 승인 기록을
+증명합니다. 저장소 출력이 없으면 기존 적용 증적만 유지하고 실제 근거 승인을 주장하지
+않습니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서

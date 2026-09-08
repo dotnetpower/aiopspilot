@@ -39,6 +39,13 @@ def test_workflow_retains_all_proof_layers_and_attests_record() -> None:
     ):
         assert path in _WORKFLOW
     assert "actions/attest@" in _WORKFLOW
+    assert (
+        "subject-path: ${{ runner.temp }}/decision-evidence-inputs/admission-record.json"
+        in _WORKFLOW
+    )
+    assert _WORKFLOW.index("Attest governed decision evidence") < _WORKFLOW.index(
+        "Retain attested immutable decision evidence records"
+    )
     assert "retention-days: 90" in _WORKFLOW
     assert "Execution authority: `false`" in _WORKFLOW
     assert "Promotion authority: `false`" in _WORKFLOW
