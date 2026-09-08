@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeAssuranceDetail, decodeConversationAssurance } from "./conversation-assurance.model";
 import {
+  assessmentStateKind,
   formatPantheonScore,
   pantheonSafetyTone,
   requestedAssessmentUnavailable,
@@ -64,6 +65,12 @@ describe("conversation assurance contracts", () => {
     expect(requestedAssessmentUnavailable("assessment-missing", null)).toBe(true);
     expect(requestedAssessmentUnavailable(null, null)).toBe(false);
     expect(requestedAssessmentUnavailable("assessment-1", "assessment-1")).toBe(false);
+  });
+
+  it("renders deferred and disputed assessments as attention states", () => {
+    expect(assessmentStateKind("completed")).toBe("success");
+    expect(assessmentStateKind("deferred")).toBe("warning");
+    expect(assessmentStateKind("disputed")).toBe("danger");
   });
 
   it("decodes a bounded read-mostly projection", () => {

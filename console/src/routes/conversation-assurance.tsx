@@ -203,7 +203,7 @@ export function pantheonSafetyTone(hardZeroCount: number): "danger" | "positive"
 }
 
 function AssessmentTable({ assessments, onSelect }: { readonly assessments: readonly AssuranceAssessment[]; readonly onSelect: (value: string) => void }) {
-  return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
+  return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.state")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td><StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
 }
 
 function AssessmentDetail({ auth, client, assessment, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessment: AssuranceAssessment | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
@@ -243,4 +243,10 @@ function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthCo
 }
 
 function verdictKind(verdict: AssuranceVerdict): "success" | "danger" | "warning" { return verdict === "pass" ? "success" : verdict === "fail" ? "danger" : "warning"; }
+
+export function assessmentStateKind(
+  state: AssuranceAssessment["state"],
+): "success" | "danger" | "warning" {
+  return state === "completed" ? "success" : state === "disputed" ? "danger" : "warning";
+}
 function formatCost(microusd: number): string { return `$${(microusd / 1_000_000).toFixed(6)}`; }

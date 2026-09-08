@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: b45af6fa062d7a18e35023a11059edb937cddfb1
+translation_source_sha: b8f56afda081def22d13c84186e2236680e4ecc3
 translation_revised: 2026-09-08
 ---
 # 대화 품질 보증
@@ -46,6 +46,7 @@ translation_revised: 2026-09-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 모든 행을 완료 상태처럼 보이게 하지 않고 완료, 평가 대기, 이의 제기됨 수명 주기 상태를 지역화된 Console 전용 열로 표시했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 11개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 대표 수명 주기 행을 검증합니다. |
 | 2026-09-08 | implemented | Operator 읽기 모델에서 평가, conversation, 의미 turn 식별자의 정확한 상관관계를 요구하여 범위가 제한된 principal 범위 질문과 최종 답변 상세를 추가했습니다. | `current change`, 집중 보증 읽기 구성요소 및 Operator 계열 검사 49개가 통과했습니다. | 인증된 실제 평가 상세를 별도로 검증합니다. |
 | 2026-09-08 | implemented | 모호한 빈 선택 상태를 principal 범위 평가 사용 불가 안내와 범위가 제한된 새로고침 동작으로 대체했습니다. | `current change`, 집중 대화 보증 및 카탈로그 검사 10개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 처리 중 및 보존 이력 범위 밖 사례를 검증합니다. |
 | 2026-09-08 | implemented | Console 평가 선택기가 현재 답변의 권위 있는 평가 식별자와 기존 딥 링크의 서버 turn 식별자를 모두 해석하게 했습니다. | `current change`, `npm --prefix console test -- --run src/routes/conversation-assurance.test.ts`에서 테스트 6개가 통과했습니다. | 인증된 Browser Entra 세션에서 두 링크 형식을 모두 검증합니다. |

@@ -13,6 +13,7 @@
   "disputes": "운영자 이의 제기",
   "assessments": "평가 목록",
   "turn": "Turn",
+  "state": "상태",
   "score": "점수",
   "models": "모델",
   "cost": "평가 비용",
@@ -45,6 +46,7 @@
     "language_quality": "언어 품질"
   },
   "verdict": {"pass": "통과", "fail": "실패", "inconclusive": "판단 보류"},
+  "assessmentState": {"completed": "완료", "deferred": "평가 대기", "disputed": "이의 제기됨"},
   "pantheon": {
     "title": "Pantheon 대화 진단",
     "description": "고정된 15개 Pantheon 에이전트의 프롬프트, 라우팅, 근거, 안전성 및 T2 동작을 읽기 전용 30점 척도로 표시합니다.",

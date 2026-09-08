@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: da16244a726a60535de9b1f62082c06b1a2ca7ba
+translation_source_sha: fea5132bdced594baf2426a92da120d847b64559
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -67,6 +67,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 평가 대기 및 이의 제기됨 상태를 완료 평가와 명확히 구분하도록 지역화된 수명 주기 상태 열을 추가했습니다. | `current change`, 집중 경로 및 카탈로그 검사 11개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 브라우저 검증은 별도 근거로 유지합니다. |
 | 2026-09-08 | implemented | 평가 딥 링크에 principal 범위 레코드가 없을 때 사실에 맞는 사용 불가 상태와 명시적인 새로고침 동작을 추가했습니다. | `current change`, 집중 경로 및 카탈로그 테스트 10개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 브라우저 검증은 별도 근거로 유지합니다. |
 | 2026-09-08 | implemented | 대화 보증 경로 선택기가 현재 답변이 전달하는 권위 있는 평가 식별자를 수락하면서 기존 turn 식별자 링크도 유지하게 했습니다. | `current change`, 집중 대화 보증 경로 테스트 6개가 통과했습니다. | 인증된 실제 평가에서 경로 선택을 검증합니다. |
 | 2026-09-08 | implemented | 권위 있는 대화 평가 식별자를 실제 처리 및 복원된 Web turn 전체에 전달하여 답변 품질 링크가 일치하는 평가를 선택하게 했습니다. | `current change`, 집중 Console 스트림, 세션 및 근거 기반 답변 검사 43개와 Console 타입 검사가 통과했습니다. | 인증된 Browser Entra 세션에서 정확한 딥 링크를 검증합니다. |

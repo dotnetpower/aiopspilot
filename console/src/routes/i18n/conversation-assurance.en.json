@@ -13,6 +13,7 @@
   "disputes": "Operator disputes",
   "assessments": "Assessments",
   "turn": "Turn",
+  "state": "State",
   "score": "Score",
   "models": "Models",
   "cost": "Evaluation cost",
@@ -45,6 +46,7 @@
     "language_quality": "Language quality"
   },
   "verdict": {"pass": "Pass", "fail": "Fail", "inconclusive": "Inconclusive"},
+  "assessmentState": {"completed": "Completed", "deferred": "Deferred", "disputed": "Disputed"},
   "pantheon": {
     "title": "Pantheon conversation diagnostics",
     "description": "Read-only 30-point prompt, routing, evidence, safety, and T2 measurements for the fixed 15-agent Pantheon.",

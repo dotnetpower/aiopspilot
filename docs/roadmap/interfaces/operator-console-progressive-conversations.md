@@ -63,6 +63,7 @@ remains the recovery path when notifications are absent.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Added a localized lifecycle-state column so deferred and disputed assessments remain visibly distinct from completed assessments. | `current change`; focused route and catalog checks passed 11 cases, Console typecheck passed, and catalog parity passed. | Retain authenticated browser validation separately. |
 | 2026-09-08 | implemented | Added a truthful unavailable state and explicit refresh action when an assessment deep link has no principal-scoped record. | `current change`; focused route and catalog tests passed 10 cases, Console typecheck passed, and catalog parity passed. | Retain authenticated browser validation separately. |
 | 2026-09-08 | implemented | Made the assurance route selector accept the authoritative assessment identity carried by current replies while retaining legacy turn-id links. | `current change`; the focused Conversation assurance route test passed 6 cases. | Validate route selection against an authenticated live assessment. |
 | 2026-09-08 | implemented | Propagated the authoritative conversation assessment identity through live and restored Web turns so the answer-quality link selects the matching assessment. | `current change`; focused Console stream, session, and grounded-reply checks passed 43 tests, and Console typecheck passed. | Validate the exact deep link in an authenticated Browser Entra session. |
