@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fdai.delivery.operating_model import (
@@ -44,6 +45,31 @@ async def test_json_provider_rejects_oversized_file(tmp_path: Path) -> None:
     path.write_text("{}", encoding="utf-8")
     provider = JsonOperatingModelProvider(
         config=JsonOperatingModelProviderConfig(path=path, max_bytes=1)
+    )
+
+    with pytest.raises(ValueError, match="max_bytes"):
+        await provider.load()
+
+
+async def test_json_provider_enforces_read_bound_when_stat_is_stale(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "operating-model.json"
+    path.write_text(
+        json.dumps(
+            {
+                "source_revision": "revision-1",
+                "objects": [],
+                "links": [],
+                "padding": "x" * 1024,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_size=1))
+    provider = JsonOperatingModelProvider(
+        config=JsonOperatingModelProviderConfig(path=path, max_bytes=128)
     )
 
     with pytest.raises(ValueError, match="max_bytes"):

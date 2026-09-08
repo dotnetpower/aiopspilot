@@ -57,12 +57,21 @@ class JsonOperatingIntentSourceProvider:
 
 
 def _read_bounded_document(path: Path, max_bytes: int) -> Mapping[str, object]:
-    if path.stat().st_size > max_bytes:
+    with path.open("rb") as stream:
+        content_bytes = stream.read(max_bytes + 1)
+    if len(content_bytes) > max_bytes:
         raise ValueError("operating model file exceeds max_bytes")
-    content = path.read_text(encoding="utf-8")
     try:
-        raw = normalize_json_value(json.loads(content), path="operating_model")
-    except (json.JSONDecodeError, RecursionError, OntologyInstanceValidationError) as exc:
+        raw = normalize_json_value(
+            json.loads(content_bytes.decode("utf-8")),
+            path="operating_model",
+        )
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        OntologyInstanceValidationError,
+    ) as exc:
         raise ValueError("operating model file MUST contain bounded canonical JSON") from exc
     if not isinstance(raw, Mapping):
         raise ValueError("operating model document MUST be an object")
