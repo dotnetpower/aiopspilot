@@ -505,7 +505,7 @@ def test_project_semantic_assurance_entails_evidence_health_claims() -> None:
         "evidence.source_revision",
     )
     assert observation.limitation_kinds == ("incomplete_evidence_cannot_prove_health",)
-    assert observation.evidence_posture == "conflicting"
+    assert observation.evidence_posture == "incomplete"
 
 
 def test_project_semantic_assurance_entails_incident_claims_and_gaps() -> None:

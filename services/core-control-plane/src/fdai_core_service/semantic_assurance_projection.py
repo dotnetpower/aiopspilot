@@ -445,12 +445,12 @@ def _evidence_posture(
             complete = getattr(value, "complete", None)
             saw_incomplete = saw_incomplete or complete is False
             saw_stale = saw_stale or _contains_stale(getattr(value, "reason", None))
+    if saw_incomplete:
+        return "incomplete"
     if saw_conflict:
         return "conflicting"
     if saw_stale:
         return "stale"
-    if saw_incomplete:
-        return "incomplete"
     return "fresh"
 
 
