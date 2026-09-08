@@ -22,11 +22,6 @@ and owning designs. Use it instead of the retired top-level application tree.
   inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
   and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
   `BuildStatus`; canonical ontology projection keeps that child source and effective time.
-- **Ontology persistence boundaries:** `postgres_ontology.py` coordinates the store,
-  `postgres_ontology_graph.py` owns graph reads, `postgres_ontology_records.py` converts persisted
-  rows, and `postgres_ontology_inventory.py` validates inventory state-base completeness and object
-  ownership. The split preserves the existing projection contract without creating another writer
-  or authority surface.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
