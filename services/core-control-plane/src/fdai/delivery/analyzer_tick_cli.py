@@ -459,12 +459,18 @@ def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
     )
 
 
-def build_decision_evidence_admission_provider() -> StateStoreDecisionEvidenceAdmissionProvider:
+def build_decision_evidence_admission_provider() -> (
+    StateStoreDecisionEvidenceAdmissionProvider | None
+):
     """Bind the durable admission lookup used by target selection."""
 
     dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
     if not dsn:
-        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for decision evidence admission")
+        _LOGGER.warning(
+            "analyzer_decision_evidence_unavailable",
+            extra={"reason": "state_store_dsn_absent"},
+        )
+        return None
     return StateStoreDecisionEvidenceAdmissionProvider(
         store=PostgresStateStore(
             config=PostgresStateStoreConfig(
