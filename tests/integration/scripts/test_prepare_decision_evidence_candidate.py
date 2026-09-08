@@ -91,3 +91,15 @@ def test_rejects_symlinked_input(packager: ModuleType, tmp_path: Path) -> None:
             container_url="https://example.com/operational-history",
             output=tmp_path / "candidate",
         )
+
+
+def test_rejects_oversized_input(packager: ModuleType, tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    sources["apply-receipt.json"].write_bytes(b"x" * (1024 * 1024 + 1))
+
+    with pytest.raises(packager.DecisionEvidenceCandidateError, match="regular file"):
+        packager.prepare_candidate(
+            sources=sources,
+            container_url="https://example.com/operational-history",
+            output=tmp_path / "candidate",
+        )

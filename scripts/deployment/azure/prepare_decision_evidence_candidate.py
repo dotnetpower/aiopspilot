@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import stat
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -35,9 +36,7 @@ def prepare_candidate(
     normalized_url = _container_url(container_url)
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     for name, source in sources.items():
-        if source.is_symlink() or not source.is_file() or source.stat().st_size > _MAX_INPUT_BYTES:
-            raise DecisionEvidenceCandidateError(f"{name} MUST be a bounded regular file")
-        _write(output / name, source.read_bytes())
+        _write(output / name, _read_bounded(source, name=name))
     _write(
         output / "decision-evidence-container-url.txt",
         (normalized_url + "\n").encode(),
@@ -71,6 +70,21 @@ def _write(path: Path, content: bytes) -> None:
     )
     with os.fdopen(descriptor, "wb") as stream:
         stream.write(content)
+
+
+def _read_bounded(path: Path, *, name: str) -> bytes:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise DecisionEvidenceCandidateError(f"{name} MUST be a bounded regular file") from exc
+    with os.fdopen(descriptor, "rb") as stream:
+        metadata = os.fstat(stream.fileno())
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _MAX_INPUT_BYTES:
+            raise DecisionEvidenceCandidateError(f"{name} MUST be a bounded regular file")
+        content = stream.read(_MAX_INPUT_BYTES + 1)
+    if len(content) > _MAX_INPUT_BYTES:
+        raise DecisionEvidenceCandidateError(f"{name} MUST be a bounded regular file")
+    return content
 
 
 def main() -> int:
