@@ -35,6 +35,20 @@ keeps Git, GitHub CLI, PostgreSQL, and systemd output in the terminal instead of
 
 ## 2. One-time install
 
+The local full stack runs the Document Processing Worker on the host. On Ubuntu
+or WSL, install Tesseract OCR and its English and Korean language data:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
+tesseract --list-langs
+```
+
+`pytesseract`, installed by `uv sync`, is only the Python wrapper. The
+Document Processing Worker container image installs the equivalent Alpine
+packages separately, so you can skip the host packages when you run the worker
+only as a container.
+
 ```bash
 uv sync --extra dev      # runtime + dev dependencies (Python 3.13)
 make hooks-install       # tracked git hooks (core.hooksPath=.githooks)
