@@ -246,6 +246,7 @@ class _SemanticProgressRelay:
 class _SemanticReplayCursor:
     projection_sequence: int
     phase: str
+    answer_segment_index: int | None = None
 
 
 class _SemanticEventIterator(AsyncIterator[StreamEvent]):
@@ -412,21 +413,6 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             )
             if not results:
                 self._terminal_absent_observed = True
-            progress_updates = self._progress_relay.after(
-                self._stored.request_id,
-                self._progress_sequence,
-            )
-            if progress_updates and self._terminal_absent_observed:
-                progress = progress_updates[0]
-                self._progress_sequence = progress.progress_sequence
-                if (
-                    progress.session_id == self._request.session_id
-                    and progress.turn_id == self._request.turn_id
-                    and progress.turn_sequence == self._request.turn_sequence
-                ):
-                    self._queue_progress(progress)
-                    return
-                continue
             if results:
                 self._progress_relay.discard(self._stored.request_id)
                 for result in results:
@@ -451,6 +437,21 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                         extra={"request_id": self._stored.request_id},
                     )
                 store_after = _store_after_sequence(self._cursor)
+                continue
+            progress_updates = self._progress_relay.after(
+                self._stored.request_id,
+                self._progress_sequence,
+            )
+            if progress_updates and self._terminal_absent_observed:
+                progress = progress_updates[0]
+                self._progress_sequence = progress.progress_sequence
+                if (
+                    progress.session_id == self._request.session_id
+                    and progress.turn_id == self._request.turn_id
+                    and progress.turn_sequence == self._request.turn_sequence
+                ):
+                    self._queue_progress(progress)
+                    return
                 continue
             await self._progress_relay.wait_for_update(
                 self._stored.request_id,
@@ -542,7 +543,8 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._settle_pending_activities(result.sequence)
         done = _done_event_data(result.data, locale=self._request.locale)
         inventory_document = _is_inventory_document(result.data)
-        if inventory_document or _is_document_draft(result.data):
+        document_answer_replaced = inventory_document or _is_document_draft(result.data)
+        if document_answer_replaced:
             source_request_id = (
                 result.request_id if inventory_document else self._stored.source_request_id
             )
@@ -571,21 +573,53 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     done["document_artifact"] = document.metadata(
                         pdf_available=self._document_exporter.pdf_encoder is not None
                     )
-        if disposition == "answered" and not _cursor_includes(
-            self._cursor, result.sequence, "answer"
-        ):
-            for delta in _verified_answer_chunks(done.get("answer")):
+        answer_segment_start = _answer_segment_start(self._cursor, result.sequence)
+        if disposition == "answered" and answer_segment_start is not None:
+            chunks = _verified_answer_chunks(done.get("answer"))
+            semantic_receipt = done.get("semantic_receipt")
+            semantic_result = done.get("semantic_result")
+            evidence_refs = (
+                semantic_result.get("evidence_refs")
+                if isinstance(semantic_result, Mapping)
+                else None
+            )
+            verification = done.get("verification")
+            receipt_bound = (
+                not document_answer_replaced
+                and isinstance(verification, Mapping)
+                and verification.get("status") == "verified"
+                and isinstance(semantic_receipt, Mapping)
+                and semantic_receipt.get("disposition") == "answered"
+                and semantic_receipt.get("reason_code") == "semantic_answer_verified"
+                and isinstance(evidence_refs, list)
+                and all(isinstance(item, str) for item in evidence_refs)
+            )
+            confirmed_text = ""
+            for segment_index, delta in enumerate(chunks):
+                confirmed_text += delta
+                if segment_index < answer_segment_start:
+                    continue
                 self._stream_sequence += 1
                 self._events.append(
                     StreamEvent(
-                        event="token",
-                        event_id=f"{result.sequence}:answer",
+                        event="confirmed" if receipt_bound else "token",
+                        event_id=f"{result.sequence}:answer:{segment_index}",
                         data=cast(
                             JsonObject,
                             {
                                 "seq": self._stream_sequence,
                                 "revision": 0,
-                                "delta": delta,
+                                **(
+                                    {
+                                        "segment_index": segment_index,
+                                        "text": confirmed_text,
+                                        "status": "consistent",
+                                        "evidence_refs": evidence_refs,
+                                        "semantic_receipt": semantic_receipt,
+                                    }
+                                    if receipt_bound
+                                    else {"delta": delta}
+                                ),
                             },
                         ),
                     )
@@ -1622,9 +1656,12 @@ def _verified_answer_chunks(answer: object) -> tuple[str, ...]:
 
     if not isinstance(answer, str) or not answer:
         return ()
+    chunk_chars = max(
+        _MAX_ANSWER_CHUNK_CHARS,
+        (len(answer) + 63) // 64,
+    )
     return tuple(
-        answer[index : index + _MAX_ANSWER_CHUNK_CHARS]
-        for index in range(0, len(answer), _MAX_ANSWER_CHUNK_CHARS)
+        answer[index : index + chunk_chars] for index in range(0, len(answer), chunk_chars)
     )
 
 
@@ -1654,11 +1691,27 @@ def _after_sequence(value: str | None) -> _SemanticReplayCursor | None:
             "invalid_replay_cursor",
             "Last-Event-ID is invalid",
         ) from exc
-    if parsed < 0 or phase not in _SEMANTIC_PHASES:
+    answer_segment_index: int | None = None
+    if phase.startswith("answer:"):
+        _, raw_segment_index = phase.split(":", 1)
+        try:
+            answer_segment_index = int(raw_segment_index)
+        except ValueError as exc:
+            raise ConversationBoundaryError(
+                400,
+                "invalid_replay_cursor",
+                "Last-Event-ID is invalid",
+            ) from exc
+        phase = "answer"
+    if (
+        parsed < 0
+        or phase not in _SEMANTIC_PHASES
+        or (answer_segment_index is not None and answer_segment_index < 0)
+    ):
         raise ConversationBoundaryError(400, "invalid_replay_cursor", "Last-Event-ID is invalid")
     if parsed == 0 and phase not in {"accepted", "planning"}:
         raise ConversationBoundaryError(400, "invalid_replay_cursor", "Last-Event-ID is invalid")
-    return _SemanticReplayCursor(parsed, phase)
+    return _SemanticReplayCursor(parsed, phase, answer_segment_index)
 
 
 def _store_after_sequence(cursor: _SemanticReplayCursor | None) -> int | None:
@@ -1677,6 +1730,19 @@ def _cursor_includes(
     if cursor is None or cursor.projection_sequence != projection_sequence:
         return False
     return _SEMANTIC_PHASES.index(phase) <= _SEMANTIC_PHASES.index(cursor.phase)
+
+
+def _answer_segment_start(
+    cursor: _SemanticReplayCursor | None,
+    projection_sequence: int,
+) -> int | None:
+    if cursor is None or cursor.projection_sequence != projection_sequence:
+        return 0
+    if cursor.phase == "answer":
+        return None if cursor.answer_segment_index is None else cursor.answer_segment_index + 1
+    if _SEMANTIC_PHASES.index(cursor.phase) > _SEMANTIC_PHASES.index("answer"):
+        return None
+    return 0
 
 
 def _terminal_progress(locale: str) -> dict[str, str]:

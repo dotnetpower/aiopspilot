@@ -3,10 +3,14 @@ import { parseRouter } from "./backend-normalizers";
 
 const candidate = {
   deployment: "example-mini",
-  p50_ms: 100,
+  p50_ms: 150,
   p95_ms: 200,
   samples: 2,
   history_ms: [100, 200],
+  ttft_p50_ms: 60,
+  ttft_p95_ms: 80,
+  ttft_samples: 2,
+  ttft_history_ms: [40, 80],
 };
 const router = { chose: "example-mini", reason: "latency", candidates: [candidate] };
 
@@ -67,6 +71,46 @@ describe("router health metadata normalization", () => {
     });
     expect(result?.candidates[0]).toEqual({
       deployment: "example-mini", p50_ms: null, p95_ms: null, samples: 0, history_ms: [100],
+      ttft_p50_ms: null, ttft_p95_ms: null, ttft_samples: 0, ttft_history_ms: [],
     });
+  });
+
+  it("retains valid TTFT independently from total latency", () => {
+    expect(parseRouter(router)?.candidates[0]).toMatchObject({
+      p50_ms: 150,
+      ttft_p50_ms: 60,
+      ttft_p95_ms: 80,
+      ttft_samples: 2,
+      ttft_history_ms: [40, 80],
+    });
+  });
+
+  it("drops TTFT that exceeds total latency or lacks matching samples", () => {
+    for (const changes of [
+      { ttft_p50_ms: 101 },
+      { ttft_p95_ms: 201 },
+      { ttft_samples: 1 },
+      { ttft_history_ms: [40] },
+      { ttft_p50_ms: 1, ttft_p95_ms: 1 },
+      { ttft_p50_ms: 115, ttft_p95_ms: 150, ttft_history_ms: [150, 80] },
+      {
+        samples: 2,
+        history_ms: [100, "bad", 200],
+        ttft_p50_ms: 95,
+        ttft_p95_ms: 150,
+        ttft_samples: 2,
+        ttft_history_ms: [40, 150, "bad"],
+      },
+    ]) {
+      expect(parseRouter({
+        ...router,
+        candidates: [{ ...candidate, ...changes }],
+      })?.candidates[0]).toMatchObject({
+        ttft_p50_ms: null,
+        ttft_p95_ms: null,
+        ttft_samples: 0,
+        ttft_history_ms: [],
+      });
+    }
   });
 });

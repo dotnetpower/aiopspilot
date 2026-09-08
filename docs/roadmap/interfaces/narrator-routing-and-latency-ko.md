@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 8b38cfdfc001d1a7a0d37c0b4c1efde727748ce5
-translation_revised: 2026-09-07
+translation_source_sha: 16609d74a0ef59f94d00152e490b04a7fdcfd8c2
+translation_revised: 2026-09-08
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -65,8 +65,13 @@ Core 런타임은 즉시 실행하는 첫 주기와 후속 주기 실행을 관�
 실패는 재시도 없이 기록하며, 이 쓰기에도 전체 주기 제한 시간을 적용합니다.
 종료 시 자신이 소유한 작업을 취소합니다. HTTP `429`, HTTP `503`, 공급자 시간 초과 또는 주기
 제한 시간 도달 시 해당 주기를 끝내며 같은 요청을 재시도하거나 T2로 대체하지 않습니다.
-다음에 예정된 주기에서만 다시 측정할 수 있습니다. 합성 `OK` 요청의 성공은 요청 처리 시간을
-측정할 뿐 첫 토큰까지의 시간(TTFT), 답변 품질 또는 전체 대화 지연 시간을 입증하지 않습니다.
+다음에 예정된 주기에서만 다시 측정할 수 있습니다. 고정 합성 `OK` 요청은 자격 증명 획득 뒤에 모델 시간을 측정하기 시작하고, 응답 및 줄 바이트 상한 안에서 원시 바이트를 읽으며, 선택 항목이 없는 `prompt_filter_results` 또는 `prompt_annotations` 메타데이터와 `delta`가 없는 통과 콘텐츠 필터 주석을 허용합니다. `[DONE]`에서 읽기를 멈추고 비어 있지 않은 첫 토큰까지의 시간(TTFT)과 전체 지연 시간을 따로 기록합니다. 답변 품질이나 전체 대화 지연 시간을 측정하지는 않습니다. Operator는 범위가 제한된 각 이력에서 p50과 p95를 다시 계산하고, 짝이 되는 전체 지연보다 TTFT가 큰 변환 결과를 차단합니다. Console도 표시 전에 TTFT 분위수와 짝 검사를 반복합니다.
+
+명시적 용량 벤치마크는 같은 유료 탐색 명시적 활성화를 요구하고 정확히 같은 요청 본문과 선택된
+mini 배포를 재사용합니다. 동시성 1-4에서 표본 1-16개를 실행하고 배포, SKU, TPM 또는 프로바이더
+상태를 변경하지 않습니다. `429`, `503`, 시간 초과, 전송, 신원 또는 잘못된 출력 실패가 있는 첫
+wave 뒤에는 중지합니다. 증적에는 범위가 제한된 처리 시간, 개수, 상태, 배포 표시명과 고정된 권한
+없음 및 용량 변경 없음 필드만 포함합니다.
 
 ### 읽기 전용 상태 변환 결과
 
@@ -331,8 +336,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Core mini 라우팅 및 턴별 모델 선택 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [집중 검사 근거](#로컬-mini-라우팅-근거-2026-09-06) | Python 229개 통과, PostgreSQL 사례 2개 실행 제외이며 명시적 활성화 구성 검사 6개도 추가로 통과했습니다. 검증된 mini 신원, 변경 불가능한 작성/검토 모델 선택 및 기존 T2/작업 품질 검사 연결을 유지합니다. |
-| Core가 관리하는 명시적 선택형 탐색 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; [집중 검사 및 로컬 근거](#로컬-mini-라우팅-근거-2026-09-06) | 집중 검사를 통과했습니다. 예정된 주기 4회에서 가장 빠른 후보의 변경을 관측했으며 발행에도 주기 한도를 적용합니다. 합성 처리 시간은 전체 턴의 속도 개선을 입증하지 않습니다. |
-| 의미 처리 상태의 라우팅 변환 결과 및 Console 배지 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/use-deck-backend-health.ts`; [근거의 범위](#로컬-mini-라우팅-근거-2026-09-06) | 최종 Console 160개는 앞선 147/48개 집합과 중복되며 최종 타입 검사/빌드도 통과했습니다. 격리된 Operator는 152개 통과했습니다. 일반/화면 맥락 DOM 배지와 도구 설명은 측정값과 일치하지만 시각 및 전체 작업 트리 런타임 검증은 미완료입니다. |
+| Core가 관리하는 명시적 선택형 탐색 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; 집중 TTFT 및 벤치마크 검사 | 고정 요청은 비어 있지 않은 첫 토큰과 전체 지연 시간을 따로 기록합니다. 명시적 벤치마크는 고정된 표본 및 동시성 상한에서 같은 요청을 재사용하고 용량을 변경하지 않으며 압력 또는 프로바이더 실패를 재시도하지 않습니다. |
+| 의미 처리 상태의 라우팅 변환 결과 및 Console 배지 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/backend-health-presentation.ts`; 집중 Operator 및 Console 검사 | Operator는 범위가 제한된 TTFT 필드를 전체 지연 시간과 별도로 검증합니다. Console은 두 p50/p95 구간과 표본 개수를 표시하며 TTFT가 없거나 오래됐을 때 전체 지연 시간을 대신 사용하지 않습니다. 런타임 시각적 검증은 아직 불완전합니다. |
 | 합성 대화 및 인라인 프롬프트 확인 | implemented | `mocks/ui/deck-sources-v2.html`; `mocks/ui/incident-conversation.html`; `console/tests/e2e/{adaptive-prompt-mock,deck-adaptive-mock,incident-conversation-mock}.spec.ts`; 집중 Playwright 및 타입 검사 | 시안에만 적용되는 표현입니다. 프롬프트 뷰어는 합성 예제를 읽으며 프로덕션의 수집과 권한 확인은 바꾸지 않습니다. |
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
@@ -355,6 +360,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Core mini 탐색에 비어 있지 않은 실제 첫 토큰 TTFT 측정을 추가하고, Operator와 Console을 통해 TTFT 및 전체 처리 시간 구간을 별도로 변환했으며, TPM을 변경하거나 압력 실패를 재시도할 수 없는 범위가 제한된 동일 요청 용량 벤치마크를 추가했습니다. | `current change`, 집중 Core/Operator TTFT 및 벤치마크 검사 41개, Console 라우팅 및 툴팁 검사 66개, Ruff 및 strict mypy 통과 | 실제 벤치마크는 일관된 깨끗한 커밋 스냅샷에서만 실행합니다. 런타임 검증 상태를 높이기 전에 인증된 화면 표시 브라우저 처리 시간 근거를 보존합니다. |
 | 2026-09-07 | validated | 선택된 T2 일반 지식 턴이 분류와 범위가 제한된 답변 작성을 하나의 T2 preflight에서 함께 수행하도록 연결했습니다. GPT-5 preflight 요청은 낮은 추론 수준을 사용하며 이 조언 경로에서는 adaptive 계획/검토/개선/확인을 실행하지 않습니다. | `current change`; 집중 preflight/조립 검사 162개, Ruff, strict mypy, 서비스 경계 검사와 로컬 라이브 진단 1회가 4.286초 만에 `model=gpt-5.6-sol`의 `advisory_response`로 완료됐습니다. | 지연 시간 목표를 주장하기 전에 인증된 화면 표시 브라우저 스트리밍 근거와 측정 분포를 보존합니다. |
 | 2026-09-07 | implemented | 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다. T2는 모델이 작성하는 대화 단계에 구성된 기본 모델을 사용하며 독립 검토 모델과 권한 없는 요청 경계를 유지합니다. | `current change`; 집중 서비스 계약, Operator, Core 라우팅, Console 요청 본문, 영속성, 지역화, 타입 검사, 빌드 검사입니다. | 인증된 화면 표시 브라우저 근거를 보존하고 장치 간 연속성이 필요해지면 서버 쪽 선호 설정 영속성을 추가합니다. |
 | 2026-09-07 | implemented | Semantic consumer와 heartbeat marker 사이에 로그가 회전해도 잘못된 timeout이 발생하지 않도록 범위가 제한된 Core readiness가 `core-runtime.log.1`과 현재 로그를 함께 읽습니다. | `current change`; 집중 rotation 경계 회귀 테스트 통과 | 1MiB 전체 회전을 두 번 넘으면 범위가 제한된 사용 불가 결과를 유지합니다. |

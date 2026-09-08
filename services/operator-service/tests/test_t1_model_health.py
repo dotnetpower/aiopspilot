@@ -39,6 +39,10 @@ def _projection(now=NOW):
                     "p95_ms": 100.0,
                     "samples": 1,
                     "history_ms": [100.0],
+                    "ttft_p50_ms": 40.0,
+                    "ttft_p95_ms": 40.0,
+                    "ttft_samples": 1,
+                    "ttft_history_ms": [40.0],
                     "endpoint": "https://example.com",
                 }
             ],
@@ -50,6 +54,7 @@ def test_current_core_measurement_is_visible_without_endpoints():
     result = t1_model_health(_projection(), now=NOW)
     assert result["model"] == "narrator-mini"
     assert result["router"]["reason"] == "latency"
+    assert result["router"]["candidates"][0]["ttft_p50_ms"] == 40.0
     assert "endpoint" not in str(result)
 
 
@@ -90,6 +95,29 @@ def test_invalid_provenance_is_unavailable(change):
         {"samples": 0},
         {"status": "failed"},
         {"measured_at": "2025-01-01T00:00:00+00:00"},
+        {"ttft_samples": 2},
+        {"ttft_p50_ms": None},
+        {"ttft_p50_ms": 101.0},
+        {
+            "samples": 2,
+            "history_ms": [100.0, 1_000.0],
+            "p50_ms": 550.0,
+            "p95_ms": 1_000.0,
+            "ttft_samples": 2,
+            "ttft_history_ms": [200.0, 300.0],
+            "ttft_p50_ms": 250.0,
+            "ttft_p95_ms": 300.0,
+        },
+        {
+            "samples": 2,
+            "history_ms": [100.0, 1_000.0],
+            "p50_ms": 600.0,
+            "p95_ms": 1_000.0,
+            "ttft_samples": 2,
+            "ttft_history_ms": [40.0, 400.0],
+            "ttft_p50_ms": 220.0,
+            "ttft_p95_ms": 400.0,
+        },
     ],
 )
 def test_invalid_latency_claim_is_unavailable(change):

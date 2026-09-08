@@ -40,6 +40,13 @@ def _routing(client, **kwargs):
     )
 
 
+def _stream_response(answer: str = "OK") -> httpx.Response:
+    events = [{"choices": [{"delta": {"content": part}, "finish_reason": None}]} for part in answer]
+    events.append({"choices": [{"delta": {}, "finish_reason": "stop"}]})
+    body = "".join(f"data: {json.dumps(event)}\n\n" for event in events) + "data: [DONE]\n\n"
+    return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+
 async def test_fastest_mini_is_the_dispatched_author_and_pair_is_frozen():
     requests = []
 
@@ -128,7 +135,7 @@ async def test_rate_limit_or_unavailable_stops_cycle_without_retry(status):
 
 async def test_probe_is_bounded_synthetic_and_excludes_t2():
     calls = []
-    times = iter((0, 0.3, 1, 1.1))
+    times = iter((0, 0.1, 0.3, 1, 1.05, 1.1))
 
     def respond(request):
         calls.append(request)
@@ -136,8 +143,9 @@ async def test_probe_is_bounded_synthetic_and_excludes_t2():
         assert body["max_completion_tokens"] == 256
         assert body["reasoning_effort"] == "low"
         assert body["messages"][1]["content"] == "OK"
+        assert body["stream"] is True
         assert "tools" not in body
-        return httpx.Response(200, json=_envelope("OK"))
+        return _stream_response()
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
         routing = _routing(client)
@@ -155,6 +163,10 @@ async def test_probe_is_bounded_synthetic_and_excludes_t2():
         snapshot = await store.read_state(T1_ROUTING_STATE_KEY)
         assert snapshot["model"] == routing.selected_config().primary.target.deployment
         assert snapshot["model"] == "narrator-reviewer"
+        candidates = snapshot["router"]["candidates"]
+        assert candidates[0]["ttft_history_ms"] == [100.0]
+        assert candidates[1]["ttft_history_ms"] == pytest.approx([50.0])
+        assert candidates[0]["ttft_samples"] == candidates[1]["ttft_samples"] == 1
         assert "https://" not in json.dumps(snapshot)
         assert "test-token" not in json.dumps(snapshot)
 
@@ -223,7 +235,7 @@ async def test_supervised_loop_runs_next_interval_and_stops(monkeypatch):
 
     def respond(request):
         calls.append(request)
-        return httpx.Response(200, json=_envelope("OK"))
+        return _stream_response()
 
     monkeypatch.setattr(asyncio, "wait_for", interval)
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
@@ -236,6 +248,312 @@ async def test_supervised_loop_runs_next_interval_and_stops(monkeypatch):
         await probe.run(stop)
         assert waits == [300, 300]
         assert len(calls) == 4
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'data: {"choices":[{"delta":{"content":"OK"},"finish_reason":"length"}]}\n\n'
+        "data: [DONE]\n\n",
+        'data: {"choices":[{"delta":{"content":"OK"},"finish_reason":"stop"}]}\n\n',
+        "data: not-json\n\n",
+    ],
+)
+async def test_incomplete_or_malformed_stream_records_no_ttft(body):
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+        assert len(calls) == 2
+        candidate = routing.snapshot()["router"]["candidates"][0]
+        assert candidate["status"] == "failed"
+        assert candidate["ttft_samples"] == 0
+
+
+async def test_probe_ignores_azure_prompt_filter_metadata_before_content():
+    metadata = {
+        "choices": [],
+        "prompt_filter_results": [
+            {
+                "prompt_index": 0,
+                "content_filter_results": {},
+            }
+        ],
+    }
+    response = _stream_response()
+    body = f"data: {json.dumps(metadata)}\n\n{response.text}"
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                text=body,
+                headers={"content-type": "text/event-stream"},
+            )
+        )
+    ) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+    assert routing.snapshot()["router"]["candidates"][0]["ttft_samples"] == 1
+
+
+async def test_probe_ignores_azure_prompt_annotations_before_content():
+    metadata = {
+        "choices": [],
+        "prompt_annotations": [{"prompt_index": 0, "content_filter_results": {}}],
+    }
+    response = _stream_response()
+    body = f"data: {json.dumps(metadata)}\n\n{response.text}"
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                text=body,
+                headers={"content-type": "text/event-stream"},
+            )
+        )
+    ) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+    assert routing.snapshot()["router"]["candidates"][0]["ttft_samples"] == 1
+
+
+async def test_probe_ignores_azure_content_filter_annotation_without_delta():
+    annotation = {
+        "choices": [
+            {
+                "content_filter_results": {
+                    "hate": {"filtered": False, "severity": "safe"},
+                },
+                "finish_reason": None,
+            }
+        ]
+    }
+    response = _stream_response()
+    body = f"data: {json.dumps(annotation)}\n\n{response.text}"
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                text=body,
+                headers={"content-type": "text/event-stream"},
+            )
+        )
+    ) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+    assert routing.snapshot()["router"]["candidates"][0]["ttft_samples"] == 1
+
+
+async def test_probe_consumes_raw_bytes_instead_of_unbounded_line_iterator():
+    class RawOnlyResponse(httpx.Response):
+        def aiter_lines(self):  # pragma: no cover - must never be called
+            raise AssertionError("unbounded line iterator used")
+
+    def respond(request):
+        response = _stream_response()
+        return RawOnlyResponse(
+            200,
+            content=response.content,
+            headers={"content-type": "text/event-stream"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+    assert routing.snapshot()["router"]["candidates"][0]["ttft_samples"] == 1
+
+
+async def test_probe_stops_reading_transport_after_done():
+    class DoneThenFailure(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield _stream_response().content
+            raise AssertionError("transport read continued after DONE")
+
+    def respond(request):
+        return httpx.Response(
+            200,
+            stream=DoneThenFailure(),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        await probe.refresh()
+
+    assert routing.snapshot()["router"]["candidates"][0]["ttft_samples"] == 1
+
+
+async def test_probe_ttft_excludes_identity_acquisition():
+    current = [0.0]
+
+    class SlowIdentity:
+        async def get_token(self, audience):
+            current[0] = 2.5
+            return await _Identity().get_token(audience)
+
+    def respond(request):
+        current[0] = 2.6
+        return _stream_response()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        routing = _routing(client)
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=SlowIdentity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+            clock=lambda: current[0],
+        )
+
+        await probe.refresh()
+
+    candidate = routing.snapshot()["router"]["candidates"][0]
+    assert candidate["ttft_history_ms"] == pytest.approx([100.0])
+    assert candidate["history_ms"] == pytest.approx([100.0])
+
+
+async def test_capacity_benchmark_reuses_the_exact_probe_request_without_capacity_changes():
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return _stream_response()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        probe = T1MiniProbe(
+            routing=_routing(client),
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        receipt = await probe.benchmark_capacity(samples=4, concurrency=2)
+
+    assert receipt.status == "completed"
+    assert receipt.samples_requested == receipt.samples_completed == 4
+    assert receipt.concurrency == 2
+    assert len(receipt.ttft_ms) == len(receipt.total_latency_ms) == 4
+    assert receipt.capacity_changed is False
+    assert receipt.execution_authority is False
+    assert len(requests) == 4
+    assert all(request == requests[0] for request in requests)
+    assert requests[0]["stream"] is True
+    assert requests[0]["messages"][1]["content"] == "OK"
+    assert not any(key in requests[0] for key in ("capacity", "tpm", "sku"))
+
+
+async def test_capacity_benchmark_stops_after_first_rate_limit_without_retry():
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(429)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        probe = T1MiniProbe(
+            routing=_routing(client),
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        receipt = await probe.benchmark_capacity(samples=8, concurrency=1)
+
+    assert receipt.status == "rate_limited"
+    assert receipt.samples_completed == 0
+    assert len(calls) == 1
+
+
+async def test_capacity_benchmark_requires_the_explicit_billed_probe_opt_in():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: pytest.fail("unexpected benchmark request"))
+    ) as client:
+        routing = _routing(client)
+        routing.enabled = False
+        probe = T1MiniProbe(
+            routing=routing,
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        receipt = await probe.benchmark_capacity()
+
+    assert receipt.status == "unavailable"
+    assert receipt.samples_completed == 0
+    assert receipt.capacity_changed is False
+
+
+@pytest.mark.parametrize(
+    ("samples", "concurrency"),
+    [(0, 1), (17, 1), (True, 1), (4, 0), (4, 5), (4, True)],
+)
+async def test_capacity_benchmark_rejects_unbounded_configuration(samples, concurrency):
+    async with httpx.AsyncClient() as client:
+        probe = T1MiniProbe(
+            routing=_routing(client),
+            identity=_Identity(),
+            http_client=client,
+            state_store=InMemoryStateStore(),
+        )
+
+        with pytest.raises(ValueError):
+            await probe.benchmark_capacity(samples=samples, concurrency=concurrency)
 
 
 async def test_disabled_probe_publishes_configuration_without_provider_calls():

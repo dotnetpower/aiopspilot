@@ -19,6 +19,10 @@ const candidate: RouterCandidate = {
   p95_ms: 200.2,
   samples: 2,
   history_ms: [120.4, 200.2],
+  ttft_p50_ms: 66.3,
+  ttft_p95_ms: 90.2,
+  ttft_samples: 2,
+  ttft_history_ms: [42.4, 90.2],
   status: "measured",
   measured_at: "2026-09-06T10:00:00Z",
 };
@@ -147,7 +151,15 @@ describe("trustworthy measurement disclosure", () => {
       updatedAt: router.updated_at,
       expiresAt: router.expires_at,
       intervalSeconds: 300,
-      candidates: [{ deployment: "narrator-mini", p50: "120ms", p95: "200ms", status: "Measured" }],
+      candidates: [{
+        deployment: "narrator-mini",
+        p50: "120ms",
+        p95: "200ms",
+        ttftP50: "66ms",
+        ttftP95: "90ms",
+        ttftSamples: 2,
+        status: "Measured",
+      }],
     });
     expect(backendMeasurementExpiry(router, now)).toBe(Date.parse(router.expires_at!));
   });

@@ -7,6 +7,9 @@ interface BackendTooltipCandidateView {
   readonly deployment: string;
   readonly p50: string;
   readonly p95: string;
+  readonly ttftP50: string;
+  readonly ttftP95: string;
+  readonly ttftSamples: number;
   readonly samples: number;
   readonly selected: boolean;
   readonly status: string;
@@ -93,6 +96,11 @@ function candidateView(
     deployment: candidate.deployment,
     p50: status === "measured" ? `${Math.round(candidate.p50_ms!)}ms` : "-",
     p95: status === "measured" ? `${Math.round(candidate.p95_ms!)}ms` : "-",
+    ttftP50: status === "measured" && candidate.ttft_p50_ms !== null &&
+      candidate.ttft_p50_ms !== undefined ? `${Math.round(candidate.ttft_p50_ms)}ms` : "-",
+    ttftP95: status === "measured" && candidate.ttft_p95_ms !== null &&
+      candidate.ttft_p95_ms !== undefined ? `${Math.round(candidate.ttft_p95_ms)}ms` : "-",
+    ttftSamples: status === "measured" ? candidate.ttft_samples ?? 0 : 0,
     samples: candidate.samples,
     selected: candidate.deployment === chose,
     status: t(`deck.backend.measurement.${status}`),
@@ -160,7 +168,9 @@ export function routerTooltip(router: RouterSnapshot | undefined, now = Date.now
   const lines = router.candidates.map((candidate) => {
     const view = candidateView(candidate, router, router.chose, now);
     const marker = view.selected ? "* " : "  ";
-    return `${marker}${view.deployment} · ${view.status} · p50 ${view.p50} · p95 ${view.p95} · n=${view.samples}`;
+    return `${marker}${view.deployment} · ${view.status} · total p50 ${view.p50} · ` +
+      `total p95 ${view.p95} · TTFT p50 ${view.ttftP50} · TTFT p95 ${view.ttftP95} · ` +
+      `n=${view.samples}/${view.ttftSamples}`;
   });
   return t("deck.tooltip.routerChoice", {
     reason: routingReason(router, now),

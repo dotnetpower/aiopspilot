@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from statistics import median
 from typing import Literal, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
@@ -43,6 +45,10 @@ class _Candidate(BaseModel):
     p95_ms: FiniteFloat | None = Field(ge=0)
     samples: int = Field(ge=0, le=8)
     history_ms: list[FiniteFloat] = Field(max_length=8)
+    ttft_p50_ms: FiniteFloat | None = Field(default=None, ge=0)
+    ttft_p95_ms: FiniteFloat | None = Field(default=None, ge=0)
+    ttft_samples: int = Field(default=0, ge=0, le=8)
+    ttft_history_ms: list[FiniteFloat] = Field(default_factory=list, max_length=8)
 
 
 class _Router(BaseModel):
@@ -99,6 +105,18 @@ def t1_model_health(value: object, *, now: datetime | None = None) -> JsonObject
         for candidate in router.candidates:
             if candidate.status == "measured":
                 at = datetime.fromisoformat(candidate.measured_at or "")
+                history = list(candidate.history_ms)
+                ttft_history = list(candidate.ttft_history_ms)
+                expected_p50 = median(history) if history else None
+                expected_p95 = (
+                    sorted(history)[math.ceil(len(history) * 0.95) - 1] if history else None
+                )
+                expected_ttft_p50 = median(ttft_history) if ttft_history else None
+                expected_ttft_p95 = (
+                    sorted(ttft_history)[math.ceil(len(ttft_history) * 0.95) - 1]
+                    if ttft_history
+                    else None
+                )
                 if (
                     at.tzinfo is None
                     or not observed - timedelta(seconds=2 * router.interval_seconds)
@@ -108,6 +126,31 @@ def t1_model_health(value: object, *, now: datetime | None = None) -> JsonObject
                     or candidate.samples == 0
                     or candidate.p50_ms is None
                     or candidate.p95_ms is None
+                    or any(value < 0 for value in history)
+                    or candidate.p50_ms != expected_p50
+                    or candidate.p95_ms != expected_p95
+                    or candidate.ttft_samples != len(candidate.ttft_history_ms)
+                    or candidate.ttft_samples not in {0, candidate.samples}
+                    or (
+                        candidate.ttft_samples == 0
+                        and (candidate.ttft_p50_ms is not None or candidate.ttft_p95_ms is not None)
+                    )
+                    or (
+                        candidate.ttft_samples > 0
+                        and (
+                            candidate.ttft_p50_ms is None
+                            or candidate.ttft_p95_ms is None
+                            or any(value < 0 for value in ttft_history)
+                            or candidate.ttft_p50_ms != expected_ttft_p50
+                            or candidate.ttft_p95_ms != expected_ttft_p95
+                            or any(
+                                ttft > total
+                                for total, ttft in zip(history, ttft_history, strict=True)
+                            )
+                            or candidate.ttft_p50_ms > candidate.p50_ms
+                            or candidate.ttft_p95_ms > candidate.p95_ms
+                        )
+                    )
                 ):
                     raise ValueError("invalid T1 measurement")
         result = router.model_dump(mode="json")
@@ -124,11 +167,30 @@ def t1_model_health(value: object, *, now: datetime | None = None) -> JsonObject
                 candidate["status"] = "stale"
                 chosen_expired |= candidate["deployment"] == projection.model
             if candidate["status"] != "measured":
-                candidate.update(p50_ms=None, p95_ms=None, samples=0, history_ms=[])
+                candidate.update(
+                    p50_ms=None,
+                    p95_ms=None,
+                    samples=0,
+                    history_ms=[],
+                    ttft_p50_ms=None,
+                    ttft_p95_ms=None,
+                    ttft_samples=0,
+                    ttft_history_ms=[],
+                )
         if current >= expires or chosen_expired:
             result.update(chose="", reason="stale")
             for candidate in result["candidates"]:
-                candidate.update(status="stale", p50_ms=None, p95_ms=None, samples=0, history_ms=[])
+                candidate.update(
+                    status="stale",
+                    p50_ms=None,
+                    p95_ms=None,
+                    samples=0,
+                    history_ms=[],
+                    ttft_p50_ms=None,
+                    ttft_p95_ms=None,
+                    ttft_samples=0,
+                    ttft_history_ms=[],
+                )
             return {"model": None, "router": cast(JsonObject, result)}
         return {"model": projection.model, "router": cast(JsonObject, result)}
     except (ValueError, ValidationError):

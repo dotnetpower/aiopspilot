@@ -276,6 +276,7 @@ export async function askBackendStream(
   let emittedRevision = -1;
   let emittedConfirmedRevision = -1;
   let emittedConfirmedSegmentIndex = -1;
+  let confirmedReceiptKey: string | null = null;
   const pendingRevisions: Array<{
     readonly answer: string;
     readonly revision: number;
@@ -389,13 +390,48 @@ export async function askBackendStream(
       const replacement = typeof object.answer === "string" ? object.answer : null;
       const status = parseVerificationStatus(object.status);
       if (replacement !== null && status !== null && revision > lastRevision) {
+        if (confirmedSegment !== undefined) {
+          callbacks.onRevision?.("", revision, "unverified");
+        }
         lastRevision = revision;
         answerText = replacement;
         confirmedSegment = undefined;
+        confirmedReceiptKey = null;
         pendingRevisions.push({ answer: replacement, revision, status });
       }
     } else if (event === "confirmed") {
       const confirmed = parseConfirmedAnswerSegment(object, revision);
+      if (sequenceGap) return;
+      if (confirmed !== null && confirmed.revision < lastRevision) return;
+      const receipt = parseSemanticProjectionReceipt(object.semantic_receipt);
+      const receiptBound = receipt?.request_id === requestId &&
+        receipt.disposition === "answered" &&
+        receipt.reason_code === "semantic_answer_verified";
+      if (confirmed !== null && object.semantic_receipt !== undefined && !receiptBound) {
+        protocolError = "confirmed receipt mismatch";
+        protocolErrorCount += 1;
+        terminalSeen = true;
+        return;
+      }
+      const receiptKey = receiptBound ? JSON.stringify(receipt) : null;
+      if (
+        confirmed !== null &&
+        receiptKey !== null &&
+        (
+          confirmed.replaceStart !== undefined ||
+          confirmed.replaceEnd !== undefined ||
+          (confirmedReceiptKey !== null && receiptKey !== confirmedReceiptKey) ||
+          (
+            confirmedSegment !== undefined &&
+            !confirmed.text.startsWith(confirmedSegment.text)
+          )
+        )
+      ) {
+        protocolError = "confirmed stream mismatch";
+        protocolErrorCount += 1;
+        terminalSeen = true;
+        return;
+      }
       if (
         confirmed !== null &&
         confirmed.revision === lastRevision &&
@@ -408,7 +444,12 @@ export async function askBackendStream(
         )
       ) {
         confirmedSegment = confirmed;
+        answerText = confirmed.text;
         confirmedSegmentCount += 1;
+        if (receiptKey !== null) {
+          confirmedReceiptKey = receiptKey;
+          emitConfirmed(confirmed);
+        }
       }
     } else if (event === "done") {
       doneData = object;
@@ -447,6 +488,7 @@ export async function askBackendStream(
       }
     }
   } catch {
+    buffer = "";
     if (callbacks.signal?.aborted) {
       await flushPump();
       return stopped(emittedText);
@@ -481,6 +523,29 @@ export async function askBackendStream(
   const semanticReceipt = parsedSemanticReceipt?.request_id === requestId
     ? parsedSemanticReceipt
     : undefined;
+  if (
+    protocolError === null &&
+    confirmedReceiptKey !== null &&
+    (semanticReceipt === undefined || JSON.stringify(semanticReceipt) !== confirmedReceiptKey)
+  ) {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("confirmed receipt mismatch");
+  }
+  if (
+    protocolError === null &&
+    confirmedReceiptKey !== null &&
+    (
+      verification?.status !== "verified" ||
+      confirmedSegment === undefined ||
+      JSON.stringify(verification.evidence_refs) !==
+        JSON.stringify(confirmedSegment.evidenceRefs)
+    )
+  ) {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("confirmed verification mismatch");
+  }
   const terminalAnswer = typeof done.answer === "string" && done.answer.trim()
     ? done.answer
     : null;

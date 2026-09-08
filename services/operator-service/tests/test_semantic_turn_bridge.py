@@ -28,6 +28,9 @@ from fdai_operator_service.environment import (
     TENANT_ENV,
 )
 from fdai_operator_service.families.conversation import (
+    semantic_turn_presentation as semantic_turn_presentation_module,
+)
+from fdai_operator_service.families.conversation import (
     semantic_turn_runtime as semantic_turn_runtime_module,
 )
 from fdai_operator_service.families.conversation.contracts import (
@@ -74,12 +77,14 @@ from fdai_service_contracts import (
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticInvestigationContinuation,
+    SemanticQueryProgress,
+    SemanticTurnRequest,
     SemanticTurnResult,
     context_selection_digest,
     query_content_digest,
     rule_search_query_digest,
 )
-from fdai_service_contracts.ontology_query import content_digest
+from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 from pydantic import ValidationError
 
 _TEST_NAMESPACE = UUID(int=0)
@@ -94,6 +99,15 @@ def test_initial_progress_does_not_claim_every_turn_requires_a_plan() -> None:
     assert semantic_turn_runtime_module._initial_progress("en")["planning"] == (
         "Determining the answer path."
     )
+
+
+def test_verified_answer_chunks_preserve_large_text_within_confirmed_segment_bound() -> None:
+    answer = "".join(str(index % 10) for index in range(64 * 1024))
+
+    chunks = semantic_turn_runtime_module._verified_answer_chunks(answer)
+
+    assert len(chunks) <= 64
+    assert "".join(chunks) == answer
 
 
 def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
@@ -1112,7 +1126,7 @@ def _projection(
     result: dict[str, object] = {
         "disposition": disposition,
         "reason_code": (
-            "verified_answer"
+            "semantic_answer_verified"
             if disposition == "answered"
             else "semantic_direct_response"
             if disposition == "direct_response"
@@ -2318,7 +2332,7 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
         "projection_id": projection["projection_id"],
         "request_id": projection["request_id"],
         "disposition": "answered",
-        "reason_code": "verified_answer",
+        "reason_code": "semantic_answer_verified",
         "semantic_route": "verified_query_plan",
         "ontology_release_digest": semantic["ontology_release_digest"],
         "principal_manifest_digest": semantic["principal_manifest_digest"],
@@ -3019,7 +3033,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
             "kind": "semantic_query_outputs",
             "outputs": [
                 {
-                    "node_id": "incident-evidence",
+                    "node_id": "answer",
                     "incident_profile": {
                         "incident_id": "incident-1",
                         "correlation_id": "correlation-1",
@@ -3058,7 +3072,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
         "activity",
         "status",
         "activity",
-        "token",
+        "confirmed",
         "done",
     ]
     progress = [event for event in events if event.event in {"status", "verification"}]
@@ -3089,12 +3103,12 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
         "1:verification",
         "1:presentation",
     ]
-    assert (
-        "".join(cast(str, event.data["delta"]) for event in events if event.event == "token")
-        == "## Verified incident evidence\n\nReadable answer."
-    )
+    confirmed = [event for event in events if event.event == "confirmed"]
+    assert confirmed[-1].data["text"] == "## Verified incident evidence\n\nReadable answer."
+    assert confirmed[-1].data["evidence_refs"] == ["evidence-1"]
     done = events[-1]
     assert done.event_id == "1"
+    assert confirmed[-1].data["semantic_receipt"] == done.data["semantic_receipt"]
     assert done.data["answer"] == "## Verified incident evidence\n\nReadable answer."
     assert done.data["conversation_context"] == {
         "kind": "incident",
@@ -3138,7 +3152,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     assert execution["command"] == "query.function"
     assert execution["status"] == "completed"
     assert execution["duration_ms"] == 1
-    assert execution["output_status"] == "not_available"
+    assert execution["output_status"] == "available"
     assert execution["output_truncated"] is False
     assert activities[0]["evidence_refs"] == ["evidence-1"]
     assert activities[0]["observed_at"] == stored_turn.envelope["requested_at"]
@@ -3150,6 +3164,44 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
         "source_kind": "registered_query_handler",
         "transport": "event_bus",
     }
+
+
+async def test_answered_replay_does_not_confirm_locally_unverified_evidence() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    projection = _projection(
+        stored_turn.envelope,
+        disposition="answered",
+        answered_evidence=True,
+    )
+    semantic_result = cast(dict[str, object], projection["semantic_result"])
+    evidence = cast(dict[str, object], semantic_result["intent_graph_evidence"])
+    goals = cast(list[dict[str, object]], evidence["goals"])
+    goals[0].pop("authority")
+    await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert all(event.event != "confirmed" for event in events)
+    done = events[-1]
+    assert done.event == "done"
+    verification = cast(dict[str, object], done.data["verification"])
+    assert verification["status"] == "unverified"
+    assert verification["reason_code"] == "semantic_evidence_authority_missing"
 
 
 def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
@@ -3304,8 +3356,34 @@ def test_general_query_presentation_projects_verified_rows() -> None:
     ]
     limitations = cast(dict[str, object], blocks[2]["data"])
     assert limitations["lines"] == [
-        "2 of 7 verified rows are listed. The remaining rows stay in technical details."
+        "2 of 7 verified rows are listed. Technical details retain the same bounded rows and "
+        "truncation metadata."
     ]
+
+
+def test_korean_truncated_resource_rows_do_not_promise_unretained_rows() -> None:
+    block = semantic_turn_presentation_module._row_limitation_block(
+        {
+            "rows": [
+                {"row_id": "r1", "values": {"resource.name": "vm-a"}},
+                {"row_id": "r2", "values": {"resource.name": "vm-b"}},
+            ],
+            "returned_rows": 2,
+            "total_rows": 7,
+            "display_truncated": True,
+        },
+        bounded_refs=[],
+        korean=True,
+    )
+
+    assert block is not None
+    assert block["data"] == {
+        "tone": "neutral",
+        "lines": [
+            "검증된 7개 행 중 2개를 표시합니다. 기술 세부에는 동일한 범위 제한 행과 잘림 "
+            "메타데이터가 유지됩니다."
+        ],
+    }
 
 
 def test_general_query_presentation_charts_a_complete_categorical_result() -> None:
@@ -3821,7 +3899,7 @@ async def test_inventory_document_uses_current_answer_without_a_preceding_source
             },
             "outputs": [
                 {
-                    "node_id": "goal-1",
+                    "node_id": "answer",
                     "rows": [{"row_id": "row-1", "values": {"name": "example-resource"}}],
                     "returned_rows": 1,
                     "total_rows": 1,
@@ -3853,6 +3931,7 @@ async def test_inventory_document_uses_current_answer_without_a_preceding_source
     )
     events = [event async for event in stream]
     done = next(event for event in events if event.event == "done")
+    assert all(event.event != "confirmed" for event in events)
 
     if source_complete:
         artifact = cast(dict[str, object], done.data["document_artifact"])
@@ -3904,7 +3983,7 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
         "status",
         "verification",
         "status",
-        "token",
+        "confirmed",
         "done",
     ]
     assert [event.data["phase"] for event in events if event.event == "status"] == [
@@ -3948,7 +4027,7 @@ async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
     assert [event.event_id for event in events if event.event != "activity"] == [
         "1:verification",
         "1:presentation",
-        "1:answer",
+        "1:answer:0",
         "1",
     ]
 
@@ -3993,7 +4072,7 @@ async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
         "1:evidence",
         "1:verification",
         "1:presentation",
-        "1:answer",
+        "1:answer:0",
         "1",
     ]
 
@@ -4176,6 +4255,58 @@ async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
     assert [event.data["phase"] for event in events[:-1]] == ["accepted", "planning"]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["disposition"] == "held"
+    assert semantic_result["reason_code"] == "semantic_transport_unavailable"
+
+
+async def test_semantic_bridge_deadline_precedes_pending_progress() -> None:
+    store = _MemorySemanticStore()
+    now = datetime.now(UTC)
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: now),
+        retry_seconds=0.01,
+    )
+    receipt = await bridge.append(
+        _proposal(
+            body={
+                "prompt": "Show the current incident evidence.",
+                "deadline_at": (now + timedelta(seconds=0.01)).isoformat(),
+            }
+        )
+    )
+    stored = store.turns[receipt.proposal_id]
+    request = SemanticTurnRequest.model_validate(stored.envelope["semantic_turn"])
+    bridge._progress_relay.consume(  # noqa: SLF001 - exercise the iterator deadline boundary
+        SemanticQueryProgress(
+            request_id=stored.request_id,
+            session_id=request.session_id,
+            turn_id=request.turn_id,
+            turn_sequence=request.turn_sequence,
+            progress_sequence=1,
+            node_id="resource-read",
+            node_kind=QueryNodeKind.FUNCTION,
+            capability="query.resource.read",
+            status="running",
+            step_index=1,
+            step_total=1,
+            started_at=now,
+        ).model_dump(mode="json")
+    )
+    await asyncio.sleep(0.02)
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert [event.event for event in events] == ["status", "status", "done"]
+    semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"
 
 

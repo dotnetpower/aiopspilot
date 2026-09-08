@@ -49,8 +49,6 @@ import {
   queueNextRequestId,
 } from "./backend-normalizers";
 
-const MIN_PREPARING_VISIBLE_MS = 420;
-
 function waitForVisualRevealFrame(): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
@@ -285,8 +283,6 @@ export function useCommandDeckSubmit({
       let receivedTerminalContent = false;
       let visibleAcc = "";
       let pendingRevision = 0;
-      const preparingStartedAt = Date.now();
-      let revealTimer: number | null = null;
       let paintFrame: number | null = null;
       const paintQueue: string[] = [];
       let terminalReplyReady = false;
@@ -337,16 +333,8 @@ export function useCommandDeckSubmit({
         pinTranscriptToLatest();
       };
       const revealWhenReady = () => {
-        if (started || revealTimer !== null || !isCurrent() || !observedWorkSettled()) return;
-        const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
-        if (remaining <= 0) {
-          ensureTurn();
-          return;
-        }
-        revealTimer = window.setTimeout(() => {
-          revealTimer = null;
-          ensureTurn();
-        }, remaining);
+        if (started || !isCurrent() || !observedWorkSettled()) return;
+        ensureTurn();
       };
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
@@ -527,11 +515,12 @@ export function useCommandDeckSubmit({
               paintFrame = null;
             }
             setTurns((current) => {
-              const next = current.map((turn) =>
-                turn.id === deckId && revision > (turn.revision ?? 0)
-                  ? { ...turn, text: answer, revision }
-                  : turn,
-              );
+              const next = current.map((turn) => {
+                if (turn.id !== deckId || revision <= (turn.revision ?? 0)) return turn;
+                const revised = { ...turn, text: answer, revision };
+                delete revised.confirmed;
+                return revised;
+              });
               turnsRef.current = next;
               return next;
             });
@@ -564,23 +553,12 @@ export function useCommandDeckSubmit({
           signal: controller.signal,
         });
       } catch (error) {
-        if (revealTimer !== null) window.clearTimeout(revealTimer);
         if (paintFrame !== null) cancelAnimationFrame(paintFrame);
         throw error;
       }
       const terminalRecordedAt = reply.turnTiming?.completed_at ?? new Date().toISOString();
       const directResponse = isSemanticDirectResponseSource(reply.source);
       terminalReplyReady = true;
-      if (!directResponse && !reply.adaptiveAnswer && !started && isCurrent()) {
-        const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
-        if (remaining > 0) {
-          await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
-        }
-      }
-      if (revealTimer !== null) {
-        window.clearTimeout(revealTimer);
-        revealTimer = null;
-      }
       if (paintFrame !== null) {
         cancelAnimationFrame(paintFrame);
         paintFrame = null;
@@ -657,58 +635,59 @@ export function useCommandDeckSubmit({
             if (activityTurnIds.has(turn.id)) {
               return { ...turn, streaming: false, terminal: true };
             }
-            return turn.id === deckId
-              ? {
-                  ...turn,
-                  text: reply.text,
-                  recordedAt: terminalRecordedAt,
-                  streaming: false,
-                  terminal: reply.source !== "stopped" && !reply.source.startsWith("partial"),
-                  citations: reply.citations,
-                  followUps: reply.followUps,
-                  source: reply.source,
-                  agent: replyAgent(reply),
-                  ...(reply.assessmentId ? { assessmentId: reply.assessmentId } : {}),
-                  ...(reply.verification ? { verification: reply.verification } : {}),
-                  ...(reply.confirmed ? { confirmed: reply.confirmed } : {}),
-                  ...(reply.router ? { router: reply.router } : {}),
-                  ...(reply.answerPlan ? { answerPlan: reply.answerPlan } : {}),
-                  ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),
-                  ...(reply.delegation ? { delegation: reply.delegation } : {}),
-                  ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
-                  ...(reply.incidentCandidates
-                    ? { incidentCandidates: reply.incidentCandidates }
-                    : {}),
-                  ...(reply.presentationArtifact
-                    ? { presentationArtifact: reply.presentationArtifact }
-                    : {}),
-                  ...(reply.documentArtifact
-                    ? { documentArtifact: reply.documentArtifact }
-                    : {}),
-                  ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
-                  ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
-                  ...(reply.modelLatencyMs !== undefined
-                    ? { modelLatencyMs: reply.modelLatencyMs }
-                    : {}),
-                  ...(reply.modelUsage ? { modelUsage: reply.modelUsage } : {}),
-                  ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),
-                  ...(reply.trajectoryDetail ? { trajectoryDetail: reply.trajectoryDetail } : {}),
-                  ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
-                  ...(reply.evidenceFreshnessContext
-                    ? { evidenceFreshnessContext: reply.evidenceFreshnessContext }
-                    : {}),
-                  ...(reply.intentGraph ? { intentGraph: reply.intentGraph } : {}),
-                  ...(reply.intentGraphEvidence ? {
-                    intentGraphEvidence: reply.intentGraphEvidence,
-                  } : {}),
-                  ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
-                  ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
-                  ...(reply.adaptiveAnswer ? { adaptiveAnswer: reply.adaptiveAnswer } : {}),
-                  ...(reply.conversationBinding
-                    ? { conversationBinding: reply.conversationBinding }
-                    : {}),
-                }
-              : turn;
+            if (turn.id !== deckId) return turn;
+            const updated = {
+              ...turn,
+              text: reply.text,
+              recordedAt: terminalRecordedAt,
+              streaming: false,
+              terminal: reply.source !== "stopped" && !reply.source.startsWith("partial"),
+              citations: reply.citations,
+              followUps: reply.followUps,
+              source: reply.source,
+              agent: replyAgent(reply),
+              ...(reply.assessmentId ? { assessmentId: reply.assessmentId } : {}),
+              ...(reply.verification ? { verification: reply.verification } : {}),
+              ...(reply.confirmed ? { confirmed: reply.confirmed } : {}),
+              ...(reply.router ? { router: reply.router } : {}),
+              ...(reply.answerPlan ? { answerPlan: reply.answerPlan } : {}),
+              ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),
+              ...(reply.delegation ? { delegation: reply.delegation } : {}),
+              ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
+              ...(reply.incidentCandidates
+                ? { incidentCandidates: reply.incidentCandidates }
+                : {}),
+              ...(reply.presentationArtifact
+                ? { presentationArtifact: reply.presentationArtifact }
+                : {}),
+              ...(reply.documentArtifact
+                ? { documentArtifact: reply.documentArtifact }
+                : {}),
+              ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
+              ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
+              ...(reply.modelLatencyMs !== undefined
+                ? { modelLatencyMs: reply.modelLatencyMs }
+                : {}),
+              ...(reply.modelUsage ? { modelUsage: reply.modelUsage } : {}),
+              ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),
+              ...(reply.trajectoryDetail ? { trajectoryDetail: reply.trajectoryDetail } : {}),
+              ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
+              ...(reply.evidenceFreshnessContext
+                ? { evidenceFreshnessContext: reply.evidenceFreshnessContext }
+                : {}),
+              ...(reply.intentGraph ? { intentGraph: reply.intentGraph } : {}),
+              ...(reply.intentGraphEvidence ? {
+                intentGraphEvidence: reply.intentGraphEvidence,
+              } : {}),
+              ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
+              ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
+              ...(reply.adaptiveAnswer ? { adaptiveAnswer: reply.adaptiveAnswer } : {}),
+              ...(reply.conversationBinding
+                ? { conversationBinding: reply.conversationBinding }
+                : {}),
+            };
+            if (!reply.confirmed) delete updated.confirmed;
+            return updated;
           });
           turnsRef.current = next;
           return next;

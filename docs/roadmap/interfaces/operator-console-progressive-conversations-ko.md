@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: fea5132bdced594baf2426a92da120d847b64559
+translation_source_sha: eebe790e62c51d293f9e13876ccaffb760046982
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -40,7 +40,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 |------|------|------|------|
 | 적응형 답변 출처와 재실행 표현 | implemented | `adaptive-answer.test.ts` 33개, `turn-history.test.ts` 및 `command-deck.session.test.ts` 20개, Console 타입 검사와 빌드 통과 | 일반 지식에는 전체 답변의 조회 증적을 부여하지 않습니다. 목표별 근거와 별도 초안 설명은 스트림 및 복원 후에도 유지하며, 잘못된 스트림은 미검증 텍스트를 지웁니다. 브라우저 런타임 검증은 별도입니다. |
 | 일반 대화 예시 질문 즉시 전송 | 구현됨 | `general-conversation-intro.tsx`, `command-deck-view.tsx`, `conversation-entry.spec.ts` | 양 언어의 예시 버튼 세 개는 클릭하거나 키보드로 실행하면 표시된 질문을 선택한 맥락에 맞는 일반 전송 경로로 보냅니다. 툴팁은 즉시 전송 동작을 안내합니다. 실제 모델 호출 없이 합성 응답으로 예시 질문 검사 6개와 기존 진입점 검사 2개를 통과했습니다. |
-| Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
+| Web 점진적 스트림 집약 | implemented | Operator `semantic_turn_runtime.py`, [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), 집중 Operator 및 Console 스트림 검사 | 검증된 답변 완료 변환 결과는 `done` 전에 증적에 결속된 누적 확정 구간을 최대 64개 내보냅니다. Raw 토큰은 최종 일치 전까지 숨기고, 증적, 텍스트, 개정 번호, 잘못된 프레임, 중단, 오류 및 순서 실패 시 최종 전 내용을 철회합니다. 이 행은 Browser, Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | 계약으로 검증된 시작 질문 | 구현됨 | `intro-suggestions.ts`, 이중 언어 Console 카탈로그, `semantic_operational_summary_planning.py`, 질문 은행 산출물, 집중 Core, Console 및 질문 은행 검사 | 비어 있는 Deck에는 검토된 Resource 상태, Resource Health, Service Health 질문 5개만 표시합니다. 수락되고 모호하지 않은 타입 기반 함수 intent는 두 번째 모델 호출 없이 결정론적으로 검증된 프레임을 재사용할 수 있습니다. 구현되지 않은 화면 요약, tier 구성, 승인, 실패 원인, 기회 질문은 준비된 예시로 표시하지 않습니다. |
 | 인시던트 바인딩 맥락 격리 | 구현됨 | `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 및 인증된 Browser Entra 요청 확인 | 자동 인시던트 조사는 Dashboard 사실이나 레코드 없이 정확한 인시던트 바인딩을 제출합니다. 검증된 답변은 `query.incident_evidence`를 읽습니다. 경로 메타데이터는 표현 맥락으로만 남고 답변 근거가 되지 않습니다. |
@@ -67,6 +67,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 이미 영속화된 검증된 변환 결과에서 증적에 결속된 점진적 의미 답변 구간을 추가했습니다. Console은 일치하는 답변 완료 증적만 표시하고 최종 증적, 텍스트, 개정 번호, 순서, 오류, 중단 또는 잘못된 프레임이 있으면 철회합니다. 큰 답변도 구간 64개 계약 안에 유지합니다. | `current change`, Operator 의미 bridge 테스트 151개 및 Console 스트림 안전 검사 76개 통과 | 이 경로를 validated로 높이기 전에 인증된 표준 포트 근거를 보존합니다. |
 | 2026-09-08 | implemented | 평가 대기 및 이의 제기됨 상태를 완료 평가와 명확히 구분하도록 지역화된 수명 주기 상태 열을 추가했습니다. | `current change`, 집중 경로 및 카탈로그 검사 11개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 브라우저 검증은 별도 근거로 유지합니다. |
 | 2026-09-08 | implemented | 평가 딥 링크에 principal 범위 레코드가 없을 때 사실에 맞는 사용 불가 상태와 명시적인 새로고침 동작을 추가했습니다. | `current change`, 집중 경로 및 카탈로그 테스트 10개, Console 타입 검사, 카탈로그 동등성 검사가 통과했습니다. | 인증된 브라우저 검증은 별도 근거로 유지합니다. |
 | 2026-09-08 | implemented | 대화 보증 경로 선택기가 현재 답변이 전달하는 권위 있는 평가 식별자를 수락하면서 기존 turn 식별자 링크도 유지하게 했습니다. | `current change`, 집중 대화 보증 경로 테스트 6개가 통과했습니다. | 인증된 실제 평가에서 경로 선택을 검증합니다. |
@@ -384,13 +385,14 @@ v2 artifact에 hint가 없으면 기존 wire 형태와 결정론적 renderer 기
 
 ## 확정된 개정판
 
-초안 `token` 프레임은 잠정적인 서술로 남습니다. `confirmed` 프레임은 결정론적 검증기를
-통과한 근거로 그려낸 완성된 구간만 담습니다. 여기에는 단조 증가하는 구간 번호, 답변 개정 번호,
-근거 참조, 그리고 나중에 검증된 수정을 넣을 교체 구간이 포함됩니다. 확정된 구간은 아직
-돌아가는 가지를 인용하지 않습니다. 최종 `done` 프레임이 정본이며, 대화 이력에 저장되는 유일한
-답변입니다. 중단된 스트림은 부분 상태로 남고, 초안 텍스트는 확정 내용이 되지 않습니다. Semantic
-POST 스트림은 요청 기한까지 영속 변환 결과를 기다립니다. 결과가 없으면 빈 성공 스트림이 아니라
-영속 typed hold로 종료합니다.
+초안 `token` 프레임은 잠정적인 서술로 남습니다. `confirmed` 프레임은 영속화된 답변 완료 변환
+결과에서 그려낸 누적 완성 구간만 담고, 해당 변환 결과의 검증된 의미 증적과 근거 참조를 함께
+전달합니다. 브라우저는 표시 전에 증적의 요청, 처리 결과, 사유, 권한 없음 필드, 답변 개정 번호 및
+단조 증가하는 구간 번호를 확인합니다. 최종 `done` 프레임은 계속 정본이며 대화 이력에 저장되는
+유일한 답변입니다. 최종 텍스트, 개정 번호 또는 증적이 다르면 최종 전 구간을 철회합니다. 중단되거나
+형식이 잘못된 스트림은 잠정 텍스트를 철회하며 증적에 결속된 확정 구간은 실행 중인 가지를 인용하지
+않습니다. Semantic POST 스트림은 요청 기한까지 영속 변환 결과를 기다립니다. 결과가 없으면 빈 성공
+스트림이 아니라 영속 typed hold로 종료합니다.
 
 웹 집약기는 화면에 그리기 전에 가지 종류, 단조 증가 상태, 시각, 근거 참조, 텍스트 한계를
 검증합니다. 각 가지는 번호가 매겨진 조사 단계와 펼쳐볼 수 있는 제한된 근거로 그려냅니다.

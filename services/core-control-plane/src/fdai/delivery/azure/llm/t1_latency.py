@@ -56,26 +56,46 @@ class T1MiniRouting:
         self._identity = identity
         self._http = http_client
         self._now = now
-        self._samples: dict[str, deque[tuple[datetime, float]]] = {
+        self._samples: dict[str, deque[tuple[datetime, float, float | None]]] = {
             c.target.deployment: deque(maxlen=8) for c in self.candidates
         }
         self._failures: set[str] = set()
 
-    def record(self, deployment: str, duration_ms: float | None) -> None:
-        """Record one verified probe, or explicitly exclude its failed deployment."""
+    def record(
+        self,
+        deployment: str,
+        duration_ms: float | None,
+        *,
+        ttft_ms: float | None = None,
+    ) -> None:
+        """Record one verified probe, including TTFT when streaming supplied it."""
         if deployment not in self._samples:
             raise ValueError("probe deployment MUST belong to the configured mini pool")
         if duration_ms is None:
+            if ttft_ms is not None:
+                raise ValueError("failed probe cannot record TTFT")
             self._failures.add(deployment)
             return
         if not math.isfinite(duration_ms) or duration_ms < 0:
             raise ValueError("probe duration MUST be finite and nonnegative")
+        if ttft_ms is not None and (
+            not math.isfinite(ttft_ms) or ttft_ms < 0 or ttft_ms > duration_ms
+        ):
+            raise ValueError("probe TTFT MUST be finite and within total duration")
         self._failures.discard(deployment)
-        self._samples[deployment].append((self._now(), duration_ms))
+        self._samples[deployment].append((self._now(), duration_ms, ttft_ms))
 
     def _fresh(self, deployment: str) -> list[float]:
         cutoff = self._now() - timedelta(seconds=2 * self.interval_seconds)
-        return [value for at, value in self._samples[deployment] if at > cutoff]
+        return [duration for at, duration, _ttft in self._samples[deployment] if at > cutoff]
+
+    def _fresh_ttft(self, deployment: str) -> list[float]:
+        cutoff = self._now() - timedelta(seconds=2 * self.interval_seconds)
+        return [
+            ttft
+            for at, _duration, ttft in self._samples[deployment]
+            if at > cutoff and ttft is not None
+        ]
 
     def selected_config(self) -> AzureOpenAIAdaptiveModelConfig | None:
         """Select only a valid independent pair; never probe or mutate another turn."""
@@ -127,6 +147,9 @@ class T1MiniRouting:
         for item in self.candidates:
             name = item.target.deployment
             values = self._fresh(name)
+            ttfts = self._fresh_ttft(name)
+            if len(ttfts) != len(values):
+                ttfts = []
             history = self._samples[name]
             status = (
                 "failed"
@@ -149,6 +172,12 @@ class T1MiniRouting:
                     else None,
                     "samples": len(values) if measured else 0,
                     "history_ms": values if measured else [],
+                    "ttft_p50_ms": median(ttfts) if measured and ttfts else None,
+                    "ttft_p95_ms": sorted(ttfts)[math.ceil(len(ttfts) * 0.95) - 1]
+                    if measured and ttfts
+                    else None,
+                    "ttft_samples": len(ttfts) if measured else 0,
+                    "ttft_history_ms": ttfts if measured else [],
                 }
             )
         chosen = next((item for item in candidates if item["deployment"] == model), None)

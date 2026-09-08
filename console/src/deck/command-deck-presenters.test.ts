@@ -121,6 +121,10 @@ describe("backend connection tooltip", () => {
         p95_ms: 1390.2,
         samples: 2,
         history_ms: [1149.4, 1390.2],
+        ttft_p50_ms: 300.4,
+        ttft_p95_ms: 390.2,
+        ttft_samples: 2,
+        ttft_history_ms: [300.4, 390.2],
       },
       {
         deployment: "narrator-safe",
@@ -128,6 +132,10 @@ describe("backend connection tooltip", () => {
         p95_ms: 6086.1,
         samples: 2,
         history_ms: [5507.2, 6086.1],
+        ttft_p50_ms: 900.2,
+        ttft_p95_ms: 1086.1,
+        ttft_samples: 2,
+        ttft_history_ms: [900.2, 1086.1],
       },
     ],
   } as const;
@@ -135,8 +143,10 @@ describe("backend connection tooltip", () => {
   it("puts the route decision and each candidate on distinct lines", () => {
     expect(routerTooltip(router, now)?.split("\n")).toEqual([
       "auto-router (Probe latency) chose narrator-fast",
-      "* narrator-fast · Measured · p50 1149ms · p95 1390ms · n=2",
-      "  narrator-safe · Measured · p50 5507ms · p95 6086ms · n=2",
+      "* narrator-fast · Measured · total p50 1149ms · total p95 1390ms · " +
+        "TTFT p50 300ms · TTFT p95 390ms · n=2/2",
+      "  narrator-safe · Measured · total p50 5507ms · total p95 6086ms · " +
+        "TTFT p50 900ms · TTFT p95 1086ms · n=2/2",
     ]);
   });
 
@@ -163,8 +173,16 @@ describe("backend connection tooltip", () => {
         updatedAt: "2026-09-06T10:00:00Z",
         expiresAt: "2026-09-06T10:05:00Z",
         candidates: [
-          { deployment: "narrator-fast", p50: "1149ms", p95: "1390ms", samples: 2, selected: true, status: "Measured" },
-          { deployment: "narrator-safe", p50: "5507ms", p95: "6086ms", samples: 2, selected: false, status: "Measured" },
+          {
+            deployment: "narrator-fast", p50: "1149ms", p95: "1390ms",
+            ttftP50: "300ms", ttftP95: "390ms", ttftSamples: 2,
+            samples: 2, selected: true, status: "Measured",
+          },
+          {
+            deployment: "narrator-safe", p50: "5507ms", p95: "6086ms",
+            ttftP50: "900ms", ttftP95: "1086ms", ttftSamples: 2,
+            samples: 2, selected: false, status: "Measured",
+          },
         ],
       },
     });
@@ -199,6 +217,9 @@ describe("backend connection tooltip", () => {
         deployment: "vision-fast",
         p50: "900ms",
         p95: "1100ms",
+        ttftP50: "-",
+        ttftP95: "-",
+        ttftSamples: 0,
         samples: 3,
         selected: true,
         status: "Measured",

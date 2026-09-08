@@ -21,6 +21,17 @@ function snap(): ViewSnapshot {
   };
 }
 
+function verifiedEvidence(evidenceRefs: readonly string[] = []) {
+  return {
+    status: "verified",
+    authority: "ontology-query",
+    checks_completed: 1,
+    checks_total: 1,
+    evidence_refs: evidenceRefs,
+    reason_code: "semantic_answer_verified",
+  };
+}
+
 function ontologySnap(): ViewSnapshot {
   return {
     routeId: "ontology",
@@ -1198,8 +1209,9 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
-  test("buffers draft tokens and confirmed segments until the terminal", async () => {
+  test("reveals receipt-bound confirmed segments before the matching terminal", async () => {
     let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    let requestId = "";
     const stream = new ReadableStream<Uint8Array>({
       start(startController) {
         controller = startController;
@@ -1207,10 +1219,13 @@ describe("askBackendStream fallback typewriter", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(stream, {
-        status: 200,
-        headers: { "content-type": "text/event-stream" },
-      })),
+      vi.fn(async (_input, init) => {
+        requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      }),
     );
     const mod = await import("./backend");
     const encoder = new TextEncoder();
@@ -1232,23 +1247,167 @@ describe("askBackendStream fallback typewriter", () => {
     ));
     await waitForStreamTurn();
     expect(calls).toEqual([]);
+    while (!requestId) await waitForStreamTurn();
 
-    controller!.enqueue(encoder.encode(
-      'event: confirmed\ndata: {"seq":2,"revision":0,"segment_index":0,' +
-        '"text":"Draft","status":"consistent","evidence_refs":[]}\n\n',
-    ));
-    await waitForStreamTurn();
-    expect(calls).toEqual([]);
+    const semanticReceipt = {
+      schema_version: "1.0.0",
+      projection_id: crypto.randomUUID(),
+      request_id: requestId,
+      disposition: "answered",
+      reason_code: "semantic_answer_verified",
+      semantic_route: "verified_query_plan",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+      plan_digest: `sha256:${"c".repeat(64)}`,
+      execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+      execution_authority: false,
+    };
+    controller!.enqueue(encoder.encode(`event: confirmed\ndata: ${JSON.stringify({
+      seq: 2,
+      revision: 0,
+      segment_index: 0,
+      text: "Draft",
+      status: "consistent",
+      evidence_refs: [],
+      semantic_receipt: semanticReceipt,
+    })}\n\n`));
+    for (let attempt = 0; attempt < 10 && calls.length === 0; attempt += 1) {
+      await waitForStreamTurn();
+    }
+    expect(calls).toEqual(["confirmed:Draft"]);
 
-    controller!.enqueue(encoder.encode(
-      'event: done\ndata: {"seq":3,"revision":0,"answer":"Draft","model":"gpt-test"}\n\n',
-    ));
+    controller!.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({
+      seq: 3,
+      revision: 0,
+      answer: "Draft",
+      model: "gpt-test",
+      semantic_receipt: semanticReceipt,
+      verification: verifiedEvidence(),
+    })}\n\n`));
     controller!.close();
 
     const reply = await replyPromise;
     expect(calls).toEqual(["confirmed:Draft"]);
     expect(reply.source).toBe("llm:gpt-test");
     expect(reply.text).toBe("Draft");
+  });
+
+  test("retracts receipt-bound content when a later confirmed segment is not cumulative", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        const semanticReceipt = {
+          schema_version: "1.0.0",
+          projection_id: crypto.randomUUID(),
+          request_id: requestId,
+          disposition: "answered",
+          reason_code: "semantic_answer_verified",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: `sha256:${"a".repeat(64)}`,
+          principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+          plan_digest: `sha256:${"c".repeat(64)}`,
+          execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+          execution_authority: false,
+        };
+        const body = [
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 1,
+            revision: 0,
+            segment_index: 0,
+            text: "Verified",
+            status: "consistent",
+            evidence_refs: [],
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 2,
+            revision: 0,
+            segment_index: 1,
+            text: "Different",
+            status: "consistent",
+            evidence_refs: [],
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+          `event: done\ndata: ${JSON.stringify({
+            seq: 3,
+            revision: 0,
+            answer: "Verified",
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+        ].join("");
+        return new Response(body, { status: 200 });
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+    const confirmations: string[] = [];
+    const revisions: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+      onRevision: (answer) => revisions.push(answer),
+    });
+
+    expect(confirmations).toEqual(["Verified"]);
+    expect(revisions.at(-1)).toBe("");
+    expect(reply.source).toBe("unavailable (confirmed stream mismatch)");
+    expect(reply.text).not.toContain("Different");
+  });
+
+  test("retracts confirmed content when terminal verification is unverified", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        const semanticReceipt = {
+          schema_version: "1.0.0",
+          projection_id: crypto.randomUUID(),
+          request_id: requestId,
+          disposition: "answered",
+          reason_code: "semantic_answer_verified",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: `sha256:${"a".repeat(64)}`,
+          principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+          plan_digest: `sha256:${"c".repeat(64)}`,
+          execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+          execution_authority: false,
+        };
+        const body = [
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 1,
+            revision: 0,
+            segment_index: 0,
+            text: "Verified",
+            status: "consistent",
+            evidence_refs: ["evidence-1"],
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+          `event: done\ndata: ${JSON.stringify({
+            seq: 2,
+            revision: 0,
+            answer: "Verified",
+            semantic_receipt: semanticReceipt,
+            verification: {
+              ...verifiedEvidence(["evidence-2"]),
+              status: "unverified",
+            },
+          })}\n\n`,
+        ].join("");
+        return new Response(body, { status: 200 });
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: () => undefined,
+    });
+
+    expect(reply.source).toBe("unavailable (confirmed verification mismatch)");
+    expect(reply.confirmed).toBeUndefined();
   });
 
   test("ignores a conflicting confirmed frame with the same revision", async () => {
@@ -1330,6 +1489,189 @@ describe("askBackendStream fallback typewriter", () => {
     expect(confirmations).toEqual([]);
     expect(reply.text).toBe("Canonical");
     expect(reply.confirmed).toBeUndefined();
+  });
+
+  test("ignores a stale receipt-bound confirmation after a newer confirmation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        const semanticReceipt = {
+          schema_version: "1.0.0",
+          projection_id: crypto.randomUUID(),
+          request_id: requestId,
+          disposition: "answered",
+          reason_code: "semantic_answer_verified",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: `sha256:${"a".repeat(64)}`,
+          principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+          plan_digest: `sha256:${"c".repeat(64)}`,
+          execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+          execution_authority: false,
+        };
+        const body = [
+          'event: revision\ndata: {"seq":1,"revision":1,"answer":"Canonical",' +
+            '"status":"corrected"}\n\n',
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 2,
+            revision: 1,
+            segment_index: 0,
+            text: "Canonical",
+            status: "corrected",
+            evidence_refs: [],
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 3,
+            revision: 0,
+            segment_index: 0,
+            text: "Stale",
+            status: "consistent",
+            evidence_refs: [],
+            semantic_receipt: semanticReceipt,
+          })}\n\n`,
+          `event: done\ndata: ${JSON.stringify({
+            seq: 4,
+            revision: 1,
+            answer: "Canonical",
+            semantic_receipt: semanticReceipt,
+            verification: verifiedEvidence(),
+          })}\n\n`,
+        ].join("");
+        return new Response(body, { status: 200 });
+      }),
+    );
+    const mod = await import("./backend");
+    const confirmations: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+    });
+
+    expect(confirmations).toEqual(["Canonical"]);
+    expect(reply.text).toBe("Canonical");
+    expect(reply.confirmed?.text).toBe("Canonical");
+  });
+
+  test("rejects a confirmed frame carrying another request receipt", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        const receipt = (boundRequestId: string) => ({
+          schema_version: "1.0.0",
+          projection_id: crypto.randomUUID(),
+          request_id: boundRequestId,
+          disposition: "answered",
+          reason_code: "semantic_answer_verified",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: `sha256:${"a".repeat(64)}`,
+          principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+          plan_digest: `sha256:${"c".repeat(64)}`,
+          execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+          execution_authority: false,
+        });
+        const body = [
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 1,
+            revision: 0,
+            segment_index: 0,
+            text: "Cross-request",
+            status: "consistent",
+            evidence_refs: [],
+            semantic_receipt: receipt(crypto.randomUUID()),
+          })}\n\n`,
+          `event: done\ndata: ${JSON.stringify({
+            seq: 2,
+            revision: 0,
+            answer: "Canonical",
+            semantic_receipt: receipt(requestId),
+          })}\n\n`,
+        ].join("");
+        return new Response(body, { status: 200 });
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+    const confirmations: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+    });
+
+    expect(confirmations).toEqual([]);
+    expect(reply.source).toBe("unavailable (confirmed receipt mismatch)");
+    expect(reply.confirmed).toBeUndefined();
+  });
+
+  test("accepts a corrected confirmation with its new verified receipt", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const requestId = (JSON.parse(String(init?.body)) as { request_id: string }).request_id;
+        const receipt = (suffix: string) => ({
+          schema_version: "1.0.0",
+          projection_id: crypto.randomUUID(),
+          request_id: requestId,
+          disposition: "answered",
+          reason_code: "semantic_answer_verified",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: `sha256:${"a".repeat(64)}`,
+          principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+          plan_digest: `sha256:${suffix.repeat(64)}`,
+          execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+          execution_authority: false,
+        });
+        const initialReceipt = receipt("c");
+        const correctedReceipt = receipt("e");
+        const body = [
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 1,
+            revision: 0,
+            segment_index: 0,
+            text: "Draft",
+            status: "consistent",
+            evidence_refs: [],
+            semantic_receipt: initialReceipt,
+          })}\n\n`,
+          'event: revision\ndata: {"seq":2,"revision":1,"answer":"Canonical",' +
+            '"status":"corrected"}\n\n',
+          `event: confirmed\ndata: ${JSON.stringify({
+            seq: 3,
+            revision: 1,
+            segment_index: 0,
+            text: "Canonical",
+            status: "corrected",
+            evidence_refs: [],
+            semantic_receipt: correctedReceipt,
+          })}\n\n`,
+          `event: done\ndata: ${JSON.stringify({
+            seq: 4,
+            revision: 1,
+            answer: "Canonical",
+            semantic_receipt: correctedReceipt,
+            verification: verifiedEvidence(),
+          })}\n\n`,
+        ].join("");
+        return new Response(body, { status: 200 });
+      }),
+    );
+    const mod = await import("./backend");
+    const confirmations: string[] = [];
+    const revisions: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+      onRevision: (answer) => revisions.push(answer),
+    });
+
+    expect(confirmations).toEqual(["Draft", "Canonical"]);
+    expect(revisions[0]).toBe("");
+    expect(reply.text).toBe("Canonical");
+    expect(reply.confirmed?.text).toBe("Canonical");
   });
 
   test.each([

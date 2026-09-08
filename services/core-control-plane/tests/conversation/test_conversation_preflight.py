@@ -1694,6 +1694,16 @@ def test_subscription_scope_preflight_rejects_named_alternate_subscription() -> 
             OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
             ("service_health",),
         ),
+        (
+            "고객운영 subscription의 Service Health를 보여줘.",
+            OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
+            ("service_health",),
+        ),
+        (
+            "Show Service Health for subscription 고객운영.",
+            OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH,
+            ("service_health",),
+        ),
     ],
 )
 def test_subscription_preflight_rejects_alphabetic_named_scope(

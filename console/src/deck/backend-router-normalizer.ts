@@ -42,6 +42,21 @@ function latency(raw: unknown): number | null {
   return typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
 }
 
+function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 === 0
+    ? (ordered[middle - 1]! + ordered[middle]!) / 2
+    : ordered[middle]!;
+}
+
+function nearestP95(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.ceil(ordered.length * 0.95) - 1]!;
+}
+
 function parseRouterCandidates(raw: unknown): RouterCandidate[] {
   const rawCandidates = Array.isArray(raw) ? raw : [];
   const candidates: RouterCandidate[] = [];
@@ -56,12 +71,35 @@ function parseRouterCandidates(raw: unknown): RouterCandidate[] {
       Number.isSafeInteger(record.samples) && record.samples >= 0 ? record.samples : 0;
     const historyRaw = Array.isArray(record.history_ms) ? record.history_ms : [];
     const history = historyRaw.filter((item): item is number => latency(item) !== null);
+    const historyAligned = history.length === historyRaw.length;
+    const ttftP50 = latency(record.ttft_p50_ms);
+    const ttftP95 = latency(record.ttft_p95_ms);
+    const ttftSamples = typeof record.ttft_samples === "number" &&
+      Number.isSafeInteger(record.ttft_samples) && record.ttft_samples >= 0
+      ? record.ttft_samples : 0;
+    const ttftHistoryRaw = Array.isArray(record.ttft_history_ms) ? record.ttft_history_ms : [];
+    const ttftHistory = ttftHistoryRaw.filter((item): item is number => latency(item) !== null);
+    const ttftValid = historyAligned && ttftHistory.length === ttftHistoryRaw.length &&
+      ttftSamples === samples && ttftSamples > 0 &&
+      history.length === samples && ttftHistory.length === ttftSamples &&
+      ttftP50 !== null && ttftP95 !== null && p50 !== null && p95 !== null &&
+      ttftP50 === median(ttftHistory) && ttftP95 === nearestP95(ttftHistory) &&
+      ttftHistory.every((value, index) => value <= history[index]!) &&
+      ttftP50 <= p50 && ttftP95 <= p95;
+    const hasTtft = record.ttft_p50_ms !== undefined || record.ttft_p95_ms !== undefined ||
+      record.ttft_samples !== undefined || record.ttft_history_ms !== undefined;
     const measuredAt = parseRouterTimestamp(record.measured_at);
     const rawStatus = record.status;
     const status = rawStatus === "measured" || rawStatus === "unmeasured" ||
       rawStatus === "failed" || rawStatus === "stale" ? rawStatus : undefined;
     candidates.push({
       deployment, p50_ms: p50, p95_ms: p95, samples, history_ms: history,
+      ...(hasTtft ? {
+        ttft_p50_ms: ttftValid ? ttftP50 : null,
+        ttft_p95_ms: ttftValid ? ttftP95 : null,
+        ttft_samples: ttftValid ? ttftSamples : 0,
+        ttft_history_ms: ttftValid ? ttftHistory : [],
+      } : {}),
       ...(status ? { status } : rawStatus !== undefined ? { status: "unmeasured" as const } : {}),
       ...(measuredAt ? { measured_at: measuredAt } : {}),
       ...(record.measured_at !== undefined && !measuredAt && status !== "failed" && status !== "stale"

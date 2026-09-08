@@ -14,6 +14,10 @@ const submitSource = readFileSync(
   fileURLToPath(new URL("./use-command-deck-submit.ts", import.meta.url)),
   "utf8",
 );
+const lifecycleSource = readFileSync(
+  fileURLToPath(new URL("./use-command-deck-lifecycle.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("stream paint batching", () => {
   it("uses a bounded adaptive batch per display frame", () => {
@@ -62,6 +66,7 @@ describe("stream paint batching", () => {
     expect(submitSource).toContain("onValidatedTerminal");
     expect(submitSource).toContain("terminalReplyReady = true");
     expect(submitSource).toContain("!receivedTerminalContent");
+    expect(submitSource).not.toContain("MIN_PREPARING_VISIBLE_MS");
     const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
     const queue = terminalRevealChunks(text);
     expect(queue).toHaveLength(60);
@@ -131,5 +136,15 @@ describe("stream paint batching", () => {
     expect(confirmedIndex).toBeGreaterThan(0);
     expect(visibleIndex).toBeGreaterThan(confirmedIndex);
     expect(textIndex).toBeGreaterThan(visibleIndex);
+  });
+
+  it("clears preterminal confirmation metadata when the terminal reply has none", () => {
+    expect(submitSource).toContain("if (!reply.confirmed) delete updated.confirmed;");
+    expect(submitSource).toContain("delete revised.confirmed;");
+  });
+
+  it("clears confirmation metadata when an active stream is cancelled", () => {
+    expect(lifecycleSource).toContain("delete stopped.confirmed;");
+    expect(lifecycleSource).toContain('text: "",');
   });
 });

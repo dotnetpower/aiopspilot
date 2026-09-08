@@ -4927,8 +4927,32 @@ def test_current_state_judgment_recovery_preserves_current_candidate_scope() -> 
     assert outcome.execution_authority is False
 
 
-def test_exact_named_resource_state_is_not_recovered_as_a_collection() -> None:
-    utterance = "aks-example-cluster 의 상태는 "
+@pytest.mark.parametrize(
+    ("target", "utterance", "expected_disposition"),
+    (
+        (
+            "aks-fdai-chaos",
+            "aks-fdai-chaos 의 상태는?",
+            SemanticPlanningDisposition.PLANNED,
+        ),
+        (
+            "narrator-gpt-5-4-mini",
+            "narrator-gpt-5-4-mini의 상태는?",
+            SemanticPlanningDisposition.PLANNED,
+        ),
+        ("db1", "db1의 상태는?", SemanticPlanningDisposition.CLARIFICATION),
+        (
+            "resource-list-prod",
+            "resource-list-prod의 상태는?",
+            SemanticPlanningDisposition.PLANNED,
+        ),
+    ),
+)
+def test_resource_name_shape_does_not_widen_current_state_to_a_collection(
+    target: str,
+    utterance: str,
+    expected_disposition: SemanticPlanningDisposition,
+) -> None:
 
     class _ExactCurrentStateJudgmentModel:
         def judge(self, **_kwargs: Any) -> dict[str, object]:
@@ -4973,9 +4997,9 @@ def test_exact_named_resource_state_is_not_recovered_as_a_collection() -> None:
         operational_targets=(
             SemanticTarget(
                 kind="resource",
-                value="aks-example-cluster",
+                value=target,
                 source_start=0,
-                source_end=len("aks-example-cluster"),
+                source_end=len(target),
             ),
         ),
         operational_facets=("current_state",),
@@ -4999,12 +5023,16 @@ def test_exact_named_resource_state_is_not_recovered_as_a_collection() -> None:
         preflight_result=preflight_result,
     )
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is expected_disposition
     assert outcome.frame is not None
     assert outcome.frame.output_shape == "target_current_state"
+    if expected_disposition is SemanticPlanningDisposition.CLARIFICATION:
+        assert outcome.plan is None
+        assert outcome.execution_authority is False
+        return
     assert outcome.frame.subject_constraints == (
         "Resource",
-        "Resource.name=aks-example-cluster",
+        f"Resource.name={target}",
     )
     assert outcome.plan is not None
     assert tuple(node.kind for node in outcome.plan.nodes) == (

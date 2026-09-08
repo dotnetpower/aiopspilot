@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 22669b813140681cd946298589cdca07b332086e
-translation_revised: 2026-09-05
+translation_source_sha: ee58366c3a0907b702cf9c87b171c7eba2d0fd8f
+translation_revised: 2026-09-08
 ---
 # 영구 대화 전송
 
@@ -62,6 +62,7 @@ writer를 부여하지 않습니다.
 | 불변 전달 원장 및 복구 조정기 | 구현됨 | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | 메모리 내 저장소와 조정기는 집중 테스트에서 안정적인 멱등성, CAS 점유, 제한된 재시도, 최종 모호성 및 오래된 임차 조정을 강제합니다. 이 행은 재시작 내구성을 주장하지 않습니다. |
 | 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
 | 교차 채널 읽기 쉬운 의미 행 | 구현됨 | Operator `presentation_rows.py`, v1/v2 artifact compiler, focused Operator 표현 검사(`94 passed`) | Web, Slack, Teams 및 replay가 읽기 쉬운 리소스 필드를 앞세우고 중첩 provider bag을 표시 block에서 제외하는 범위 제한 projection 하나를 받습니다. Immutable response는 exact 기술 근거를 계속 보존하고 delivery는 retry 중 projection을 다시 만들지 않습니다. |
+| 의미 요청 및 최종 변환 결과 신뢰성 | implemented | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, 집중 Operator 의미 bridge 검사 151개 통과 | Operator는 게시 전에 영속화하고 첫 최종 결과를 고정하며 뒤늦게 도착한 경쟁 변환 결과를 차단합니다. 실제 대체 시각에 시간 초과 보류를 기록하고 영속 순서로 재생하며 저장된 검증 최종 결과에서만 증적에 결속된 확정 구간을 내보냅니다. 전송이 없으면 권한 없는 타입 기반 보류를 유지합니다. |
 | PostgreSQL schema 및 운영 영속성 | 구현됨 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, Operator store module, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Concrete Operator store는 immutable response JSON, claim/attempt 및 finish/ack transaction 경계, process-loss ambiguity, breaker CAS 및 terminal retention cleanup을 보존합니다. |
 | Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사 81개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. Inbound 완료는 영속 소유권 뒤에 수행되고, 프로바이더 전송은 영속 차단기가 닫혀 있고 활성 exact-scope binding이 있어야 하며, 모호한 확인 응답은 불변 중복 위험이 되고, 시작 조정은 worker 준비보다 먼저 수행됩니다. |
 | Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 74개 통과 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정하고, queue 및 delivery task를 감독하며, HTTP client와 credential을 끝까지 닫습니다. 통제된 restart 및 외부 프로바이더 증적은 열린 상태입니다. |
@@ -77,6 +78,7 @@ writer를 부여하지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 스트리밍 변경 뒤 의미 요청 점유, 지연된 변환 결과 대기, 첫 최종 결과 고정, 뒤늦은 변환 결과 차단, 시간 초과 보류, 재생 cursor, 잘못된 레코드 격리 및 증적에 결속된 확정 전달을 다시 검증했습니다. | `current change`, 집중 Operator 의미 bridge 테스트 151개 통과 | 통제된 재시작 및 외부 broker 근거는 별도 검증 작업으로 유지합니다. |
 | 2026-09-05 | 구현됨 | 기존 의미 기반 영속 경계 전에 주체, 목표, 에이전트, 세션을 검증하는 웹 전용 인수인계 제안 데코레이터를 추가했습니다. Slack, Teams, 외부 전달, 공급자 승인 상태는 변경하지 않습니다. | `current change`; 집중 Operator 인수인계 및 경로 조립 테스트가 통과했습니다. | 별도로 필요한 채널 및 배포 증적을 보존합니다. |
 | 2026-08-13 | 진행 중 | 구현 장부를 도입하고 운영 영속성, 시작, 명령, 예약 전달 및 운영 화면 주장을 현재 서비스 트리에 맞게 수정했습니다. | 구현 범위 표에 나열한 집중 테스트 76개가 통과했습니다. 저장소 검색에서 현재 운영 저장소, 런타임 조립, 명령 경로, 예약 전달 조정기 또는 읽기 패널을 찾지 못했습니다. | 누락된 운영 표면을 구현하고 연결하며 데이터베이스 기반 검사를 실행하고 통제된 런타임 증적을 확보해야 합니다. |
 | 2026-08-16 | 진행 중 | 범위가 제한된 지연 시간 백분위수, 차단기 및 상태 개수, 선택적 progressive 계수기를 갖추고 변경 제어나 식별자 표면이 없는 GET 전용 `ConversationDeliveryPanel` 집계 투영을 구현했습니다. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py`가 읽기 전용 선언, 식별자 없는 페이로드, 변경 경로 거부를 포함한 집중 테스트 11개를 통과했습니다. | 패널을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결한 뒤 통제된 런타임 증적을 확보해야 합니다. |

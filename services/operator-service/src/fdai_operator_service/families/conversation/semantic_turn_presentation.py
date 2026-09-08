@@ -1486,11 +1486,12 @@ def _row_limitation_block(
     if shown >= total:
         return None
     line = (
-        f"검증된 {total}개 행 중 {shown}개를 표시합니다. 나머지 행은 기술 세부에 있습니다."
+        f"검증된 {total}개 행 중 {shown}개를 표시합니다. "
+        "기술 세부에는 동일한 범위 제한 행과 잘림 메타데이터가 유지됩니다."
         if korean
         else (
             f"{shown} of {total} verified rows are listed. "
-            "The remaining rows stay in technical details."
+            "Technical details retain the same bounded rows and truncation metadata."
         )
     )
     return cast(

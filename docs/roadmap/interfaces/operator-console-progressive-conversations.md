@@ -39,7 +39,7 @@ remains the recovery path when notifications are absent.
 |------|-------|----------|-------|
 | Adaptive answer source and replay presentation | implemented | `adaptive-answer.test.ts` passed 33 cases; `turn-history.test.ts` and `command-deck.session.test.ts` passed 20 cases; Console typecheck and build passed | General knowledge has no blanket query receipt. Goal-local support and separate draft explanations survive streaming and restoration; malformed streams clear unverified text. Browser runtime validation is separate. |
 | General starter immediate submission | implemented | `general-conversation-intro.tsx`; `command-deck-view.tsx`; `conversation-entry.spec.ts` | All three bilingual starters submit the displayed question through the normal context-aware path on pointer or keyboard activation. Tooltips explain immediate submission. Six starter cases and both existing entry scenarios pass with synthetic responses, not live model calls. |
-| Web progressive stream reduction | implemented | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | Focused tests cover ordered frames, replay rejection, branch lifecycle, confirmed revisions, and partial turns. This row does not claim Teams or Slack runtime validation. |
+| Web progressive stream reduction | implemented | Operator `semantic_turn_runtime.py`; [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts); focused Operator and Console stream checks | Verified answered projections emit at most 64 cumulative receipt-bound confirmed segments before `done`. Raw tokens stay hidden until terminal agreement, and receipt, text, revision, malformed-frame, interruption, error, and sequence failures retract preterminal content. This row does not claim Browser, Teams, or Slack runtime validation. |
 | Direct-response lifecycle suppression | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), and focused Operator and Console checks | Operator does not inspect operator text or predict terminal disposition when a stream opens. A model-selected typed direct response emits `done` alone. Console shows an ephemeral compact pending row immediately after submit, expands to the detailed preparation trace only after an observed progress frame, and removes both on a direct terminal response. The browser interpolates only presentation geometry and terminal-only text reveal; it does not invent lifecycle content. |
 | Contract-backed starter questions | implemented | `intro-suggestions.ts`; bilingual Console catalogs; `semantic_operational_summary_planning.py`; question-bank artifacts; focused Core, Console, and question-bank checks | The empty Deck exposes five reviewed Resource state, Resource Health, and Service Health questions. An accepted unambiguous typed function intent can reuse a deterministic verified frame without a second model call. Unimplemented screen-summary, tier-mix, approval, failure-cause, and opportunity questions are not presented as ready examples. |
 | Incident-bound context isolation | implemented | `command-deck.tsx`; `use-command-deck-events.ts`; focused Console checks and authenticated Browser Entra request inspection | An automatic incident investigation submits the exact incident binding without Dashboard facts or records. The verified answer reads `query.incident_evidence`; route metadata remains presentation context and never becomes answer evidence. |
@@ -63,6 +63,7 @@ remains the recovery path when notifications are absent.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Added receipt-bound progressive semantic answer segments from the already durable verified projection. Console reveals only a matching answered receipt and retracts on terminal receipt, text, revision, sequence, error, interruption, or malformed-frame failure. Large answers remain within the 64-segment contract. | `current change`; Operator semantic bridge passed 151 tests and Console stream safety passed 76 tests. | Retain authenticated standard-port evidence before raising this path to validated. |
 | 2026-09-08 | implemented | Added a localized lifecycle-state column so deferred and disputed assessments remain visibly distinct from completed assessments. | `current change`; focused route and catalog checks passed 11 cases, Console typecheck passed, and catalog parity passed. | Retain authenticated browser validation separately. |
 | 2026-09-08 | implemented | Added a truthful unavailable state and explicit refresh action when an assessment deep link has no principal-scoped record. | `current change`; focused route and catalog tests passed 10 cases, Console typecheck passed, and catalog parity passed. | Retain authenticated browser validation separately. |
 | 2026-09-08 | implemented | Made the assurance route selector accept the authoritative assessment identity carried by current replies while retaining legacy turn-id links. | `current change`; the focused Conversation assurance route test passed 6 cases. | Validate route selection against an authenticated live assessment. |
@@ -393,14 +394,15 @@ helper.
 
 ## Confirmed revisions
 
-Draft `token` frames remain provisional narration. A `confirmed` frame contains only a complete
-segment rendered from evidence that passed its deterministic verifier. It includes a monotonic
-segment index, answer revision, evidence references, and replacement range for a later verified
-correction. A confirmed segment never cites a running branch. The terminal `done` frame is
-canonical and is the only answer persisted to conversation history. An interrupted stream remains
-partial and draft text never becomes confirmed content. A semantic POST stream waits for its
-durable projection until the request deadline; no projection closes as a persisted typed hold,
-never as an empty successful stream.
+Draft `token` frames remain provisional narration. A `confirmed` frame contains only a cumulative
+complete segment rendered from a durable answered projection and carries that projection's parsed
+semantic receipt and evidence references. The browser checks the receipt request, disposition,
+reason, no-authority fields, answer revision, and monotonic segment index before revealing it. The
+terminal `done` frame remains canonical and is the only answer persisted to conversation history.
+A terminal with different text, revision, or receipt retracts the preterminal segment. An interrupted
+or malformed stream retracts provisional text, while a receipt-bound confirmed segment never cites
+a running branch. A semantic POST stream waits for its durable projection until the request
+deadline; no projection closes as a persisted typed hold, never as an empty successful stream.
 
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
 before rendering. It renders each branch as a numbered investigation stage with expandable bounded

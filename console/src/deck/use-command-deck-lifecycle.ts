@@ -20,6 +20,51 @@ interface LifecycleOptions {
   readonly inputRef: { current: HTMLTextAreaElement | null };
 }
 
+export function settleCancelledTurns(turns: readonly Turn[]): readonly Turn[] {
+  return turns.map((turn) => {
+    if (!turn.streaming) return turn;
+    if (turn.kind === "activity") {
+      return {
+        ...turn,
+        streaming: false,
+        terminal: true,
+        ...(turn.activities
+          ? {
+              activities: turn.activities.map((activity) =>
+                activity.status === "pending" || activity.status === "running"
+                  ? { ...activity, status: "unavailable" as const }
+                  : activity
+              ),
+            }
+          : {}),
+        ...(turn.branches
+          ? {
+              branches: turn.branches.map((branch) =>
+                branch.status === "pending" || branch.status === "running"
+                  ? { ...branch, status: "cancelled" as const }
+                  : branch
+              ),
+            }
+          : {}),
+      };
+    }
+    const stopped = {
+      ...turn,
+      text: "",
+      streaming: false,
+      terminal: false,
+      verificationProgress: {
+        phase: "unverified" as const,
+        label: "Verification stopped",
+        completed: null,
+        total: null,
+      },
+    };
+    delete stopped.confirmed;
+    return stopped;
+  });
+}
+
 export function useCommandDeckLifecycle({
   setOpen,
   setTurns,
@@ -52,21 +97,7 @@ export function useCommandDeckLifecycle({
     abortRef.current = null;
     active?.controller.abort();
     inFlightRef.current = false;
-    const completed = turnsRef.current.map((turn) =>
-      turn.streaming
-        ? {
-            ...turn,
-            streaming: false,
-            terminal: false,
-            verificationProgress: {
-              phase: "unverified",
-              label: "Verification stopped",
-              completed: null,
-              total: null,
-            },
-          }
-        : turn,
-    );
+    const completed = settleCancelledTurns(turnsRef.current);
     turnsRef.current = completed;
     setTurns(completed);
     setPending(false);
