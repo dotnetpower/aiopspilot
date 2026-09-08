@@ -34,6 +34,9 @@ from fdai_operator_service.families.conversation.document_export import (
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+    _verified_query_command,
+)
+from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data as _done_event_data,
 )
 from fdai_operator_service.families.conversation.t1_model_health import (
@@ -1380,10 +1383,16 @@ def _verified_query_activities(
         if not _receipt_represents_read(status, reason):
             continue
         node_id = task_id.removeprefix("query:")
-        command = capability
+        node_output = outputs.get(node_id)
+        command = _verified_query_command(
+            capability=capability,
+            intent=intent,
+            graph_goal=graph_goal,
+            status=status,
+            node_output=node_output,
+        )
         if len(command) > _MAX_EXECUTION_COMMAND_CHARS:
             return ()
-        node_output = outputs.get(node_id)
         output = _redacted_activity_output(
             status=status,
             reason=reason,

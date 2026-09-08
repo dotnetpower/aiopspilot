@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { writeFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -11,6 +12,11 @@ const AUTHENTICATED_STACK = Boolean(
 );
 const PROMPT = "배포된 llm 모델이 뭐야";
 const MAX_SUBSCRIPTION_MODEL_TOKENS = 5_000;
+const ISSUE_241_VIEWPORTS = [
+  { width: 1440, height: 900, label: "desktop" },
+  { width: 993, height: 641, label: "constrained-desktop" },
+  { width: 390, height: 844, label: "mobile" },
+] as const;
 
 async function prepareAuthenticatedPage(page: Page): Promise<void> {
   test.skip(!AUTHENTICATED_STACK, "requires an authenticated Console stack");
@@ -57,6 +63,15 @@ async function ask(page: Page, prompt: string) {
     prompt,
     sessionId: randomUUID(),
   });
+}
+
+function jsonRecord(text: string | undefined, label: string): Record<string, unknown> {
+  if (text === undefined) throw new Error(`${label} was not rendered`);
+  const parsed: unknown = JSON.parse(text);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`${label} must be a JSON object`);
+  }
+  return parsed as Record<string, unknown>;
 }
 
 test("deployed LLM collection reaches verified inventory without identity clarification", async ({
@@ -157,6 +172,125 @@ test("fdai resource-group collection renders names without authorization artifac
   );
   expect(totalTokens, diagnostic).toBeDefined();
   expect(totalTokens, diagnostic).toBeLessThanOrEqual(MAX_SUBSCRIPTION_MODEL_TOKENS);
+});
+
+test("fdai resource-group Run record stays exact and responsive", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize(ISSUE_241_VIEWPORTS[0]);
+  await prepareAuthenticatedPage(page);
+  await page.locator(".deck-invoke").click();
+  const deck = page.getByRole("complementary", { name: "Command deck" });
+  await expect(deck).toBeVisible();
+  const historyDismiss = deck.locator(".deck-conversations-dismiss");
+  if (await historyDismiss.isVisible()) await historyDismiss.click();
+  await deck.locator(".deck-input").fill("지금 fdai 가 포함된 리소스 그룹은?");
+  await deck.locator(".cs-deck-composer-send").click();
+  const presentation = deck.locator(".cs-deck-answer").last();
+  await expect(presentation).toContainText("resource-group", { timeout: 90_000 });
+  await expect(presentation).not.toContainText("authorization.role-assignment");
+  await expect(presentation).not.toContainText("microsoft.authorization/roleassignments");
+  if (await historyDismiss.isVisible()) await historyDismiss.click();
+
+  const runRecord = deck.locator(".deck-trajectory").last();
+  await expect(runRecord).toBeVisible();
+  await runRecord.locator(":scope > summary").click();
+  await expect(runRecord).toHaveAttribute("open", "");
+  await runRecord.locator("details").evaluateAll((details) => {
+    for (const detail of details) {
+      if (detail instanceof HTMLDetailsElement) detail.open = true;
+    }
+  });
+  const queryActivity = runRecord.locator(".deck-trajectory-evidence > li")
+    .filter({ hasText: "query.object_set" })
+    .first();
+  await expect(queryActivity).toBeVisible();
+  const records = await queryActivity.locator("pre code").allTextContents();
+  const query = jsonRecord(
+    records.find((record) => record.includes("\"object_set\"")),
+    "verified ObjectSet",
+  );
+  const objectSet = query.object_set;
+  if (typeof objectSet !== "object" || objectSet === null || Array.isArray(objectSet)) {
+    throw new Error("verified ObjectSet definition must be an object");
+  }
+  const predicates = (objectSet as Record<string, unknown>).predicates;
+  expect(query.capability).toBe("query.object_set");
+  expect(query.execution_authority).toBe(false);
+  expect((objectSet as Record<string, unknown>).selector).toEqual({
+    kind: "object_type",
+    name: "Resource",
+  });
+  expect(predicates).toEqual(expect.arrayContaining([
+    { equals: "fdai", operator: "contains", property: "name" },
+    { equals: "resource-group", operator: "equals", property: "type" },
+  ]));
+  const output = jsonRecord(
+    records.find((record) => record.includes("\"returned_rows\"")),
+    "verified ObjectSet row counts",
+  );
+  expect(output.status).toBe("completed");
+  const returnedRows = output.returned_rows;
+  const totalRows = output.total_rows;
+  if (typeof returnedRows !== "number" || typeof totalRows !== "number") {
+    throw new Error("verified ObjectSet row counts must be numeric");
+  }
+  expect(returnedRows).toBeGreaterThan(0);
+  expect(totalRows).toBeGreaterThanOrEqual(returnedRows);
+  expect(typeof output.source_complete).toBe("boolean");
+  if (output.source_complete === false) {
+    expect(typeof output.source_truncation_reason).toBe("string");
+  }
+
+  const viewports: Record<string, unknown>[] = [];
+  for (const viewport of ISSUE_241_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    await runRecord.scrollIntoViewIfNeeded();
+    const measurements = await page.locator("html, .deck-overlay, .deck-transcript").evaluateAll(
+      (elements) => elements.map((element) => ({
+        name: element.className || element.tagName.toLowerCase(),
+        client_width: element.clientWidth,
+        scroll_width: element.scrollWidth,
+        overflow: element.scrollWidth > element.clientWidth,
+      })),
+    );
+    expect(measurements.map((measurement) => measurement.overflow)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    viewports.push({ ...viewport, measurements });
+    await page.screenshot({
+      path: testInfo.outputPath(`issue-241-${viewport.label}.png`),
+      fullPage: false,
+    });
+  }
+  await page.setViewportSize(ISSUE_241_VIEWPORTS[0]);
+  expect(await page.locator("html, .deck-overlay, .deck-transcript").evaluateAll(
+    (elements) => elements.every((element) => element.scrollWidth <= element.clientWidth),
+  )).toBe(true);
+
+  const evidence = {
+    schema_version: "1.0.0",
+    issue: 241,
+    source_revision: process.env.FDAI_E2E_SOURCE_REVISION ?? null,
+    authenticated: true,
+    query,
+    row_counts: {
+      returned_rows: returnedRows,
+      total_rows: totalRows,
+      source_complete: output.source_complete,
+      source_truncation_reason: output.source_truncation_reason ?? null,
+    },
+    viewports,
+    execution_authority: false,
+    passed: true,
+  };
+  const evidencePath = testInfo.outputPath("issue-241-run-record.json");
+  await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+  await testInfo.attach("issue-241-run-record", {
+    path: evidencePath,
+    contentType: "application/json",
+  });
 });
 
 test("deployed GPT configuration change uses a type-scoped recent comparison", async ({ page }) => {

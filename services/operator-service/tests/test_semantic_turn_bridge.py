@@ -28,6 +28,9 @@ from fdai_operator_service.environment import (
     TENANT_ENV,
 )
 from fdai_operator_service.families.conversation import (
+    semantic_turn_presentation as semantic_turn_presentation_module,
+)
+from fdai_operator_service.families.conversation import (
     semantic_turn_runtime as semantic_turn_runtime_module,
 )
 from fdai_operator_service.families.conversation.contracts import (
@@ -3998,7 +4001,7 @@ async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
     ]
 
 
-async def test_receipt_backed_goal_carries_redacted_query_and_row_counts() -> None:
+async def test_receipt_backed_goal_carries_verified_object_set_and_row_counts() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(
         store=store,
@@ -4012,12 +4015,17 @@ async def test_receipt_backed_goal_carries_redacted_query_and_row_counts() -> No
     arguments = {
         "definition": {
             "limit": 20,
-            "predicates": [{"equals": "resource-group", "operator": "equals", "property": "type"}],
+            "predicates": [
+                {"equals": "fdai", "operator": "contains", "property": "name"},
+                {"equals": "resource-group", "operator": "equals", "property": "type"},
+            ],
             "selector": {"kind": "object_type", "name": "Resource"},
         }
     }
-    cast(dict[str, object], projection["semantic_result"])["intent_graph"] = {
+    semantic_result = cast(dict[str, object], projection["semantic_result"])
+    semantic_result["intent_graph"] = {
         "schema_version": 2,
+        "plan_digest": semantic_result["plan_digest"],
         "goals": [
             {
                 "goal_id": "goal-1",
@@ -4027,10 +4035,7 @@ async def test_receipt_backed_goal_carries_redacted_query_and_row_counts() -> No
             }
         ],
     }
-    evidence = cast(
-        dict[str, object],
-        cast(dict[str, object], projection["semantic_result"])["intent_graph_evidence"],
-    )
+    evidence = cast(dict[str, object], semantic_result["intent_graph_evidence"])
     evidence_goal = cast(list[dict[str, object]], evidence["goals"])[0]
     evidence_goal.update(
         {
@@ -4071,18 +4076,68 @@ async def test_receipt_backed_goal_carries_redacted_query_and_row_counts() -> No
         "source_kind": "ontology_instance_store",
         "transport": "event_bus",
     }
-    assert goal_execution["command"] == "query.object_set"
-    assert "resource-group" not in json.dumps(goal_execution)
+    command = cast(str, goal_execution["command"])
+    assert command.startswith("{")
+    assert json.loads(command) == {
+        "capability": "query.object_set",
+        "execution_authority": False,
+        "object_set": arguments["definition"],
+    }
     assert json.loads(cast(str, goal_execution["output"])) == {
         "evidence_ref_count": 1,
         "returned_rows": 20,
         "status": "completed",
         "total_rows": 42,
     }
+    terminal_trajectory = cast(dict[str, object], events[-1].data["trajectory_detail"])
+    terminal_activities = cast(list[dict[str, object]], terminal_trajectory["activities"])
+    terminal_execution = cast(dict[str, object], terminal_activities[0]["execution"])
+    assert terminal_execution["command"] == goal_execution["command"]
+    assert terminal_execution["output"] == goal_execution["output"]
     # A step that executed nothing MUST NOT report a command.
     assert executions["semantic:evidence"] is None
     assert executions["semantic:verification"] is None
     assert executions["semantic:presentation"] is None
+
+
+def test_verified_object_set_command_requires_completed_receipt_and_row_counts() -> None:
+    definition = {
+        "selector": {"kind": "object_type", "name": "Resource"},
+        "predicates": [{"equals": "resource-group", "operator": "equals", "property": "type"}],
+        "limit": 20,
+    }
+    assert (
+        json.loads(
+            semantic_turn_presentation_module._verified_query_command(
+                capability="query.object_set",
+                intent="object_set",
+                graph_goal={"arguments": {"definition": definition}},
+                status="completed",
+                node_output={"returned_rows": 11, "total_rows": 11},
+            )
+        )["object_set"]
+        == definition
+    )
+    assert (
+        semantic_turn_presentation_module._verified_query_command(
+            capability="query.object_set",
+            intent="object_set",
+            graph_goal={"arguments": {"definition": definition}},
+            status="failed",
+            node_output={"returned_rows": 11, "total_rows": 11},
+        )
+        == "query.object_set"
+    )
+    assert (
+        semantic_turn_presentation_module._verified_query_command(
+            capability="query.object_set",
+            intent="object_set",
+            graph_goal={"arguments": {"definition": definition}},
+            status="completed",
+            node_output={"returned_rows": 12, "total_rows": 11},
+        )
+        == "query.object_set"
+    )
 
 
 async def test_evidence_step_omits_a_command_when_the_plan_has_several_goals() -> None:
