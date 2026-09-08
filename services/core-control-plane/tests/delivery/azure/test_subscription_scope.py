@@ -46,6 +46,7 @@ async def _read(
     handler: httpx.MockTransport,
     *,
     identity: _Identity | None = None,
+    subscription_id: str = SUBSCRIPTION_ID,
     timeout_seconds: float = 8.0,
 ) -> tuple[object, _Identity]:
     selected_identity = identity or _Identity()
@@ -54,7 +55,7 @@ async def _read(
             identity=selected_identity,
             http_client=client,
             config=AzureSubscriptionScopeConfig(
-                subscription_id=SUBSCRIPTION_ID,
+                subscription_id=subscription_id,
                 timeout_seconds=timeout_seconds,
             ),
             now=lambda: NOW,
@@ -92,6 +93,34 @@ async def test_reader_returns_only_masked_configured_subscription_identity() -> 
     assert requests[0].url.params["api-version"] == "2022-12-01"
     assert requests[0].headers["Authorization"] == "Bearer test-token"
     assert requests[0].extensions["timeout"]["read"] == 8.0
+
+
+async def test_reader_normalizes_mixed_case_configured_subscription_identity() -> None:
+    mixed_case_id = OTHER_SUBSCRIPTION_ID[:-1] + "A"
+    canonical_id = mixed_case_id.casefold()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": f"/subscriptions/{canonical_id}",
+                "subscriptionId": canonical_id,
+                "displayName": "Example subscription",
+                "state": "Enabled",
+            },
+        )
+
+    result, _identity = await _read(
+        httpx.MockTransport(handler),
+        subscription_id=mixed_case_id,
+    )
+
+    assert result.complete is True
+    assert result.observation is not None
+    assert result.observation.masked_subscription_id == "0000...000a"
+    assert requests[0].url.path == f"/subscriptions/{canonical_id}"
 
 
 @pytest.mark.parametrize(

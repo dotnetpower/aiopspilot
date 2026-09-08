@@ -41,6 +41,7 @@ class AzureSubscriptionScopeConfig:
             raise ValueError("subscription_id MUST be a canonical UUID") from exc
         if canonical != self.subscription_id.casefold():
             raise ValueError("subscription_id MUST be a canonical UUID")
+        object.__setattr__(self, "subscription_id", canonical)
         parsed = urlsplit(self.endpoint)
         if (
             parsed.scheme != "https"
