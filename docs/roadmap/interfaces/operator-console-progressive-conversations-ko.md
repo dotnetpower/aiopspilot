@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: ade8884c8bc38399bc4ff8c55a1936ec6068c69d
+translation_source_sha: 008cc79db55aedb83b6a40a1ea1842ef8e646c03
 translation_revised: 2026-09-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -59,10 +59,14 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 | 결정론적 교차 채널 표현 계획 | 구현됨 | `semantic_presentation_semantics.py`, `semantic_turn_processor.py`, `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `presentation.py`, Console artifact 및 module registry, 집중 semantic presentation 검사 137개, Console deck 검사 693개, chart browser 검사 4개 통과 | Core는 검증된 종단 행에서 renderer-neutral semantics를 파생합니다. Operator는 시각화 10개 중 하나를 선택하기 전에 shape별 역할과 행 불변식을 다시 검증합니다. Web과 channel artifact 경계는 동일한 bounded schema를 적용합니다. Legacy와 v2 경로는 읽기 쉬운 행과 exact 기술 값을 보존합니다. 모델은 차트 컴포넌트를 선택할 수 없습니다. |
 
+불완전한 근거에 기록된 충돌도 있으면 Web 바닥글은 불완전성을 기본 차단 사유로 유지하고,
+충돌을 별도의 보조 사실로 표시합니다.
+
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 불완전한 원본 범위를 근거 기반 답변의 기본 차단 사유로 유지하면서, 별도로 기록된 충돌 표시를 간결한 Web 바닥글에 보존했습니다. | `current change`, `npm --prefix console test -- --run src/deck/grounded-reply.test.ts src/deck/grounded-sources.test.ts`에서 테스트 60개가 통과했습니다. | 인증된 Browser Entra 검증은 별도 근거로 유지합니다. |
 | 2026-09-06 | implemented | 기존 이력 경로로 사용자 범위의 의미 처리 최종 결과를 복원하고, 답변 없는 질문으로 끝나는 캐시를 모델 재호출 없이 보완했습니다. | `current change`; 집중 Python 검사 162개, Console 검사 81개 및 양 언어 복원 브라우저 검사 2개 통과. 보고된 대화의 저장 결과를 읽기 전용으로 복원해 744자 답변을 반환했고 인증된 세션 브라우저에서 실제 표시를 확인했습니다. | 최종 답변 복원을 수정했습니다. 관측된 작성, 검토, 보강 및 재검증 지연 51.4초는 별도의 최적화 대상입니다. |
 | 2026-09-06 | implemented | 기존 회귀 테스트를 직접 응답과 자문 응답의 내부 경로 배지 숨김 및 명시적인 담당 관계 미확인 계약에 맞췄습니다. | `current change`; 표현 및 자문 검사 44개, 외부 공급자 없는 의미 요청 왕복 검사 15개 통과. 통합된 메인 코드에서 합성 대화 진입점 브라우저 검사 10개도 모두 통과했습니다. | 실제 모델 품질, 로컬 기동 및 정확한 커밋의 CI는 별도 근거입니다. |
 | 2026-09-06 | implemented | 적응형 출처의 펼침 영역과 복원된 일반 대화의 맥락을 강화했습니다. 이전 로컬 색인에 맥락 모드가 없으면 제목이나 생성 경로가 아니라 명시적인 일반 대화 식별자에서 복원하며, 재개한 요청에 대시보드 사실을 자동으로 추가하지 않습니다. | `current change`; 집중 Console 검사 209개, 타입 검사와 빌드, 격리된 대화 진입점 E2E 시나리오 10개 모두 통과. 두 언어에서 데스크톱을 먼저 검증한 뒤 1440/993/390 화면, 키보드 펼침, 저장 이력 복원 및 화면 맥락 없는 후속 전송을 확인했습니다. | 브라우저 근거는 격리된 합성 검증이며 실제 Browser Entra 또는 모델 검증 증적이 아닙니다. |

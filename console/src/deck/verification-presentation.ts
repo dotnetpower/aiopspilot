@@ -100,6 +100,19 @@ export function evidencePostureIssueKind(
   return EVIDENCE_POSTURE_ISSUES[posture] ?? null;
 }
 
+export function secondaryEvidencePostureIssueKind(
+  semanticReceipt: SemanticProjectionReceipt | undefined,
+): EvidencePostureIssueKind | null {
+  const observation = semanticReceipt?.assurance_observation;
+  if (
+    observation?.evidence_posture === "incomplete" &&
+    observation.fact_kinds.includes("evidence.conflicts")
+  ) {
+    return "conflictingEvidence";
+  }
+  return null;
+}
+
 export function verificationAttentionKind(
   verification: AnswerVerification,
   semanticReceipt?: SemanticProjectionReceipt,

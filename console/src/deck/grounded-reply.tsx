@@ -43,6 +43,7 @@ import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import {
+  secondaryEvidencePostureIssueKind,
   verificationAttentionKind,
   verificationIssueDetailLabel,
   unverifiedDetailLabel,
@@ -137,6 +138,7 @@ export function GroundedReply({
   const groundingStatusLabel = groundingIssue
     ? t(`deck.grounded.verificationStatus.${groundingIssue}`)
     : null;
+  const secondaryGroundingIssue = secondaryEvidencePostureIssueKind(semanticReceipt);
   const stages = groundingStages({
     sources,
     source,
@@ -478,6 +480,11 @@ export function GroundedReply({
                   ) : null}
                   {!groundingIncomplete && groundingStatusLabel ? (
                     <span class="deck-gr-stat">{groundingStatusLabel}</span>
+                  ) : null}
+                  {secondaryGroundingIssue ? (
+                    <span class="deck-gr-stat">
+                      {t(`deck.grounded.verificationStatus.${secondaryGroundingIssue}`)}
+                    </span>
                   ) : null}
                   <span class="deck-gr-more">
                     {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}

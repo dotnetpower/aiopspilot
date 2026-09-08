@@ -9,6 +9,7 @@ import {
   primaryAnswerText,
   verificationLabel,
 } from "./grounded-reply";
+import { secondaryEvidencePostureIssueKind } from "./verification-presentation";
 
 function verification(authority: string): AnswerVerification {
   return {
@@ -311,6 +312,28 @@ describe("grounded reply presentation", () => {
 
   it("links answer review to the exact turn assessment", () => {
     expect(assuranceHref("turn 1")).toBe("/conversation-assurance?turn=turn+1");
+  });
+
+  it("keeps conflict visible when incomplete evidence is the primary posture", () => {
+    const incomplete = semanticReceipt("incomplete");
+    const receipt: SemanticProjectionReceipt = {
+      ...incomplete,
+      assurance_observation: {
+        ...incomplete.assurance_observation!,
+        fact_kinds: ["evidence.completeness", "evidence.conflicts"],
+      },
+    };
+
+    expect(secondaryEvidencePostureIssueKind(receipt)).toBe("conflictingEvidence");
+    expect(
+      secondaryEvidencePostureIssueKind({
+        ...receipt,
+        assurance_observation: {
+          ...receipt.assurance_observation!,
+          fact_kinds: ["evidence.completeness"],
+        },
+      }),
+    ).toBeNull();
   });
 
   it("does not treat empty citations as evidence references", () => {
