@@ -19,15 +19,6 @@ from fdai.delivery.persistence.postgres_ontology_graph import (
     _query_objects,
     _traverse,
 )
-from fdai.delivery.persistence.postgres_ontology_inventory import (
-    inventory_manifest_object_ids as _inventory_manifest_object_ids,
-)
-from fdai.delivery.persistence.postgres_ontology_inventory import (
-    inventory_state_base_available as _inventory_state_base_available,
-)
-from fdai.delivery.persistence.postgres_ontology_inventory import (
-    unavailable_inventory_projection_status as _unavailable_inventory_projection_status,
-)
 from fdai.delivery.persistence.postgres_ontology_records import (
     _inventory_manifest_object_ids,
     _inventory_state_base_available,
