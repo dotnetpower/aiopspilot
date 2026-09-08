@@ -37,6 +37,8 @@ unbounded tight polling loop.
   policy.
 - **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and
   archive unavailability remain explicit unknown or incomplete evidence.
+  A bounded query can return verified positive observations from the available scope, but it keeps
+  the result incomplete and never treats the missing scope as proof that no other observation exists.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation.
@@ -399,6 +401,7 @@ work, or an open stage that does not name its exact gap.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Preserved verified positive operational state transitions when the Resource scope is incomplete. The result carries `resource_scope_incomplete` and cannot prove that no other transition exists. | `current change`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_state_transitions.py services/core-control-plane/tests/core/ontology_platform/test_state_transition_query_function.py` passed 6 tests. | Retain deployed transition coverage and complete-absence evidence as separate operational validation. |
 | 2026-09-08 | implemented | Split active-scope checkpoint validation, serialization, and PostgreSQL queries into focused runtime and persistence modules without changing checkpoint or answer behavior. | `current change`; focused checks passed 729 tests with Ruff, strict mypy, and the enforced 800-line structural gate. | Keep both focused modules below the structural ceiling as checkpoint behavior evolves. |
 | 2026-09-08 | implemented | Bound the current-graph checkpoint to exact active snapshot scopes so retained observations from inactive scopes no longer pin the active projection. Read-only conversations now lead with verified partial results and append limitation and retry guidance instead of replacing a safe subset with a generic refusal. | `current change`; focused inventory persistence, source coverage, projection wiring, semantic runtime, and bilingual answer checks passed 729 tests; Ruff and strict mypy passed. | Retain integration and deployed evidence separately; active post-snapshot observations continue to lower completeness until reconciliation catches up. |
 | 2026-09-07 | validated | Completed OI-16 protected operational certification after repairing durable OI-15 receipt retention, additive deployer-role migration, certification scenario persistence, exact execution-log selection, and bounded Activity Log propagation. The independently approved campaign passed all 13 scenarios and persisted the append-only certification receipt. | Source `80b5892aa176e4a71eb2b3448982825b526d175b`; required CI `34058713875`; supply-chain `34058973580`; zero-destroy plan `34059171071`; bot request `34059338073`; approved campaign `34059357427`; receipt `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e`; private artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`. | Keep production retention unchanged and require a new exact-revision campaign for any later certification claim. |

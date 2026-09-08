@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a6f2d7ca72cd0f7b78a71dad48cce3fcf2ea67c5
+translation_source_sha: 2f322a665ba112de08fbf303e5d43aff1bf3c3a6
 translation_revised: 2026-09-08
 ---
 # 지속형 운영 인스턴스 그래프
@@ -40,6 +40,8 @@ translation_revised: 2026-09-08
   시점, 원본 신원, 원본 수정본, 완전성, 충돌, 최신성 정책을 유지합니다.
 - **잘못된 부재 방지:** 누락 이벤트, 잘린 조회, cursor 지연, 열린 실시간 overlay, archive
   사용 불가는 명시적인 알 수 없음 또는 불완전한 근거로 유지합니다.
+  범위가 제한된 조회는 사용 가능한 범위의 검증된 양성 관측을 반환할 수 있지만 결과를
+  불완전하게 유지하며, 누락 범위를 다른 관측이 없다는 증거로 취급하지 않습니다.
 - **조회와 쓰기 분리:** 공급자 관측과 온톨로지 변환 결과는 조회 플레인 작업입니다. 관리
   리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다.
 - **제한된 보존:** rollup 또는 archive 매니페스트가 완전한 원본 범위를 검증하고 적용되는
@@ -393,6 +395,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | Resource 범위가 불완전해도 검증된 운영 상태 전이를 보존했습니다. 결과는 `resource_scope_incomplete`를 유지하며 다른 전이가 없다고 증명하지 않습니다. | `current change`, `uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_state_transitions.py services/core-control-plane/tests/core/ontology_platform/test_state_transition_query_function.py`에서 테스트 6개가 통과했습니다. | 배포된 전이 범위와 완전한 부재 근거는 별도의 운영 검증으로 유지합니다. |
 | 2026-09-08 | implemented | 활성 범위 checkpoint 검증, 직렬화 및 PostgreSQL 조회를 전용 런타임 및 영속성 모듈로 분리하면서 checkpoint와 답변 동작은 변경하지 않았습니다. | `current change`, 집중 검사 729개와 Ruff, strict mypy 및 800줄 구조 게이트가 통과했습니다. | checkpoint 동작을 확장할 때 두 전용 모듈을 구조 상한 아래로 유지합니다. |
 | 2026-09-08 | implemented | 현재 그래프 checkpoint를 정확한 활성 스냅샷 범위에 결속하여 비활성 범위에서 보존된 관측이 활성 변환 결과를 고정하지 않도록 했습니다. 읽기 전용 대화는 안전한 부분 집합을 일반 거절로 대체하지 않고 검증된 부분 결과를 먼저 제시한 뒤 제한 사항과 재시도 안내를 추가합니다. | `current change`, 집중 인벤토리 영속성, 원본 범위, 변환 결과 연결, 의미 런타임 및 이중 언어 답변 검사 729개가 통과했고 Ruff와 strict mypy도 통과했습니다. | 통합 및 배포 근거는 별도로 보존합니다. 활성 범위의 스냅샷 이후 관측은 reconciliation이 따라잡을 때까지 완전성을 계속 낮춥니다. |
 | 2026-09-07 | validated | 영속 OI-15 증적 보존, 추가 방식 배포자 역할 이행, certification scenario 영속화, 정확한 실행 로그 선택 및 범위가 제한된 Activity Log 전파를 수정한 뒤 OI-16 보호 운영 certification을 완료했습니다. 독립 승인을 받은 campaign은 scenario 13개를 모두 통과하고 추가 전용 certification 증적을 저장했습니다. | Source `80b5892aa176e4a71eb2b3448982825b526d175b`, required CI `34058713875`, 공급망 `34058973580`, destroy 없는 계획 `34059171071`, bot 요청 `34059338073`, 승인된 campaign `34059357427`, 증적 `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e`, 비공개 artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`입니다. | Production 보존은 변경하지 않고 이후 certification 주장에는 새 exact-revision campaign을 요구합니다. |

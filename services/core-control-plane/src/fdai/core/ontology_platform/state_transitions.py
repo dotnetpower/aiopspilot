@@ -445,12 +445,15 @@ def resource_state_transitions_function(
         if context.purposes != ("operations-review",):
             raise PermissionError("state transition purpose does not match invocation context")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
-        if secured.receipt.truncated or not secured.receipt.complete:
-            return _table((), complete=False, limitation="resource_scope_incomplete")
+        scope_complete = not secured.receipt.truncated and secured.receipt.complete
         objects = secured.materialization.graph.objects
         subject_refs = tuple(sorted(item.id for item in objects))
         if not subject_refs:
-            return _table((), complete=True, limitation=None)
+            return _table(
+                (),
+                complete=scope_complete,
+                limitation=None if scope_complete else "resource_scope_incomplete",
+            )
         subject_names = {
             item.id: name
             for item in objects
@@ -513,7 +516,19 @@ def resource_state_transitions_function(
             )
             for index, item in enumerate(transitions, start=1)
         )
-        return _table(rows, complete=result.complete, limitation=result.limitation)
+        limitations = tuple(
+            item
+            for item in (
+                None if scope_complete else "resource_scope_incomplete",
+                result.limitation,
+            )
+            if item is not None
+        )
+        return _table(
+            rows,
+            complete=scope_complete and result.complete,
+            limitation="+".join(limitations) or None,
+        )
 
     return evaluate
 

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 39a7e4acedfcb387c80530c5c03636419f988c16
+translation_source_sha: cc8ac4e2e8ca2d66551ab4a28c1938b5798e5a4e
 translation_revised: 2026-09-08
 ---
 # 프로젝트 구조
@@ -314,6 +314,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   realtime 리소스 오버레이가 하나라도 pending 상태이면 base 스냅샷이 최신성 예산 안에 있어도
   그래프 최신성은 `unknown`이고 읽기 변환 결과는 degraded 상태입니다. 완전한 조정
   승격이 포함된 오버레이를 정리하면 스냅샷 기반 최신성이 복원됩니다.
+  읽기 전용 상태 전이 조회는 사용 가능한 Resource 범위의 검증된 양성 행을 유지할 수 있지만,
+  결과를 불완전하게 유지하며 누락 범위로 부재를 증명할 수 없습니다.
   각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` 타입이 지정된
   결과가 포함됩니다. 스냅샷 및 정렬 suppression은 이벤트 id와 범위가 제한된 사유를 포함한
   `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 갱신을 구분할 수 있게 합니다. 기존
