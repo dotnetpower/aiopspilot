@@ -311,6 +311,17 @@ class SemanticTurnProcessor:
         now = _aware_utc(self._now(), field="semantic processor clock")
         deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
         remaining = (deadline - now).total_seconds()
+        _LOGGER.info(
+            "semantic_turn_queue_delay_observed",
+            extra={
+                "queue_duration_ms": max(
+                    0,
+                    round((now - requested_at).total_seconds() * 1000),
+                ),
+                "deadline_remaining_ms": max(0, round(remaining * 1000)),
+                "expired": remaining <= 0,
+            },
+        )
         if remaining > _MAX_REQUEST_LIFETIME_SECONDS:
             raise SemanticTurnRejectedError("semantic_deadline_too_far")
         if remaining <= 0:

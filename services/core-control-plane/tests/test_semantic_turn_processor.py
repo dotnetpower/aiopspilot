@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -4054,6 +4055,27 @@ async def test_expired_deadline_and_pre_cancel_never_call_runtime() -> None:
 
     assert expired["semantic_result"]["reason_code"] == "semantic_deadline_exceeded"
     assert cancelled["status"] == "cancelled"
+    assert runtime.calls == 0
+
+
+async def test_expired_request_logs_queue_delay_separately(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    runtime = _Runtime()
+    processor = _processor(
+        runtime,
+        now=lambda: NOW + timedelta(seconds=10),
+    )
+
+    with caplog.at_level(logging.INFO, logger="fdai_core_service.semantic_turn_processor"):
+        await processor.process(_request(deadline_at=NOW + timedelta(seconds=5)))
+
+    record = next(
+        item for item in caplog.records if item.message == "semantic_turn_queue_delay_observed"
+    )
+    assert record.queue_duration_ms == 10_000
+    assert record.deadline_remaining_ms == 0
+    assert record.expired is True
     assert runtime.calls == 0
 
 
