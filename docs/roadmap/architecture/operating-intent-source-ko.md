@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: ab07e32b41b43c44f833534896b9c7c1c2cfea21
+translation_source_sha: 3bf5ae0c8634b79269d9fa558bae42b8d4225f3b
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -119,6 +119,8 @@ Stale 판정은 혼동해서는 안 되는 독립적인 두 축을 씁니다. �
 식별자로 배포 전역 리소스 잠금 안에서 수행합니다. 이 식별자는 상수인데, 잠금이 배포 전역 매니페스트 하나를
 직렬화하기 때문입니다. 또한 두 출처가 서로 다른 매니페스트를 소유하므로 지속형 operating-model
 worker의 키와도 분리되어 있습니다. 시작 경로도 같은 잠금을 잡습니다.
+재검증은 object ID 및 링크 키 인벤토리 전체가 고정된 문서와 정확히 일치할 때만 투영된 매니페스트를
+재사용합니다. digest가 같더라도 소유권 인벤토리가 바뀌었으면 격리합니다.
 
 잠금이 없으면 동시에 시작한 replica가 상대의 진행 중 `applying` 매니페스트를 중단된 적용으로 잘못
 읽고, 상대가 아직 쓰고 있는 하위 그래프를 삭제합니다. 잠금을 획득하지 못하면 `unavailable`을 기록하고

@@ -126,7 +126,8 @@ Manifest inspection, interrupted-apply recovery, projection, and the admission w
 the deployment-wide resource lock on the fixed `operating-intent-source:apply` identity - a constant,
 because the lock serializes one deployment-wide manifest, and disjoint from the continuous
 operating-model worker's key because the two sources own disjoint manifests. Startup takes that lock
-too.
+too. Revalidation reuses a projected manifest only when its exact object-id and link-key inventories
+still match the pinned document; a same-digest manifest with altered ownership quarantines instead.
 
 Without it, a replica starting beside another reads its peer's in-flight `applying` manifest as an
 interrupted apply and deletes the subgraph the peer is still writing. A lock that cannot be acquired
@@ -150,6 +151,7 @@ racing.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Required the durable manifest's complete object and link inventory to match the pinned document before reusing a prior projection. | `current change`; focused manifest-corruption regression. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Enforced lowercase hexadecimal SHA-256 syntax at both configured-binding and durable-admission boundaries. | `current change`; focused binding and admission regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Rejected every ObjectType outside the exact six-type operating-intent inventory so the dedicated source cannot project unrelated graph objects. | `current change`; focused source-admission regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Kept older replicas fenced when a newer-generation admission has an invalid validity window or future proof time. | `current change`; focused rolling-replica regression tests. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |

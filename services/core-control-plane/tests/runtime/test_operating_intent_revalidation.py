@@ -578,6 +578,37 @@ async def test_concurrent_replicas_serialize_manifest_recovery_and_projection(
     assert await _maintenance_authority(store, state_store, at=now) is True
 
 
+async def test_manifest_inventory_mismatch_cannot_refresh_admission(tmp_path: Path) -> None:
+    catalog, store = _catalog_and_store()
+    state_store = InMemoryStateStore()
+    path = tmp_path / "operating-intent-source.json"
+    document = _document()
+    _write(path, document)
+    fresh_at = _RETRIEVED_AT + timedelta(minutes=1)
+    runtime = _runtime(
+        path=path,
+        document=document,
+        store=store,
+        catalog=catalog,
+        state_store=state_store,
+    )
+    assert await runtime.admit(now=fresh_at) is not None
+    manifest = await state_store.read_state("operating-intent-source:manifest")
+    assert manifest is not None
+    await state_store.write_state(
+        "operating-intent-source:manifest",
+        {
+            **manifest,
+            "object_ids": [item for item in manifest["object_ids"] if item != "change-window-1"],
+        },
+    )
+
+    assert await runtime.admit(now=fresh_at + timedelta(seconds=1)) is None
+    admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+    assert admission is not None
+    assert admission["status"] == "quarantined"
+
+
 async def test_worker_revalidates_on_its_bounded_interval(tmp_path: Path) -> None:
     catalog, store = _catalog_and_store()
     state_store = InMemoryStateStore()

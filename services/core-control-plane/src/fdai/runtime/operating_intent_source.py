@@ -195,6 +195,10 @@ class OperatingIntentSourceRuntime:
                 source_revision=document.snapshot.source_revision,
                 snapshot_digest=self.binding.expected_sha256,
                 manifest_key=_OPERATING_INTENT_SOURCE_MANIFEST_KEY,
+                expected_object_ids=tuple(item.id for item in document.snapshot.objects),
+                expected_link_keys=tuple(
+                    (item.from_id, item.link_type, item.to_id) for item in document.snapshot.links
+                ),
             )
         )
         if already_projected:

@@ -157,8 +157,8 @@ async def project_operating_model_snapshot(
         link_types=link_types,
     ).project(
         snapshot,
-        previous_object_ids=owned_object_ids,
-        previous_link_keys=owned_link_keys,
+        previous_object_ids=previous_object_ids,
+        previous_link_keys=previous_link_keys,
     )
     if status_store is not None:
         await status_store.write_state(
@@ -191,6 +191,8 @@ async def operating_model_projection_matches(
     source_revision: str,
     snapshot_digest: str,
     manifest_key: str = _OPERATING_MODEL_MANIFEST_KEY,
+    expected_object_ids: Sequence[str] | None = None,
+    expected_link_keys: Sequence[tuple[str, str, str]] | None = None,
 ) -> bool:
     """Return whether the durable manifest closes this exact projected snapshot.
 
@@ -203,11 +205,13 @@ async def operating_model_projection_matches(
     manifest = await status_store.read_state(manifest_key)
     if manifest is None:
         return False
-    _decode_manifest(manifest)
+    object_ids, link_keys = _decode_manifest(manifest)
     return (
         manifest.get("status") == "projected"
         and manifest.get("source_revision") == source_revision
         and manifest.get("snapshot_digest") == snapshot_digest
+        and (expected_object_ids is None or object_ids == tuple(expected_object_ids))
+        and (expected_link_keys is None or link_keys == tuple(expected_link_keys))
     )
 
 
