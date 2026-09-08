@@ -107,10 +107,24 @@ jobs:
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" \
             > "$RUNNER_TEMP/source-run.json"
+          current_attempt="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" \
+              --jq '.run_attempt'
+          )"
+          [[ "$current_attempt" == "$SOURCE_RUN_ATTEMPT" ]] || {
+            echo "source workflow attempt changed before artifact download" >&2
+            exit 1
+          }
           gh run download "$SOURCE_RUN_ID" \
-            --attempt "$SOURCE_RUN_ATTEMPT" \
             --name "deployment-apply-receipt-${PLAN_ID}" \
             --dir "$RUNNER_TEMP/source-evidence"
+          [[ "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" \
+              --jq '.run_attempt'
+          )" == "$SOURCE_RUN_ATTEMPT" ]] || {
+            echo "source workflow attempt changed during artifact download" >&2
+            exit 1
+          }
 
       - name: Install pinned uv
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
