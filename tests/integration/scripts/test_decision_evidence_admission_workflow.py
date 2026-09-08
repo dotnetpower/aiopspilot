@@ -28,6 +28,8 @@ def test_workflow_uses_managed_identity_and_immutable_blob_writes() -> None:
     assert "decision evidence immutable metadata collision" in _WORKFLOW
     assert "--query 'metadata.fdaisha256' -o tsv" in _WORKFLOW
     assert '--metadata "fdaisha256=$digest"' in _WORKFLOW
+    assert '"decision-evidence/v1/admissions/${lookup_digest}.json" stable-lookup' in (_WORKFLOW)
+    assert "datetime.now(UTC) <= valid_until" in _WORKFLOW
     assert "secrets." not in _WORKFLOW
 
 

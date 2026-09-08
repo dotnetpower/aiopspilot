@@ -114,6 +114,9 @@ decision-evidence admission workflow. That workflow attests the exact admission 
 publishes any runtime-readable Blob record. An idempotent replay reuses an existing record only when
 both its bytes and `fdaisha256` metadata match. Without the storage output, the existing apply
 receipt remains available and no live evidence admission is claimed.
+If a retry reaches an already published admission lookup, it reuses the first current record only
+when evidence, scope, purpose, and source revision still match. An expired or different record
+remains a collision and requires new source evidence.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
