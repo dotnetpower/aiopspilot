@@ -33,6 +33,8 @@
   "submitting": "Submitting...",
   "submitted": "Dispute recorded for autonomous re-evaluation.",
   "selectAssessment": "Select an assessment to inspect and report.",
+  "requestedAssessmentUnavailable": "The requested principal-scoped assessment is not available. It may still be processing or outside retained history.",
+  "refreshAssessments": "Refresh assessments",
   "empty": "No completed assessments are available yet.",
   "reasonOptions": {
     "wrong_fact": "Wrong fact",

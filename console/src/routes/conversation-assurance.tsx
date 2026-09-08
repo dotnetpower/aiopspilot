@@ -58,6 +58,7 @@ export function ConversationAssuranceRoute({
     }
   };
   useEffect(() => { void load(); }, [client]);
+  const requestedAssessment = currentRoute().search.get("turn");
   return (
     <div class="stack">
       <PageHeader title={t("assurance.title")} subtitle={t("assurance.subtitle")} />
@@ -67,6 +68,7 @@ export function ConversationAssuranceRoute({
             auth={auth}
             client={client}
             data={data}
+            requestedAssessment={requestedAssessment}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onRefresh={load}
@@ -93,10 +95,18 @@ export function selectedAssessmentId(
   return data.assessments[0]?.assessment_id ?? null;
 }
 
+export function requestedAssessmentUnavailable(
+  requestedAssessment: string | null,
+  selectedId: string | null,
+): boolean {
+  return requestedAssessment !== null && selectedId === null;
+}
+
 function AssuranceBody({
   auth,
   client,
   data,
+  requestedAssessment,
   selectedId,
   onSelect,
   onRefresh,
@@ -104,6 +114,7 @@ function AssuranceBody({
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly data: ConversationAssurancePayload;
+  readonly requestedAssessment: string | null;
   readonly selectedId: string | null;
   readonly onSelect: (value: string) => void;
   readonly onRefresh: () => Promise<void>;
@@ -126,7 +137,13 @@ function AssuranceBody({
       </KpiGrid>
       <PantheonSummary summary={data.pantheon} />
       <AssessmentTable assessments={data.assessments} onSelect={onSelect} />
-      <AssessmentDetail auth={auth} client={client} assessment={selected} onRefresh={onRefresh} />
+      <AssessmentDetail
+        auth={auth}
+        client={client}
+        assessment={selected}
+        requestedUnavailable={requestedAssessmentUnavailable(requestedAssessment, selectedId)}
+        onRefresh={onRefresh}
+      />
       <section id="disputes" class="stack">
         <h2>{t("assurance.disputes")}</h2>
         {data.disputes.length === 0 ? <p>{t("shared.noRows")}</p> : data.disputes.map((item) => (
@@ -189,7 +206,7 @@ function AssessmentTable({ assessments, onSelect }: { readonly assessments: read
   return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
 }
 
-function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessment: AssuranceAssessment | null; readonly onRefresh: () => Promise<void> }) {
+function AssessmentDetail({ auth, client, assessment, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessment: AssuranceAssessment | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
   const [detail, setDetail] = useState<AsyncState<AssuranceDetailPayload> | null>(null);
   useEffect(() => {
     if (assessment === null) { setDetail(null); return; }
@@ -200,6 +217,9 @@ function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly au
       .catch((error: unknown) => { if (!cancelled) setDetail({ status: "error", message: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
   }, [assessment?.assessment_id, client]);
+  if (requestedUnavailable) {
+    return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={() => void onRefresh()}>{t("assurance.refreshAssessments")}</button></section>;
+  }
   if (assessment === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
   return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
 }

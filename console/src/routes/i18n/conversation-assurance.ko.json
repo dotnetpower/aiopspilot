@@ -33,6 +33,8 @@
   "submitting": "제출 중...",
   "submitted": "자율 재평가를 위한 이의가 기록되었습니다.",
   "selectAssessment": "확인하고 보고할 평가를 선택하세요.",
+  "requestedAssessmentUnavailable": "요청한 principal 범위 평가를 사용할 수 없습니다. 아직 처리 중이거나 보존된 이력 범위 밖일 수 있습니다.",
+  "refreshAssessments": "평가 새로고침",
   "empty": "아직 완료된 평가가 없습니다.",
   "reasonOptions": {
     "wrong_fact": "잘못된 사실",
