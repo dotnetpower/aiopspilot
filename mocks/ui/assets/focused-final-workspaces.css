@@ -38,8 +38,8 @@
 
 .impact-legend { position: absolute; z-index: 3; top: 12px; left: 12px; display: flex; flex-wrap: wrap; gap: 6px 11px; max-width: calc(100% - 24px); padding: 7px 9px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: color-mix(in srgb, var(--cs-card) 92%, transparent); color: var(--cs-text-soft); font-size: 9px; }
 .impact-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.impact-legend i { width: 16px; border-top: 2px solid var(--line); }
-.impact-legend .is-unavailable { border-top-style: dashed; }
+.impact-legend i { width: 16px; border-bottom: 2px solid var(--line); }
+.impact-legend .is-unavailable { border-bottom-style: dashed; }
 .impact-lines .is-runtime { stroke: var(--cs-steel); }
 .impact-lines .is-containment { stroke: var(--cs-teal); }
 .impact-lines .is-unavailable { stroke: var(--cs-terracotta); stroke-dasharray: 6 5; }
