@@ -43,6 +43,7 @@ from .base import (
     NotificationMessage,
     Severity,
     TrustTier,
+    require_channel_id,
 )
 from .capability import ChannelCapabilityState, ChannelMode
 from .channels import (
@@ -90,4 +91,5 @@ __all__ = [
     "TrustTier",
     "WebhookChannel",
     "render_presentation",
+    "require_channel_id",
 ]

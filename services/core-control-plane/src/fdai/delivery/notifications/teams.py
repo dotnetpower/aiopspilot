@@ -25,6 +25,7 @@ from fdai.shared.providers.notifications.base import (
     NotificationMessage,
     Severity,
     TrustTier,
+    require_channel_id,
 )
 from fdai.shared.providers.notifications.presentation import (
     NotificationPresentationEnvelope,
@@ -73,6 +74,7 @@ class TeamsWebhookChannel:
         token_provider: Callable[[], Awaitable[str]] | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
+        require_channel_id(config.channel_id)
         if config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
         if not config.webhook_url:

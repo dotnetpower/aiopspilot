@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 0275c175e3b51edf33feed325466b0bc80e6c643
+translation_source_sha: a271b899c361a6d24fe218bbbd4691136ea6dcf0
 translation_revised: 2026-09-09
 ---
 # 다중 채널 알림 전달
@@ -92,6 +92,8 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
 
 - **바인딩 id는 업스트림에서 placeholder입니다.** 엔드포인트 값, 테넌트 값, 채널 식별 정보는 배포
   시크릿 설정에 두며 이 저장소에는 두지 않습니다.
+- **바인딩 ID는 범위가 제한된 ASCII 머신 식별자입니다.** 길이는 1-128자이며 문자, 숫자, `.`,
+  `_`, `-`만 사용할 수 있고 문자나 숫자로 시작합니다. 공백이나 경로 구분자는 사용할 수 없습니다.
 - **모든 깊이에서 중복 JSON 키는 유효하지 않습니다.** 뒤에 나온 `mode`, `enabled` 또는 엔드포인트
   참조가 검토자가 확인한 값을 조용히 대체할 수 없습니다.
 - **하나의 바인딩 맵에는 최대 64개 항목을 둘 수 있습니다.** 시작 시 더 큰 맵은 어댑터나 준비 상태

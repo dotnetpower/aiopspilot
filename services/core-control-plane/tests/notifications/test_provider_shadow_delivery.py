@@ -235,6 +235,22 @@ def test_shadow_bindings_are_visible_in_shared_readiness_projection() -> None:
     assert rows["notification-bindings"]["mode"] == "shadow"
 
 
+@pytest.mark.parametrize("channel_id", ["", " teams-ops", "teams/ops", "x" * 129])
+def test_channel_ids_are_bounded_ascii_identifiers(channel_id: str) -> None:
+    raw = json.dumps(
+        {
+            channel_id: {
+                "kind": "slack_webhook",
+                "enabled": False,
+                "trust_tiers": ["a2_operational_alert"],
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="channel_id MUST be 1-128 ASCII"):
+        parse_notification_bindings(raw)
+
+
 async def test_state_store_recorder_is_idempotent_and_rejects_content_conflicts() -> None:
     store = InMemoryStateStore()
     recorder = StateStoreShadowDeliveryRecorder(store)

@@ -578,7 +578,8 @@ only when its rule id, action type, and fixed check reference still match.
   endpoint and credential environment references and fail startup when incomplete.
   `core/notifications` receives only provider-neutral adapters plus durable delivery stores. Both
   in-memory and StateStore shadow recorders reject a stable record id reused with different content,
-  and Core rejects a rendered shadow payload above 64 KiB before persistence.
+  and Core rejects a rendered shadow payload above 64 KiB before persistence. A shared validator
+  keeps binding, capability, shadow, Teams, and Slack channel ids within one bounded ASCII format.
 - A fork supplies its own config and secret-store layer without editing `core/`.
 - Feature flags gate new capabilities so they ship in **shadow-mode** (judge-and-log only)
   and are promoted to enforce per-action, in a separate reviewed change.

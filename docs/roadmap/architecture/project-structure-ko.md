@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b04fac4000f2f171100dda7c7027a248380018f0
+translation_source_sha: bea48c2e7fd2ada538243bfa7195bda35296d2be
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -575,7 +575,8 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   환경 변수 참조를 유지하며 구성이 불완전하면 시작을 실패시킵니다. `core/notifications`에는
   공급자 중립 어댑터와 영속 전달 저장소만 전달합니다. 메모리 기반 및 StateStore shadow 기록기는
   모두 다른 콘텐츠에 안정적인 기록 ID가 재사용되면 실패합니다. Core는 64 KiB를 넘는 렌더링된
-  shadow 페이로드를 영속화 전에 차단합니다.
+  shadow 페이로드를 영속화 전에 차단합니다. 공유 검증기는 바인딩, 기능, shadow, Teams, Slack
+  채널 ID에 하나의 범위 제한 ASCII 형식을 적용합니다.
 - 포크는 `core/` 편집 없이 자체 설정과 secret-store 레이어를 공급합니다.
 - 기능 플래그는 신규 능력이 **shadow-mode** (judge-and-log only)로 출시되도록 게이팅하고,
   액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.

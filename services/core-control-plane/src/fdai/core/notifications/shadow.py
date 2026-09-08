@@ -51,6 +51,7 @@ from fdai.shared.providers.notifications.base import (
     DeliveryReceipt,
     NotificationMessage,
     TrustTier,
+    require_channel_id,
 )
 from fdai.shared.providers.notifications.presentation import (
     NotificationPayloadRenderer,
@@ -182,6 +183,7 @@ class ShadowNotificationChannel:
     clock: Callable[[], datetime] = field(default=_utc_now)
 
     def __post_init__(self) -> None:
+        require_channel_id(self.channel_id)
         if self.max_rendered_payload_bytes < 1:
             raise ValueError("shadow rendered payload limit MUST be positive")
 

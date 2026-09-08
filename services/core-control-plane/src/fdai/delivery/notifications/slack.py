@@ -23,6 +23,7 @@ from fdai.shared.providers.notifications.base import (
     NotificationMessage,
     Severity,
     TrustTier,
+    require_channel_id,
 )
 from fdai.shared.providers.notifications.presentation import (
     NotificationPresentationEnvelope,
@@ -52,6 +53,7 @@ class SlackWebhookChannel:
     channel_kind: Final = ChannelKind.SLACK
 
     def __init__(self, *, config: SlackWebhookConfig, http_client: httpx.AsyncClient) -> None:
+        require_channel_id(config.channel_id)
         if config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
         if not config.webhook_url:

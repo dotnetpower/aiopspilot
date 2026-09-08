@@ -91,6 +91,8 @@ Rules:
 
 - **Binding ids are placeholders upstream.** Endpoint values, tenant values, and room identity live
   in deployment secret configuration, never in this repository.
+- **Binding ids are bounded ASCII machine identifiers.** They contain 1-128 letters, digits, `.`,
+  `_`, or `-`, start with a letter or digit, and contain no whitespace or path separator.
 - **Duplicate JSON keys are invalid at every depth.** A later `mode`, `enabled`, or endpoint
   reference cannot silently replace the value that a reviewer inspected.
 - **One binding map contains at most 64 entries.** Startup rejects a larger map before constructing

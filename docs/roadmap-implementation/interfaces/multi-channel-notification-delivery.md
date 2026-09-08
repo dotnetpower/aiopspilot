@@ -44,6 +44,7 @@ and resumable work for
 | 2026-09-09 | implemented | Lowered a Slack webhook HTTP 200 from `delivered` to `accepted`; provider acknowledgement no longer substitutes for independent publication observation. | `current change`; focused Slack receipt regression test. | Keep Slack in shadow until an independent publication receipt path and promotion evidence are reviewed. |
 | 2026-09-09 | implemented | Removed untrusted Teams and Slack response bodies from delivery exceptions so reflected message content cannot reach router audit text. | `current change`; focused provider-rejection redaction tests. | Continue the bounded channel-adapter critique campaign. |
 | 2026-09-09 | implemented | Added a provider-independent 64 KiB shadow payload ceiling so an injected renderer cannot persist an unbounded record. | `current change`; focused oversized-renderer rejection test. | Continue the bounded channel-adapter critique campaign. |
+| 2026-09-09 | implemented | Applied one 1-128 character ASCII channel-id contract across binding, capability, shadow, Teams, and Slack boundaries. | `current change`; focused invalid-channel-id cases. | Continue the bounded channel-adapter critique campaign. |
 
 ### Remaining work
 

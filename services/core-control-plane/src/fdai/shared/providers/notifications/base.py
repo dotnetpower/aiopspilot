@@ -12,10 +12,23 @@ dispatch and to preserve trust on fallback (§6 of the same doc).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
+
+_CHANNEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def require_channel_id(value: str) -> str:
+    """Return one bounded ASCII channel id or raise at the owning boundary."""
+
+    if _CHANNEL_ID.fullmatch(value) is None:
+        raise ValueError(
+            "notification channel_id MUST be 1-128 ASCII letters, digits, '.', '_', or '-'"
+        )
+    return value
 
 
 class ChannelKind(StrEnum):
@@ -217,4 +230,5 @@ __all__ = [
     "NotificationMessage",
     "Severity",
     "TrustTier",
+    "require_channel_id",
 ]

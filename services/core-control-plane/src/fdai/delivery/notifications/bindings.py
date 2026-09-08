@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from fdai.shared.providers.notifications import ChannelMode, TrustTier
+from fdai.shared.providers.notifications import ChannelMode, TrustTier, require_channel_id
 
 from .teams import TeamsWorkflowAuthMode
 
@@ -103,8 +103,9 @@ def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
-    if not isinstance(channel_id, str) or not channel_id:
-        raise ValueError("notification binding id MUST be a non-empty string")
+    if not isinstance(channel_id, str):
+        raise ValueError("notification binding id MUST be a string")
+    require_channel_id(channel_id)
     if not isinstance(raw, dict):
         raise ValueError(f"notification binding {channel_id!r} MUST be an object")
     allowed = {
