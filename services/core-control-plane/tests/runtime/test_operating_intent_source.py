@@ -280,7 +280,7 @@ async def test_missing_type_is_rejected_and_preserves_prior_graph(tmp_path: Path
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "ChangeWindow" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
     # The prior, good, complete projection is untouched.
     assert await store.get_object("change-window-1") is not None
 
@@ -305,7 +305,7 @@ async def test_duplicate_instance_is_rejected(tmp_path: Path) -> None:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "duplicate" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_stale_instance_is_rejected(tmp_path: Path) -> None:
@@ -328,7 +328,7 @@ async def test_stale_instance_is_rejected(tmp_path: Path) -> None:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "not currently effective" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_long_lived_intent_from_a_current_retrieval_projects(tmp_path: Path) -> None:
@@ -378,7 +378,7 @@ async def test_stale_retrieval_of_a_newly_effective_intent_is_rejected(tmp_path:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "freshness_seconds" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
     assert await store.get_object("service-objective-1") is None
 
 
@@ -404,7 +404,7 @@ async def test_below_pinned_instance_count_is_rejected(tmp_path: Path) -> None:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "incomplete" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_rewritten_provenance_url_is_rejected(tmp_path: Path) -> None:
@@ -434,7 +434,7 @@ async def test_rewritten_provenance_url_is_rejected(tmp_path: Path) -> None:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "digest" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_cross_release_revision_mismatch_is_rejected(tmp_path: Path) -> None:
@@ -458,7 +458,7 @@ async def test_cross_release_revision_mismatch_is_rejected(tmp_path: Path) -> No
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "cross-release" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_cross_release_provenance_mismatch_is_rejected(tmp_path: Path) -> None:
@@ -481,7 +481,7 @@ async def test_cross_release_provenance_mismatch_is_rejected(tmp_path: Path) -> 
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "resolved_ref" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_tampered_content_digest_is_rejected(tmp_path: Path) -> None:
@@ -505,7 +505,7 @@ async def test_tampered_content_digest_is_rejected(tmp_path: Path) -> None:
     status = await status_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
-    assert "digest" in status["reason"]
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_configured_path_without_revision_raises(tmp_path: Path) -> None:

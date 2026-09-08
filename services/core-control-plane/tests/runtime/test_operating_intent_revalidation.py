@@ -310,6 +310,7 @@ async def test_missing_source_after_startup_quarantines_without_deleting(
     status = await state_store.read_state(OPERATING_INTENT_SOURCE_STATUS_KEY)
     assert status is not None
     assert status["status"] == "rejected"
+    assert status["reason"] == "source_validation_failed"
 
 
 async def test_valid_refresh_readmits_without_a_restart(tmp_path: Path) -> None:
@@ -430,6 +431,7 @@ async def test_lock_failure_fails_closed_as_unavailable(tmp_path: Path) -> None:
     record = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
     assert record is not None
     assert record["status"] == "unavailable"
+    assert record["reason"] == "resource_lock_unavailable"
     assert await _admission_status(state_store, now=fresh_at) == "unavailable"
     assert await _maintenance_authority(store, state_store, at=fresh_at) is False
     assert await store.get_object("change-window-1") is None
@@ -794,7 +796,7 @@ async def test_a_catalog_validation_failure_quarantines_before_returning(tmp_pat
     admission = await state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
     assert admission is not None
     assert admission["status"] == "quarantined"
-    assert "projection failed" in str(admission["reason"])
+    assert admission["reason"] == "projection_failed"
     assert await _maintenance_authority(store, state_store, at=fresh_at, document=invalid) is False
     # The previously projected graph is preserved as evidence and history.
     assert await _all_intent_objects_present(store) is True

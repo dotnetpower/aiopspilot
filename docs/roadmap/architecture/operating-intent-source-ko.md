@@ -1,7 +1,7 @@
 ---
 title: 배포 소유 Operating-Intent 출처
 translation_of: operating-intent-source.md
-translation_source_sha: 3bf5ae0c8634b79269d9fa558bae42b8d4225f3b
+translation_source_sha: 8941869a7bb5968a81025ab7efa4067a88604650
 translation_revised: 2026-09-09
 ---
 # 배포 소유 Operating-Intent 출처
@@ -79,7 +79,8 @@ Stale 판정은 혼동해서는 안 되는 독립적인 두 축을 씁니다. �
 
 실패한 재검증은 삭제가 아니라 격리입니다. 투영된 객체는 증거와 이력으로 계속 읽을 수 있고 intent
 권한만 회수됩니다. 이후 유효한 갱신이 오면 재시작 없이 다시 승인하며, 변경 없이 이미 투영된 문서를
-다시 승인할 때는 그래프를 다시 쓰지 않고 기록만 갱신합니다.
+다시 승인할 때는 그래프를 다시 쓰지 않고 기록만 갱신합니다. durable 거부 record에는 고정 reason
+code만 사용하며 신뢰할 수 없는 예외 텍스트, 경로, 객체 ID는 저장하거나 로그에 남기지 않습니다.
 
 검증을 통과한 *뒤* 실패한 재검증도 같은 방식으로 fail closed합니다. 온톨로지 카탈로그 검증, 형식이
 깨진 durable 매니페스트, 저장소 쓰기 실패는 모두 고정된 문서가 owned 그래프가 되지 못했다는 뜻이므로,

@@ -155,7 +155,11 @@ class OperatingIntentSourceRuntime:
                 now=now,
             )
         except (OSError, ValueError, OperatingIntentSourceError) as exc:
-            await self._deny("quarantined", reason=str(exc), now=now)
+            _LOGGER.warning(
+                "operating_intent_source_validation_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            await self._deny("quarantined", reason="source_validation_failed", now=now)
             return None
 
         stack = AsyncExitStack()
@@ -166,8 +170,11 @@ class OperatingIntentSourceRuntime:
         except Exception as exc:  # noqa: BLE001 - a distributed backend raises its own error type
             # Never project without the lock: a concurrent replica's in-flight
             # ``applying`` manifest would be misread as an interrupted apply.
-            _LOGGER.warning("operating_intent_source_lock_unavailable", exc_info=True)
-            await self._deny("unavailable", reason=f"resource lock unavailable: {exc}", now=now)
+            _LOGGER.warning(
+                "operating_intent_source_lock_unavailable",
+                extra={"error_type": type(exc).__name__},
+            )
+            await self._deny("unavailable", reason="resource_lock_unavailable", now=now)
             return None
         async with stack:
             try:
@@ -178,8 +185,11 @@ class OperatingIntentSourceRuntime:
                 # document did not become the owned graph, so authority is withdrawn
                 # immediately instead of surviving on the previous admission until it
                 # expires - and startup records the denial rather than aborting.
-                _LOGGER.warning("operating_intent_source_projection_failed", exc_info=True)
-                await self._deny("quarantined", reason=f"projection failed: {exc}", now=now)
+                _LOGGER.warning(
+                    "operating_intent_source_projection_failed",
+                    extra={"error_type": type(exc).__name__},
+                )
+                await self._deny("quarantined", reason="projection_failed", now=now)
                 return None
             await self._record_admission(result, document=document, now=now)
         return result

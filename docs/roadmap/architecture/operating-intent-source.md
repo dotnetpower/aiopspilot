@@ -83,7 +83,8 @@ malformed and grants no authority.
 A failing pass quarantines rather than deletes: the projected objects remain readable as evidence
 and history, and only intent authority is withdrawn. A later valid refresh re-admits without a
 restart, and re-admitting an unchanged, already-projected document refreshes the record without
-rewriting the graph.
+rewriting the graph. Durable denial records use fixed reason codes; untrusted exception text, paths,
+and object identities are not persisted or logged.
 
 A pass that fails *after* validation fails closed the same way. Ontology-catalog validation, a
 malformed durable manifest, and a store write failure all mean the pinned document did not become
@@ -151,6 +152,7 @@ racing.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Replaced raw exception persistence and logging with bounded reason codes and exception-type-only diagnostics. | `current change`; focused validation, lock, and projection failure regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Required the durable manifest's complete object and link inventory to match the pinned document before reusing a prior projection. | `current change`; focused manifest-corruption regression. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Enforced lowercase hexadecimal SHA-256 syntax at both configured-binding and durable-admission boundaries. | `current change`; focused binding and admission regressions. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
 | 2026-09-09 | implemented | Rejected every ObjectType outside the exact six-type operating-intent inventory so the dedicated source cannot project unrelated graph objects. | `current change`; focused source-admission regression test. | Retain one governed deployed runtime receipt before advancing this area to `validated`. |
