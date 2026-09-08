@@ -67,7 +67,6 @@ from fdai.core.rca import (
 from fdai.core.risk_gate import (
     ActionPromotionRegistry,
     GovernedPreconditionEvaluator,
-    OntologyChangeWindowEvidenceProvider,
     RiskGate,
     RiskGateConfig,
 )
@@ -113,6 +112,9 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_support import (
+    build_operating_intent_change_window_provider as _build_intent_windows,
+)
+from fdai.runtime.control_loop_support import (
     build_workflow_coordinator as _build_workflow_coordinator,
 )
 from fdai.runtime.control_loop_support import (
@@ -121,7 +123,9 @@ from fdai.runtime.control_loop_support import (
 from fdai.runtime.control_loop_support import (
     load_hil_escalation_rungs as _load_hil_escalation_rungs,
 )
-from fdai.runtime.control_loop_support import pending_index_writer as _pending_index_writer
+from fdai.runtime.control_loop_support import (
+    pending_index_writer as _pending_index_writer,
+)
 from fdai.runtime.delivery import (
     _build_direct_api_executor,
     _build_hil_channel,
@@ -669,7 +673,7 @@ def _build_control_loop(
     precondition_evaluator = (
         GovernedPreconditionEvaluator(
             open_actions=StateStoreOpenActionEvidenceProvider(audit_store),
-            change_windows=OntologyChangeWindowEvidenceProvider(ontology_instance_store),
+            change_windows=_build_intent_windows(ontology_instance_store, audit_store),
         )
         if ontology_instance_store is not None
         else None

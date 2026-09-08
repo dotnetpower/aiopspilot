@@ -27,6 +27,7 @@ from fdai.core.risk_gate.gate import (
 from fdai.core.risk_gate.ontology_preconditions import (
     OntologyChangeWindowEvidenceProvider,
     OntologyOpenActionEvidenceProvider,
+    OperatingIntentAdmissionReader,
 )
 from fdai.core.risk_gate.precedence import (
     CandidateAction,
@@ -57,6 +58,7 @@ __all__ = [
     "GovernedPreconditionEvaluator",
     "OntologyChangeWindowEvidenceProvider",
     "OntologyOpenActionEvidenceProvider",
+    "OperatingIntentAdmissionReader",
     "OpenActionEvidenceProvider",
     "OperationalPromotionReceiptVerifier",
     "PersistedPromotionAuthorityVerifier",

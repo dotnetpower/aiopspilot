@@ -16,6 +16,18 @@ _MODULE_VARIABLES = (
 ).read_text(encoding="utf-8")
 
 
+def _assigns(text: str, name: str) -> bool:
+    """Return whether ``text`` passes ``var.<name>`` to a ``<name>`` argument.
+
+    ``terraform fmt`` column-aligns every assignment in a block to its widest
+    sibling identifier, so the exact run of spaces around ``=`` shifts whenever a
+    new sibling variable is added. Matching on flexible whitespace keeps this
+    check stable across that reformatting instead of pinning one snapshot width.
+    """
+
+    return re.search(rf"\b{re.escape(name)}\s*=\s*var\.{re.escape(name)}\b", text) is not None
+
+
 def test_configuration_drift_is_explicitly_opt_in() -> None:
     assert 'variable "configuration_drift"' in _SERVICE_VARIABLES
     assert 'variable "configuration_drift"' in _MODULE_VARIABLES

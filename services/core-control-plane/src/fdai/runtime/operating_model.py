@@ -95,8 +95,17 @@ async def project_operating_model_snapshot(
     link_types: Sequence[OntologyLinkType],
     status_store: StateStore | None = None,
     snapshot_digest: str | None = None,
+    manifest_key: str = _OPERATING_MODEL_MANIFEST_KEY,
+    status_key: str = OPERATING_MODEL_STATUS_KEY,
 ) -> OperatingModelProjectionResult:
-    """Atomically replace the deployment-owned graph and close its durable manifest."""
+    """Atomically replace the deployment-owned graph and close its durable manifest.
+
+    ``manifest_key``/``status_key`` default to the shared operating-model namespace so
+    every existing caller keeps its current behavior unchanged. A caller that owns a
+    disjoint deployment-owned subgraph (for example the six-type operating-intent
+    source) MUST pass its own distinct pair so its recovery/ownership manifest never
+    collides with another source's.
+    """
 
     if snapshot_digest is not None and (
         not snapshot_digest.startswith("sha256:") or len(snapshot_digest) != 71
@@ -107,7 +116,7 @@ async def project_operating_model_snapshot(
     previous_link_keys: tuple[tuple[str, str, str], ...] = ()
     recovering_interrupted_apply = False
     if status_store is not None:
-        prior_manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+        prior_manifest = await status_store.read_state(manifest_key)
         previous_object_ids, previous_link_keys = _decode_manifest(prior_manifest)
         recovering_interrupted_apply = (
             prior_manifest is not None and prior_manifest.get("status") == "applying"
@@ -132,7 +141,7 @@ async def project_operating_model_snapshot(
         raise RuntimeError("operating model recovery ownership exceeds bounds")
     if status_store is not None:
         await status_store.write_state(
-            _OPERATING_MODEL_MANIFEST_KEY,
+            manifest_key,
             {
                 "schema_version": "1.0.0",
                 "status": "applying",
@@ -148,12 +157,12 @@ async def project_operating_model_snapshot(
         link_types=link_types,
     ).project(
         snapshot,
-        previous_object_ids=owned_object_ids,
-        previous_link_keys=owned_link_keys,
+        previous_object_ids=previous_object_ids,
+        previous_link_keys=previous_link_keys,
     )
     if status_store is not None:
         await status_store.write_state(
-            _OPERATING_MODEL_MANIFEST_KEY,
+            manifest_key,
             {
                 "schema_version": "1.0.0",
                 "status": "projected",
@@ -164,7 +173,7 @@ async def project_operating_model_snapshot(
             },
         )
         await status_store.write_state(
-            OPERATING_MODEL_STATUS_KEY,
+            status_key,
             {
                 "schema_version": "1.0.0",
                 "status": "projected",
@@ -181,17 +190,28 @@ async def operating_model_projection_matches(
     status_store: StateStore,
     source_revision: str,
     snapshot_digest: str,
+    manifest_key: str = _OPERATING_MODEL_MANIFEST_KEY,
+    expected_object_ids: Sequence[str] | None = None,
+    expected_link_keys: Sequence[tuple[str, str, str]] | None = None,
 ) -> bool:
-    """Return whether the durable manifest closes this exact projected snapshot."""
+    """Return whether the durable manifest closes this exact projected snapshot.
 
-    manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+    ``manifest_key`` defaults to the shared operating-model namespace. A caller that
+    owns a disjoint deployment-owned subgraph MUST pass the same distinct key it
+    passes to :func:`project_operating_model_snapshot`, or it would answer about
+    another source's manifest.
+    """
+
+    manifest = await status_store.read_state(manifest_key)
     if manifest is None:
         return False
-    _decode_manifest(manifest)
+    object_ids, link_keys = _decode_manifest(manifest)
     return (
         manifest.get("status") == "projected"
         and manifest.get("source_revision") == source_revision
         and manifest.get("snapshot_digest") == snapshot_digest
+        and (expected_object_ids is None or object_ids == tuple(expected_object_ids))
+        and (expected_link_keys is None or link_keys == tuple(expected_link_keys))
     )
 
 

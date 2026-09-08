@@ -64,6 +64,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 5c | [operating-ontology-platform.md](architecture/operating-ontology-platform.md) | agent-supporting ontology safety infrastructure: exact releases, bounded object sets, mutation plans, typed functions, reconciliation, and SDKs |
 | 5d | [operating-ontology-metamodel.md](architecture/operating-ontology-metamodel.md) | operational lenses, canonical declaration kinds, State and Context boundaries, authority, time, ownership, and additive migration |
 | 5e | [ontology-structural-model.md](architecture/ontology-structural-model.md) | exact resource types, taxonomic aggregation, link roles and traits, ordered typed paths, and bounded graph presentation |
+| 5f | [operating-intent-source.md](architecture/operating-intent-source.md) | deployment-owned six-type operating-intent source: pinned identity, fail-closed admission, bounded revalidation, and replica-serialized projection |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB index: decision boundary plus focused ontology-agent, evidence-authority, and delivery-plan documents |

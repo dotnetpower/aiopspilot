@@ -36,6 +36,21 @@ from .models import (
     OperationalContextSnapshot,
     SourceFreshness,
 )
+from .operating_intent_admission import (
+    MAX_ADMITTED_OBJECT_IDS,
+    MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS,
+    OPERATING_INTENT_SOURCE_ADMISSION_KEY,
+    OperatingIntentAdmission,
+    OperatingIntentAdmissionExpectation,
+    OperatingIntentAdmissionStatus,
+    StateStoreOperatingIntentAdmissionReader,
+    evaluate_operating_intent_admission,
+)
+from .operating_intent_source import (
+    OperatingIntentSourceBinding,
+    OperatingIntentSourceError,
+    validate_operating_intent_source_document,
+)
 from .operating_scope import (
     UNMAPPED_SERVICE_REF,
     OperatingScopeCoverage,
@@ -49,6 +64,9 @@ from .principal_context import (
 from .projector import OperatingModelProjectionResult, OperatingModelProjector
 
 __all__ = [
+    "MAX_ADMITTED_OBJECT_IDS",
+    "MAX_OPERATING_INTENT_ADMISSION_AGE_SECONDS",
+    "OPERATING_INTENT_SOURCE_ADMISSION_KEY",
     "UNMAPPED_SERVICE_REF",
     "CatalogEvidenceItem",
     "CitationBinding",
@@ -73,18 +91,26 @@ __all__ = [
     "OperationalEvidenceReadService",
     "OperationalEvidenceSource",
     "OperationalEvidencePrincipalContextProvider",
+    "OperatingIntentAdmission",
+    "OperatingIntentAdmissionExpectation",
+    "OperatingIntentAdmissionStatus",
+    "OperatingIntentSourceBinding",
+    "OperatingIntentSourceError",
     "OperatingModelProjectionResult",
     "OperatingModelProjector",
     "OperatingScopeCoverage",
     "ResourceScopeCoverage",
     "SourceFreshness",
     "StateEvidenceItem",
+    "StateStoreOperatingIntentAdmissionReader",
     "VerifiedEvidenceSourceReceipt",
     "bind_citation",
     "bind_evidence_item_source",
     "build_operational_evidence_bundle",
+    "evaluate_operating_intent_admission",
     "operational_state_scope_digest",
     "project_operating_scope",
     "project_operational_evidence_read_result",
     "render_untrusted_document_evidence",
+    "validate_operating_intent_source_document",
 ]

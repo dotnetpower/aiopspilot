@@ -2,7 +2,7 @@
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
 translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
-translation_revised: 2026-09-04
+translation_revised: 2026-09-09
 ---
 # FDAI 운영 온톨로지
 

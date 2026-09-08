@@ -7,7 +7,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from fdai.core.operational_context import OperationalEvidenceBundle
+from fdai.core.operational_context.evidence_bundle_models import OperationalEvidenceBundle
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,

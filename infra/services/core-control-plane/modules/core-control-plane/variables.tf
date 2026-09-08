@@ -233,3 +233,43 @@ variable "scaling" {
   })
 }
 variable "tags" { type = map(string) }
+
+variable "operating_intent_source" {
+  description = "Deployment-owned six-type operating-intent source binding: source path, exact pinned revision, whole-document sha256 content digest (provenance included), exact expected instance counts for ServiceObjective, RecoveryObjective, CostObjective, ArchitectureConstraint, Ownership, and ChangeWindow, the rollout generation that fences admission writes across a rolling deployment, and the bounded revalidation interval that keeps admission current after startup."
+  type = object({
+    enabled              = optional(bool, false)
+    path                 = optional(string, "")
+    revision             = optional(string, "")
+    sha256               = optional(string, "")
+    expected_counts_json = optional(string, "")
+    generation           = optional(number, 1)
+    revalidate_seconds   = optional(number, 0)
+  })
+  default = {}
+
+  validation {
+    condition = !var.operating_intent_source.enabled || (
+      trimspace(var.operating_intent_source.path) != "" &&
+      trimspace(var.operating_intent_source.revision) != "" &&
+      can(regex("^sha256:[0-9a-f]{64}$", var.operating_intent_source.sha256))
+    )
+    error_message = "Enabled operating_intent_source requires a source path, an exact pinned revision, and a sha256: content digest."
+  }
+
+  validation {
+    condition = var.operating_intent_source.revalidate_seconds == 0 || (
+      var.operating_intent_source.revalidate_seconds == floor(var.operating_intent_source.revalidate_seconds) &&
+      var.operating_intent_source.revalidate_seconds >= 1 &&
+      var.operating_intent_source.revalidate_seconds <= 28800
+    )
+    error_message = "operating_intent_source.revalidate_seconds MUST be an integer between 1 and 28800 seconds, or 0 to keep the runtime default."
+  }
+
+  validation {
+    condition = (
+      var.operating_intent_source.generation == floor(var.operating_intent_source.generation) &&
+      var.operating_intent_source.generation >= 1
+    )
+    error_message = "operating_intent_source.generation MUST be an integer of 1 or more."
+  }
+}
