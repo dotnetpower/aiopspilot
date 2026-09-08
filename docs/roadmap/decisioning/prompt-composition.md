@@ -115,6 +115,7 @@ baseline retained here is two earlier turns at 51.431 and 53.841 seconds; no new
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-08 | implemented | Ran independent resource-group and resource Operator Memory reads concurrently while preserving deterministic merge order. | `current change`; focused prompt composer checks passed 56 tests. | Retain PostgreSQL per-turn timing separately. |
 | 2026-09-08 | implemented | Counted rendered skill and bundle XML wrappers against the prompt body budget and rejected an over-budget selection before assembly. | `current change`; focused skill disclosure checks passed 8 tests. | Retain runtime prompt-size observations separately. |
 | 2026-09-06 | implemented | Completed ten measured latency-improvement rounds across adaptive planning, schema preparation, review budgets, display, and terminal delivery. | Round commits and combined gate recorded above; fixed-provider-clock comparisons preserve exact answer and quality outcomes. | Retain an authorized real-provider before/after comparison before claiming an end-to-end speedup. |
 | 2026-09-06 | implemented | Removed the mandatory T2 reviewer from ordinary adaptive composition. Distinct configured T1 narrator models author and review; only an optional T2 primary refines, and malformed or unavailable escalation does not disable T1. Unbound provider schema support uses application-side JSON validation. | `current change`; 115 focused composition, transport, schema, budget, runtime, and prompt-registry tests passed; strict mypy passed for both modified source modules. The comparison regression exercises real composition and transport with mocked models and no operational query. | Retain an explicitly authorized live-question receipt before claiming actual answer quality. Strict no-T2 campaign behavior and operational quality gates are unchanged. |
@@ -203,7 +204,8 @@ Each layer has a fixed job and a fixed storage tier.
   Wrapped in `<web_snippet trusted="false" url="..." hash="...">...</web_snippet>`.
 - **Operator Memory** - scope-bounded, HIL-approved notes from operator
   feedback (HIL rejects, override justifications, ChatOps preferences, PR
-  reviews). Never global; see [Operator memory pipeline](#operator-memory-pipeline).
+  reviews). Resource-group and resource reads run independently, then merge in stable
+  resource-group-first order. Never global; see [Operator memory pipeline](#operator-memory-pipeline).
 - **Debate Transcript** - previous roles' outputs, threaded to later roles as
   read-only context.
 

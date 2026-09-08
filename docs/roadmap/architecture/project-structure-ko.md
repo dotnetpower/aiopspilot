@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 11ae60736fd720ba38e4e5e6f594d6d156581944
+translation_source_sha: dc0e580bffc45e9998135a66e2d2e5daa85642ae
 translation_revised: 2026-09-08
 ---
 # 프로젝트 구조
@@ -475,6 +475,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 [기능 번들 수명 주기](capability-bundle-lifecycle-ko.md)에서 소유합니다.
 프롬프트 공개 예산은 저장된 Markdown 본문만이 아니라 trusted XML wrapper를 포함한 완전한
 렌더링 스킬 또는 bundle 레이어에 적용됩니다.
+turn별 Operator Memory 조립은 독립적인 Resource Group 및 Resource 범위를 동시에 읽고 두
+읽기가 완료된 뒤 결정론적 계층 순서를 보존합니다.
 
 ### 주입 가능한 Seams
 

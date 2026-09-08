@@ -16,6 +16,7 @@ Runtime skill disclosure is delegated to the single-purpose
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final, Literal, Protocol
@@ -403,15 +404,22 @@ class DefaultPromptComposer(PromptComposer):
                 )
             )
             return None
-        rg_entries = await self._operator_memory_store.list_active_for_scope(
-            scope_kind=ScopeKind.RESOURCE_GROUP,
-            scope_ref=scope.resource_group_ref,
-        )
-        resource_entries: tuple[OperatorMemoryEntry, ...] = ()
-        if scope.resource_ref is not None:
-            resource_entries = await self._operator_memory_store.list_active_for_scope(
-                scope_kind=ScopeKind.RESOURCE,
-                scope_ref=scope.resource_ref,
+        if scope.resource_ref is None:
+            rg_entries = await self._operator_memory_store.list_active_for_scope(
+                scope_kind=ScopeKind.RESOURCE_GROUP,
+                scope_ref=scope.resource_group_ref,
+            )
+            resource_entries: tuple[OperatorMemoryEntry, ...] = ()
+        else:
+            rg_entries, resource_entries = await asyncio.gather(
+                self._operator_memory_store.list_active_for_scope(
+                    scope_kind=ScopeKind.RESOURCE_GROUP,
+                    scope_ref=scope.resource_group_ref,
+                ),
+                self._operator_memory_store.list_active_for_scope(
+                    scope_kind=ScopeKind.RESOURCE,
+                    scope_ref=scope.resource_ref,
+                ),
             )
         merged = (*rg_entries, *resource_entries)
         if not merged:

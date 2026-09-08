@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 055ac4e1907e02cd346b1c277185da8cd2980bfa
+translation_source_sha: 3da478b864250bcb279b57e3a1ef25de3dae6077
 translation_revised: 2026-09-08
 ---
 
@@ -113,6 +113,7 @@ Console 프로덕션 빌드가 통과했습니다. 공급자 시간을 고정한
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 독립적인 Resource Group 및 Resource Operator Memory 읽기를 동시에 실행하면서 결정론적 병합 순서를 보존했습니다. | `current change`, 집중 프롬프트 작성기 검사 56개가 통과했습니다. | PostgreSQL turn별 타이밍은 별도로 보존합니다. |
 | 2026-09-08 | implemented | 렌더링된 스킬 및 bundle XML wrapper를 프롬프트 본문 예산에 포함하고 예산을 넘기는 선택은 조립 전에 차단했습니다. | `current change`, 집중 스킬 공개 검사 8개가 통과했습니다. | 런타임 프롬프트 크기 관측은 별도로 보존합니다. |
 | 2026-09-06 | implemented | 적응형 계획, 스키마 준비, 검토 한도, 표시 및 최종 결과 전달에 걸쳐 지연 개선 10라운드를 완료했습니다. | 위의 라운드 커밋과 통합 검증. 공급자 시간을 고정한 비교에서 답변과 품질 결과를 그대로 유지했습니다. | 종단 간 속도 개선을 주장하려면 승인된 실제 공급자 전후 비교가 필요합니다. |
 | 2026-09-06 | implemented | 일반 적응형 조립에서 T2 검토자를 필수 조건으로 두지 않도록 수정했습니다. 독립적으로 구성된 T1 서술 모델이 작성과 검토를 맡고 선택적 T2 기본 모델만 보강합니다. 잘못되었거나 사용할 수 없는 보강 연결은 T1을 비활성화하지 않습니다. 공급자 스키마 지원이 구성되지 않았으면 애플리케이션에서 JSON을 검증합니다. | `current change`; 조립, 전송, 스키마, 예산, 런타임 및 프롬프트 레지스트리 집중 검사 115개 통과. 수정한 원본 모듈 두 개의 strict mypy 통과. 비교 회귀 검사는 모의 모델을 사용하되 실제 조립과 전송을 거치며 운영 조회를 하지 않습니다. | 실제 답변 품질을 주장하려면 명시적으로 승인된 실질문 증적이 필요합니다. 엄격한 no-T2 캠페인 동작과 운영 품질 검사는 변경하지 않았습니다. |
@@ -197,7 +198,8 @@ disagreement에서만 라우터를 통해 실행됩니다.
   `<web_snippet trusted="false" url="..." hash="...">...</web_snippet>`로 wrap.
 - **Operator Memory** - 운영자 피드백(HIL 거부, 재정의 사유,
   ChatOps 선호 설정, PR 리뷰)에서 나온 범위 제한, HIL-승인된 노트.
-  절대 global 아님. [Operator 기억 파이프라인](#operator-memory-pipeline) 참조.
+  Resource Group 및 Resource 읽기는 독립적으로 실행한 뒤 안정적인 Resource Group 우선 순서로
+  병합합니다. 절대 global 아님. [Operator 기억 파이프라인](#operator-memory-pipeline) 참조.
 - **토론 대화 기록** - 이전 역할들의 출력이 다음 역할에게 읽기 전용 컨텍스트로 전달.
 
 ## 저장

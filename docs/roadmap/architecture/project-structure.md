@@ -482,6 +482,8 @@ The validated bundle, extension, trusted-artifact, skill disclosure, and revocat
 owned by [Capability bundle lifecycle](capability-bundle-lifecycle.md).
 Prompt disclosure budgets apply to the complete rendered skill or bundle layer, including its
 trusted XML wrapper, rather than only the stored Markdown bodies.
+Per-turn Operator Memory composition reads independent resource-group and resource scopes
+concurrently and preserves deterministic hierarchy order after both reads complete.
 
 ### Injectable Seams
 

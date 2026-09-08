@@ -8,6 +8,7 @@ integration test at the bottom.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from pathlib import Path
 from textwrap import dedent
@@ -750,6 +751,19 @@ class _FailIfReadMemoryStore:
         raise AssertionError(f"ablation read operator memory for {scope_kind}:{scope_ref}")
 
 
+class _TaskRecordingMemoryStore:
+    def __init__(self) -> None:
+        self.task_ids: set[int] = set()
+
+    async def list_active_for_scope(self, *, scope_kind, scope_ref):
+        del scope_kind, scope_ref
+        task = asyncio.current_task()
+        assert task is not None
+        self.task_ids.add(id(task))
+        await asyncio.sleep(0)
+        return ()
+
+
 @pytest.mark.asyncio
 async def test_operator_memory_ablation_avoids_store_read(tmp_path: Path) -> None:
     from fdai.core.operator_memory import OperatorScope
@@ -771,6 +785,26 @@ async def test_operator_memory_ablation_avoids_store_read(tmp_path: Path) -> Non
     assert [(ref.id, ref.layer) for ref in out.ablated_layers] == [
         ("operator-memory", PromptLayer.OPERATOR_MEMORY)
     ]
+
+
+@pytest.mark.asyncio
+async def test_resource_and_group_memory_reads_run_concurrently(tmp_path: Path) -> None:
+    from fdai.core.operator_memory import OperatorScope
+
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    store = _TaskRecordingMemoryStore()
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        operator_memory_store=store,
+    )
+
+    await composer.compose(
+        capability_id="t2.proposer",
+        scope=OperatorScope(resource_group_ref="rg-1", resource_ref="resource-1"),
+    )
+
+    assert len(store.task_ids) == 2
 
 
 def _mem_entry(
