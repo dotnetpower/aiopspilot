@@ -112,8 +112,9 @@ When governed operational-history storage is available, that 90-day apply artifa
 fixed plan, preflight, claim, receipt, and private-container coordinates consumed by the separate
 decision-evidence admission workflow. That workflow attests the exact admission record before it
 publishes any runtime-readable Blob record. An idempotent replay reuses an existing record only when
-both its bytes and `fdaisha256` metadata match. Without the storage output, the existing apply
-receipt remains available and no live evidence admission is claimed.
+its downloaded bytes match its own `fdaisha256` metadata, then applies the exact or stable-lookup
+comparison. Without the storage output, the existing apply receipt remains available and no live
+evidence admission is claimed.
 The privileged verifier executes controls only from a commit on protected `main`'s first-parent
 history. A merged branch's intermediate ancestor is not an executable workflow source.
 If a retry reaches an already published admission lookup, it reuses the first current record only

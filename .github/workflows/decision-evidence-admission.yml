@@ -203,16 +203,19 @@ jobs:
                 --name "$name" \
                 --auth-mode login --only-show-errors \
                 --query 'metadata.fdaisha256' -o tsv)"
-              [[ "$stored_digest" == "$digest" ]] || {
-                echo "decision evidence immutable metadata collision" >&2
-                exit 1
-              }
               az storage blob download \
                 --account-name "$account" \
                 --container-name "$container" \
                 --name "$name" \
                 --file "$RUNNER_TEMP/existing-decision-evidence.json" \
                 --auth-mode login --overwrite --only-show-errors --output none
+              downloaded_digest="$(
+                sha256sum "$RUNNER_TEMP/existing-decision-evidence.json" | cut -d' ' -f1
+              )"
+              [[ "$stored_digest" == "$downloaded_digest" ]] || {
+                echo "decision evidence immutable metadata collision" >&2
+                exit 1
+              }
               if cmp -s "$source" "$RUNNER_TEMP/existing-decision-evidence.json"; then
                 rm -f "$RUNNER_TEMP/existing-decision-evidence.json"
                 return
