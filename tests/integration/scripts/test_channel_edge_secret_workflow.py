@@ -15,7 +15,9 @@ def test_channel_edge_secret_workflow_is_exact_revision_and_value_blind() -> Non
     assert "install-pinned-github-cli.sh" in workflow
     assert "the exact commit does not have a successful required CI check" in workflow
     assert "login-deploy-identity.sh" in workflow
-    assert "exactly one private RBAC development Key Vault" in workflow
+    assert "exactly one development Key Vault must match the FDAI tags" in workflow
+    assert 'az keyvault show --id "$vault_id"' in workflow
+    assert "the selected development Key Vault is not private and RBAC-enabled" in workflow
     assert "materialize_channel_edge_secrets.py" in workflow
     assert "shred --force --remove" in workflow
     assert "actions: write" not in workflow

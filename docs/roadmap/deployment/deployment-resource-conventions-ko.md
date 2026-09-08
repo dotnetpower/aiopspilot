@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: f8950921fc39e79335e42bc9d3606ff78909a604
+translation_source_sha: b954b176595b86ae4650a150d639cf6daf86c18d
 translation_revised: 2026-09-08
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-08 | implemented | 목록 응답에 RBAC 및 공개 네트워크 상태 필드가 포함되지 않으므로 비공개 vault 선택을 태그 기반 목록 조회와 정확한 리소스 재확인으로 분리했습니다. | 실패한 작업 흐름 `34211312612`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 | 비밀 구체화를 다시 실행하고 성공한 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 새로운 self-hosted runner 슬롯에서 보호된 비밀 작업 흐름이 필수 CI를 검증하기 전에 리포지토리에 고정된 GitHub CLI를 설치하도록 수정했습니다. | 실패한 작업 흐름 `34210210151`, `current change`, 집중 작업 흐름 및 CI 계약 테스트 52개 통과 | 필수 CI가 통과한 정확한 비밀 작업 흐름을 다시 실행하고 값 비노출 재확인 결과를 보존합니다. |
 | 2026-09-08 | implemented | 배포가 소유한 비공개 Key Vault에 고정 Slack channel-edge 비밀을 구체화하는 값 비노출 보호 작업 흐름을 추가했습니다. | `current change`, 비밀 전송, 작업 흐름 보안, 러너 등록, 안정적인 신원, CI 계약 및 A3 채널 테스트 | 필수 CI가 통과한 정확한 작업 흐름을 실행하고 버전 없는 비밀 식별자를 channel-edge 플랫폼 및 서비스 계획에 결속한 뒤 프로바이더 전달 및 롤백 증적을 보존합니다. |
 | 2026-09-08 | implemented | 정확한 보호 Core 이미지 계획이 Terraform의 이동 인스턴스 범위 검사에서 차단된 뒤 dev 운영 게이트웨이 대상 집합에 애플리케이션 리소스 그룹의 이동 주소를 추가했습니다. | `current change`, 변경을 적용하지 않은 실패 계획 `34145167117`, `deploy-dev.yml`, 집중 workflow 계약 테스트 58개입니다. | 삭제가 없는 새 보호 계획을 생성하고 정확한 적용 증적을 보존합니다. |
