@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/infra-drift.yml"
+      - "infra/bootstrap/check-runner-storage-posture.sh"
       - "scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 8990e4d1de0749154d90a1a89332d6240017d18d }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 159b5e9f010a5a92ca752b371e22aef0718e1793 }]
 ---
 
 # Deploy Quickstart
@@ -59,7 +59,7 @@ key, Core starts in observation-only Trial and denies acting paths.
 - When you promote a reviewed blue/green candidate, set its existing VM name in
   `runner_vm_name` before importing the VM and network interface into bootstrap
   state. The scheduled posture check compares any model-only OS disk ID with the
-  ops resource group's disk inventory, and the refresh plan verifies structured drift actions
+  ops resource group's disk inventory. The check reruns when its verifier changes and verifies structured drift actions
   instead of the provider exit code alone. Bootstrap preserves the adopted image
   reference until you explicitly review a replacement.
 - **Fresh offline subscriptions:** Standalone bootstrap still expects an existing state account
