@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 72008d823d871be74e9ff53136ffffa4a5db0b11
+translation_source_sha: 28a8a4be4a161e6542cdfefed0f81dd0d79bf5a1
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,9 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Collection-wide history 범위를 보존하고 독립적으로 요청한 action advice를 forbidden action에서 제외하도록 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 두 live cohort를 다시 실행합니다. |
+| 2026-09-10 | implemented | 첫 v15 기존 cohort에서 발견한 exact-span 및 forbidden operation kind 회귀를 닫도록 cumulative shadow semantic-judgment v16을 추가했습니다. | `current change`, 집중 prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 clean committed source에서 두 cohort를 다시 실행합니다. |
+| 2026-09-10 | implemented | Live SRE 스키마 질문에서 관측한 만들어 낸 온톨로지 count intent와 일반 메타타입 target을 방지하도록 cumulative shadow semantic-judgment v15를 추가했습니다. | `current change`, prompt composition 및 typed-boundary 테스트 | Active profile로 승격하기 전에 exact-source 스키마 cohort에서 v15를 측정합니다. |
 | 2026-09-09 | implemented | 승인된 typed 매니페스트 개수, 선언 상세 정보, 단일 ObjectType 관계 judgment를 결정론적 frame 및 닫힌 query plan에 연결하고 로컬 hardening worktree의 측정 의존성을 복구했습니다. | `current change`, 집중 스키마 planning 회귀, 전체 tier-routing 테스트, Ruff, mypy, watchdog 안전 gate | 보류된 76문항 series를 재시도하지 말고 새로운 bounded series를 실행합니다. |
 | 2026-09-09 | implemented | Evidence-ready manifest, declaration, relationship 함수만 사용하도록 타입이 지정된 SRE 온톨로지 challenge 계약 4개를 추가하고 기존 ActionType 개수 계약을 SRE focus에도 노출했습니다. | `current change`, 집중 불변 계약, challenge readiness, watchdog 인증, Ruff, selectable runtime 검사 | 다음 명시적 10문항 child를 실행하고 요청된 95%를 넘는 batch 5개 연속 근거를 보존합니다. |
 | 2026-09-09 | withdrawn | 정확한 baseline 검사에서 검증된 preflight와 결정론적 명확화를 우회하는 것으로 확인된 성급한 collection-type catalog gate를 제거했습니다. | `current change`, PR #542의 정확한 회귀 2개와 집중 preflight 검사 | 재사용 뒤의 기존 value-group binding을 권위 있는 경계로 유지합니다. |
