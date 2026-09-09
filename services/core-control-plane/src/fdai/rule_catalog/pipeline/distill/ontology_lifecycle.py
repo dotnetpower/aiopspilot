@@ -166,6 +166,10 @@ def advance_lifecycle(
         and graph_revision != record.current_graph_revision
     ):
         raise ValueError("graph revision can change only during projection or rollback")
+    if target is ProposalState.ROLLED_BACK and (
+        record.rollback_graph_revision is None or graph_revision != record.rollback_graph_revision
+    ):
+        raise ValueError("rollback MUST restore the recorded prior graph revision")
     if target is not ProposalState.PROJECTED and rollback_graph_revision is not None:
         raise ValueError("rollback graph revision can be set only during projection")
     return ProposalLifecycleRecord(

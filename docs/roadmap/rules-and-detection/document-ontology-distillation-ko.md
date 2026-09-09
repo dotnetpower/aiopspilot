@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 0b672580172b582c96f99d319d50e8cd083fdd8e
-translation_revised: 2026-08-27
+translation_source_sha: 8f19df9ccb3129117336663bbbc7ed0f6453549d
+translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
 
@@ -365,7 +365,8 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 - **Supersession:** Approved 의도는 historical 결정 맥락을 변경하지 않고 이전 effective
   간격을 교체합니다.
 - **Rollback:** 변환 결과 실패 또는 later 거절은 exact 이전 그래프 개정 번호를 복원하고 실패한
-  제안 다이제스트를 기록합니다.
+  제안 다이제스트를 기록합니다. 롤백 전환은 변환 결과가 시작될 때 기록한 이전 개정 번호만
+  허용하며 호출자가 다른 그래프 개정 번호로 바꿀 수 없습니다.
 
 변환 결과와 조정은 별개입니다. Declared 의도를 수락하면 통제된 의도 변환 결과를
 갱신할 수 있습니다. Provider-observed 구문은 fresh 외부 관측과 일치한 뒤에만 현재

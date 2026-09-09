@@ -139,6 +139,27 @@ def test_failed_reconciliation_builds_rollback_plan() -> None:
     assert rolled_back.current_graph_revision == "graph-1"
 
 
+def test_rollback_rejects_graph_revision_other_than_recorded_prior() -> None:
+    verified, approved = _approved()
+    projected = record_projection(
+        approved,
+        build_projection_plan(
+            verified,
+            approved,
+            next_graph_revision="graph-2",
+            transition_ref="projection:1",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="recorded prior graph revision"):
+        advance_lifecycle(
+            projected,
+            target=ProposalState.ROLLED_BACK,
+            transition_ref="rollback:1",
+            graph_revision="graph-unrelated",
+        )
+
+
 def test_reconciliation_result_cannot_cross_proposal_lifecycle() -> None:
     verified, approved = _approved()
     projected = record_projection(

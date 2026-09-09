@@ -366,7 +366,8 @@ Document and graph lifecycles stay linked by immutable digests:
 - **Supersession:** Approved intent replaces a prior effective interval without changing historical
   decision context.
 - **Rollback:** Projection failure or later rejection restores the exact prior graph revision and
-  records the failed proposal digest.
+  records the failed proposal digest. A rollback transition accepts only the prior revision recorded
+  when projection began; a caller cannot substitute another graph revision.
 
 Projection and reconciliation are separate. Accepting declared intent can update the governed
 intent projection. A provider-observed statement becomes current truth only after fresh external
