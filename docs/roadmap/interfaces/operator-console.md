@@ -11,7 +11,7 @@ Knowledge > Documents restores a bounded collection-scoped document list after r
 The dashboard preserves bounded service-health answers across loading, partial, and unavailable
 states. It displays exact resource identity, evidence timing, and provider limitations from the
 semantic projection rather than substituting generic inventory data. The WAF checklist can therefore show all pinned definitions.
-Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect, reduced-motion preference skips it, and no persistent simulation runs.
+Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect and reduced-motion preference skips it. Workflow Builder separately summarizes only principal-scoped durable Process history, labels the result as workflow-state-only, and never presents structural validation as a substrate mutation preview.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
 The authenticated `/provisioning` route is a read-only projection of one durable subscription

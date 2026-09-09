@@ -471,10 +471,10 @@ inline in the chat:
   so the chat shows how the process will actually run;
 - the **canonical YAML** as a copyable code block, presented as "here is the
   workflow I generated";
-- a **structural validation result** from `POST /workflows/validate` ("structurally
-  valid, every step resolves..."), so the operator can test the design before
-  taking it anywhere. This check doesn't execute, simulate, or predict the
-  workflow;
+- **separate validation and history results**: `POST /workflows/validate` checks
+  structure and catalog references only, while the authenticated principal-scoped Process
+  projection summarizes at most 20 durable, non-synthetic historical records, exact targets, and
+  observed workflow states. Neither result predicts a substrate mutation or grants authority;
 - an explicit **Save private draft** action that calls
   `POST /workflows/definitions` with confirmation and creates a private
   `draft`. The saved definition isn't runnable and doesn't appear in

@@ -128,7 +128,7 @@ export function WorkflowBuilderRoute({ client }: Props) {
     <div class="stack governance-route workflow-builder-route">
       <PageHeader title={t("route.workflowBuilder")} subtitle={t("workflowBuilder.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("workflow.builder.resourceLabel")}>
-        {(data) => <WorkflowShell data={data} />}
+        {(data) => <WorkflowShell client={client} data={data} />}
       </AsyncBoundary>
     </div>
   );
@@ -136,7 +136,13 @@ export function WorkflowBuilderRoute({ client }: Props) {
 /** Top-level view switch: the read-only built-in list, or the conversational
  * designer. Authoring is deliberately gated behind an explicit "design a new
  * workflow" action so the default surface is safe inspection. */
-function WorkflowShell({ data }: { readonly data: CombinedData }) {
+function WorkflowShell({
+  client,
+  data,
+}: {
+  readonly client: OperatorApiClient;
+  readonly data: CombinedData;
+}) {
   const [mode, setMode] = useState<"list" | "new" | "python">("list");
   const gateRefs = useMemo(() => workflowGateRefs([
     ...data.workflows,
@@ -218,6 +224,7 @@ function WorkflowShell({ data }: { readonly data: CombinedData }) {
   if (mode === "new") {
     return (
       <WorkflowChat
+        client={client}
         palette={data.palette}
         gateRefs={gateRefs}
         onBack={() => setMode("list")}

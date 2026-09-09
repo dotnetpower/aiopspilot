@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 4b0c405ef144d6d7991f1f154bca65620c2b4791
+translation_source_sha: 8e1afcf3b20cb22b9a5296497c7898352e97672d
 translation_revised: 2026-09-09
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -466,9 +466,10 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
   보여준다;
 - **정본 YAML** 을 복사 가능한 코드 블록으로, "내가 생성한 워크플로가
   여기 있다" 로 제시한다;
-- `POST /workflows/validate` 의 **structural 검증 결과** ("구조적으로
-  유효하고, 모든 스텝이 해석 된다...") 를 보여줍니다. 이 검사는 작업 흐름 를
-  execute, simulate 또는 predict 하지 않습니다.
+- **분리된 검증 및 이력 결과**를 보여줍니다. `POST /workflows/validate`는 구조와 카탈로그
+  참조만 검사하고, 인증된 사용자 범위 Process 변환 결과는 일치하는 영속 비합성 과거 기록을
+  최대 20개까지 요약하여 정확한 대상과 관측된 워크플로 상태를 보고합니다. 어느 결과도 실제
+  기반 환경 변경을 예측하거나 권한을 부여하지 않습니다.
 - 확인 과 함께 `POST /workflows/definitions` 를 호출하는 명시적 **Save
   비공개 초안** 액션 은 비공개 `draft` 를 만듭니다. 저장된 정의 은 실행할
   수 없고 Operations 에 나타나지 않습니다.
