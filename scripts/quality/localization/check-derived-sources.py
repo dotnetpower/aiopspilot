@@ -33,12 +33,17 @@ Design mirror: this is the roadmap-source counterpart of
 ``translation_source_sha``). Here we pin a user-facing doc to its roadmap
 source(s) via ``derives_from[].sha``.
 
+The same pass validates every ``sources[].blob_sha`` in the packaged System
+Knowledge catalog. This makes cited roadmap and implementation-source changes
+fail before a stale catalog reaches a later regression shard.
+
 Exit codes: 0 on success, 1 on any drift or malformed declaration.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -46,6 +51,9 @@ from pathlib import Path
 import yaml
 
 FRONT_MATTER_DELIM = "---"
+SYSTEM_KNOWLEDGE_CATALOG = Path(
+    "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json"
+)
 
 
 def repo_root() -> Path:
@@ -70,6 +78,21 @@ def git_hash(root: Path, path: Path, *, cached: bool) -> str | None:
     return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
 
 
+def read_repo_text(root: Path, path: Path, *, cached: bool) -> str | None:
+    """Read one worktree or staged repository file."""
+    if cached:
+        rel = path.relative_to(root).as_posix()
+        result = subprocess.run(
+            ["git", "show", f":{rel}"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout if result.returncode == 0 else None
+    return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
 def read_front_matter(root: Path, path: Path, *, cached: bool) -> dict[str, object] | None:
     """Parse the YAML front-matter block of a Markdown file.
 
@@ -77,11 +100,9 @@ def read_front_matter(root: Path, path: Path, *, cached: bool) -> dict[str, obje
     Raises yaml.YAMLError on malformed YAML (surfaced by the caller as a
     reportable error rather than a crash).
     """
-    if cached:
-        rel = path.relative_to(root).as_posix()
-        text = subprocess.check_output(["git", "show", f":{rel}"], cwd=root, text=True)
-    else:
-        text = path.read_text(encoding="utf-8")
+    text = read_repo_text(root, path, cached=cached)
+    if text is None:
+        return None
     if not text.startswith(FRONT_MATTER_DELIM):
         return None
     lines = text.splitlines()
@@ -164,6 +185,70 @@ def check_doc(root: Path, doc: Path, *, cached: bool) -> list[str]:
     return errors
 
 
+def check_system_knowledge_catalog(
+    root: Path,
+    *,
+    cached: bool,
+) -> tuple[list[str], int]:
+    """Validate every source blob pinned by the packaged System Knowledge catalog."""
+    catalog_path = root / SYSTEM_KNOWLEDGE_CATALOG
+    text = read_repo_text(root, catalog_path, cached=cached)
+    if text is None:
+        return [], 0
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return [f"{SYSTEM_KNOWLEDGE_CATALOG}: malformed JSON ({exc})"], 0
+    records = payload.get("records") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        return [f"{SYSTEM_KNOWLEDGE_CATALOG}: 'records' must be a list"], 0
+
+    errors: list[str] = []
+    pinned: dict[str, str] = {}
+    for record_index, record in enumerate(records):
+        sources = record.get("sources") if isinstance(record, dict) else None
+        if not isinstance(sources, list):
+            errors.append(
+                f"{SYSTEM_KNOWLEDGE_CATALOG}: records[{record_index}].sources must be a list"
+            )
+            continue
+        for source_index, source in enumerate(sources):
+            where = f"{SYSTEM_KNOWLEDGE_CATALOG}: records[{record_index}].sources[{source_index}]"
+            if not isinstance(source, dict):
+                errors.append(f"{where} must be an object")
+                continue
+            source_value = source.get("path")
+            recorded_value = source.get("blob_sha")
+            if not isinstance(source_value, str) or not isinstance(recorded_value, str):
+                errors.append(f"{where} needs string 'path' and 'blob_sha' values")
+                continue
+            source_path = Path(source_value)
+            if source_path.is_absolute() or ".." in source_path.parts:
+                errors.append(f"{where} path must stay repository-relative")
+                continue
+            prior = pinned.setdefault(source_value, recorded_value)
+            if prior != recorded_value:
+                errors.append(
+                    f"{SYSTEM_KNOWLEDGE_CATALOG}: source '{source_value}' has conflicting blob SHAs"
+                )
+                continue
+
+    for source, recorded in sorted(pinned.items()):
+        current = git_hash(root, root / source, cached=cached)
+        if current is None:
+            errors.append(f"{SYSTEM_KNOWLEDGE_CATALOG}: source '{source}' does not exist")
+        elif current != recorded:
+            errors.append(
+                f"{SYSTEM_KNOWLEDGE_CATALOG}: stale System Knowledge catalog source "
+                f"'{source}' (recorded={recorded}, current={current}). Regenerate with "
+                "`uv run --package fdai-system-knowledge-service "
+                "fdai-system-knowledge-build-catalog --repo-root . --output "
+                "services/system-knowledge-service/src/"
+                "fdai_system_knowledge_service/data/catalog.json`."
+            )
+    return errors, len(pinned)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Check user-facing documentation pins to roadmap source blobs."
@@ -189,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             fm = None
         if fm and "derives_from" in fm:
             checked += 1
+    catalog_errors, catalog_sources = check_system_knowledge_catalog(root, cached=args.cached)
+    all_errors.extend(catalog_errors)
 
     for err in all_errors:
         print(f"check-derived-sources: {err}", file=sys.stderr)
@@ -200,7 +287,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(f"check-derived-sources: OK ({checked} doc(s) pinned to roadmap sources).")
+    print(
+        f"check-derived-sources: OK ({checked} doc(s) pinned to roadmap sources; "
+        f"{catalog_sources} System Knowledge source(s) pinned)."
+    )
     return 0
 
 
