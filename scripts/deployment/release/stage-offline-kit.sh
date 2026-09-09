@@ -19,7 +19,8 @@
 #   bash scripts/deployment/release/stage-offline-kit.sh \
 #     --out DIR --release-key PATH --bundle-key PATH \
 #     [--bundle-version X.Y.Z] [--platform-tag linux-x86_64] \
-#     [--platform linux_amd64] [--runtime-release DIR] [--with-runtime-wheels]
+#     [--platform linux_amd64] [--runtime-release DIR] \
+#     [--runtime-descriptor FILE --runtime-source-root DIR] [--with-runtime-wheels]
 #
 # Produces:
 #   DIR/kit/                 the signed offline kit
@@ -35,6 +36,8 @@ BUNDLE_VERSION="0.1.0"
 PLATFORM_TAG=""
 PLATFORM=""
 RUNTIME_RELEASE=""
+RUNTIME_DESCRIPTOR=""
+RUNTIME_SOURCE_ROOT=""
 WITH_RUNTIME_WHEELS=0
 
 while [[ $# -gt 0 ]]; do
@@ -46,10 +49,36 @@ while [[ $# -gt 0 ]]; do
     --platform-tag) PLATFORM_TAG="$2"; shift 2 ;;
     --platform) PLATFORM="$2"; shift 2 ;;
     --runtime-release) RUNTIME_RELEASE="$2"; shift 2 ;;
+    --runtime-descriptor) RUNTIME_DESCRIPTOR="$2"; shift 2 ;;
+    --runtime-source-root) RUNTIME_SOURCE_ROOT="$2"; shift 2 ;;
     --with-runtime-wheels) WITH_RUNTIME_WHEELS=1; shift ;;
     *) echo "stage-offline-kit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+if [[ -n "$RUNTIME_RELEASE" && -n "$RUNTIME_DESCRIPTOR" ]]; then
+  echo "stage-offline-kit: --runtime-release and --runtime-descriptor are mutually exclusive." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_DESCRIPTOR" && -z "$RUNTIME_SOURCE_ROOT" ]]; then
+  echo "stage-offline-kit: --runtime-descriptor requires --runtime-source-root." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_SOURCE_ROOT" && -z "$RUNTIME_DESCRIPTOR" ]]; then
+  echo "stage-offline-kit: --runtime-source-root requires --runtime-descriptor." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_DESCRIPTOR" ]] && {
+  [[ "$RUNTIME_DESCRIPTOR" != /* ]] || [[ ! -f "$RUNTIME_DESCRIPTOR" ]] || [[ -L "$RUNTIME_DESCRIPTOR" ]];
+}; then
+  echo "stage-offline-kit: --runtime-descriptor must be an absolute regular file." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_SOURCE_ROOT" ]] && {
+  [[ "$RUNTIME_SOURCE_ROOT" != /* ]] || [[ ! -d "$RUNTIME_SOURCE_ROOT" ]] || [[ -L "$RUNTIME_SOURCE_ROOT" ]];
+}; then
+  echo "stage-offline-kit: --runtime-source-root must be an absolute real directory." >&2
+  exit 2
+fi
 
 for required in OUT RELEASE_KEY BUNDLE_KEY; do
   if [[ -z "${!required}" ]]; then
@@ -58,12 +87,15 @@ for required in OUT RELEASE_KEY BUNDLE_KEY; do
   fi
 done
 for key in "$RELEASE_KEY" "$BUNDLE_KEY"; do
-  [[ -f "$key" ]] || { echo "stage-offline-kit: signing key not found: $key" >&2; exit 2; }
+  [[ -f "$key" && ! -L "$key" ]] || {
+    echo "stage-offline-kit: signing key must be a regular non-symlink file: $key" >&2
+    exit 2
+  }
 done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
-if [[ ( -n "$RUNTIME_RELEASE" || "$WITH_RUNTIME_WHEELS" -eq 1 ) && -n "$(git status --porcelain)" ]]; then
+if [[ ( -n "$RUNTIME_RELEASE" || -n "$RUNTIME_DESCRIPTOR" || "$WITH_RUNTIME_WHEELS" -eq 1 ) && -n "$(git status --porcelain)" ]]; then
   echo "stage-offline-kit: runtime releases require a clean exact-revision checkout." >&2
   exit 2
 fi
@@ -138,7 +170,7 @@ KIT="$OUT/kit"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
-  "$OUT/toolchain" "$OUT/runtime-python"
+  "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$KIT"
@@ -179,12 +211,22 @@ echo "$OPA_SHA256  $OUT/toolchain/opa" | sha256sum -c -
 chmod 755 "$TERRAFORM_BIN" "$OUT/toolchain/opa"
 
 echo "-- signed deployment bundle"
-SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" PYTHONPATH=src "$PYTHON" \
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
+  PYTHONPATH=services/core-control-plane/src "$PYTHON" \
   scripts/deployment/release/build-deployment-bundle.py \
   --destination "$OUT/bundle" --archive "$OUT/bundle.tar.gz" \
   --private-key "$BUNDLE_KEY" --public-key-output "$OUT/bundle-key.pub" \
   --bundle-version "$BUNDLE_VERSION" --release-channel development \
   --min-cli-version 0.1.0 >/dev/null
+
+if [[ -n "$RUNTIME_DESCRIPTOR" ]]; then
+  echo "-- runtime release bound to signed deployment bundle"
+  PYTHONPATH=packages/deployment-cli/src "$PYTHON" \
+    scripts/deployment/release/build-runtime-release.py \
+    --source-root "$RUNTIME_SOURCE_ROOT" --descriptor "$RUNTIME_DESCRIPTOR" \
+    --deployment-bundle "$OUT/bundle.tar.gz" --output "$OUT/runtime-build" >/dev/null
+  RUNTIME_RELEASE="$OUT/runtime-build"
+fi
 
 echo "-- terraform provider mirror"
 bash scripts/deployment/release/mirror-locked-providers.sh \

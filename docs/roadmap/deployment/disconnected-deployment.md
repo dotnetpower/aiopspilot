@@ -84,7 +84,7 @@ Use an independently trusted installation of `fdaictl` and verification keys del
 the approved trust process. Keys supplied with an untrusted kit cannot bootstrap trust in that kit.
 The production root ceremony and release eligibility remain separate prerequisites.
 
-On the connected release host, assemble prebuilt OCI archives and their supply-chain evidence into
+On the connected release host, describe prebuilt OCI archives and their supply-chain evidence for
 one runtime v2 directory before signing the outer kit. The private build descriptor uses relative
 paths below the source root and pins every archive, SBOM, provenance, and OCI manifest digest.
 
@@ -101,6 +101,9 @@ The builder performs no download, image build, signature, attestation, registry 
 operation. It accepts only prebuilt inputs, validates the six OCI archives, and publishes a closed
 tree with `production_release_eligibility=unverified`. Release policy must independently establish
 the source and evidence eligibility before staging and signing that tree.
+For a complete kit, pass `--runtime-descriptor` and `--runtime-source-root` to the staging script.
+It creates the exact signed deployment bundle first and gives those bytes to the runtime builder,
+avoiding a circular dependency on a bundle produced by a different signing attempt.
 
 ```bash
 fdaictl offline prepare \
@@ -355,7 +358,8 @@ Run the explicit complete mode when a runtime v2 directory is available:
 
 ```bash
 bash scripts/deployment/release/airgap-drill.sh \
-  --runtime-release /private/runtime-release \
+  --runtime-descriptor /private/runtime-release-build.json \
+  --runtime-source-root /private/release-inputs \
   --require-runtime
 ```
 

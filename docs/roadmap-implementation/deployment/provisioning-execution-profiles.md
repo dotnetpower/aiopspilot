@@ -22,6 +22,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
 | 2026-09-09 | implemented | Reconciled obsolete missing-package claims with the independent CLI, private profile, and restored offline verifier currently in source. | `current change`; package source plus focused profile, artifact, productization, and runtime release checks | Complete temporary-access cleanup, trust-root bootstrap, protected application execution, and governed lifecycle evidence. |
+| 2026-09-09 | implemented | Bound descriptor-driven runtime v2 assembly to the exact signed deployment bundle generated inside kit staging while preserving already-matching prebuilt runtime input. | `current change`; release staging, complete air-gap argument contracts, and focused productization checks | Retain an eligible descriptor-driven complete drill and the governed lifecycle receipt. |
 
 ### Remaining work
 
