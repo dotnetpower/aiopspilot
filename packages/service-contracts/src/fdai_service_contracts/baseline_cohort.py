@@ -72,11 +72,11 @@ class CohortMetricEstimate(ContractBase):
     """One absolute metric value with the interval of the retained cohort."""
 
     metric_id: MetricId
-    absolute_value: float = Field(ge=0.0)
+    absolute_value: float = Field(ge=0.0, allow_inf_nan=False)
     sample_size: SampleCount
     confidence_level_basis_points: Annotated[int, Field(strict=True, ge=5_000, le=9_999)] = 9_500
-    lower_bound: float = Field(ge=0.0)
-    upper_bound: float = Field(ge=0.0)
+    lower_bound: float = Field(ge=0.0, allow_inf_nan=False)
+    upper_bound: float = Field(ge=0.0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _validate_interval(self) -> CohortMetricEstimate:

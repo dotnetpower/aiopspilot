@@ -14,6 +14,7 @@ from fdai_service_contracts.baseline_cohort import (
     CohortClaimAssessment,
     CohortClaimRejectionReason,
     CohortClaimRequirement,
+    CohortMetricEstimate,
     baseline_treatment_cohort_receipt_digest,
     cohort_arm_fact_digest,
     cohort_arm_fact_digest_values,
@@ -246,6 +247,21 @@ def test_a_governed_admitted_cohort_is_claim_eligible() -> None:
     assert assessment.artifact_origin is CohortArtifactOrigin.GOVERNED_EXTERNAL
     assert assessment.execution_authority is False
     assert tuple(arm.arm for arm in assessment.arms) == (CohortArm.BASELINE, CohortArm.TREATMENT)
+
+
+@pytest.mark.parametrize("field", ["absolute_value", "lower_bound", "upper_bound"])
+def test_a_nonfinite_metric_value_is_rejected(field: str) -> None:
+    values = {
+        "metric_id": "auto_resolution_rate",
+        "absolute_value": 0.5,
+        "sample_size": 30,
+        "lower_bound": 0.3,
+        "upper_bound": 0.7,
+    }
+    values[field] = float("inf")
+
+    with pytest.raises(ValidationError):
+        CohortMetricEstimate.model_validate(values)
 
 
 def test_the_arm_fact_digest_covers_every_evaluated_fact() -> None:
