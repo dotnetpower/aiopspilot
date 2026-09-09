@@ -699,6 +699,7 @@ def _normalize_schema_identity_ambiguity(
         }
     )
 
+
 def _schema_repair_feedback(
     exc: TypeError | ValueError | ValidationError,
 ) -> tuple[dict[str, str], ...]:

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fd3d24842b169ef4f1df9cc54d6860fe5e13bb77
+translation_source_sha: 771dc716dcad8b8dfcaca90517c3080d6647faf7
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -617,7 +617,9 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
 함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다.
-`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
+`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다.
+`semantic_judgment.py`는 범위가 제한된 제안 검증과 스키마 복구 피드백을 소유하고 기능 정규화와
+근거 확인은 목적별 형제 모듈에 유지합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.
