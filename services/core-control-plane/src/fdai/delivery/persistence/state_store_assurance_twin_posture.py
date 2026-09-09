@@ -36,6 +36,7 @@ _REVISION_FIELD = "revision"
 """Optimistic-concurrency counter excluded from evidence identity."""
 
 _MAX_CONFLICT_CAS_ATTEMPTS = 8
+_MAX_RECENT_CHANGE_REVIEWS = 1000
 """Bound lost compare-and-set retries so a broken store cannot spin."""
 
 _MAX_POSTURE_CAS_ATTEMPTS = 8
@@ -384,9 +385,9 @@ class StateStoreAssuranceTwinPostureLedger:
     ) -> AssuranceTwinLedgerWrite:
         """Persist one bounded review and durably tombstone key conflicts.
 
-        Matching redelivery is confirmed through the same revision-fenced
-        compare-and-set used for conflicts, so it cannot return a stale
-        non-conflict result while another caller tombstones the row.
+        Matching redelivery is a read-only no-op. Conflicting redelivery uses
+        a revision-fenced compare-and-set so concurrent conflicts cannot
+        replace or discard the durable tombstone.
         """
 
         _check_enum("freshness", freshness, _ALLOWED_FRESHNESS)
@@ -452,13 +453,7 @@ class StateStoreAssuranceTwinPostureLedger:
                 stored_evidence_digest=stored_digest,
             )
         if stored_comparison_digest == digest:
-            return await self._confirm_matching_replay(
-                key=key,
-                digest=digest,
-                existing=existing,
-                correlation_id=correlation_id,
-                attempts_remaining=attempts_remaining,
-            )
+            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
         if attempts_remaining <= 0:
             raise RuntimeError(
                 "assurance twin review conflict compare-and-set exceeded its retry bound"
@@ -506,49 +501,6 @@ class StateStoreAssuranceTwinPostureLedger:
             attempts_remaining=attempts_remaining - 1,
         )
 
-    async def _confirm_matching_replay(
-        self,
-        *,
-        key: str,
-        digest: str,
-        existing: Mapping[str, Any],
-        correlation_id: str,
-        attempts_remaining: int,
-    ) -> AssuranceTwinLedgerWrite:
-        """Linearize matching replay against concurrent conflict tombstones."""
-
-        current_revision = _stored_revision(existing)
-        confirmed = await self._store.compare_and_set_state_with_audit(
-            key,
-            dict(existing),
-            expected_revision=current_revision,
-            audit_entry={
-                "action_kind": "assurance_twin.review_replay_confirmed",
-                "actor": "fdai.system",
-                "mode": "shadow",
-                "correlation_id": correlation_id,
-                "idempotency_key": f"assurance-twin-review-replay:{key}:{digest}",
-            },
-        )
-        if confirmed:
-            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
-        if attempts_remaining <= 0:
-            raise RuntimeError(
-                "assurance twin review replay compare-and-set exceeded its retry bound"
-            )
-        replay = await self._store.read_state(key)
-        if replay is None:
-            raise RuntimeError(
-                "assurance twin review row disappeared during a replay compare-and-set race"
-            )
-        return await self._resolve_conflict(
-            key=key,
-            digest=digest,
-            existing=replay,
-            correlation_id=correlation_id,
-            attempts_remaining=attempts_remaining - 1,
-        )
-
     async def read_latest_posture_report(self, scope: str) -> Mapping[str, Any] | None:
         """Return the latest durable posture report for ``scope``, if any."""
 
@@ -561,9 +513,22 @@ class StateStoreAssuranceTwinPostureLedger:
     ) -> tuple[Mapping[str, Any], ...]:
         """Return up to ``limit`` durable change reviews, newest first."""
 
-        if not 1 <= limit <= 1000:
-            raise ValueError("assurance twin review read limit MUST be in [1, 1000]")
-        return await self._store.read_states(CHANGE_REVIEW_STATE_PREFIX, limit=limit)
+        if not 1 <= limit <= _MAX_RECENT_CHANGE_REVIEWS:
+            raise ValueError(
+                f"assurance twin review read limit MUST be in [1, {_MAX_RECENT_CHANGE_REVIEWS}]"
+            )
+        rows, total = await self._store.read_state_page(
+            CHANGE_REVIEW_STATE_PREFIX,
+            limit=_MAX_RECENT_CHANGE_REVIEWS,
+        )
+        if total > _MAX_RECENT_CHANGE_REVIEWS:
+            raise RuntimeError("assurance twin review projection exceeds its bounded read capacity")
+        ordered = sorted(rows, key=lambda item: str(item.get("review_key", "")))
+        ordered.sort(
+            key=lambda item: _stored_canonical_timestamp(item) or "",
+            reverse=True,
+        )
+        return tuple(ordered[:limit])
 
 
 def _with_provenance(

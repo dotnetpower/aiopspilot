@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: c14cf9eb845a4e7e0547c5546b1294c9a2e60bc6
-translation_revised: 2026-09-08
+translation_source_sha: aa77a137e5ad68943e657d261b6296037ad06ab7
+translation_revised: 2026-09-09
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -60,10 +60,15 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
 | Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`(전달)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/review?review_key=` Operator API 경로, [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx), 그리고 집중 테스트 | 부분 구현입니다. 레코더는 자세 보고서와 변경 검토 양쪽 모두에 대해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처와 함께 영속 `state_kv` 본문을 쓰고, Operator API 변환 결과가 읽을 때 적용하는 것과 동일한 쓰기 측 경계(`review_key` <= 256자, 발견 사항 <= 200개, 범위가 제한되고 중복 없는 비어 있지 않은 <= 512자 `reason_codes`/`evidence_refs` 항목, 비어 있지 않은 <= 512자 `evidence_source_revision`)를 강제하므로 수락된 쓰기는 항상 표시할 수 있습니다. 자세 범위는 `generated_at`이 더 새로운 경우에만 개정 번호로 보호된 비교 후 설정을 통해 진행합니다. 늦게 도착한 보고서는 대체됨으로 남고, 같은 시각의 동일 보고서는 멱등 재현으로 처리하며, 같은 시각의 다른 근거는 해당 범위를 영속 충돌 상태로 표식합니다. 자세 활동 신원은 호출자 상관관계 값 대신 정규화된 보고서 근거의 SHA-256 다이제스트에 결속됩니다. 자세와 변경 검토 활동 값은 모두 게시하지 않습니다. 영속 비교 후 설정과 별도 비동기 게시는 트랜잭션 아웃박스 없이는 더 새로운 자세 진행 또는 검토 충돌 표식과 안전하게 순서를 맞출 수 없습니다. 레코더는 로컬 감사용으로 스키마가 유효한 값을 반환하고 영속 원장은 권위 있는 상태를 유지합니다. 하나의 `review_key`에 대해 상충하는 재전달은 영속 본문을 대체하지 않고 해당 행을 영속적으로 표식합니다. 검토 목록 읽기는 `state_kv` 키 접미사를 본문의 정확하고 불투명한 `review_key`와 대조합니다. Operator API와 콘솔은 저장된 근거를 그대로 표시하고 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치, 키 불일치, 충돌 표식이 있는 행은 명시적인 공백으로 보류합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하고 보류된 근거를 실제 빈 원장과 구분합니다. **신뢰된 생산자는 연결되어 있지 않습니다.** Twin 발견 사항을 계산하거나 이 행을 쓰는 구성 요소가 없고, 공격자가 영향을 줄 수 있는 선제적 수집 페이로드는 Twin 근거로 받아들이지 않으므로 레코더에는 런타임 호출 지점이 없습니다. 운영 `Inventory` 연결, 신뢰된 생산자, 수정 제안 연결, 트랜잭션 활동 게시 설계, 통제된 실제 증적은 모두 남은 작업입니다. |
 
+일치하는 검토 재전달은 읽기 전용 no-op이므로 감사 항목을 추가하지 않고 최신 순서를 바꾸지
+않습니다. 범위가 제한된 최근 검토 읽기는 정규 `generated_at` 순서로 정렬하며 변환 결과가
+1,000행의 읽기 용량을 넘으면 명시적으로 실패합니다.
+
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | in-progress | 일치하는 변경 검토 재전달을 실제 읽기 전용 no-op으로 만들고, 범위가 제한된 최근 검토 변환 결과를 쓰기 최신성이 아니라 정규 근거 생성 시각 순서로 정렬했습니다. 읽기 용량인 1,000행을 넘으면 오해를 일으키는 부분 순서를 반환하지 않고 명시적으로 실패합니다. | `current change`; 집중 영속성 및 전달 검사 44개와 Ruff 통과. | 신뢰된 생산자를 연결하고 통제된 재현 근거를 보존합니다. 레코더는 계속 연결되지 않은 상태입니다. |
 | 2026-09-08 | in-progress | 영속성, 활동 신원, 스키마 소유권, Operator 변환 결과 신원, 콘솔 상태 표현에서 마지막 Medium 이상 검토 결과를 해결했습니다. 자세 쓰기는 가장 최근에 생성된 근거로 수렴하고, 활동 키는 개인정보를 노출하지 않는 보고서 근거에 결속됩니다. 스키마는 `assurance-twin` 생산자가 다른 활동 종류를 가장하는 것을 차단합니다. 검토 목록은 영속 키를 정확한 본문 신원에 결속하고, 모든 자세 범위를 표시하며, 보류된 행을 빈 원장으로 표현하지 않습니다. | `current change`; 집중 Core, 계약, Operator, 콘솔 회귀 검사는 지연되거나 동시 발생한 자세 쓰기, 오래된 게시 억제, 범위 간 활동 신원, 생산자 가장, 영속 키 불일치, 다중 범위 요약, 보류 상태 레이블을 검증합니다. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존합니다. 이 강화만으로 연결되지 않은 화면이 운영 검증 완료 상태가 되지는 않습니다. |
 | 2026-09-06 | in-progress | Assurance Twin 소유권을 Python 및 콘솔 검증기뿐 아니라 공개 `agent-operational-activity` `1.2.0` JSON 스키마에도 결속했습니다. 이제 자세 활동은 Heimdall 소유권, `assurance-twin` 생산자, 관측 도메인 없음 조건을 모두 충족해야 하므로 스키마만 사용하는 소비자도 위조된 소유권을 수락할 수 없습니다. | `current change`; 위조된 소유자, 생산자 및 도메인 거부 사례를 포함해 집중 운영 활동 계약 테스트 15개 통과. | 이후 모든 스키마 버전과 생성된 소비자에서 같은 관계를 보존합니다. |
 | 2026-09-06 | in-progress | 원장의 쓰기 경계를 Operator 변환 결과의 열거형과 일치시켰습니다. 이제 알 수 없는 최신성, 검토 판정 또는 발견 사항 심각도 값은 모든 읽기 구성 요소가 형식 오류로 보류해야 하는 성공 행을 만들지 않고 영속화 전에 실패합니다. | `current change`; 세 열거형 모두 쓰기가 발생하지 않음을 확인하는 회귀 사례를 포함해 집중 영속성 테스트 33개 통과. | 변환 결과 계약이 변경될 때 쓰기와 읽기 열거형 집합을 함께 동기화합니다. |

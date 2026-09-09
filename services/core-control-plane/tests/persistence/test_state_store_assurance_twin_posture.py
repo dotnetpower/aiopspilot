@@ -284,6 +284,7 @@ async def test_change_review_write_is_idempotent_by_review_key() -> None:
     assert duplicate.created is False
     assert duplicate.conflict is False
     assert duplicate.evidence_digest == first.evidence_digest
+    assert store.audit_entries == ()
 
     reviews = await ledger.read_recent_change_reviews(limit=10)
     assert len(reviews) == 1
@@ -489,11 +490,27 @@ async def test_read_recent_change_reviews_returns_newest_first() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)
 
-    await ledger.record_change_review(_review("k-1", _finding()), freshness="fresh", **_PROVENANCE)
-    await ledger.record_change_review(_review("k-2", _finding()), freshness="fresh", **_PROVENANCE)
+    await ledger.record_change_review(
+        _review("k-new", _finding(), generated_at="2026-07-07T02:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    await ledger.record_change_review(
+        _review("k-old", _finding(), generated_at="2026-07-07T01:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+    replay = await ledger.record_change_review(
+        _review("k-old", _finding(), generated_at="2026-07-07T01:00:00Z"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
 
     reviews = await ledger.read_recent_change_reviews(limit=10)
-    assert [row["review_key"] for row in reviews] == ["k-2", "k-1"]
+    assert replay.created is False
+    assert replay.conflict is False
+    assert [row["review_key"] for row in reviews] == ["k-new", "k-old"]
+    assert store.audit_entries == ()
 
 
 async def test_read_latest_posture_report_is_none_when_unrecorded() -> None:
@@ -965,30 +982,9 @@ async def test_concurrent_duplicate_conflict_after_tombstone_never_publishes_ava
     assert len(conflict_audits) == 1
 
 
-async def test_concurrent_matching_replay_never_publishes_completed_after_a_tombstone() -> None:
-    """A matching-body redelivery racing a concurrent conflicting write.
-
-    Regression test for the defect this hardens: the matching-body branch
-    used to return ``conflict=False`` straight from a bare ``read_state``,
-    so a redelivery whose read happened to land a moment before a
-    concurrent *different*-body redelivery's tombstone write could still
-    report a completed/available result to its own caller - even though
-    the identity was already durably conflicted by the time that result
-    was used to publish an activity tip.
-
-    The stall forces exactly that ordering: the matching-body racer's read
-    is allowed to complete first (capturing the pre-conflict row), then
-    the conflicting racer's tombstone compare-and-set is allowed to land,
-    and only then does the matching-body racer's own confirming compare-
-    and-set run - against a revision a concurrent write has since
-    advanced. With the fix, that confirmation fails and the matching-body
-    racer re-reads and reports the conflict its sibling already wrote,
-    instead of the stale match it originally observed.
-    """
-
+async def test_matching_replay_is_read_only_before_a_later_conflict() -> None:
     inner = InMemoryStateStore()
-    store = _StalledCasStateStore(inner)
-    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    ledger = StateStoreAssuranceTwinPostureLedger(store=inner)
 
     baseline = await ledger.record_change_review(
         _review("k-1", _finding()),
@@ -997,45 +993,31 @@ async def test_concurrent_matching_replay_never_publishes_completed_after_a_tomb
     )
     assert baseline.created is True
 
-    matching_result, conflicting_result = await asyncio.gather(
-        ledger.record_change_review(
-            _review("k-1", _finding()),
-            freshness="fresh",
-            **_PROVENANCE,
-        ),
-        ledger.record_change_review(
-            _review("k-1", _finding(rule="r-conflict"), verdict="blocked"),
-            freshness="fresh",
-            **_PROVENANCE,
-        ),
+    matching_result = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
     )
-
-    # Neither racer is ever allowed to publish a completed/available result
-    # once the identity is contested - not even the one that read a
-    # matching body before the tombstone landed.
-    assert matching_result.conflict is True
+    assert matching_result.conflict is False
     assert matching_result.created is False
     assert matching_result.evidence_digest == baseline.evidence_digest
-    assert matching_result.stored_evidence_digest == baseline.evidence_digest
+    assert inner.audit_entries == ()
 
+    conflicting_result = await ledger.record_change_review(
+        _review("k-1", _finding(rule="r-conflict"), verdict="blocked"),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
     assert conflicting_result.conflict is True
     assert conflicting_result.created is False
     assert conflicting_result.stored_evidence_digest == baseline.evidence_digest
 
-    # Exactly one durable tombstone write lands; the matching-body racer's
-    # own confirming compare-and-set never wins after it.
     conflict_audits = [
         entry
         for entry in inner.audit_entries
         if entry["entry"].get("action_kind") == "assurance_twin.review_conflict_marked"
     ]
     assert len(conflict_audits) == 1
-    replay_confirmations = [
-        entry
-        for entry in inner.audit_entries
-        if entry["entry"].get("action_kind") == "assurance_twin.review_replay_confirmed"
-    ]
-    assert replay_confirmations == []
 
     rows = await ledger.read_recent_change_reviews(limit=10)
     assert len(rows) == 1
