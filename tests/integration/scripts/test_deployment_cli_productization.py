@@ -45,6 +45,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "openssl pkey -in" not in stage
     assert "--out must be a safe absolute path" in stage
     assert "existing --out is not owned by offline staging" in stage
+    assert "signing key must be a regular non-symlink file" in stage
     assert 'rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"' in stage
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
     assert 'TERRAFORM_VERSION="1.9.8"' in stage
@@ -55,6 +56,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "1a583e593cdf4931c0b0bbedd3c9f585012953449115bcc3e15b3806d0f5ee68" in stage
     assert 'cp "$(command -v terraform)"' not in stage
     assert 'cp "$(command -v opa)"' not in stage
+    assert "PYTHONPATH=services/core-control-plane/src" in stage
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill
@@ -138,12 +140,21 @@ def test_runtime_release_is_staged_before_sbom_and_signing() -> None:
         encoding="utf-8"
     )
     assert '--runtime-release) RUNTIME_RELEASE="$2"' in stage
+    assert '--runtime-descriptor) RUNTIME_DESCRIPTOR="$2"' in stage
+    assert '--runtime-source-root) RUNTIME_SOURCE_ROOT="$2"' in stage
+    assert "--runtime-release and --runtime-descriptor are mutually exclusive" in stage
+    assert "--runtime-descriptor requires --runtime-source-root" in stage
     assert "runtime releases require a clean exact-revision checkout" in stage
     runtime = stage.index('echo "-- prebuilt runtime release"')
     assert runtime < stage.index('echo "-- kit SBOM"') < stage.index('echo "-- sign kit"')
     assert "scripts/deployment/release/stage-runtime-release.py" in stage
     assert '--deployment-bundle "$KIT/$BUNDLE_IN_KIT"' in stage
     assert '--source-commit "$(git rev-parse HEAD)"' in stage
+    bundle = stage.index('echo "-- signed deployment bundle"')
+    build = stage.index('echo "-- runtime release bound to signed deployment bundle"')
+    assert bundle < build < runtime
+    assert '--deployment-bundle "$OUT/bundle.tar.gz"' in stage[build:runtime]
+    assert 'RUNTIME_RELEASE="$OUT/runtime-build"' in stage[build:runtime]
     assert "from fdai_deployment_cli.runtime_build import build_runtime_release" in builder
     assert "--source-root" in builder
     assert "--descriptor" in builder
@@ -154,8 +165,12 @@ def test_airgap_drill_has_explicit_complete_runtime_mode() -> None:
     drill = (ROOT / "scripts/deployment/release/airgap-drill.sh").read_text(encoding="utf-8")
 
     assert '--runtime-release) RUNTIME_RELEASE="$2"' in drill
+    assert '--runtime-descriptor) RUNTIME_DESCRIPTOR="$2"' in drill
+    assert '--runtime-source-root) RUNTIME_SOURCE_ROOT="$2"' in drill
     assert "--require-runtime) REQUIRE_RUNTIME=1" in drill
     assert 'stage_arguments+=(--runtime-release "$RUNTIME_RELEASE" --with-runtime-wheels)' in drill
+    assert '--runtime-descriptor "$RUNTIME_DESCRIPTOR"' in drill
+    assert '--runtime-source-root "$RUNTIME_SOURCE_ROOT"' in drill
     assert "--require-runtime needs a complete staged runtime release" in drill
     assert '"$CLI" offline prepare' in drill
     assert '"$CLI" offline install-support' in drill

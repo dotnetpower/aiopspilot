@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 7c97a88fd02dee7432d4b28289fdbe78ac65c2c8
+translation_source_sha: fcf456dcf297e92fb4ef65c6954ec510a8802d9e
 translation_revised: 2026-09-06
 ---
 # 프로비저닝 실행 프로파일
@@ -174,6 +174,10 @@ Disconnected 전달은 platform별 offline 키트에서 같은 `fdai` 휠과 명
 - Pinned Terraform binary와 프로바이더 mirror.
 - OPA와 필요한 보조 로직 binary.
 - SBOM, SHA-256 매니페스트, 서명, release trust 메타데이터.
+
+전체 구성은 서명 배포 번들을 먼저 만든 뒤, 비공개 다이제스트 고정 서술자로 해당 번들의 정확한
+바이트에 결속된 런타임 v2를 조립하고 외부 키트를 서명합니다. 독립적으로 사전 빌드한 런타임은
+이미 같은 번들에 결속된 경우에만 계속 지원합니다.
 
 Offline 모드는 PyPI, GitHub, 공개 Terraform 레지스트리 대체 경로를 차단합니다. 산출물 출처로
 승인된 내부 mirror 또는 removable media를 사용할 수 있습니다. Installer와 `fdaictl`은 두
