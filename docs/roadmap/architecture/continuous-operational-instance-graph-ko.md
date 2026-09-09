@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4052ba4caf71cc3642c48297f89ec54723e35106
+translation_source_sha: d22255add34a06b940c46a6dad15a6f0af4fba7f
 translation_revised: 2026-09-09
 ---
 # 지속형 운영 인스턴스 그래프
@@ -371,7 +371,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가합니다. 제거는 별도의 파괴적 작업으로 유지합니다. 보호된 배포 및 certification 증적은 별도 운영 근거로 남습니다. |
+| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 인증은 정확한 source attestation 검증을 위해 GitHub API와 registry 자격 증명을 분리해 연결합니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가하며 제거는 별도의 파괴적 작업으로 유지합니다. |
 ## 운영 상태 전이 원장
 
 FDAI는 의미가 부여된 상태 변경을 Core 소유의 추가 전용 PostgreSQL 원장에 저장합니다.
