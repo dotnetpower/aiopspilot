@@ -2,7 +2,7 @@
   "id": "fdai-agent-waves-01",
   "kind": "timeline",
   "version": 1,
-  "updated": "2026-08-20",
+  "updated": "2026-09-09",
   "locales": {
     "en": {
       "title": "Pantheon Wave Plan (order, not calendar)",
@@ -10,9 +10,9 @@
       "alt": "Timeline shape, not commitments. The main stages are W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle."
     },
     "ko": {
-      "title": "Pantheon Wave Plan (order, not calendar)",
+      "title": "판테온 웨이브 계획 (달력이 아닌 순서)",
       "description": "타임라인 형태, commitment 아님에 대한 순서가 있는 FDAI delivery wave입니다.",
-      "alt": "타임라인 형태, commitment 아님. 주요 단계는 W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle입니다."
+      "alt": "타임라인 형태, commitment 아님. 주요 단계는 W0: 문서 기반, 워크플로 + 판테온 상세 + 온톨로지 YAML, W1: Python 스캐폴딩, agents 패키지 + 레지스트리 + 테스트, W2: 거버넌스, Saga + Mimir + Muninn + Norns, W3: 파이프라인, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: 인터페이스, Bragi + Odin, W5: 전문 에이전트, Njord + Freyr + Loki, W6: 인계 + 보안, 이슈 중복 제거 + 관리자 알림, W7: 작업 흐름, shadow 상태의 작업 흐름 13개, W8: KPI + 승격, 근거 상태 + 드릴 15개 + 통제된 수명 주기입니다."
     }
   },
   "assets": {
@@ -33,7 +33,7 @@
       },
       "description": {
         "en": "Docs foundation / workflows + pantheon detail + ontology YAML",
-        "ko": "Docs foundation / workflows + pantheon detail + ontology YAML"
+        "ko": "문서 기반 / 워크플로 + 판테온 상세 + 온톨로지 YAML"
       }
     },
     {
@@ -45,7 +45,7 @@
       },
       "description": {
         "en": "Python scaffolding / agents package + registry + tests",
-        "ko": "Python scaffolding / agents package + registry + tests"
+        "ko": "Python 스캐폴딩 / agents 패키지 + 레지스트리 + 테스트"
       }
     },
     {
@@ -57,7 +57,7 @@
       },
       "description": {
         "en": "Governance / Saga + Mimir + Muninn + Norns",
-        "ko": "Governance / Saga + Mimir + Muninn + Norns"
+        "ko": "거버넌스 / Saga + Mimir + Muninn + Norns"
       }
     },
     {
@@ -69,7 +69,7 @@
       },
       "description": {
         "en": "Pipeline / Huginn + Heimdall + Forseti + Var + Vidar + Thor",
-        "ko": "Pipeline / Huginn + Heimdall + Forseti + Var + Vidar + Thor"
+        "ko": "파이프라인 / Huginn + Heimdall + Forseti + Var + Vidar + Thor"
       }
     },
     {
@@ -81,7 +81,7 @@
       },
       "description": {
         "en": "Interface / Bragi + Odin",
-        "ko": "Interface / Bragi + Odin"
+        "ko": "인터페이스 / Bragi + Odin"
       }
     },
     {
@@ -93,7 +93,7 @@
       },
       "description": {
         "en": "Specialists / Njord + Freyr + Loki",
-        "ko": "Specialists / Njord + Freyr + Loki"
+        "ko": "전문 에이전트 / Njord + Freyr + Loki"
       }
     },
     {
@@ -105,7 +105,7 @@
       },
       "description": {
         "en": "Handoff + Security / Issue dedup + admin alerts",
-        "ko": "Handoff + Security / Issue dedup + admin alerts"
+        "ko": "인계 + 보안 / 이슈 중복 제거 + 관리자 알림"
       }
     },
     {
@@ -117,7 +117,7 @@
       },
       "description": {
         "en": "Workflows / 13 workflows in shadow",
-        "ko": "Workflows / 13 workflows in shadow"
+        "ko": "작업 흐름 / shadow 상태의 작업 흐름 13개"
       }
     },
     {
@@ -129,7 +129,7 @@
       },
       "description": {
         "en": "KPI + Promotion / evidence states + 15 drills + gated lifecycle",
-        "ko": "KPI + Promotion / evidence states + 15 drills + gated lifecycle"
+        "ko": "KPI + 승격 / 근거 상태 + 드릴 15개 + 통제된 수명 주기"
       }
     }
   ],
