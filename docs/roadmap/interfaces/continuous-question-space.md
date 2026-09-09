@@ -108,9 +108,9 @@ prompt change is a combined treatment, not model-only evidence. Models propose m
 deterministic presentation planning selects renderer-neutral blocks from verified evidence shape,
 and browser scenarios assess the rendered result.
 
-The local SRE assurance catalog also defines manifest-backed ActionType and FunctionType counts,
-Resource and Incident declaration detail, and Resource relationship questions. These challenges
-become selectable only when the ephemeral runtime proves `query.manifest`,
+The local SRE assurance catalog also defines five manifest-backed declaration-kind counts, eight
+ObjectType declaration-detail questions, and six ObjectType relationship questions. These
+challenges become selectable only when the ephemeral runtime proves `query.manifest`,
 `query.ontology_declaration`, or `query.ontology_relationships` evidence-ready with
 `server_ontology_manifest` authority. They complement Service Health without marking unavailable
 Resource state or Resource Health evidence as ready.
@@ -167,6 +167,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Expanded the exhausted SRE schema question space with three additional declaration-kind counts, six declared ObjectTypes, and five relationship subjects, all gated by the same evidence-ready functions and server authority. Count contracts now name the supplied `query.manifest` intent. | `current change`; immutable question-contract, runtime challenge, Ruff, and safety tests. | Run new child campaigns without deleting or reusing prior ledger questions. |
 | 2026-09-10 | implemented | Rejected the retained downstream count-intent candidate and instead normalized model count aliases to the supplied manifest capability at semantic judgment. | `current change`; focused capability-boundary and planning tests. | Confirm new ActionType and FunctionType questions pass without accepting invented capabilities. |
 | 2026-09-10 | implemented | Recovered one supplied declaration or relationship subject from typed facets, normalized canonical metatype count labels, added the schema-versus-instance answer boundary, and fixed JSON-safe URL redaction in the independent reviewer input. | `current change`; focused Core rendering, schema-frame, and watchdog redaction regressions. | Run a new unique-question series; do not reuse the failed questions. |
 | 2026-09-10 | implemented | Closed two model-variance gaps with typed count-facet and collection-scope normalization, and admitted canonical aggregate presentation so the count oracle can inspect structured output. | `current change`; focused Core, Operator presentation, and answer-gate regressions. | Run a new active-profile CQAS series after commit. |

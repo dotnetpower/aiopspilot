@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
 from scripts.automation.conversation_assurance_question_admission import (
     admit_generated_question,
     admit_paraphrase_cohort,
@@ -130,10 +133,24 @@ def test_every_assurance_challenge_has_an_immutable_typed_contract() -> None:
         "insufficient-evidence",
         "llm-usage-trend-chart",
         "ontology-action-count",
+        "ontology-agent-declaration",
+        "ontology-agent-relationships",
+        "ontology-business-service-declaration",
+        "ontology-business-service-relationships",
+        "ontology-change-declaration",
+        "ontology-change-relationships",
+        "ontology-finding-declaration",
         "ontology-function-count",
         "ontology-incident-declaration",
+        "ontology-incident-relationships",
+        "ontology-interface-count",
+        "ontology-link-count",
+        "ontology-object-count",
+        "ontology-recovery-plan-declaration",
         "ontology-resource-declaration",
         "ontology-resource-relationships",
+        "ontology-workload-declaration",
+        "ontology-workload-relationships",
         "pantheon-count",
         "resource-health-timeline",
         "resource-state",
@@ -160,9 +177,23 @@ def test_sre_ontology_contracts_use_current_manifest_authority() -> None:
     expected_functions = {
         "ontology-action-count": ("query.manifest",),
         "ontology-function-count": ("query.manifest",),
+        "ontology-interface-count": ("query.manifest",),
+        "ontology-link-count": ("query.manifest",),
+        "ontology-object-count": ("query.manifest",),
+        "ontology-agent-declaration": ("query.ontology_declaration",),
+        "ontology-business-service-declaration": ("query.ontology_declaration",),
+        "ontology-change-declaration": ("query.ontology_declaration",),
+        "ontology-finding-declaration": ("query.ontology_declaration",),
         "ontology-incident-declaration": ("query.ontology_declaration",),
+        "ontology-recovery-plan-declaration": ("query.ontology_declaration",),
         "ontology-resource-declaration": ("query.ontology_declaration",),
+        "ontology-workload-declaration": ("query.ontology_declaration",),
+        "ontology-agent-relationships": ("query.ontology_relationships",),
+        "ontology-business-service-relationships": ("query.ontology_relationships",),
+        "ontology-change-relationships": ("query.ontology_relationships",),
+        "ontology-incident-relationships": ("query.ontology_relationships",),
         "ontology-resource-relationships": ("query.ontology_relationships",),
+        "ontology-workload-relationships": ("query.ontology_relationships",),
     }
 
     for challenge_id, functions in expected_functions.items():
@@ -171,6 +202,26 @@ def test_sre_ontology_contracts_use_current_manifest_authority() -> None:
         assert contract.required_capability == functions
         assert contract.scope_kind == "active_ontology_release"
         assert contract.time_window == "current"
+        if functions == ("query.manifest",):
+            assert contract.intent == "query.manifest"
+
+
+def test_schema_challenge_subjects_are_declared_object_types() -> None:
+    root = Path(__file__).resolve().parents[3]
+    declared = {
+        str(payload["name"])
+        for path in (root / "rule-catalog/vocabulary/object-types").glob("*.yaml")
+        if isinstance((payload := yaml.safe_load(path.read_text(encoding="utf-8"))), dict)
+        and isinstance(payload.get("name"), str)
+    }
+    challenged = {
+        facet.removeprefix("declaration:")
+        for contract in CHALLENGE_QUESTION_CONTRACTS.values()
+        for facet in contract.required_facets
+        if facet.startswith("declaration:")
+    }
+
+    assert challenged <= declared
 
 
 def test_regression_challenge_contracts_preserve_scope_and_cardinality() -> None:
