@@ -170,8 +170,8 @@ The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` 
 plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an
 actual managed disk resource. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
 check confirms the disk against the subscription inventory before reporting drift. A mismatch fails
-the workflow with the blue/green recovery action; the check never changes the VM or fights a tenant
-policy in place.
+the workflow with the blue/green recovery action. The bootstrap refresh plan reads structured drift
+and output actions rather than trusting the provider exit code alone; neither check changes the VM.
 
 Independent service plans use a concurrency group per service and environment. Mutating apply and
 state-migration runs use one environment-wide concurrency group so two service writers cannot make
