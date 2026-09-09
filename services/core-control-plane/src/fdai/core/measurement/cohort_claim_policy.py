@@ -1,12 +1,12 @@
-"""Trusted repository policy for the governed SRE cohort claim.
+"""Trusted repository policy for the governed SRE operational cohort claim.
 
 The policy is a versioned repository artifact loaded independently of any
 cohort evidence. It pins the required success metrics, every zero-threshold
-guard, the actual content digest of the frozen scenario set, and the minimum
-retained sample size. The only value a caller supplies is the expected pinned
-revision, because that is the one fact the repository cannot know in advance,
-and it MUST be an immutable full commit digest rather than a movable branch or
-tag name.
+guard, a prospective operational measurement protocol, the benchmark revision
+used for separate regression checks, and the minimum retained sample size. The
+only value a caller supplies is the expected pinned revision, because that is
+the one fact the repository cannot know in advance, and it MUST be an immutable
+full commit digest rather than a movable branch or tag name.
 
 Evidence never contributes to this policy, so a cohort artifact cannot weaken
 the expectation it is measured against.
@@ -68,8 +68,13 @@ class CohortClaimPolicy:
 
     policy_id: str
     policy_version: str
-    scenario_set_version: str
-    scenario_set_digest: str
+    benchmark_scenario_set_version: str
+    benchmark_scenario_set_digest: str
+    measurement_basis_kind: str
+    measurement_protocol_version: str
+    measurement_protocol_digest: str
+    maximum_window_seconds: int
+    interval_methods: tuple[tuple[str, str], ...]
     minimum_sample_size: int
     required_metric_ids: tuple[str, ...]
     required_guard_ids: tuple[str, ...]
@@ -85,12 +90,12 @@ class CohortClaimPolicy:
     minimum_completeness_basis_points: int
 
     def verify_scenario_set(self, root: Path) -> None:
-        """Fail closed unless the pinned digest is the frozen set's real content."""
+        """Verify the separate synthetic benchmark used for regression checks."""
 
         actual = frozen_scenario_set_digest(root)
-        if actual != self.scenario_set_digest:
+        if actual != self.benchmark_scenario_set_digest:
             raise CohortClaimPolicyError(
-                "cohort claim policy does not pin the actual frozen scenario-set digest"
+                "cohort claim policy does not pin the actual benchmark scenario-set digest"
             )
 
     def requirement(self, *, expected_revision: str) -> CohortClaimRequirement:
@@ -100,7 +105,7 @@ class CohortClaimPolicy:
         evidence = {
             "allowed_authority_classes": self.allowed_authority_classes,
             "allowed_source_identities": self.allowed_source_identities,
-            "scope_digest": self.scenario_set_digest,
+            "scope_digest": self.measurement_protocol_digest,
             "purpose_id": self.purpose_id,
             "producer_id": self.producer_id,
             "producer_version": self.producer_version,
@@ -116,8 +121,9 @@ class CohortClaimPolicy:
                 {
                     "policy_id": self.policy_id,
                     "policy_version": self.policy_version,
-                    "scenario_set_version": self.scenario_set_version,
-                    "scenario_set_digest": self.scenario_set_digest,
+                    "measurement_basis_kind": self.measurement_basis_kind,
+                    "measurement_protocol_version": self.measurement_protocol_version,
+                    "measurement_protocol_digest": self.measurement_protocol_digest,
                     "fdai_revision": expected_revision,
                     "minimum_sample_size": self.minimum_sample_size,
                     "required_metric_ids": self.required_metric_ids,
@@ -188,6 +194,8 @@ def load_cohort_claim_policy(path: Path) -> CohortClaimPolicy:
     guard_ids = _identifiers(body.get("required_guard_ids"), "required_guard_ids")
     _require_floor(metric_ids, REQUIRED_SUCCESS_METRIC_IDS, "success metric")
     _require_floor(guard_ids, ZERO_THRESHOLD_GUARD_IDS, "zero-threshold guard")
+    basis = _mapping(body.get("measurement_basis"), "measurement_basis")
+    _validate_measurement_basis(basis, minimum=minimum, metric_ids=metric_ids)
     evidence = _mapping(body.get("evidence"), "evidence")
     freshness = _mapping(body.get("freshness_policy"), "freshness_policy")
     ceiling = freshness.get("ceiling_seconds")
@@ -201,8 +209,36 @@ def load_cohort_claim_policy(path: Path) -> CohortClaimPolicy:
     return CohortClaimPolicy(
         policy_id=_text(body.get("policy_id"), "policy_id"),
         policy_version=_text(body.get("policy_version"), "policy_version"),
-        scenario_set_version=_text(body.get("scenario_set_version"), "scenario_set_version"),
-        scenario_set_digest=_digest(body.get("scenario_set_digest"), "scenario_set_digest"),
+        benchmark_scenario_set_version=_text(
+            body.get("benchmark_scenario_set_version"),
+            "benchmark_scenario_set_version",
+        ),
+        benchmark_scenario_set_digest=_digest(
+            body.get("benchmark_scenario_set_digest"),
+            "benchmark_scenario_set_digest",
+        ),
+        measurement_basis_kind=_text(basis.get("kind"), "measurement basis kind"),
+        measurement_protocol_version=_text(
+            basis.get("protocol_version"),
+            "measurement protocol_version",
+        ),
+        measurement_protocol_digest=content_digest(dict(basis)),
+        maximum_window_seconds=_integer(
+            basis.get("maximum_window_seconds"),
+            "measurement maximum_window_seconds",
+        ),
+        interval_methods=tuple(
+            sorted(
+                (
+                    _text(metric_id, "measurement interval metric"),
+                    _text(method, "measurement interval method"),
+                )
+                for metric_id, method in _mapping(
+                    basis.get("interval_methods"),
+                    "measurement interval_methods",
+                ).items()
+            )
+        ),
         minimum_sample_size=minimum,
         required_metric_ids=metric_ids,
         required_guard_ids=guard_ids,
@@ -252,6 +288,12 @@ def _digest(raw: Any, name: str) -> str:
     return value
 
 
+def _integer(raw: Any, name: str) -> int:
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise CohortClaimPolicyError(f"cohort claim policy {name} MUST be an integer")
+    return int(raw)
+
+
 def _identifiers(raw: Any, name: str) -> tuple[str, ...]:
     if not isinstance(raw, list) or not raw:
         raise CohortClaimPolicyError(f"cohort claim policy {name} MUST be a non-empty array")
@@ -267,6 +309,60 @@ def _require_floor(values: tuple[str, ...], floor: tuple[str, ...], label: str) 
         raise CohortClaimPolicyError(
             f"cohort claim policy MUST require every {label}: missing {', '.join(missing)}"
         )
+
+
+def _validate_measurement_basis(
+    basis: Mapping[str, Any],
+    *,
+    minimum: int,
+    metric_ids: tuple[str, ...],
+) -> None:
+    if basis.get("kind") != "prospective_operational":
+        raise CohortClaimPolicyError(
+            "cohort claim measurement basis MUST be prospective_operational"
+        )
+    if basis.get("arm_design") != "historical_baseline_prospective_treatment":
+        raise CohortClaimPolicyError(
+            "cohort claim arm design MUST avoid dual execution of one live event"
+        )
+    if basis.get("baseline_source") != "observed_non_fdai_operating_process":
+        raise CohortClaimPolicyError(
+            "cohort claim baseline MUST use the observed non-FDAI operating process"
+        )
+    if basis.get("treatment_source") != "deployed_fdai":
+        raise CohortClaimPolicyError("cohort claim treatment MUST use deployed FDAI")
+    if basis.get("dual_execution_allowed") is not False:
+        raise CohortClaimPolicyError("cohort claim protocol MUST prohibit dual execution")
+    if basis.get("independence_key") != "source_cluster_digest":
+        raise CohortClaimPolicyError(
+            "cohort claim protocol MUST deduplicate by source_cluster_digest"
+        )
+    if (
+        _integer(
+            basis.get("minimum_samples_per_measure"),
+            "measurement minimum_samples_per_measure",
+        )
+        != minimum
+    ):
+        raise CohortClaimPolicyError(
+            "cohort claim protocol sample floor MUST match the claim policy"
+        )
+    maximum_window = _integer(
+        basis.get("maximum_window_seconds"),
+        "measurement maximum_window_seconds",
+    )
+    if not 86_400 <= maximum_window <= 7_776_000:
+        raise CohortClaimPolicyError("cohort claim protocol window MUST be between one and 90 days")
+    methods = _mapping(basis.get("interval_methods"), "measurement interval_methods")
+    if set(methods) != set(metric_ids):
+        raise CohortClaimPolicyError(
+            "cohort claim protocol MUST select an interval method for every required metric"
+        )
+    allowed = {"deterministic_bootstrap_95", "wilson_95"}
+    if any(method not in allowed for method in methods.values()):
+        raise CohortClaimPolicyError("cohort claim interval method is not supported")
+    if methods.get("auto_resolution_rate") != "wilson_95":
+        raise CohortClaimPolicyError("cohort claim auto-resolution interval MUST use Wilson 95%")
 
 
 __all__ = [

@@ -31,6 +31,8 @@ The current modules here are:
   baseline and treatment cohort; it never admits evidence itself.
 - :mod:`.cohort_claim_policy` - the trusted versioned repository policy the
   cohort claim is evaluated against, loaded independently of any evidence.
+- :mod:`.operational_cohort` - deterministic, denominator-aware aggregation of
+  independently keyed prospective operational observations.
 - :mod:`.operational_promotion` - immutable revision/scenario/cohort evidence,
   Wilson confidence, rollback, recurrence, causal, Dynamic, and zero-escape gates.
 - :mod:`.operational_promotion_runner` - audited measurement runner that never promotes.
@@ -54,6 +56,12 @@ from fdai.core.measurement.cohort_claim_policy import (
     load_cohort_claim_policy,
 )
 from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
+from fdai.core.measurement.operational_cohort import (
+    OperationalCohortArmBatch,
+    OperationalGuardObservation,
+    OperationalMetricObservation,
+    aggregate_operational_cohort_arm,
+)
 from fdai.core.measurement.operational_promotion import (
     CausalPromotionReceipt,
     CausalPromotionReceiptVerifier,
@@ -110,6 +118,9 @@ __all__ = [
     "ObjectiveAttributionState",
     "ObjectiveAttributionSummary",
     "OperationalPromotionBatch",
+    "OperationalCohortArmBatch",
+    "OperationalGuardObservation",
+    "OperationalMetricObservation",
     "OperationalPromotionEvaluator",
     "OperationalPromotionEvidenceSource",
     "OperationalPromotionMeasurementRunner",
@@ -134,6 +145,7 @@ __all__ = [
     "action_type_digest",
     "admitted_cohort_claim_digest",
     "admitted_cohort_receipt_digests",
+    "aggregate_operational_cohort_arm",
     "compute_dora",
     "evaluate_admitted_cohort_claim",
     "frozen_scenario_set_digest",

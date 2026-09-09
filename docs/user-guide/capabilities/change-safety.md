@@ -3,7 +3,7 @@ title: Change Safety
 description: How FDAI keeps every proposed change safe. Each one is policy-gated, risk-classified, and delivered as an auditable pull request.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: 86943de4ccfcf8f9db3ef8810015ac4b5dc5f6dd
+    sha: 075061f8e4b1b6eed0340ba966247785f1a658c7
 ---
 
 # Change Safety
@@ -50,8 +50,8 @@ Saga records every terminal path. No ontology declaration or conversation can by
 
 ## Proof, not promises
 
-Change safety is measured, never asserted. FDAI reports these numbers against a
-measured baseline on a frozen scenario set (see
+Change safety is measured, never asserted. FDAI reports these numbers only after
+real baseline and treatment operations follow one precommitted measurement protocol (see
 [goals and metrics](../../roadmap/architecture/goals-and-metrics.md)):
 
 - **Change lead time**, the time from change request to merge, is a target to

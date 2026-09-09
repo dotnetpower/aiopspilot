@@ -41,7 +41,7 @@ from fdai_service_contracts.decision_evidence_verification import (
     expected_verification_subjects,
 )
 
-SCENARIO_SET_DIGEST = "sha256:" + "1" * 64
+PROTOCOL_DIGEST = "sha256:" + "1" * 64
 BASELINE_REPORT_DIGEST = "sha256:" + "2" * 64
 BASELINE_PROVENANCE_DIGEST = "sha256:" + "3" * 64
 TREATMENT_REPORT_DIGEST = "sha256:" + "4" * 64
@@ -62,11 +62,11 @@ def _evidence_receipt(
         "authority_class": "deployment_observation",
         "source_identity": "principal:sre-cohort-runner",
         "authentication_evidence_digest": STATIC_DIGEST,
-        "scope_digest": SCENARIO_SET_DIGEST,
+        "scope_digest": PROTOCOL_DIGEST,
         "purpose_id": PURPOSE,
         "producer_id": "cohort-runner",
         "producer_version": "1.0.0",
-        "method_id": "frozen-scenario-replay",
+        "method_id": "prospective-operational-cohort",
         "method_version": "1.0.0",
         "source_revision": REVISION,
         "evidence_digest": evidence_digest,
@@ -94,8 +94,9 @@ def _evidence_receipt(
 def _arm(arm: CohortArm, report_digest: str, provenance_digest: str) -> dict[str, Any]:
     facts: dict[str, Any] = {
         "arm": arm,
-        "scenario_set_version": "v2026.07",
-        "scenario_set_digest": SCENARIO_SET_DIGEST,
+        "measurement_basis_kind": "prospective_operational",
+        "measurement_protocol_version": "1.0.0",
+        "measurement_protocol_digest": PROTOCOL_DIGEST,
         "fdai_revision": REVISION,
         "report_digest": report_digest,
         "provenance_digest": provenance_digest,
@@ -135,8 +136,9 @@ def receipt() -> BaselineTreatmentCohortReceipt:
     values: dict[str, Any] = {
         "schema_version": "1.0.0",
         "cohort_id": "sre-v2026.07-cohort",
-        "scenario_set_version": "v2026.07",
-        "scenario_set_digest": SCENARIO_SET_DIGEST,
+        "measurement_basis_kind": "prospective_operational",
+        "measurement_protocol_version": "1.0.0",
+        "measurement_protocol_digest": PROTOCOL_DIGEST,
         "fdai_revision": REVISION,
         "baseline": _arm(
             CohortArm.BASELINE,
@@ -159,11 +161,11 @@ def _requirement() -> CohortClaimRequirement:
     evidence = {
         "allowed_authority_classes": ("deployment_observation",),
         "allowed_source_identities": ("principal:sre-cohort-runner",),
-        "scope_digest": SCENARIO_SET_DIGEST,
+        "scope_digest": PROTOCOL_DIGEST,
         "purpose_id": PURPOSE,
         "producer_id": "cohort-runner",
         "producer_version": "1.0.0",
-        "method_id": "frozen-scenario-replay",
+        "method_id": "prospective-operational-cohort",
         "method_version": "1.0.0",
         "source_revision": REVISION,
         "freshness_policy_digest": STATIC_DIGEST,
@@ -173,8 +175,9 @@ def _requirement() -> CohortClaimRequirement:
         {
             "policy_id": "sre-cohort-claim",
             "policy_version": "1.0.0",
-            "scenario_set_version": "v2026.07",
-            "scenario_set_digest": SCENARIO_SET_DIGEST,
+            "measurement_basis_kind": "prospective_operational",
+            "measurement_protocol_version": "1.0.0",
+            "measurement_protocol_digest": PROTOCOL_DIGEST,
             "fdai_revision": REVISION,
             "required_metric_ids": ("auto_resolution_rate",),
             "required_guard_ids": ("policy_violation_escape_rate",),
@@ -195,7 +198,7 @@ def _cohort_admission(
         receipt_digest=receipt.receipt_digest,
         verification_bundle_digest=BUNDLE_DIGEST,
         evidence_digest=evidence_digest or receipt.receipt_digest,
-        scope_digest=SCENARIO_SET_DIGEST,
+        scope_digest=PROTOCOL_DIGEST,
         purpose_id=PURPOSE,
         source_revision=REVISION,
         verified_at=NOW - timedelta(minutes=10),
@@ -213,7 +216,7 @@ def _admission(
         receipt_digest=arm_receipt.receipt_digest,
         verification_bundle_digest=BUNDLE_DIGEST,
         evidence_digest=evidence_digest or arm_receipt.evidence_digest,
-        scope_digest=SCENARIO_SET_DIGEST,
+        scope_digest=PROTOCOL_DIGEST,
         purpose_id=PURPOSE,
         source_revision=REVISION,
         verified_at=NOW - timedelta(minutes=10),
@@ -291,7 +294,7 @@ def test_an_admission_for_another_report_does_not_count(
     [
         BASELINE_REPORT_DIGEST,
         BASELINE_PROVENANCE_DIGEST,
-        SCENARIO_SET_DIGEST,
+        PROTOCOL_DIGEST,
         "sha256:" + "e" * 64,
     ],
 )

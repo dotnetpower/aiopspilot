@@ -2,8 +2,26 @@
   "schema_version": "1.0.0",
   "policy_id": "sre-cohort-claim",
   "policy_version": "1.0.0",
-  "scenario_set_version": "v2026.07",
-  "scenario_set_digest": "sha256:59b1592baf7c58e7fcab3711a65e4b0b19a9023426cb9e237609379fe118e8ba",
+  "benchmark_scenario_set_version": "v2026.07",
+  "benchmark_scenario_set_digest": "sha256:59b1592baf7c58e7fcab3711a65e4b0b19a9023426cb9e237609379fe118e8ba",
+  "measurement_basis": {
+    "kind": "prospective_operational",
+    "protocol_version": "1.0.0",
+    "arm_design": "historical_baseline_prospective_treatment",
+    "baseline_source": "observed_non_fdai_operating_process",
+    "treatment_source": "deployed_fdai",
+    "maximum_window_seconds": 7776000,
+    "minimum_samples_per_measure": 30,
+    "dual_execution_allowed": false,
+    "independence_key": "source_cluster_digest",
+    "interval_methods": {
+      "auto_resolution_rate": "wilson_95",
+      "change_lead_time_seconds": "deterministic_bootstrap_95",
+      "cost_per_unit_usd": "deterministic_bootstrap_95",
+      "human_touchpoints_per_100_events": "deterministic_bootstrap_95",
+      "mttr_seconds": "deterministic_bootstrap_95"
+    }
+  },
   "minimum_sample_size": 30,
   "required_metric_ids": [
     "auto_resolution_rate",
@@ -28,7 +46,7 @@
     "purpose_id": "sre-claim-cohort",
     "producer_id": "cohort-runner",
     "producer_version": "1.0.0",
-    "method_id": "frozen-scenario-replay",
+    "method_id": "prospective-operational-cohort",
     "method_version": "1.0.0",
     "minimum_completeness_basis_points": 10000
   },

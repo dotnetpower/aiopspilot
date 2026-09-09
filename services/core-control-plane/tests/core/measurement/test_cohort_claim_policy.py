@@ -35,11 +35,14 @@ def _written(tmp_path: Path, body: dict[str, Any]) -> Path:
     return path
 
 
-def test_the_committed_policy_pins_the_actual_frozen_scenario_set() -> None:
+def test_the_committed_policy_separates_the_benchmark_from_operational_evidence() -> None:
     policy = load_cohort_claim_policy(POLICY_PATH)
 
-    assert policy.scenario_set_version == "v2026.07"
-    assert policy.scenario_set_digest == frozen_scenario_set_digest(SCENARIO_ROOT)
+    assert policy.benchmark_scenario_set_version == "v2026.07"
+    assert policy.benchmark_scenario_set_digest == frozen_scenario_set_digest(SCENARIO_ROOT)
+    assert policy.measurement_basis_kind == "prospective_operational"
+    assert policy.measurement_protocol_version == "1.0.0"
+    assert policy.method_id == "prospective-operational-cohort"
     policy.verify_scenario_set(SCENARIO_ROOT)
 
 
@@ -63,6 +66,8 @@ def test_the_requirement_takes_its_revision_from_the_trusted_caller() -> None:
     assert requirement.required_metric_ids == tuple(sorted(REQUIRED_SUCCESS_METRIC_IDS))
     assert requirement.required_guard_ids == tuple(sorted(ZERO_THRESHOLD_GUARD_IDS))
     assert requirement.minimum_sample_size >= 30
+    assert requirement.measurement_basis_kind == "prospective_operational"
+    assert requirement.measurement_protocol_digest == (requirement.baseline_evidence.scope_digest)
 
 
 @pytest.mark.parametrize(
@@ -96,9 +101,12 @@ def test_a_sha256_length_commit_digest_is_accepted() -> None:
 
 def test_a_policy_that_pins_another_scenario_set_fails_closed() -> None:
     policy = load_cohort_claim_policy(POLICY_PATH)
-    other = dataclasses.replace(policy, scenario_set_digest="sha256:" + "0" * 64)
+    other = dataclasses.replace(
+        policy,
+        benchmark_scenario_set_digest="sha256:" + "0" * 64,
+    )
 
-    with pytest.raises(CohortClaimPolicyError, match="actual frozen scenario-set digest"):
+    with pytest.raises(CohortClaimPolicyError, match="actual benchmark scenario-set digest"):
         other.verify_scenario_set(SCENARIO_ROOT)
 
 
@@ -108,7 +116,7 @@ def test_a_policy_that_pins_another_scenario_set_fails_closed() -> None:
         ({"schema_version": "2.0.0"}, "schema MUST be"),
         ({"minimum_sample_size": 29}, "30-sample floor"),
         ({"minimum_sample_size": "30"}, "MUST be an integer"),
-        ({"scenario_set_digest": "not-a-digest"}, "MUST be a SHA-256 digest"),
+        ({"benchmark_scenario_set_digest": "not-a-digest"}, "MUST be a SHA-256 digest"),
         ({"required_metric_ids": ["auto_resolution_rate"]}, "every success metric"),
         (
             {"required_guard_ids": ["policy_violation_escape_rate"]},
@@ -121,6 +129,32 @@ def test_a_policy_that_pins_another_scenario_set_fails_closed() -> None:
 def test_a_weakened_policy_is_refused(tmp_path: Path, mutation: dict[str, Any], match: str) -> None:
     with pytest.raises(CohortClaimPolicyError, match=match):
         load_cohort_claim_policy(_written(tmp_path, {**_body(), **mutation}))
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("kind", "frozen_scenario_replay", "prospective_operational"),
+        ("arm_design", "concurrent_dual_execution", "avoid dual execution"),
+        ("baseline_source", "reference_agent_stub", "observed non-FDAI"),
+        ("treatment_source", "synthetic_harness", "deployed FDAI"),
+        ("dual_execution_allowed", True, "prohibit dual execution"),
+        ("independence_key", "event_id", "source_cluster_digest"),
+        ("minimum_samples_per_measure", 29, "sample floor MUST match"),
+        ("maximum_window_seconds", 7_776_001, "between one and 90 days"),
+    ],
+)
+def test_a_weakened_operational_protocol_is_refused(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    body = _body()
+    body["measurement_basis"][field] = value
+
+    with pytest.raises(CohortClaimPolicyError, match=match):
+        load_cohort_claim_policy(_written(tmp_path, body))
 
 
 def test_an_incomplete_evidence_floor_is_refused(tmp_path: Path) -> None:

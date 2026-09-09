@@ -3,7 +3,7 @@ title: Cost Governance
 description: How FDAI detects spend anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: 86943de4ccfcf8f9db3ef8810015ac4b5dc5f6dd
+    sha: 075061f8e4b1b6eed0340ba966247785f1a658c7
   - source: docs/roadmap/interfaces/cost-model.md
     sha: 1be959949625599ee60d867138c86ef9b1990581
 ---
@@ -61,7 +61,7 @@ illustrative [cost model](../../roadmap/interfaces/cost-model.md)):
 
 - **Cost per unit**, reported as `$/optimization` for cost actions, is a target
   to lower. FDAI states it only once the baseline and the treatment have been
-  measured on the same scenario set.
+  measured under the same precommitted operational protocol.
 - **Rollback rate** is a guard metric and should not rise above the baseline.
 - FDAI never claims a cost multiplier without a paired measurement.
 

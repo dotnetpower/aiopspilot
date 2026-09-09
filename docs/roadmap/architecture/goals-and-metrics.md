@@ -23,7 +23,7 @@ operationalized by [phase-0-instrumentation.md](../phases/phase-0-instrumentatio
 | Promotion and operational evidence evaluation | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; focused promotion tests | Promotion evaluation binds revision, scenario, samples, confidence, guards, and outcome evidence. A result can be ready only when a current shared decision-evidence admission matches the complete batch. Legacy stored receipts remain readable but cannot authorize promotion without receipt and verification-bundle digests. |
 | Complete decision boundary admission coverage | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; focused boundary tests | All 15 registered positive decision boundaries resolve decision-critical evidence through the shared admission contract and hold for review when the admission is absent or rejected. The guard checks the inventory in both directions, so an intentionally uncovered registered boundary fails. The readiness matrix denies missing, stale, incomplete, conflicting, synthetic, wrong-purpose, and wrong-scope evidence by name. |
 | Governed operational coverage claim contract | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | Immutable denominator, terminal disposition, freshness, exact basis-point, zero-tolerance, and digest checks prevent an incomplete universe from becoming a 99% claim. The receipt grants no execution authority. |
-| Governed baseline and treatment cohort claim | implemented | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/cohort_claim_policy.py`; `packages/service-contracts/src/fdai_service_contracts/baseline_cohort.py`; `services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py`; `tools/cohort_receipt.py`; `tools/baseline_run.py`; focused policy, contract, claim, and runner tests | The evaluated requirement comes from a trusted versioned repository policy loaded independently of evidence, which pins all five success metrics, all four zero-threshold guards, the actual content digest of the frozen scenario set, and the 30-sample floor, while the trusted caller supplies the expected revision. Every evaluated arm fact is canonically hashed and each admission is bound to that hash, and both arms MUST hold distinct report digests and distinct evidence receipts. An artifact carries the retained receipt only: it can supply neither its own requirement nor any admission, admissions come only from an injected trusted provider or a separately verified proof bundle, and it carries no origin at all, because the import origin is an evaluator parameter supplied by the trusted importer channel. A governed external claim also needs a trusted cohort-level admission bound to the complete receipt digest, and every pinned revision MUST be an immutable full 40- or 64-hex commit digest. The retained non-synthetic cohort itself is still open. |
+| Governed baseline and treatment cohort claim | in-progress | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/cohort_claim_policy.py`; `packages/service-contracts/src/fdai_service_contracts/baseline_cohort.py`; `services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py`; focused policy and claim tests | Review found that the earlier policy coupled a claim-bearing cohort to the digest of an explicitly synthetic replay corpus. The revised design separates that benchmark from a frozen prospective operational protocol. The protocol is committed before observation, uses the actual non-FDAI operating process as baseline and deployed FDAI as treatment, and requires the same eligibility rules, window length, revision, source mapping, independence rule, and stopping rule for both arms. The retained non-synthetic cohort and protected producer remain open. |
 | Canonical decision-critical evidence envelope | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; focused contract tests | The envelope binds the evidence and its authentication proof, authority, scope, purpose, exact producer and method, time, policy-derived freshness, completeness proof, conflict disposition, provenance, and synthetic status. Claim preflight can only reject input or pass it to separate authoritative verification; it never claims live readiness. Existing decision boundaries still require migration. |
 | Independent decision-evidence verification | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `delivery/persistence/state_store_decision_evidence.py`; `delivery/azure/decision_evidence.py`; `.github/workflows/decision-evidence-admission.yml`; focused contract, persistence, composition, workflow, and Azure adapter tests; protected run `34265297336` | Production composition now binds durable exact-match admission lookup to readiness, semantic query, workflow, causal, operational-context, analyzer, and promotion paths. The protected workflow retained and independently read back one current non-synthetic attested deployment proof, bundle, requirement, and admission record set. Governed live bundles for every registered boundary remain open, so absent or expired records still hold the decision for review. |
 | Frozen scenario-set accounting | implemented | `tests/scenarios/manifest.schema.json`; `tests/scenarios/manifests/v2026.10.json`; `test_v2026_10_frozen.py`; `test_v2026_10_outcomes.py`; inherited v2026.09 replay tests | All five packs report `complete` only after the v2026.10 corpus binds each FDAI-CONST-005 capability-specific outcome to a reviewed focused test. The new corpus preserves the reviewed v2026.09 replay inputs, while its integrity test rejects an unreviewed outcome binding or a status that does not match the evidence. This proves the frozen scenario capability claim; deployed-runtime validation remains separate. |
@@ -40,6 +40,7 @@ operationalized by [phase-0-instrumentation.md](../phases/phase-0-instrumentatio
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | in-progress | Corrected the governed cohort design after review found that the prior policy pinned the content digest of an explicitly synthetic scenario corpus while requiring non-synthetic evidence. Claim-bearing evidence now uses a separately frozen prospective operational protocol; synthetic replay remains release-regression evidence only. The arm floor is the minimum effective sample size across required metric and guard denominators rather than a false assertion that incident, change, cost, and event metrics share one denominator. | `current change`; `config/sre-cohort-claim-policy.json`; cohort contract, policy, producer, and focused tests. | Merge and deploy the protected producer, then retain at least 30 independent real observations for every required metric and guard in both arms. |
 | 2026-09-09 | implemented | Separated cohort claim eligibility from the frozen-replay release gate and made eligible reports publish only retained baseline-arm measurements and provenance. Rejected cohorts continue to publish the synthetic harness as ineligible. | `current change`; `tools/{baseline_run.py,cohort_publication.py,cohort_receipt.py}`; `services/core-control-plane/tests/tools/test_baseline_runner.py`; focused baseline-runner tests. | Retain and independently admit at least 30 non-synthetic baseline and treatment samples on the pinned frozen set before changing the committed report to eligible. |
 | 2026-09-09 | implemented | Added the atomic v2026.10 frozen corpus and completed all five FDAI-CONST-005 capability outcomes without rewriting v2026.09. SRE binds independent recovery and recurrence closure, ARB binds approval conditions and independent post-change verification, FinOps binds realized savings to protected service evidence, DR binds data integrity to measured RTO/RPO, and Chaos binds distinct human approval, continuous guards, and verified recovery. | `current change`; `services/core-control-plane/tests/scenarios/{v2026.10,enrichment/v2026.10,cross-objective/v2026.10-*.json,manifests/v2026.10.json,test_v2026_10_frozen.py,test_v2026_10_outcomes.py}`; focused v2026.09/v2026.10 scenario checks. | Retain deployed-runtime receipts separately before making production or measured-baseline claims. |
 | 2026-09-09 | in-progress | Retained the first current non-synthetic production admission set from an exact green deployment after independent policy reduction, attestation, immutable Blob publication, and digest readback. | Protected plan `34264745423`; exact apply `34265060803`; admission `34265297336`; one portable governed-evidence artifact. | Retain current governed live admissions for every other registered positive boundary before changing FDAI-CONST-002 from `partial`. |
@@ -181,9 +182,15 @@ Terms used across all metrics, fixed here to avoid ambiguity:
 
 - **Event**: one normalized, deduplicated item entering the control loop (post `event-ingest`),
   identified by its stable idempotency key. All per-event rates are computed over this unit.
-- **Scenario set**: a frozen, versioned collection spanning SRE, ARB / Change Safety, FinOps / Cost
-  Governance, DR, and Chaos Engineering capability packs, used identically for baseline and
-  treatment. Each release records the scenario-set and per-pack versions (e.g. `v2026.07`).
+- **Benchmark scenario set**: a frozen, versioned synthetic collection spanning SRE, ARB / Change
+  Safety, FinOps / Cost Governance, DR, and Chaos Engineering capability packs. It tests
+  deterministic behavior and release regressions. It does not become live evidence merely because
+  a deployed runtime replays it.
+- **Operational cohort protocol**: a versioned measurement contract frozen before observation. It
+  fixes eligibility, source authority, arm assignment, window length, revision, metric
+  denominators, independence keys, interval methods, and a bounded stopping rule. Baseline and
+  treatment can contain different real events, but both use the same protocol and neither event is
+  executed through both arms.
 
 > **Current coverage gap:** `services/core-control-plane/tests/scenarios/manifests/v2026.10.json`
 > records complete frozen coverage for SRE, ARB / Change Safety, FinOps, DR, and Chaos. Each pack
@@ -263,8 +270,9 @@ Leading indicators trigger investigation before a lagging guard metric regresses
 - No autonomy ships without telemetry to measure its effect (metrics 1-4 and all guard metrics).
 - Phase 0 establishes the KPI dashboard and the reference baseline **before** any tier goes live
   ([phase-0-instrumentation.md](../phases/phase-0-instrumentation.md)).
-- Multiplier claims (2-4) are only stated after the baseline and the treatment are both measured
-  under the identical, frozen scenario-set version.
+- Multiplier claims (2-4) are only stated after the baseline and treatment are measured from real
+  operations under one frozen operational cohort protocol. Synthetic benchmark replay can block a
+  release, but it cannot make an operational claim eligible.
 - **Statistical validity**: report each factor with a sample size (event count), a confidence
   interval, and the scenario-set version. Differences within the confidence interval are
   reported as "no measured change", not as an improvement. A zero-sample Wilson interval is
@@ -276,8 +284,21 @@ Leading indicators trigger investigation before a lagging guard metric regresses
   executed-action rollback and complete recurrence windows, verified causal receipts, and Dynamic
   review must pass. A closed causal receipt counts only with confirmed closure. Raw metrics cannot
   promote; a verified receipt permits a separate review only.
-- **Fairness**: baseline and treatment run the same scenarios, the same input distribution, and
-  the same measurement window; the reference agent is not deliberately handicapped.
+- **Fairness**: baseline and treatment use the same precommitted eligibility taxonomy, source
+  mapping, window length, metric definitions, independence rule, and stopping rule. The baseline is
+  the actual observed non-FDAI operating process, not the always-human-review test stub. Treatment
+  is the deployed FDAI revision. A historical-baseline/prospective-treatment design avoids
+  executing two competing processes against one live event.
+- **Metric denominators**: event rates, resolved incidents, merged changes, and attributable cost
+  units have different natural denominators. Each required metric and guard retains its own
+  effective sample size. An arm's published floor is the smallest effective sample size among all
+  required measures, so a large event count cannot hide an undersized MTTR, change, or cost sample.
+- **Intervals and independence**: Wilson 95% intervals apply to Bernoulli rates. Deterministic
+  bootstrap 95% intervals apply to skewed continuous and count means. Repeated records and events
+  sharing one declared independence key contribute once to that measure.
+- **Stopping rule**: each arm has a bounded 90-day observation window. If any required effective
+  sample size remains below 30 at the cutoff, the producer records an undersized result and the
+  claim stays ineligible.
 
 ## Data Collection and Telemetry
 

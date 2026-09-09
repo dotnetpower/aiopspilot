@@ -292,13 +292,13 @@ def _cohort_claim(
 
     evaluated_at = datetime.now(tz=UTC)
     policy = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
-    if policy.scenario_set_version != scenario_set_version:
+    if policy.benchmark_scenario_set_version != scenario_set_version:
         return _cohort_claim_record(
             policy,
             CohortClaimAssessment(
                 evaluated_at=evaluated_at,
                 claim_eligible=False,
-                rejection_reasons=(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH,),
+                rejection_reasons=(CohortClaimRejectionReason.BENCHMARK_SET_MISMATCH,),
             ),
         )
     policy.verify_scenario_set(scenario_set_root)
@@ -316,7 +316,7 @@ def _cohort_claim(
         evaluated_at=evaluated_at,
         admission_provider=admission_provider,
         import_origin=cohort_origin,
-        expected_scenario_set_version=scenario_set_version,
+        expected_measurement_protocol_version=policy.measurement_protocol_version,
     )
     return cohort_claim_record(
         policy,

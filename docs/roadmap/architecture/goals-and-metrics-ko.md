@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 86943de4ccfcf8f9db3ef8810015ac4b5dc5f6dd
+translation_source_sha: 075061f8e4b1b6eed0340ba966247785f1a658c7
 translation_revised: 2026-09-09
 ---
 
@@ -29,7 +29,7 @@ translation_revised: 2026-09-09
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
 | 의사 결정 경계 승인 완전 커버리지 | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; 집중 경계 테스트 | 등록된 긍정적 의사 결정 경계 15개가 모두 공유 승인 계약을 통해 의사 결정 핵심 근거를 해석하며, 승인 결과가 없거나 수락되지 않으면 검토 보류로 처리합니다. 가드는 인벤토리를 양방향으로 검사하므로 의도적으로 누락된 등록 경계는 실패합니다. 준비 상태 매트릭스는 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
-| 통제된 기준선 및 처리 코호트 주장 | implemented | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/cohort_claim_policy.py`; `packages/service-contracts/src/fdai_service_contracts/baseline_cohort.py`; `services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py`; `tools/cohort_receipt.py`; `tools/baseline_run.py`; 집중 정책, 계약, 주장 및 실행기 테스트 | 평가 요건은 근거와 무관하게 로드하는 신뢰 버전 관리 저장소 정책에서 옵니다. 이 정책은 성공 지표 5개 전체, 임계값 0 가드 4개 전체, 고정 시나리오 집합의 실제 콘텐츠 다이제스트, 표본 30개 하한을 고정하며 기대 개정은 신뢰할 수 있는 호출자가 제공합니다. 평가 대상 갈래 사실은 모두 정규 해시로 계산하고 승인은 그 해시에 결속하며, 두 갈래는 서로 다른 보고서 다이제스트와 서로 다른 근거 증적을 보유해야 합니다. 산출물은 보존된 증적만 담습니다. 자신의 요건도 승인도 제공할 수 없고, 승인은 주입된 신뢰 공급자나 별도로 검증한 증명 묶음에서만 옵니다. 출처는 산출물에 아예 담기지 않고 신뢰할 수 있는 반입 채널이 평가기 매개변수로 전달합니다. 통제된 외부 주장에는 코호트 증적 다이제스트 전체에 결속한 신뢰 코호트 수준 승인도 필요하며, 고정하는 개정은 모두 변경 불가능한 40자 또는 64자 16진수 커밋 다이제스트여야 합니다. 비합성 코호트 보존 자체는 아직 남아 있습니다. |
+| 통제된 기준선 및 처리 코호트 주장 | in-progress | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/cohort_claim_policy.py`; `packages/service-contracts/src/fdai_service_contracts/baseline_cohort.py`; `services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py`; 집중 정책 및 주장 테스트 | 이전 정책이 명시적으로 합성인 재생 코퍼스의 다이제스트에 주장용 코호트를 결합한 문제가 검토에서 확인됐습니다. 수정된 설계는 해당 벤치마크를 동결된 향후 운영 프로토콜과 분리합니다. 프로토콜은 관측 전에 커밋하고, 실제 FDAI 도입 전 운영 프로세스를 기준군으로, 배포된 FDAI를 처리군으로 사용합니다. 두 군에는 동일한 적격성 규칙, 구간 길이, 리비전, 출처 매핑, 독립성 규칙과 중단 규칙을 적용합니다. 비합성 코호트 보존과 보호된 생산기는 아직 남아 있습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
 | 독립적인 의사 결정 근거 검증 | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `delivery/persistence/state_store_decision_evidence.py`; `delivery/azure/decision_evidence.py`; `.github/workflows/decision-evidence-admission.yml`; 집중 계약, 영속성, 조립, 워크플로 및 Azure 어댑터 테스트; 보호된 실행 `34265297336` | 이제 프로덕션 조립은 준비 상태, 의미 기반 조회, 워크플로, 인과 관계, 운영 맥락, 분석기 및 승격 경로에 영속적인 정확한 일치 승인 조회를 연결합니다. 보호된 워크플로는 최신 비합성 배포 증명, 묶음, 요건 및 승인 기록 집합 하나를 보존하고 독립적으로 다시 읽었습니다. 등록된 모든 경계의 통제된 실제 묶음은 아직 남아 있으므로 기록이 없거나 만료되면 의사 결정을 검토 보류로 처리합니다. |
 | 고정된 시나리오 집합 계산 | implemented | `tests/scenarios/manifest.schema.json`; `tests/scenarios/manifests/v2026.10.json`; `test_v2026_10_frozen.py`; `test_v2026_10_outcomes.py`; 상속한 v2026.09 재생 테스트 | v2026.10 코퍼스가 FDAI-CONST-005 기능별 결과를 검토된 집중 테스트에 연결한 뒤에만 다섯 묶음 모두 `complete`를 보고합니다. 새 코퍼스는 검토된 v2026.09 재생 입력을 보존하며, 무결성 테스트는 검토되지 않은 결과 연결이나 근거와 맞지 않는 상태를 차단합니다. 이는 고정 시나리오 기능 주장을 입증하며, 배포 런타임 검증은 별도입니다. |
@@ -45,6 +45,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | in-progress | 이전 정책이 명시적으로 합성인 시나리오 코퍼스의 콘텐츠 다이제스트를 고정하면서 비합성 근거를 요구한다는 문제가 검토에서 확인되어 통제된 코호트 설계를 수정했습니다. 이제 주장용 근거는 별도로 동결한 향후 운영 프로토콜을 사용하며, 합성 재생은 release 회귀 근거로만 남습니다. 군의 표본 하한은 인시던트, 변경, 비용, 이벤트 지표가 하나의 분모를 공유한다고 잘못 가정하지 않고 필수 지표와 가드 분모 가운데 가장 작은 유효 표본 수로 계산합니다. | `current change`; `config/sre-cohort-claim-policy.json`; 코호트 계약, 정책, 생산기 및 집중 테스트. | 보호된 생산기를 병합하고 배포한 뒤 두 군의 모든 필수 지표와 가드에 독립적인 실제 운영 관측값을 각각 30개 이상 보존합니다. |
 | 2026-09-09 | implemented | 코호트 주장 적격성을 고정 재생 release gate에서 분리하고, 적격 보고서가 보존된 기준선 갈래의 측정값과 출처 계보만 게시하도록 했습니다. 수락되지 않은 코호트에서는 합성 하네스를 계속 부적격으로 게시합니다. | `current change`; `tools/{baseline_run.py,cohort_publication.py,cohort_receipt.py}`; `services/core-control-plane/tests/tools/test_baseline_runner.py`; 집중 기준선 실행기 테스트. | 고정된 시나리오 집합에서 비합성 기준선 및 처리 표본을 각각 30개 이상 보존하고 독립적으로 승인한 뒤 커밋된 보고서를 적격으로 변경합니다. |
 | 2026-09-09 | implemented | v2026.09를 다시 쓰지 않고 원자적 v2026.10 고정 코퍼스를 추가해 FDAI-CONST-005 기능 결과 5개를 모두 완료했습니다. SRE는 독립 복구 및 재발 종결, ARB는 승인 조건 및 독립 변경 후 검증, FinOps는 보호된 서비스 근거와 연결된 실현 절감, DR은 측정된 RTO/RPO와 연결된 데이터 무결성, Chaos는 서로 다른 사람 승인, 지속적인 가드 및 검증된 복구를 연결합니다. | `current change`; `services/core-control-plane/tests/scenarios/{v2026.10,enrichment/v2026.10,cross-objective/v2026.10-*.json,manifests/v2026.10.json,test_v2026_10_frozen.py,test_v2026_10_outcomes.py}`; v2026.09/v2026.10 집중 시나리오 검사. | 프로덕션 또는 측정된 기준선 주장을 하기 전에 배포 런타임 증적을 별도로 보존합니다. |
 | 2026-09-09 | in-progress | 정확한 성공 배포에서 최초의 최신 비합성 프로덕션 승인 집합을 보존했습니다. 독립 정책 축약, 증명, 변경할 수 없는 Blob 게시 및 다이제스트 재확인을 완료했습니다. | 보호된 계획 `34264745423`, 정확한 적용 `34265060803`, 승인 `34265297336`, 이식 가능한 통제 근거 산출물 1개. | FDAI-CONST-002를 `partial`에서 변경하기 전에 나머지 모든 등록된 긍정 경계의 최신 통제된 실제 승인을 보존합니다. |
@@ -186,9 +187,14 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 - **Event**: `event-ingest` 이후 컨트롤 루프에 들어가는 정규화·중복제거된 한 항목. 안정적인
   멱등성 키로 식별됩니다. 이벤트당(비율) 계산은 모두 이 단위 위에서 이루어집니다.
-- **시나리오 집합**: SRE, ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering
-  기능 묶음을 포괄하며 기준선과 처리에 동일하게 사용하는 고정된, versioned
-  수집입니다. 각 release는 시나리오 집합 및 묶음별 버전을 기록합니다(예: `v2026.07`).
+- **벤치마크 시나리오 집합**: SRE, ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및
+  Chaos Engineering 기능 묶음을 포괄하는 고정된 버전의 합성 수집입니다. 결정론적 동작과
+  release 회귀를 검사합니다. 배포된 런타임에서 재생했다는 이유만으로 실제 운영 근거가 되지
+  않습니다.
+- **운영 코호트 프로토콜**: 관측 전에 동결하는 버전이 지정된 측정 계약입니다. 적격성, 출처
+  권위, 군 배정, 구간 길이, 리비전, 지표 분모, 독립성 키, 구간 계산법과 범위가 제한된 중단
+  규칙을 고정합니다. 기준군과 처리군은 서로 다른 실제 이벤트를 포함할 수 있지만 동일한
+  프로토콜을 사용하며, 하나의 이벤트를 두 군에서 모두 실행하지 않습니다.
 
 > **현재 커버리지 공백:** `services/core-control-plane/tests/scenarios/manifests/v2026.10.json`은
 > SRE, ARB / 변경 안전성, FinOps, DR 및 Chaos의 완전한 고정 커버리지를 기록합니다. 각 묶음은
@@ -268,8 +274,9 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 - 자율성은 자신의 효과를 측정할 원격측정(metrics 1-4 + 모든 가드 메트릭) 없이는 출시되지 않습니다.
 - 단계 0가 KPI 대시보드와 레퍼런스 베이스라인을 **어떤 티어도 라이브 가기 전에** 확립합니다
   ([phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md)).
-- 배수 주장(2-4)은 베이스라인과 트리트먼트가 **동일한 고정 시나리오 세트 버전에서** 모두
-  측정된 후에만 언급됩니다.
+- 배수 주장(2-4)은 실제 운영에서 하나의 동결된 운영 코호트 프로토콜로 기준군과 처리군을 모두
+  측정한 뒤에만 할 수 있습니다. 합성 벤치마크 재생은 release를 차단할 수 있지만 운영 주장을
+  적격하게 만들 수 없습니다.
 - **통계적 타당성**: 각 배수는 표본 크기(이벤트 수), 신뢰구간, 시나리오 세트 버전과 함께
   보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다. Zero-sample
   Wilson 간격은 accuracy가 정확히 0이라는 근거가 아니라 `[0, 1]` 알 수 없음입니다.
@@ -280,8 +287,20 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
   executed-action 롤백과 완전한 recurrence 구간, 검증된 causal 증적, Dynamic 검토가
   모두 통과해야 합니다. Closed causal 증적은 confirmed 종결일 때만 계산합니다. Raw 메트릭은
   promote할 수 없고 검증된 증적은 별도 검토만 허용합니다.
-- **공정성**: 베이스라인과 트리트먼트는 동일한 시나리오, 동일한 입력 분포, 동일한 측정
-  윈도우에서 실행합니다. 레퍼런스 에이전트를 의도적으로 불리하게 만들지 않습니다.
+- **공정성**: 기준군과 처리군은 사전에 확정한 동일한 적격성 분류, 출처 매핑, 구간 길이, 지표
+  정의, 독립성 규칙과 중단 규칙을 사용합니다. 기준군은 항상 사람 검토를 반환하는 테스트
+  스텁이 아니라 실제로 관측한 FDAI 도입 전 운영 프로세스입니다. 처리군은 배포된 FDAI
+  리비전입니다. 과거 기준군/향후 처리군 설계를 사용하면 하나의 실제 이벤트에 두 경쟁
+  프로세스를 실행하지 않아도 됩니다.
+- **지표 분모**: 이벤트 비율, 해결된 인시던트, 병합된 변경과 귀속 비용 단위에는 서로 다른
+  자연 분모가 있습니다. 각 필수 지표와 가드는 자체 유효 표본 수를 유지합니다. 군의 공개
+  표본 하한은 모든 필수 측정값 가운데 가장 작은 유효 표본 수이므로, 이벤트 수가 많아도
+  MTTR, 변경 또는 비용 표본 부족을 감출 수 없습니다.
+- **구간과 독립성**: 베르누이 비율에는 Wilson 95% 구간을 적용합니다. 편향된 연속값과 횟수
+  평균에는 결정론적 부트스트랩 95% 구간을 적용합니다. 반복 기록과 선언된 독립성 키를
+  공유하는 이벤트는 해당 측정값에 한 번만 기여합니다.
+- **중단 규칙**: 각 군의 관측 구간은 최대 90일입니다. 기준 시점에 필수 유효 표본 수가 하나라도
+  30보다 작으면 생산기는 표본 부족 결과를 기록하고 주장은 부적격 상태를 유지합니다.
 
 ## 데이터 수집과 원격측정
 
