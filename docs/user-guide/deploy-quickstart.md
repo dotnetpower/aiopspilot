@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: f02d2c7ab0f0f21c094ee06cc074a5d854bce2c3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 860c404fd87ea72f2f1c43ebca2bad87b096d40d }]
 ---
 
 # Deploy Quickstart
@@ -23,6 +23,11 @@ and one independently owned Core service to a public-network development subscri
 The public path is a development bootstrap, not a production shortcut. It keeps autonomous actions
 in observation mode and does not deploy Console, Operator API, document services, or the isolated
 Executor.
+
+If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
+public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by
+file to a full-token-digest-named Key Vault secret. Token bytes never enter Terraform. Without that
+key, Core starts in observation-only Trial and denies acting paths.
 
 ## Before you start
 

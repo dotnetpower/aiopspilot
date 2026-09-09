@@ -17,6 +17,9 @@ Fail-closed properties:
   that the runtime would reject cannot be issued.
 - Tenant binding is a digest computed by the caller; this script never accepts
   or stores a raw tenant identifier.
+- The repository issuer accepts 1 through 30 days and defaults to 30. Its
+    default inputs are the dedicated owner-only local key and packaged public
+    key; the framework integrity key is a separate trust domain.
 """
 
 from __future__ import annotations
@@ -37,12 +40,14 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
+from fdai.core.capability_catalog import default_capability_catalog
 from fdai.core.licensing import (
     LicenseClaims,
     LicenseTokenError,
     encode_license_token,
 )
 from fdai.core.licensing.token import parse_license_token
+from fdai.delivery.trust import license_public_key_pem
 
 if TYPE_CHECKING:
     from scripts.deployment.release.secure_key_file import read_key_file
@@ -52,6 +57,10 @@ else:
 
 class LicenseIssueError(RuntimeError):
     """The license could not be issued safely."""
+
+
+_MAX_VALID_DAYS = 30
+_DEFAULT_PRIVATE_KEY = Path("secrets/license-signing-key.pem")
 
 
 def issue_license(
@@ -66,9 +75,9 @@ def issue_license(
     image_digest: str | None = None,
     tenant_binding: str | None = None,
 ) -> str:
-    """Return one signed license token that verifies against the public key."""
-    if valid_days < 1:
-        raise LicenseIssueError("valid_days MUST be at least 1")
+    """Return a 1-to-30-day token that verifies against the public key."""
+    if not 1 <= valid_days <= _MAX_VALID_DAYS:
+        raise LicenseIssueError("valid_days MUST be between 1 and 30")
     private_key = _private_key(private_key_pem)
     claims = LicenseClaims(
         license_id=license_id,
@@ -117,23 +126,35 @@ def _private_key(private_key_pem: bytes) -> Ed25519PrivateKey:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--private-key", type=Path, required=True)
-    parser.add_argument("--public-key", type=Path, required=True)
+    parser.add_argument("--private-key", type=Path, default=_DEFAULT_PRIVATE_KEY)
+    parser.add_argument("--public-key", type=Path, default=None)
     parser.add_argument("--license-id", required=True)
     parser.add_argument("--distribution-id", required=True)
-    parser.add_argument("--capability", action="append", required=True, dest="capabilities")
-    parser.add_argument("--valid-days", type=int, default=365)
+    capabilities = parser.add_mutually_exclusive_group(required=True)
+    capabilities.add_argument("--capability", action="append", dest="capabilities")
+    capabilities.add_argument("--all-capabilities", action="store_true")
+    parser.add_argument("--valid-days", type=int, default=_MAX_VALID_DAYS)
     parser.add_argument("--image-digest", default=None)
     parser.add_argument("--tenant-binding", default=None)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
     try:
+        public_key_pem = (
+            read_key_file(args.public_key, private=False)
+            if args.public_key is not None
+            else license_public_key_pem()
+        )
+        capability_ids = (
+            tuple(capability.capability_id for capability in default_capability_catalog().list())
+            if args.all_capabilities
+            else tuple(args.capabilities or ())
+        )
         token = issue_license(
             private_key_pem=read_key_file(args.private_key, private=True),
-            public_key_pem=read_key_file(args.public_key, private=False),
+            public_key_pem=public_key_pem,
             license_id=args.license_id,
             distribution_id=args.distribution_id,
-            capability_ids=tuple(args.capabilities),
+            capability_ids=capability_ids,
             valid_days=args.valid_days,
             not_before=datetime.now(UTC),
             image_digest=args.image_digest,

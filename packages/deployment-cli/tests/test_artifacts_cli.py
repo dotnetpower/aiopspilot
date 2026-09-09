@@ -599,6 +599,29 @@ def test_license_inspection_verifies_signature_and_time() -> None:
         )
 
 
+def test_license_inspection_rejects_a_signed_window_longer_than_30_days() -> None:
+    private, public = _keys()
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    payload = {
+        "schema_version": "fdai.license.v1",
+        "license_id": "lic-test",
+        "distribution_id": "example-distribution",
+        "capability_ids": ["cost.metering"],
+        "not_before": _canonical_time(now),
+        "not_after": _canonical_time(now + timedelta(days=30, microseconds=1)),
+        "image_digest": None,
+        "tenant_binding": None,
+    }
+    document = canonical_bytes(payload)
+    token = ".".join(
+        base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+        for value in (document, private.sign(document))
+    )
+
+    with pytest.raises(LicenseInspectionError, match="30 elapsed UTC days"):
+        inspect_license(token, public_key_pem=public, now=now)
+
+
 def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> None:
     private, public = _keys()
     now = datetime(2026, 8, 29, tzinfo=UTC)

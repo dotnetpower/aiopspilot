@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f02d2c7ab0f0f21c094ee06cc074a5d854bce2c3
+translation_source_sha: 860c404fd87ea72f2f1c43ebca2bad87b096d40d
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -192,7 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
   CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Azure를 변경하지 않고 공개 `dev` 플랫폼을 미리 봅니다. 확인하면 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 배포하고 검증합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Azure를 변경하지 않고 공개 `dev` 플랫폼을 미리 봅니다. 확인하면 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 배포하고 검증합니다. 고정된 소유자 전용 라이선스 키가 있고 패키지 공개 키와 일치하면 최대 30일 토큰도 발급하고 Key Vault 파일 입력 경계를 통해 토큰별 다이제스트 기반 이름으로 업로드한 뒤 해당 비밀이 아닌 다이제스트로 새 Core 개정 번호를 만듭니다. 키가 없으면 같은 이미지를 관찰 전용 Trial로 배포합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
   KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
   사전에 알려준다.
@@ -456,7 +456,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 | Rule 카탈로그 | 범용 시드 및 스키마 | 추가 룰 및 정책 오버레이 | 배정, exemption, 승격 상태 |
 | HIL 및 RBAC | 역할 및 승인 계약 | 선택적 채널 어댑터 | Entra 그룹, 채널 id, 승인자 연결 |
 | 모델 | 기능 레지스트리 및 해석기 | 선택적 프로바이더 어댑터 또는 선호 설정 오버레이 | resolved 엔드포인트, 할당량, 지역, 신원 |
-| 런타임 값 | 검증된 키 스키마 | 테넌트 값 없음 | 환경 variable 및 Key Vault 참조 |
+| 런타임 값 및 기능 라이선스 | 검증된 키 스키마, 서명 토큰 계약, 패키지 공개 키 및 Trial 상한 | 테넌트 값 없음, 선택적 조립 소유 검증기 또는 더 좁은 카탈로그 | 환경 변수와 Key Vault 참조, 버전 없는 토큰 참조와 이미지 및 배포 다이제스트 포함, 비공개 키 없음 |
 
 ## 런타임 설정 매트릭스
 
@@ -480,7 +480,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` | env | 배포 | Core의 canary 및 raw 인벤토리 소비자만 사용하는 operational Event Hubs Kafka 엔드포인트입니다. 설정하지 않으면 비-Azure 어댑터에서 기본 엔드포인트로 대체 경로합니다. |
 | `KAFKA_SECURITY_PROTOCOL` | env | 배포 | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | 배포 | Azure 에서 `OAUTHBEARER` |
-| `FDAI_STATE_STORE_DSN` | KV 참조 | 업스트림 | 감사 + KPI 용 Postgres 연결 URI. `infra/main.tf` 의 `azurerm_key_vault_secret.state_store_dsn` 이 `module.state_store.application_dsn` 으로부터 배선하고, Container App 은 `secret{}` + `env{}` 로 노출 ([project-structure-ko.md](../architecture/project-structure-ko.md) 의 `infra/modules/compute/container-apps/` 참조). 로컬/dev는 없을 때 in-memory를 사용할 수 있지만 `RUNTIME_ENV=staging|prod`는 시작을 차단합니다. |
+| `FDAI_STATE_STORE_DSN`; `FDAI_LICENSE_TOKEN` / `FDAI_LICENSE_IMAGE_DIGEST` / `FDAI_LICENSE_DEPLOYMENT_BINDING` / `FDAI_LICENSE_TOKEN_REVISION` | KV 참조 + env | 업스트림 / 배포 | 상태 저장소 값은 감사와 KPI용 PostgreSQL 연결 URI입니다. 라이선스 토큰은 Container Apps 기본 Key Vault 시크릿 참조로만 전달됩니다. 이미지와 배포 값은 서명된 점유와 비교하는 소문자 SHA-256 다이제스트이며, 토큰 개정 다이제스트는 갱신 시 새 Core 개정 번호를 강제하지만 권한 입력은 아닙니다. 배포되는 런타임은 입력이 없거나 잘못되거나 만료되거나 잘못 연결되면 읽기 전용으로 유지하고 세 Thor 작업 경로를 모두 차단합니다. 로컬 Git checkout은 고정된 소유자 전용 비공개 키가 패키지 공개 키와 암호학적으로 일치할 때만 토큰을 무시할 수 있으며, 배포 런타임은 이 경로를 열지 않습니다. |
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`입니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV 참조 | 업스트림 | HIL 승인 운영자 기억 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); 배포는 코어를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV 참조 | 업스트림 | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |

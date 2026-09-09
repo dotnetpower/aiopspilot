@@ -120,6 +120,9 @@ class ExecutorOutcome(StrEnum):
     """Action was missing a required action-level safeguard (empty
     ``stop_condition``, missing rollback, blast_radius, ...)."""
 
+    REJECTED_CAPABILITY_UNAVAILABLE = "rejected_capability_unavailable"
+    """The current license does not make acting capabilities available."""
+
     REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
     """The idempotency key was already bound to a different action."""
 

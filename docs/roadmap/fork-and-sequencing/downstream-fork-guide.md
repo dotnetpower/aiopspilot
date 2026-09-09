@@ -390,8 +390,9 @@ Hard don'ts. Any of these is a merge-blocker:
   token in deployment configuration, and availability-only authority. A license
   cannot withdraw read-only capabilities, so a fork can gate what an operator
   may do without ever gating what they can see. Bind tokens to an image digest
-  or a deployment; an unbound one works for whoever can read it. The fork binds
-  its runtime `LicenseVerifier`; release issuance and `fdaictl` inspection use
+  or a deployment; an unbound one works for whoever can read it. The fork supplies
+  its fixed expected `distribution_id` and `LicenseVerifier` at composition; an environment
+  value cannot relabel a token. Core and `fdaictl` reject signed windows longer than 30 elapsed UTC days, while release issuance and inspection use
   their independent Ed25519 verification paths. Issuance writes only to a new
   private output and never replaces an existing token file. Release key inputs
   are bounded nonblocking regular files, and private keys require current-UID

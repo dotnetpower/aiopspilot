@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 88d324be08afe6ef5284993c70fd816d5c926b4d
-translation_revised: 2026-08-30
+translation_source_sha: cf443564bfe925296702991f15455ac109566f96
+translation_revised: 2026-09-09
 ---
 # 기능 라이선싱
 
@@ -11,8 +11,9 @@ translation_revised: 2026-08-30
 그런 분포가 비밀을 배포하지 않고, 네트워크 호출 없이, 그리고 결코 자율성을 높이는 경로가
 되지 않으면서 권한을 활성화하는 방법을 정의합니다.
 
-> **범위:** 메커니즘은 업스트림 소유이며 모든 분포에서 동일합니다. 공개 키와 토큰은
-> 배포 설정입니다. 이 문서는 상업 조건, 가격, 철회 서비스를 정의하지 않습니다.
+> **범위:** 메커니즘은 업스트림 소유이며 모든 분포에서 동일합니다. 공개 키는 배포판
+> 아티팩트이고 토큰은 배포 설정입니다. 이 문서는 상업 조건, 가격, 철회 서비스를 정의하지
+> 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -32,6 +33,35 @@ translation_revised: 2026-08-30
 읽기 전용 루트 파일시스템은 장애물이 아닙니다. 활성화 상태를 이미지에 쓰지 않기 때문입니다.
 토큰은 통상의 시크릿 경로로 들어오고, 지속 기록이 필요하면 상태 저장소에 둡니다.
 
+## 발급자 워크스테이션 예외
+
+**초기 설계.** `secrets/` 아래에 비공개 키 파일이 있으면 발급자 워크스테이션이라고 간주하고
+라이선스 검사를 건너뜁니다.
+
+**비판.** 파일 이름은 암호학적 신원이 아닙니다. 빈 파일, 관계없는 키, 심볼릭 링크 또는 마운트된
+키 경로도 단순 존재 검사를 통과합니다. `secrets/integrity-signing-key.pem`을 재사용하면 프레임워크
+무결성과 라이선스의 침해 범위가 합쳐지고, 런타임이 필요하지 않은 키를 읽게 됩니다.
+
+**수정된 설계.** 소스 checkout은 다음 검사를 모두 통과해야만 `issuer-workstation` 상태가 될 수
+있습니다.
+
+- 실행 장소가 `local`이고 아티팩트 루트에 Git checkout 표시가 있습니다.
+- 고정 경로 `secrets/license-signing-key.pem`이 현재 UID 소유의 mode-`0600` 일반 파일이며,
+  크기를 제한하고 차단하지 않으며 링크를 따르지 않는 파일 서술자로 읽힙니다.
+- 파일에 든 Ed25519 비공개 키에서 유도한 공개 바이트가 Core 배포판에 포함된 추적 대상 라이선스
+  공개 키와 정확히 일치합니다.
+- 전용 라이선스 키는 `secrets/integrity-signing-key.pem`과 분리됩니다.
+
+배포된 실행 장소에서는 런타임이 비공개 키 경로를 열지 않습니다. Docker 빌드 맥락은 전체
+`secrets/` 트리를 제외합니다. 검증된 발급자 워크스테이션은 설정된 라이선스 토큰을 무시하고 전체
+카탈로그를 사용 가능하게 유지합니다. 승격, RBAC, 위험, 승인, 롤백, 감사 및 효과 검증 게이트는
+그대로 적용됩니다. 비공개 키가 없거나 형식, 권한 또는 키 쌍이 잘못되어도 예외를 부여하지 않으며
+관찰 기능은 중단하지 않습니다.
+
+이는 변경할 수 없는 물리 하드웨어가 아니라 전용 키의 소유를 증명합니다. 키를 복사하면 발급자
+상태도 복사됩니다. 향후 하드웨어 보호 키 설계로 서명 토큰 계약을 바꾸지 않고 보관 경계를 강화할
+수 있습니다.
+
 ## 토큰
 
 토큰은 `base64url(canonical-document) "." base64url(signature)`입니다. 환경변수, Container Apps
@@ -47,6 +77,15 @@ translation_revised: 2026-08-30
 | `image_digest` | 특정 런타임 이미지에 대한 선택적 연결 |
 | `tenant_binding` | 특정 배포에 대한 선택적 연결, **다이제스트 전용** |
 
+발급기는 1일부터 30일까지의 유효 기간을 허용하고 기본값으로 30일을 사용합니다. Core 토큰 계약과
+오프라인 검사기도 경과 UTC 시간 기준으로 30일을 넘는 서명된 유효 기간을 거부하므로 대체 발급기로
+상한을 우회할 수 없습니다. 갱신할 때는 기존 서명 문서를 연장하거나 다시 쓰지 않고 새 토큰을
+발급합니다.
+
+배포되는 Core 런타임은 `distribution_id`를 `fdai-upstream`에 연결합니다. 같은 발급자가 다른
+배포판용으로 서명했더라도 여기서는 `misbound`입니다. 다운스트림 배포판은 조립 단계에서 자체 예상
+신원을 제공하며, 환경 값으로 발급 후 토큰의 배포판 이름을 바꿀 수 없습니다.
+
 `tenant_binding`은 결코 테넌트 식별자가 아닙니다. 다이제스트로 연결하면 리포지토리, 이미지, 모든
 로그 줄에 고객 값이 남지 않습니다
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -58,9 +97,10 @@ risk 결정을 완화하거나, 승인 권한을 부여할 수 없습니다. 그
 risk 게이트가 계속 소유합니다
 ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
-결과를 분명히 말할 가치가 있습니다. 위조되거나 탈취된 토큰의 최악 결과는 운영자에게 기능이
-목록에 보이는 것입니다. 고위험 조치가 실행되는 것이 결코 아닙니다. 자율성을 올릴 수 있는 라이선스
-검사는 그 자체가 backdoor입니다.
+결과를 분명히 설명하면, 신뢰할 수 있는 토큰은 가용성 보류 하나를 해제할 수 있지만 그 자체로
+효과를 승인할 수 없습니다. 작업은 독립적인 승격, 역할, 위험, 승인, 신원, 안전장치 및 효과 검증을
+모두 통과해야 합니다. 라이선스 검사가 이러한 결정을 대체하거나 높일 수 있다면 그 자체가
+backdoor입니다.
 
 권한은 배포된 카탈로그와의 교집합이기도 하므로, 토큰이 분포에 없는 기능을
 만들어낼 수 없습니다.
@@ -77,6 +117,11 @@ license를 쓰는 운영자가 만료된 license보다 더 적게 보게 되고,
 누구에게나 동작합니다. 그래서 발급기는 소유자 전용으로, symlink를 따르지 않고 기록하며, 토큰이
 이동할 것을 전제하는 분포는 연결을 걸어야 합니다. 앞뒤 공백은 유효한 토큰 표기가 아니므로
 파일 출력에는 끝 줄 바꿈 없이 정본 토큰 바이트만 기록합니다.
+
+Azure 전달 경로는 각 토큰을 다이제스트에서 파생한 Key Vault 시크릿 이름에 기록하고 새 Terraform
+개정 번호에서만 Core 참조를 바꿉니다. 교체 계획이 성공하기 전에 활성 개정 번호가 사용하는 버전
+없는 시크릿 이름을 덮어쓰지 않습니다. 따라서 갱신 실패로 사용되지 않는 시크릿이 남을 수는 있지만,
+실행 중인 Core 프로세스를 잘못 연결하거나 Trial로 낮출 수는 없습니다.
 
 ## 토큰 정규성
 
@@ -102,22 +147,46 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 
 | 상태 | 원인 | 가용성 |
 |------|------|--------|
+| `issuer-workstation` | 로컬 소스 checkout이 일치하는 전용 비공개 키의 소유를 증명 | 전체 카탈로그, 설정된 토큰은 무시 |
 | `active` | 서명 검증 통과, 기간 내, 연결 일치 | 카탈로그에 존재하는 나열된 기능과 모든 읽기 전용 기능 |
-| `absent` | 토큰 미설정 | 업스트림은 전체 카탈로그, 분포가 `require_license`를 켜면 읽기 전용 |
+| `absent` | 토큰 미설정 및 발급자 워크스테이션 증명 없음 | 배포된 런타임에서 읽기 전용 |
 | `untrusted` | 형식 오류 토큰, 비정규 토큰, packaged 키가 거부한 서명, 또는 실행되지 못한 검증기 | 읽기 전용 |
 | `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
-| `misbound` | 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
+| `misbound` | 배포판 신원, 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
 
-이 리포지토리는 license 없이 배포되므로 `absent`가 전체 카탈로그를 유지하며 개발이 막히지 않습니다.
-실패 시 차단을 원하는 분포는 조립 루트에서 `require_license`를 설정합니다.
+암호화 구현과 분리된 해석기는 격리된 라이브러리 및 포크 조립을 위해 명시적인
+`require_license` 입력을 유지합니다. 배포되는 Core 런타임은 항상 이 입력을 설정합니다. 개발은
+검증된 발급자 워크스테이션에서만 제한 없이 동작합니다. 다른 checkout은 토큰이 없는 배포와 같은
+읽기 전용 Trial 상태가 됩니다.
+
+## 런타임 실행 상한
+
+일반 컨트롤 루프 발송과 사람 승인 후 재개가 공유하는 Thor 실행 포트에서 가용성을 검사합니다.
+PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기능 `operations.typed-mutation`을
+요구합니다. 런타임은 각 포트 호출 직전에 권한을 다시 해석합니다. 따라서 시작할 때 토큰이
+유효했더라도 프로세스가 `not_after`를 지나면 다시 시작하지 않고 다음 작업 요청을 차단합니다.
+
+차단 시 상태, 가능한 경우 라이선스 ID, 만료 시각, 필요한 기능 및 실행 경로를 담은 비밀 없는
+종료 감사 레코드를 기록합니다. 토큰, 문서, 서명, 공개 키 바이트, 비공개 키 경로 또는 검증기 예외는
+기록하지 않습니다. 차단 결과는 사람 승인이나 다른 실행기 경로로 전환할 수 없습니다. 감사 저장에
+실패해도 delegate는 계속 차단되고 호출자는 `audit_persisted=false`가 표시된 종료 거부를 받습니다.
+비밀 없는 구조화 오류가 보조 운영 신호를 제공하며, 차단을 처리되지 않은 실행 경로 예외로 바꾸지
+않습니다.
+
+이 상한은 가용성만 낮출 수 있습니다. 토큰에 `operations.typed-mutation`이 있어도 효과를
+적용하려면 기존 승격, RBAC, 위험, 승인, 안전장치, 신원 및 효과 검증을 모두 통과해야 합니다. 토큰을
+교체할 때는 새 시크릿을 시작 시 연결할 수 있도록 Core를 다시 시작해야 하지만, 만료 자체에는 다시
+시작할 필요가 없습니다.
 
 ## 코드 위치
 
 | 관심사 | 위치 |
 |--------|------|
 | 토큰 계약, 검증, 정본 바이트 | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
-| 상태, 연결, 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| 런타임 서명 검증 확장 지점 | 배포판 조립 루트가 해석하는 `LicenseVerifier` 프로토콜 |
+| 상태, 연결, 현재 시각 기준 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
+| 런타임 서명 및 로컬 발급자 키 검증 | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
+| 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
 
@@ -127,26 +196,26 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 
 ## 이 리포지토리에서 검증하기
 
-업스트림은 license 없이 배포되지만 라이선싱은 업스트림에서도 테스트 가능합니다. Key를 만들고,
-토큰을 발급하고, inspect합니다.
+발급자 비공개 키를 노출하지 않고 라이선싱을 테스트할 수 있습니다. 발급자 워크스테이션에서 30일
+전체 카탈로그 토큰을 발급하고 검사합니다.
 
 ```bash
-openssl genpkey -algorithm ed25519 -out /tmp/license-key.pem
-openssl pkey -in /tmp/license-key.pem -pubout -out /tmp/license-key.pub
-PYTHONPATH=src python3 scripts/deployment/release/issue-license.py \
-  --private-key /tmp/license-key.pem --public-key /tmp/license-key.pub \
+uv run python scripts/deployment/release/issue-license.py \
   --license-id lic-0001 --distribution-id example-distribution \
-  --capability cost.metering --capability incident.restart \
+  --all-capabilities \
   --output /tmp/license.token
-PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
-  --token /tmp/license.token --public-key /tmp/license-key.pub --output json
+uv run python -m fdai.deployment_cli license inspect \
+  --token /tmp/license.token \
+  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --output json
 ```
 
 `issue-license.py`는 출력 전에 자신의 결과를 supplied 공개 키로 재검증하므로, 교대된 서명
 키는 고객 현장이 아니라 발급 시점에 실패합니다. 비공개 키는 현재 UID가 소유한 mode-`0600`
 일반 파일일 때만 허용되며, 두 키 모두 비차단, 심볼릭 링크 차단, 65536바이트 경계를 통해
-읽습니다. `license inspect`는 상태와 비밀이 아닌 메타데이터만 보고하며 토큰, 문서, 서명을
-절대 출력하지 않습니다.
+읽습니다. 기본값은 고정 발급자 키, 패키지 공개 키 및 30일 유효 기간이며, 키 교대 확인을 위해
+공개 키를 명시할 수도 있습니다. `license inspect`는 상태와 비밀이 아닌 메타데이터만 보고하며
+토큰, 문서, 서명을 출력하지 않습니다.
 
 자동화된 커버리지는 계약과 저하 표에 대해 `services/core-control-plane/tests/core/licensing/`, 변조·잘못된 서명자·잘못된
 연결을 포함한 실제 발급-검증 경로에 대해 `tests/integration/scripts/test_issue_license.py`에 있습니다.

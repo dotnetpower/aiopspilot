@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 2a7fefcd84cee75ba756de79c1b1eb2cd59660de
-translation_revised: 2026-08-30
+translation_source_sha: c36b7373984f5ee55a65e9ac2fa0a00d9cff3f8c
+translation_revised: 2026-09-09
 ---
 
 # 다운스트림 포크 가이드
@@ -378,8 +378,9 @@ git push origin main
   배포 설정의 서명된 토큰, available 축 전용 권한. License는 읽기 전용
   기능을 회수할 수 없으므로, 포크는 운영자가 무엇을 볼 수 있는지는
   전혀 막지 않으면서 무엇을 할 수 있는지만 통제할 수 있습니다. 토큰은 이미지 다이제스트나
-  배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다. 포크는
-  런타임 `LicenseVerifier`를 연결하고 릴리스 발급과 `fdaictl` 점검은 각각 독립 Ed25519 검증
+  배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다. 포크는 조립 단계에서
+  고정 예상 `distribution_id`와 `LicenseVerifier`를 제공하며 환경 값으로 토큰 이름을 바꿀 수 없습니다.
+  Core와 `fdaictl`은 경과 UTC 시간 30일을 넘는 서명 기간을 거부하고 릴리스 발급과 점검은 각각 독립 Ed25519 검증
   경로를 사용합니다. 발급은 새 비공개 출력에만 쓰고 기존 토큰 파일을 교체하지 않습니다.
   release 키 입력은 크기가 제한된 비차단 일반 파일이며, 비공개 키는 현재 UID가 소유하고 mode
   `0600`이어야 합니다. 토큰 파일에는 앞뒤 공백이나 끝 줄 바꿈 없이 정확한 정본 토큰만

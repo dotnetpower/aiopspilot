@@ -13,10 +13,9 @@ or misbound token degrades to the read-only subset of the catalog rather than
 raising, so an expired license leaves an operator able to observe while unable
 to act. Read-only capabilities are therefore never licensed: a license that
 omits them still leaves them available, because a valid license must never make
-a deployment less observable than an expired one. An unlicensed upstream
-deployment keeps the full catalog, because licensing is a downstream
-distribution concern; a distribution that wants fail-closed behavior sets
-``require_license``.
+a deployment less observable than an expired one. The crypto-free primitive
+retains an explicit ``require_license`` input; the shipped runtime sets it and
+may separately assert a composition-verified local issuer workstation.
 """
 
 from __future__ import annotations
@@ -33,6 +32,7 @@ from fdai.core.licensing.token import LicenseClaims, LicenseTokenError, parse_li
 class LicenseStatus(StrEnum):
     """Why the current entitlement looks the way it does."""
 
+    ISSUER_WORKSTATION = "issuer-workstation"
     ACTIVE = "active"
     ABSENT = "absent"
     UNTRUSTED = "untrusted"
@@ -49,8 +49,9 @@ class LicenseVerifier(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class DeploymentBinding:
-    """What this deployment can prove about itself, as digests only."""
+    """Non-secret distribution identity and deployment digests."""
 
+    distribution_id: str | None = None
     image_digest: str | None = None
     tenant_binding: str | None = None
 
@@ -71,7 +72,50 @@ class Entitlement:
 
     @property
     def is_active(self) -> bool:
-        return self.status is LicenseStatus.ACTIVE
+        """Return whether acting capabilities may be licensed in this mode."""
+
+        return self.status in {
+            LicenseStatus.ACTIVE,
+            LicenseStatus.ISSUER_WORKSTATION,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LicenseEntitlementAuthority:
+    """Resolve current capability availability without caching token validity.
+
+    Composition may assert ``issuer_workstation`` only after proving possession
+    of the dedicated matching private key. The domain layer never reads that
+    key. Every ordinary call rechecks the signed token against the supplied
+    time, so crossing ``not_after`` cannot retain a startup-time entitlement.
+    """
+
+    catalog: CapabilityCatalog
+    token: str | None
+    verifier: LicenseVerifier
+    binding: DeploymentBinding = UNBOUND
+    require_license: bool = True
+    issuer_workstation: bool = False
+
+    def resolve(self, *, now: datetime) -> Entitlement:
+        """Return the availability decision that applies at ``now``."""
+
+        if self.issuer_workstation:
+            if now.tzinfo is None:
+                raise ValueError("entitlement resolution requires a timezone-aware clock")
+            return Entitlement(
+                status=LicenseStatus.ISSUER_WORKSTATION,
+                available_capability_ids=_all_ids(self.catalog),
+                reason="matching local issuer key bypasses the token requirement",
+            )
+        return resolve_entitlement(
+            catalog=self.catalog,
+            token=self.token,
+            verifier=self.verifier,
+            now=now,
+            binding=self.binding,
+            require_license=self.require_license,
+        )
 
 
 def resolve_entitlement(
@@ -144,6 +188,8 @@ def resolve_entitlement(
 
 
 def _binding_mismatch(claims: LicenseClaims, binding: DeploymentBinding) -> str | None:
+    if binding.distribution_id is not None and claims.distribution_id != binding.distribution_id:
+        return "license is bound to a different distribution"
     if claims.image_digest is not None and claims.image_digest != binding.image_digest:
         return "license is bound to a different image digest"
     if claims.tenant_binding is not None and claims.tenant_binding != binding.tenant_binding:
@@ -183,6 +229,7 @@ __all__ = [
     "UNBOUND",
     "DeploymentBinding",
     "Entitlement",
+    "LicenseEntitlementAuthority",
     "LicenseStatus",
     "LicenseVerifier",
     "resolve_entitlement",

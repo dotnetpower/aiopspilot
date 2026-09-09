@@ -12,6 +12,7 @@ module "core_control_plane" {
   teams_notification_binding = var.teams_notification_binding
   stewardship_gitops         = var.stewardship_gitops
   database                   = var.database
+  license                    = var.license
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
   health                              = var.health

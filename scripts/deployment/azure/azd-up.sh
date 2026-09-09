@@ -57,6 +57,11 @@ CORE_TF_DATA="$WORK_DIR/core-terraform-data"
 RESOLVED_MODELS="$WORK_DIR/resolved-models.json"
 CORE_TFVARS="$WORK_DIR/core.auto.tfvars.json"
 CORE_PLAN="$WORK_DIR/core.tfplan"
+LICENSE_TOKEN_FILE="$WORK_DIR/license.token"
+LICENSE_SECRET_ID=""
+LICENSE_IMAGE_DIGEST=""
+LICENSE_DEPLOYMENT_DIGEST=""
+LICENSE_TOKEN_REVISION=""
 BUILD_CONTEXT=""
 MODEL_ROLE_CREATED=0
 FIREWALL_OPEN=0
@@ -98,6 +103,7 @@ cleanup() {
   if [[ -n "$BUILD_CONTEXT" ]]; then
     rm -rf -- "$BUILD_CONTEXT"
   fi
+  rm -f -- "$LICENSE_TOKEN_FILE"
   if ((status == 0 && cleanup_failed != 0)); then
     log "ERROR: temporary Azure access cleanup failed"
     status=1
@@ -358,6 +364,64 @@ build_core_image() {
   BUILD_CONTEXT=""
 }
 
+prepare_capability_license() {
+  local private_key="$REPO_ROOT/secrets/license-signing-key.pem"
+  local vault_uri vault_name app_name license_id secret_name
+  if [[ ! -e "$private_key" && ! -L "$private_key" ]]; then
+    log "dedicated license issuer key is absent; Core will run in observation-only Trial mode"
+    return
+  fi
+
+  LICENSE_IMAGE_DIGEST="${CORE_IMAGE##*@sha256:}"
+  [[ "$LICENSE_IMAGE_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+    fail "the Core image does not carry one license-bindable SHA-256 digest"
+  }
+  app_name="$(terraform -chdir="$PLATFORM_ROOT" output -raw core_app_name)"
+  LICENSE_DEPLOYMENT_DIGEST="$(
+    printf '%s\0%s\0%s' "$EXPECTED_TENANT" "$EXPECTED_SUBSCRIPTION" "$app_name" | sha256sum | cut -d' ' -f1
+  )"
+  [[ "$LICENSE_DEPLOYMENT_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+    fail "the deployment license binding is invalid"
+  }
+  license_id="lic-${RESOURCE_NAME_SUFFIX}-$(date -u +%Y%m%d)"
+  rm -f -- "$LICENSE_TOKEN_FILE"
+  uv run python "$REPO_ROOT/scripts/deployment/release/issue-license.py" \
+    --private-key "$private_key" \
+    --license-id "$license_id" \
+    --distribution-id fdai-upstream \
+    --all-capabilities \
+    --valid-days 30 \
+    --image-digest "$LICENSE_IMAGE_DIGEST" \
+    --tenant-binding "$LICENSE_DEPLOYMENT_DIGEST" \
+    --output "$LICENSE_TOKEN_FILE"
+  [[ -f "$LICENSE_TOKEN_FILE" && ! -L "$LICENSE_TOKEN_FILE" ]] || {
+    fail "license issuance did not create a regular private token file"
+  }
+  [[ "$(stat -c '%a' "$LICENSE_TOKEN_FILE")" == "600" ]] || {
+    fail "license token output must use mode 0600"
+  }
+  LICENSE_TOKEN_REVISION="$(sha256sum "$LICENSE_TOKEN_FILE" | cut -d' ' -f1)"
+  secret_name="fdai-license-$LICENSE_TOKEN_REVISION"
+  [[ "$secret_name" =~ ^[a-z0-9-]{1,127}$ ]] || {
+    fail "the derived capability-license secret name is invalid"
+  }
+
+  vault_uri="$(terraform -chdir="$PLATFORM_ROOT" output -raw key_vault_uri)"
+  [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})\.vault\.azure\.net/?$ ]] || {
+    fail "Terraform returned an invalid public-Azure Key Vault URI"
+  }
+  vault_name="${BASH_REMATCH[1]}"
+  log "storing the 30-day capability license through a Key Vault file input"
+  timeout 120s az keyvault secret set \
+    --subscription "$EXPECTED_SUBSCRIPTION" \
+    --vault-name "$vault_name" \
+    --name "$secret_name" \
+    --file "$LICENSE_TOKEN_FILE" \
+    --only-show-errors --output none
+  LICENSE_SECRET_ID="${vault_uri%/}/secrets/$secret_name"
+  rm -f -- "$LICENSE_TOKEN_FILE"
+}
+
 open_migration_firewall() {
   local client_ip
   FIREWALL_RESOURCE_GROUP="$(terraform -chdir="$PLATFORM_ROOT" output -raw resource_group_name)"
@@ -411,7 +475,13 @@ deploy_core() {
   local tfvars_tmp="$CORE_TFVARS.tmp"
   terraform -chdir="$PLATFORM_ROOT" output -json contributor_core_service_tfvars \
     >"$platform_input"
-  CORE_IMAGE="$CORE_IMAGE" python3 - "$platform_input" "$tfvars_tmp" <<'PY'
+  rm -f -- "$tfvars_tmp"
+  CORE_IMAGE="$CORE_IMAGE" \
+  LICENSE_SECRET_ID="$LICENSE_SECRET_ID" \
+  LICENSE_IMAGE_DIGEST="$LICENSE_IMAGE_DIGEST" \
+  LICENSE_DEPLOYMENT_DIGEST="$LICENSE_DEPLOYMENT_DIGEST" \
+  LICENSE_TOKEN_REVISION="$LICENSE_TOKEN_REVISION" \
+    python3 - "$platform_input" "$tfvars_tmp" <<'PY'
 import json
 import os
 import sys
@@ -423,6 +493,17 @@ if not isinstance(payload, dict):
 image = os.environ["CORE_IMAGE"]
 payload["image"] = image
 payload["rollback"]["previous_image"] = image
+secret_id = os.environ["LICENSE_SECRET_ID"]
+payload["license"] = (
+  {
+    "token_secret_id": secret_id,
+    "image_digest": os.environ["LICENSE_IMAGE_DIGEST"],
+    "deployment_digest": os.environ["LICENSE_DEPLOYMENT_DIGEST"],
+    "token_revision": os.environ["LICENSE_TOKEN_REVISION"],
+  }
+  if secret_id
+  else {}
+)
 with open(sys.argv[2], "x", encoding="utf-8") as stream:
     json.dump(payload, stream, separators=(",", ":"), sort_keys=True)
     stream.write("\n")
@@ -549,7 +630,7 @@ run_job() {
   fail "$purpose Job did not finish within ${budget}s"
 }
 
-for command_name in az azd curl flock git python3 sha256sum tar terraform timeout uv; do
+for command_name in az azd curl date flock git python3 sha256sum stat tar terraform timeout uv; do
   require_command "$command_name"
 done
 [[ "$CONFIRM" == "0" || "$CONFIRM" == "1" ]] || fail "FDAI_AZD_CONFIRM must be 0 or 1"
@@ -639,6 +720,7 @@ fi
 
 platform_apply
 build_core_image
+prepare_capability_license
 bootstrap_database
 write_local_backend_override "$CORE_OVERRIDE" "$CORE_STATE"
 CORE_OVERRIDE_CREATED=1

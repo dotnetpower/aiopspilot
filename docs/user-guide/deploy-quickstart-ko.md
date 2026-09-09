@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 5c1463ca1737abede75664fdd6abc16d6b79cf38
+translation_source_sha: d9729f522487fececf27c83435c36efd692269d2
 translation_revised: 2026-09-09
 ---
 
@@ -23,6 +23,11 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 
 공개 경로는 개발 부트스트랩이며 운영 우회 경로가 아닙니다. 자율 작업은 관찰 모드로 유지되며
 Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
+
+소유자 전용 `secrets/license-signing-key.pem`이 패키지 공개 키와 일치하면 확인된 공개 경로가
+정확한 이미지와 배포에 연결된 최대 30일 토큰을 발급하고 전체 토큰 다이제스트 이름의 Key Vault
+시크릿에 파일로 업로드합니다. 토큰 바이트는 Terraform에 들어가지 않습니다. 키가 없으면 Core는
+관찰 전용 Trial로 시작하고 조치 경로를 차단합니다.
 
 ## 시작하기 전에
 

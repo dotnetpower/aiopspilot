@@ -7,7 +7,7 @@ import binascii
 import json
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -19,6 +19,7 @@ _B64URL = re.compile(r"^[A-Za-z0-9_-]+$")
 _ID = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _MAX_CAPABILITIES = 512
+_MAX_VALIDITY = timedelta(days=30)
 
 
 class LicenseInspectionError(ValueError):
@@ -97,6 +98,8 @@ def inspect_license(
         raise LicenseInspectionError("license timestamps are not canonically encoded")
     if not_after <= not_before:
         raise LicenseInspectionError("license validity window is invalid")
+    if not_after.astimezone(UTC) - not_before.astimezone(UTC) > _MAX_VALIDITY:
+        raise LicenseInspectionError("license validity MUST NOT exceed 30 elapsed UTC days")
     evaluated = now or datetime.now(UTC)
     if evaluated.tzinfo is None:
         raise LicenseInspectionError("license evaluation time MUST be timezone-aware")

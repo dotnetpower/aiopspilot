@@ -123,6 +123,9 @@ class DirectApiExecutionOutcome(StrEnum):
     ``stop_condition``, missing ``rollback_ref.kind``, missing
     ``blast_radius``, missing ``citing_rules``)."""
 
+    REJECTED_CAPABILITY_UNAVAILABLE = "rejected_capability_unavailable"
+    """The current license does not make acting capabilities available."""
+
     REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
     """The idempotency key was already bound to a different action."""
 

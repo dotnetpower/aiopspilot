@@ -25,12 +25,13 @@ import binascii
 import json
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 LICENSE_SCHEMA: Final = "fdai.license.v1"
 _MAX_TOKEN_CHARS: Final = 8192
 _MAX_CAPABILITY_IDS: Final = 512
+_MAX_VALIDITY: Final = timedelta(days=30)
 _SIGNATURE_BYTES: Final = 64
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
@@ -90,6 +91,9 @@ class LicenseClaims:
                 raise LicenseTokenError(f"{label} MUST be timezone aware")
         if self.not_after <= self.not_before:
             raise LicenseTokenError("not_after MUST be later than not_before")
+        elapsed = self.not_after.astimezone(UTC) - self.not_before.astimezone(UTC)
+        if elapsed > _MAX_VALIDITY:
+            raise LicenseTokenError("license validity MUST NOT exceed 30 elapsed UTC days")
         for label, digest in (
             ("image_digest", self.image_digest),
             ("tenant_binding", self.tenant_binding),

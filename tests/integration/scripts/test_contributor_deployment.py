@@ -86,8 +86,12 @@ esac
 
 def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None:
     source = _AZD_UP.read_text(encoding="utf-8")
-    main = source.split("for command_name in az azd curl flock git", maxsplit=1)[1]
+    main = source.split("for command_name in az azd curl date flock git", maxsplit=1)[1]
+    gitignore = (_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    dockerignore = (_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
+    assert "secrets/" in gitignore
+    assert "secrets/" in dockerignore
     assert 'resource_provider_registrations = "none"' in (_ROOT / "infra/versions.tf").read_text(
         encoding="utf-8"
     )
@@ -98,6 +102,21 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "services/assets/resolved-models.json" in source
     assert '--image "fdai-core-control-plane:$tag"' in source
     assert 'CORE_IMAGE="$login_server/fdai-core-control-plane@$digest"' in source
+    assert 'private_key="$REPO_ROOT/secrets/license-signing-key.pem"' in source
+    assert "--all-capabilities" in source
+    assert "--valid-days 30" in source
+    assert 'secret_name="fdai-license-$LICENSE_TOKEN_REVISION"' in source
+    assert '--name "$secret_name"' in source
+    assert "--name fdai-capability-license" not in source
+    assert '--file "$LICENSE_TOKEN_FILE"' in source
+    assert "az keyvault secret set" in source
+    assert 'payload["license"]' in source
+    license_function = source.split("prepare_capability_license() {", maxsplit=1)[1].split(
+        "\n}\n\nopen_migration_firewall", maxsplit=1
+    )[0]
+    assert "--value" not in license_function
+    assert "FDAI_LICENSE_TOKEN" not in license_function
+    assert "observation-only Trial mode" in license_function
     assert 'terraform -chdir="$PLATFORM_ROOT" state list >/dev/null' in source
     assert "for _ in $(seq 1 6); do" in source
     assert "export TF_VAR_enable_legacy_oob_job=false" in source
@@ -107,6 +126,16 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "FDAI_MATERIALIZE_AUTHORITATIVE_CATALOGS=1" in source
     assert 'terraform -chdir="$CORE_ROOT" plan' in source
     assert 'terraform -chdir="$CORE_ROOT" apply' in source
+    deploy_core = source.split("deploy_core() {", maxsplit=1)[1].split(
+        "\n}\n\nwait_for_core", maxsplit=1
+    )[0]
+    assert deploy_core.index('rm -f -- "$tfvars_tmp"') < deploy_core.index(
+        'python3 - "$platform_input" "$tfvars_tmp"'
+    )
+    assert 'open(sys.argv[2], "x"' in deploy_core
+    assert deploy_core.index('open(sys.argv[2], "x"') < deploy_core.index(
+        'mv -f -- "$tfvars_tmp" "$CORE_TFVARS"'
+    )
     assert 'run_job "$canary_job" "canary" 180' in source
     assert 'run_job "$inventory_job" "inventory" 1800' in source
     assert "azd up" not in main
@@ -114,7 +143,8 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert main.index("ensure_resource_providers") < main.index("resolve_models")
     assert main.index("resolve_models") < main.index("platform_preview")
     assert main.index("platform_apply") < main.index("build_core_image")
-    assert main.index("build_core_image") < main.index("bootstrap_database")
+    assert main.index("build_core_image") < main.index("prepare_capability_license")
+    assert main.index("prepare_capability_license") < main.index("bootstrap_database")
     assert main.index("bootstrap_database") < main.index("deploy_core")
     assert main.index("deploy_core") < main.index("set_scheduled_jobs true")
     assert main.index("set_scheduled_jobs true") < main.rindex("platform_apply")

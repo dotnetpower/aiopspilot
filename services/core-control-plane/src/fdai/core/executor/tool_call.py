@@ -114,6 +114,9 @@ class ToolCallExecutionOutcome(StrEnum):
     ``stop_condition``, missing ``rollback_ref.kind``, missing
     ``blast_radius``, missing ``citing_rules``)."""
 
+    REJECTED_CAPABILITY_UNAVAILABLE = "rejected_capability_unavailable"
+    """The current license does not make acting capabilities available."""
+
 
 @dataclass(frozen=True, slots=True)
 class ToolCallExecutionResult:

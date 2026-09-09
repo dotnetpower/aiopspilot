@@ -190,7 +190,7 @@ it proves the tenant, and fails before mutation when the identity cannot access 
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) previews a public `dev` platform without Azure mutation, then on confirmation stages the platform, exact Core image, migrations, catalogs, independent Core, canary, and initial inventory. It is not a private or production path.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) previews a public `dev` platform without Azure mutation, then on confirmation stages the platform, exact Core image, migrations, catalogs, independent Core, canary, and initial inventory. When the fixed owner-only license key exists and matches the packaged public key, it also issues a maximum-30-day token, uploads it through the Key Vault file-input boundary under a per-token digest-derived name, and forces a Core revision with that non-secret digest. Without the key it deploys the same image in observation-only Trial. It is not a private or production path.
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) probes a
   throwaway KV + storage to tell you up front whether the tenant forces private-everything
   (and thus mandates the runner path).
@@ -456,7 +456,7 @@ environment values, identity, secret references, and promotion state outside sou
 | Rule catalog | generic seed and schemas | additional rules and policy overlays | assignments, exemptions, promotion state |
 | HIL and RBAC | role and approval contracts | optional channel adapter | Entra groups, channel ids, approver bindings |
 | Models | capability registry and resolver | optional provider adapter or preference overlay | resolved endpoints, quota, region, identity |
-| Runtime values | validated key schema | no tenant values | environment variables and Key Vault references |
+| Runtime values and capability license | validated key schema, signed-token contract, packaged public key, and Trial ceiling | no tenant values; optional composition-owned verifier or narrower catalog | environment variables and Key Vault references, including a versionless token reference plus image and deployment digests and no private key |
 
 ## Runtime Configuration Matrix
 
@@ -479,7 +479,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Operational Event Hubs Kafka endpoint used only by the core canary and raw inventory consumers; unset falls back to the primary endpoint for non-Azure adapters. |
 | `KAFKA_SECURITY_PROTOCOL` | env | deployment | `SASL_SSL` on Azure; provider-specific value elsewhere |
 | `KAFKA_SASL_MECHANISM` | env | deployment | `OAUTHBEARER` on Azure |
-| `FDAI_STATE_STORE_DSN` | KV ref | upstream | Postgres connection URI for audit + KPI; wired by `infra/main.tf` `azurerm_key_vault_secret.state_store_dsn` from `module.state_store.application_dsn`, exposed to the Container App via `secret{}` + `env{}` (see [project-structure.md](../architecture/project-structure.md) `infra/modules/compute/container-apps/`). Local/dev may use in-memory when absent; `RUNTIME_ENV=staging|prod` fails startup. |
+| `FDAI_STATE_STORE_DSN`; `FDAI_LICENSE_TOKEN` / `FDAI_LICENSE_IMAGE_DIGEST` / `FDAI_LICENSE_DEPLOYMENT_BINDING` / `FDAI_LICENSE_TOKEN_REVISION` | KV ref + env | upstream / deployment | The state-store value is the PostgreSQL connection URI for audit and KPI. The license token arrives only through a Container Apps native Key Vault secret reference; image and deployment values are lowercase SHA-256 digests checked against signed claims, and the token-revision digest forces a new Core revision on renewal without becoming an entitlement input. The shipped runtime leaves absent, invalid, expired, or misbound input read-only and denies all three Thor action paths. A local Git checkout may ignore the token only after its fixed owner-only dedicated private key cryptographically matches the packaged public key; deployed runtime never opens that path. |
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | upstream / deployment | Private Blob container URL, dedicated attached UAMI client id, active-retention/deletion-due offsets, and the bounded Muninn retention cadence for immutable case revisions. Terraform derives the storage and identity bindings, validates deletion is not earlier than retention, and startup fails if the dedicated identity id is missing or matches the executor identity; public/key-auth fallback is not used. The retention tick defaults to `86400`. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV ref | upstream | Postgres DSN for HIL-approved operator memory. Same source as `FDAI_STATE_STORE_DSN` day-zero (single Flexible Server); a deployment MAY split it later without touching core code. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV ref | upstream | Postgres DSN for the pgvector-backed T1 pattern library. Same source day-zero; wired identically. |

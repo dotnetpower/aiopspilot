@@ -145,7 +145,7 @@ can appear after discovery starts and can grow, but cannot disappear, decrease, 
 snapshot.
 
 `license inspect` is offline in the same sense as bundle and kit verification: the public key ships with the distribution, so no network
-call, revocation lookup, or certificate chain is involved. It reports status and non-secret metadata only and never echoes the token,
+call, revocation lookup, or certificate chain is involved. It rejects signed windows longer than 30 elapsed UTC days, reports status and non-secret metadata only, and never echoes the token,
 document, or signature. The token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does not follow
 symlinks and opens the path in nonblocking mode before checking its type, so named pipes and device files are blocked without waiting. It
 preserves the token bytes exactly and rejects leading or trailing whitespace; release issuance writes the token without a trailing newline.

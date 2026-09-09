@@ -12,10 +12,12 @@ from fdai.composition import default_container
 from fdai.core.executor import (
     DirectApiShadowExecutor,
     InProcessThorExecutionPort,
+    LicenseGatedThorExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
     ToolCallShadowExecutor,
 )
+from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.rca import IncidentMemberSource
 from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
@@ -143,3 +145,35 @@ def test_runtime_wires_opt_in_t1_incident_context(app_config: AppConfig) -> None
 
     assert loop._incident_member_source is member_source
     assert loop._resource_dependency_graph == dependencies
+
+
+def test_runtime_shares_one_license_gated_port_with_hil(app_config: AppConfig) -> None:
+    container = default_container(app_config)
+    port = InProcessThorExecutionPort(
+        pr_native=MagicMock(spec=ShadowExecutor),
+        direct_api=MagicMock(spec=DirectApiShadowExecutor),
+        tool_call=MagicMock(spec=ToolCallShadowExecutor),
+    )
+
+    loop = _build_control_loop(
+        container,
+        http_client=None,
+        thor_execution_port=port,
+        license_authority=LicenseEntitlementAuthority(
+            catalog=container.capability_runtime.catalog,
+            token=None,
+            verifier=MagicMock(),
+        ),
+        mutation_dependency_readiness=MutationDependencyReadiness(
+            saga_audit_durable=True,
+            vidar_recovery_contracts=frozenset({"state_forward_only"}),
+        ),
+    )
+    coordinator = loop._hil_resume_coordinator
+
+    assert coordinator is not None
+    assert isinstance(loop._thor_execution_port, LicenseGatedThorExecutionPort)
+    assert coordinator._thor_execution_port is loop._thor_execution_port
+    assert loop._executor is coordinator._executor
+    assert loop._direct_api_executor is coordinator._direct_api_executor
+    assert loop._tool_executor is coordinator._tool_executor

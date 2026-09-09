@@ -8,9 +8,9 @@ the image is handed over, and it runs inside a network the publisher cannot reac
 defines how such a distribution activates entitlement without shipping a secret, without a network
 call, and without ever becoming a path to higher autonomy.
 
-> **Scope:** The mechanism is upstream and identical for every distribution. The public key and the
-> token are deployment configuration. This document does not define commercial terms, pricing, or a
-> revocation service.
+> **Scope:** The mechanism is upstream and identical for every distribution. The public key is a
+> distribution artifact, and the token is deployment configuration. This document does not define
+> commercial terms, pricing, or a revocation service.
 
 ## Design at a glance
 
@@ -32,6 +32,36 @@ A read-only root filesystem is not an obstacle, because no activation state is e
 image. The token arrives through the normal secret path, and any durable record belongs in the state
 store.
 
+## Issuer workstation exception
+
+**Initial design.** Treat the presence of any private-key file under `secrets/` as proof that the
+runtime is on the issuer workstation, then skip licensing.
+
+**Critique.** A filename is not a cryptographic identity. An empty file, an unrelated key, a
+symlink, or a mounted key path would satisfy a presence check. Reusing
+`secrets/integrity-signing-key.pem` would also collapse framework-integrity and license compromise
+domains and make the runtime read a key it does not need.
+
+**Revised design.** A source checkout may enter `issuer-workstation` status only when every check
+below passes:
+
+- the execution venue is `local` and the asset root has a Git checkout marker;
+- the fixed `secrets/license-signing-key.pem` path is a current-UID, mode-`0600` regular file read
+  through a bounded, nonblocking, no-follow descriptor;
+- the file contains an Ed25519 private key whose derived public bytes exactly match the tracked
+  license public key packaged with the Core distribution; and
+- the dedicated license key is separate from `secrets/integrity-signing-key.pem`.
+
+The runtime does not open the private-key path in a deployed venue. The Docker build context excludes
+the complete `secrets/` tree. A verified issuer workstation ignores any configured license token and
+keeps the full catalog available, while all promotion, RBAC, risk, approval, rollback, audit, and
+effect-verification gates remain unchanged. Missing, malformed, incorrectly permissioned, or
+mismatched private-key material grants no exception and does not stop observation.
+
+This proves possession of the dedicated key, not attachment to immutable physical hardware. Copying
+the key copies issuer status. A later hardware-backed key design can strengthen that custody boundary
+without changing the signed token contract.
+
 ## The token
 
 The token is `base64url(canonical-document) "." base64url(signature)` - a single ASCII string that
@@ -48,6 +78,15 @@ signature.
 | `image_digest` | optional binding to one runtime image |
 | `tenant_binding` | optional binding to one deployment, as a **digest only** |
 
+The issuer accepts validity periods from 1 through 30 days and defaults to 30 days. The Core token
+contract and offline inspector also reject a signed validity window longer than 30 elapsed UTC
+days, so an alternate issuer cannot bypass the ceiling. Renewal issues a new token rather than
+extending or rewriting an existing signed document.
+
+The shipped Core runtime binds `distribution_id` to `fdai-upstream`. A signature made by the same
+issuer for another distribution is still `misbound` here. A downstream distribution supplies its
+own expected identity at composition; an environment value cannot relabel a token after issuance.
+
 `tenant_binding` is never a tenant identifier. Binding by digest keeps the repository, the image, and
 every log line free of customer values
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -59,9 +98,10 @@ widen a role, relax a risk decision, or grant approval authority. Those stay wit
 registry, RBAC, and the risk gate
 ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
-The consequence is worth stating plainly: the worst outcome of a forged or stolen token is that an
-operator sees a capability listed. It is never that a high-risk action executes. A licensing check
-that could raise autonomy would itself be a backdoor.
+The consequence is worth stating plainly: a trusted token can remove one availability hold, but it
+cannot authorize an effect by itself. An action still needs every independent promotion, role,
+risk, approval, identity, safeguard, and effect-verification decision. A licensing check that could
+replace or raise any of those decisions would itself be a backdoor.
 
 Entitlement is also an intersection with the shipped catalog, so a token cannot invent a capability
 the distribution does not implement.
@@ -80,6 +120,11 @@ who can read it. The issuer therefore writes it owner-only and never through a s
 distribution that expects tokens to travel should bind them. File output contains only the canonical
 token bytes, without a trailing newline, because surrounding whitespace is not a valid token
 spelling.
+
+Azure delivery writes each token to a digest-derived Key Vault secret name and changes the Core
+reference only in the new Terraform revision. It never overwrites the versionless secret name used
+by the active revision before the replacement plan succeeds. A failed renewal can therefore leave
+an unused secret, but it cannot misbind or downgrade the running Core process.
 
 ## Token canonicality
 
@@ -105,22 +150,48 @@ diagnosed. The operator-facing reason stays generic and never echoes verifier ex
 
 | Status | Cause | Availability |
 |--------|-------|--------------|
+| `issuer-workstation` | local source checkout proves possession of the dedicated matching private key | full catalog; any configured token is ignored |
 | `active` | signature verifies, inside the window, bindings match | listed capabilities that exist in the catalog, plus every read-only capability |
-| `absent` | no token configured | full catalog upstream; read-only when the distribution sets `require_license` |
+| `absent` | no token configured and no issuer-workstation proof | read-only in the shipped runtime |
 | `untrusted` | malformed token, a non-canonical token, a signature the packaged key rejects, or a verifier that cannot run | read-only |
 | `not-yet-valid` / `expired` | outside the validity window | read-only |
-| `misbound` | image digest or deployment binding does not match | read-only |
+| `misbound` | distribution identity, image digest, or deployment binding does not match | read-only |
 
-This repository ships unlicensed, so `absent` keeps the full catalog and development is never gated.
-A distribution that wants fail-closed behavior sets `require_license` at its composition root.
+The crypto-free resolver keeps its explicit `require_license` input for isolated library and fork
+composition. The shipped Core runtime always sets it. Development remains unrestricted only on a
+verified issuer workstation; another checkout receives the same observation-only Trial posture as a
+deployment with no token.
+
+## Runtime execution ceiling
+
+Availability is checked at the shared Thor execution port, which is used by normal control-loop
+dispatch and human-approval resume. All PR-native, direct-API, and tool-call action paths require the
+catalog capability `operations.typed-mutation`. The runtime resolves entitlement again immediately
+before each port call. A process that crosses `not_after` therefore rejects the next acting request
+without a restart, even if the token was active at startup.
+
+A rejection writes a secret-free terminal audit record containing the status, license id when
+available, expiration, required capability, and execution path. It never records the token, document,
+signature, public-key bytes, private-key path, or verifier exception. Rejection cannot convert to
+human approval or another executor path. If audit persistence fails, the delegate remains blocked
+and the caller still receives a terminal denial marked `audit_persisted=false`; a secret-free
+structured error provides the secondary operational signal instead of turning denial into an
+unhandled execution-path exception.
+
+This ceiling can only remove availability. A token that includes `operations.typed-mutation` still
+needs every ordinary promotion, RBAC, risk, approval, safeguard, identity, and effect-verification
+check before an effect. Replacing a token requires a Core restart so startup can bind the new secret;
+expiration itself does not require one.
 
 ## Where the code lives
 
 | Concern | Location |
 |---------|----------|
 | Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
-| Status, binding, and entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| Runtime signature verification seam | `LicenseVerifier` Protocol resolved by the distribution composition root |
+| Status, binding, current-time entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
+| Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |
+| Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
 
@@ -130,26 +201,26 @@ and never imports a crypto backend, a transport, or `fdai.delivery`
 
 ## Verifying it in this repository
 
-Licensing is testable upstream even though upstream ships no license. Generate a key, issue a token,
-then inspect it:
+Licensing is testable without exposing the issuer private key. On the issuer workstation, issue a
+30-day full-catalog token and inspect it:
 
 ```bash
-openssl genpkey -algorithm ed25519 -out /tmp/license-key.pem
-openssl pkey -in /tmp/license-key.pem -pubout -out /tmp/license-key.pub
-PYTHONPATH=src python3 scripts/deployment/release/issue-license.py \
-  --private-key /tmp/license-key.pem --public-key /tmp/license-key.pub \
+uv run python scripts/deployment/release/issue-license.py \
   --license-id lic-0001 --distribution-id example-distribution \
-  --capability cost.metering --capability incident.restart \
+  --all-capabilities \
   --output /tmp/license.token
-PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
-  --token /tmp/license.token --public-key /tmp/license-key.pub --output json
+uv run python -m fdai.deployment_cli license inspect \
+  --token /tmp/license.token \
+  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --output json
 ```
 
 `issue-license.py` re-verifies its own output against the supplied public key before printing, so a
 rotated signing key fails at issue time rather than at the customer site. It accepts the private key
 only as a current-UID mode-`0600` regular file and reads both keys through a nonblocking, no-follow,
-65536-byte boundary. `license inspect` reports status and non-secret metadata only; it never echoes
-the token, the document, or the signature.
+65536-byte boundary. Its defaults are the fixed issuer key, packaged public key, and 30-day validity;
+an explicit public key remains available for rotation verification. `license inspect` reports status
+and non-secret metadata only; it never echoes the token, the document, or the signature.
 
 Automated coverage lives in `services/core-control-plane/tests/core/licensing/` for the contract and degradation table, and in
 `tests/integration/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong

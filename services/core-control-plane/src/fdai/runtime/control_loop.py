@@ -25,6 +25,7 @@ from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiExecutionPort,
     InProcessThorExecutionPort,
+    LicenseGatedThorExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
@@ -40,6 +41,7 @@ from fdai.core.hil_resume import (
     HilResumeCoordinator,
     HumanNonResponseSupervisor,
 )
+from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
@@ -257,6 +259,7 @@ def _build_control_loop(
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
     direct_api_execution_port: DirectApiExecutionPort | None = None,
     thor_execution_port: ThorExecutionPort | None = None,
+    license_authority: LicenseEntitlementAuthority | None = None,
     mutation_dependency_readiness: MutationDependencyReadiness,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
@@ -541,6 +544,12 @@ def _build_control_loop(
             pr_native=executor,
             direct_api=direct_api_executor,
             tool_call=tool_executor,
+        )
+    if license_authority is not None:
+        thor_execution_port = LicenseGatedThorExecutionPort(
+            delegate=thor_execution_port,
+            authority=license_authority,
+            audit_store=audit_store,
         )
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
 

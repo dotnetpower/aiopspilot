@@ -6,6 +6,7 @@ locals {
   stewardship_gitops_token_enabled = (
     local.stewardship_gitops_enabled && var.stewardship_gitops.auth_mode == "static_token"
   )
+  license_enabled = trimspace(var.license.token_secret_id) != ""
   teams_notification_bindings_json = jsonencode({
     (var.teams_notification_binding.channel_id) = {
       kind         = "teams_workflow"
@@ -56,6 +57,10 @@ module "container_app" {
     name                = "stewardship-github-app-private-key"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.stewardship_gitops.app_private_key_secret_id
+    }] : [], local.license_enabled ? [{
+    name                = "capability-license-token"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.license.token_secret_id
   }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
@@ -99,6 +104,11 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], !local.license_enabled ? [] : [
+    { name = "FDAI_LICENSE_TOKEN", secret_name = "capability-license-token" },
+    { name = "FDAI_LICENSE_IMAGE_DIGEST", value = var.license.image_digest },
+    { name = "FDAI_LICENSE_DEPLOYMENT_BINDING", value = var.license.deployment_digest },
+    { name = "FDAI_LICENSE_TOKEN_REVISION", value = var.license.token_revision },
     ], trimspace(var.decision_evidence_container_url) == "" ? [] : [
     { name = "FDAI_DECISION_EVIDENCE_CONTAINER_URL", value = trimspace(var.decision_evidence_container_url) },
     ], var.rca_reader_identity.client_id == "" ? [] : [

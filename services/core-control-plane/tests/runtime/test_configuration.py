@@ -88,6 +88,7 @@ def test_runtime_bootstrap_reuses_one_settings_snapshot_for_llm_and_core() -> No
 
     assert "runtime_values=runtime_values" in llm_call
     assert "runtime_values_snapshot=runtime_values" in core_call
+    assert "license_authority=build_runtime_license_authority(" in core_call
     assert "runtime_values_snapshot" not in drift_call
 
 

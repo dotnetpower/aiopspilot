@@ -20,6 +20,7 @@ from fdai.composition.readiness import (
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
+from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
@@ -204,6 +205,7 @@ async def build_core_runtime(
     resources: RuntimeResources,
     identity: Any,
     environment: Mapping[str, str],
+    license_authority: LicenseEntitlementAuthority,
     runtime_values_snapshot: Mapping[str, object] | None = None,
     state_store: StateStore | None = None,
 ) -> CoreRuntime:
@@ -486,6 +488,7 @@ async def build_core_runtime(
             effect_request_binding.producer if effect_request_binding is not None else None
         ),
         human_access_enabled=runtime_values["human_access.enabled"] is True,
+        license_authority=license_authority,
         mutation_dependency_readiness=mutation_readiness,
     )
     if control_loop.ontology_instance_store is not None:

@@ -61,6 +61,7 @@ from fdai.runtime.github_auth import (
     build_github_token_provider,
     github_credentials_configured,
 )
+from fdai.runtime.licensing import build_runtime_license_authority
 from fdai.runtime.model_lifecycle_startup import (
     FileResolvedModelsSource,
     resolve_models_startup_revision,
@@ -165,6 +166,10 @@ async def _run() -> int:
                 resources=resources,
                 identity=identity,
                 environment=os.environ,
+                license_authority=build_runtime_license_authority(
+                    catalog=container.capability_runtime.catalog,
+                    environment=os.environ,
+                ),
                 runtime_values_snapshot=runtime_values,
                 state_store=state_store,
             )

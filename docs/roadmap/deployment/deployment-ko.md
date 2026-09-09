@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 2f9a64d1c4a3ceae275ce754dfe7094a18fdaae3
+translation_source_sha: 76cadd7acad645c6b1bbe9c47b800d9627a21b28
 translation_revised: 2026-09-09
 ---
 
@@ -28,6 +28,7 @@ translation_revised: 2026-09-09
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 새 clone 공개 개발 Core 경로 | implemented | `azd-up.sh`, 플랫폼 및 Core Terraform 루트, 기여자 배포 테스트, 집중 Terraform 계획 | 확인된 clean-checkout 실행은 공개 `dev` 구독 하나에서 플랫폼, 이미지, 스키마, 카탈로그, Core, Job, canary 및 초기 인벤토리를 단계적으로 배포합니다. 관찰 모드를 유지하며 비공개, 공유, 스테이징 또는 운영 경로가 아닙니다. |
+| 기능 라이선스 Trial 전달 | implemented | Core 라이선스 및 실행 게이트 테스트, 독립 Core Terraform 검증, 기여자 배포 계약 | 토큰 없는 배포는 관찰 전용으로 유지됩니다. 공개 개발 경로는 소유자 전용 로컬 키가 검증될 때만 최대 30일의 전체 카탈로그 토큰을 발급하고 파일 입력으로 토큰별 다이제스트 이름의 Key Vault 시크릿에 전송하며, 버전 없는 참조와 비밀이 아닌 다이제스트만 Terraform에 전달합니다. 실제 Azure 발급, 갱신 또는 만료 증적은 아직 보존하지 않았습니다. |
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
@@ -45,6 +46,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 라이선스 필수 Trial 동작, 암호학적으로 검증된 로컬 발급자 예외, 소비자가 강제하는 30일 토큰, 다이제스트 이름의 Key Vault 시크릿을 통한 격리된 갱신 및 보호된 공개 Core 경로의 재시작 가능한 tfvars 구체화를 추가했습니다. | `current change`; 결합된 집중 회귀 검사 228개, 검토 후 기여자 검사 9개와 air-gap 제품화 검사 6개 통과, 두 Core Terraform 계층 검증 완료, 빌드한 Core wheel에 공개 키 포함 확인. | 키 없는 새 Azure 배포의 Trial, 활성 토큰이 있는 발급자 배포, 만료 차단 및 동일 이미지 갱신 증적을 보존합니다. |
 | 2026-09-09 | implemented | 공개 `dev` 플랫폼과 독립 Core 루트를 정확한 ACR 빌드, 스키마 및 카탈로그 부트스트랩, 예약 Job 활성화, 범위가 제한된 상태 검사를 포함하는 하나의 보호된 fresh-clone 경로로 조합했습니다. | `current change`; 집중 배포 workflow 테스트 86개, 집중 native Terraform 계획 46개 통과, Terraform 구성 검증 통과. | 경로를 validated로 분류하기 전에 통제된 새 구독 적용, 정리, 두 번째 실행 no-change, Core 상태, canary 및 인벤토리 증적을 보존합니다. |
 | 2026-09-07 | implemented | 예약된 외부 변경 감지와 원하는 상태의 배포 계획을 분리했습니다. 이제 모든 표류 검사 루트가 새로 고침 전용 계획을 사용하므로, 전달 시점에만 사용하는 기능 입력이 누락되어도 활성 리소스가 삭제 대상으로 표시되지 않습니다. | `current change`, `.github/workflows/infra-drift.yml` 및 집중 표류 workflow 계약 테스트 | 삭제가 없는 새로 고침 계획을 보여 주는 정확한 보호 실행을 하나 보존합니다. 적용되지 않은 코드와 구성 변경은 보호된 배포 계획에서 확인합니다. |
 | 2026-09-07 | implemented | 정확한 계획과 런타임 안전성 검사를 유지하면서 검토 없는 환경을 검증하는 명시적인 단독 유지관리자 개발 정책을 추가했습니다. | `current change`, 집중 검증기 및 배포 작업 흐름 테스트 | 직접 개발 적용 하나를 성공시키고 적용 후 projection 조회 결과를 보존합니다. |

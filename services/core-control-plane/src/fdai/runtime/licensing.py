@@ -1,0 +1,127 @@
+"""Runtime binding for signed capability licensing and local issuer mode."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from pathlib import Path
+
+from fdai.core.capability_catalog import CapabilityCatalog
+from fdai.core.licensing import (
+    DeploymentBinding,
+    LicenseEntitlementAuthority,
+    LicenseVerifier,
+)
+from fdai.delivery.repo_assets import repo_asset_root
+from fdai.delivery.trust import (
+    Ed25519LicenseVerifier,
+    license_public_key_pem,
+    private_key_matches_public_key,
+)
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
+
+_LOGGER = logging.getLogger("fdai.startup")
+_ISSUER_PRIVATE_KEY = Path("secrets/license-signing-key.pem")
+_DEFAULT_DISTRIBUTION_ID = "fdai-upstream"
+
+
+class _UnavailableLicenseVerifier:
+    """Keep observation available when the packaged verifier cannot load."""
+
+    def verify(self, document: bytes, signature: bytes) -> bool:
+        raise ValueError("packaged license verifier is unavailable")
+
+
+def build_runtime_license_authority(
+    *,
+    catalog: CapabilityCatalog,
+    environment: Mapping[str, str],
+    distribution_id: str = _DEFAULT_DISTRIBUTION_ID,
+    root: Path | None = None,
+    public_key_pem: bytes | None = None,
+    evaluated_at: datetime | None = None,
+) -> LicenseEntitlementAuthority:
+    """Build the required-license authority for one Core process.
+
+    Only a local source checkout may inspect the fixed dedicated private-key
+    path. Deployed venues never open it, even if a file is mounted there.
+    Missing or rejected issuer material leaves the runtime in ordinary Trial
+    resolution rather than failing the observation path.
+    """
+
+    asset_root = root or repo_asset_root()
+    packaged_key: bytes | None
+    try:
+        packaged_key = public_key_pem if public_key_pem is not None else license_public_key_pem()
+        verifier: LicenseVerifier = Ed25519LicenseVerifier(packaged_key)
+    except (OSError, TypeError, ValueError):
+        packaged_key = None
+        verifier = _UnavailableLicenseVerifier()
+        _LOGGER.warning(
+            "license_public_key_unavailable",
+            extra={"reason": "packaged_key_invalid_or_missing"},
+        )
+
+    issuer_workstation = False
+    venue = resolve_execution_venue(environment)
+    if (
+        venue is ExecutionVenue.LOCAL
+        and (asset_root / ".git").exists()
+        and packaged_key is not None
+    ):
+        try:
+            issuer_workstation = private_key_matches_public_key(
+                asset_root / _ISSUER_PRIVATE_KEY,
+                packaged_key,
+            )
+        except FileNotFoundError:
+            issuer_workstation = False
+        except (OSError, TypeError, ValueError):
+            issuer_workstation = False
+            _LOGGER.warning(
+                "license_local_issuer_key_rejected",
+                extra={"reason": "invalid_permissions_format_or_file_type"},
+            )
+        else:
+            if not issuer_workstation:
+                _LOGGER.warning(
+                    "license_local_issuer_key_rejected",
+                    extra={"reason": "public_key_mismatch"},
+                )
+
+    authority = LicenseEntitlementAuthority(
+        catalog=catalog,
+        token=environment.get("FDAI_LICENSE_TOKEN"),
+        verifier=verifier,
+        binding=DeploymentBinding(
+            distribution_id=distribution_id,
+            image_digest=_optional_value(environment.get("FDAI_LICENSE_IMAGE_DIGEST")),
+            tenant_binding=_optional_value(environment.get("FDAI_LICENSE_DEPLOYMENT_BINDING")),
+        ),
+        require_license=True,
+        issuer_workstation=issuer_workstation,
+    )
+    entitlement = authority.resolve(now=evaluated_at or datetime.now(tz=UTC))
+    _LOGGER.info(
+        "license_entitlement_resolved",
+        extra={
+            "status": entitlement.status.value,
+            "license_id": entitlement.license_id,
+            "not_after": (
+                entitlement.not_after.isoformat() if entitlement.not_after is not None else None
+            ),
+            "available_capability_count": len(entitlement.available_capability_ids),
+        },
+    )
+    return authority
+
+
+def _optional_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+__all__ = ["build_runtime_license_authority"]

@@ -3,9 +3,17 @@ from __future__ import annotations
 import importlib.util
 import os
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 PATH = ROOT / "scripts/deployment/release/issue-license.py"
@@ -107,3 +115,88 @@ def test_release_key_reader_is_private_bounded_no_follow_and_nonblocking(
     linked.symlink_to(private_key)
     with pytest.raises(OSError):
         read_key_file(linked, private=False)
+
+
+def test_issuer_refuses_a_validity_period_longer_than_30_days() -> None:
+    with pytest.raises(MODULE.LicenseIssueError, match="between 1 and 30"):
+        MODULE.issue_license(
+            private_key_pem=b"not-read-after-validity-rejection",
+            public_key_pem=b"not-read-after-validity-rejection",
+            license_id="lic-test",
+            distribution_id="example-distribution",
+            capability_ids=("operations.typed-mutation",),
+            valid_days=31,
+            not_before=datetime(2026, 9, 9, tzinfo=UTC),
+        )
+
+
+def test_all_capabilities_uses_the_30_day_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private_key = tmp_path / "private.pem"
+    private_key.write_bytes(b"private")
+    private_key.chmod(0o600)
+    public_key = tmp_path / "public.pem"
+    public_key.write_bytes(b"public")
+    output = tmp_path / "license.token"
+    captured: dict[str, object] = {}
+
+    def capture_issue(**kwargs: object) -> str:
+        captured.update(kwargs)
+        return "abc.def"
+
+    monkeypatch.setattr(MODULE, "issue_license", capture_issue)
+
+    assert (
+        MODULE.main(
+            [
+                "--private-key",
+                str(private_key),
+                "--public-key",
+                str(public_key),
+                "--license-id",
+                "lic-test",
+                "--distribution-id",
+                "example-distribution",
+                "--all-capabilities",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert captured["valid_days"] == 30
+    assert "operations.typed-mutation" in captured["capability_ids"]
+
+
+def test_full_catalog_token_is_real_and_expires_after_30_days() -> None:
+    private_key = Ed25519PrivateKey.generate()
+    private_pem = private_key.private_bytes(
+        Encoding.PEM,
+        PrivateFormat.PKCS8,
+        NoEncryption(),
+    )
+    public_pem = private_key.public_key().public_bytes(
+        Encoding.PEM,
+        PublicFormat.SubjectPublicKeyInfo,
+    )
+    not_before = datetime(2026, 9, 9, tzinfo=UTC)
+    capability_ids = tuple(
+        capability.capability_id for capability in MODULE.default_capability_catalog().list()
+    )
+
+    token = MODULE.issue_license(
+        private_key_pem=private_pem,
+        public_key_pem=public_pem,
+        license_id="lic-real-test",
+        distribution_id="example-distribution",
+        capability_ids=capability_ids,
+        valid_days=30,
+        not_before=not_before,
+    )
+    claims, document, signature = MODULE.parse_license_token(token)
+    private_key.public_key().verify(signature, document)
+
+    assert claims.not_after - claims.not_before == timedelta(days=30)
+    assert "operations.typed-mutation" in claims.capability_ids

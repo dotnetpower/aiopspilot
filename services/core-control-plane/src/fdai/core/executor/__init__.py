@@ -32,6 +32,10 @@ from fdai.core.executor.executor import (
     ExecutorOutcome,
     ShadowExecutor,
 )
+from fdai.core.executor.licensing_gate import (
+    MUTATION_CAPABILITY_ID,
+    LicenseGatedThorExecutionPort,
+)
 from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.executor.path_selection import (
     ExecutionPathSelectionError,
@@ -66,6 +70,8 @@ __all__ = [
     "ExecutorConfig",
     "ExecutorOutcome",
     "InProcessThorExecutionPort",
+    "LicenseGatedThorExecutionPort",
+    "MUTATION_CAPABILITY_ID",
     "MutationDependencyReadiness",
     "RenderError",
     "RenderRequest",

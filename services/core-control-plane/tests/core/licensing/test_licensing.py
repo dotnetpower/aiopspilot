@@ -16,6 +16,7 @@ from fdai.core.capability_catalog import (
 from fdai.core.licensing import (
     DeploymentBinding,
     LicenseClaims,
+    LicenseEntitlementAuthority,
     LicenseStatus,
     LicenseTokenError,
     encode_license_token,
@@ -71,7 +72,7 @@ def _claims(**overrides: object) -> LicenseClaims:
         "distribution_id": "example-distribution",
         "capability_ids": ("cost.metering", "incident.restart"),
         "not_before": _NOW - timedelta(days=1),
-        "not_after": _NOW + timedelta(days=30),
+        "not_after": _NOW + timedelta(days=29),
     }
     values.update(overrides)
     return LicenseClaims(**values)  # type: ignore[arg-type]
@@ -198,6 +199,19 @@ def test_expired_window_is_rejected_at_construction() -> None:
         _claims(not_after=_NOW - timedelta(days=2))
 
 
+def test_validity_window_cannot_exceed_30_elapsed_utc_days() -> None:
+    exact = _claims(not_before=_NOW, not_after=_NOW + timedelta(days=30))
+    assert parse_license_token(_token(exact))[0] == exact
+
+    payload = json.loads(exact.canonical_document())
+    payload["not_after"] = (
+        (_NOW + timedelta(days=30, microseconds=1)).isoformat().replace("+00:00", "Z")
+    )
+    document = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    with pytest.raises(LicenseTokenError, match="30 elapsed UTC days"):
+        parse_license_token(encode_license_token(document, _SIGNATURE))
+
+
 def test_active_license_grants_only_listed_catalog_capabilities() -> None:
     entitlement = resolve_entitlement(
         catalog=_catalog(),
@@ -283,6 +297,20 @@ def test_matching_binding_is_accepted() -> None:
     )
 
     assert entitlement.status is LicenseStatus.ACTIVE
+
+
+def test_distribution_mismatch_blocks_a_cross_distribution_token() -> None:
+    entitlement = resolve_entitlement(
+        catalog=_catalog(),
+        token=_token(_claims(distribution_id="another-distribution")),
+        verifier=_AcceptAll(),
+        now=_NOW,
+        binding=DeploymentBinding(distribution_id="fdai-upstream"),
+    )
+
+    assert entitlement.status is LicenseStatus.MISBOUND
+    assert entitlement.reason == "license is bound to a different distribution"
+    assert entitlement.available_capability_ids == {"cost.metering"}
 
 
 def test_unlicensed_upstream_keeps_the_full_catalog() -> None:
@@ -383,3 +411,39 @@ def test_a_license_still_cannot_grant_a_capability_the_catalog_lacks() -> None:
     )
 
     assert "network.rewrite-routes" not in entitlement.available_capability_ids
+
+
+def test_verified_issuer_workstation_ignores_a_configured_token() -> None:
+    authority = LicenseEntitlementAuthority(
+        catalog=_catalog(),
+        token="not-a-valid-token",
+        verifier=_RejectAll(),
+        issuer_workstation=True,
+    )
+
+    entitlement = authority.resolve(now=_NOW)
+
+    assert entitlement.status is LicenseStatus.ISSUER_WORKSTATION
+    assert entitlement.is_active is True
+    assert entitlement.available_capability_ids == {
+        "cost.metering",
+        "incident.restart",
+        "chaos.run-experiment",
+    }
+    assert entitlement.license_id is None
+
+
+def test_authority_rechecks_expiration_instead_of_caching_startup_status() -> None:
+    authority = LicenseEntitlementAuthority(
+        catalog=_catalog(),
+        token=_token(_claims()),
+        verifier=_AcceptAll(),
+    )
+
+    active = authority.resolve(now=_NOW)
+    expired = authority.resolve(now=_NOW + timedelta(days=31))
+
+    assert active.status is LicenseStatus.ACTIVE
+    assert "incident.restart" in active.available_capability_ids
+    assert expired.status is LicenseStatus.EXPIRED
+    assert expired.available_capability_ids == {"cost.metering"}

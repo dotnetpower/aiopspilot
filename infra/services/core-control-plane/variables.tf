@@ -207,6 +207,32 @@ variable "database" {
   }
 }
 
+variable "license" {
+  description = "Optional versionless Key Vault reference and non-secret bindings for a signed capability license."
+  type = object({
+    token_secret_id   = optional(string, "")
+    image_digest      = optional(string, "")
+    deployment_digest = optional(string, "")
+    token_revision    = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = (
+      trimspace(var.license.token_secret_id) == "" &&
+      trimspace(var.license.image_digest) == "" &&
+      trimspace(var.license.deployment_digest) == "" &&
+      trimspace(var.license.token_revision) == ""
+      ) || (
+      can(regex("^https://[^/]+/secrets/[^/]+$", trimspace(var.license.token_secret_id))) &&
+      can(regex("^[0-9a-f]{64}$", trimspace(var.license.image_digest))) &&
+      can(regex("^[0-9a-f]{64}$", trimspace(var.license.deployment_digest))) &&
+      can(regex("^[0-9a-f]{64}$", trimspace(var.license.token_revision)))
+    )
+    error_message = "license must be empty or contain one versionless HTTPS Key Vault secret id and three lowercase SHA-256 digests."
+  }
+}
+
 variable "health" {
   description = "Internal health probe contract."
   type = object({
