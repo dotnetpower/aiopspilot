@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import sys
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
@@ -28,6 +30,10 @@ from fdai.core.measurement import (
     OperationalPromotionEvaluator,
     OperationalPromotionMeasurementRunner,
 )
+from fdai.core.measurement.cohort_claim_policy import (
+    COHORT_CLAIM_POLICY_PATH,
+    load_cohort_claim_policy,
+)
 from fdai.core.measurement.pattern_growth import TemporalHoldoutValidator
 from fdai.core.measurement.regression import RegressionDetector
 from fdai.core.measurement.runners import (
@@ -39,6 +45,9 @@ from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.measurement.admitted_operational_promotion import (
     AdmittedOperationalPromotionEvidenceSource,
+)
+from fdai.delivery.measurement.cohort_inventory import (
+    PostgresCohortEvidenceInventorySource,
 )
 from fdai.delivery.measurement.holdout import (
     HoldoutVerifiedPatternBuilder,
@@ -82,6 +91,7 @@ _LOGGER = logging.getLogger("fdai.delivery.measurement_runner_cli")
 
 class MeasurementMode(StrEnum):
     BASELINE = "baseline"
+    COHORT_INVENTORY = "cohort-inventory"
     GROWTH = "growth"
     OPERATIONAL_PROMOTION = "operational-promotion"
 
@@ -144,6 +154,22 @@ async def _run_baseline() -> int:
         },
     )
     return 3 if report.aborted_reason is not None else 0
+
+
+async def _run_cohort_inventory() -> int:
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    revision = _required_env("FDAI_COHORT_REVISION")
+    policy = load_cohort_claim_policy(_repo_root() / COHORT_CLAIM_POLICY_PATH)
+    inventory = await PostgresCohortEvidenceInventorySource(
+        dsn=dsn,
+        policy=policy,
+        expected_revision=revision,
+    ).inventory(evaluated_at=datetime.now(tz=UTC))
+    _LOGGER.info(
+        "measurement_cohort_inventory_complete %s",
+        json.dumps(inventory.to_log_record(), separators=(",", ":"), sort_keys=True),
+    )
+    return 0 if inventory.ready else 3
 
 
 async def _run_measured_policy(
@@ -319,6 +345,8 @@ async def _amain(argv: list[str]) -> int:
     try:
         if mode is MeasurementMode.BASELINE:
             return await _run_baseline()
+        if mode is MeasurementMode.COHORT_INVENTORY:
+            return await _run_cohort_inventory()
         if mode is MeasurementMode.GROWTH:
             return await _run_growth()
         return await _run_operational_promotion()

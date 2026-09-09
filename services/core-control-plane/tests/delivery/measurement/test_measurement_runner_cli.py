@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 from fdai.delivery import measurement_runner_cli
+from fdai.delivery.measurement.cohort_inventory import CohortEvidenceInventory
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 31, 1, tzinfo=UTC)
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def test_invalid_mode_returns_two() -> None:
@@ -30,6 +32,59 @@ def test_baseline_success_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(measurement_runner_cli, "_run_baseline", _success)
     assert measurement_runner_cli.main(["baseline"]) == 0
+
+
+def test_cohort_inventory_missing_required_env_returns_three(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
+    monkeypatch.delenv("FDAI_COHORT_REVISION", raising=False)
+    assert measurement_runner_cli.main(["cohort-inventory"]) == 3
+
+
+def test_cohort_inventory_success_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _success() -> int:
+        return 0
+
+    monkeypatch.setattr(measurement_runner_cli, "_run_cohort_inventory", _success)
+    assert measurement_runner_cli.main(["cohort-inventory"]) == 0
+
+
+def test_cohort_inventory_not_ready_returns_three(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Source:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def inventory(self, *, evaluated_at: datetime) -> CohortEvidenceInventory:
+            return CohortEvidenceInventory(
+                window_start=evaluated_at - timedelta(days=90),
+                window_end=evaluated_at,
+                candidate_action_outcomes=0,
+                candidate_resolved_incidents=0,
+                candidate_changes=0,
+                candidate_cost_units=0,
+                metric_counts={"baseline": {}, "treatment": {}},
+                guard_counts={"baseline": {}, "treatment": {}},
+                minimum_sample_size=30,
+                ready=False,
+                missing=("baseline:metric:auto_resolution_rate:0/30",),
+            )
+
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example")
+    monkeypatch.setenv(
+        "FDAI_COHORT_REVISION",
+        "0123456789abcdef0123456789abcdef01234567",
+    )
+    monkeypatch.setattr(measurement_runner_cli, "_repo_root", lambda: _REPO_ROOT)
+    monkeypatch.setattr(
+        measurement_runner_cli,
+        "PostgresCohortEvidenceInventorySource",
+        _Source,
+    )
+
+    assert measurement_runner_cli.main(["cohort-inventory"]) == 3
 
 
 def test_growth_unwired_fails_nonzero() -> None:
