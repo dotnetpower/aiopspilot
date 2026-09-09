@@ -36,6 +36,7 @@ class AzurePromptBundle:
     critic: str | None
     judge: str | None
     rca: str | None
+    rca_manifest: PromptReplayManifest | None
 
 
 async def compose_azure_prompt_bundle(
@@ -63,6 +64,7 @@ async def compose_azure_prompt_bundle(
         act.value: await composer.compose(capability_id=capability_id)
         for act, capability_id in SOCIAL_NARRATOR_CAPABILITY_IDS.items()
     }
+    rca_prompt = await _optional_composed_prompt(composer, "t2.rca")
     return AzurePromptBundle(
         composer=composer,
         primary=primary,
@@ -79,7 +81,8 @@ async def compose_azure_prompt_bundle(
         },
         critic=await _optional_prompt(composer, "t2.critic"),
         judge=await _optional_prompt(composer, "t1.judge"),
-        rca=await _optional_prompt(composer, "t2.rca"),
+        rca=rca_prompt.system_text if rca_prompt is not None else None,
+        rca_manifest=rca_prompt.replay_manifest() if rca_prompt is not None else None,
     )
 
 
@@ -101,6 +104,17 @@ async def _optional_prompt(
         },
     )
     return composed.system_text
+
+
+async def _optional_composed_prompt(
+    composer: DefaultPromptComposer,
+    capability_id: str,
+) -> ComposedPrompt | None:
+    try:
+        return await composer.compose(capability_id=capability_id)
+    except LookupError:
+        _LOGGER.info("optional_prompt_missing", extra={"capability_id": capability_id})
+        return None
 
 
 __all__ = ["AzurePromptBundle", "compose_azure_prompt_bundle"]

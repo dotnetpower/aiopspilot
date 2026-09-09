@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -10,6 +11,12 @@ from typing import Any, Final
 import httpx
 
 from fdai.core.metering.emitter import MeteringEmitter
+from fdai.core.prompts import (
+    PromptProfileEvidence,
+    PromptReplayManifest,
+    estimate_prompt_tokens,
+    estimate_serialized_request_tokens,
+)
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.tiers.t2_reasoning import T2ProposalContext
 from fdai.delivery.azure.llm.completion_body import completion_body_params
@@ -34,6 +41,7 @@ class AzureOpenAIProposerConfig:
     endpoint: str
     deployment: str
     system_prompt: str
+    prompt_manifest: PromptReplayManifest | None = None
     api_version: str = "2024-06-01"
     temperature: float = 0.0
     max_tokens: int = 512
@@ -68,6 +76,17 @@ class AzureOpenAIProposer:
         )
         if not config.system_prompt:
             raise ValueError("system_prompt MUST NOT be empty")
+        if config.prompt_manifest is not None:
+            if (
+                config.prompt_manifest.system_text_sha256
+                != hashlib.sha256(config.system_prompt.encode()).hexdigest()
+            ):
+                raise ValueError("proposer prompt manifest does not match system_prompt")
+            if (
+                config.prompt_manifest.reserved_output_tokens is not None
+                and config.prompt_manifest.reserved_output_tokens < config.max_tokens
+            ):
+                raise ValueError("proposer max_tokens exceeds prompt output reserve")
         if config.max_tokens < 1:
             raise ValueError("max_tokens MUST be >= 1")
         if config.timeout_seconds <= 0:
@@ -81,10 +100,14 @@ class AzureOpenAIProposer:
         self._target = target
         self._gateway_route_sink = gateway_route_sink
 
+    @property
+    def prompt_profile_evidence(self) -> PromptProfileEvidence | None:
+        manifest = self._config.prompt_manifest
+        return PromptProfileEvidence.from_manifest(manifest) if manifest is not None else None
+
     async def propose(self, *, context: T2ProposalContext) -> QualityCandidate | None:
         if not context.allowed_rules or not context.target_resource_ref:
             return None
-        token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
         body: dict[str, Any] = {
             "messages": [
@@ -101,6 +124,26 @@ class AzureOpenAIProposer:
         body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
+        manifest = self._config.prompt_manifest
+        if manifest is not None:
+            system_content = body["messages"][0]["content"]
+            if not isinstance(system_content, str):
+                raise RuntimeError("proposer system message is invalid")
+            if (
+                manifest.system_token_budget is not None
+                and estimate_prompt_tokens(system_content) > manifest.system_token_budget
+            ):
+                raise RuntimeError("proposer system prompt exceeds profile budget")
+            if (
+                manifest.request_token_budget is not None
+                and estimate_serialized_request_tokens(
+                    body,
+                    reserved_output_tokens=self._config.max_tokens,
+                )
+                > manifest.request_token_budget
+            ):
+                raise RuntimeError("proposer request exceeds profile budget")
+        token = await self._identity.get_token(self._target.auth_audience)
         response = await self._http.post(
             request.url,
             params=request.params,

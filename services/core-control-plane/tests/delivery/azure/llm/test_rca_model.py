@@ -8,11 +8,13 @@ parses the adapter's output.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from types import SimpleNamespace
 
 import httpx
 import pytest
+from fdai.core.prompts import PromptReplayManifest
 from fdai.core.rca import Citation, CitationKind, LlmRcaReasoner, RcaTier
 from fdai.delivery.azure.llm import AzureOpenAIRcaModel, AzureOpenAIRcaModelConfig
 
@@ -79,6 +81,46 @@ async def test_propose_cause_builds_request_and_returns_content() -> None:
     user = body["messages"][1]["content"]
     assert "object-storage.owner-tag.required" in user
     assert "Cite ONLY" in user
+
+
+@pytest.mark.asyncio
+async def test_profile_budget_blocks_unbounded_incident_before_identity_io() -> None:
+    prompt = "You are an FDAI root-cause reasoner."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        profile_id="active.t2-rca",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=513,
+        reserved_output_tokens=512,
+    )
+
+    class NoIdentity:
+        async def get_token(self, scope: str) -> object:
+            raise AssertionError(f"unexpected identity request for {scope}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAIRcaModel(
+            identity=NoIdentity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAIRcaModelConfig(
+                endpoint="https://example.openai.azure.com",
+                deployment="gpt-4o-mini",
+                system_prompt=prompt,
+                prompt_manifest=manifest,
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="profile budget"):
+            await model.propose_cause(
+                incident_summary="x" * 4096,
+                candidate_citations=_CANDIDATES,
+            )
 
 
 @pytest.mark.asyncio

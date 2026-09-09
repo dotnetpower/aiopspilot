@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from types import SimpleNamespace
 from typing import Any
 
 import httpx
 import pytest
+from fdai.core.prompts import PromptReplayManifest
 from fdai.core.tiers.t2_reasoning import T2ProposalContext
 from fdai.delivery.azure.llm import AzureOpenAIProposer, AzureOpenAIProposerConfig
 from fdai.shared.contracts.models import Event, Mode, Rule
@@ -101,6 +103,45 @@ async def test_request_is_bounded_and_target_is_caller_bound(valid_rule: dict[st
     assert "resource:private/identifier" not in user_prompt
     assert "must-not-leak" not in user_prompt
     assert "compute.restart.required" in user_prompt
+
+
+@pytest.mark.asyncio
+async def test_profile_budget_blocks_before_identity_or_provider_io(
+    valid_rule: dict[str, Any],
+) -> None:
+    prompt = "Return a bounded FDAI proposal."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        profile_id="active.t2-proposer",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=513,
+        reserved_output_tokens=512,
+    )
+
+    class NoIdentity:
+        async def get_token(self, scope: str) -> object:
+            raise AssertionError(f"unexpected identity request for {scope}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        proposer = AzureOpenAIProposer(
+            identity=NoIdentity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAIProposerConfig(
+                endpoint="https://example.openai.azure.com",
+                deployment="gpt-4o",
+                system_prompt=prompt,
+                prompt_manifest=manifest,
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="profile budget"):
+            await proposer.propose(context=_context(valid_rule))
 
 
 @pytest.mark.asyncio
