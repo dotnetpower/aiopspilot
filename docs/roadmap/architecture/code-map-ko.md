@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f603f2469c67ffdab0f30b90dd317e81602caab0
+translation_source_sha: 37f25226dc7314ab847131b7d62c35aae94e02a3
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -584,7 +584,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
-| 시스템 지식 서비스 | Release 고정 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
+| 시스템 지식 서비스 | 조상 커밋에 고정된 release 카탈로그를 사용하는 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
 이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.
 로컬 조립은 서비스 소유 클라이언트 수명 주기와 loopback 어댑터를 연결합니다. 따라서 Operator 의미
 브리지, 인제스트 게시자, 문서 워커 consumer 및 Isolated 실행기는 배포된 어댑터와 동일한 logical
