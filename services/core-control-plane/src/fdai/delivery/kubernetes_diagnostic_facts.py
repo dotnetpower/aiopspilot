@@ -27,6 +27,9 @@ _CONDITION_TYPES: Final[Mapping[str, frozenset[str]]] = {
     "kubernetes.daemon-set": frozenset({"Available", "Progressing"}),
     "kubernetes.stateful-set": frozenset({"Available", "Progressing"}),
     "kubernetes.job": frozenset({"Complete", "Failed", "Suspended"}),
+    "kubernetes.horizontal-pod-autoscaler": frozenset(
+        {"AbleToScale", "ScalingActive", "ScalingLimited"}
+    ),
 }
 _STATUS_COUNT_FIELDS: Final[Mapping[str, tuple[str, ...]]] = {
     "kubernetes.daemon-set": (
@@ -69,6 +72,9 @@ def diagnostic_properties(
         qos_class = _optional_text(status.get("qosClass"))
         if resource_type == "kubernetes.pod" and qos_class is not None:
             props["qos_class"] = qos_class
+        pod_reason = _optional_text(status.get("reason"))
+        if resource_type == "kubernetes.pod" and pod_reason is not None:
+            props["reason"] = pod_reason
         for source_name, prefix in (
             ("initContainerStatuses", "init_container"),
             ("ephemeralContainerStatuses", "ephemeral_container"),

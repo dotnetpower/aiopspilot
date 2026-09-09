@@ -146,6 +146,9 @@ than proof that traffic arrived.
 Content-free Pod log evidence now separates returned records from provider-window coverage. A
 point-only provider can supply record digests but cannot make a diagnosis complete without source
 revision, provider cutoff, and an independent coverage receipt.
+The AKS diagnostic reducer combines only exact-target typed facts and independently qualified
+metric windows. It emits a Forseti-owned T0 evidence receipt, preserves every concurrent signal and
+gap, and fixes causal and execution authority false. Forseti remains the root-cause decision owner.
 
 Focused production-composition checks use an exact-release Interface that spans Resource and
 Observation evidence, then invoke the issued Pod function through its secured dependency digest.

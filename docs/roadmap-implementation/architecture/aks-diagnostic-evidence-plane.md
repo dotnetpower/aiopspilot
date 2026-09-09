@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added Forseti-owned deterministic T0 diagnostic receipts for workload, Node, endpoint, storage, quota, autoscale, metric, and control-plane signals. | `current change`; focused family, hold, conflict, and no-authority tests. | Bind receipts through the secured Operator projection and add remaining live evidence. |
 | 2026-09-10 | in-progress | Required source revision and independent provider-window coverage for content-free Pod log evidence. | `current change`; focused log collection, diagnosis, runtime binding, and completeness tests. | Bind a deployed coverage-producing log adapter and live receipt. |
 | 2026-09-10 | in-progress | Added exact-target Kubernetes metric evidence with independent provider-window coverage. | `current change`; focused metric scope, empty-window, coverage, and mismatch tests. | Bind deployed metric coverage and deterministic resource-pressure diagnosis. |
 | 2026-09-10 | in-progress | Added content-safe EndpointSlice health and exact target Pod UID relationships. | `current change`; focused EndpointSlice fact, source-schema, and relationship tests. | Add bounded metric evidence and deterministic endpoint diagnosis. |

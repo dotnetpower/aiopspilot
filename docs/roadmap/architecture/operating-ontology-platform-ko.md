@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: c94cfef55525f88cb1ce47a0c8cecdc9568d3200
+translation_source_sha: eef2fe75c50bb563d1f754d84efe8a252756a35f
 translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -144,6 +144,9 @@ EndpointSlice 변환 결과는 backend 수, 조건 및 정확한 대상 Pod UID�
 내용 없는 Pod 로그 근거는 반환된 레코드와 프로바이더 구간 범위를 분리합니다. 점 전용
 프로바이더는 레코드 다이제스트를 제공할 수 있지만 출처 revision, 프로바이더 기준 시점 및 독립
 범위 증적 없이는 진단을 완전하게 만들 수 없습니다.
+AKS 진단 축약기는 정확한 대상의 타입 지정 사실과 독립적으로 검증된 메트릭 구간만 결합합니다.
+동시에 발생한 모든 신호와 공백을 보존하고 인과관계와 실행 권한을 거짓으로 고정한 Forseti 소유
+T0 근거 증적을 생성합니다. Forseti는 근본 원인 결정의 최종 책임자로 유지됩니다.
 
 Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
 사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된

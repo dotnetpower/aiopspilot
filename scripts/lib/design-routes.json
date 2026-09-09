@@ -189,6 +189,7 @@
         "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
         "services/core-control-plane/src/fdai/delivery/azure/metric*.py",
         "services/core-control-plane/src/fdai/shared/providers/metric.py",
+        "services/core-control-plane/src/fdai/shared/providers/kubernetes_metric.py",
         "services/core-control-plane/src/fdai/shared/providers/log_query.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_*.py",
         "services/core-control-plane/src/fdai/core/investigation/kubernetes_*.py",
