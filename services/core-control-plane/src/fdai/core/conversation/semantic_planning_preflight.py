@@ -45,7 +45,11 @@ _PREFLIGHT_OPERATIONAL_INTENTS = {
 }
 
 
-def preflight_descriptor_intent(result: ConversationPreflightResult | None) -> str | None:
+def preflight_descriptor_intent(
+    result: ConversationPreflightResult | None,
+    *,
+    resource_catalog: frozenset[str] | None = None,
+) -> str | None:
     """Select a compact descriptor family without granting preflight authority."""
 
     if result is None or not result.attempted or result.failure_kind is not None:
@@ -58,6 +62,16 @@ def preflight_descriptor_intent(result: ConversationPreflightResult | None) -> s
     ):
         return None
     if proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION:
+        resource_type_targets = tuple(
+            target
+            for target in proposal.operational_targets
+            if target.kind == "resource_type_filter"
+        )
+        if resource_catalog is not None and any(
+            target.value.strip().casefold() not in resource_catalog
+            for target in resource_type_targets
+        ):
+            return None
         return (
             "query.resource_state_inventory"
             if any(
