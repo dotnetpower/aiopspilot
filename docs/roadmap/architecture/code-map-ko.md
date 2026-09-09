@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ca1c16f7c21a57dc794a22cfc6912b43822decf4
+translation_source_sha: c4f18b55268450fb5fc802ddff380a047a8043a2
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -25,7 +25,7 @@ translation_revised: 2026-09-10
   승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
-- **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
+- **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유자 옆에 있으며, 추적 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및 저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
