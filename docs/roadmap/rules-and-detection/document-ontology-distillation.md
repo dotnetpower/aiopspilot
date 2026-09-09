@@ -134,6 +134,10 @@ Update, remove, and supersede operations require one exact or unique-alias ident
 never auto-resolves an identity and remains future review-only candidate discovery. Resolution
 method and candidates participate in the content-addressed proposal identity.
 
+For a link proposal, the source and destination identities resolve independently against the
+declared endpoint types. The canonical link `target_identity` is the resolved source identity, so a
+configured unique alias cannot be mistaken for a malformed identifier.
+
 ## Envelope provenance bridge
 
 Ontology distillation consumes the safety-checked `DocumentEnvelope`; it never reparses uploaded

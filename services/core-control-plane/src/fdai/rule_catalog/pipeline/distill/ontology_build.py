@@ -156,6 +156,42 @@ def _build_one(
             entities=verification_context.entities,
             aliases=verification_context.aliases,
         )
+    elif target_kind is OntologyTargetKind.LINK and verification_context is not None:
+        declaration = next(
+            (item for item in verification_context.links if item.name == target_type),
+            None,
+        )
+        if declaration is None:
+            entity_resolution = EntityResolution(
+                selected_identity=supplied_target_identity,
+                candidates=(supplied_target_identity,),
+                method="unverified",
+            )
+        else:
+            if from_identity is None or to_identity is None:
+                raise ValueError("link candidate MUST provide both endpoint identities")
+            if supplied_target_identity != from_identity:
+                raise ValueError("link target_identity MUST equal from_identity")
+            entity_resolution = resolve_entity_identity(
+                EntityResolutionRequest(
+                    supplied_identity=from_identity,
+                    target_type=declaration.from_type,
+                    operation=operation,
+                ),
+                entities=verification_context.entities,
+                aliases=verification_context.aliases,
+            )
+            to_resolution = resolve_entity_identity(
+                EntityResolutionRequest(
+                    supplied_identity=to_identity,
+                    target_type=declaration.to_type,
+                    operation=operation,
+                ),
+                entities=verification_context.entities,
+                aliases=verification_context.aliases,
+            )
+            from_identity = entity_resolution.selected_identity or from_identity
+            to_identity = to_resolution.selected_identity or to_identity
     else:
         entity_resolution = EntityResolution(
             selected_identity=supplied_target_identity,

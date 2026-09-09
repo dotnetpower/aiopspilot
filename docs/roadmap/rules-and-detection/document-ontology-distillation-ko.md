@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: e98c407bddfbf367a8c2b13d55efc31e9f0c8552
+translation_source_sha: a374f1dbb77ee688128eb98664a6d913565c323b
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -133,6 +133,10 @@ Exact stable-id 일치는 우선 적용되며 자동으로 해석합니다. 구�
 갱신, remove 및 대체 연산에는 exact 또는 unique-alias 신원 하나가 필요합니다. Fuzzy
 matching은 신원을 자동 해석하지 않으며 향후 review-only 후보 발견으로 남습니다.
 해석 메서드와 후보는 내용 기반 주소를 가진 제안 신원에 포함됩니다.
+
+링크 제안에서는 출발 신원과 도착 신원을 선언된 끝점 유형에 맞춰 각각 해석합니다. canonical
+링크 `target_identity`는 해석된 출발 신원이므로 구성된 고유 별칭을 잘못된 식별자로 오인하지
+않습니다.
 
 ## 묶음 출처 이력 브리지
 
