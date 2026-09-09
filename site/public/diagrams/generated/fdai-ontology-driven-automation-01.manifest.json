@@ -2,7 +2,7 @@
   "id": "fdai-ontology-driven-automation-01",
   "kind": "flowchart",
   "version": 1,
-  "updated": "2026-08-20",
+  "updated": "2026-09-09",
   "locales": {
     "en": {
       "title": "How the operating model fits together",
@@ -28,6 +28,7 @@
       "id": "bc",
       "kind": "process",
       "shape": "card",
+      "tone": "input",
       "label": {
         "en": "BusinessCapability",
         "ko": "BusinessCapability"
@@ -41,6 +42,7 @@
       "id": "bs",
       "kind": "process",
       "shape": "card",
+      "tone": "input",
       "label": {
         "en": "BusinessService",
         "ko": "BusinessService"
@@ -54,19 +56,21 @@
       "id": "w",
       "kind": "process",
       "shape": "card",
+      "tone": "execution",
       "label": {
         "en": "Workload",
         "ko": "Workload"
       },
       "description": {
-        "en": "When: implemented_by",
-        "ko": "조건: implemented_by"
+        "en": "Workload",
+        "ko": "Workload"
       }
     },
     {
       "id": "r",
       "kind": "process",
       "shape": "card",
+      "tone": "execution",
       "label": {
         "en": "Resource",
         "ko": "Resource"
@@ -80,32 +84,35 @@
       "id": "o",
       "kind": "process",
       "shape": "card",
+      "tone": "policy",
       "label": {
         "en": "ServiceObjective",
         "ko": "ServiceObjective"
       },
       "description": {
-        "en": "When: service_has_service_objective",
-        "ko": "조건: service_has_service_objective"
+        "en": "ServiceObjective",
+        "ko": "ServiceObjective"
       }
     },
     {
       "id": "ow",
       "kind": "process",
       "shape": "card",
+      "tone": "policy",
       "label": {
         "en": "Ownership",
         "ko": "Ownership"
       },
       "description": {
-        "en": "When: service_owned_by",
-        "ko": "조건: service_owned_by"
+        "en": "Ownership",
+        "ko": "Ownership"
       }
     },
     {
       "id": "rl",
       "kind": "process",
       "shape": "card",
+      "tone": "decision",
       "label": {
         "en": "Rule",
         "ko": "Rule"
@@ -119,6 +126,7 @@
       "id": "at",
       "kind": "process",
       "shape": "card",
+      "tone": "model",
       "label": {
         "en": "ActionType",
         "ko": "ActionType"
@@ -145,7 +153,10 @@
       "from": "bs",
       "to": "w",
       "kind": "request",
-      "label": null
+      "label": {
+        "en": "implemented_by",
+        "ko": "implemented_by"
+      }
     },
     {
       "id": "flow-03",
@@ -162,14 +173,20 @@
       "from": "bs",
       "to": "o",
       "kind": "request",
-      "label": null
+      "label": {
+        "en": "service_has_service_objective",
+        "ko": "service_has_service_objective"
+      }
     },
     {
       "id": "flow-05",
       "from": "bs",
       "to": "ow",
       "kind": "request",
-      "label": null
+      "label": {
+        "en": "service_owned_by",
+        "ko": "service_owned_by"
+      }
     },
     {
       "id": "flow-06",

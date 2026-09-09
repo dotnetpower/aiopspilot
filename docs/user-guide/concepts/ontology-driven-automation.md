@@ -49,9 +49,12 @@ what FDAI considered, and what effect an action produced.
 ![How the operating model fits together. The main stages are BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule, ActionType.](../../diagrams/generated/fdai-ontology-driven-automation-01.en.svg)
 
 This model adds stable service and workload identity above replaceable cloud resources. It also
-keeps objectives and ownership explicit instead of hiding them in untyped context bags. Immutable
-operational-context, decision-case, and response-outcome contracts carry that meaning through
-decision and effect closure. FDAI can therefore ask deterministic questions such as:
+keeps objectives, ownership, and the rule-to-`ActionType` remediation link explicit instead of
+hiding them in untyped context bags. The diagram above stops at the `ActionType` a `Rule` may
+propose; the [full operating model](../../roadmap/architecture/operating-ontology.md) extends this
+same identity chain through immutable operational-context, decision-case, and response-outcome
+contracts so that meaning survives decision and effect closure. FDAI can therefore ask
+deterministic questions such as:
 
 - **Impact:** Which business service and objectives depend on this resource?
 - **Authority:** Who owns the affected workload, and which reviewed constraints apply?
@@ -118,7 +121,7 @@ use typed arguments, safety checks, and audit records.
 Instantiation turns a static `ActionType` declaration into one bounded action for a specific target
 and event.
 
-![From declaration to running action. The main stages are ActionType declaration, Bounded action instance, Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome.](../../diagrams/generated/fdai-ontology-driven-automation-02.en.svg)
+![From declaration to running action. The main stages are ActionType declaration, Bounded action instance, Operational context snapshot, Safety check, Executor, Human approval, Held for review, Denied, Audit and outcome.](../../diagrams/generated/fdai-ontology-driven-automation-02.en.svg)
 
 - **Rule violation:** The control loop builds the instance from a matched rule, detected issue,
   resource, and the type's contract.
@@ -126,6 +129,9 @@ and event.
   arguments when the action's write coordinator is enabled.
 - **Either trigger:** `trigger_kind: both` allows both paths without changing the execution or
   audit contract.
+- **Every path is audited:** The safety check can allow, route to human approval, hold for
+  insufficient evidence, or deny outright. Every one of those outcomes, including a hold or a
+  denial, still reaches the audit record.
 
 A conversation, graph edge, or declaration alone never creates execution authority. The instance
 must still pass the same policy, risk, role, evidence, promotion, locking, and audit checks.
@@ -173,11 +179,13 @@ was allowed, held, or denied and supports time-consistent replay.
 
 ## Inspect the ontology
 
-The Reader-gated `GET /ontology/graph` endpoint exposes a deterministic read-only projection. It
-returns ObjectType and LinkType nodes and edges, ActionType safety contracts, a Mermaid rendering,
-catalog counts, and operating-model status with its source revision and aggregate instance counts.
+The Reader-gated `GET /ontology/graph` endpoint exposes a deterministic, declaration-only
+projection. It returns ObjectType and LinkType nodes and edges, ActionType safety contracts, a
+Mermaid rendering, and catalog counts, together with the ontology release digest that identifies
+the exact catalog revision it was built from.
 
-The endpoint doesn't expose deployment instance properties. The graph is for inspection and
+The endpoint carries no `mutation_authority` and no aggregate runtime instance counts; it doesn't
+expose deployment instance properties either. The graph is for inspection and
 explanation, not mutation. The console's ontology views use the same projection.
 
 ## Ask questions in plain language
