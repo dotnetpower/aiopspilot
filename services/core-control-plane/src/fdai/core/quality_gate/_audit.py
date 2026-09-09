@@ -95,6 +95,12 @@ def _prompt_replay_manifest_fields(manifest: Any) -> dict[str, Any]:
     return {
         "system_text_sha256": manifest.system_text_sha256,
         "token_estimate": manifest.token_estimate,
+        "profile_id": manifest.profile_id,
+        "profile_version": manifest.profile_version,
+        "profile_digest": manifest.profile_digest,
+        "system_token_budget": manifest.system_token_budget,
+        "request_token_budget": manifest.request_token_budget,
+        "reserved_output_tokens": manifest.reserved_output_tokens,
         "canary_tokens": [
             {"layer_id": layer_id, "token": token} for layer_id, token in manifest.canary_tokens
         ],

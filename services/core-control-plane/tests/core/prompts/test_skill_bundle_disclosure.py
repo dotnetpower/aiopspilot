@@ -183,6 +183,41 @@ def test_bundle_replay_is_deterministic_and_serialized_into_audit() -> None:
     ]
 
 
+def test_prompt_replay_audit_preserves_exact_profile_identity_and_budgets() -> None:
+    fields = _prompt_replay_manifest_fields(
+        PromptReplayManifest(
+            system_text_sha256="0" * 64,
+            layer_manifest=(),
+            token_estimate=10,
+            profile_id="active.test",
+            profile_version=1,
+            profile_digest="sha256:" + ("a" * 64),
+            system_token_budget=128,
+            request_token_budget=4096,
+            reserved_output_tokens=512,
+        )
+    )
+
+    assert {
+        key: fields[key]
+        for key in (
+            "profile_id",
+            "profile_version",
+            "profile_digest",
+            "system_token_budget",
+            "request_token_budget",
+            "reserved_output_tokens",
+        )
+    } == {
+        "profile_id": "active.test",
+        "profile_version": 1,
+        "profile_digest": "sha256:" + ("a" * 64),
+        "system_token_budget": 128,
+        "request_token_budget": 4096,
+        "reserved_output_tokens": 512,
+    }
+
+
 def test_bundle_selection_is_explicit_bounded_and_never_auto_selected() -> None:
     skills = _skills()
     bundles = _bundles(skills)
