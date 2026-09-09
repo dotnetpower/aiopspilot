@@ -1029,6 +1029,9 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert 'terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw postgres_fqdn' in _WORKFLOW
     assert "scripts/deployment/service/hydrate_database_host.py" in _WORKFLOW
     assert '--database-host "$database_host"' in _WORKFLOW
+    assert "current_channel_edge_id" in _WORKFLOW
+    assert 'terraform -chdir="$TERRAFORM_ROOT" output -json service' in _WORKFLOW
+    assert "channel_edge_args+=(--operator-channel-edge-enabled true)" in _WORKFLOW
     assert "Platform state returned an invalid database hostname." in _WORKFLOW
     assert "CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}" in _WORKFLOW
     assert 'console_hostname="$CONSOLE_DEFAULT_HOSTNAME"' in _WORKFLOW
