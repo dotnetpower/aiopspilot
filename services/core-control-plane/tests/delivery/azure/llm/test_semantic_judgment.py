@@ -116,7 +116,7 @@ async def test_profile_request_budget_blocks_judgment_provider_call() -> None:
             owner_loop=asyncio.get_running_loop(),
         )
         result = await model._complete_attempts(
-            "{}",
+            '{"utterance":"현재 상태를 알려줘"}',
             input_digest="sha256:" + ("a" * 64),
             proposal_schema=SemanticJudgmentProposal.model_json_schema(),
             system_prompt=prompt,

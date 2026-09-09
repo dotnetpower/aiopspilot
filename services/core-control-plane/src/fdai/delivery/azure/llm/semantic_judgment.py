@@ -29,7 +29,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
-from fdai.core.prompts import PromptReplayManifest
+from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -403,19 +403,14 @@ class AzureOpenAISemanticJudgmentModel:
         allow_candidate_failover: bool,
     ) -> SemanticJudgmentModelResponse | None:
         response_format = _strict_response_format(proposal_schema, name=call_kind)
-        request_token_estimate = (
-            len(system_prompt)
-            + len(user_content)
-            + len(
-                json.dumps(
-                    response_format,
-                    ensure_ascii=True,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                )
-            )
-            + 3
-        ) // 4 + max_tokens
+        request_token_estimate = estimate_chat_request_tokens(
+            messages=(
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ),
+            response_format=response_format,
+            reserved_output_tokens=max_tokens,
+        )
         if (
             prompt_manifest is not None
             and prompt_manifest.request_token_budget is not None
