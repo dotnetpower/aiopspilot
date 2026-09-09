@@ -38,19 +38,19 @@ def test_oi12_workflow_refreshes_inventory_before_seven_axis_measurement() -> No
     assert "authoritative inventory refresh exceeded its 1200-second deadline" in _WORKFLOW
 
 
-def test_oi12_workflow_recovers_legacy_inventory_job_from_exact_state_address() -> None:
+def test_oi12_workflow_recovers_legacy_inventory_job_from_reviewed_arm_contract() -> None:
     root_output = "terraform -chdir=infra output -raw inventory_job_name"
-    state_address = "module.compute.azurerm_container_app_job.inventory[0]"
-    assert _WORKFLOW.index(root_output) < _WORKFLOW.index(state_address)
-    assert 'state_snapshot="$RUNNER_TEMP/platform-state.tfstate"' in _WORKFLOW
-    assert "umask 077" in _WORKFLOW
-    assert 'terraform -chdir=infra state pull > "$state_snapshot"' in _WORKFLOW
-    assert 'terraform -chdir=infra show -json "$state_snapshot"' in _WORKFLOW
-    assert 'shred --force --remove -- "$state_snapshot"' in _WORKFLOW
-    assert "platform state snapshot is empty" in _WORKFLOW
+    arm_fallback = "az containerapp job list"
+    assert _WORKFLOW.index(root_output) < _WORKFLOW.index(arm_fallback)
+    assert '--resource-group "$resource_group"' in _WORKFLOW
+    assert '.name == "inventory"' in _WORKFLOW
+    assert '"fdai.delivery.inventory_sync_cli"' in _WORKFLOW
+    assert "(.args // []) == []" in _WORKFLOW
+    assert "(.properties.template.containers | length) == 1" in _WORKFLOW
     assert 'if [[ -z "$inventory_job_name" ]]; then' in _WORKFLOW
     assert "if length == 1 then" in _WORKFLOW
-    assert 'error("expected exactly one tracked inventory job")' in _WORKFLOW
+    assert "expected exactly one inventory job matching the reviewed runtime contract" in _WORKFLOW
+    assert "state pull" not in _WORKFLOW
     assert "startswith" not in _WORKFLOW
 
 
