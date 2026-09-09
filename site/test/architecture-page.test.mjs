@@ -185,3 +185,37 @@ test("fdai-agent-driven-runtime translates its descriptive Korean labels without
     assert.equal([...svg.matchAll(/data-edge-id=/g)].length, manifest.edges.length);
   }
 });
+
+test("fdai-system-overview English and Korean canonical alt describe the same outcome path", async () => {
+  const manifest = await loadManifest("fdai-system-overview");
+  const enAlt = manifest.locales.en.alt;
+  const koAlt = manifest.locales.ko.alt;
+
+  // Structural alt-text length/embed-count parity does not guarantee the two
+  // locales describe the same diagram content. The English alt states the
+  // outcome path explicitly (remediation pull requests recorded for the
+  // read-only console); the Korean translation must state the same outcome,
+  // not a different one (a prior bug had it describe a failure/rollback
+  // outcome instead, dropping both concepts below).
+  assert.match(enAlt, /remediation pull requests?/u);
+  assert.match(enAlt, /read-only console/u);
+  assert.match(koAlt, /수정 pull request/u);
+  assert.match(koAlt, /읽기 전용 콘솔/u);
+});
+
+test("architecture-ko page prose does not contain known corrected typos", async () => {
+  const korean = await readFile(
+    new URL("src/content/docs/ko/architecture.md", root),
+    "utf8",
+  );
+
+  // "끕" is not a Korean word; the corrected line 219 reads "끌 수 없습니다"
+  // ("cannot turn off/disable"), matching the parallel English sentence.
+  assert.doesNotMatch(korean, /끕/u);
+
+  // "요청나" is ungrammatical (요청 ends in a batchim, so the disjunctive
+  // particle must be "이나", not "나" alone); the corrected five-layers
+  // table cell reads "수정 pull 요청이나 등록된 프로바이더 호출".
+  assert.doesNotMatch(korean, /요청나/u);
+  assert.match(korean, /수정 pull 요청이나/u);
+});
