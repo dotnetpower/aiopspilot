@@ -574,7 +574,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
       key: "pr_ref",
       header: t("assuranceTwin.column.change"),
       render: (row) => (
-        <a class="mono" href={assuranceTwinReviewHref(row.review_key)}>
+        <a class="mono assurance-twin-review-link" href={assuranceTwinReviewHref(row.review_key)}>
           {row.pr_ref}
         </a>
       ),
@@ -695,7 +695,9 @@ function AssuranceTwinReviewDetailBody(
   if (detail === null) {
     return (
       <div class="stack">
-        <a href={routeHref("assurance-twin")}>{t("assuranceTwin.backToReviews")}</a>
+        <a class="assurance-twin-back-link" href={routeHref("assurance-twin")}>
+          {t("assuranceTwin.backToReviews")}
+        </a>
         <WithheldEvidence
           gaps={state.gap === null ? [] : [state.gap]}
           heading={t("assuranceTwin.reviewDetailWithheld")}
@@ -706,7 +708,9 @@ function AssuranceTwinReviewDetailBody(
   }
   return (
     <div class="stack">
-      <a href={routeHref("assurance-twin")}>{t("assuranceTwin.backToReviews")}</a>
+      <a class="assurance-twin-back-link" href={routeHref("assurance-twin")}>
+        {t("assuranceTwin.backToReviews")}
+      </a>
       <KpiGrid>
         <KpiCard
           href={assuranceTwinReviewHref(detail.review_key)}

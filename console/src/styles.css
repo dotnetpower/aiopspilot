@@ -2984,6 +2984,23 @@ button.primary:hover {
   font-size: 12px;
 }
 
+.assurance-twin-provenance {
+  min-width: 0;
+}
+.assurance-twin-provenance dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .assurance-twin-back-link,
+  .assurance-twin-review-link {
+    display: inline-flex;
+    min-height: 44px;
+    width: fit-content;
+    align-items: center;
+  }
+}
+
 details > summary {
   cursor: pointer;
   color: var(--fg-muted);
