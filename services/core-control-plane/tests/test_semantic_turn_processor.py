@@ -52,6 +52,7 @@ from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_core_service.semantic_relationship_projection import render_ontology_relationship_answer
 from fdai_core_service.semantic_service_health_answer import render_service_health_answer
 from fdai_core_service.semantic_turn_consumer import (
     RuntimeCallEndpointObserver,
@@ -1250,6 +1251,58 @@ def test_declaration_count_answer_accepts_a_canonical_function_type_subject() ->
     )
 
     assert "- FunctionTypes: 36" in answer
+
+
+@pytest.mark.parametrize(
+    ("locale", "incoming_heading", "outgoing_heading"),
+    (
+        ("en", "### Incoming relationships", "### Outgoing relationships"),
+        ("ko", "### 수신 관계", "### 발신 관계"),
+    ),
+)
+def test_single_subject_relationship_answer_separates_both_directions(
+    locale: str,
+    incoming_heading: str,
+    outgoing_heading: str,
+) -> None:
+    output = {
+        "ontology_relationships": {
+            "object_types": ["Change"],
+            "relationships": [
+                {
+                    "link_type": "caused_by",
+                    "from_type": "Incident",
+                    "to_type": "Change",
+                    "cardinality": "many_to_many",
+                    "description": "Incoming change evidence.",
+                },
+                {
+                    "link_type": "targets",
+                    "from_type": "Change",
+                    "to_type": "Resource",
+                    "cardinality": "many_to_many",
+                    "description": "Outgoing target declaration.",
+                },
+                {
+                    "link_type": "conflicts_with",
+                    "from_type": "Change",
+                    "to_type": "Change",
+                    "cardinality": "many_to_many",
+                    "description": "Self relationship.",
+                },
+            ],
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": RELEASE_DIGEST,
+            "execution_authority": False,
+        }
+    }
+
+    answer = render_ontology_relationship_answer(locale, output)
+
+    assert incoming_heading in answer
+    assert outgoing_heading in answer
+    assert answer.count("--`conflicts_with`-->") == 2
 
 
 def test_ontology_declaration_answer_preserves_exact_manifest_detail() -> None:

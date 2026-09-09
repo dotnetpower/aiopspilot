@@ -68,6 +68,8 @@ When a model proposes a bounded ontology declaration-count alias,
 one typed declaration-kind count facet before planning. Without that FunctionType, the proposal is rejected.
 For schema declaration and relationship reads, one supplied ObjectType encoded by an exact target
 or typed facet closes only redundant subject ambiguity. Multiple subjects remain a clarification.
+Single-subject relationship answers render incoming and outgoing sections separately. A
+self-referential LinkType appears in both directional views without creating an instance link.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
