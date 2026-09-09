@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 2e53ec576dc1aef931bbf9dedba452f41dc0a681
+translation_source_sha: 92263b3dd17adb836391efa902ef5f339df1860a
 translation_revised: 2026-09-10
 ---
 
@@ -78,9 +78,9 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
   차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다. Terraform 계획 이후 runner-owned
   `run_live_preflight.py`가 Azure Policy, Compute quota, executor RBAC 및 value-blind Key Vault
   secret metadata를 검사합니다. 점검이 불완전하면 계획 산출물을 저장하기 전에 중단합니다.
-- 새 Operator API UAMI를 만드는 보호 계획은 범위와 역할이 바뀌지 않을 때만 정확한 OpenAI User
-  역할 교체를 포함해 보존할 수 있습니다. 보존은 검토만 허용하며 apply를 승인하지 않습니다. 정확한
-  계획 적용은 별도 승인 작업으로 유지됩니다.
+- Operator API UAMI 이름을 바꾸는 보호 계획은 역할 범위와 이름 외 UAMI 설정이 모두 바뀌지
+  않을 때만 정확한 OpenAI User 역할 교체를 포함해 보존할 수 있습니다. 보존은 검토만 허용하며
+  apply를 승인하지 않습니다. 정확한 계획 적용은 별도 승인 작업으로 유지됩니다.
 - VNet에 연결된 runner에서 5개 서비스 root를 독립적으로 배포합니다. 각 서비스는 자체
   이미지, Terraform state, migration branch, 상태 probe, workload identity를 소유합니다.
   Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
