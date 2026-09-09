@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 5b4e03c47236d88215fa7d4a24f6be03fd2d84ab
+translation_source_sha: 66a47eeee45a1d9bfb677cc378e196d711e7832a
 translation_revised: 2026-09-09
 ---
 # 폐쇄망 배포
@@ -176,6 +176,9 @@ SBOM과 서명을 생성하기 전에 목록과 실제 로컬 페이로드를 �
 `support/python/`에 포함합니다. `fdaictl offline install-support`는 입력을 인증하고,
 패키지 인덱스나 캐시 없이 설치한 뒤 실제 설치 버전을 재확인합니다. 이는 배포 도구이며
 5개 런타임 서비스를 하나의 프로세스로 대체하지 않습니다.
+서명된 지원 목록은 서비스 계약 배포판과 이 5개 배포판만 런타임 루트로 허용합니다.
+System Knowledge처럼 독립적으로 선택 배포되는 서비스는 제외하며, 공통 GitHub 인증
+라이브러리는 전이적 지원 패키지로만 포함될 수 있습니다.
 [CLI 설치 명령](../../../packages/deployment-cli/README.md)을 참조하세요.
 
 ### 설치 시 범용 Console 빌드에 설정 적용
