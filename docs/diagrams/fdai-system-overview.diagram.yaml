@@ -1,7 +1,7 @@
 id: fdai-system-overview
 version: 1
 kind: container
-updated: 2026-07-20
+updated: 2026-09-09
 locales:
   en:
     title: FDAI system architecture
@@ -10,7 +10,7 @@ locales:
   ko:
     title: FDAI 시스템 아키텍처
     description: 운영 신호가 통제된 결정 경로를 거쳐 승인, 실행, 감사 결과로 이어집니다.
-    alt: Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 이벤트를 수집하고 결정 수준을 선택한 뒤 근거와 위험을 검증합니다. 실행 가능한 작업은 권한 있는 실행기로 전달되고, 승인이 필요한 작업은 사람 승인으로 보내며, 불확실한 작업은 검토 대기로 보관합니다. 실행 실패는 롤백 경로로 이어지고 모든 결과는 PostgreSQL 감사 저장소에 기록됩니다.
+    alt: Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 각 이벤트를 수집하고 결정 수준을 선택하며 근거를 검증하고 안전성 검토를 적용한 뒤 실행, 승인 요청, 보류 중 하나로 처리합니다. 결과는 수정 pull request로 전달되며 읽기 전용 콘솔을 위해 PostgreSQL에 기록됩니다.
 canvas:
   width: 1400
   height: 760
