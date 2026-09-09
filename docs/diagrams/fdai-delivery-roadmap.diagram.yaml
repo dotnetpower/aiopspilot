@@ -1,7 +1,7 @@
 id: fdai-delivery-roadmap
 version: 1
 kind: gantt
-updated: 2026-08-08
+updated: 2026-09-09
 locales:
   en:
     title: FDAI governed delivery roadmap
@@ -32,6 +32,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Ontology contracts, ko: 온톨로지 계약 }
+    description: { en: "Ontology contracts are complete, at 100 percent progress.", ko: "온톨로지 계약은 완료되어 진행률 100퍼센트입니다." }
     start: 0
     duration: 4
     status: done
@@ -40,7 +41,8 @@ nodes:
     parent: semantic-foundation
     kind: process
     shape: bar
-    label: { en: Context projection, ko: 컨텍스트 projection }
+    label: { en: Context projection, ko: 컨텍스트 변환 결과 }
+    description: { en: "Context projection is active, at 65 percent progress.", ko: "컨텍스트 변환 결과는 진행 중이며 진행률은 65퍼센트입니다." }
     after: ontology-contracts
     duration: 3
     status: active
@@ -50,6 +52,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Semantic release, ko: 의미 모델 릴리스 }
+    description: { en: "Semantic release is a milestone gated on context projection.", ko: "의미 모델 릴리스는 컨텍스트 변환 결과에 의존하는 마일스톤입니다." }
     after: context-projection
     duration: 1
     status: milestone
@@ -59,6 +62,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Policy catalog, ko: 정책 카탈로그 }
+    description: { en: "Policy catalog is complete, at 100 percent progress.", ko: "정책 카탈로그는 완료되어 진행률 100퍼센트입니다." }
     start: 2
     duration: 4
     status: done
@@ -68,6 +72,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Scenario regression, ko: 시나리오 회귀 검증 }
+    description: { en: "Scenario regression is active, at 40 percent progress.", ko: "시나리오 회귀 검증은 진행 중이며 진행률은 40퍼센트입니다." }
     after: policy-catalog
     duration: 4
     status: active
@@ -77,6 +82,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Promotion evidence, ko: 승격 근거 }
+    description: { en: "Promotion evidence is critical-path, at 15 percent progress.", ko: "승격 근거는 critical 경로이며 진행률은 15퍼센트입니다." }
     after: scenario-regression
     duration: 2
     status: critical
@@ -85,7 +91,8 @@ nodes:
     parent: governed-delivery
     kind: process
     shape: bar
-    label: { en: Console projection, ko: 콘솔 projection }
+    label: { en: Console projection, ko: 콘솔 변환 결과 }
+    description: { en: "Console projection is complete, at 100 percent progress.", ko: "콘솔 변환 결과는 완료되어 진행률 100퍼센트입니다." }
     start: 5
     duration: 3
     status: done
@@ -95,6 +102,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Operator validation, ko: 운영자 검증 }
+    description: { en: "Operator validation is active, at 55 percent progress.", ko: "운영자 검증은 진행 중이며 진행률은 55퍼센트입니다." }
     after: console-projection
     duration: 3
     status: active
@@ -104,6 +112,7 @@ nodes:
     kind: process
     shape: bar
     label: { en: Release readiness, ko: 릴리스 준비 }
+    description: { en: "Release readiness is planned, at 0 percent progress.", ko: "릴리스 준비는 계획 단계이며 진행률은 0퍼센트입니다." }
     after: operator-validation
     duration: 2
     status: planned

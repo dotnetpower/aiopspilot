@@ -26,7 +26,7 @@ and scale-out.
 > providers and Phase 4 multi-cloud expansion are TBD. The CSP-neutral
 > abstractions in these docs exist so a future adapter is additive, not a
 > delivery commitment
-> ([Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
+> ([Implementation Focus](../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## Design at a glance
 
@@ -147,20 +147,20 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 19d | [durable-conversation-delivery.md](interfaces/durable-conversation-delivery.md) | verified cross-channel bindings, durable reply ledger, process-loss recovery, adapter controls, and read-only reliability metrics |
 | 19e | [governed-trajectory-datasets.md](interfaces/governed-trajectory-datasets.md) | authorization-first observable trajectories, deterministic JSONL/checksums, quarantine, offline replay validation, retention/legal hold, and reviewed-only Norns intake |
 | 19i | [benchmark-adapters.md](interfaces/benchmark-adapters.md) | brand-neutral external harness contracts, installed-plugin injection, provider binding, bounded lifecycle, and benchmark authority boundaries |
-| 20 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
-| 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
-| 21a | [recovery-and-chaos-enforcement.md](decisioning/recovery-and-chaos-enforcement.md) | agent-executed recovery constrained by typed plans, impact envelopes, pre-authorized rollback, and continuous chaos guards |
+| 29 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
+| 30 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
+| 30a | [recovery-and-chaos-enforcement.md](decisioning/recovery-and-chaos-enforcement.md) | agent-executed recovery constrained by typed plans, impact envelopes, pre-authorized rollback, and continuous chaos guards |
 
 ### Agent organization
 
 | # | Document | What it covers |
 |---|----------|----------------|
-| 22 | [agent-pantheon.md](agents/agent-pantheon.md) | fixed 15-agent control-plane organization: closed-loop ownership, ontology-constrained accuracy, single-writer topics, typed pub/sub, conversational ports, ActionType roles, and bounded human escalation |
-| 22a | [bounded-task-workers.md](agents/bounded-task-workers.md) | isolated depth-one read-only investigations outside the fixed Pantheon: capability attenuation, bounded lifecycle, durable branch records, untrusted parent synthesis, and GET-only projections |
-| 22b | [background-task-sessions.md](interfaces/background-task-sessions.md) | durable detached operator investigations: immediate creation, lease/CAS ownership, bounded progress, process-loss reconciliation, conversation handoff, and delivery boundary |
-| 22c | [busy-input-modes.md](interfaces/busy-input-modes.md) | channel-neutral durable queue, interrupt, and safe-boundary steer modes for active web, Slack, and Teams conversations |
-| 22d | [azure-read-investigations.md](interfaces/azure-read-investigations.md) | exact resource resolution, typed Azure read evidence, measured direct/streamed/detached execution, dedicated reader identity, quotas, and durable completion delivery |
-| 22e | [azure-resource-discovery-commands.md](interfaces/azure-resource-discovery-commands.md) | ontology-aligned Azure resource discovery, ARG and CLI fallback coverage, sanitized reproduction commands, plan critique, and measured rollout |
+| 31 | [agent-pantheon.md](agents/agent-pantheon.md) | fixed 15-agent control-plane organization: closed-loop ownership, ontology-constrained accuracy, single-writer topics, typed pub/sub, conversational ports, ActionType roles, and bounded human escalation |
+| 31a | [bounded-task-workers.md](agents/bounded-task-workers.md) | isolated depth-one read-only investigations outside the fixed Pantheon: capability attenuation, bounded lifecycle, durable branch records, untrusted parent synthesis, and GET-only projections |
+| 31b | [background-task-sessions.md](interfaces/background-task-sessions.md) | durable detached operator investigations: immediate creation, lease/CAS ownership, bounded progress, process-loss reconciliation, conversation handoff, and delivery boundary |
+| 31c | [busy-input-modes.md](interfaces/busy-input-modes.md) | channel-neutral durable queue, interrupt, and safe-boundary steer modes for active web, Slack, and Teams conversations |
+| 31d | [azure-read-investigations.md](interfaces/azure-read-investigations.md) | exact resource resolution, typed Azure read evidence, measured direct/streamed/detached execution, dedicated reader identity, quotas, and durable completion delivery |
+| 31e | [azure-resource-discovery-commands.md](interfaces/azure-resource-discovery-commands.md) | ontology-aligned Azure resource discovery, ARG and CLI fallback coverage, sanitized reproduction commands, plan critique, and measured rollout |
 | 23 | [agent-workflows.md](agents/agent-workflows.md) | the 13 cross-agent workflows the pantheon composes into product capabilities, including cost-aware remediation, predictive scale, operational readiness handoff, scheduled governed Python tasks, and detection readiness assurance. Each has a trigger, sequence diagram, exit criteria, and promotion gate. |
 | 23f | [agent-workflow-rollout.md](agents/agent-workflow-rollout.md) | independent shadow rollout order, per-workflow exit gate, dependency, and no-enforcement boundary |
 | 23b | [process-automation.md](decisioning/process-automation.md) | machine-readable counterpart to agent-workflows.md: the Workflow catalog schema (catalog-as-code under `rule-catalog/workflows/`), the `Process` ObjectType + `targets` / `advances` LinkTypes, the compile-to-Runbook control-loop wiring, saga compensation, and shadow-first governance. A business process is an ordered list of `ActionType` steps the trust-router dispatches one at a time |
@@ -180,7 +180,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 
 | # | Document | What it covers |
 |---|----------|----------------|
-| 24b | [reporting-subsystem.md](interfaces/reporting-subsystem.md) | declarative visualization pipeline: YAML report catalog, datasource / widget / format registries, registered widget builders and datasource adapters over existing seams, pluggable encoders, read-only `GET /reports/*` routes, and fork extension recipes. The backend-only contract remains stable as registries grow. |
+| 32 | [reporting-subsystem.md](interfaces/reporting-subsystem.md) | declarative visualization pipeline: YAML report catalog, datasource / widget / format registries, registered widget builders and datasource adapters over existing seams, pluggable encoders, read-only `GET /reports/*` routes, and fork extension recipes. The backend-only contract remains stable as registries grow. |
 
 ### Sequencing (cross-doc plan)
 
@@ -199,7 +199,7 @@ Phases are strictly sequential (P0 -> P1 -> P2 -> P3 -> P4) and each phase doc
 names its predecessor in a *Dependencies* section. Vertical coverage lands
 incrementally: Change Safety in P1; Resilience and Cost Governance in P3.
 Multi-cloud stays TBD in P4 (Azure-only implementation, see
-[Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
+[Implementation Focus](../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## Phase summary
 
