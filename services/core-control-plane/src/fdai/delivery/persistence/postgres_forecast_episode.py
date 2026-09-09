@@ -62,6 +62,7 @@ class PostgresForecastEpisodeStore:
     async def health_snapshot(self, *, now: datetime) -> Mapping[str, object]:
         _aware("health snapshot time", now)
         async with await self._connect() as connection, connection.transaction():
+            await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             await self._timeout(connection)
             episodes = await connection.execute(
                 "SELECT COUNT(*) AS total, "
