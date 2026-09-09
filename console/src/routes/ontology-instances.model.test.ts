@@ -121,6 +121,39 @@ describe("decodeOntologyInstanceExploration", () => {
     );
   });
 
+  it("accepts exact Kubernetes identity and allowlisted diagnostic facts", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.pod";
+    resources[1]!.kubernetes_identity = {
+      api_version: "v1",
+      kind: "Pod",
+      name: "api",
+      namespace: "default",
+      resource_version: "20",
+      uid: "uid-api",
+    };
+    resources[1]!.kubernetes_diagnostics = {
+      phase: "Pending",
+      container_waiting_reasons: ["ImagePullBackOff"],
+    };
+
+    const decoded = decodeOntologyInstanceExploration(value).resources[1]!;
+    expect(decoded.kubernetes_identity?.uid).toBe("uid-api");
+    expect(decoded.kubernetes_diagnostics?.phase).toBe("Pending");
+  });
+
+  it("rejects browser-only or unsupported Kubernetes diagnostic facts", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.pod";
+    resources[1]!.kubernetes_diagnostics = { inferred_cause: "node" };
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "Kubernetes diagnostics contain an unsupported key",
+    );
+  });
+
   it.each([-1, true, 1.5, 2_147_483_648])(
     "rejects invalid model deployment TPM %s",
     (capacityTpm) => {

@@ -17,6 +17,10 @@ The instance directory and detail merge ordered realtime changes over one active
 Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
 Resource properties into three independent axes that both Console screens consume.
 
+Kubernetes identity and diagnostic facts remain a separate allowlisted detail object. They do not
+become an operational, availability, or provisioning state axis, and missing diagnostic facts do
+not become a state value.
+
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
 | Operational | Explicit service, power, phase, readiness, running, attachment, access, link, or Static Web App default-environment state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, Completed, and Ready keep their recorded meaning. |

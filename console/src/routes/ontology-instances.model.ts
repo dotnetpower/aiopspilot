@@ -19,7 +19,30 @@ export interface OntologyInstanceResource {
   readonly last_seen: string | null;
   readonly selected: boolean;
   readonly model_deployment?: OntologyInstanceModelDeployment | null;
+  readonly kubernetes_identity?: OntologyInstanceKubernetesIdentity | null;
+  readonly kubernetes_diagnostics?: Readonly<Record<string, OntologyInstanceDiagnosticValue>> | null;
   readonly states?: RecordedResourceStates;
+}
+
+export interface OntologyInstanceKubernetesIdentity {
+  readonly api_version: string;
+  readonly kind: string;
+  readonly name: string;
+  readonly namespace: string | null;
+  readonly resource_version: string;
+  readonly uid: string;
+}
+
+export type OntologyInstanceDiagnosticValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly OntologyInstanceDiagnosticValue[]
+  | OntologyInstanceDiagnosticObject;
+
+export interface OntologyInstanceDiagnosticObject {
+  readonly [key: string]: OntologyInstanceDiagnosticValue;
 }
 
 export interface OntologyInstanceModelDeployment {
@@ -1089,6 +1112,12 @@ function decodeResource(value: unknown): OntologyInstanceResource {
   ) {
     throw new Error("model deployment details MUST use the llm-model-deployment Resource type");
   }
+  if (
+    (record.kubernetes_identity !== undefined || record.kubernetes_diagnostics !== undefined)
+    && !resourceType.startsWith("kubernetes.")
+  ) {
+    throw new Error("Kubernetes details MUST use a Kubernetes runtime Resource type");
+  }
   return {
     id: requiredString(record.id, "Resource id", 1024),
     object_type: "Resource",
@@ -1105,8 +1134,81 @@ function decodeResource(value: unknown): OntologyInstanceResource {
     model_deployment: record.model_deployment === undefined || record.model_deployment === null
       ? null
       : decodeModelDeployment(record.model_deployment),
+    kubernetes_identity:
+      record.kubernetes_identity === undefined || record.kubernetes_identity === null
+        ? null
+        : decodeKubernetesIdentity(record.kubernetes_identity),
+    kubernetes_diagnostics:
+      record.kubernetes_diagnostics === undefined || record.kubernetes_diagnostics === null
+        ? null
+        : decodeKubernetesDiagnostics(record.kubernetes_diagnostics),
     ...(record.states === undefined ? {} : { states: decodeRecordedResourceStates(record.states) }),
   };
+}
+
+const KUBERNETES_DIAGNOSTIC_KEYS = new Set([
+  "access_modes", "address_type", "affinity_kinds", "allow_volume_expansion",
+  "capacity_storage", "claim_name", "claim_namespace", "claim_uid", "container_count",
+  "container_resources", "container_terminations", "container_waiting_reasons",
+  "current_replicas", "diagnostic_conditions", "disruptions_allowed", "egress_rule_count",
+  "endpoint_count", "expected_pods", "init_container_count", "init_container_ready_count",
+  "init_container_restart_count", "init_container_termination_reasons",
+  "init_container_waiting_reasons", "ingress_rule_count", "limit_summaries", "max_replicas",
+  "max_unavailable", "min_available", "min_replicas", "node_selector", "phase",
+  "policy_types", "port_count", "priority_class_name", "probe_kinds", "pvc_claim_names",
+  "qos_class", "quota_hard", "quota_used", "ready", "ready_container_count",
+  "ready_unknown", "reason", "reclaim_policy", "restart_count", "restart_policy",
+  "scale_target_api_version", "scale_target_kind", "scale_target_name", "scheduler_name",
+  "serving", "serving_unknown", "service_account_name", "status_counts",
+  "storage_class_name", "target_uids", "terminating", "terminating_unknown", "tolerations",
+  "volume_mode", "volume_name",
+]);
+
+function decodeKubernetesIdentity(value: unknown): OntologyInstanceKubernetesIdentity {
+  const record = objectRecord(value, "Kubernetes identity");
+  return {
+    api_version: requiredString(record.api_version, "Kubernetes api version", 512),
+    kind: requiredString(record.kind, "Kubernetes kind", 256),
+    name: requiredString(record.name, "Kubernetes name", 512),
+    namespace: nullableString(record.namespace, "Kubernetes namespace", 253),
+    resource_version: requiredString(record.resource_version, "Kubernetes resource version", 512),
+    uid: requiredString(record.uid, "Kubernetes uid", 512),
+  };
+}
+
+function decodeKubernetesDiagnostics(
+  value: unknown,
+): Readonly<Record<string, OntologyInstanceDiagnosticValue>> {
+  const record = objectRecord(value, "Kubernetes diagnostics");
+  if (Object.keys(record).some((key) => !KUBERNETES_DIAGNOSTIC_KEYS.has(key))) {
+    throw new Error("Kubernetes diagnostics contain an unsupported key");
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, item]) => [key, decodeDiagnosticValue(item, 0)]),
+  );
+}
+
+function decodeDiagnosticValue(value: unknown, depth: number): OntologyInstanceDiagnosticValue {
+  if (depth > 4) throw new Error("Kubernetes diagnostic nesting exceeds its bound");
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.length > 512) throw new Error("Kubernetes diagnostic text exceeds its bound");
+    return value;
+  }
+  if (typeof value === "number" && Number.isInteger(value) && Math.abs(value) <= 2_147_483_647) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 128) throw new Error("Kubernetes diagnostic array exceeds its bound");
+    return value.map((item) => decodeDiagnosticValue(item, depth + 1));
+  }
+  const record = objectRecord(value, "Kubernetes diagnostic object");
+  if (Object.keys(record).length > 128) {
+    throw new Error("Kubernetes diagnostic object exceeds its bound");
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, item]) => [key, decodeDiagnosticValue(item, depth + 1)]),
+  );
 }
 
 function decodeModelDeployment(value: unknown): OntologyInstanceModelDeployment {

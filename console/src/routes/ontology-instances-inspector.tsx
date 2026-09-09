@@ -98,6 +98,14 @@ function InstanceOverview({
       </div>}
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
+        {root.kubernetes_identity ? (
+          <>
+            <div><dt>{t("ontology.instances.kubernetesKind")}</dt><dd><code>{root.kubernetes_identity.kind}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesNamespace")}</dt><dd><code>{root.kubernetes_identity.namespace ?? t("ontology.instances.notReported")}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesUid")}</dt><dd><code>{root.kubernetes_identity.uid}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesResourceVersion")}</dt><dd><code>{root.kubernetes_identity.resource_version}</code></dd></div>
+          </>
+        ) : null}
         {!isModelDeployment ? null : (
           <>
             <div>
@@ -141,6 +149,16 @@ function InstanceOverview({
         <div><dt>{t("ontology.instances.snapshot")}</dt><dd><code>{data.source_generation}</code></dd></div>
         <div><dt>{t("ontology.instances.cutoff")}</dt><dd>{formatDateTime(data.source_cutoff)}</dd></div>
       </dl>
+      {root.kubernetes_diagnostics && Object.keys(root.kubernetes_diagnostics).length > 0 ? (
+        <details class="ontology-instance-technical">
+          <summary>{t("ontology.instances.kubernetesDiagnostics")}</summary>
+          <dl class="ontology-instance-facts">
+            {Object.entries(root.kubernetes_diagnostics).map(([key, value]) => (
+              <div><dt><code>{key}</code></dt><dd><code>{formatDiagnosticValue(value)}</code></dd></div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
       <details class="ontology-instance-technical">
         <summary>{t("ontology.instances.technicalDetails")}</summary>
         <code>{root.id}</code>
@@ -151,6 +169,10 @@ function InstanceOverview({
       </a>
     </section>
   );
+}
+
+function formatDiagnosticValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 function InstanceRelationships({

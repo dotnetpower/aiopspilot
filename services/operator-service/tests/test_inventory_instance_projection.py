@@ -754,6 +754,43 @@ def test_model_deployment_projection_allowlists_identity_sku_and_tpm() -> None:
     assert _model_deployment_projection("llm-endpoint", properties) is None
 
 
+def test_kubernetes_projection_exposes_exact_identity_and_allowlisted_diagnostics() -> None:
+    now = datetime(2026, 9, 10, 0, 0, tzinfo=UTC)
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/example",
+            resource_type="kubernetes.pod",
+            properties={
+                "api_version": "v1",
+                "kind": "Pod",
+                "name": "api",
+                "namespace": "default",
+                "resource_version": "20",
+                "uid": "uid-api",
+                "phase": "Pending",
+                "container_waiting_reasons": ("ImagePullBackOff",),
+                "message": "must not project",
+            },
+            last_seen=now,
+        ),
+        root_id=None,
+        now=now,
+    )
+
+    assert projected["kubernetes_identity"] == {
+        "api_version": "v1",
+        "kind": "Pod",
+        "name": "api",
+        "namespace": "default",
+        "resource_version": "20",
+        "uid": "uid-api",
+    }
+    assert projected["kubernetes_diagnostics"] == {
+        "container_waiting_reasons": ["ImagePullBackOff"],
+        "phase": "Pending",
+    }
+
+
 @pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])
 def test_model_deployment_projection_rejects_invalid_tpm(capacity_tpm: object) -> None:
     assert _model_deployment_projection(

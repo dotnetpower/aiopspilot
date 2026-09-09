@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 64151d70e4e2c2a2061e6c59917ce9b73228c610
+translation_source_sha: a28ff53c403491669e65f8986fb6f19bec8821cb
 translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
@@ -140,6 +140,10 @@ PostgreSQL 인스턴스 저장소 파사드는 순수 행 및 인벤토리 매�
 ResourceType에 결속하고 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용합니다. 다른
 ResourceType은 이 객체를 가질 수 없으며 원시 프로바이더 속성은 Console과 대화 화면 맥락에
 포함되지 않습니다.
+
+Kubernetes 런타임 Resource는 별도의 허용 목록 신원 및 진단 세부 객체를 전달할 수 있습니다.
+Operator는 안정적인 UID와 관측 revision 필드를 검증하고 Console은 해당 응답만 렌더링합니다.
+이 세부 객체는 새 온톨로지 신원, 관계, 상태 축, 진단 또는 브라우저 권한을 만들지 않습니다.
 
 ## LinkType 의미
 

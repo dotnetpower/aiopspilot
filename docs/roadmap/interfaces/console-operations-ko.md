@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 498f5d741327dc7268563e12ec3f740853b110a5
-translation_revised: 2026-09-07
+translation_source_sha: 9210b039682c2a73ee2e529dba30c793b57653d4
+translation_revised: 2026-09-10
 ---
 
 # 콘솔 운영
@@ -88,6 +88,9 @@ Operations는 기존 객체와 링크를 재사용합니다.
 `llm-model-deployment`의 카드, 도구 설명, Inspector 및 화면 맥락은 모델 이름, 버전, 배포 SKU
 및 정규화된 TPM으로 구성된 동일한 범위 제한 객체를 사용합니다. 누락된 값은 보고되지 않음으로
 유지되며 `Succeeded`는 추론 상태나 호출자 접근 권한이 아니라 프로비저닝 완료를 나타냅니다.
+Kubernetes 런타임 Resource에는 서버가 정확한 신원 객체 하나와 허용 목록 진단 사실 객체 하나를
+추가할 수 있습니다. Inspector는 이 값을 근거 세부 정보로 렌더링하며 브라우저에서 진단, Resource,
+관계 또는 상태를 파생하지 않습니다.
 관계 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시하고 명시적인 펼치기
 컨트롤을 통해 범위가 제한된 응답의 나머지 유형을 제공합니다. 범례를 펼치거나 접어도 링크를
 제거하거나 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.

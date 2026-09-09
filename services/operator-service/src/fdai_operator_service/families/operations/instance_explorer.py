@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
@@ -65,6 +65,71 @@ _ACTIVITY_FACTS = (
     "verdict",
 )
 _READY_STATUS_TEXT = {"True": "Ready", "False": "NotReady", "Unknown": "Ready unknown"}
+_KUBERNETES_DIAGNOSTIC_KEYS = frozenset(
+    {
+        "access_modes",
+        "address_type",
+        "affinity_kinds",
+        "allow_volume_expansion",
+        "capacity_storage",
+        "claim_name",
+        "claim_namespace",
+        "claim_uid",
+        "container_count",
+        "container_resources",
+        "container_terminations",
+        "container_waiting_reasons",
+        "current_replicas",
+        "diagnostic_conditions",
+        "disruptions_allowed",
+        "egress_rule_count",
+        "endpoint_count",
+        "expected_pods",
+        "init_container_count",
+        "init_container_ready_count",
+        "init_container_restart_count",
+        "init_container_termination_reasons",
+        "init_container_waiting_reasons",
+        "ingress_rule_count",
+        "limit_summaries",
+        "max_replicas",
+        "max_unavailable",
+        "min_available",
+        "min_replicas",
+        "node_selector",
+        "phase",
+        "policy_types",
+        "port_count",
+        "priority_class_name",
+        "probe_kinds",
+        "pvc_claim_names",
+        "qos_class",
+        "quota_hard",
+        "quota_used",
+        "ready",
+        "ready_container_count",
+        "ready_unknown",
+        "reason",
+        "reclaim_policy",
+        "restart_count",
+        "restart_policy",
+        "scale_target_api_version",
+        "scale_target_kind",
+        "scale_target_name",
+        "scheduler_name",
+        "serving",
+        "serving_unknown",
+        "service_account_name",
+        "status_counts",
+        "storage_class_name",
+        "target_uids",
+        "terminating",
+        "terminating_unknown",
+        "tolerations",
+        "volume_mode",
+        "volume_name",
+    }
+)
 
 
 async def project_inventory_instances(
@@ -550,7 +615,70 @@ def _resource_projection(
     model_deployment = _model_deployment_projection(resource.resource_type, properties)
     if model_deployment is not None:
         projection["model_deployment"] = model_deployment
+    kubernetes_identity = _kubernetes_identity_projection(resource.resource_type, properties)
+    if kubernetes_identity is not None:
+        projection["kubernetes_identity"] = kubernetes_identity
+        projection["kubernetes_diagnostics"] = _kubernetes_diagnostic_projection(properties)
     return projection
+
+
+def _kubernetes_identity_projection(
+    resource_type: str,
+    properties: Mapping[str, object],
+) -> dict[str, object] | None:
+    if not resource_type.startswith("kubernetes."):
+        return None
+    fields = {
+        key: properties.get(key)
+        for key in ("api_version", "kind", "name", "resource_version", "uid")
+    }
+    if all(value is None for value in fields.values()):
+        return None
+    if any(not isinstance(value, str) or not value.strip() for value in fields.values()):
+        raise ProjectionUnavailableError("Kubernetes Resource identity is incomplete")
+    namespace = properties.get("namespace")
+    if namespace is not None and (not isinstance(namespace, str) or not namespace.strip()):
+        raise ProjectionUnavailableError("Kubernetes Resource namespace is malformed")
+    return {
+        **fields,
+        "namespace": namespace,
+    }
+
+
+def _kubernetes_diagnostic_projection(
+    properties: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        key: _bounded_diagnostic_value(properties[key], depth=0)
+        for key in sorted(_KUBERNETES_DIAGNOSTIC_KEYS & properties.keys())
+    }
+
+
+def _bounded_diagnostic_value(value: object, *, depth: int) -> object:
+    if depth > 4:
+        raise ProjectionUnavailableError("Kubernetes diagnostic fact nesting exceeds its bound")
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        if abs(value) > 2_147_483_647:
+            raise ProjectionUnavailableError("Kubernetes diagnostic integer exceeds its bound")
+        return value
+    if isinstance(value, str):
+        if len(value) > 512:
+            raise ProjectionUnavailableError("Kubernetes diagnostic text exceeds its bound")
+        return value
+    if isinstance(value, Mapping):
+        if len(value) > 128 or any(not isinstance(key, str) or not key for key in value):
+            raise ProjectionUnavailableError("Kubernetes diagnostic object exceeds its bound")
+        return {
+            str(key): _bounded_diagnostic_value(item, depth=depth + 1)
+            for key, item in sorted(value.items())
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        if len(value) > 128:
+            raise ProjectionUnavailableError("Kubernetes diagnostic array exceeds its bound")
+        return [_bounded_diagnostic_value(item, depth=depth + 1) for item in value]
+    raise ProjectionUnavailableError("Kubernetes diagnostic fact has an unsupported value")
 
 
 def _state_observation(

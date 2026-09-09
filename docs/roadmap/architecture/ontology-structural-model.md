@@ -142,6 +142,11 @@ object to the exact ResourceType and allows only model name, model version, depl
 normalized TPM. Other ResourceTypes cannot carry it, and raw provider properties remain outside the
 Console and conversational screen context.
 
+Kubernetes runtime Resources can carry a separate allowlisted identity and diagnostic detail
+object. The Operator validates stable UID and observation revision fields, and the Console renders
+only that response. This detail object creates no new ontology identity, relationship, state axis,
+diagnosis, or browser authority.
+
 ## LinkType semantics
 
 Stored direction remains `from_type -> to_type`. A compatible LinkType revision can add these
