@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 658d704858183111a7f5af137a0b20cec5dd154a
+translation_source_sha: 66e26ddec22343508cbc1f300d8670f73dd223ef
 translation_revised: 2026-09-09
 ---
 
@@ -194,6 +194,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Typed count facet에 이미 인코딩된 단일 선언 kind와 완전한 collection-scoped 신원 모호성에 결정론적 정규화를 추가했습니다. | `current change`, 집중 semantic judgment 및 tier-routing 회귀 | Active profile 스키마 질문을 전체 frame-plan-answer 경로에서 다시 실행합니다. |
 | 2026-09-10 | implemented | v16이 collection-wide history 조회에 정확한 Resource를 요구하고 독립적으로 요청한 action advice를 금지 작업으로 처리한 뒤 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, 집중 prompt 검사 및 범위가 제한된 live 진단 | 승격 전에 두 exact-source cohort 통과를 요구합니다. |
 | 2026-09-10 | implemented | 첫 v15 기존 cohort에서 Unicode 종료 offset 오류 1건과 일반 forbidden operation kind 불일치 1건을 확인한 뒤 cumulative shadow semantic-judgment v16을 추가했습니다. | `current change`, 집중 prompt registry 테스트 및 범위가 제한된 2-case live 진단 | 승격 전에 clean-source 16-case 및 스키마 cohort 통과를 요구합니다. |
 | 2026-09-10 | implemented | Live CQAS에서 온톨로지 스키마 질문이 제공된 FunctionType을 선택하는 대신 count intent를 만들거나 일반 메타타입 target을 추가할 수 있음을 확인한 뒤 cumulative shadow semantic-judgment v15를 추가했습니다. | `current change`, 집중 prompt registry 및 offline typed-boundary 테스트 | 승격 전에 만들어 낸 신원과 read/action 오탐이 모두 0인 exact-source live shadow cohort를 실행합니다. |

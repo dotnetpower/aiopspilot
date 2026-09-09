@@ -62,11 +62,7 @@ def build_ontology_schema_frame(
         facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
     )
     if requests_declaration_count and _is_schema_read_intent(judgment.primary_intent):
-        declaration_kinds = {
-            declaration_kind
-            for target in judgment.targets
-            if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
-        }
+        declaration_kinds = _declaration_kinds_from_judgment(judgment)
         if (
             ONTOLOGY_MANIFEST_FUNCTION_NAME not in available_functions
             or len(declaration_kinds) != 1
@@ -121,6 +117,26 @@ def build_ontology_schema_frame(
         confidence=judgment.confidence,
     )
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def _declaration_kinds_from_judgment(
+    judgment: SemanticJudgmentProposal,
+) -> set[OntologyDeclarationKind]:
+    declaration_kinds = {
+        declaration_kind
+        for target in judgment.targets
+        if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
+    }
+    if declaration_kinds:
+        return declaration_kinds
+    normalized_facets = {
+        facet.replace("_", "").replace("-", "") for facet in judgment.requested_facets
+    }
+    return {
+        declaration_kind
+        for declaration_kind in OntologyDeclarationKind
+        if any(f"{declaration_kind.value}type" in facet for facet in normalized_facets)
+    }
 
 
 def _is_schema_read_intent(primary_intent: str) -> bool:
