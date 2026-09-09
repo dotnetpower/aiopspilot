@@ -1151,21 +1151,27 @@ function decodeResource(value: unknown): OntologyInstanceResource {
 }
 
 const KUBERNETES_DIAGNOSTIC_KEYS = new Set([
-  "access_modes", "address_type", "affinity_kinds", "allow_volume_expansion",
+  "access_modes", "address_type", "affinity_kinds", "allow_volume_expansion", "available_replicas",
   "capacity_storage", "claim_name", "claim_namespace", "claim_uid", "container_count",
   "container_resources", "container_terminations", "container_waiting_reasons",
-  "current_replicas", "diagnostic_conditions", "disruptions_allowed", "egress_rule_count",
-  "endpoint_count", "expected_pods", "init_container_count", "init_container_ready_count",
+  "current_healthy", "current_replicas", "diagnostic_conditions", "disruptions_allowed",
+  "desired_healthy", "desired_replicas", "egress_rule_count", "endpoint_count",
+  "ephemeral_container_count", "ephemeral_container_ready_count",
+  "ephemeral_container_restart_count", "ephemeral_container_termination_reasons",
+  "ephemeral_container_waiting_reasons", "expected_pods", "init_container_count",
+  "init_container_ready_count",
   "init_container_restart_count", "init_container_termination_reasons",
   "init_container_waiting_reasons", "ingress_rule_count", "limit_summaries", "max_replicas",
-  "max_unavailable", "min_available", "min_replicas", "node_selector", "phase",
-  "policy_types", "port_count", "priority_class_name", "probe_kinds", "pvc_claim_names",
-  "qos_class", "quota_hard", "quota_used", "ready", "ready_container_count",
-  "ready_unknown", "reason", "reclaim_policy", "restart_count", "restart_policy",
+  "max_unavailable", "min_available", "min_replicas", "node_selector", "observed_generation",
+  "phase", "policy_types", "port_count", "priority_class_name", "probe_kinds",
+  "progressing_reason", "progressing_status", "provisioner", "pvc_claim_names", "qos_class",
+  "quota_hard", "quota_used", "ready", "ready_container_count", "ready_replicas",
+  "ready_status", "ready_unknown", "reason", "reclaim_policy", "requested_storage",
+  "restart_count", "restart_policy",
   "scale_target_api_version", "scale_target_kind", "scale_target_name", "scheduler_name",
-  "serving", "serving_unknown", "service_account_name", "status_counts",
+  "selector", "serving", "serving_unknown", "service_account_name", "status_counts",
   "storage_class_name", "target_uids", "terminating", "terminating_unknown", "tolerations",
-  "volume_mode", "volume_name",
+  "unavailable_replicas", "updated_replicas", "volume_binding_mode", "volume_mode", "volume_name",
 ]);
 
 function decodeKubernetesIdentity(value: unknown): OntologyInstanceKubernetesIdentity {

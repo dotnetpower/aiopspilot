@@ -33,6 +33,8 @@ but consumers cannot project a new exact identity until every field required by 
 present.
 Bounded structural details keep producer and consumer maxima aligned. A consumer rejects an
 oversized sequence rather than converting it into a complete-looking subset.
+Reviewed producer and consumer key allowlists also stay aligned. A complete projection cannot
+discard a collected field merely because a downstream decoder omitted its key.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

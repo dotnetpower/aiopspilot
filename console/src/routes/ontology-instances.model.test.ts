@@ -181,6 +181,32 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.kubernetes_diagnostics?.phase).toBe("Pending");
   });
 
+  it("accepts collected rollout, storage, policy, and ephemeral diagnostics", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.deployment";
+    resources[1]!.kubernetes_identity = {
+      api_version: "apps/v1",
+      kind: "Deployment",
+      name: "api",
+      namespace: "default",
+      resource_version: "20",
+      uid: "uid-api",
+    };
+    resources[1]!.kubernetes_diagnostics = {
+      desired_replicas: 3,
+      unavailable_replicas: 2,
+      progressing_status: "False",
+      requested_storage: "10Gi",
+      selector: { app: "api" },
+      ephemeral_container_count: 1,
+    };
+
+    expect(
+      decodeOntologyInstanceExploration(value).resources[1]?.kubernetes_diagnostics,
+    ).toEqual(resources[1]!.kubernetes_diagnostics);
+  });
+
   it("rejects browser-only or unsupported Kubernetes diagnostic facts", () => {
     const value = payload();
     const resources = value.resources as Record<string, unknown>[];

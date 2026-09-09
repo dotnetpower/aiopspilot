@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: a01ff0b6949b6b6c475d0c18854b5222d0759cd3
+translation_source_sha: 8699327cdeb577e7f1710e1a658efe5de8efd525
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -115,6 +115,8 @@ Secret, 원시 Event 메시지, 엔드포인트 주소 또는 원시 로그 본�
 수집기와 Operator 상한은 같습니다. 컨테이너를 최대 128개 수집하면 프로브 종류 레코드는 최대
 384개, 현재 및 이전 종료 레코드는 최대 256개가 될 수 있습니다. 이보다 큰 진단 배열은 조용히
 잘리지 않고 사용할 수 없는 상태가 됩니다.
+Operator와 Console 허용 목록은 수집된 내용 안전 롤아웃, 스토리지, 정책 및 임시 컨테이너 진단
+필드를 모두 포함합니다. 수집한 필드를 완전해 보이는 응답에서 조용히 제거하지 않습니다.
 
 ### 수명 주기 이력
 

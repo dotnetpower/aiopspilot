@@ -27,6 +27,8 @@ Resource row. Exact Kubernetes identity and diagnostics stay withheld until a co
 observation replaces it.
 Diagnostic arrays retain the collector's maximum sequence of 384 records. This bound applies to the
 separate Kubernetes detail and does not widen any recorded-state fact.
+That separate detail retains the reviewed rollout, storage, policy, and ephemeral-container facts
+that the inventory collector actually produced.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

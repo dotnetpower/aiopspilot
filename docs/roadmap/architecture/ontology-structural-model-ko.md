@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3e0355d106b23a99846f22e6fa4f666bb1815751
+translation_source_sha: e924cc43f8cafb6b4c914f6be161ed53904dbf7c
 translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
@@ -34,6 +34,8 @@ translation_revised: 2026-09-10
 없습니다.
 범위가 제한된 구조 세부 정보는 생산자와 소비자의 최대값을 같게 유지합니다. 소비자는 크기가 상한을
 넘는 배열을 완전해 보이는 일부 집합으로 바꾸지 않고 차단합니다.
+검토된 생산자와 소비자 키 허용 목록도 일치해야 합니다. 완전한 변환 결과는 하위 해석기에서 키를
+누락했다는 이유만으로 수집된 필드를 버릴 수 없습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

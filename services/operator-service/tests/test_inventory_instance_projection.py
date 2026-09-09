@@ -956,6 +956,91 @@ def test_kubernetes_projection_accepts_the_producer_sequence_bounds() -> None:
     assert len(diagnostics["container_terminations"]) == 256
 
 
+@pytest.mark.parametrize(
+    ("resource_type", "kind", "diagnostics"),
+    [
+        (
+            "kubernetes.pod",
+            "Pod",
+            {
+                "ephemeral_container_count": 1,
+                "ephemeral_container_ready_count": 0,
+                "ephemeral_container_restart_count": 2,
+                "ephemeral_container_termination_reasons": ("OOMKilled",),
+                "ephemeral_container_waiting_reasons": ("ContainerCreating",),
+            },
+        ),
+        (
+            "kubernetes.deployment",
+            "Deployment",
+            {
+                "available_replicas": 1,
+                "desired_replicas": 3,
+                "observed_generation": 7,
+                "progressing_reason": "ProgressDeadlineExceeded",
+                "progressing_status": "False",
+                "ready_replicas": 1,
+                "unavailable_replicas": 2,
+                "updated_replicas": 1,
+            },
+        ),
+        (
+            "kubernetes.persistent-volume-claim",
+            "PersistentVolumeClaim",
+            {"requested_storage": "10Gi"},
+        ),
+        (
+            "kubernetes.storage-class",
+            "StorageClass",
+            {
+                "provisioner": "disk.csi.azure.com",
+                "volume_binding_mode": "WaitForFirstConsumer",
+            },
+        ),
+        (
+            "kubernetes.network-policy",
+            "NetworkPolicy",
+            {"selector": {"app": "api"}},
+        ),
+        (
+            "kubernetes.pod-disruption-budget",
+            "PodDisruptionBudget",
+            {
+                "current_healthy": 1,
+                "desired_healthy": 2,
+                "ready_status": "False",
+            },
+        ),
+    ],
+)
+def test_kubernetes_projection_retains_collected_diagnostic_families(
+    resource_type: str,
+    kind: str,
+    diagnostics: dict[str, object],
+) -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id=f"cluster/kubernetes/{resource_type}/default/example",
+            resource_type=resource_type,
+            properties={
+                "api_version": "v1",
+                "kind": kind,
+                "name": "example",
+                "resource_version": "20",
+                "uid": "uid-example",
+                **diagnostics,
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    assert projected["kubernetes_diagnostics"] == {
+        key: list(value) if isinstance(value, tuple) else value
+        for key, value in diagnostics.items()
+    }
+
+
 def test_kubernetes_projection_rejects_a_sequence_above_the_producer_bound() -> None:
     with pytest.raises(ProjectionUnavailableError, match="array exceeds its bound"):
         _resource_projection(

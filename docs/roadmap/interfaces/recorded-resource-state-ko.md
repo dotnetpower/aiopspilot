@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: d35dace0c5fdbd14450679cd11a721aefe15e595
+translation_source_sha: 4be9948a6899d62ab61e94f919255efe28396987
 translation_revised: 2026-09-10
 ---
 # 기록된 리소스 상태
@@ -27,6 +27,8 @@ Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상�
 행으로 유지합니다. 완전한 버전 관측으로 교체될 때까지 정확한 Kubernetes 신원과 진단은 보류합니다.
 진단 배열은 수집기와 같은 최대 384개 레코드 상한을 유지합니다. 이 상한은 별도 Kubernetes 상세
 정보에 적용되며 기록 상태 사실의 범위를 넓히지 않습니다.
+해당 별도 상세 정보는 인벤토리 수집기가 실제로 만든 검토된 롤아웃, 스토리지, 정책 및 임시
+컨테이너 사실을 보존합니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

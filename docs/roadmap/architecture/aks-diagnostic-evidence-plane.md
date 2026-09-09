@@ -115,6 +115,9 @@ raw event messages, endpoint addresses, or raw log bodies.
 Collector and Operator bounds are identical. Up to 128 containers can yield 384 probe-kind records
 or 256 current and previous termination records; a larger diagnostic sequence is unavailable
 instead of being silently truncated.
+Operator and Console allowlists cover every content-safe collected rollout, storage, policy, and
+ephemeral-container diagnostic field. A collected field is not silently removed from a
+complete-looking response.
 
 ### Lifecycle history
 
