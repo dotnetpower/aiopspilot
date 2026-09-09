@@ -77,6 +77,7 @@ def _binding(
     *,
     route_kind: ModelRouteKind = ModelRouteKind.DIRECT,
 ) -> ModelEndpointBinding:
+    resource_ref_digest = hashlib.sha256(name.encode()).hexdigest()
     return ModelEndpointBinding(
         binding_id=name.replace(".", "-") + "-binding",
         capability=name,
@@ -95,7 +96,7 @@ def _binding(
         features=ModelEndpointFeatures(structured_output=True),
         discovery=ModelEndpointDiscovery(
             source=ModelDiscoverySource.AZURE_MANAGEMENT,
-            resource_ref_digest="a" * 64,
+            resource_ref_digest=resource_ref_digest,
             verified_at=datetime(2026, 8, 3, tzinfo=UTC),
         ),
     )
@@ -210,7 +211,9 @@ def test_complete_bindings_attach_exact_versioned_metered_council() -> None:
         "gpt-5.4",
     }
     assert {model.identity.version for model in models} == {"2026-08-01"}
-    assert {model.identity.fault_domain for model in models} == {"a" * 64}
+    assert {model.identity.fault_domain for model in models} == {
+        hashlib.sha256(name.encode()).hexdigest() for name, _family, _capacity in _CAPABILITIES
+    }
     assert {model._config.api_version for model in models} == {"2024-12-01-preview"}
     assert {model._config.route_kind for model in models} == {ModelRouteKind.DIRECT}
     assert {model._metering._capability_id for model in models} == {
