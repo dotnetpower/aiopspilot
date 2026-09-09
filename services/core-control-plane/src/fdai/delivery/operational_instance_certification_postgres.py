@@ -22,83 +22,120 @@ WITH observed AS (
     SELECT clock_timestamp() AS measured_at
 ),
 active AS (
-    SELECT snapshot.completed_at
+    SELECT snapshot.id
     FROM inventory_active AS active_pointer
     JOIN inventory_snapshot AS snapshot
         ON snapshot.id = active_pointer.snapshot_id
     WHERE active_pointer.singleton
 ),
-cursor_health AS (
-    SELECT MAX(updated_at) AS updated_at
+ontology AS (
+    SELECT value
     FROM state_kv
-    WHERE key LIKE 'inventory_delta_cursor:%'
+    WHERE key = 'inventory-ontology:status'
 ),
-archive AS (
+latest_coverage AS (
     SELECT
-        COUNT(*) AS total_count,
-        COUNT(*) FILTER (
-            WHERE manifest.coverage_complete
-                AND EXISTS (
+        jsonb_array_length(coverage.manifest_digests)::bigint AS total_count,
+        CASE
+            WHEN coverage.complete
+                AND NOT EXISTS (
                     SELECT 1
-                    FROM operational_archive_verification_receipt AS verification
-                    WHERE verification.manifest_digest = manifest.manifest_digest
-                        AND verification.verified
+                    FROM jsonb_array_elements_text(coverage.manifest_digests) AS item(digest)
+                    LEFT JOIN operational_archive_manifest AS manifest
+                        ON manifest.manifest_digest = item.digest
+                    CROSS JOIN ontology
+                    WHERE manifest.manifest_digest IS NULL
+                        OR NOT (
+                            COALESCE(
+                                manifest.record -> 'ontology_release_digests',
+                                '[]'::jsonb
+                            ) ? (ontology.value ->> 'ontology_release_digest')
+                        )
                 )
-        ) AS complete_count
-    FROM operational_archive_manifest AS manifest
+            THEN jsonb_array_length(coverage.manifest_digests)::bigint
+            ELSE 0::bigint
+        END AS complete_count
+    FROM operational_archive_coverage_receipt AS coverage
+    ORDER BY coverage.recorded_at DESC, coverage.receipt_digest DESC
+    LIMIT 1
 ),
-restore AS (
+latest_restore AS (
     SELECT
-        COUNT(*) AS total_count,
-        COUNT(*) FILTER (WHERE passed) AS passed_count
-    FROM operational_archive_restore_receipt
+        1::bigint AS total_count,
+        CASE
+            WHEN restore.passed
+                AND verification.verified
+                AND COALESCE(
+                    manifest.record -> 'ontology_release_digests',
+                    '[]'::jsonb
+                ) ? (ontology.value ->> 'ontology_release_digest')
+            THEN 1::bigint
+            ELSE 0::bigint
+        END AS passed_count
+    FROM operational_archive_restore_receipt AS restore
+    JOIN operational_archive_verification_receipt AS verification
+        ON verification.receipt_digest = restore.verification_receipt_digest
+        AND verification.manifest_digest = restore.manifest_digest
+    JOIN operational_archive_manifest AS manifest
+        ON manifest.manifest_digest = restore.manifest_digest
+    CROSS JOIN ontology
+    ORDER BY restore.sampled_at DESC, restore.receipt_digest DESC
+    LIMIT 1
+),
+latest_failure AS (
+    SELECT
+        failed.source,
+        failed.observation_kind,
+        failed.scopes,
+        failed.resource_types,
+        failed.completed_at
+    FROM inventory_snapshot AS failed
+    WHERE failed.status = 'failed'
+        AND failed.completed_at IS NOT NULL
+        AND failed.failure_code <> 'invalid_data'
+    ORDER BY failed.completed_at DESC
+    LIMIT 1
 ),
 latest_recovery AS (
     SELECT
-        EXTRACT(EPOCH FROM (successful.completed_at - failed.completed_at))
+        CASE
+            WHEN successful.completed_at IS NULL THEN NULL
+            ELSE EXTRACT(EPOCH FROM (successful.completed_at - failed.completed_at))
+        END
             AS recovery_seconds
-    FROM inventory_snapshot AS failed
-    CROSS JOIN LATERAL (
+    FROM latest_failure AS failed
+    LEFT JOIN LATERAL (
         SELECT candidate.completed_at
         FROM inventory_snapshot AS candidate
         WHERE candidate.status IN ('active', 'superseded')
             AND candidate.completed_at > failed.completed_at
+            AND candidate.source = failed.source
+            AND candidate.observation_kind = failed.observation_kind
+            AND candidate.scopes = failed.scopes
+            AND candidate.resource_types = failed.resource_types
         ORDER BY candidate.completed_at
         LIMIT 1
-    ) AS successful
-    WHERE failed.status = 'failed'
-        AND failed.completed_at IS NOT NULL
-    ORDER BY failed.completed_at DESC
-    LIMIT 1
+    ) AS successful ON TRUE
 )
 SELECT
     observed.measured_at,
+    active.id AS active_generation,
     ontology_status.value AS ontology_status,
     pg_database_size(current_database()) AS database_bytes,
-    CASE
-        WHEN active.completed_at IS NULL OR active.completed_at > observed.measured_at THEN NULL
-        ELSE EXTRACT(EPOCH FROM (observed.measured_at - active.completed_at))
-    END AS freshness_seconds,
-    CASE
-        WHEN cursor_health.updated_at IS NULL
-            OR cursor_health.updated_at > observed.measured_at THEN NULL
-        ELSE EXTRACT(EPOCH FROM (observed.measured_at - cursor_health.updated_at))
-    END AS lag_seconds,
     collection_health.value AS collection_health,
-    archive.total_count AS rollup_total_count,
-    archive.complete_count AS rollup_complete_count,
-    restore.total_count AS restore_total_count,
-    restore.passed_count AS restore_passed_count,
+    COALESCE(latest_coverage.total_count, 0::bigint) AS rollup_total_count,
+    COALESCE(latest_coverage.complete_count, 0::bigint) AS rollup_complete_count,
+    COALESCE(latest_restore.total_count, 0::bigint) AS restore_total_count,
+    COALESCE(latest_restore.passed_count, 0::bigint) AS restore_passed_count,
     latest_recovery.recovery_seconds AS provider_failure_recovery_seconds
 FROM observed
 LEFT JOIN active ON TRUE
-LEFT JOIN cursor_health ON TRUE
 LEFT JOIN state_kv AS ontology_status
     ON ontology_status.key = 'inventory-ontology:status'
 LEFT JOIN state_kv AS collection_health
     ON collection_health.key = 'inventory-collection-health'
-CROSS JOIN archive
-CROSS JOIN restore
+LEFT JOIN latest_coverage ON TRUE
+LEFT JOIN latest_restore ON TRUE
 LEFT JOIN latest_recovery ON TRUE
 """
 
@@ -158,10 +195,21 @@ def _snapshot_from_row(row: Mapping[str, object]) -> OperationalCertificationSna
     if not isinstance(measured_at, datetime):
         raise ValueError("operational certification database time is unavailable")
     ontology_status = _mapping(row.get("ontology_status"))
+    active_generation = row.get("active_generation")
+    if (
+        not isinstance(active_generation, str)
+        or ontology_status.get("generation") != active_generation
+        or ontology_status.get("status") != "available"
+    ):
+        raise ValueError(
+            "operational certification inventory and ontology generations do not match"
+        )
     ontology_release_digest = ontology_status.get("ontology_release_digest")
     if not isinstance(ontology_release_digest, str):
         raise ValueError("operational certification exact ontology release is unavailable")
     collection_health = _mapping(row.get("collection_health"))
+    freshness = _mapping(collection_health.get("freshness"))
+    cursor = _mapping(collection_health.get("cursor"))
     provider_pressure = _mapping(collection_health.get("provider_pressure"))
     remaining_ratio = _decimal_value(provider_pressure.get("budget_remaining_ratio"))
     pressure_state = provider_pressure.get("state")
@@ -177,9 +225,9 @@ def _snapshot_from_row(row: Mapping[str, object]) -> OperationalCertificationSna
         measured_at=measured_at,
         ontology_release_digest=ontology_release_digest,
         database_bytes=_optional_int(row.get("database_bytes")),
-        freshness_seconds=_decimal_value(row.get("freshness_seconds")),
+        freshness_seconds=_decimal_value(freshness.get("age_seconds")),
         api_pressure_ratio=api_pressure_ratio,
-        lag_seconds=_decimal_value(row.get("lag_seconds")),
+        lag_seconds=_decimal_value(cursor.get("lag_seconds")),
         rollup_total_count=_required_int(row.get("rollup_total_count"), "rollup total"),
         rollup_complete_count=_required_int(row.get("rollup_complete_count"), "rollup complete"),
         restore_total_count=_required_int(row.get("restore_total_count"), "restore total"),

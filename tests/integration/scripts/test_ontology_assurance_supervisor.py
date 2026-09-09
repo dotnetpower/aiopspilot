@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import signal
 import stat
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,12 +18,49 @@ from scripts.automation.ontology_assurance_supervisor import (
 )
 from scripts.automation.run_ontology_assurance import (
     OntologyAssuranceRunner,
+    _workspace_patch_digest,
     full_artifact_accepted,
     strict_artifact_accepted,
     transport_delta_accepted,
 )
 
 SOURCE_REVISION = "a" * 40
+_GIT = shutil.which("git")
+assert _GIT is not None
+
+
+def _git(
+    repo: Path,
+    *arguments: str,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603 - resolved git executable and test-owned arguments
+        [_GIT, "-C", str(repo), *arguments],
+        check=True,
+        capture_output=capture_output,
+        text=True,
+    )
+
+
+def test_workspace_patch_digest_includes_untracked_files(tmp_path: Path) -> None:
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.name", "FDAI Test")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    tracked = tmp_path / "tracked.txt"
+    tracked.write_text("tracked\n", encoding="utf-8")
+    _git(tmp_path, "add", "tracked.txt")
+    _git(tmp_path, "commit", "-qm", "test")
+    revision = _git(tmp_path, "rev-parse", "HEAD", capture_output=True).stdout.strip()
+    clean_digest = _workspace_patch_digest(tmp_path, revision)
+
+    untracked = tmp_path / "new.txt"
+    untracked.write_text("first\n", encoding="utf-8")
+    first_digest = _workspace_patch_digest(tmp_path, revision)
+    untracked.write_text("second\n", encoding="utf-8")
+    second_digest = _workspace_patch_digest(tmp_path, revision)
+
+    assert clean_digest != first_digest
+    assert first_digest != second_digest
 
 
 def test_operator_child_uses_run_scoped_outbox_namespace(tmp_path: Path) -> None:

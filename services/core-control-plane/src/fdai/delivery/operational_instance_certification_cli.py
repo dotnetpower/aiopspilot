@@ -14,9 +14,6 @@ from pathlib import Path
 
 import psycopg
 
-from fdai.core.ontology_platform.operational_instance_certification import (
-    OperationalInstanceCertificationReceipt,
-)
 from fdai.delivery.operational_instance_certification import (
     OperationalCertificationSnapshot,
     build_operational_certification_snapshot,
@@ -30,6 +27,11 @@ from fdai.delivery.operational_instance_certification_postgres import (
     PostgresOperationalCertificationSource,
     PostgresOperationalCertificationSourceConfig,
 )
+from fdai.delivery.operational_instance_certification_protected import (
+    ProtectedCertificationOptions,
+    run_protected_certification,
+)
+from fdai.delivery.operational_instance_certification_records import receipt_record
 from fdai.delivery.persistence.postgres_operational_archive import (
     PostgresOperationalArchiveStore,
     PostgresOperationalArchiveStoreConfig,
@@ -83,36 +85,6 @@ def snapshot_from_record(record: Mapping[str, object]) -> OperationalCertificati
     return snapshot
 
 
-def receipt_record(receipt: OperationalInstanceCertificationReceipt) -> dict[str, object]:
-    """Serialize a no-authority receipt with decimal values preserved as strings."""
-
-    return {
-        "schema_version": receipt.schema_version,
-        "window_start": receipt.window_start.astimezone(UTC).isoformat(),
-        "window_end": receipt.window_end.astimezone(UTC).isoformat(),
-        "recorded_at": receipt.recorded_at.astimezone(UTC).isoformat(),
-        "ontology_release_digest": receipt.ontology_release_digest,
-        "measurements": [
-            {
-                "axis": measurement.axis.value,
-                "status": measurement.status.value,
-                "measured_at": measurement.measured_at.astimezone(UTC).isoformat(),
-                "value": _decimal(measurement.value),
-                "unit": measurement.unit,
-                "reason_codes": list(measurement.reason_codes),
-                "evidence_digests": list(measurement.evidence_digests),
-            }
-            for measurement in receipt.measurements
-        ],
-        "complete": receipt.complete,
-        "unavailable_axes": [axis.value for axis in receipt.unavailable_axes],
-        "observation_authority": receipt.observation_authority,
-        "mutation_authority": receipt.mutation_authority,
-        "execution_authority": receipt.execution_authority,
-        "digest": receipt.digest,
-    }
-
-
 def archive_exercise_record(receipt: LocalArchiveExerciseReceipt) -> dict[str, object]:
     """Serialize the local archive exercise without adding purge authority."""
 
@@ -132,6 +104,16 @@ def archive_exercise_record(receipt: LocalArchiveExerciseReceipt) -> dict[str, o
 
 
 async def _run(arguments: argparse.Namespace) -> dict[str, object]:
+    if arguments.command == "protected":
+        return await run_protected_certification(
+            ProtectedCertificationOptions(
+                request_id=arguments.request_id,
+                source_revision=arguments.source_revision,
+                campaign_run_id=arguments.campaign_run_id,
+                window_seconds=arguments.window_seconds,
+            ),
+            os.environ,
+        )
     dsn = os.environ.get("FDAI_DATABASE_URL", "").strip()
     if not dsn:
         raise ValueError("FDAI_DATABASE_URL MUST be configured")
@@ -191,6 +173,11 @@ def _parser() -> argparse.ArgumentParser:
     archive_certify.add_argument("--end-output", required=True, type=Path)
     archive_certify.add_argument("--archive-artifact", required=True, type=Path)
     archive_certify.add_argument("--exercise-output", required=True, type=Path)
+    protected = commands.add_parser("protected")
+    protected.add_argument("request_id")
+    protected.add_argument("source_revision")
+    protected.add_argument("campaign_run_id", type=int)
+    protected.add_argument("window_seconds", type=int)
     return parser
 
 

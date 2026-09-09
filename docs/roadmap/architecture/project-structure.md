@@ -100,12 +100,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.
 - **executed-action observation authentication stays in delivery**:
-  `delivery/azure/observation_context.py` signs the exact observation digest and four distinct
-  identity lineages with a deployment-owned Ed25519 key. `runtime/observation_evidence.py` binds the
-  signer, public-key verifier, exact artifact resolver, and Azure snapshot collector only when the
-  deployed venue supplies one complete configuration. The Core Container App receives the private
-  seed only through a Managed Identity-backed Key Vault reference. Partial configuration, local
-  venue use, signature substitution, and collapsed credential lineages fail closed.
+  `delivery/azure/observation_context.py` signs the exact observation digest and four identity
+  lineages with a deployment-owned Ed25519 key. `runtime/observation_evidence.py` binds its verifier
+  and Azure collector only for one complete deployed configuration, while Core receives the seed
+  through a Managed Identity-backed Key Vault reference. The separate
+  `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
+  one private Blob receipt through a non-executor identity; all authority fields stay false.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through
   typed ingress, and one Core writer delegates to the provider-neutral atomic store. The PostgreSQL
   adapter serializes on a family row and commits an immutable revision, hash-chained transition,

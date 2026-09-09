@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ae3b6d44fca2dccb7293549cf2e6481ea31af637
+translation_source_sha: 417276f3b9c51ce726eb3c04053a93f732375446
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -97,12 +97,12 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   다시 읽고 자격 증명을 보존하지 않습니다. 성공적인 묶음은 근거 자격만 입증하며 실행, 승인 또는
   승격 권한을 선언할 수 없습니다.
 - **실행된 작업의 관측 인증은 전달 계층에 유지**:
-  `delivery/azure/observation_context.py`는 배포 소유 Ed25519 키로 정확한 관측 다이제스트와 서로 다른
-  네 가지 신원 계보에 서명합니다. `runtime/observation_evidence.py`는 배포 실행 위치가 완전한 구성
-  하나를 제공할 때만 서명기, 공개 키 검증기, 정확한 산출물 해석기, Azure snapshot collector를
-  연결합니다. Core Container App은 Managed Identity 기반 Key Vault 참조를 통해서만 private
-  seed를 받습니다. 일부 구성, 로컬 실행 위치의 사용, 서명 대체, 겹치는 자격 증명 계보는 실패 시
-  차단됩니다.
+  `delivery/azure/observation_context.py`는 배포 소유 Ed25519 키로 정확한 관측 다이제스트와 네 가지
+  신원 계보에 서명합니다. `runtime/observation_evidence.py`는 완전한 배포 구성 하나에만 검증기와
+  Azure 수집기를 연결하며 Core는 Managed Identity 기반 Key Vault 참조로 seed를 받습니다. 별도의
+  `fdai-operational-instance-certification` 전달 진입점은 세대 일치가 확인된 PostgreSQL 집계를 읽고
+  실행기 신원이 아닌 Managed Identity로 내용 기반의 비공개 Blob 증적 하나를 씁니다. 모든 권한
+  필드는 `false`로 고정되며 일부 구성이나 겹치는 신원 계보는 실패 시 차단됩니다.
 - **상시 권한 수명 주기에는 작성기가 하나만 있음**: 인증된 Operator 명령은 타입이 지정된 수신
   경로로 들어오고 하나의 Core 작성기가 공급자 중립 원자적 저장소에 위임합니다. PostgreSQL
   어댑터는 기능군 행을 기준으로 직렬화하고 변경할 수 없는 개정 번호, 해시 체인 전이, 현재 변환
