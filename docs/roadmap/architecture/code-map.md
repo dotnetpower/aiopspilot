@@ -40,7 +40,9 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Framework assessment ownership:** `core/framework_assessment/` owns deterministic WAF and CAF evidence admission and replay. Provider contracts remain in `shared/providers/`, Azure observation adapters remain in `delivery/azure/`, and Operator owns only the no-authority event projection. WARA keeps its specialized APRL runtime and shares only the physical multiplexed transport.
 - **AKS metric admission:** The Forseti-owned deterministic reducer under `core/ontology_platform`
   accepts a metric signal only after its cluster, UID, namespace, point labels, source revision,
-  and time window match the exact diagnostic context. A mismatch produces a held conflict.
+  and time window match the exact diagnostic context. A mismatch produces a held conflict. The
+  shared metric contract permits complete coverage only when provider cutoff reaches the requested
+  interval end.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

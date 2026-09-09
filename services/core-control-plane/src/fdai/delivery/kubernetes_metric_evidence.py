@@ -81,6 +81,8 @@ class KubernetesMetricEvidenceCollector:
             limitation = "result_truncated"
         if limitation is None and self._coverage_receipt_ref is None:
             limitation = "provider_coverage_unverified"
+        if limitation is None and self._provider_cutoff is not None and self._provider_cutoff < end:
+            limitation = "provider_cutoff_before_window_end"
         return KubernetesMetricWindowEvidence(
             metric_name=metric_name,
             target=target,

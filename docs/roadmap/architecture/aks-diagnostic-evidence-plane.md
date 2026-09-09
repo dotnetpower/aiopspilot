@@ -146,6 +146,8 @@ zero.
 Before signal reduction, Forseti rechecks the metric target tuple, point labels, metric interval,
 provider cutoff, and source revision against the exact diagnostic context. A mismatch is retained
 as a conflict and its metric cannot contribute a diagnostic signal.
+An independent coverage receipt can mark a window complete only when its timezone-aware provider
+cutoff reaches or exceeds the requested interval end.
 
 ### Logs
 

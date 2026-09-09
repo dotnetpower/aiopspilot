@@ -68,10 +68,14 @@ class KubernetesMetricWindowEvidence:
             raise ValueError("Kubernetes metric source identity and revision are required")
         if len(self.points) > 20:
             raise ValueError("Kubernetes metric evidence exceeds its point bound")
+        if self.provider_cutoff is not None and self.provider_cutoff.tzinfo is None:
+            raise ValueError("Kubernetes metric provider cutoff MUST be timezone-aware")
         if self.complete != (self.limitation is None):
             raise ValueError("Kubernetes metric completeness and limitation are inconsistent")
         if self.complete and (self.provider_cutoff is None or self.coverage_receipt_ref is None):
             raise ValueError("complete Kubernetes metrics require provider cutoff and coverage")
+        if self.complete and self.provider_cutoff is not None and self.provider_cutoff < self.end:
+            raise ValueError("complete Kubernetes metrics require cutoff through the window end")
 
 
 __all__ = [

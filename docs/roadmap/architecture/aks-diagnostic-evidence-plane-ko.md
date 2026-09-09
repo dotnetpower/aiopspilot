@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 4cecc683de738e25373f784bca6cda7793aa1aee
+translation_source_sha: 057a864f66a2380232af087566415def2c062c4a
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -145,6 +145,8 @@ Operator와 Console 허용 목록은 수집된 내용 안전 롤아웃, 스토�
 Forseti는 신호를 축약하기 전에 메트릭 대상 튜플, 지점 레이블, 메트릭 구간, 프로바이더 기준 시점 및
 출처 revision을 정확한 진단 맥락과 다시 대조합니다. 불일치는 충돌로 보존되며 해당 메트릭은 진단
 신호를 만들 수 없습니다.
+독립 범위 증적은 표준 시간대가 있는 프로바이더 기준 시점이 요청 구간의 끝에 도달하거나 이를 지난
+경우에만 구간을 완전하다고 표시할 수 있습니다.
 
 ### 로그
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 62602d3650d47be534b1eeb351c9778ed8be2772
+translation_source_sha: d770d28e0675a5867a4897d66b460802c2bbe560
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -43,7 +43,8 @@ translation_revised: 2026-09-10
 - **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과 재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`, 비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고 물리적 다중화 전송만 공유합니다.
 - **AKS 메트릭 수락:** `core/ontology_platform`의 Forseti 소유 결정론적 축약기는 클러스터, UID,
   네임스페이스, 지점 레이블, 출처 revision 및 시간 구간이 정확한 진단 맥락과 일치할 때만 메트릭
-  신호를 수락합니다. 불일치는 보류된 충돌을 만듭니다.
+  신호를 수락합니다. 불일치는 보류된 충돌을 만듭니다. 공유 메트릭 계약은 프로바이더 기준 시점이
+  요청 구간의 끝에 도달한 경우에만 완전한 범위를 허용합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
