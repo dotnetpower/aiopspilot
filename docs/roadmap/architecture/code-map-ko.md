@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 72a115d97a9147edd93021b9c38a848e7b032025
+translation_source_sha: 22a684eadd797d6b8b0caec8b8582d071a5ebf9e
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -26,9 +26,8 @@ translation_revised: 2026-09-10
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
-- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
-- **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
-  저장소 검사를 소유합니다.
+- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
+- **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및 저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
   시작합니다. 이 경계는 매핑, 평가, 실행 권한을 부여하지 않으며 시작 실패 시 획득한 서비스를 정리합니다.

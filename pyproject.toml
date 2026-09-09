@@ -251,6 +251,7 @@ pythonpath = [
     "services/document-ingestion-api/src",
     "services/document-processing-worker/src",
     "services/isolated-executor/src",
+    "services/system-knowledge-service/src",
 ]
 markers = [
     "integration: requires a live Postgres (pgvector). Skipped unless FDAI_DATABASE_URL is set.",

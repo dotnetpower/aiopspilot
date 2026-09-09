@@ -650,7 +650,7 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     assert not (root / "Dockerfile").exists()
     assert not (root / "services" / "Dockerfile").exists()
     dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
-    assert len(dockerfiles) == 5
+    assert len(dockerfiles) == 6
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "--no-install-package fdai-service-contracts" in text
@@ -672,7 +672,7 @@ def test_shipped_runtime_images_pin_fixed_runtime_packages() -> None:
     dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
     dockerfiles.append(root / "extensions" / "cost-governance" / "docker" / "Dockerfile")
 
-    assert len(dockerfiles) == 6
+    assert len(dockerfiles) == 7
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text

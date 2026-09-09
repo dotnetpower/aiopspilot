@@ -54,7 +54,9 @@ if [[ -n "${FDAI_PYTEST_SHARD_COUNT:-}" || -n "${FDAI_PYTEST_SHARD_INDEX:-}" ]];
 fi
 
 if ((${#shard_args[@]} > 0)); then
-  coverage_args+=(--cov-report=)
+  # Each shard covers only part of the selected tests. Persist its data without
+  # enforcing the repository floor until the aggregate coverage job combines all shards.
+  coverage_args+=(--cov-report= --cov-fail-under=0)
 else
   coverage_args+=(
     --cov-report=term-missing
