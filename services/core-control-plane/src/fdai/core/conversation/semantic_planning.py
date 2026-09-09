@@ -208,10 +208,7 @@ class SemanticPlanningService:
                 limit=_MAX_DESCRIPTORS,
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
-            preflight_intent = _preflight_descriptor_intent(
-                preflight_router.effective_result,
-                resource_catalog=resource_catalog_constraints(descriptors),
-            )
+            preflight_intent = _preflight_descriptor_intent(preflight_router.effective_result)
             if preflight_intent is not None:
                 descriptors = _descriptors_for_operational_intent(descriptors, preflight_intent)
                 _LOGGER.info(
@@ -241,7 +238,6 @@ class SemanticPlanningService:
                         utterance=utterance,
                     )
                     if preflight_router.effective_result is not None
-                    and preflight_intent is not None
                     else None
                 )
                 if promoted_preflight is not None:

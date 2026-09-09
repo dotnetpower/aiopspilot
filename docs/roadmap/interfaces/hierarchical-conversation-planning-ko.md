@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 071b5104c3afd4a3cec3168204131fe8c027f8fc
+translation_source_sha: 24f3dc85b519bde3e9f7a8cd0040fc874667cf49
 translation_revised: 2026-09-09
 ---
 
@@ -11,8 +11,7 @@ translation_revised: 2026-09-09
 처리하기 위해, 도구 하나로 끝나던 의미 턴 계획을 범위가 제한된 하나의 의도 그래프(intent graph)로
 대체합니다. 이 그래프에는 실행 권한이 없습니다. 결정론적 검증이 각 읽기 목표를 사용할 수 있는 기능(capability)에 연결하며, Bragi는 근거와 검증된 한계만 서술합니다.
 
-> 범위: 이 경로는 읽기를 우선합니다. 쓰기 요청은 타입이 지정된 초안만 만들 수 있습니다. 기존
-> 안전성 검사, 사람 승인, 롤백, 영향 범위, 감사 게이트가 계속 최종 권한을 가집니다.
+> 범위: 이 경로는 읽기를 우선합니다. 쓰기 요청은 타입이 지정된 초안만 만들 수 있습니다. 기존 안전성 검사, 사람 승인, 롤백, 영향 범위, 감사 게이트가 계속 최종 권한을 가집니다.
 
 ## 설계 개요
 
@@ -74,7 +73,7 @@ Gateway preflight 재사용은 명시된 과거 1시간 target을 검증하거�
 판단으로 계속 진행됩니다. 구성된 preflight의 형식이 잘못됐거나 사용할 수 없으면 다른 모델 호출 없이
 보류하며, 확신도가 낮은 순수 일반 경로도 보류합니다. 의미가 검증된 preflight 또는 전체 의미 판단 중
 어느 경로에서 생성되었든, Core는 구독 인벤토리 문서, Resource 구성 비교, 게이트웨이 진단에 필요한 최소한의 검토된
-서술자만 모델에 전달합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. 서술자 축소는 기능이나 권한을 부여하지 않습니다. 선택한 모든 선언은 정확한 principal 매니페스트에서 오며 결과 계획은 기존 검증기를 그대로 통과해야 합니다. 전체 판단 전에 Core는 selector 순위를 보존하면서 후보 전용 기능 변환 결과를 32 KiB로 제한합니다. Preflight Resource 컬렉션 타입은 서술자를 축소하거나 판단으로 재사용하기 전에 principal 매니페스트의 검토된 Resource catalog와 일치해야 합니다. 수락되지 않은 제안을 포함해 Resource 이벤트 이력 제안 뒤에는 frame 서술자를 `Resource`와 `query.resource_event_history`로 축소할 수 있습니다. 이 처리는 모델 context만 바꾸며 제안 수락과 기존 검증기는 계속 필수입니다.
+서술자만 모델에 전달합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. 서술자 축소는 기능이나 권한을 부여하지 않습니다. 선택한 모든 선언은 정확한 principal 매니페스트에서 오며 결과 계획은 기존 검증기를 그대로 통과해야 합니다. 전체 판단 전에 Core는 selector 순위를 보존하면서 후보 전용 기능 변환 결과를 32 KiB로 제한합니다. 검증된 preflight Resource 컬렉션 타입은 재사용 뒤 기존 value-group 및 suffix binding을 유지합니다. 결속되지 않은 필터는 광범위한 조회나 전체 판단 없이 결정론적 명확화로 이어집니다. 수락되지 않은 제안을 포함해 Resource 이벤트 이력 제안 뒤에는 frame 서술자를 `Resource`와 `query.resource_event_history`로 축소할 수 있습니다. 이 처리는 모델 context만 바꾸며 제안 수락과 기존 검증기는 계속 필수입니다.
 전체 의미 판단을 실행한 경우 운영 요약 frame에는 수락된 일치 판단이 필요합니다. 확신도가 낮거나
 수락되지 않았거나 형식이 잘못된 판단은 이후 구독 또는 Resource 요약 frame으로 다시 진입할 수
 없습니다. 직접 상태 목록과 상태 확인 목록은 누락된 보조 의도 없이 각각 정확한 기본 의도가 필요하며, 결합 조건 요약에는 정확한 상태 및 상태 확인 의도 집합이 필요합니다. 정확한 Resource 대상은 컬렉션 요약으로 넓힐 수 없지만 선언된 Resource 타입 값과 그룹은 컬렉션 범위로 유지합니다. 판단 경계가 없어도 모델 frame은 이름이 지정된 범위나 원문에서 독립적으로 확인한 정확한 대상 감지를 우회하거나, 함께 요청한 Service Health를 구독 신원으로 축소하거나, 결정론적 카탈로그 및 서술자 일치가 두 구성 요소를 근거로 확인하지 않은 결합 조건을 만들 수 없습니다. 카탈로그와 서술자의 상태 일치는 합치지만 Health 권한이 부여된 원문 범위에 인벤토리 상태 권한을 함께 부여하지 않습니다. 대상 없는 구독 요약은 타입이 지정된 대상과 영어 `subscription` 명사 앞뒤에 범위가 제한된 Unicode 이름을 쓴 경우를 모두 차단합니다. 정확한 한국어 요청 서술어는 일반 문구로 처리하되 실제 Unicode 이름을 숨기지 않으며, 일반 한정사와 설명 토큰은 현재 범위 참조로 유지합니다.
@@ -195,6 +194,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | withdrawn | Preflight Resource 컬렉션 타입의 성급한 exact catalog gate가 검증된 preflight, value-group binding, 결속되지 않은 필터의 결정론적 명확화를 우회하므로 제거했습니다. | `current change`, PR #542의 정확한 회귀 2개와 집중 preflight 및 컬렉션 검사 | 재사용 뒤의 기존 value-group binding을 권위 있는 경계로 유지합니다. |
 | 2026-09-09 | implemented | Preflight Resource 컬렉션 타입이 서술자 축소 또는 판단 재사용 전에 principal 매니페스트 catalog와 일치하도록 했습니다. | `current change`, 집중 catalog 근거 확인, preflight, 이벤트 이력, Ruff, mypy, 인증된 원문 및 유사 질문 검사 | 근거를 확인하지 못한 컬렉션 제안은 전체 판단 경로로 유지합니다. |
 | 2026-09-09 | implemented | 수락되지 않은 Resource 이벤트 이력 제안이 게이트웨이 및 구성 복구 경계와 같이 다음 모델의 서술자 context만 축소하도록 허용했습니다. | `current change`, 집중 safe-unaccepted 정책, 이벤트 이력 계획, Ruff, mypy, 인증된 원문 및 유사 질문 검사 | 제안 수락, frame-plan 검증, 근거 허용, 권한을 그대로 유지합니다. |
 | 2026-09-09 | implemented | Selector 순서에 따라 전체 판단 기능 변환 결과를 32 KiB로 제한하고 Resource 이벤트 이력의 정확한 판단 후 서술자 축소를 추가했습니다. | `current change`, 집중 기능 변환, 이벤트 이력 축소, 의미 계획, Ruff, mypy, 인증된 원문 및 유사 질문 검사 | 범위가 제한된 전체 판단 경로를 유지하고 직접 preflight family를 추가하기 전 별도의 shadow 근거를 요구합니다. |

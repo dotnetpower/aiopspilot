@@ -2223,50 +2223,6 @@ def test_known_preflight_family_selects_compact_descriptors_before_shape_repair(
     assert _preflight_descriptor_intent(result) == "query.gateway_diagnostic_evidence"
 
 
-def test_preflight_collection_type_must_match_principal_resource_catalog() -> None:
-    utterance = "Show Resource Health events."
-    value = "Resource Health"
-    proposal = ConversationPreflightProposal(
-        social_act=SocialAct.NONE,
-        operational_signal=OperationalSignal.EXPLICIT,
-        context_dependency=ContextDependency.NONE,
-        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
-        operational_targets=(
-            SemanticTarget(
-                kind="resource_type_filter",
-                value=value,
-                source_start=utterance.index(value),
-                source_end=utterance.index(value) + len(value),
-            ),
-        ),
-        operational_facets=("resource_collection", "list"),
-        confidence=0.98,
-    )
-    result = ConversationPreflightResult(
-        proposal=proposal,
-        attempted=True,
-        input_digest=DIGEST,
-        proposal_digest=DIGEST,
-        model_config_digest=DIGEST,
-        prompt_digest=DIGEST,
-    )
-
-    assert (
-        _preflight_descriptor_intent(
-            result,
-            resource_catalog=frozenset({"virtual machine", "storage account"}),
-        )
-        is None
-    )
-    assert (
-        _preflight_descriptor_intent(
-            result,
-            resource_catalog=frozenset({"resource health"}),
-        )
-        == "query.contextual_resources"
-    )
-
-
 def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
     descriptors = ({"kind": "object", "name": "Resource"},)
     judgment = SemanticJudgmentProposal(
