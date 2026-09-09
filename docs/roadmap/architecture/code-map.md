@@ -23,7 +23,7 @@ and owning designs. Use it instead of the retired top-level application tree.
   and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
   `BuildStatus`; canonical ontology projection keeps that child source and effective time.
 - **Service-owned tests:** Unit and component tests live beside their owner; tracked release catalogs bind a reachable source revision and exact cited blobs.
-- **Virtual root:** The root `pyproject.toml` has `package = false`, coordinates the uv workspace, and enumerates every service `src` root plus the independent deployment CLI for root pytest collection. The venue-capability gate scans the same service packages. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
+- **Virtual root:** The root `pyproject.toml` has `package = false`, coordinates the uv workspace, and enumerates every service `src` root plus the independent deployment CLI for root pytest collection. The venue-capability gate scans the same packages. `pytest-timeout` defaults to 120 s; the two-pass full-catalog determinism proof declares a bounded 240 s exception. `faulthandler_timeout` (90 s) preserves diagnostic stacks before termination.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology, and repository checks.
 - **Operator startup revision fence:** Production Operator composition delegates resolved-model source
   construction, verifies its immutable digest, and validates local Azure narrator targets from that
