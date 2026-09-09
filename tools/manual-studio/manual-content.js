@@ -2,6 +2,8 @@ import { buildSreIncidentResponseDeck } from "./sre-incident-response.js";
 import { buildOntologyFoundationDeck } from "./ontology-foundation.js";
 import { buildArtOfPossibleDeck } from "./art-of-possible.js";
 import { buildReadinessMaturityDeck } from "./readiness-maturity.js";
+import { buildValuePrioritizationDeck } from "./value-prioritization.js";
+import { buildTargetArchitectureDeck } from "./target-architecture.js";
 
 const docs = {
   constitution: "docs/roadmap/architecture/fdai-constitution.md",
@@ -30,8 +32,6 @@ const docs = {
 };
 
 const deckAssets = {
-  "value-prioritization": "assets/value-prioritization.jpeg",
-  "target-architecture": "assets/target-architecture.jpeg",
   "ontology-foundation": "assets/ontology-foundation.jpeg",
   "responsible-ai-security": "assets/responsible-ai.jpeg",
   "pilot-production": "assets/pilot-production.jpeg",
@@ -40,16 +40,6 @@ const deckAssets = {
 };
 
 const deckProfiles = {
-  "value-prioritization": {
-    label: "PRIORITIZE",
-    sections: ["후보 정의", "근거 기반 평가", "포트폴리오 결정"],
-    segments: [[1, "후보와 적격성"], [8, "가치와 안전 평가"], [19, "포트폴리오 결정"]],
-  },
-  "target-architecture": {
-    label: "ARCHITECT",
-    sections: ["의미와 계약", "판단과 권한", "배포와 검증"],
-    segments: [[1, "시스템과 의미"], [8, "판단과 권한"], [15, "배포와 검증"]],
-  },
   "responsible-ai-security": {
     label: "GUARDRAILS",
     sections: ["신원과 데이터", "실행 안전", "운영 통제"],
@@ -409,61 +399,9 @@ const readinessMaturity = buildReadinessMaturityDeck();
 
 const artOfPossible = buildArtOfPossibleDeck({ sourceLabel, statusLabel });
 
-const valuePrioritization = buildDeck("value-prioritization", "가치 우선순위", [
-  topic("FRAME", "사용 사례가 아니라 의사결정 유형 하나를 고릅니다", "포트폴리오 책임자는 반복 빈도, 기대 효과, 근거, 위험이 분명한 판단부터 검토합니다.", "단위:의사결정 유형|범위:한 대상군|완료:독립 효과 검증", docs.constitution),
-  topic("CRITERIA", "후보를 운영 문제와 연결합니다", "SRE 운영 모델 아래 복원력, 변경 안전성, 비용 거버넌스에서 실제 판단과 무조치 기준선을 함께 적습니다.", "문제:현재 손실 또는 위험|판단:선택 가능한 행동|기준선:아무것도 하지 않을 때|도메인:복원력, 변경 안전성, 비용", [docs.constitution, docs.ontology], "cards"),
-  topic("CRITERIA", "다섯 가치 지표를 같은 구간에서 측정합니다", "기준선과 FDAI 처리군은 같은 시나리오, 기간, 표본 수, 리비전으로 비교합니다. 실제 운영에서 수집한 두 비교군의 근거는 아직 완성되지 않았습니다.", "사건·변경·최적화당 비용:업무 단위별 총비용|자동 해결 비율:사람 승인 없이 닫힌 비율|MTTR·변경 리드 타임:중앙값과 p90|사람 접점:이벤트 100건당 검토 횟수|안전 지표:정확히 0이어야 하는 위반", docs.metrics, "comparison"),
-  topic("CRITERIA", "의사결정 빈도와 변동성을 분리합니다", "빈번해도 매번 맥락이 다르면 첫 파일럿으로 적합하지 않을 수 있습니다.", "빈도:각 비교군 30개 이상의 표본 가능성|변동성:입력 형태와 판단 절차의 안정성|예외율:사람 검토 예상 비율|기간:대표 계절성과 업무 주기", [docs.metrics, docs.execution], "matrix"),
-  topic("CRITERIA", "근거 준비도는 가중치가 아니라 적격성 기준입니다", "인증된 출처, 최신성, 목적, 관측 범위가 부족하면 기대 가치가 높아도 점수화 단계로 넘기지 않습니다.", "출처:권위 있는 시스템과 인증된 생산자|시간:기준 시점과 최신성 정책 충족|목적:해당 판단에 허용된 근거|완전성:데이터가 없다고 판단할 수 있는 관측 범위", docs.constitution, "evidence"),
-  topic("CRITERIA", "대상 정체성과 관계 품질을 평가합니다", "정확한 Resource와 의존 관계를 찾지 못하면 영향 범위를 계산할 수 없습니다.", "정체성:정확한 객체와 리비전|관계:depends_on과 contains의 방향|범위:깊이와 결과 수가 제한된 탐색|미분류:추정하지 않고 unknown 유지", docs.ontology, "flow"),
-  topic("CRITERIA", "목표 충돌 가능성을 먼저 찾습니다", "비용 절감이 SLO나 복구 목표를 침해하면 점수로 상쇄할 수 없습니다.", "안전과 보안:항상 우선하는 적격성 조건|신뢰성:SLO, RTO, RPO 보호|변경 안전:검증과 복구 가능성|비용:적격 선택지 안에서만 비교", docs.constitution, "tree"),
-  topic("CRITERIA", "ActionType 안전 계약의 존재를 봅니다", "중지 조건, 검증된 복구, 영향 범위, 가상 실행, 대상 잠금, 중복 억제, 2단계 감사가 모두 필요합니다.", "실행 전:중지, 복구, 영향 범위, 가상 실행|실행 중:대상 잠금과 중복 억제|실행 전후:감사 의도와 결과 마감", docs.security, "cards"),
-  topic("CRITERIA", "네 가지 실행 경로를 후보마다 명시합니다", "모든 경로는 같은 위험, 승인, 복구, 감사 경계를 공유하며 경로 자체가 권한을 높이지 않습니다.", "pr_native:PR 기반 자동 또는 정책 병합|direct_api:공급자 API 직접 호출|pr_manual:사람이 병합하는 PR|tool_call:등록된 기능 범위의 도구 호출", docs.execution, "comparison"),
-  topic("CRITERIA", "권한 요구를 가치 점수와 분리합니다", "높은 가치가 승인 또는 실행 권한을 만들지 않습니다.", "판단:위험 게이트(RiskGate)|승인:Var가 전달하는 사람 결정|실행:Thor와 비대화형 실행 신원|감사:Saga의 추가만 가능한 원장", docs.pantheon, "responsibility"),
-  topic("CRITERIA", "환경과 영향 범위를 보수적으로 분류합니다", "알 수 없는 환경은 프로덕션으로 취급하고 영향 범위가 넓을수록 자율성 상한을 낮춥니다. 구독 전체의 자율 변경은 차단됩니다.", "환경:unknown은 prod로 처리|리소스:다른 축이 허용하면 자동 가능|리소스 그룹:사람 승인 상한|구독 전체:차단", docs.execution, "tree"),
-  topic("CRITERIA", "T2 사용이 늘면 비용은 커지고 자동 실행 범위는 줄어듭니다", "모델 사용은 검증 비용과 응답 시간을 늘리고 사람 검토를 요구합니다. T2 결과는 관찰 모드로 제한됩니다.", "T0:규칙과 정책으로 자동 실행 가능|T1:검증된 유사 사례와 보수적 상한|T2:근거 기반 추론, 복수 모델, 검증기|권한:T2는 shadow_only 상한", docs.execution, "flow"),
-  topic("CRITERIA", "사람 검토 부하를 별도 가치 항목으로 둡니다", "승인 요청만 늘리는 자동화는 운영 성과를 낮출 수 있습니다.", "검토율:사람 승인 또는 검토 비율|대기:승인까지 걸린 시간|재요청:근거 부족으로 되돌아온 비율|품질:불필요한 사람 검토", [docs.metrics, docs.pantheon], "matrix"),
-  topic("CRITERIA", "복구 불가능성은 감점이 아니라 안전 기준입니다", "비가역 작업은 정족수가 필요한 사람 승인 경로이며 자동 실행 후보가 아닙니다. state_forward_only는 별도의 전진 복구 계약입니다.", "가역:시험된 되돌리기 또는 복원|전진 복구:state_forward_only 계약|비가역:사람 승인과 정족수|공통:실행 전 최선의 복구 계획", [docs.execution, docs.security], "tree"),
-  topic("CRITERIA", "독립 관측 비용을 계산합니다", "효과 출처와 관측 구간이 없으면 절감이나 복구 성공을 입증할 수 없습니다.", "기대 효과:지표, 방향, 허용 범위|관측자:실행기와 다른 주체|출처:권위 있고 목적에 맞는 데이터|종료:관측 구간 마감과 충돌 처리", docs.ontology, "evidence"),
-  topic("SCORE", "가치는 필수 제약을 통과한 뒤 점수화합니다", "헌법상 부적격인 후보를 높은 가중치로 되살리지 않습니다.", "1단계:필수 제약|2단계:근거 준비도|3단계:가치 순위", docs.constitution, "flow"),
-  topic("PROPOSAL", "실행 가능성은 네 가지 통과 기준으로 봅니다", "이 설명서는 준비 상태를 기대감이 아니라 보유한 근거로 판정하는 제안형 포트폴리오 기준을 사용합니다.", "데이터:출처·시간·목적·완전성 증적|변경:IaC 또는 재현 가능한 전달 경로|안전:완전한 ActionType 계약|운영:책임자, 실행 절차, 독립 관측", [docs.deployment, docs.constitution], "matrix"),
-  topic("SCORE", "위험은 최종 점수의 감점이 아닙니다", "정책 위반은 차단되고 구독 전체 범위는 자율 변경 대상에서 제외됩니다.", "차단:정책 위반 또는 구독 전체 변경|사람 승인:파괴적·비가역·데이터 영역 변경|관찰 모드:근거 또는 시스템 상태 부족|자동 실행:모든 독립 상한 통과", docs.execution, "tree"),
-  topic("SCORE", "전략 적합성은 운영 도메인으로 확인합니다", "후보는 SRE 운영 모델과 초기 세 도메인 중 하나의 성과에 기여해야 합니다.", "Resilience:복구와 연속성|Change Safety:변경 위험|Cost Governance:검증된 효율", docs.constitution, "cards"),
-  topic("PROPOSAL", "우선 후보는 좁고 반복 가능해야 합니다", "한 리소스 범위에서 기준선과 효과를 측정할 수 있는 후보를 권장합니다.", "좁은 범위:대상 잠금 가능|반복성:관찰 모드 표본 확보|효과:독립 측정 가능", docs.security, "cards"),
-  topic("PROPOSAL", "두 번째 후보는 첫 학습을 재사용해야 합니다", "새 플랫폼을 추가하기보다 같은 근거와 권한 경계를 활용합니다.", "재사용:온톨로지 매핑|재사용:승인 경로|재사용:효과 관측자", docs.ontologyPlatform, "flow"),
-  topic("HOLD", "고가치라도 근거가 없으면 보류합니다", "추정 절감, 합성 데이터, 미확인 성공은 프로덕션 준비도 근거가 아닙니다.", "합성:동작 시험 전용|누락:unknown 유지|보류:근거 보완 후 재평가", docs.constitution, "tree"),
-  topic("DECISION", "포트폴리오 문서에 한 줄 판정을 남깁니다", "선정 이유와 제외 이유가 같은 기준으로 설명되어야 합니다.", "선정:가치와 준비 충족|보류:보완 가능|제외:경계 또는 가치 부적합", docs.execution, "matrix"),
-  topic("PROPOSAL", "파일럿 투자는 관찰 모드 성과에 단계적으로 연결합니다", "이는 포트폴리오 운영을 위한 제안입니다. 초기 투자는 기준선, 비교, 안전 증적에 사용하고 적용 모드 전환은 별도 권한 결정으로 둡니다.", "1단계:기준선과 고정 시나리오|2단계:관찰 모드 품질과 안전|3단계:독립 승격 검토|중단:차단 지표 발생 시 추가 투자 보류", [docs.metrics, docs.security], "timeline"),
-  topic("NEXT", "다음 산출물은 선택된 의사결정의 실행 헌장입니다", "실행 헌장은 한 리비전으로 관리합니다. 목표, 범위, 시작 조건, 기한을 먼저 정하고 기대 효과, 실패 대응, 보상, 완료 기준을 함께 기록합니다.", "목적:측정할 가치와 무조치 기준선|범위:정확한 대상과 하지 않을 일|통제:권한, 안전장치, 실패·보상|완료:독립 효과 관측과 책임자", [docs.constitution, docs.operator], "responsibility"),
-]);
+const valuePrioritization = buildValuePrioritizationDeck();
 
-const targetArchitecture = buildDeck("target-architecture", "목표 아키텍처", [
-  topic("TRACE", "현재 구현과 목표 아키텍처를 층별로 추적합니다", "아키텍트는 계약, 런타임, 권한, 데이터, 배포 근거를 같은 그림에서 구분합니다.", "현재:검증된 구성|목표:헌법상 요구|제안:후속 전달", docs.constitution),
-  topic("TARGET", "최상위 계약은 FDAI Constitution입니다", "상세 설계와 구현은 안전, 권한, 근거, 효과 검증 원칙을 약화할 수 없습니다.", "목적:안전한 자율 운영|경계:형식화되고 승인된 처리|종료:재현 가능한 결과", docs.constitution, "cards"),
-  topic("CURRENT", "Azure가 유일하게 구현된 공급자입니다", "Core 계약은 공급자 중립을 유지하지만 현재 배포 증적은 Azure에 한정됩니다.", "계약:공급자 어댑터|구현:Azure|미구현:Azure 외 공급자", docs.deployment, "matrix"),
-  topic("VALIDATED", "런타임은 다섯 독립 서비스로 분리됩니다", "보존된 배포 근거는 서비스별 패키지, 상태, 신원과 SD-08 이후 격리 실행기의 변경 권한 경계를 검증했습니다.", "Core:판단, 오케스트레이션, 기존 전환 복구 경계|Operator API:조회와 리비전 기반 제안|문서 수집 API:파일 수신과 검증|문서 처리 Worker:검사, 추출, 이벤트 발행|격리 실행기:전환 뒤 유일한 변경 권한 후보", [docs.deployment, docs.security], "comparison"),
-  topic("CURRENT", "Core는 UI 없는 이벤트 기반 계층입니다", "Console은 얇은 표시 계층이며 브라우저가 권한이나 운영 사실을 계산하지 않습니다.", "수신:이벤트 버스|Core:형식화된 제어 영역|Console:조회 화면과 범위가 제한된 요청", docs.constitution, "flow"),
-  topic("CURRENT", "에이전트는 스키마로 검증된 게시·구독으로만 협업합니다", "에이전트 사이의 직접 호출, RPC, 구현 코드 공유는 권한이 있는 처리 경로로 사용하지 않습니다.", "발행자:객체별 단일 작성자|이벤트 버스:스키마와 계보 검증|구독자:독립적으로 스케줄되고 병렬 실행|전달:최소 1회와 중복 안전 재생", docs.pantheon, "responsibility"),
-  topic("CURRENT", "판단과 실행 역할이 고정되어 있습니다", "Forseti, Var, Thor, Saga, Vidar의 분리는 설정으로 바꿀 수 없습니다.", "Forseti:판정|Var:사람 승인 기록 전달|Thor:적격 작업 전달과 실행 조정|Saga와 Vidar:감사와 복구", docs.pantheon, "responsibility"),
-  topic("CURRENT", "운영 온톨로지는 공유 읽기 모델입니다", "그래프는 의미와 관계를 제공하지만 외부 상태나 실행 권한을 만들지 않습니다.", "선언:타입의 의미|투영:관측된 맥락|권한:그래프 밖에서 결정", docs.ontology, "matrix"),
-  topic("CURRENT", "의사결정에 사용한 온톨로지 릴리스를 고정합니다", "의사결정 기록은 온톨로지 릴리스(OntologyRelease)의 버전과 다이제스트를 보존해 과거 의미가 달라지지 않게 합니다.", "타입 참조:이름과 버전|릴리스:카탈로그 다이제스트|호환성:명시적 판정", docs.ontologyPlatform, "evidence"),
-  topic("CURRENT", "ObjectSet 조회는 목적과 범위가 제한됩니다", "자유 형식 그래프 질의 대신 목적, 기준 시점, 최신성, 결과 한도를 선언합니다. 현재 인스턴스 저장소에는 일반 과거 관측 API가 없어 as_of는 신뢰할 수 있는 현재 기준 시점 부근으로 제한됩니다.", "입력:타입 또는 인터페이스|경계:조건, 깊이, 결과 한도|시간:현재 기준 시점 중심의 제한|증적:완전성, 비식별 처리, 잘림 이유", docs.ontologyPlatform, "matrix"),
-  topic("CURRENT", "T0 정책은 카탈로그 의미와 연결됩니다", "Rule, SignalType, Property, PolicyArtifact가 같은 결정론적 차단(deny) 경로를 참조합니다.", "Rule:의미 선언|PolicyArtifact:Rego 구현|증적:입력, 정책 버전, 결과 다이제스트|경계:정책이 온톨로지나 LLM에서 즉석 생성되지 않음", docs.ontology, "evidence"),
-  topic("CURRENT", "위험 게이트는 독립 상한 중 가장 낮은 권한을 택합니다", "첫 일치 위험 표와 ActionType의 여섯 축은 서로 권한을 높일 수 없습니다.", "위험 표:정책, 파괴성, 비가역성, 데이터, 비용, 신뢰도|계층:T0, T1, T2 상한|ActionType:등록된 실행 상한|영향 범위:정적·실시간 범위|역할:현재 주체의 RBAC|환경:프로덕션 하향 조건", docs.execution, "layers"),
-  topic("CURRENT", "실행 경로는 네 종류입니다", "네 경로는 PR 자동 병합(pr_native), 직접 API 호출(direct_api), 사람 병합 PR(pr_manual), 등록된 도구 호출(tool_call)입니다. 모든 경로에 같은 위험, 승인, 복구, 감사 기준을 적용합니다.", "pr_native:PR 기반 자동 또는 정책 병합|direct_api:공급자 API 직접 호출|pr_manual:사람이 병합하는 PR|tool_call:등록된 기능 범위의 도구 호출", docs.execution, "comparison"),
-  topic("IN_PROGRESS", "모든 자율 상태 변경에는 같은 안전장치가 필요합니다", "PR 기반, 직접 API, 도구 호출 경로는 공통 사전 증적 계약을 사용합니다. 워크플로와 격리 실행기 경로의 동등한 종단 증적과 독립 효과 마감은 진행 중입니다.", "7:중지, 복구, 영향, 가상 실행, 잠금, 중복 억제, 2단계 감사|3:공통 계약을 쓰는 실행 경로|2:동등한 종단 증적이 열린 경로|1:독립 관측으로 닫아야 할 효과", [docs.security, docs.constitution], "numbers"),
-  topic("VALIDATED", "Terraform 상태 소유권은 서비스별로 분리됩니다", "배포는 독립 백엔드 키와 서비스 간 상태 격리 증적으로 인프라 상태 소유권을 검증합니다.", "플랫폼 상태:공유 기반|서비스 상태:독립 백엔드 키|서비스 간 확인:다이제스트와 계보", docs.deployment, "matrix"),
-  topic("CURRENT", "이벤트 전송은 Kafka 전송 계약을 따릅니다", "Azure에서는 두 Event Hubs 네임스페이스가 정해진 토픽 소유권을 나눕니다.", "주요 경로:수신, 사람 승인, 단계 이벤트|운영 경로:실행기와 자산 목록|프로토콜:Kafka 9093|전달:최소 1회와 구독자별 재시도", docs.deployment, "flow"),
-  topic("IMPLEMENTED", "공급망과 배포 계획은 보호됩니다", "서명된 이미지, 다이제스트 검증, 계획 변경 제한, 마이그레이션 순서, 기동 점검이 배포 경계를 구성합니다.", "산출물:SBOM, 서명, 고정 다이제스트|계획:허용 범위 안의 변경|적용:스키마 마이그레이션 뒤 서비스 기동|증적:리비전과 결과 연결", docs.deployment, "timeline"),
-  topic("IN_PROGRESS", "프로덕션 데이터 서비스는 사설 연결을 요구합니다", "프로덕션 계획 게이트는 PostgreSQL 사설망, 내구성, 모니터링, 예산 입력을 검사합니다. 모든 통제를 함께 입증한 정확한 리비전의 프로덕션 적용 증적은 남아 있습니다.", "구현됨:공용 접근 차단 계획 게이트|구현됨:HA, 백업, 경고, 예산 입력|진행 중:보호된 프로덕션 계획·적용 증적|진행 중:운영 복구 훈련과 보존 영수증", docs.hardening, "matrix"),
-  topic("CURRENT", "Operator API는 제안 전용 경계를 유지합니다", "워크플로 시작은 관찰 모드 요청을 받지만 적용 모드 요청을 직접 전달하지 않습니다.", "요청자:형식화된 제안|Operator:RBAC와 영속 발신함|Core:권한 판단 경로", docs.operator, "flow"),
-  topic("GAP", "Workflow 적용 경로의 환경 동등성은 진행 중입니다", "단계 실행기가 구현됐어도 로컬과 배포 환경을 잇는 전체 경로 근거는 아직 없습니다.", "현재:제어된 코드 경로|열림:런타임 근거|경계:Operator의 직접 적용 없음", docs.operator, "evidence"),
-  topic("GAP", "실행 안전장치의 종단 검증은 일부 진행 중입니다", "PR-native, direct API, tool-call 계약은 있으나 Workflow와 격리 실행기의 동등한 근거가 남아 있습니다.", "검증됨:일부 실행 전 경로|진행 중:공통 종단 검증|필요:독립 효과 증적", docs.security, "matrix"),
-  topic("TARGET", "효과 검증은 별도 관측자가 마감합니다", "실행기 명령 채널과 다른 권위 있는 출처가 관측 구간을 종료합니다.", "계획:기대 효과|실행:시도 증적|관측:독립 종료", docs.constitution, "evidence"),
-  topic("NOT_STARTED", "점진적 배포는 동일 산출물의 승격으로 이어집니다", "같은 서명 이미지를 dev, staging, prod로 승격하고 트래픽 카나리, SLO 기반 되돌리기, Console 블루/그린을 결합하는 목표입니다.", "dev:통합과 공급망 근거|staging:관찰 모드와 트래픽 카나리|prod:범위가 제한된 승격|자동 중단:SLO 위반 시 이전 리비전 복구", docs.deployment, "timeline"),
-  topic("PROPOSAL", "아키텍처 검토에는 상태 구분을 겹쳐 표시합니다", "각 계층에 현재 구현, 검증됨, 진행 중, 목표를 함께 표시해 설계 목표와 배포 근거를 혼합하지 않습니다.", "현재 구현:실행 가능한 코드와 계약|검증됨:보존된 정확한 리비전 증적|진행 중:일부 구현 또는 미완결 운영 근거|목표:헌법상 준수할 최종 경계", docs.constitution, "matrix"),
-  topic("NEXT", "다음 검토에서 열린 권한 경로를 닫습니다", "워크플로 변경 적용, 격리 실행기 종단 검증, 프로덕션 적용 증적을 각각 독립 통과 기준으로 추적합니다.", "1단계:모든 실행 경로의 공통 안전장치|2단계:로컬·배포 런타임 동등성|3단계:보호된 프로덕션 계획·적용 증적|4단계:독립 효과 마감과 복구 훈련", docs.security, "timeline"),
-]);
+const targetArchitecture = buildTargetArchitectureDeck();
 
 const ontologyFoundation = buildOntologyDeck([
   ontologyTopic("FOUNDATION", "FOUNDATION", "Data & Ontology Foundation", "LLM과 RAG의 확률적 탐색을 온톨로지의 형식화된 의미, FDAI의 결정론적 검증과 연결합니다.", "LLM:언어 후보 생성|RAG:근거 후보 검색|Ontology:공유 의미와 제약|FDAI:권한이 분리된 결정", [docs.constitution, docs.llmStrategy, docs.ontology]),

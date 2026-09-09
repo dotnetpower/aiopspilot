@@ -4,6 +4,57 @@ Manual Studio presents FDAI reference decks on a fixed 1536x864 canvas. The view
 slide for the available screen; the presentation is a static explanation, not an operational
 control or a source of execution authority.
 
+## Use Case and Value Prioritization workshop
+
+The 25-slide L200 workshop helps portfolio sponsors, service owners, and platform or operations
+leaders choose one recurring operational decision for a bounded observation-mode validation. It
+separates evidence and safety eligibility from value comparison, keeps unknown evidence out of
+numeric scores, and ends with a decision brief, evidence map, and 30-day observation plan.
+
+| File | Responsibility |
+|------|----------------|
+| [value-prioritization.js](value-prioritization.js) | Sparse title slide and complete deck assembly. |
+| [value-prioritization-slide-kit.js](value-prioritization-slide-kit.js) | Shared slide metadata, source labels, chapters, and decision takeaway structure. |
+| [value-prioritization-foundations.js](value-prioritization-foundations.js) | Slides 2-7: decision unit, domains, candidate brief, and baseline. |
+| [value-prioritization-eligibility.js](value-prioritization-eligibility.js) | Slides 8-12: evidence, time, topology, precedence, and seven safeguards. |
+| [value-prioritization-value.js](value-prioritization-value.js) | Slides 13-17: value measures, guard metrics, repeatability, tiers, and authority. |
+| [value-prioritization-portfolio.js](value-prioritization-portfolio.js) | Slides 18-22: selection logic, uncertainty, worked comparison, horizons, and decision record. |
+| [value-prioritization-action.js](value-prioritization-action.js) | Slides 23-25: observation, independent review, first 30 days, and final commitment. |
+| [value-prioritization.css](value-prioritization.css), [value-prioritization-visuals.css](value-prioritization-visuals.css), and [value-prioritization-portfolio.css](value-prioritization-portfolio.css) | Presentation typography, title treatment, and deck-specific visual systems. |
+| [test/value-prioritization.test.mjs](test/value-prioritization.test.mjs) and [test/value-prioritization-critique.test.mjs](test/value-prioritization-critique.test.mjs) | Content, authority, measurement, and 23-round critique contracts. |
+| [test/value-prioritization-visual.mjs](test/value-prioritization-visual.mjs) | Local desktop, tablet, mobile, fullscreen, and PDF geometry validation. |
+
+The examples in the deck are illustrative and are labeled as non-operational evidence. Portfolio
+selection starts observation only. It never grants approval, promotion, or execution authority.
+
+## FDAI Target Architecture review
+
+The 25-slide L200 architecture review helps architects, platform owners, security reviewers, and
+operations leaders decide whether to conditionally accept the Azure target-architecture baseline.
+It separates design acceptance from production approval and enforce-mode authority. Five chapters
+progress from an L0 reference view and C4 system context through runtime topology, decision and
+execution boundaries, and the Azure deployment baseline. All 24 body slides use named architecture
+nodes, directional connections, system or trust boundaries, and explicit implementation states.
+
+| File | Responsibility |
+|------|----------------|
+| [target-architecture-plan.md](target-architecture-plan.md) | Audience, review decision, 25-slide architecture story, consistency rules, evidence map, and validation plan. |
+| [target-architecture.js](target-architecture.js) | Sparse title slide and complete deck assembly. |
+| [target-architecture-slide-kit.js](target-architecture-slide-kit.js) | Chapter, state, source, takeaway, and evidence metadata. |
+| [target-architecture-diagram-kit.js](target-architecture-diagram-kit.js) | Measurable architecture nodes, typed directional links, labeled boundaries, and non-color-only legends. |
+| [target-architecture-review.js](target-architecture-review.js) | Slides 2-5: L0 reference view, C4 context, layers, and the closed control loop. |
+| [target-architecture-runtime.js](target-architecture-runtime.js) | Slides 6-10: five services, service channels, Core components, 15 agents, and data ownership. |
+| [target-architecture-decision.js](target-architecture-decision.js) | Slides 11-15: evidence admission, semantic and temporal architecture, tier routing, and Unified RiskGate. |
+| [target-architecture-execution.js](target-architecture-execution.js) | Slides 16-20: dispatch, Isolated Executor, trust zones, effect closure, and safe degradation. |
+| [target-architecture-deployment.js](target-architecture-deployment.js) | Slides 21-25: ports and adapters, Azure deployment and network flows, release paths, and the ARB decision. |
+| [target-architecture.css](target-architecture.css), [target-architecture-visuals.css](target-architecture-visuals.css), and [target-architecture-deployment.css](target-architecture-deployment.css) | Presentation typography, sparse cover, and deck-specific visual systems. |
+| [test/target-architecture.test.mjs](test/target-architecture.test.mjs) and [test/target-architecture-critique.test.mjs](test/target-architecture-critique.test.mjs) | Structure, authority, implementation state, digest, and 30-round architecture critique contracts. |
+| [test/target-architecture-visual.mjs](test/target-architecture-visual.mjs) | Local desktop, tablet, mobile, fullscreen, print, connector, contrast, and PDF validation. |
+
+The architecture decision records a baseline only. It does not deploy a revision, approve
+production, promote a capability, or grant an execution identity. The production gate remains
+blocked until its named owners provide exact evidence for the reviewed deployment.
+
 ## Readiness and maturity workshop
 
 The 32-slide L200 readiness manual covers five chapters: decision scope, data readiness, AI
