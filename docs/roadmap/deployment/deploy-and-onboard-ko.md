@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5360a48c1764211194056046bd7ec31fbfb0095f
+translation_source_sha: 88e3916838a7650aed9badc8740bcae7c60cbc32
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -324,7 +324,7 @@ Event Hubs Kafka를 계속 요구합니다.
   ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
 - **Azure Bot:** 승인 봇은 배포 소유로 유지합니다. 독립 시스템 지식 서비스 Terraform root는
   보호된 서비스 workflow를 통해서만 자체 F0 Bot, Teams channel, 전용 UAMI, 비공개 Blob claim
-  container 및 정확한 HTTPS endpoint를 만듭니다.
+  container 및 정확한 HTTPS endpoint를 만듭니다. 플랫폼 `document_blob` 진단 설정은 재사용하는 claim storage account에도 계속 적용됩니다.
 - **서명된 HIL 웹훅** - 운영은 CI 시크릿으로 URL과 32자 이상의 HMAC 시크릿을
   제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
   콜백 시크릿만 전달합니다. 그룹 연결 승인 팀과 채널은 Core와 Operator가 공유하는 별도 배포 슬롯이며 RBAC 그룹 id는 역할 배정에만 사용합니다.

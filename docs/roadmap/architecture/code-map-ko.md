@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c43899f9a1f8466fa0a543f78634b7ea9a65b3db
+translation_source_sha: 691edff7847c88cc5c6a76e87c0eb767e5ef513e
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -14,7 +14,7 @@ translation_revised: 2026-09-10
 
 ## 설계 개요
 
-- **서비스 distribution:** distribution 5개는 검증된 배포 근거를 유지합니다. 독립 패키지 시스템 지식 서비스는 자체 Terraform root, Blob CAS claim, Azure Bot 및 보호된 workflow를 갖는 여섯 번째 읽기 전용 후보입니다.
+- **서비스 distribution:** distribution 5개는 검증된 배포 근거를 유지합니다. 독립 패키지 시스템 지식 서비스는 자체 Terraform root, Blob CAS claim, Azure Bot 및 보호된 workflow를 갖는 여섯 번째 읽기 전용 후보입니다. 플랫폼 storage root는 재사용하는 claim 계정의 Blob 진단을 소유합니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유하고
   `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
 - **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된

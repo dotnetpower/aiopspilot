@@ -6,7 +6,7 @@ resource "azurerm_user_assigned_identity" "service" {
 }
 
 resource "azurerm_storage_container" "claims" {
-  # checkov:skip=CKV2_AZURE_21:The root-owned document_blob diagnostic setting emits StorageRead, StorageWrite, and StorageDelete for this reused account.
+  # checkov:skip=CKV2_AZURE_21:The platform document_blob diagnostic setting emits Blob read, write, and delete logs for this account.
   name                  = var.claim_store.container_name
   storage_account_id    = var.platform.claim_storage_account_id
   container_access_type = "private"
