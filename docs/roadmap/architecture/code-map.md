@@ -11,7 +11,7 @@ and owning designs. Use it instead of the retired top-level application tree.
 
 ## Design at a glance
 
-- **Service distributions:** Five distributions retain validated deployment evidence. The independently packaged System Knowledge Service is a sixth read-only candidate.
+- **Service distributions:** Five distributions retain validated deployment evidence. The independently packaged System Knowledge Service is a sixth read-only candidate whose generated catalog pins a reachable source revision after squash merges.
 - **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts;
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
 - **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
