@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -29,7 +30,10 @@ import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
-from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
+from fdai.delivery.analyzer_receipt_store import (
+    StateStoreAnalyzerReceiptStore,
+    StateStoreAnalyzerRunReceiptStore,
+)
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
@@ -439,6 +443,21 @@ def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
     )
 
 
+def build_run_receipt_store() -> StateStoreAnalyzerRunReceiptStore | None:
+    """Bind complete tick receipts when tracked state is configured."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        return None
+    return StateStoreAnalyzerRunReceiptStore(
+        PostgresStateStore(
+            config=PostgresStateStoreConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
+        )
+    )
+
+
 def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
     """Bind the tracked-state writer that keeps Pod failure history readable.
 
@@ -516,11 +535,13 @@ async def run_once() -> AnalyzerJobReport:
     targets = resolution.targets
     if not targets and not trace_topologies:
         _LOGGER.info("analyzer_tick_no_targets")
-        return AnalyzerJobReport(
+        report = AnalyzerJobReport(
             analyzer=AnalyzerTickReport(targets=0, findings=0, published=0),
             trace_continuity=_empty_trace_report(),
             target_resolution=resolution,
         )
+        await _record_run_receipt(report)
+        return report
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not bootstrap_servers:
@@ -586,13 +607,32 @@ async def run_once() -> AnalyzerJobReport:
                 ).run_once(trace_topologies)
             else:
                 trace_report = _empty_trace_report()
-            return AnalyzerJobReport(
+            report = AnalyzerJobReport(
                 analyzer=analyzer_report,
                 trace_continuity=trace_report,
                 target_resolution=resolution,
             )
+            await _record_run_receipt(report)
+            return report
         finally:
             await bus.close()
+
+
+async def _record_run_receipt(report: AnalyzerJobReport) -> None:
+    store = build_run_receipt_store()
+    if store is None:
+        return
+    recorded_at = datetime.now(tz=UTC)
+    scheduling = resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", ""))
+    body = report.to_dict(scheduling=scheduling)
+    identity = {
+        "recorded_at": recorded_at.isoformat(),
+        "report": body,
+    }
+    run_id = hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    await store.record(run_id=run_id, recorded_at=recorded_at, report=body)
 
 
 def _empty_trace_report() -> TraceContinuityTickReport:

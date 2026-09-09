@@ -6,7 +6,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fdai.delivery.analyzer_receipt_store import (
     ANALYZER_RECEIPT_STATE_PREFIX,
+    ANALYZER_RUN_RECEIPT_STATE_PREFIX,
     StateStoreAnalyzerReceiptStore,
+    StateStoreAnalyzerRunReceiptStore,
 )
 from fdai.delivery.analyzer_tick import (
     AnalyzerEvidenceState,
@@ -104,3 +106,40 @@ async def test_store_still_rejects_a_conflicting_repeat_with_later_timing() -> N
                 detection_latency_seconds=64.0,
             )
         )
+
+
+async def test_run_store_retains_complete_tick_reports_without_authority() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state, retain_newest=2)
+
+    for index in range(3):
+        await store.record(
+            run_id=f"run-{index}",
+            recorded_at=NOW + timedelta(seconds=index),
+            report={
+                "targets": 2,
+                "target_resolution": {
+                    "configured": 1,
+                    "discovered": 1,
+                    "inventory_consulted": True,
+                    "skipped_reasons": [],
+                    "truncated": False,
+                },
+            },
+        )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["run_id"] for record in records} == {"run-1", "run-2"}
+    assert all(record["execution_authority"] is False for record in records)
+    assert all(len(str(record["report_digest"])) == 64 for record in records)
+
+
+async def test_run_store_rejects_reusing_an_identity_for_another_report() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 1})
+
+    with pytest.raises(ValueError, match="identity collision"):
+        await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 2})

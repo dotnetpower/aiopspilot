@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 7ace1e46cadba36b81e509f9f915b6355cd2e5f8
+translation_source_sha: bc09b6593cbc7e56da664a3f37f456040820f391
 translation_revised: 2026-09-10
 ---
 
@@ -498,6 +498,10 @@ telemetry / metrics
 결정론적입니다. 이 작업들은 변경을 실행하지
 않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
 게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
+추적 상태가 구성된 경우 완료된 각 실행은 대상 해석 수, 발견된 문제의 발행, 추적 연속성 결과,
+준비 상태를 포함한 내용 다이제스트 기반 `runtime:analyzer-tick-receipt:` 레코드 하나도
+보존합니다. 다른 내용에 같은 실행 신원을 다시 사용하는 시도는 차단되며, 이 증적은 항상
+`execution_authority: false`를 포함합니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,
