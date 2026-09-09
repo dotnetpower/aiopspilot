@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 지원 부록
 translation_of: README.md
-translation_source_sha: fe1a699899df24ab4680430a7d9ac92367bc8728
-translation_revised: 2026-08-20
+translation_source_sha: 9c3e4ee6135a9faeaa8ab48b82e4a330af6ca17e
+translation_revised: 2026-09-09
 ---
 
 # 에이전트 판테온 지원 부록
@@ -25,7 +25,7 @@ translation_revised: 2026-08-20
 | 에이전트 간 작업 흐름 카탈로그 및 롤아웃 | in-progress | [에이전트 작업 흐름 구현 상태](agent-workflows-ko.md#구현-상태), [shadow 롤아웃 구현 상태](agent-workflow-rollout-ko.md#구현-상태) | 13개 작업 흐름 레지스트리와 shadow 추적은 구현됐습니다. 카탈로그 투영, 보존된 런타임 추적, 측정된 게이트 및 독립적인 승격은 아직 완료되지 않았습니다. |
 | 제한된 작업 워커 | in-progress | [제한된 작업 워커 구현 상태](bounded-task-workers-ko.md#구현-상태) | 워커 코어와 영속 저장소는 구현됐습니다. 운영 구성, 저장소 기반 변환 결과, 콘솔 표시 및 통제된 런타임 근거는 아직 완료되지 않았습니다. |
 | 대화형 숙의 | in-progress | [판테온 대화형 숙의 구현 상태](conversational-deliberation-ko.md#구현-상태) | T1 숙의와 보호된 T2 접점은 구현됐습니다. 구체적인 업스트림 T2 종합기, 운영자 경로 또는 통제된 런타임 증적 근거는 없습니다. |
-| 실제 KPI 검증 및 enforce 승격 | not-started | [에이전트 판테온 구현 상태](agent-pantheon-ko.md#구현-상태) | 이 문서 집합에는 보존된 실제 shadow 코호트 또는 권위 있는 판테온 승격 증적 근거가 없습니다. |
+| 실제 KPI 검증 및 enforce 승격 | in-progress | [에이전트 판테온 구현 상태](agent-pantheon-implementation-ko.md#구현-상태) | 측정 및 관찰 소비자는 있지만 보존된 실제 shadow 코호트, 운영 승격 증적 또는 실제 판테온 enforce 승격 근거는 이 문서 집합에 없습니다. |
 
 ### 구현 이력
 
@@ -64,9 +64,9 @@ Heimdall은 `object.security-event`를 구독하고 다음과 같이 분류합�
 | 심각도 | 트리거 | 대응 |
 |--------|--------|------|
 | low | 영향이 낮은 작업에 대한 단일 시도 | 감사만 수행 |
-| medium | 같은 사용자가 5분 안에 3회 이상 시도하거나 영향이 중간인 작업을 한 번 시도 | 관리자 그룹에 일일 요약 전송 |
-| high | 중요하거나 되돌릴 수 없는 작업을 한 번 시도하거나 5분 안에 5회 이상 시도 | 관리자 그룹에 즉시 ChatOps 카드 전송 |
-| critical | 여러 작업에 걸친 패턴, 비정상 시간대 또는 의도적인 권한 상승 패턴 | 즉시 알림과 별도 보안 당직 채널 사용 |
+| medium | 같은 사용자가 같은 작업을 최근 보안 이벤트 100건 이내(고정된 시간 범위가 아닌 개수로 제한된 버퍼)에서 3회 이상 시도 | 관리자 그룹에 일일 요약 전송 |
+| high | 상위 심각도 힌트가 `critical`로 표시된 시도 한 번, 또는 되돌릴 수 없는 작업 시도, 또는 같은 추적 구간 안에서 같은 사용자가 같은 작업을 5회 이상 시도 | 관리자 그룹에 즉시 ChatOps 카드 전송 |
+| critical | 같은 추적 구간 안에서 같은 사용자가 서로 다른 작업을 3회 이상 시도 | 즉시 알림과 별도 보안 당직 채널 사용 |
 
 심각도는 표와 카운터로 결정하며 모델로 점수를 산정하지 않습니다.
 
@@ -75,13 +75,16 @@ Heimdall은 `object.security-event`를 구독하고 다음과 같이 분류합�
 Heimdall은 `object.security-event`를 분류하고 medium 이상 경보에 범위가 제한된 관리자 알림
 어댑터를 호출합니다. 이 정보 전달은 `governance.*` ActionType이 아니며 Thor의 변경 경로에
 진입하지 않습니다. Saga는 이미 권위 있는 `SecurityEvent`를 감사합니다. 어댑터는 별도
-템플릿, 지문 중복 제거 및 비율 제한을 적용해 구성된 ChatOps 관리자 채널에 게시합니다.
+템플릿, 개시자·작업별 중복 제거 및 비율 제한을 적용해 구성된 ChatOps 관리자 채널에 게시합니다.
 
 ### 알림 중복 제거와 비율 한도
 
-한 시간 안에 발생한 같은 사용자와 같은 작업의 경보는 카운터를 늘린 카드 하나로 합칩니다.
-사용자별 한도는 시간당 카드 5개이며 초과 경보는 알림 폭주를 막기 위해 요약으로 합칩니다.
-지문 방식은 에이전트 판테온 §6.4의 인계 중복 제거 패턴을 재사용합니다.
+같은 사용자와 같은 작업의 경보는 카운터를 늘린 카드 하나로 합칩니다. 중복 제거 키는
+해시가 아닌 평범한 `(initiator_principal, attempted_action)` 쌍이며, 카운터 자체는 독립적인
+시간 기반 재설정이 없어 사용 빈도가 낮은 키가 제거될 때까지 계속 증가합니다. 한 시간 창은
+전송 비율만 관리합니다. 사용자별 한도는 시간당 카드 5개이며 초과 경보는 알림 폭주를 막기
+위해 요약으로 합칩니다. 이는 에이전트 판테온 §6.4에서 인계 에스컬레이션 이슈에 사용하는
+sha1 `problem_fingerprint` 방식과 다릅니다.
 
 ### 정당한 에스컬레이션
 
@@ -114,7 +117,7 @@ Var를 통해 승인하는 일반 HIL 흐름입니다. 업그레이드 경로는
 새 에이전트가 필요한 누락 기능은 모든 사용자가 따르는 같은 규칙 아래 판테온을 확장하는 업스트림
 끌어오기 요청을 열어야 한다는 신호입니다.
 
-## Anti-patterns
+## 안티패턴
 
 - **직접 agent-to-agent RPC.** 모든 hot-path 통신은 스키마를 검사하는 버스의 pub/sub를
   사용합니다. 에이전트 사이의 HTTP 호출은 감사와 재생을 무력화합니다.
@@ -124,8 +127,8 @@ Var를 통해 승인하는 일반 HIL 흐름입니다. 업그레이드 경로는
   실행과 독립적으로 유지됩니다.
 - **감지 hot-path에서 모델 호출.** Huginn, Heimdall 및 도메인 전문가는 모델을 동기 호출하면
   안 됩니다. 패턴은 T0 결정론적 규칙 또는 T1 경량 유사도로 컴파일해야 합니다.
-- **중복 제거 없는 경보.** 이슈, 보안 카드 및 HIL 티켓을 포함한 모든 알림 경로는 지문 방식을
-  사용해야 합니다.
+- **중복 제거 없는 경보.** 이슈, 보안 카드 및 HIL 티켓을 포함한 모든 알림 경로는 반복이
+  하나의 스레드로 합쳐지도록 중복 제거 키를 사용해야 합니다.
 - **포크에서 에이전트 추가.** 판테온은 업스트림에서 고정됩니다. 에이전트 추가는 포크 변경이 아니라
   업스트림 변경입니다.
 - **롤백 계약 없는 작업.** 모든 ActionType은 유효한 `rollback_contract`와 함께 제공하며 되돌릴
@@ -183,8 +186,8 @@ Wave 3 Forseti는 결정론적 T0 규칙 일치와 위험 표를 제공하고 T2
 ### 측정
 
 측정 대상 T1, T2 및 서술기 호출은 공급자가 측정한 `usage`를 `MeteringSink`로 기록합니다.
-서술기는 `operator_chat`을 사용하고 나머지 호출은 `control_plane`을 사용합니다. Operator API
-`LlmCostPanel`은 `GET /kpi/llm-cost`를 호환 경로로 유지하고 범위, 모델, 호출, 대화, 일 및 월별
+서술기는 `operator_chat`을 사용하고 나머지 호출은 `control_plane`을 사용합니다. Operator API의
+`LlmCostRoute`는 `GET /kpi/llm-cost`를 호환 경로로 유지하고 범위, 모델, 호출, 대화, 일 및 월별
 토큰 전용 집계를 노출합니다. 단일 프로세스 개발 실행 장치는 하나의 메모리 내 싱크를 공유하고
 운영은 영속 Postgres `llm_invocation` 저장소를 통해 headless 코어와 Operator API에서 같은
 측정 스트림을 사용합니다.
@@ -194,7 +197,7 @@ Wave 3 Forseti는 결정론적 T0 규칙 일치와 위험 표를 제공하고 T2
 웨이브는 W0부터 W8까지 순차로 진행합니다. W7은 작업 흐름별 끌어오기 요청 13개로 가장 넓은
 웨이브이며 KPI 수집기는 작업 흐름과 병렬로 구현할 수 있으므로 W8과 겹칠 수 있습니다.
 
-![타임라인 형태, commitment 아님. 주요 단계는 W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle입니다.](../../diagrams/generated/fdai-agent-waves-01.ko.svg)
+![타임라인 형태, commitment 아님. 주요 단계는 W0: 문서 기반, 워크플로 + 판테온 상세 + 온톨로지 YAML, W1: Python 스캐폴딩, agents 패키지 + 레지스트리 + 테스트, W2: 거버넌스, Saga + Mimir + Muninn + Norns, W3: 파이프라인, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: 인터페이스, Bragi + Odin, W5: 전문 에이전트, Njord + Freyr + Loki, W6: 인계 + 보안, 이슈 중복 제거 + 관리자 알림, W7: 작업 흐름, shadow 상태의 작업 흐름 13개, W8: KPI + 승격, 근거 상태 + 드릴 15개 + 통제된 수명 주기입니다.](../../diagrams/generated/fdai-agent-waves-01.ko.svg)
 
 ## 범위 밖
 
