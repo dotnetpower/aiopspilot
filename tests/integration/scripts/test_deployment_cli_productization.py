@@ -42,6 +42,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'STAGE_SENTINEL=".fdai-offline-stage"' in stage
     assert "workdir-guard.py verify" in stage
     assert "secure_work_file.py" in stage
+    assert "PYTHONPATH=scripts/deployment/release:services/core-control-plane/src" in stage
+    assert "PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src" in stage
     assert "openssl pkey -in" not in stage
     assert "--out must be a safe absolute path" in stage
     assert "existing --out is not owned by offline staging" in stage
@@ -57,6 +59,11 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'cp "$(command -v terraform)"' not in stage
     assert 'cp "$(command -v opa)"' not in stage
     assert "PYTHONPATH=services/core-control-plane/src" in stage
+    assert "for tool in curl git sha256sum timeout uv" in stage
+    assert "unzip" not in stage
+    assert "scripts/deployment/release/extract-terraform-archive.py" in stage
+    assert 'chmod 700 "$OUT/toolchain" "$KIT"' in stage
+    assert stage.index("sha256sum -c -") < stage.index("extract-terraform-archive.py")
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill

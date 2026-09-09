@@ -94,16 +94,19 @@ snapshot rather than the original kit. Artifact metadata and content descriptors
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
 Connected staging accepts complete runtime v2 only from digest-bound `build-runtime-release.py`,
-then requires the committed CLI lock and exact Hatchling and pip versions before kit signing. Terraform and OPA are downloaded at pinned versions
-and accepted only after their platform-specific official SHA-256 values match. The output root must
-be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
+then requires the committed CLI lock and exact Hatchling and pip versions before kit signing.
+Terraform and OPA are downloaded at pinned versions only after their official SHA-256 values match.
+The required Python accepts only the official Terraform ZIP member shape, so no ambient `unzip` is needed.
+The output root must be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
 single-file output while preserving the ownership sentinel. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
-Future protected executors may publish one verified OCI archive or reconcile tenant-bound Entra
-objects. Both require readback and no public mutation command; validation covers package/root collection and Python 3.13 archive parsing.
+Future protected executors may publish one verified OCI Image Layout archive or reconcile
+tenant-bound Entra objects. The image layout retains the registry manifest digest and accepts only
+a coherent OCI media family or protected-publisher Docker schema 2 family; schema 1, mixed, and
+foreign-layer forms remain blocked. Both operations require readback and no public mutation command.
 Before creating or resuming a release workdir, the guard also requires every ancestor to be owned by
 root or the current UID. A group- or world-writable ancestor must have the sticky bit, which prevents
 another UID from swapping the validated workdir before cleanup.
@@ -126,9 +129,9 @@ air-gap drills, and a final severity audit leave no finding above Low.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never
-truncates or replaces an existing path. Release utilities read signing keys through one nonblocking,
-no-follow, 65536-byte regular-file boundary. Private keys must be owned by the current UID with mode
-`0600`.
+truncates or replaces an existing path. Release utilities resolve the service-owned Core trust
+package and read signing keys through one nonblocking, no-follow, 65536-byte regular-file boundary.
+Private keys must be owned by the current UID with mode `0600`.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 
