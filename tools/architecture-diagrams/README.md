@@ -299,3 +299,12 @@ Before submitting a change:
 3. Inspect English and Korean output at desktop and mobile widths.
 4. Select a node with pointer and keyboard input and confirm that related flows
    and localized detail text appear.
+
+A per-diagram test that asserts specific rendered label text (English or
+Korean) must always assert the label's *currently correct* wording, never a
+value that was merely observed at the time the assertion was written. A test
+that locks in a stale or incorrect translation as a required assertion turns
+every future correction into a required test update instead of the safety
+net it is meant to be; treat such a discrepancy between the test and the
+diagram's own current source as a translation bug in the diagram, not a
+reason to leave the assertion unchanged.
