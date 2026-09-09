@@ -279,6 +279,8 @@ jobs:
             echo "Bootstrap Terraform drift was detected." >&2
             exit 1
           }
+          echo "No bootstrap Terraform drift detected."
+          exit 0
 
       - name: Enforce complete drift evidence
         if: always()
