@@ -76,6 +76,7 @@ EXPECTED_RUNTIME_MODULES = {
     "inventory_ontology.py",
     "inventory_ontology_state.py",
     "isolated_executor_client.py",
+    "licensing.py",
     "metric_semantic_catalog.py",
     "notification_registry.py",
     "observation_evidence.py",
@@ -117,6 +118,10 @@ PROHIBITED_RUNTIME_MODULES = {
     "isolated_executor_cli.py",
     "isolated_executor_lock.py",
     "isolated_executor_runtime.py",
+}
+
+EXPECTED_NON_CODE_MEMBERS = {
+    "fdai/delivery/trust/license-signing-key.pub",
 }
 
 
@@ -189,10 +194,12 @@ def test_core_wheel_contains_only_the_declared_fdai_payload(core_wheel: Path) ->
         for member in members
         if member.startswith("fdai/")
         and Path(member).suffix not in {".html", ".json", ".md", ".py", ".typed"}
+        and member not in EXPECTED_NON_CODE_MEMBERS
     )
 
     assert prohibited == []
     assert unexpected_suffixes == []
+    assert EXPECTED_NON_CODE_MEMBERS <= members
     assert "fdai/runtime/isolated_executor_client.py" in members
     assert "fdai_core_service/main.py" in members
 
