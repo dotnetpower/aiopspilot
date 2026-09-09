@@ -1,0 +1,13 @@
+{
+  "scenario_id": "dr.chaos-experiment-novel.003",
+  "wire_t2": true,
+  "event_payload_resource": {
+    "resource_id": "example-novel-experiment",
+    "type": "chaos-experiment.novel",
+    "props": {}
+  },
+  "expected_control_loop_outcome": "abstained_routing",
+  "expected_decision": "abstain",
+  "expected_citing_rule_id_present": null,
+  "note": "Exercises the no-rule T1 fallback. With no grounded rule allowlist, the control loop does not invoke T2 and fails closed without publishing a remediation PR."
+}

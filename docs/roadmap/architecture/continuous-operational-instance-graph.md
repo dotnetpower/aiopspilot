@@ -66,6 +66,9 @@ The current-graph checkpoint is bound to the active snapshot generation and exac
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.
 Inactive-scope observations remain durable history and retention work. Reactivation requires a new complete reconciliation, while active-scope
 post-snapshot observations keep the graph incomplete until projection catches up.
+PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
+state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
+shared record-validation boundary does not create another graph writer or authority surface.
 
 ### Private-safe change acceleration
 

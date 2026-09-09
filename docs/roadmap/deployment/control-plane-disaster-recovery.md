@@ -19,7 +19,7 @@ evidence required before a deployment can claim control-plane disaster recovery.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Immutable recovery plan and legal transition reducer | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` and `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | Version, approval separation, recovery epochs, legal edges, and halt behavior have focused tests. |
+| Immutable recovery plan, legal transition reducer, and measured outcome contract | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` and `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | Version, approval separation, recovery epochs, legal edges, halt behavior, independent observation, data integrity, and plan-bound measured RPO/RTO have focused tests. |
 | Durable compare-and-set coordination and audit persistence | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` and `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | Exact redelivery, write conflicts, revision checks, and atomic state-plus-audit writes are implemented. |
 | Opt-in database restore drill and verifier | implemented | `services/core-control-plane/src/fdai/delivery/db_dr_drill_cli.py`, `delivery/azure/db_dr_restore.py`, `delivery/db_dr_postgres.py`, `infra/modules/compute/container-apps/dr_drill_job.tf`, and focused DR drill tests | The delivery-owned job composes Azure restore, bounded PostgreSQL integrity and smoke, teardown, and durable audit while Core remains provider-neutral. It defaults to dry-run and uses a dedicated non-executor identity. Source and tests don't prove a completed substrate-backed drill. |
 | Provider-neutral regional shadow sequence | implemented | `services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py`, `services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py`, and `services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` | The fake provider proves order, stale-epoch rejection, failure halt, single-writer behavior, bounded replay input, and failback prerequisites without applying effects. |
@@ -31,6 +31,7 @@ evidence required before a deployment can claim control-plane disaster recovery.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added a provider-neutral recovery outcome measurement that binds one plan revision and recovery epoch to causally ordered snapshot, failure, activation, and verification times. Completion requires the independent observation lane, verified data integrity, and achieved RPO/RTO within the plan's approved objectives. | `current change`; `recovery_plan.py`; `test_recovery_plan.py`; `test_v2026_10_outcomes.py`; focused recovery and scenario checks. | Retain a substrate-backed governed drill receipt; the local contract does not claim a completed regional exercise. |
 | 2026-08-31 | implemented | Bound the opt-in database restore job to a complete delivery-owned Azure and PostgreSQL verifier path and separated its identity from the executor. Partial restore and cleanup failure stay explicit, and complete dry-run configuration makes no provider request. | `current change`; delivery adapters and CLI, root and compute Terraform, focused restore, integrity, CLI, verifier, and infrastructure checks. | Retain one governed substrate-backed DB-DR receipt with measured RPO/RTO and verified cleanup. |
 | 2026-09-01 | implemented | Updated the failover runbook apply example to include the now-required `--plan-expires-at` argument from sanitized plan metadata. | `current change`; failover runbook EN/KO. | No change to remaining work. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Separated tested recovery mechanics from regional deployment and operational evidence. | current change; focused recovery plan and coordinator tests listed in the scope table | Compose and exercise the regional provider path, then retain governed failover and failback evidence. |
@@ -230,7 +231,10 @@ not substitute for one substrate-backed exercise.
 
 ## Implementation boundaries
 
-- `core/` owns immutable plan validation and legal transitions. It does not call Azure.
+- `core/` owns immutable plan validation, legal transitions, and the
+  `RecoveryOutcomeMeasurement` contract. The measurement can pass only when it matches the plan id,
+  plan revision, and active recovery epoch, follows causal time order, comes from the independent observation
+  lane, verifies data integrity, and meets the plan's approved RPO/RTO. It does not call Azure.
 - The durable coordinator verifies approval authenticity, expected revision/state, monotonic
    transition time, and compare-and-set ownership before it atomically persists the plan projection
    and audit row through `StateStore`. Exact redelivery returns the committed record; changed

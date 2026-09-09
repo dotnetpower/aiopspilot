@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.2.0",
+  "id": "arb_change_safety.cross-objective-conflict.v2026-10",
+  "scenario_set_version": "v2026.10",
+  "capability": "arb_change_safety",
+  "dimension": "cross_objective_conflict",
+  "correlation_id": "arb-cross-objective-conflict-v2026-10",
+  "observed_at": "2026-07-05T08:00:00Z",
+  "arbitration": {
+    "raiser_agent": "Forseti",
+    "owner_agent": "Odin",
+    "auditor_agent": "Saga",
+    "request_topic": "object.arbitration-request",
+    "decision_topic": "object.arbitration-decision",
+    "verdict_topic": "object.verdict"
+  },
+  "operating_context": {
+    "clock_identity": "frozen-scenario-utc",
+    "note": "The customer-agnostic ontology neighborhood the replayed ARB options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
+    "objects": [
+      {
+        "id": "example-arb-fleet-subscription",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-arb-fleet-subscription",
+          "type": "subscription"
+        }
+      },
+      {
+        "id": "example-vm-fleet-node",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-vm-fleet-node",
+          "type": "compute.vm"
+        }
+      },
+      {
+        "id": "example-disk-fleet-volume",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-disk-fleet-volume",
+          "type": "disk"
+        }
+      },
+      {
+        "id": "example-unmapped-container-registry",
+        "object_type": "Resource",
+        "properties": {
+          "id": "example-unmapped-container-registry",
+          "type": "container-registry.unmapped"
+        }
+      },
+      {
+        "id": "example-arb-fleet-workload",
+        "object_type": "Workload",
+        "properties": {
+          "id": "example-arb-fleet-workload",
+          "name": "Example ARB Fleet Workload",
+          "workload_kind": "platform",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-manifest:example"
+        }
+      },
+      {
+        "id": "example-arb-fleet-service",
+        "object_type": "BusinessService",
+        "properties": {
+          "id": "example-arb-fleet-service",
+          "name": "Example ARB Fleet Service",
+          "criticality": "high",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-catalog:example"
+        }
+      },
+      {
+        "id": "example-arb-compliance-objective",
+        "object_type": "ServiceObjective",
+        "properties": {
+          "id": "example-arb-compliance-objective",
+          "objective_kind": "compliance_posture",
+          "metric": "compliant_resource_ratio",
+          "unit": "ratio",
+          "target": 0.999,
+          "window_seconds": 2592000,
+          "measurement_source_ref": "metrics:compliance-posture",
+          "freshness_seconds": 300,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      },
+      {
+        "id": "example-arb-fleet-cost-objective",
+        "object_type": "CostObjective",
+        "properties": {
+          "id": "example-arb-fleet-cost-objective",
+          "objective_kind": "run_rate",
+          "currency": "USD",
+          "target": 1000,
+          "period_seconds": 2592000,
+          "measurement_source_ref": "cost:monthly",
+          "freshness_seconds": 86400,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      }
+    ],
+    "links": [
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-arb-fleet-workload",
+        "to_id": "example-arb-fleet-subscription"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-arb-fleet-workload",
+        "to_id": "example-vm-fleet-node"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-arb-fleet-workload",
+        "to_id": "example-disk-fleet-volume"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-arb-fleet-workload",
+        "to_id": "example-unmapped-container-registry"
+      },
+      {
+        "link_type": "implemented_by",
+        "from_id": "example-arb-fleet-service",
+        "to_id": "example-arb-fleet-workload"
+      },
+      {
+        "link_type": "service_has_service_objective",
+        "from_id": "example-arb-fleet-service",
+        "to_id": "example-arb-compliance-objective"
+      },
+      {
+        "link_type": "service_has_cost_objective",
+        "from_id": "example-arb-fleet-service",
+        "to_id": "example-arb-fleet-cost-objective"
+      }
+    ]
+  },
+  "objective_effects": [
+    {
+      "cited_rule_id": "compute.vm.managed-identity.assigned",
+      "action_type": "remediate.assign-identity",
+      "effects": [
+        {
+          "objective_kind": "compliance_posture",
+          "metric": "identity_hardening_signal",
+          "utility": 0.6,
+          "confidence": 0.9,
+          "expected_min": -1,
+          "expected_max": 1,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "fleet_change_run_rate",
+          "utility": -0.4,
+          "confidence": 0.9,
+          "expected_min": -1,
+          "expected_max": 1,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Assigning a managed identity closes the attestable-identity gap the compliance objective is measured from and adds a change to the fleet that the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
+    },
+    {
+      "cited_rule_id": "disk.unattached",
+      "action_type": "remediate.remove-orphan-resource",
+      "effects": [
+        {
+          "objective_kind": "compliance_posture",
+          "metric": "identity_hardening_signal",
+          "utility": -0.5,
+          "confidence": 0.9,
+          "expected_min": -1,
+          "expected_max": 1,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "fleet_change_run_rate",
+          "utility": 0.5,
+          "confidence": 0.9,
+          "expected_min": -1,
+          "expected_max": 1,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Removing the unattached disk lowers the fleet's change run-rate cost, and dropping a resource out of the fleet narrows the population the compliance objective's attestation window covers. Bound the same way, by cited rule and produced ActionType."
+    }
+  ],
+  "options": [
+    {
+      "option_id": "assign-managed-identity",
+      "scenario_id": "change.vm-managed-identity-missing.004",
+      "objective_domain": "change_safety",
+      "expected_action_type": "remediate.assign-identity",
+      "expected_eligibility": "eligible",
+      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `compute.vm.managed-identity.assigned` and builds a `remediate.assign-identity` action. That pair is what binds the objective effects this option carries into arbitration."
+    },
+    {
+      "option_id": "remove-orphan-disk",
+      "scenario_id": "change.disk-unattached-orphan-cost.005",
+      "objective_domain": "cost",
+      "expected_action_type": "remediate.remove-orphan-resource",
+      "expected_eligibility": "eligible",
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `disk.unattached` and builds a `remediate.remove-orphan-resource` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
+    },
+    {
+      "option_id": "map-registry-signal",
+      "scenario_id": "change.container-registry-signal-unmapped.006",
+      "objective_domain": "resilience",
+      "expected_action_type": null,
+      "expected_eligibility": "unresolved_evidence",
+      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so the replay produces no ActionType and no effect record binds to it. With no grounded option it can only hold, and it carries the abstention marker instead of evidence."
+    }
+  ],
+  "expected": {
+    "shared_target_id": "example-arb-fleet-subscription",
+    "eligible_option_ids": [
+      "assign-managed-identity",
+      "remove-orphan-disk"
+    ],
+    "unresolved_option_ids": [
+      "map-registry-signal"
+    ],
+    "held_recommendation": "hold",
+    "domains_in_conflict": [
+      "change_safety",
+      "cost",
+      "resilience"
+    ],
+    "advice": {
+      "change_safety": "remediate.assign-identity",
+      "cost": "remediate.remove-orphan-resource",
+      "resilience": "hold"
+    },
+    "objective_conflicts": [
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-arb-compliance-objective"
+      },
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-arb-fleet-cost-objective"
+      }
+    ],
+    "winning_domain": "resilience",
+    "losing_domains": [
+      "change_safety",
+      "cost"
+    ],
+    "reason": "initial_vertical_precedence",
+    "escalate_hil": false,
+    "decision_case": {
+      "case_id": "9d87d7ae0f55a4877af21c35f164750b31b755823314d010c46b76bd9ab6c4c8",
+      "context_snapshot_id": "44c47fbd8bb2c4aa962aa6882479aeca34db0a94131f5eb723e61fd53540892d",
+      "option_by_domain": {
+        "change_safety": "change_safety:remediate.assign-identity",
+        "cost": "cost:remediate.remove-orphan-resource"
+      },
+      "option_ids": [
+        "change_safety:remediate.assign-identity",
+        "cost:remediate.remove-orphan-resource"
+      ],
+      "protected_objective_ids": [
+        "example-arb-compliance-objective"
+      ],
+      "evidence_refs": [
+        "audit:scenario-13/compute.vm.managed-identity.assigned/example-vm-fleet-node",
+        "audit:scenario-14/disk.unattached/example-disk-fleet-volume",
+        "event:00000000-0000-0000-0000-000000000013",
+        "event:00000000-0000-0000-0000-000000000014",
+        "receipt:sha256:b22bb648b127f13928251b09cf44a77faeea46f8b72c75a9a7df824bc13967f0",
+        "receipt:sha256:e1fe42d473e879bca7c5d95b25e25156c47103d900bcb43a76d84f4c39ff71fe",
+        "rule:compute.vm.managed-identity.assigned",
+        "rule:disk.unattached",
+        "specialist:change_safety:arb-cross-objective-conflict-v2026-10",
+        "specialist:cost:arb-cross-objective-conflict-v2026-10",
+        "specialist:resilience:arb-cross-objective-conflict-v2026-10"
+      ],
+      "selected_option_id": "change_safety:remediate.assign-identity",
+      "selection_reason": "weighted_objective_score;rejected=cost:remediate.remove-orphan-resource:protected_objective",
+      "requires_human_approval": false
+    },
+    "terminal": {
+      "risk_verdict": "hil",
+      "reason": "arbitration_unresolved",
+      "action_type": "",
+      "initiator_principal": null,
+      "audited_producer": "Forseti",
+      "audited_topic": "object.verdict"
+    },
+    "without_arbitration_owner": {
+      "unavailable_agent": "Odin",
+      "degradation_effect": "conflicts_require_hil",
+      "blocks_mutation": false,
+      "effective_mode": "configured",
+      "decisions": 0,
+      "recorded_arbitrations": 0,
+      "verdicts": 1,
+      "audited_verdicts": 1,
+      "terminal": {
+        "risk_verdict": "hil",
+        "reason": "arbitration_owner_unavailable",
+        "action_type": "",
+        "winning_domain": "",
+        "owner_available": false,
+        "quorum_required": 1
+      }
+    },
+    "decision_digest": "sha256:8135ad872e8b1c11bf9dc48b1493b55375028c8c93ba59ff3f8550a796ec757d",
+    "evidence_digest": "sha256:cd23abc537306cc89c0b87ba78df646443fdb883eeb3baebe1fac70779d8aa9a"
+  }
+}

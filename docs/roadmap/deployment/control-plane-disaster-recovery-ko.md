@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: c2d355c89742f2347707b912f2b7de1b07bb77af
-translation_revised: 2026-08-31
+translation_source_sha: de9449d252b61f7c970024658964a835373c8b98
+translation_revised: 2026-09-09
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -21,7 +21,7 @@ translation_revised: 2026-08-31
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 변경할 수 없는 복구 계획과 적법한 전환 집약기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | 버전, 승인 분리, 복구 epoch, 적법한 전환 및 중단 동작에 집중 테스트가 있습니다. |
+| 변경할 수 없는 복구 계획, 적법한 전환 집약기 및 측정 결과 계약 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | 버전, 승인 분리, 복구 epoch, 적법한 전환, 중단 동작, 독립 관측, 데이터 무결성 및 계획에 결속된 측정 RPO/RTO에 집중 테스트가 있습니다. |
 | 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
 | 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/delivery/db_dr_drill_cli.py`, `delivery/azure/db_dr_restore.py`, `delivery/db_dr_postgres.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 전달 계층 소유 작업이 Azure 복원, 범위가 제한된 PostgreSQL 무결성 및 smoke 검사, 정리, 영속 감사를 조립하고 Core는 프로바이더 중립으로 유지합니다. 작업은 기본적으로 dry-run이며 전용 비실행기 신원을 사용합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
 | 프로바이더 중립 지역 shadow 순서 | implemented | `services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py`, `services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` | fake 프로바이더가 효과 적용 없이 순서, 이전 epoch 거부, 실패 중단, 단일 쓰기 담당 동작, 범위가 제한된 재생 입력 및 failback 전제조건을 입증합니다. |
@@ -33,6 +33,7 @@ translation_revised: 2026-08-31
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 하나의 계획 개정 번호와 복구 epoch를 인과 순서에 맞는 스냅샷, 장애, 활성화 및 검증 시각에 연결하는 프로바이더 중립 복구 결과 측정을 추가했습니다. 완료하려면 독립 관측 경로, 검증된 데이터 무결성 및 계획에서 승인한 목표 이내의 달성 RPO/RTO가 필요합니다. | `current change`; `recovery_plan.py`; `test_recovery_plan.py`; `test_v2026_10_outcomes.py`; 집중 복구 및 시나리오 검사. | 실제 기반 환경의 통제된 훈련 증적을 보존합니다. 로컬 계약은 완료된 지역 훈련을 주장하지 않습니다. |
 | 2026-08-31 | implemented | 선택형 데이터베이스 복원 작업을 완전한 전달 계층 소유 Azure 및 PostgreSQL 검증 경로에 연결하고 신원을 실행기와 분리했습니다. 부분 복원과 정리 실패는 명시적으로 유지되며 완전한 dry-run 구성은 프로바이더 요청을 만들지 않습니다. | `current change`; 전달 어댑터와 CLI, 루트 및 compute Terraform, 복원, 무결성, CLI, 검증기 및 인프라 집중 검사. | 측정된 RPO/RTO와 검증된 정리를 포함한 통제된 실제 기반 DB-DR 증적 하나를 보존합니다. |
 | 2026-09-01 | implemented | 장애 복구 런북의 적용 예시에 정제된 계획 메타데이터에서 가져오는 필수 `--plan-expires-at` 인수를 추가했습니다. | `current change`; 장애 복구 런북 EN/KO. | 잔여 작업 변경 없음. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
@@ -234,7 +235,10 @@ Reliability 소유자가 numeric 목표를 승인하고 완전한 isolated 복�
 
 ## 구현 경계
 
-- `core/`는 변경할 수 없는 계획 검증과 legal 전이를 소유하고 Azure를 호출하지 않습니다.
+- `core/`는 변경할 수 없는 계획 검증, 적법한 전환 및 `RecoveryOutcomeMeasurement` 계약을
+  소유합니다. 측정값은 계획 ID, 계획 개정 번호 및 활성 복구 epoch와 일치하고 인과적 시간 순서를 따르며,
+  독립 관측 경로에서 생성되고 데이터 무결성을 검증하며 계획에서 승인한 RPO/RTO를 충족할
+  때만 통과합니다. Azure는 호출하지 않습니다.
 - 영속 조정기는 승인 authenticity, 예상 개정 번호/상태, 단조 증가 전이 시간
  및 compare-and-set 소유권을 검증한 후 `StateStore`를 통해 계획 변환 결과와 감사 행을
  원자적으로 저장합니다. Exact 재전달은 커밋된 기록을 반환하고 변경된 근거는

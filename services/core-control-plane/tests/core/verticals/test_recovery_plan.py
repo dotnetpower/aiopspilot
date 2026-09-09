@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -11,6 +11,8 @@ from fdai.core.verticals.resilience.recovery_plan import (
     LEGAL_RECOVERY_TRANSITIONS,
     RecoveryMode,
     RecoveryObjectives,
+    RecoveryObservationLane,
+    RecoveryOutcomeMeasurement,
     RecoveryPlan,
     RecoveryPlanError,
     RecoveryPlanStateMachine,
@@ -334,6 +336,94 @@ def test_transition_requires_timezone_and_bounded_unique_evidence() -> None:
 )
 def test_valid_objectives_are_accepted(objectives: RecoveryObjectives) -> None:
     assert _plan(objectives=objectives).objectives == objectives
+
+
+def test_recovery_outcome_requires_integrity_and_measured_objectives() -> None:
+    objectives = RecoveryObjectives(
+        rpo_seconds=60.0,
+        rto_seconds=120.0,
+        max_degraded_seconds=180.0,
+    )
+    measurement = RecoveryOutcomeMeasurement(
+        plan_id="control-plane-regional-recovery",
+        plan_revision=1,
+        recovery_epoch=1,
+        snapshot_at=_AT,
+        failure_at=_AT + timedelta(seconds=30),
+        activated_at=_AT + timedelta(seconds=40),
+        verified_at=_AT + timedelta(seconds=100),
+        data_integrity_verified=True,
+        observation_lane=RecoveryObservationLane.INDEPENDENT,
+        observer_ref="heimdall-independent-recovery-observer",
+        evidence_refs=("evidence://recovery/integrity",),
+    )
+    verified_plan = _plan(
+        objectives=objectives,
+        state=RecoveryState.SERVICE_VERIFIED,
+        recovery_epoch=1,
+    )
+
+    assert measurement.observed_rpo_seconds == 30.0
+    assert measurement.observed_rto_seconds == 60.0
+    assert measurement.meets(verified_plan)
+    assert not replace(measurement, data_integrity_verified=False).meets(verified_plan)
+    assert not replace(
+        measurement,
+        verified_at=_AT + timedelta(seconds=200),
+    ).meets(verified_plan)
+    assert not replace(measurement, plan_id="different-plan").meets(verified_plan)
+    assert not replace(measurement, plan_revision=2).meets(verified_plan)
+
+
+def test_recovery_outcome_rejects_noncausal_timestamps() -> None:
+    with pytest.raises(RecoveryPlanError, match="causal order"):
+        RecoveryOutcomeMeasurement(
+            plan_id="control-plane-regional-recovery",
+            plan_revision=1,
+            recovery_epoch=1,
+            snapshot_at=_AT,
+            failure_at=_AT + timedelta(seconds=30),
+            activated_at=_AT + timedelta(seconds=20),
+            verified_at=_AT + timedelta(seconds=100),
+            data_integrity_verified=True,
+            observation_lane=RecoveryObservationLane.INDEPENDENT,
+            observer_ref="heimdall-independent-recovery-observer",
+            evidence_refs=("evidence://recovery/integrity",),
+        )
+
+
+def test_recovery_outcome_rejects_executor_owned_observation() -> None:
+    with pytest.raises(RecoveryPlanError, match="independent observation lane"):
+        RecoveryOutcomeMeasurement(
+            plan_id="control-plane-regional-recovery",
+            plan_revision=1,
+            recovery_epoch=1,
+            snapshot_at=_AT,
+            failure_at=_AT + timedelta(seconds=30),
+            activated_at=_AT + timedelta(seconds=40),
+            verified_at=_AT + timedelta(seconds=100),
+            data_integrity_verified=True,
+            observation_lane="execution",  # type: ignore[arg-type]
+            observer_ref="thor-executor",
+            evidence_refs=("evidence://recovery/integrity",),
+        )
+
+
+def test_recovery_outcome_rejects_boolean_plan_revision() -> None:
+    with pytest.raises(RecoveryPlanError, match="plan_revision"):
+        RecoveryOutcomeMeasurement(
+            plan_id="control-plane-regional-recovery",
+            plan_revision=True,  # type: ignore[arg-type]
+            recovery_epoch=1,
+            snapshot_at=_AT,
+            failure_at=_AT + timedelta(seconds=30),
+            activated_at=_AT + timedelta(seconds=40),
+            verified_at=_AT + timedelta(seconds=100),
+            data_integrity_verified=True,
+            observation_lane=RecoveryObservationLane.INDEPENDENT,
+            observer_ref="heimdall-independent-recovery-observer",
+            evidence_refs=("evidence://recovery/integrity",),
+        )
 
 
 @pytest.mark.parametrize(
