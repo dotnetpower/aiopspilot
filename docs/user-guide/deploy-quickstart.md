@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 332a0581dbcc6b7019f33d88e03dc3044b33e6d8 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: ecafa522f8ef2e2d7a274ab51b9ebca22f3172b1 }]
 ---
 
 # Deploy Quickstart
@@ -344,8 +344,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      executor has no case-history Blob role, and
      `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` matches the approved deletion
      cadence.
-   - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
-     has the reviewed `FDAI_FORECAST_TARGETS_JSON` document.
+   - **Forecast learning**: its opt-in Job publishes raw ticks only. Each
+     `FDAI_FORECAST_TARGETS_JSON` entry names a governed `target_kind`, and Core rejects settings that
+     weaken the repository policy.
    - **Analyzer tick**: when `FDAI_INVENTORY_DSN` is configured, the Job merges
      explicit targets with only the supported resources in the durable inventory
      projection and reports the configured discovery bound. Unsupported resource

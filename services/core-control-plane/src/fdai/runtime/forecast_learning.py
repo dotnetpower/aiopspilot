@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator, ForecastTargetSpec
 from fdai.core.detection.forecast_observation import MetricForecastObservationProvider
+from fdai.core.detection.governance_policy import (
+    DETECTION_GOVERNANCE_POLICY_PATH,
+    DetectionGovernancePolicy,
+    ForecastModelFamily,
+    load_detection_governance_policy,
+)
 from fdai.core.detection.metric_source import MetricSeriesSource
 from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
@@ -28,8 +35,10 @@ def build_forecast_learning_runtime(
     dsn: str | None,
     targets_json: str | None,
     metric_provider: MetricProvider,
+    governance_policy_path: Path = Path(DETECTION_GOVERNANCE_POLICY_PATH),
 ) -> ForecastLearningRuntime | None:
-    targets = parse_forecast_targets(targets_json)
+    governance_policy = load_detection_governance_policy(governance_policy_path)
+    targets = parse_forecast_targets(targets_json, governance_policy=governance_policy)
     if not targets:
         return None
     if dsn is None or not dsn.strip():
@@ -49,7 +58,11 @@ def build_forecast_learning_runtime(
     )
 
 
-def parse_forecast_targets(raw: str | None) -> tuple[ForecastTargetSpec, ...]:
+def parse_forecast_targets(
+    raw: str | None,
+    *,
+    governance_policy: DetectionGovernancePolicy,
+) -> tuple[ForecastTargetSpec, ...]:
     if raw is None or not raw.strip():
         return ()
     try:
@@ -62,10 +75,38 @@ def parse_forecast_targets(raw: str | None) -> tuple[ForecastTargetSpec, ...]:
     for index, item in enumerate(decoded):
         if not isinstance(item, dict):
             raise ValueError(f"FDAI_FORECAST_TARGETS_JSON[{index}] MUST be an object")
+        target = dict(item)
+        target_kind = target.pop("target_kind", None)
+        if not isinstance(target_kind, str):
+            raise ValueError(f"FDAI_FORECAST_TARGETS_JSON[{index}].target_kind MUST be configured")
+        target_policy = governance_policy.forecast_target(target_kind)
+        if target_policy.model_family is not ForecastModelFamily.LINEAR_TREND:
+            raise ValueError(
+                f"FDAI_FORECAST_TARGETS_JSON[{index}] requests an unsupported model family"
+            )
         try:
-            targets.append(ForecastTargetSpec(**item))
+            spec = ForecastTargetSpec(**target)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"FDAI_FORECAST_TARGETS_JSON[{index}] is invalid") from exc
+        if spec.horizon_seconds != target_policy.horizon_seconds:
+            raise ValueError(
+                f"FDAI_FORECAST_TARGETS_JSON[{index}].horizon_seconds "
+                "does not match governed policy"
+            )
+        if spec.min_samples < target_policy.min_samples:
+            raise ValueError(
+                f"FDAI_FORECAST_TARGETS_JSON[{index}].min_samples weakens governed policy"
+            )
+        if spec.min_r_squared < target_policy.min_r_squared:
+            raise ValueError(
+                f"FDAI_FORECAST_TARGETS_JSON[{index}].min_r_squared weakens governed policy"
+            )
+        if spec.confidence_level != target_policy.confidence_level:
+            raise ValueError(
+                f"FDAI_FORECAST_TARGETS_JSON[{index}].confidence_level "
+                "does not match governed policy"
+            )
+        targets.append(spec)
     identities = {
         (target.access_scope_digest, target.detector_id, target.resource_ref, target.metric)
         for target in targets

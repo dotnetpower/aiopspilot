@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 332a0581dbcc6b7019f33d88e03dc3044b33e6d8
+translation_source_sha: ecafa522f8ef2e2d7a274ab51b9ebca22f3172b1
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -152,6 +152,9 @@ Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSIO
 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
 `forecast_targets_json`은 예측 작업을 명시적 선택하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
 예측 작업은 raw 틱만 publish하며 Huginn이 이를 Heimdall 평가 및 종결용으로 정규화합니다.
+각 대상 항목은 `target_kind`를 지정하고 저장소가 관리하는 기간, 신뢰수준, 샘플 하한, 적합도
+하한과 일치합니다. Core는 예측 대상을 사용하지 않을 때도 이 정책을 로드하므로 정책이 없거나
+형식이 잘못되면 관리되지 않는 대상 경로를 남기지 않고 시작을 차단합니다.
 인벤토리 조정 작업은 코어와 같은 필수 non-secret 런타임 구성을 상속해
 recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버스 발행기를 열게 합니다.
 스케줄러 및 analyzer 작업은 해당 작업에 연결된 user-assigned 신원의 클라이언트 id를

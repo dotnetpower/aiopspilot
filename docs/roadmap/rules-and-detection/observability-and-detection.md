@@ -490,7 +490,9 @@ What we adopt from the general AIOps model, and where we intentionally differ:
   backtest promotion thresholds, and change-window treatment. Core loads the policy through
   `core/detection/governance_policy.py` with exact-field validation. An unknown method, duplicate
   identity, weakened zero-escape guard, or malformed bound fails startup instead of silently
-  selecting a default.
+  selecting a default. Every `FDAI_FORECAST_TARGETS_JSON` entry names its governed `target_kind`;
+  startup rejects a horizon or confidence level that differs from policy and any sample or fit
+  floor that weakens it.
 - Baselines, deviation thresholds, forecast horizons, correlation keys, and model bindings are
   **configuration**; a fork overrides them via the DI seams in
   [project-structure.md](../architecture/project-structure.md), never by editing core.
