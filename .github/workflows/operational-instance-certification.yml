@@ -135,7 +135,26 @@ jobs:
         run: |
           set -euo pipefail
           resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
-          inventory_job_name="$(terraform -chdir=infra output -raw inventory_job_name)"
+          inventory_job_name="$(
+            terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
+          )"
+          if [[ -z "$inventory_job_name" ]]; then
+            inventory_job_name="$(
+              terraform -chdir=infra show -json |
+                jq -er '
+                  [.. | objects |
+                    select(.address? ==
+                      "module.compute.azurerm_container_app_job.inventory[0]") |
+                    .values.name |
+                    select(type == "string" and length > 0)] |
+                  if length == 1 then
+                    .[0]
+                  else
+                    error("expected exactly one tracked inventory job")
+                  end
+                '
+            )"
+          fi
           history_job_id="$(terraform -chdir=infra output -raw operational_history_lifecycle_job_id)"
           container_url="$(terraform -chdir=infra output -raw operational_history_container_url)"
           [[ -n "$resource_group" && -n "$inventory_job_name" ]]
