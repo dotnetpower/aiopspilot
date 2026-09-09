@@ -64,11 +64,9 @@ canonical `aggregate` operation and preserves its structured count for independe
 verification.
 Canonical metatype subjects such as `FunctionType` normalize only for answer rendering. Declaration
 answers explicitly distinguish schema metadata from current object observations.
-When a model proposes a bounded ontology declaration-count alias,
-`semantic_judgment_capabilities.py` rewrites it to the supplied `query.manifest` FunctionType and
-one typed declaration-kind count facet before planning. Without that FunctionType, the proposal is rejected.
-For schema declaration and relationship reads, one supplied ObjectType encoded by an exact target
-or typed facet closes only redundant subject ambiguity. Multiple subjects remain a clarification.
+A bounded ontology declaration-count alias is rewritten before planning by `semantic_judgment_capabilities.py` to the supplied `query.manifest` FunctionType and one typed count facet.
+Without that FunctionType, the proposal is rejected.
+For declaration and relationship reads, one supplied ObjectType in an exact target or typed facet closes only redundant subject ambiguity; multiple subjects still require clarification.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
@@ -633,9 +631,7 @@ Interactive conversation planning uses one schema-validated semantic judgment be
 selection. When that boundary accepts an unambiguous collection-level Resource state,
 Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
 builds the frame without a second model request. `semantic_judgment_rejections.py` owns the stable
-content-free rejection vocabulary and keeps the boundary below its limit. `semantic_judgment.py`
-owns bounded proposal validation and schema-repair feedback, while capability normalization and
-grounding remain in focused sibling modules. The Operator bridge persists the request before accepting its projection. A missing request
+content-free rejection vocabulary and keeps the boundary below its limit; `semantic_judgment.py` owns bounded proposal validation and schema-repair feedback, while focused sibling modules retain capability normalization and grounding. The Operator bridge persists the request before accepting its projection. A missing request
 can retry as a bounded visibility race, while a permanent projection identity conflict is
 quarantined once without churning the consumer group. Model timing includes completed judgment,
 frame, and plan calls; end-to-end turn timing remains the broader latency authority.

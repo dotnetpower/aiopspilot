@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 771dc716dcad8b8dfcaca90517c3080d6647faf7
+translation_source_sha: 73a0026983234b93f39f19348e4b544ed7157ed4
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -80,11 +80,9 @@ kind 하나만 복구할 수 있습니다. 선언 및 관계 조회도 typed fac
 oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` 같은 표준 메타타입 subject는
 답변 rendering에서만 정규화합니다. 선언 답변은 스키마 메타데이터와 현재 객체 관측값을 명시적으로
 구분합니다.
-모델이 범위가 제한된 온톨로지 선언 개수 별칭을 제안하면
-`semantic_judgment_capabilities.py`가 이를 제공된 `query.manifest` FunctionType과 형식화된 선언 종류
-개수 facet 하나로 다시 작성한 후 계획을 시작합니다. 해당 FunctionType이 없으면 제안을 거부합니다.
-스키마 선언 및 관계 조회에서는 exact target 또는 typed facet에 인코딩된 제공 ObjectType 하나만
-불필요한 subject 모호성을 닫습니다. Subject가 여러 개이면 명확화를 유지합니다.
+범위가 제한된 온톨로지 선언 개수 별칭은 계획 전에 `semantic_judgment_capabilities.py`가 제공된 `query.manifest` FunctionType과 형식화된 개수 facet 하나로 다시 작성합니다.
+해당 FunctionType이 없으면 제안을 거부합니다.
+스키마 선언 및 관계 조회에서는 정확한 대상 또는 형식화된 facet에 포함된 제공 ObjectType이 하나일 때만 불필요한 주제 모호성을 닫으며, 주제가 여러 개이면 명확화를 유지합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
@@ -617,9 +615,7 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
 함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다.
-`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다.
-`semantic_judgment.py`는 범위가 제한된 제안 검증과 스키마 복구 피드백을 소유하고 기능 정규화와
-근거 확인은 목적별 형제 모듈에 유지합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
+`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 맡아 경계 크기를 제한하고, `semantic_judgment.py`는 범위가 제한된 제안 검증과 스키마 복구 피드백을 맡으며, 기능 정규화와 근거 확인은 목적별 형제 모듈에 유지합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.
