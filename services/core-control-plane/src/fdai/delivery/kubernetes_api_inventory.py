@@ -13,6 +13,7 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 
+from fdai.delivery.kubernetes_diagnostic_facts import diagnostic_properties
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -350,6 +351,13 @@ def _resource_record(
             props.update(_node_status_properties(status))
         elif resource_type == "kubernetes.deployment":
             props.update(_deployment_status_properties(status))
+    props.update(
+        diagnostic_properties(
+            resource_type=resource_type,
+            spec=spec if isinstance(spec, Mapping) else None,
+            status=status if isinstance(status, Mapping) else None,
+        )
+    )
     if resource_type == "kubernetes.node":
         for label in _NODE_POOL_LABELS:
             node_pool = labels.get(label)

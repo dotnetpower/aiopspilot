@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added content-safe Node, Pod, init-container, ephemeral-container, scheduling, probe, resource, and workload diagnostic facts. | `current change`; focused diagnostic fact and API inventory tests. | Add storage, policy, autoscale, endpoint, and metric evidence. |
 | 2026-09-10 | in-progress | Separated stable UID identity from versioned Kubernetes observation metadata and added a fail-closed exact resolver. | `current change`; focused API inventory and resolver tests. | Bind the resolver to persistence and operator projection after diagnostic facts land. |
 | 2026-09-10 | in-progress | Added the fleet binding and per-cluster source-state implementation. | `current change`; focused configuration, composition, enrichment, and metadata tests. | Complete the remaining diagnostic evidence families and live validation. |
 | 2026-09-10 | in-progress | Adopted the implementation ledger and bounded design after Issue #278 topology completion. Earlier diagnostic provenance was not reconstructed. | Current source paths listed in the scope table and Issue #578. | Implement every open scope row, complete ten hardening rounds, and retain live evidence. |
