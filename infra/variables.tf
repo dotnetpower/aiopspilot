@@ -664,6 +664,48 @@ variable "inventory_kubernetes_audience" {
   default     = ""
 }
 
+variable "inventory_kubernetes_cluster_bindings_json" {
+  description = "Sensitive deployment JSON for at most 32 exact AKS workload-identity observation bindings. Mutually exclusive with legacy single-cluster values."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition = (
+      var.inventory_kubernetes_cluster_bindings_json == "" ||
+      can([
+        for binding in jsondecode(var.inventory_kubernetes_cluster_bindings_json) : {
+          cluster_ref = binding.cluster_ref
+          api_server  = binding.api_server
+          auth_mode   = binding.auth_mode
+          ca_pem      = binding.ca_pem
+          audience    = binding.audience
+        }
+      ])
+    )
+    error_message = "inventory_kubernetes_cluster_bindings_json must be empty or a JSON array of workload-identity AKS bindings."
+  }
+
+  validation {
+    condition = (
+      var.inventory_kubernetes_cluster_bindings_json == "" ||
+      can(
+        length(jsondecode(var.inventory_kubernetes_cluster_bindings_json)) >= 1 &&
+        length(jsondecode(var.inventory_kubernetes_cluster_bindings_json)) <= 32 &&
+        alltrue([
+          for binding in jsondecode(var.inventory_kubernetes_cluster_bindings_json) :
+          startswith(lower(binding.cluster_ref), "/subscriptions/") &&
+          startswith(binding.api_server, "https://") &&
+          binding.auth_mode == "workload-identity" &&
+          binding.ca_pem != "" &&
+          binding.audience != ""
+        ])
+      )
+    )
+    error_message = "AKS fleet bindings require 1-32 exact ARM ids, HTTPS endpoints, workload identity, CA PEM, and audience."
+  }
+}
+
 variable "browser_evidence_cleanup_cron_expression" {
   description = "Cron for the bounded browser-evidence retention Job. Empty disables the Job."
   type        = string

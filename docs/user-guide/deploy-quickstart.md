@@ -138,6 +138,10 @@ key, Core starts in observation-only Trial and denies acting paths.
   `inventory_kubernetes_audience` together. The inventory managed identity receives AKS RBAC
   Reader and acquires a short-lived token at request time. Don't put a Kubernetes bearer token in
   Terraform or environment configuration.
+- To observe several AKS clusters, supply `inventory_kubernetes_cluster_bindings_json` instead of
+  the legacy four values. Use 1-32 exact cluster ARM ids with credential-free HTTPS endpoints, CA
+  PEM, workload-identity audience, and `auth_mode: workload-identity`. The same inventory identity
+  receives Reader on each exact cluster scope. Keep the deployment value outside source control.
 - To retain rule-watcher snapshots and open draft-only collection reviews, enable
   `enable_rule_catalog_snapshot_storage` and the existing operational ownership
   (`stewardship`) GitOps binding together.

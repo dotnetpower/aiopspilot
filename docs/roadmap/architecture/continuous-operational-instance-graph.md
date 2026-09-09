@@ -65,6 +65,8 @@ Every reachable managed-service connection therefore needs its target type in th
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
 erasing another cluster's verified positive evidence or exposing its ARM identity.
+The deployed Inventory Job accepts either the legacy binding or one bounded fleet JSON record,
+never both, and the same read identity receives only AKS RBAC Reader on each exact cluster scope.
 
 Runtime-call evidence requires two typed endpoint witnesses with the same hashed request identity
 and exact caller and target Container App Resource IDs. Operator emits the caller witness only after

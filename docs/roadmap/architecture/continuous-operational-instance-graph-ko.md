@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: bda8bfa55e2cab822154bfcf27643834f790ce78
+translation_source_sha: b3b88760f9e3a5222c7bca5d8e67e565af586307
 translation_revised: 2026-09-10
 ---
 # 지속형 운영 인스턴스 그래프
@@ -68,6 +68,8 @@ translation_revised: 2026-09-10
 Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
 고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의
 검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다.
+배포된 Inventory Job은 기존 연결 또는 범위가 제한된 fleet JSON 레코드 중 하나만 허용하며 같은
+읽기 신원에는 정확한 각 클러스터 범위에서 AKS RBAC Reader만 부여합니다.
 
 런타임 호출 근거에는 해시된 요청 식별자와 정확한 호출자 및 대상 Container App Resource ID가
 같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자

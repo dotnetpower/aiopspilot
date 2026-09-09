@@ -900,19 +900,32 @@ resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
   principal_id         = module.inventory_identity.principal_id
 }
 
+locals {
+  inventory_kubernetes_cluster_refs = toset(concat(
+    var.inventory_kubernetes_cluster_ref == "" ? [] : [var.inventory_kubernetes_cluster_ref],
+    var.inventory_kubernetes_cluster_bindings_json == "" ? [] : [
+      for binding in jsondecode(var.inventory_kubernetes_cluster_bindings_json) :
+      binding.cluster_ref
+    ],
+  ))
+}
+
 resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
-  count                = var.inventory_kubernetes_cluster_ref == "" ? 0 : 1
-  scope                = var.inventory_kubernetes_cluster_ref
+  for_each             = nonsensitive(local.inventory_kubernetes_cluster_refs)
+  scope                = each.value
   role_definition_name = "Azure Kubernetes Service RBAC Reader"
   principal_id         = module.inventory_identity.principal_id
 
   lifecycle {
     precondition {
       condition = (
-        var.inventory_kubernetes_api_server != "" &&
-        var.inventory_kubernetes_ca_pem != ""
+        var.inventory_kubernetes_cluster_bindings_json != "" ||
+        (
+          var.inventory_kubernetes_api_server != "" &&
+          var.inventory_kubernetes_ca_pem != ""
+        )
       )
-      error_message = "AKS inventory requires cluster ref, API server, and CA PEM together."
+      error_message = "AKS inventory requires a fleet binding or complete legacy API server, cluster ref, and CA PEM values."
     }
   }
 }
@@ -2435,13 +2448,16 @@ module "compute" {
   )
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
-  state_store_dsn_secret_id                = azurerm_key_vault_secret.state_store_dsn.id
-  inventory_dsn_secret_id                  = azurerm_key_vault_secret.state_store_dsn.id
-  inventory_cron_expression                = var.inventory_cron_expression
-  inventory_kubernetes_api_server          = var.inventory_kubernetes_api_server
-  inventory_kubernetes_cluster_ref         = var.inventory_kubernetes_cluster_ref
-  inventory_kubernetes_ca_pem              = var.inventory_kubernetes_ca_pem
-  inventory_kubernetes_audience            = var.inventory_kubernetes_audience
+  state_store_dsn_secret_id        = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_dsn_secret_id          = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_cron_expression        = var.inventory_cron_expression
+  inventory_kubernetes_api_server  = var.inventory_kubernetes_api_server
+  inventory_kubernetes_cluster_ref = var.inventory_kubernetes_cluster_ref
+  inventory_kubernetes_ca_pem      = var.inventory_kubernetes_ca_pem
+  inventory_kubernetes_audience    = var.inventory_kubernetes_audience
+  inventory_kubernetes_cluster_bindings_json = (
+    var.inventory_kubernetes_cluster_bindings_json
+  )
   browser_evidence_cleanup_cron_expression = var.browser_evidence_cleanup_cron_expression
   browser_evidence_cleanup_limit           = var.browser_evidence_cleanup_limit
   observation_campaign_cron_expression     = var.observation_campaign_cron_expression
