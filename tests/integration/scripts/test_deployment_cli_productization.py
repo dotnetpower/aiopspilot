@@ -57,6 +57,11 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'cp "$(command -v terraform)"' not in stage
     assert 'cp "$(command -v opa)"' not in stage
     assert "PYTHONPATH=services/core-control-plane/src" in stage
+    assert "for tool in curl git sha256sum timeout uv" in stage
+    assert "unzip" not in stage
+    assert "scripts/deployment/release/extract-terraform-archive.py" in stage
+    assert 'chmod 700 "$OUT/toolchain" "$KIT"' in stage
+    assert stage.index("sha256sum -c -") < stage.index("extract-terraform-archive.py")
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill

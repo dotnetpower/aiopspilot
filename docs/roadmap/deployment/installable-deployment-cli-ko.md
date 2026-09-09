@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 945fcf2b935705fb244a45a3a864abf52777d376
+translation_source_sha: e8b70ac11257382787d60e3654707909c50d9c2c
 translation_revised: 2026-09-09
 ---
 # 설치형 배포 CLI
@@ -95,9 +95,11 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 아티팩트 메타데이터 및 콘텐츠 서술자는 비차단 및 심볼릭 링크 차단 모드로 열고 열린 뒤 파일
 정체성을 검증하므로 검사와 열기 사이의 교체가 검증을 멈추게 할 수 없습니다.
 연결된 준비는 다이제스트가 고정된 `build-runtime-release.py`의 전체 런타임 v2만 수락하고,
-키트 서명 전에 커밋된 CLI lock과 정확한 Hatchling 및 pip 버전을 요구합니다. Terraform과 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이
-일치할 때만 사용합니다. 출력 루트는 안전한 절대 경로여야 하며, 서술자 기반 guard가 정리
-전에 현재 UID 소유권, mode 0700, mode-0600 일반 준비 sentinel을 검증합니다. 다시 준비할
+키트 서명 전에 커밋된 CLI lock과 정확한 Hatchling 및 pip 버전을 요구합니다. Terraform과
+OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이 일치할 때만 사용합니다. 필수
+Python은 공식 일반 파일 구성의 Terraform ZIP만 수락하므로 준비 과정에서 주변 환경의
+`unzip`이 필요하지 않습니다. 출력 루트는 안전한 절대 경로여야 하며, 서술자 기반 guard가
+정리 전에 현재 UID 소유권, mode 0700, mode-0600 일반 준비 sentinel을 검증합니다. 다시 준비할
 때는 소유권 sentinel을 유지하면서 생성된 모든 디렉터리와 단일 파일 출력을 제거합니다.
 Sentinel 검증은 서술자 검사 전에 최종 구성 요소를 비차단 모드로 열기 때문에 특수 파일이
 재개를 멈추게 할 수 없습니다.

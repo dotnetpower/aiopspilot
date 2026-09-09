@@ -124,7 +124,7 @@ else
   fi
 fi
 
-for tool in curl git sha256sum timeout unzip uv; do
+for tool in curl git sha256sum timeout uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -173,7 +173,7 @@ rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
   "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
-chmod 700 "$KIT"
+chmod 700 "$OUT/toolchain" "$KIT"
 
 PYTHONPATH=scripts/deployment/release "$PYTHON" -c '
 import sys
@@ -201,8 +201,9 @@ curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
   -o "$OUT/toolchain/terraform.zip" \
   "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
 echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
-unzip -q "$OUT/toolchain/terraform.zip" -d "$OUT/toolchain"
 TERRAFORM_BIN="$OUT/toolchain/terraform"
+"$PYTHON" scripts/deployment/release/extract-terraform-archive.py \
+  --archive "$OUT/toolchain/terraform.zip" --output "$TERRAFORM_BIN"
 curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
   --retry-max-time 120 --connect-timeout 10 --max-time 90 \
   -o "$OUT/toolchain/opa" \

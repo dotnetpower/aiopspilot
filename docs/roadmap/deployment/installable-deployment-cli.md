@@ -94,9 +94,10 @@ snapshot rather than the original kit. Artifact metadata and content descriptors
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
 Connected staging accepts complete runtime v2 only from digest-bound `build-runtime-release.py`,
-then requires the committed CLI lock and exact Hatchling and pip versions before kit signing. Terraform and OPA are downloaded at pinned versions
-and accepted only after their platform-specific official SHA-256 values match. The output root must
-be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
+then requires the committed CLI lock and exact Hatchling and pip versions before kit signing.
+Terraform and OPA are downloaded at pinned versions only after their official SHA-256 values match.
+The required Python accepts only the official Terraform ZIP member shape, so no ambient `unzip` is needed.
+The output root must be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
 single-file output while preserving the ownership sentinel. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
