@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 8f19df9ccb3129117336663bbbc7ed0f6453549d
+translation_source_sha: bd5d4eae8da631d6ec19c3de1ec4d07b72835504
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -370,7 +370,8 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 
 변환 결과와 조정은 별개입니다. Declared 의도를 수락하면 통제된 의도 변환 결과를
 갱신할 수 있습니다. Provider-observed 구문은 fresh 외부 관측과 일치한 뒤에만 현재
-truth가 됩니다.
+truth가 됩니다. 수명 주기는 예상, 다음, 정확한 롤백 그래프 개정 번호를 고정하는 검증된
+`ProjectionPlan`을 통해서만 `projected` 상태로 전환할 수 있습니다.
 
 ## 에이전트 소유권
 

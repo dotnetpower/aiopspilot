@@ -371,7 +371,8 @@ Document and graph lifecycles stay linked by immutable digests:
 
 Projection and reconciliation are separate. Accepting declared intent can update the governed
 intent projection. A provider-observed statement becomes current truth only after fresh external
-observation matches it.
+observation matches it. A lifecycle can enter `projected` only through a validated `ProjectionPlan`
+that pins the expected, next, and exact rollback graph revisions.
 
 ## Agent ownership
 

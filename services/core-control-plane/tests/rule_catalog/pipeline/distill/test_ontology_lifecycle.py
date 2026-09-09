@@ -114,6 +114,19 @@ def test_projection_records_exact_rollback_revision() -> None:
     assert projected.rollback_graph_revision == "graph-1"
 
 
+def test_projection_cannot_bypass_validated_plan() -> None:
+    _, approved = _approved()
+
+    with pytest.raises(ValueError, match="validated ProjectionPlan"):
+        advance_lifecycle(
+            approved,
+            target=ProposalState.PROJECTED,
+            transition_ref="projection:unplanned",
+            graph_revision="graph-unplanned",
+            rollback_graph_revision="graph-1",
+        )
+
+
 def test_failed_reconciliation_builds_rollback_plan() -> None:
     verified, approved = _approved()
     projected = record_projection(
