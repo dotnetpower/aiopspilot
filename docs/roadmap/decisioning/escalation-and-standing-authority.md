@@ -228,49 +228,49 @@ verification, never by a model
 ([architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
 
 ```yaml
-# Proposed catalog-as-code artifact (shadow-first; see Rollout).
-# rule-catalog/standing-authority/<name>.yaml
-version: 1
+# Matches the shipped schema; shadow-only (see Rollout below).
+# authority/standing-authorization.json
+schema_version: "1.0.0"
 id: sa-scale-out-before-quota-breach
 authorization_revision: <content-digest>
+status: active                  # active | revoked | expired | superseded
+mode: shadow                     # judge-and-log until explicitly promoted; only value accepted today
 requested_by: <normalized-human-principal>
-approved_by:                    # distinct normalized human principals; min 2
-  - <accountable-service-owner>
-  - <owner-level-approver>
+approvals:                       # distinct normalized human principals; min 2
+  - principal: <accountable-service-owner>
+    role: service_owner
+    approved_at: <rfc3339-timestamp>
+  - principal: <owner-level-approver>
+    role: owner
+    approved_at: <rfc3339-timestamp>
 quorum_required: 2
 valid_from: <rfc3339-timestamp>
 valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
-status: active                  # active | revoked | expired | superseded
-revocation_ref: null
 service_ref: <service-id>
-target_revision: <inventory-and-operating-model-revision>
-policy_digest: <risk-and-approval-policy-digest>
-action_type_versions: [remediate.scale-out.compute@<version>]
+scope:                            # MUST be resource-group-equivalent or narrower
+  level: resource_group          # resource | resource_group; subscription/tenant are never eligible
+  value: <rg-name>               # placeholder; fork supplies real scope
+pins:                             # exact revisions the delegation was reviewed against
+  policy_digest: <risk-and-approval-policy-digest>
+  target_revision: <inventory-and-operating-model-revision>
+  action_type_versions: [remediate.scale-out.compute@<version>]
+  evidence_revisions: [<governed-evidence-ref>]
 incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
   backup: <on-call-backup>
-  resolved_at: <rfc3339-timestamp>
+  confirmed_at: <rfc3339-timestamp>
 evidence:
-  history_review_ref: <governed-evidence-ref>
+  history_reviewed: true         # owner reviewed applicable logs, incidents, and audit history
+  precedent_ref: <governed-evidence-ref>
   scenario_evidence_ref: <dr-chaos-or-simulation-ref>
-  handover_confirmation_ref: <current-owner-confirmation-ref>
-scope:                            # MUST be resource-group-equivalent or narrower
-  environment: prod              # (same bound as a human override)
-  resource_group: <rg-name>      # placeholder; fork supplies real scope
-precondition:                     # all must hold, deterministically checked
-  finding_class: forecast.breach
-  min_forecast_confidence: 0.90
-  min_lead_time: 3m              # do not act on a breach already upon us
 envelope:                         # the action MUST fall entirely inside this
   action_types: [remediate.scale-out.compute]
-  max_blast_radius: resource_group
+  max_blast_radius: <bounded-resource-count>
   max_duration_seconds: <bounded-duration>
   reversible: true               # only reversible actions may be pre-authorized
   rollback_contract: scripted    # a tested undo path is mandatory
-trigger:
-  after: ladder_unanswered       # only after the ladder deadline, never before
-mode: shadow                      # judge-and-log until explicitly promoted
+  stop_conditions: [<rollback-trigger-condition>]
 ```
 
 **What makes this safe (the non-negotiables):**
@@ -283,10 +283,12 @@ mode: shadow                      # judge-and-log until explicitly promoted
   it always routes HIL+quorum
   ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
   A standing authorization requires a declared, tested `rollback_contract`.
-- **Ladder-first, never ladder-instead.** The trigger is `after:
-  ladder_unanswered`. Channel fallback must first confirm delivery; an unreachable person is not
-  recorded as silent. A standing authorization can only fire once real humans were asked and the
-  deadline passed - it *shortens the tail*, it does not replace the human.
+- **Ladder-first, never ladder-instead.** A consumer MUST only consult a standing authorization
+  after the escalation ladder's `overall_deadline_seconds` has elapsed unanswered - this is a
+  calling-code invariant the schema does not encode, because nothing yet consumes the evaluator
+  (see Implementation status). Channel fallback must first confirm delivery; an unreachable person
+  is not recorded as silent. A standing authorization can only fire once real humans were asked and
+  the deadline passed - it *shortens the tail*, it does not replace the human.
 - **Distinct human quorum is the approver-of-record.** At least two normalized, distinct human
   principals approve: the accountable service owner and an Owner-level authority. The requester
   and executor are ineligible. Var carries their signed revision as the standing Approval, so
@@ -351,7 +353,7 @@ When a standing authorization trips, the supervisor does **not** execute. It
 ![The re-decide path (no bypass). The main stages are escalation supervisor / (ladder deadline + SA match), risk-gate / re-evaluates, Var / standing Approval, Thor / executes approved HIL action, delivery / remediation-PR / direct-api, audit (Saga) / reason: standing-authority sa-...id, terminal no-op / + A2 alert.](../../diagrams/generated/fdai-escalation-and-standing-authority-02.en.svg)
 
 - **Forseti re-judges without raising risk.** The original `hil` baseline remains. The risk gate
-  verifies a valid, unexpired, scope-matching standing authorization whose precondition and
+  verifies a valid, unexpired, scope-matching standing authorization whose pinned revisions and
   envelope still hold; Var materializes its pre-recorded human Approval. Judge, approver, and
   executor remain distinct.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an

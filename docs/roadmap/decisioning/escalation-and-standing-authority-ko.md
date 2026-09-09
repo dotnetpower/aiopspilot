@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 5482b66d6d8e1b017dcc89cbda19854aa16e1288
-translation_revised: 2026-08-29
+translation_source_sha: c9bd997b1dc0aa1bc9b9b0b7dc7e731fd3a3b6cf
+translation_revised: 2026-09-09
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -11,7 +11,7 @@ translation_revised: 2026-08-29
 않을 때 - 무슨 일이 벌어지는가. 이 문서는 응답 없는 승인 요청을 영향도에 따라 on-call
 사슬 위로 걸어 올리는 **시간 제한 에스컬레이션 사다리(에스컬레이션 단계 구조)** 와, 기다리는
 것이 행동하는 것보다 더 위험한 경우를 위해 운영자가 **경계가 정해진 조건부 실행**
-를 미리 확약해 둘 수 있는 **상시 권한(standing 권한 확인)** 아티팩트를 규정한다.
+를 미리 확약해 둘 수 있는 **상시 권한** 아티팩트를 규정한다.
 둘 다 기존 단일 패스 컨트롤 루프 위에 얹는 **감독형 OODA 루프** 로 설계된다.
 
 > **범위 알림.** 고객 무관(customer-agnostic). 아래의 모든 사다리 rung 이름, 그룹,
@@ -19,7 +19,7 @@ translation_revised: 2026-08-29
 > 이를 조정한다([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 > **안전 초점.** 여기의 어떤 것도 *안전을 향한 실패(fail toward 안전성)* 를 약화시키지
-> 않는다. 상시 권한은 **미리 부여된 사람 승인** 이며, 묶음 로 경계가 정해지고 실행
+> 않는다. 상시 권한은 **미리 부여된 사람 승인** 이며, 묶음으로 경계가 정해지고 실행
 > 시점에 결정론적으로 재검증된다 - 절대 fail-open 경로가 아니며 LLM 이 실행을 부여하지
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
@@ -88,7 +88,7 @@ translation_revised: 2026-08-29
 의 매핑 참조). 여기서 추가하는 것은 *하나의 보류 결정* 을 감독하며 종단 상태에 이를
 때까지 틱 하는 **두 번째, 더 느린 루프** 다.
 
-![감독 프레임으로서의 OODA. 주요 단계는 approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga)입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-01.ko.svg)
+![감독 프레임으로서의 OODA. 주요 단계는 승인이 아직 보류 중인가?, 지금 예보 ETA는? / (lead time 재계산), 무대응 시 영향 범위는?, 긴급도 재계산 / = f(impact, ETA, rung age), 지금 어느 ladder rung이 / 이를 보류해야 하는가?, 상시 권한 / 매치 + envelope 유지 / + 데드라인 경과?, 다음 rung으로 에스컬레이션, 상시 조치 발동 / -> 타입 파이프라인 재진입, 종료성 no-op / (ladder 소진), 감사(Saga)입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-01.ko.svg)
 
 - 감독자는 **기반 를 직접 변경하지 않는다**. 유일한 privileged 결과(`A2`)는
   액션을 정상 principal 을 통해 재판단·실행하도록 **타입 파이프라인을 재진입** 시키는
@@ -112,7 +112,7 @@ translation_revised: 2026-08-29
 
 각 rung 은 **누구**(Entra 그룹으로, 오늘날 승인자 그룹과 똑같이 컨트롤 플레인 바깥에서
 해석됨), **rung 별 TTL**, 사용 가능한 **알림 카테고리**(결정을 운반하는 rung 은 A1,
-인지용은 A2 페이징)를 선언한다. 사다리는 **영향도 계층 로 선택** 된다 - `resource`
+인지용은 A2 페이징)를 선언한다. 사다리는 **영향도 계층으로 선택** 된다 - `resource`
 범위 발견 사항 은 기본 on-call 까지만 도달하고, `subscription` 에 근접한 영향은 인시던트
 commander 를 빠르게 소집한다.
 
@@ -211,49 +211,49 @@ min_effective_ttl_seconds: 60    # starvation 바닥
 ([architecture.instructions.md § LLM Quality 게이트](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
 
 ```yaml
-# Proposed catalog-as-code artifact (shadow-first; see Rollout).
-# rule-catalog/standing-authority/<name>.yaml
-version: 1
+# 배포된 스키마와 일치 (shadow 전용; 아래 롤아웃 참고).
+# authority/standing-authorization.json
+schema_version: "1.0.0"
 id: sa-scale-out-before-quota-breach
 authorization_revision: <content-digest>
+status: active                  # active | revoked | expired | superseded
+mode: shadow                     # 명시적으로 승격되기 전까지 판단·기록만; 오늘은 이 값만 허용
 requested_by: <normalized-human-principal>
-approved_by:                    # distinct normalized human principals; min 2
-  - <accountable-service-owner>
-  - <owner-level-approver>
+approvals:                       # 서로 다른 정규화된 human principal; 최소 2명
+  - principal: <accountable-service-owner>
+    role: service_owner
+    approved_at: <rfc3339-timestamp>
+  - principal: <owner-level-approver>
+    role: owner
+    approved_at: <rfc3339-timestamp>
 quorum_required: 2
 valid_from: <rfc3339-timestamp>
-valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
-status: active                  # active | revoked | expired | superseded
-revocation_ref: null
+valid_until: <rfc3339-timestamp>  # 담당 owner가 갱신하지 않으면 만료됨
 service_ref: <service-id>
-target_revision: <inventory-and-operating-model-revision>
-policy_digest: <risk-and-approval-policy-digest>
-action_type_versions: [remediate.scale-out.compute@<version>]
+scope:                            # resource-group-equivalent 이하여야 함
+  level: resource_group          # resource | resource_group; 구독/테넌트 범위는 절대 불가
+  value: <rg-name>               # placeholder; fork가 실제 범위 공급
+pins:                             # 이 위임이 검토된 정확한 리비전
+  policy_digest: <risk-and-approval-policy-digest>
+  target_revision: <inventory-and-operating-model-revision>
+  action_type_versions: [remediate.scale-out.compute@<version>]
+  evidence_revisions: [<governed-evidence-ref>]
 incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
   backup: <on-call-backup>
-  resolved_at: <rfc3339-timestamp>
+  confirmed_at: <rfc3339-timestamp>
 evidence:
-  history_review_ref: <governed-evidence-ref>
+  history_reviewed: true         # 담당자가 적용 가능한 로그·인시던트·감사 이력을 검토함
+  precedent_ref: <governed-evidence-ref>
   scenario_evidence_ref: <dr-chaos-or-simulation-ref>
-  handover_confirmation_ref: <current-owner-confirmation-ref>
-scope:                            # MUST be resource-group-equivalent or narrower
-  environment: prod              # (same bound as a human override)
-  resource_group: <rg-name>      # placeholder; fork supplies real scope
-precondition:                     # all must hold, deterministically checked
-  finding_class: forecast.breach
-  min_forecast_confidence: 0.90
-  min_lead_time: 3m              # do not act on a breach already upon us
-envelope:                         # the action MUST fall entirely inside this
+envelope:                         # 액션은 반드시 이 안에 완전히 들어와야 함
   action_types: [remediate.scale-out.compute]
-  max_blast_radius: resource_group
+  max_blast_radius: <bounded-resource-count>
   max_duration_seconds: <bounded-duration>
-  reversible: true               # only reversible actions may be pre-authorized
-  rollback_contract: scripted    # a tested undo path is mandatory
-trigger:
-  after: ladder_unanswered       # only after the ladder deadline, never before
-mode: shadow                      # judge-and-log until explicitly promoted
+  reversible: true               # 가역적인 액션만 사전 승인될 수 있음
+  rollback_contract: scripted    # 테스트된 되돌리기 경로가 필수
+  stop_conditions: [<rollback-trigger-condition>]
 ```
 
 **무엇이 이것을 안전하게 하는가(협상 불가 항목):**
@@ -263,12 +263,15 @@ mode: shadow                      # judge-and-log until explicitly promoted
   ([architecture.instructions.md § Human 재정의](../../../.github/instructions/architecture.instructions.md#human-override)).
   구독 전역 상시 권한은 없다.
 - **비파괴적이고 가역적인 액션만.** 파괴적 액션 또는 `irreversible: true` 액션은 절대 사전 승인될 수 없다;
-  항상 HIL+정족수 으로 라우팅된다
+  항상 HIL+정족수로 라우팅된다
   ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
   상시 권한은 선언되고 테스트된 `rollback_contract` 를 요구한다.
-- **사다리 우선, 사다리 대체 아님.** 트리거는 `after: ladder_unanswered`입니다. 먼저 채널
-  대체 경로가 전달을 확인해야 하며 연락할 수 없는 사람을 침묵으로 기록하지 않습니다. 상시 권한은
-  실제 사람들이 요청받고 데드라인이 지난 뒤에만 발동할 수 있습니다.
+- **사다리 우선, 사다리 대체 아님.** 소비자는 에스컬레이션 사다리의 `overall_deadline_seconds`가
+  응답 없이 경과한 뒤에만 상시 권한을 참조해야 합니다 - 이는 스키마가 인코딩하지 않는 호출
+  코드 측 불변식입니다. 아직 아무것도 평가기를 소비하지 않기 때문입니다(구현 상태 참고). 먼저
+  채널 대체 경로가 전달을 확인해야 하며 연락할 수 없는 사람을 침묵으로 기록하지 않습니다. 상시 권한은
+  실제 사람들이 요청받고 데드라인이 지난 뒤에만 발동할 수 있습니다 - *꼬리를 줄이는* 것이지
+  사람을 대체하지 않습니다.
 - **서로 다른 human 정족수가 approver-of-record입니다.** 최소 2명의 정규화된 서로 다른 human,
   accountable 서비스 소유자 및 Owner-level 권한이 승인합니다. 요청자와 실행자는 제외됩니다.
   Var가 서명된 개정 번호를 standing Approval로 전달하며 model-as-approver는 허용되지 않습니다.
@@ -319,7 +322,7 @@ mode: shadow                      # judge-and-log until explicitly promoted
 - **7개 자율 작업 안전조건이 모두 적용됩니다.**
   ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **위험한 액션보다 안전 강등(safe-degradation) 을 선호.** 가능하면 사전 승인 액션은
-  파괴적 교정 자체가 아니라 시간을 버는 **가역 완화(규모 out, circuit 차단기
+  파괴적 교정 자체가 아니라 시간을 버는 **가역 완화(스케일 아웃, circuit 차단기
   열기, 할당량 확장)** 다. 시간을 버는 것은 사람 루프를 끝내는 대신 재무장시킨다.
 
 ## 재결정 경로(우회 없음)
@@ -327,10 +330,10 @@ mode: shadow                      # judge-and-log until explicitly promoted
 상시 권한이 발동되면 감독자는 **실행하지 않는다.** 보류된 액션을 새 결정으로 **타입
 파이프라인에 재주입** 한다:
 
-![재결정 경로(우회 없음). 주요 단계는 escalation supervisor / (ladder deadline + SA match), risk-gate / re-evaluates, Var / standing Approval, Thor / executes approved HIL action, delivery / remediation-PR / direct-api, audit (Saga) / reason: standing-authority sa-...id, terminal no-op / + A2 alert입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-02.ko.svg)
+![재결정 경로(우회 없음). 주요 단계는 에스컬레이션 supervisor / (ladder deadline + SA 매치), risk-gate / 재평가, Var / 상시 Approval, Thor / 승인된 HIL 액션 실행, 전달 / remediation-PR / direct-api, 감사(Saga) / reason: standing-authority sa-...id, 종료성 no-op / + A2 alert입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-02.ko.svg)
 
 - **Forseti는 위험을 높이지 않고 재판단합니다.** 원래 `hil` 기준 판정은 유지됩니다. Risk 게이트는
-  유효하고 만료되지 않았으며 범위가 맞고 전제조건과 경계가 계속 성립하는 상시 권한을
+  유효하고 만료되지 않았으며 범위가 맞고 고정된 리비전과 경계가 계속 성립하는 상시 권한을
   검증합니다. Var는 미리 기록된 사람 Approval을 구체화합니다. 판단자, 승인자 및 실행자는
   계속 분리됩니다.
 - **Thor 가 실행** 하고, Vidar 는 롤백 principal 로 남으며, Saga 는 명시적
@@ -393,7 +396,7 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
 
 - **Rung 멤버십 소스.** 승인자 그룹에 쓰는 Entra 그룹 바인딩을 재사용할지, 아니면
   on-call 스케줄 연동(PagerDuty/Opsgenie 스케줄 읽기)을 도입해 "누가 기본 인가" 가
-  시간 인식적이게 할지. 업스트림은 그룹 우선, 스케줄 연동은 포크 경계 으로 기운다.
+  시간 인식적이게 할지. 업스트림은 그룹 우선, 스케줄 연동은 포크 경계로 기운다.
 - **긴급도 함수 형태.** `k * remaining_lead_time` 압축은 시작 휴리스틱이다; 정확한 곡선은
   강제 적용 전에 과거 예보-대-위반 시리즈로 backtest 할 튜닝 파라미터다.
 
@@ -402,7 +405,7 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
 | 알고 싶은 것 | 읽을 문서 |
 |--------------|-----------|
 | 이것이 감독하는 단일 패스 컨트롤 루프 | [architecture.instructions.md § 컨트롤 루프](../../../.github/instructions/architecture.instructions.md#control-loop) |
-| 액션이 auto / HIL / 거부 로 분류되는 방식 | [risk-classification-ko.md](risk-classification-ko.md) |
+| 액션이 auto / HIL / 거부로 분류되는 방식 | [risk-classification-ko.md](risk-classification-ko.md) |
 | 예보 lead 시간 과 예측구간 band | [observability-and-detection-ko.md § 3](../rules-and-detection/observability-and-detection-ko.md#3-예측--예보predictive--forecasting) |
 | 채널 대체 경로 vs 이 사람 권한 사다리 | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |
 | 어느 에이전트가 에스컬레이션·판단·실행하는가 | [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) |

@@ -12,7 +12,7 @@
     "ko": {
       "title": "감독 프레임으로서의 OODA",
       "description": "감독 프레임으로서의 OODA에 대한 FDAI 흐름입니다.",
-      "alt": "감독 프레임으로서의 OODA. 주요 단계는 approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga)입니다."
+      "alt": "감독 프레임으로서의 OODA. 주요 단계는 승인이 아직 보류 중인가?, 지금 예보 ETA는? / (lead time 재계산), 무대응 시 영향 범위는?, 긴급도 재계산 / = f(impact, ETA, rung age), 지금 어느 ladder rung이 / 이를 보류해야 하는가?, 상시 권한 / 매치 + envelope 유지 / + 데드라인 경과?, 다음 rung으로 에스컬레이션, 상시 조치 발동 / -> 타입 파이프라인 재진입, 종료성 no-op / (ladder 소진), 감사(Saga)입니다."
     }
   },
   "assets": {
@@ -30,11 +30,11 @@
       "shape": "card",
       "label": {
         "en": "approval still pending?",
-        "ko": "approval still pending?"
+        "ko": "승인이 아직 보류 중인가?"
       },
       "description": {
         "en": "approval still pending?",
-        "ko": "approval still pending?"
+        "ko": "승인이 아직 보류 중인가?"
       }
     },
     {
@@ -43,11 +43,11 @@
       "shape": "card",
       "label": {
         "en": "forecast ETA now? / (lead time recomputed)",
-        "ko": "forecast ETA now? / (lead time recomputed)"
+        "ko": "지금 예보 ETA는? / (lead time 재계산)"
       },
       "description": {
         "en": "forecast ETA now? / (lead time recomputed)",
-        "ko": "forecast ETA now? / (lead time recomputed)"
+        "ko": "지금 예보 ETA는? / (lead time 재계산)"
       }
     },
     {
@@ -56,11 +56,11 @@
       "shape": "card",
       "label": {
         "en": "inaction blast radius?",
-        "ko": "inaction blast radius?"
+        "ko": "무대응 시 영향 범위는?"
       },
       "description": {
         "en": "inaction blast radius?",
-        "ko": "inaction blast radius?"
+        "ko": "무대응 시 영향 범위는?"
       }
     },
     {
@@ -69,11 +69,11 @@
       "shape": "card",
       "label": {
         "en": "recompute urgency / = f(impact, ETA, rung age)",
-        "ko": "recompute urgency / = f(impact, ETA, rung age)"
+        "ko": "긴급도 재계산 / = f(impact, ETA, rung age)"
       },
       "description": {
         "en": "recompute urgency / = f(impact, ETA, rung age)",
-        "ko": "recompute urgency / = f(impact, ETA, rung age)"
+        "ko": "긴급도 재계산 / = f(impact, ETA, rung age)"
       }
     },
     {
@@ -82,11 +82,11 @@
       "shape": "card",
       "label": {
         "en": "which ladder rung / should hold this now?",
-        "ko": "which ladder rung / should hold this now?"
+        "ko": "지금 어느 ladder rung이 / 이를 보류해야 하는가?"
       },
       "description": {
         "en": "which ladder rung / should hold this now?",
-        "ko": "which ladder rung / should hold this now?"
+        "ko": "지금 어느 ladder rung이 / 이를 보류해야 하는가?"
       }
     },
     {
@@ -95,11 +95,11 @@
       "shape": "diamond",
       "label": {
         "en": "standing authorization / matches + envelope holds / + deadline passed?",
-        "ko": "standing authorization / matches + envelope holds / + deadline passed?"
+        "ko": "상시 권한 / 매치 + envelope 유지 / + 데드라인 경과?"
       },
       "description": {
         "en": "standing authorization / matches + envelope holds / + deadline passed?",
-        "ko": "standing authorization / matches + envelope holds / + deadline passed?"
+        "ko": "상시 권한 / 매치 + envelope 유지 / + 데드라인 경과?"
       }
     },
     {
@@ -108,7 +108,7 @@
       "shape": "card",
       "label": {
         "en": "escalate to next rung",
-        "ko": "escalate to next rung"
+        "ko": "다음 rung으로 에스컬레이션"
       },
       "description": {
         "en": "When: no, rung TTL left",
@@ -121,7 +121,7 @@
       "shape": "card",
       "label": {
         "en": "trip standing action / -> re-enter typed pipeline",
-        "ko": "trip standing action / -> re-enter typed pipeline"
+        "ko": "상시 조치 발동 / -> 타입 파이프라인 재진입"
       },
       "description": {
         "en": "When: yes",
@@ -134,7 +134,7 @@
       "shape": "card",
       "label": {
         "en": "terminal no-op / (ladder exhausted)",
-        "ko": "terminal no-op / (ladder exhausted)"
+        "ko": "종료성 no-op / (ladder 소진)"
       },
       "description": {
         "en": "When: no, ladder done",
@@ -147,11 +147,11 @@
       "shape": "card",
       "label": {
         "en": "audit (Saga)",
-        "ko": "audit (Saga)"
+        "ko": "감사(Saga)"
       },
       "description": {
         "en": "audit (Saga)",
-        "ko": "audit (Saga)"
+        "ko": "감사(Saga)"
       }
     }
   ],
@@ -198,7 +198,7 @@
       "kind": "dependency",
       "label": {
         "en": "next tick",
-        "ko": "next tick"
+        "ko": "다음 tick"
       }
     },
     {
