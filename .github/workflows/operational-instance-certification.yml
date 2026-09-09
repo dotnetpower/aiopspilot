@@ -124,6 +124,7 @@ jobs:
 
       - name: Bind exact attested runtime and certification jobs
         env:
+          GH_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
         run: |
