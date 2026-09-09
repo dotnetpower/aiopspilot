@@ -92,13 +92,25 @@ class MixedFamilyAssuranceReviewer:
             return _inconclusive("answer_model_cannot_self_evaluate"), ()
         if not await self._reserve(turn.turn_id, calls=2):
             return _inconclusive("model_budget_deferred"), ()
+        tasks = (
+            asyncio.create_task(self._first.evaluate(turn)),
+            asyncio.create_task(self._second.evaluate(turn)),
+        )
         try:
-            first, second = await asyncio.gather(
-                self._first.evaluate(turn),
-                self._second.evaluate(turn),
-            )
+            first, second = await asyncio.gather(*tasks)
         except Exception as exc:  # noqa: BLE001 - off-path review fails closed
-            return _inconclusive(f"evaluator_error:{type(exc).__name__}"), ()
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            completed = tuple(result for result in results if isinstance(result, EvaluatorOutput))
+            return (
+                _inconclusive(
+                    f"evaluator_error:{type(exc).__name__}",
+                    outputs=completed,
+                ),
+                completed,
+            )
         primary_outputs = (first, second)
         invalid = _validate_outputs(turn, (first, second))
         if invalid is not None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -237,6 +238,46 @@ async def test_diagnostic_verification_failure_preserves_evaluator_error_hold() 
         "evaluator_error:RuntimeError",
     )
     assert record.state is AssessmentState.DEFERRED
+
+
+async def test_evaluator_failure_cancels_and_awaits_sibling() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    sibling_started = asyncio.Event()
+    sibling_cancelled = asyncio.Event()
+
+    async def fail(
+        _turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
+        del debate
+        await sibling_started.wait()
+        raise RuntimeError("provider unavailable")
+
+    async def wait(
+        _turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
+        del debate
+        sibling_started.set()
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            sibling_cancelled.set()
+            raise
+        raise AssertionError("slow evaluator was not cancelled")
+
+    first.evaluate = fail  # type: ignore[method-assign]
+    second.evaluate = wait  # type: ignore[method-assign]
+    reviewer = MixedFamilyAssuranceReviewer(first=first, second=second)
+
+    decision, outputs = await reviewer.review_with_outputs(_turn())
+
+    assert decision.reasons == ("evaluator_error:RuntimeError",)
+    assert outputs == ()
+    assert sibling_cancelled.is_set()
 
 
 async def test_missing_mixed_family_reviewer_defers_diagnostic() -> None:
