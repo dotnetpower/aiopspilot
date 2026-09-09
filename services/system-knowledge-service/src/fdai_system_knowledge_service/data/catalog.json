@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:6252e78c519a65051ee3e52aa1b4aa1b95723e8f11a3a3494fe5d37e7b01afe8",
+  "catalog_digest": "sha256:2923b21edb8ce76de6bd12d43ca720e717664b795bdf5da9c16eba4ab5378251",
   "execution_authority": false,
-  "generated_at": "2026-09-09T14:56:37.868811Z",
+  "generated_at": "2026-09-09T17:51:41.814169Z",
   "records": [
     {
       "designed_behavior": [
@@ -413,7 +413,7 @@
         "How does FDAI route natural-language questions?",
         "FDAI는 자연어 질문을 어떻게 라우팅하나요?"
       ],
-      "record_digest": "sha256:047e59015f37f30ec8a37b250c1bfb5773784097bc176191cb6e200f5e7226a3",
+      "record_digest": "sha256:8e26c79b1e1a31622dd094a84ab2051c640a4dfc348889a14737d68824a880bd",
       "sources": [
         {
           "authority_role": "implementation",
@@ -426,7 +426,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "91684d6c9ff1fb96fe3c02c8809b66c7d1fc343c",
+          "blob_sha": "66e26ddec22343508cbc1f300d8670f73dd223ef",
           "line_end": 11,
           "line_start": 11,
           "path": "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
@@ -535,13 +535,13 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:360c26feeb3f53d253e48c0cd79d85a5d36d72f2d009b1b619d3fae24964367f",
+      "record_digest": "sha256:92e9502bfcc24ee2f4a13c69a88292f2bf41d36938700675f797a51a69d147f2",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "2cf49515077b830a3360c73a2888b642b5a8b53c",
-          "line_end": 76,
-          "line_start": 76,
+          "blob_sha": "99a85d5639532e55388927467e0dfcb220cd189b",
+          "line_end": 79,
+          "line_start": 79,
           "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -562,5 +562,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "1e4fb9d13f1e9ca6bfb58f049dd263076bae46aa"
+  "source_revision": "aa3fb5c0366b8128e212e43afb9febe846223af5"
 }

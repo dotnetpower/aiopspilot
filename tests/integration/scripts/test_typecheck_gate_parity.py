@@ -55,7 +55,7 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
         encoding="utf-8"
     )
 
-    assert ci.count("uses: ./.github/actions/setup-opa") == 4
+    assert ci.count("uses: ./.github/actions/setup-opa") == 5
     assert action.count("openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static") == 1
     assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 1
     assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 1

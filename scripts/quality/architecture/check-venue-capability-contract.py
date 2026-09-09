@@ -44,6 +44,7 @@ SCANNED_TREES: dict[Path, Path | None] = {
     ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service": None,
     ROOT / "services/document-processing-worker/src/fdai_document_worker_service": None,
     ROOT / "services/isolated-executor/src/fdai_executor_service": None,
+    ROOT / "services/system-knowledge-service/src/fdai_system_knowledge_service": None,
 }
 
 _ENV_READ = re.compile(r"FDAI_EXECUTION_VENUE")

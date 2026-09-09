@@ -301,6 +301,13 @@ def test_root_cannot_build_or_install_a_monolithic_distribution() -> None:
     assert not (REPO_ROOT / "src" / "fdai").exists()
 
 
+def test_root_pytest_path_imports_every_service_package() -> None:
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pythonpath = set(project["tool"]["pytest"]["ini_options"]["pythonpath"])
+
+    assert {f"services/{service_id}/src" for service_id in EXPECTED} <= pythonpath
+
+
 def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path) -> None:
     uv = shutil.which("uv")
     assert uv is not None

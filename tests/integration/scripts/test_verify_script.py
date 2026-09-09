@@ -228,6 +228,15 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     assert str(_ROOT / "packages" / "service-contracts" / "src") in entries[:-1]
 
 
+def test_sharded_coverage_defers_the_floor_to_the_aggregate_job() -> None:
+    runner = _PYTHON_TESTS.read_text(encoding="utf-8")
+    workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "coverage_args+=(--cov-report= --cov-fail-under=0)" in runner
+    assert "uv run coverage combine coverage-data" in workflow
+    assert "uv run coverage report --fail-under=90" in workflow
+
+
 def test_python_test_runner_isolates_database_env_by_phase(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
