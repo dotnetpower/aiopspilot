@@ -53,11 +53,14 @@ timeout 60s gh attestation verify \
   --repo "$GITHUB_REPOSITORY" >/dev/null
 
 login_server="$(terraform -chdir="$terraform_dir" output -raw container_registry_login_server)"
-registry_name="${login_server%%.*}"
-if [[ ! "$registry_name" =~ ^[a-z0-9]+$ ]]; then
+login_server="${login_server#https://}"
+login_server="${login_server%/}"
+login_server="${login_server,,}"
+if [[ ! "$login_server" =~ ^[a-z0-9]+[.]azurecr[.]io$ ]]; then
   echo "Terraform returned an invalid ACR login server." >&2
   exit 1
 fi
+registry_name="${login_server%%.*}"
 if [[ "${PROMOTE_RUNTIME_IMAGE:-false}" == "true" ]]; then
   registry_id="$(az acr show --name "$registry_name" --query id --output tsv)"
   SOURCE_REPOSITORY="$source_repository" SOURCE_DIGEST="$source_digest" \

@@ -970,6 +970,9 @@ def test_legacy_platform_imports_the_service_specific_core_image() -> None:
     assert '"https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}"' in (_IMAGE_BINDER)
     assert '"registryUri": "ghcr.io"' in _IMAGE_BINDER
     assert '"registryUri": "https://ghcr.io"' not in _IMAGE_BINDER
+    assert 'login_server="${login_server#https://}"' in _IMAGE_BINDER
+    assert 'login_server="${login_server%/}"' in _IMAGE_BINDER
+    assert "^[a-z0-9]+[.]azurecr[.]io$" in _IMAGE_BINDER
 
 
 def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> None:
