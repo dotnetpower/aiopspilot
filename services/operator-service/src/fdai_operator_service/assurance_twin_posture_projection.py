@@ -79,6 +79,7 @@ GAP_TRUNCATED = "evidence_truncated"
 
 POSTURE_SOURCE = "postgresql:state_kv:assurance-twin-posture"
 REVIEW_SOURCE = "postgresql:state_kv:assurance-twin-review"
+POSTURE_STATE_KEY_PREFIX = "runtime:assurance-twin-posture:"
 
 
 def assurance_twin_posture_projection(rows: Sequence[Mapping[str, Any]]) -> dict[str, object]:
@@ -89,7 +90,12 @@ def assurance_twin_posture_projection(rows: Sequence[Mapping[str, Any]]) -> dict
     twin itself marked stale.
     """
 
-    reports, gaps = _classify(rows, decode=_posture_report, identity_key="scope")
+    reports, gaps = _classify(
+        rows,
+        decode=_posture_report,
+        identity_key="scope",
+        durable_key_prefix=POSTURE_STATE_KEY_PREFIX,
+    )
     reports.sort(key=lambda item: str(item["generated_at"]), reverse=True)
     return {
         "surface": "assurance-twin-posture",
@@ -194,7 +200,7 @@ def _classify(
 
     usable: list[dict[str, object]] = []
     gaps: list[dict[str, object]] = []
-    digests_by_identity: dict[str, set[str]] = {}
+    identity_counts: dict[str, int] = {}
     if len(rows) > _MAX_ITEMS:
         gaps.append(_gap(None, None, GAP_TRUNCATED))
     for row in rows[:_MAX_ITEMS]:
@@ -226,12 +232,10 @@ def _classify(
             gaps.append(_gap(identity, freshness, GAP_NOT_FRESH, reason_codes))
             continue
         if identity is not None:
-            digests_by_identity.setdefault(identity, set()).add(str(record["evidence_digest"]))
+            identity_counts[identity] = identity_counts.get(identity, 0) + 1
         usable.append(record)
 
-    conflicting = {
-        identity for identity, digests in digests_by_identity.items() if len(digests) > 1
-    }
+    conflicting = {identity for identity, count in identity_counts.items() if count > 1}
     if conflicting:
         retained = [record for record in usable if str(record[identity_key]) not in conflicting]
         gaps.extend(_gap(identity, None, GAP_CONFLICT) for identity in sorted(conflicting))

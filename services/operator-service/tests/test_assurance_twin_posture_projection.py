@@ -18,6 +18,7 @@ from fdai_operator_service.assurance_twin_posture_projection import (
     GAP_MALFORMED,
     GAP_NOT_FRESH,
     GAP_TRUNCATED,
+    POSTURE_STATE_KEY_PREFIX,
     assurance_twin_posture_projection,
     assurance_twin_review_detail_projection,
     assurance_twin_review_list_projection,
@@ -31,6 +32,7 @@ _PROVENANCE_FIELDS = (
     "conflict",
 )
 _REVISION = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
+_REVIEW_STATE_KEY_PREFIX = "runtime:assurance-twin-review:"
 
 _POSTURE_BODY: dict[str, Any] = {
     "scope": "sub/00000000-0000-0000-0000-000000000001",
@@ -95,7 +97,11 @@ def _row(body: dict[str, Any], **provenance: Any) -> dict[str, Any]:
         "evidence_source_revision": _REVISION,
     }
     value.update(provenance)
-    return {"value": value}
+    if "scope" in body:
+        key = f"{POSTURE_STATE_KEY_PREFIX}{body['scope']}"
+    else:
+        key = f"{_REVIEW_STATE_KEY_PREFIX}{body['review_key']}"
+    return {"key": key, "value": value}
 
 
 def test_posture_projection_is_unavailable_when_no_rows_exist() -> None:
@@ -204,6 +210,33 @@ def test_posture_projection_withholds_conflicting_rows_for_one_identity() -> Non
     assert isinstance(gaps, list)
     assert gaps[0]["reason_code"] == GAP_CONFLICT
     assert gaps[0]["identity"] == _POSTURE_BODY["scope"]
+
+
+def test_posture_projection_rejects_a_mismatched_durable_key() -> None:
+    row = _row(_POSTURE_BODY)
+    row["key"] = f"{POSTURE_STATE_KEY_PREFIX}different-scope"
+
+    projection = assurance_twin_posture_projection((row,))
+
+    assert projection["available"] is False
+    assert projection["reports"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["identity"] is None
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_withholds_duplicate_rows_for_one_identity() -> None:
+    row = _row(_POSTURE_BODY)
+
+    projection = assurance_twin_posture_projection((row, row))
+
+    assert projection["available"] is False
+    assert projection["reports"] == []
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["identity"] == _POSTURE_BODY["scope"]
+    assert gaps[0]["reason_code"] == GAP_CONFLICT
 
 
 def test_posture_projection_rejects_a_missing_blocks_action_flag() -> None:

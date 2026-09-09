@@ -724,6 +724,59 @@ async def test_assurance_twin_review_list_rejects_a_mismatched_durable_key(
     assert gaps[0]["reason_code"] == GAP_MALFORMED
 
 
+async def test_assurance_twin_posture_rejects_a_mismatched_durable_key(
+    monkeypatch: Any,
+) -> None:
+    body = {
+        "scope": "claimed-scope",
+        "generated_at": "2026-07-07T00:00:00Z",
+        "mode": "shadow",
+        "verdict": "clear",
+        "blocks_action": False,
+        "resource_count": 1,
+        "rule_count": 1,
+        "highest_severity": None,
+        "severity_counts": {"low": 0, "medium": 0, "high": 0, "critical": 0},
+        "findings": [],
+        "freshness": "fresh",
+        "reason_codes": [],
+    }
+    material = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    value = {
+        **body,
+        "activity_id": "assurance-twin.posture-report:identity:completed",
+        "correlation_id": "correlation-1",
+        "evidence_digest": f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}",
+        "evidence_source_revision": f"sha256:{'1' * 64}",
+    }
+    statements: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        return [{"key": "runtime:assurance-twin-posture:durable-scope", "value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    result = await reader.read(_query("assurance_twin.posture"))
+
+    assert "SELECT key, value" in statements[0]
+    assert result["available"] is False
+    assert result["reports"] == []
+    gaps = result["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["identity"] is None
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
 async def test_assurance_twin_review_detail_requires_a_bounded_key() -> None:
     reader = RuntimeProjectionReader(
         RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),

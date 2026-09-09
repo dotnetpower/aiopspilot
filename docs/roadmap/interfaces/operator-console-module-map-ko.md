@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7ed898072b690c3ed976b4a8ca6a228b541985fb
+translation_source_sha: bb3331e5580832c9ae3969b7e76295c92734f2ae
 translation_revised: 2026-09-09
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -23,7 +23,7 @@ Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 �
 운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 모두 적용합니다.
 
 `assurance_twin.posture`, `assurance_twin.reviews`, `assurance_twin.review_detail` 연산은 `runtime_projection_reader.py`를 같은 방식으로 확장합니다: Assurance Twin 레코더가 이미 기록한 기존 `state_kv` 행만 읽고 저장된 판정, 심각도, 신선도를 기존 operations family manifest를 통해 다시 계산하지 않고 그대로 렌더링합니다. 또한 실패 시 닫힙니다. 기록된 증거 다이제스트가 검증되고, 영속 충돌 표식이 없으며, 신선도가 `fresh`인 행만 결과로 렌더링합니다. 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치, 충돌 표식이 있는 행은 명시적인 공백 항목이 되므로 빈 결과가 깨끗한 자산 상태로 읽히지 않습니다. 안전에 영향을 주는 플래그는 엄격하게 읽습니다. `blocks_action`이 없거나 boolean이 아니면 기본값이 아니라 형식 오류 근거로 처리합니다.
-검토 목록은 각 영속 `state_kv` 키도 선택하고 키 접미사가 본문의 불투명한 `review_key`와 바이트 단위로 일치하도록 요구합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하며 실제로 빈
+태세 및 검토 목록은 각 영속 `state_kv` 키도 선택하고 키 접미사가 본문의 불투명한 `scope` 또는 `review_key`와 바이트 단위로 일치하도록 요구합니다. 주장된 식별자가 중복되면 근거 다이제스트가 같아도 보류합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하며 실제로 빈
 원장과 근거 공백 때문에 보류된 행에 서로 다른 문구를 사용합니다. 좁은 화면에서는 불투명한 출처 정보 값이 기본 콘텐츠 너비 안에서 줄바꿈되고 테이블 넘침은 자체 스크롤 컨테이너 안에
 유지됩니다. 모바일의 목록 복귀 링크와 검토 상세 링크는 높이 44픽셀의 터치 대상을 제공합니다.
 `assurance_twin.review_detail`은 경로 조각이 아니라 `GET /assurance-twin/review?review_key=` 입니다. 검토 키는 `/`를 포함할 수 있는 불투명한 Twin 식별자이므로 정확한 질의 값으로 전달되고 바이트 단위로 비교하며, 다듬거나 정규화하거나 소문자로 바꾸지 않습니다. 콘솔도 `/assurance-twin?review=`로 같은 방식을 씁니다. 현재 이 행을 쓰는 구성 요소는 없습니다. Twin 발견 사항을 계산하는 신뢰된 생산자가 생길 때까지 레코더는 연결되지 않으므로 ([assurance-twin-ko.md](../operations/assurance-twin-ko.md#구현-상태) 참고) 패널은 명시적인 사용 불가 상태를 렌더링합니다.

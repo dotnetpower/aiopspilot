@@ -21,6 +21,7 @@ from fdai_operator_service.analyzer_lifecycle_projection import (
     project_analyzer_lifecycle,
 )
 from fdai_operator_service.assurance_twin_posture_projection import (
+    POSTURE_STATE_KEY_PREFIX,
     assurance_twin_posture_projection,
     assurance_twin_review_detail_projection,
     assurance_twin_review_list_projection,
@@ -43,7 +44,6 @@ from fdai_operator_service.process_transition_projection import (
 )
 
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
-_ASSURANCE_TWIN_POSTURE_PREFIX = "runtime:assurance-twin-posture:"
 _ASSURANCE_TWIN_REVIEW_PREFIX = "runtime:assurance-twin-review:"
 _ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS = 256
 
@@ -765,8 +765,8 @@ class RuntimeProjectionReader:
 
     async def _assurance_twin_posture(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
-            (f"{_ASSURANCE_TWIN_POSTURE_PREFIX}%",),
+            "SELECT key, value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
+            (f"{POSTURE_STATE_KEY_PREFIX}%",),
         )
         return assurance_twin_posture_projection(rows)
 
