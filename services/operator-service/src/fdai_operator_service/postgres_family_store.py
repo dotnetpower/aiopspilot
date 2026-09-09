@@ -66,6 +66,10 @@ from fdai_operator_service.process_transition_projection import (
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
 _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
+_FRAMEWORK_PROJECTION_OPERATIONS: Final = {
+    "azure-waf": "best-practice.list",
+    "azure-caf": "caf.list",
+}
 # The invalidation stream never exposes the durable inventory observation
 # journal itself; it only signals that the authoritative graph moved so the
 # caller re-fetches it. Coalescing every bounded page into this one event
@@ -602,6 +606,26 @@ class PostgresFamilyStore:
         """Persist one validated no-authority WARA Operator projection."""
 
         await self.write_state(_projection_key("workflow", "wara.list"), value)
+
+    async def read_framework_catalog(self, framework_id: str) -> dict[str, object]:
+        """Read one current WAF or CAF catalog-plus-assessment projection."""
+
+        operation = _FRAMEWORK_PROJECTION_OPERATIONS.get(framework_id)
+        if operation is None:
+            raise ValueError("unsupported framework assessment projection")
+        return await self.read_projection(family="workflow", operation=operation)
+
+    async def write_framework_projection(
+        self,
+        framework_id: str,
+        value: Mapping[str, object],
+    ) -> None:
+        """Persist one validated WAF or CAF no-authority projection."""
+
+        operation = _FRAMEWORK_PROJECTION_OPERATIONS.get(framework_id)
+        if operation is None:
+            raise ValueError("unsupported framework assessment projection")
+        await self.write_state(_projection_key("workflow", operation), value)
 
     async def list_background_tasks(
         self,

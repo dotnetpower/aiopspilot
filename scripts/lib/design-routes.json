@@ -2290,6 +2290,68 @@
       ]
     },
     {
+      "id": "framework-assessment",
+      "paths": [
+        "docs/roadmap/rules-and-detection/framework-assessment*.md",
+        "docs/roadmap-implementation/rules-and-detection/framework-assessment.md",
+        "scripts/deployment/local/materialize-authoritative-catalogs.py",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/families/workflow/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/workflow/manifest.py",
+        "services/operator-service/src/fdai_operator_service/family_adapters.py",
+        "services/operator-service/src/fdai_operator_service/postgres_family_store.py",
+        "services/operator-service/tests/test_operator_workflow_family.py",
+        "console/src/routes/best-practice-controls*",
+        "console/src/routes/controls-catalog.tsx",
+        "console/src/routes/i18n/governance.*.json"
+      ],
+      "optional_paths": [
+        "rule-catalog/framework-assessments/**",
+        ".github/workflows/framework-assessment-shadow.yml",
+        "scripts/catalog/build_framework_assessments.py",
+        "scripts/deployment/azure/export_wara_job_context.py",
+        "services/core-control-plane/src/fdai/core/framework_assessment/**",
+        "services/core-control-plane/src/fdai/shared/providers/framework_assessment.py",
+        "services/core-control-plane/src/fdai/delivery/azure/framework_assessment.py",
+        "services/core-control-plane/src/fdai/delivery/framework_assessment_cli.py",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/framework_assessment.py",
+        "services/core-control-plane/src/fdai/rule_catalog/pipeline/framework_review.py",
+        "packages/service-contracts/src/fdai_service_contracts/framework_assessment.py",
+        "services/core-control-plane/tests/core/framework_assessment/**",
+        "services/core-control-plane/tests/delivery/azure/test_framework_assessment.py",
+        "services/core-control-plane/tests/delivery/test_framework_assessment_cli.py",
+        "services/core-control-plane/tests/rule_catalog/test_framework_assessment_catalog.py",
+        "services/core-control-plane/tests/rule_catalog/pipeline/test_framework_review.py",
+        "services/operator-service/src/fdai_operator_service/framework_assessment_projection.py",
+        "services/operator-service/tests/test_framework_assessment_projection.py",
+        "tests/integration/scripts/test_framework_assessment_workflow.py",
+        "console/src/routes/caf-controls*"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/rules-and-detection/framework-assessment.md",
+        "docs/roadmap/rules-and-detection/wara-assessment.md",
+        "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/framework-assessment.md",
+        "docs/roadmap-implementation/rules-and-detection/framework-assessment.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/framework_assessment services/core-control-plane/tests/rule_catalog/test_framework_assessment_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_framework_review.py services/operator-service/tests/test_framework_assessment_projection.py services/operator-service/tests/test_operator_workflow_family.py",
+        "uv run ruff check services/core-control-plane/src/fdai/core/framework_assessment services/core-control-plane/src/fdai/shared/providers/framework_assessment.py services/core-control-plane/src/fdai/delivery/azure/framework_assessment.py services/core-control-plane/src/fdai/rule_catalog/schema/framework_assessment.py services/core-control-plane/src/fdai/rule_catalog/pipeline/framework_review.py services/operator-service/src/fdai_operator_service/framework_assessment_projection.py",
+        "npm --prefix console test -- --run src/routes/caf-controls.model.test.ts src/routes/best-practice-controls.model.test.ts",
+        "npm --prefix console run typecheck",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "wara-assessment",
       "paths": [
         "docs/roadmap/rules-and-detection/wara-assessment*.md",

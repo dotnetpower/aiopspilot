@@ -1,0 +1,1181 @@
+{
+  "catalog_digest": "sha256:88f12c04ef403a20d9184715b77fd2838bd10430a158b214fe23266e437d5873",
+  "controls": [
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "adopt",
+      "crosswalk": [
+        {
+          "relationship": "full",
+          "target_kind": "manual_evidence",
+          "target_ref": "adoption-delivery-procedure"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "OE:04"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "adoption-delivery-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:adoption-release-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "adoption-release-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "adoption-delivery-owner",
+          "process_phase": "execution",
+          "requirement_id": "artifact:adoption-delivery-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "adoption-delivery-execution"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "adoption-delivery-owner",
+          "process_phase": "procedure",
+          "requirement_id": "artifact:adoption-delivery-procedure",
+          "scope_contract": "exact-estate",
+          "source_ref": "adoption-delivery-procedure"
+        }
+      ],
+      "owner_slot": "adoption-delivery-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:2db5ca0936ce8780ad4ab481ab419dd5bef705e002feb2b4bb952a99f701203d",
+      "title": "Adopt"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "govern",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "azure_policy",
+          "target_ref": "compliance.security-center.microsoft-cloud-security-benchmark"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "mcsb",
+          "target_ref": "GS-1"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:governance-review-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "governance-review-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:governance-raci",
+          "scope_contract": "exact-estate",
+          "source_ref": "governance-raci"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:policy-lifecycle-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "policy-lifecycle-execution"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:policy-assignment-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "policy-assignment-observation"
+        }
+      ],
+      "owner_slot": "governance-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:a71a530273d8ced146c451b38f91b2c7d77795c4d935499aea370ef7e523eae6",
+      "title": "Govern"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 90,
+      "control_id": "landing-zone.billing-tenant",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "billing-accountability-approval"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "CO:01"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "cost-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:billing-accountability-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "billing-accountability-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "cost-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:billing-scope-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "billing-scope-observation"
+        }
+      ],
+      "owner_slot": "cost-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:02e640efec7c31f2de0c741c992d7ec51b7457f9727868f647637666cbaa2f43",
+      "title": "Landing zone: billing and tenant"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.governance",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "mcsb",
+          "target_ref": "GS-1"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "CO:04"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:governance-design-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "governance-design-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:cost-governance-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "cost-governance-observation"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "governance-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:policy-assignment-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "policy-assignment-observation"
+        }
+      ],
+      "owner_slot": "governance-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:41962467b7af405e2f296c850bd40e0d105cf6a2c03533514a385df4b9070ea1",
+      "title": "Landing zone: governance"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.identity-access",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "mcsb",
+          "target_ref": "IM-1"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "SE:05"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "identity-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:identity-governance-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "identity-governance-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "identity-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:privileged-access-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "privileged-access-observation"
+        }
+      ],
+      "owner_slot": "identity-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:59d0d375d604f32b1b4813cfc760c882c0edb670716b644defd2f3f940b7f9af",
+      "title": "Landing zone: identity and access"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.management",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "RE:09"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "RE:10"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:management-design-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "management-design-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:backup-dr-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "backup-dr-observation"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:logging-monitoring-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "logging-monitoring-observation"
+        }
+      ],
+      "owner_slot": "operations-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:cbe37e7e98069afa2eb2a9d6b569f2e427a6e303d2317751e190e2ea1a474e8e",
+      "title": "Landing zone: management"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.network-connectivity",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "mcsb",
+          "target_ref": "NS-1"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "SE:06"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "network-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:network-design-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "network-design-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "network-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:network-topology-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "network-topology-observation"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "network-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:private-connectivity-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "private-connectivity-observation"
+        }
+      ],
+      "owner_slot": "network-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:aba28952204c7155d85c97ee907531a7b4441dd89a2dffba107068702201ae55",
+      "title": "Landing zone: network topology and connectivity"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.platform-automation-devops",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "OE:05"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "SE:02"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:platform-automation-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "platform-automation-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:platform-pipeline-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "platform-pipeline-observation"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:supply-chain-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "supply-chain-observation"
+        }
+      ],
+      "owner_slot": "platform-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:fbb16bb644b2d60a5eac699c1e84ced2462e9d227a017a94a6969f79cf77d8db",
+      "title": "Landing zone: platform automation and DevOps"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.resource-organization",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "resource-organization-approval"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "observation",
+          "target_ref": "estate-hierarchy-observation"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:resource-organization-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "resource-organization-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:estate-hierarchy-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "estate-hierarchy-observation"
+        }
+      ],
+      "owner_slot": "platform-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:82ca928b5fa8790d52354fa7d7d3083ff2bd9d5f962bf9611c83cc0d7781d900",
+      "title": "Landing zone: resource organization"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "landing-zone.security",
+      "crosswalk": [
+        {
+          "relationship": "supporting_only",
+          "target_kind": "azure_policy",
+          "target_ref": "compliance.security-center.microsoft-cloud-security-benchmark"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "mcsb",
+          "target_ref": "PV-1"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:security-baseline-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "security-baseline-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:defender-posture-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "defender-posture-observation"
+        }
+      ],
+      "owner_slot": "security-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:c8a7efc73aa4caec4287cfe2c45586d0cbd99577787ec9d512fb3274b63032d5",
+      "title": "Landing zone: security"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "manage",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "observation",
+          "target_ref": "monitoring-coverage-observation"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "waf",
+          "target_ref": "OE:09"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:operations-review-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "operations-review-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:cloud-operations-model",
+          "scope_contract": "exact-estate",
+          "source_ref": "cloud-operations-model"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "drill",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "drill:incident-management-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "incident-management-execution"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "operations-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:monitoring-coverage-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "monitoring-coverage-observation"
+        }
+      ],
+      "owner_slot": "operations-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e6a2a2ef2ecdaff36cbed9c77a85f0d6faf16de0eae1e517b5480425a5c77206",
+      "title": "Manage"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 90,
+      "control_id": "plan",
+      "crosswalk": [
+        {
+          "relationship": "full",
+          "target_kind": "manual_evidence",
+          "target_ref": "organization-readiness-procedure"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "OE:01"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "adoption-plan-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:skills-readiness-review",
+          "scope_contract": "exact-estate",
+          "source_ref": "skills-readiness-review"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "adoption-plan-owner",
+          "process_phase": "execution",
+          "requirement_id": "artifact:adoption-backlog-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "adoption-backlog-execution"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "adoption-plan-owner",
+          "process_phase": "procedure",
+          "requirement_id": "artifact:organization-readiness-procedure",
+          "scope_contract": "exact-estate",
+          "source_ref": "organization-readiness-procedure"
+        }
+      ],
+      "owner_slot": "adoption-plan-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:8dabdadc8c697907d649339a6f7070866a55f0e1d9a289603a4ff6d2032e6bef",
+      "title": "Plan"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "ready",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "observation",
+          "target_ref": "estate-hierarchy-observation"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "RE:05"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:platform-readiness-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "platform-readiness-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:landing-zone-architecture",
+          "scope_contract": "exact-estate",
+          "source_ref": "landing-zone-architecture"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "platform-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:estate-hierarchy-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "estate-hierarchy-observation"
+        }
+      ],
+      "owner_slot": "platform-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:162cae63524233173a9bb27678f72ace81922f7fc2469fcf61d4a3261b0c8cbf",
+      "title": "Ready"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 30,
+      "control_id": "secure",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "mcsb",
+          "target_ref": "NS-1"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "SE:01"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:security-review-approval",
+          "scope_contract": "exact-estate",
+          "source_ref": "security-review-approval"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:security-operating-model",
+          "scope_contract": "exact-estate",
+          "source_ref": "security-operating-model"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "drill",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "drill:incident-readiness-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "incident-readiness-execution"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 2592000,
+          "generation_contract": "hierarchy",
+          "kind": "observation",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "observation:defender-posture-observation",
+          "scope_contract": "exact-estate",
+          "source_ref": "defender-posture-observation"
+        }
+      ],
+      "owner_slot": "security-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:34d3d6717a4e140d09708ea9d47c7aabd0dff4f92b724361e46646488bac5715",
+      "title": "Secure"
+    },
+    {
+      "area": "methodology",
+      "cadence_days": 90,
+      "control_id": "strategy",
+      "crosswalk": [
+        {
+          "relationship": "full",
+          "target_kind": "manual_evidence",
+          "target_ref": "cloud-strategy-procedure"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "waf",
+          "target_ref": "CO:01"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "approval",
+          "owner_slot": "strategy-owner",
+          "process_phase": "none",
+          "requirement_id": "approval:executive-sponsorship",
+          "scope_contract": "exact-estate",
+          "source_ref": "executive-sponsorship"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "strategy-owner",
+          "process_phase": "procedure",
+          "requirement_id": "artifact:cloud-strategy-procedure",
+          "scope_contract": "exact-estate",
+          "source_ref": "cloud-strategy-procedure"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "governed-framework-evidence",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 7776000,
+          "generation_contract": "hierarchy",
+          "kind": "artifact",
+          "owner_slot": "strategy-owner",
+          "process_phase": "execution",
+          "requirement_id": "artifact:measurable-outcome-execution",
+          "scope_contract": "exact-estate",
+          "source_ref": "measurable-outcome-execution"
+        }
+      ],
+      "owner_slot": "strategy-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:9134794b449e17815a9e1fb248fea4f536d5a3cb728f15ffcba7cfb5a13c112d",
+      "title": "Strategy"
+    }
+  ],
+  "expected_control_count": 15,
+  "framework_definition_digest": "sha256:bf3549fb13493184493c4c03fecc5172643e82cb6aa875f7d9e5139b0f330a13",
+  "framework_id": "azure-caf",
+  "framework_scope": "cloud-estate",
+  "framework_version": "2026-08-31",
+  "review_state": "reviewed",
+  "reviewer": "fdai-maintainers",
+  "schema_version": "1.0.0",
+  "source_revision_digest": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2"
+}
