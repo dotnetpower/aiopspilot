@@ -1693,6 +1693,76 @@ def test_relationship_target_drops_a_generic_link_type_metatype() -> None:
 
 
 @pytest.mark.parametrize(
+    "primary_intent",
+    ("query.ontology_declaration", "query.ontology_relationships"),
+)
+def test_schema_intent_recovers_one_exact_supplied_subject(
+    primary_intent: str,
+) -> None:
+    utterance = "Show the Finding ObjectType schema."
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "ObjectType",
+                        "canonical_value": "ObjectType",
+                        "source_start": 17,
+                        "source_end": 27,
+                    }
+                ],
+                requested_facets=[],
+                ambiguous=True,
+                alternatives=["schema_subject"],
+                unresolved_terms=["schema_subject"],
+                clarification="Which schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Finding"},
+            {"kind": "object_type", "name": "ObjectType"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert [target.canonical_value for target in result.proposal.targets] == ["Finding"]
+
+
+def test_schema_intent_does_not_choose_between_two_supplied_subjects() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_declaration",
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Compare the Finding and Incident schemas.",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Finding"},
+            {"kind": "object_type", "name": "Incident"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.targets == ()
+
+
+@pytest.mark.parametrize(
     ("confidence", "unresolved_terms", "alternatives", "expected_disposition"),
     (
         (0.5, ["resource_identity"], [], SemanticJudgmentDisposition.LOW_CONFIDENCE),

@@ -306,6 +306,70 @@ def normalize_schema_object_type_suffix(
     )
 
 
+def recover_unique_schema_subject(
+    proposal: SemanticJudgmentProposal,
+    *,
+    utterance: str,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    """Ground one missing schema subject from an exact supplied current-turn identity."""
+
+    if proposal.primary_intent not in {
+        "query.ontology_declaration",
+        "query.ontology_relationships",
+    }:
+        return proposal
+    metatypes = {"LinkType", "ObjectType"}
+    concrete_targets = {
+        target.canonical_value
+        for target in proposal.targets
+        if target.kind == "object_type"
+        and target.canonical_value is not None
+        and target.canonical_value not in metatypes
+    }
+    if concrete_targets:
+        return proposal
+    supplied = {
+        name
+        for capability in capabilities
+        if capability.get("kind") == "object_type"
+        if isinstance((name := capability.get("name")), str) and name not in metatypes
+    }
+    matches = tuple(
+        (name, start)
+        for name in supplied
+        if (start := _unique_bounded_occurrence(utterance, name)) is not None
+    )
+    if len(matches) != 1:
+        return proposal
+    name, source_start = matches[0]
+    retained = tuple(
+        target
+        for target in proposal.targets
+        if not (target.kind == "object_type" and target.canonical_value in metatypes)
+    )
+    target = SemanticTarget(
+        kind="object_type",
+        value=name,
+        canonical_value=name,
+        source_start=source_start,
+        source_end=source_start + len(name),
+    )
+    return proposal.model_copy(update={"targets": (*retained, target)})
+
+
+def _unique_bounded_occurrence(utterance: str, value: str) -> int | None:
+    source_start = utterance.find(value)
+    if source_start < 0 or utterance.find(value, source_start + 1) >= 0:
+        return None
+    source_end = source_start + len(value)
+    if source_start > 0 and utterance[source_start - 1].isalnum():
+        return None
+    if source_end < len(utterance) and utterance[source_end].isalnum():
+        return None
+    return source_start
+
+
 def normalize_target_shape(proposal: SemanticJudgmentProposal) -> SemanticJudgmentProposal:
     """Keep only target roles licensed by the proposed typed intent family."""
 
@@ -587,6 +651,7 @@ __all__ = [
     "normalize_overlapping_target_fragments",
     "normalize_required_identity_clarification",
     "normalize_schema_object_type_suffix",
+    "recover_unique_schema_subject",
     "normalize_target_shape",
     "normalize_unsupplied_time_canonical_values",
     "validate_action_target_ambiguity",

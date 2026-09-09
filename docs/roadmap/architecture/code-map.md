@@ -72,6 +72,8 @@ Single-subject relationship answers render incoming and outgoing sections separa
 self-referential LinkType appears in both directional views without creating an instance link.
 Schema target normalization removes only a generic trailing `ObjectType` phrase or an additional
 `LinkType`/`ObjectType` metatype when another supplied concrete ObjectType remains.
+After a schema intent is already typed, a missing subject may be grounded only when one
+non-metatype ObjectType capability occurs exactly once as a bounded current-turn identity.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

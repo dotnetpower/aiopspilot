@@ -256,6 +256,11 @@ class SemanticJudgmentBoundary:
                         allow_context_target_drop=not self._strict_intent_grounding,
                     )
                     proposal = grounding.normalize_schema_object_type_suffix(proposal)
+                    proposal = grounding.recover_unique_schema_subject(
+                        proposal,
+                        utterance=utterance,
+                        capabilities=bounded_capabilities,
+                    )
                     grounding.validate_forbidden_action_canonical_values(
                         proposal,
                         capabilities=bounded_capabilities,
@@ -683,12 +688,8 @@ def _normalize_schema_identity_ambiguity(
         if any(facet.startswith(name.casefold()) for facet in normalized_facets)
     }
     subjects = target_subjects or facet_subjects
-    declaration_complete = proposal.primary_intent == "query.ontology_declaration" and any(
-        "declaration" in facet for facet in normalized_facets
-    )
-    relationship_complete = proposal.primary_intent == "query.ontology_relationships" and any(
-        "relationship" in facet for facet in normalized_facets
-    )
+    declaration_complete = proposal.primary_intent == "query.ontology_declaration"
+    relationship_complete = proposal.primary_intent == "query.ontology_relationships"
     if len(subjects) != 1 or not (declaration_complete or relationship_complete):
         return proposal
     return proposal.model_copy(
