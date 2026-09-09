@@ -23,7 +23,7 @@ canonical owner documents. Section references below point to
 | Cross-agent workflow catalog and rollout | in-progress | [Agent Workflows implementation status](agent-workflows.md#implementation-status), [shadow rollout implementation status](agent-workflow-rollout.md#implementation-status) | The 13-workflow registry and shadow traces are implemented. Catalog projection, retained runtime traces, measured gates, and independent promotions remain incomplete. |
 | Bounded task workers | in-progress | [Bounded Task Workers implementation status](bounded-task-workers.md#implementation-status) | The worker core and durable store are implemented. Production composition, store-backed projections, console presentation, and governed runtime evidence remain incomplete. |
 | Conversational deliberation | in-progress | [Pantheon Conversational Deliberation implementation status](conversational-deliberation.md#implementation-status) | T1 deliberation and the guarded T2 seam are implemented. No concrete upstream T2 synthesizer, operator route, or governed runtime receipt is evidenced. |
-| Live KPI validation and enforce promotion | not-started | [Agent Pantheon implementation status](agent-pantheon.md#implementation-status) | No retained live-shadow cohort or authoritative pantheon promotion receipt is evidenced by this document set. |
+| Live KPI validation and enforce promotion | in-progress | [Agent Pantheon implementation status](agent-pantheon-implementation.md#implementation-status) | Measurement and observation consumers exist, but no retained live-shadow cohort, operational promotion receipt, or actual pantheon enforce promotion is evidenced by this document set. |
 
 ### Implementation history
 
@@ -63,9 +63,9 @@ Heimdall subscribes to `object.security-event` and classifies:
 | Severity | Trigger | Response |
 |----------|---------|----------|
 | low | Single attempt on a low-impact action | Audit only |
-| medium | Three or more attempts by the same user within five minutes, or one medium-impact attempt | Daily digest to the admin group |
-| high | One critical or irreversible attempt, or five or more attempts in five minutes | Immediate ChatOps card to the admin group |
-| critical | Multi-action pattern, unusual hours, or deliberate escalation pattern | Immediate notification plus a separate on-call security channel |
+| medium | Three or more attempts by the same user on the same action, tracked within the most recent 100 security events (a count-bounded buffer, not a fixed time span) | Daily digest to the admin group |
+| high | One attempt flagged `critical` by the upstream severity hint, or any irreversible-action attempt, or five or more attempts by the same user on the same action within the same tracked window | Immediate ChatOps card to the admin group |
+| critical | Three or more distinct actions attempted by the same user within the tracked window | Immediate notification plus a separate on-call security channel |
 
 Severity is deterministic through the table and counters, not model-scored.
 
@@ -74,15 +74,17 @@ Severity is deterministic through the table and counters, not model-scored.
 Heimdall classifies `object.security-event` and invokes the bounded admin notification adapter for
 medium-or-higher alerts. This informational delivery is not a `governance.*` ActionType and does not
 enter Thor's mutation path. Saga already audits the authoritative `SecurityEvent`; the adapter posts
-to the configured ChatOps admin channel with a distinct template, fingerprint deduplication, and
-rate limits.
+to the configured ChatOps admin channel with a distinct template, per-initiator-and-action
+deduplication, and rate limits.
 
 ### Alert deduplication and rate limits
 
-Same-user, same-action alerts within a one-hour window collapse into one card with an incremented
-counter. The per-user limit is five cards per hour; excess alerts collapse into a digest to prevent
-alert storms. The fingerprint scheme reuses the handoff deduplication pattern in Agent Pantheon
-section 6.4.
+Same-user, same-action alerts collapse into one card with an incremented counter; the dedup key is
+a plain `(initiator_principal, attempted_action)` pair, not a hash, and the counter itself has no
+independent time-based reset - it grows until the least-recently-used key is evicted. The one-hour
+window governs only the send-rate: the per-user limit is five cards per hour on a rolling window,
+and excess alerts collapse into a digest to prevent alert storms. This differs from the sha1
+`problem_fingerprint` scheme used for handoff-escalation issues in Agent Pantheon section 6.4.
 
 ### Legitimate escalation
 
@@ -127,7 +129,8 @@ extends the pantheon under the same rules everyone else follows.
   invoke a model synchronously. Their patterns compile to deterministic rules at T0 or lightweight
   similarity at T1.
 - **Alerts without deduplication.** Every notification path, including issues, security cards, and
-  HIL tickets, must use the fingerprint scheme.
+  HIL tickets, must use a deduplication key so repeats collapse into one thread instead of paging
+  repeatedly.
 - **Fork adds an agent.** The pantheon is fixed upstream. Adding an agent is an upstream change, not
   a fork change.
 - **Action without a rollback contract.** Every ActionType ships with a live `rollback_contract`;
@@ -185,7 +188,7 @@ owners remain unchanged.
 ### Metering
 
 Every metered T1, T2, and narrator call records provider-measured `usage` through `MeteringSink`.
-The narrator uses `operator_chat`; other calls use `control_plane`. The Operator API `LlmCostPanel`
+The narrator uses `operator_chat`; other calls use `control_plane`. The Operator API's `LlmCostRoute`
 keeps `GET /kpi/llm-cost` as a compatibility path and exposes token-only rollups by scope, model,
 call, conversation, day, and month. The single-process development harness shares one in-memory
 sink; production uses the durable Postgres `llm_invocation` store across the headless core and
