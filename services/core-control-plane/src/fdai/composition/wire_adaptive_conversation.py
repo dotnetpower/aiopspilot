@@ -146,9 +146,8 @@ def build_adaptive_conversation_service(
         prompts: dict[str, str] = {}
         for stage in ADAPTIVE_STAGES:
             capability = f"conversation.adaptive.{stage}"
-            base = registry.get_base(capability)
-            packs = registry.get_packs(capability)
-            layers = (base, *packs)
+            selection = registry.resolve(capability)
+            layers = (selection.root, *selection.packs)
             if tuple((layer.id, layer.layer) for layer in layers) != (
                 ("adaptive-common", PromptLayer.BASE),
                 (f"adaptive-{stage}", PromptLayer.PACK),

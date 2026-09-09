@@ -14,25 +14,31 @@ for the full design.
 | `schema/prompt.schema.json` | JSON Schema every prompt YAML validates against |
 | `base/` | Short, immutable role skeletons (e.g. `t2-cross-check.v1.yaml`) |
 | `packs/` | Capability-scoped skill packs (Wave 2+) |
+| `profiles/` | Exact active and shadow compositions with request budgets |
+| `history/` | Inactive artifacts retained for source review but excluded from runtime loading |
 | `roles/` | Critic / judge headers (Wave 3-4) |
 | `tools/` | Tool descriptions surfaced to the model (Wave 2.5+) |
 
 ## Contract
 
 - File name: `<id>.v<version>.yaml`. `id` and `version` in the front-matter MUST
-  match the file name.- Every artifact carries `provenance.source` so a reader can see where the text
+  match the file name.
+- Every artifact carries `provenance.source` so a reader can see where the text
   came from (mirrors the rule-catalog provenance rule in
   [architecture.instructions.md](../../.github/instructions/architecture.instructions.md)).
-- New prompts default to `default_mode: shadow`. Promotion to `enforce` is a
-  separately reviewed change and MUST cite the measured `promotion_gate` result.
+- New prompts default to `default_mode: shadow`. Artifact mode never activates a root prompt.
+  `profiles/catalog.yaml` selects one exact active profile per capability, and an explicit profile id
+  selects a shadow treatment.
 - All bodies use ASCII punctuation only. The repo-wide
   [`scripts/quality/repository/check-punctuation.sh`](../../scripts/quality/repository/check-punctuation.sh) enforces this.
 
 ## Loading
 
-`core/prompts/registry.py` walks this tree at startup and exposes a
-`PromptRegistry` Protocol. The composition root passes resolved bodies into the
-Azure OpenAI adapters; `core/` never opens these files directly.
+`core/prompts/registry.py` walks the hot artifact tree and validates
+`profiles/catalog.yaml` at startup. Historical artifacts are not loaded. The registry exposes a
+`PromptRegistry` Protocol whose `resolve()` method returns one exact root-and-pack composition.
+The composition root passes digest-bound bodies and budgets into the Azure OpenAI adapters;
+`core/` never opens these files directly.
 
 `semantic.judgment`, `semantic.query.frame`, and `semantic.query.plan` are
 prompt-only lookup keys. Semantic judgment reuses resolved T1 and optional T2

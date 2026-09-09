@@ -23,6 +23,8 @@ from typing import Protocol
 import yaml
 from jsonschema import Draft202012Validator
 
+from fdai.core.prompts.profile_loader import load_prompt_profiles
+from fdai.core.prompts.profiles import PromptProfile, PromptProfileMode, PromptSelection
 from fdai.core.prompts.types import PromptArtifact, PromptLayer, PromptMode
 
 _SCHEMA_FILE = "prompt.schema.json"
@@ -32,7 +34,7 @@ _SCHEMA_DIRNAME = "schema"
 # different schema (their own registries handle them). Listing them here
 # keeps the prompt registry's rglob from picking up peer artifacts as
 # malformed prompts.
-_PEER_SUBSYSTEM_DIRNAMES = frozenset({"tools", "scenarios"})
+_PEER_SUBSYSTEM_DIRNAMES = frozenset({"history", "profiles", "tools", "scenarios"})
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +97,17 @@ class PromptRegistry(Protocol):
 
     def artifacts(self) -> tuple[PromptArtifact, ...]:
         """Every artifact discovered in the tree, sorted by (id, version)."""
+
+    def resolve(
+        self,
+        capability_id: str,
+        *,
+        profile_id: str | None = None,
+    ) -> PromptSelection:
+        """Resolve one exact profile or the legacy highest-version composition."""
+
+    def profiles(self) -> tuple[PromptProfile, ...]:
+        """Return every exact prompt profile sorted by id and version."""
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +176,23 @@ class FileSystemPromptRegistry(PromptRegistry):
         # Sorting keeps ``artifacts()`` deterministic across platforms.
         loaded.sort(key=lambda a: (a.id, a.version))
         self._artifacts: tuple[PromptArtifact, ...] = tuple(loaded)
+        profiles, profile_issues = load_prompt_profiles(prompts_dir, self._artifacts)
+        if profile_issues:
+            raise PromptRegistryError(
+                [
+                    PromptRegistryIssue(path=issue.path, message=issue.message)
+                    for issue in profile_issues
+                ]
+            )
+        self._profiles: tuple[PromptProfile, ...] = tuple(
+            sorted(profiles, key=lambda profile: (profile.id, profile.version))
+        )
+        self._profiles_by_id = {profile.id: profile for profile in self._profiles}
+        self._active_profiles = {
+            profile.capability_id: profile
+            for profile in self._profiles
+            if profile.mode is PromptProfileMode.ACTIVE
+        }
 
     # -- PromptRegistry protocol ------------------------------------------------
 
@@ -197,6 +227,39 @@ class FileSystemPromptRegistry(PromptRegistry):
 
     def artifacts(self) -> tuple[PromptArtifact, ...]:
         return self._artifacts
+
+    def resolve(
+        self,
+        capability_id: str,
+        *,
+        profile_id: str | None = None,
+    ) -> PromptSelection:
+        profile = (
+            self._profiles_by_id.get(profile_id)
+            if profile_id is not None
+            else self._active_profiles.get(capability_id)
+        )
+        if profile_id is not None and profile is None:
+            raise LookupError(f"unknown prompt profile {profile_id!r}")
+        if profile is None:
+            return PromptSelection(
+                root=self.get_base(capability_id),
+                packs=self.get_packs(capability_id),
+            )
+        if profile.capability_id != capability_id:
+            raise LookupError(
+                f"prompt profile {profile.id!r} does not bind capability {capability_id!r}"
+            )
+        artifact_index = {
+            (artifact.id, artifact.version, artifact.layer): artifact
+            for artifact in self._artifacts
+        }
+        root = artifact_index[(profile.root.id, profile.root.version, profile.root.layer)]
+        packs = tuple(artifact_index[(ref.id, ref.version, ref.layer)] for ref in profile.packs)
+        return PromptSelection(root=root, packs=packs, profile=profile)
+
+    def profiles(self) -> tuple[PromptProfile, ...]:
+        return self._profiles
 
 
 # ---------------------------------------------------------------------------

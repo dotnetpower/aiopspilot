@@ -1,0 +1,11 @@
+id: semantic-frame-structure
+version: 1
+capability_id: semantic.query.frame
+expected:
+  required_fields:
+    - {name: operation, expected_type: string}
+    - {name: subject_constraints, expected_type: array, non_empty: false}
+    - {name: output_shape, expected_type: string}
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Structural recognition scenario for active and compact frame profiles.

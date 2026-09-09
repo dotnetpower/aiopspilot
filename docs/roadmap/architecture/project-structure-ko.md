@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a7a76488cf8d68b582aa6ab6f09f8e26451a58e2
+translation_source_sha: e9adc36b1b5f8fbd57c933695baf72f445b540e1
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -114,8 +114,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   및 시간 상관관계가 있을 때 신원 명확화를 제거하고, 하위 유형만 있는 exact-target 작업에는 범위가
   제한된 명확화 하나를 만듭니다. shadow 스키마는 제공된 의도와 정규 신원을 요구하고 유일한 exact
   범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
-  `1.1.0`으로 고정합니다. 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을
-  추가하지 않습니다.
+  `1.1.0`으로 고정하며 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지
+  않습니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver

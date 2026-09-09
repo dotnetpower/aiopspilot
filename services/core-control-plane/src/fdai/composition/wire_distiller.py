@@ -132,7 +132,18 @@ async def bind_azure_ontology_distiller_from_catalog(
                 "configured ontology council requires its catalog prompt"
             ) from None
         replay_manifests = tuple(prompt.replay_manifest() for prompt in prompts)
-        if len({prompt.system_text for prompt in prompts}) != 1 or len(set(replay_manifests)) != 1:
+        replay_shapes = {
+            (
+                manifest.system_text_sha256,
+                manifest.layer_manifest,
+                manifest.token_estimate,
+                manifest.system_token_budget,
+                manifest.request_token_budget,
+                manifest.reserved_output_tokens,
+            )
+            for manifest in replay_manifests
+        }
+        if len({prompt.system_text for prompt in prompts}) != 1 or len(replay_shapes) != 1:
             raise LlmBindingsUnavailableError(
                 "ontology council roles require identical prompt text and replay layers"
             )

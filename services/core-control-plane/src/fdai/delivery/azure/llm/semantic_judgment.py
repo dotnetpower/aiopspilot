@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from collections.abc import Mapping
@@ -28,6 +29,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -55,8 +57,13 @@ class AzureOpenAISemanticJudgmentModelConfig:
 
     candidates: tuple[ModelRequestTarget, ...]
     system_prompt: str
+    system_prompt_manifest: PromptReplayManifest | None = None
     preflight_system_prompt: str | None = None
+    preflight_prompt_manifest: PromptReplayManifest | None = None
     social_narrator_system_prompts: Mapping[str, str] = field(default_factory=dict)
+    social_narrator_prompt_manifests: Mapping[str, PromptReplayManifest] = field(
+        default_factory=dict
+    )
     timeout_seconds: float = 30.0
     social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
@@ -83,6 +90,18 @@ class AzureOpenAISemanticJudgmentModelConfig:
             for prompt in self.social_narrator_system_prompts.values()
         ):
             raise ValueError("social narrator system prompt MUST be non-empty and bounded")
+        _validate_prompt_manifest(self.system_prompt, self.system_prompt_manifest)
+        _validate_prompt_manifest(
+            self.preflight_system_prompt,
+            self.preflight_prompt_manifest,
+        )
+        if set(self.social_narrator_prompt_manifests) - set(self.social_narrator_system_prompts):
+            raise ValueError("social narrator prompt manifests require matching prompts")
+        for social_act, manifest in self.social_narrator_prompt_manifests.items():
+            _validate_prompt_manifest(
+                self.social_narrator_system_prompts[social_act],
+                manifest,
+            )
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("semantic judgment timeout_seconds MUST be in (0, 120]")
         if not 0 < self.social_narrator_timeout_seconds <= 30:
@@ -169,6 +188,7 @@ class AzureOpenAISemanticJudgmentModel:
                     intent_hardening_enabled=self._config.intent_hardening_enabled
                 ),
                 system_prompt=self._config.system_prompt,
+                prompt_manifest=self._config.system_prompt_manifest,
                 call_kind="semantic-judgment",
                 max_tokens=self._config.max_tokens,
                 temperature=0.0,
@@ -228,6 +248,7 @@ class AzureOpenAISemanticJudgmentModel:
                 input_digest=input_digest,
                 proposal_schema=ConversationPreflightProposal.model_json_schema(),
                 system_prompt=self._config.preflight_system_prompt,
+                prompt_manifest=self._config.preflight_prompt_manifest,
                 call_kind="conversation-preflight",
                 max_tokens=min(self._config.max_tokens, _MAX_PREFLIGHT_TOKENS),
                 temperature=0.0,
@@ -291,6 +312,7 @@ class AzureOpenAISemanticJudgmentModel:
                 input_digest=input_digest,
                 proposal_schema=SemanticDirectResponseDraft.model_json_schema(),
                 system_prompt=system_prompt,
+                prompt_manifest=self._config.social_narrator_prompt_manifests.get(social_act),
                 call_kind="conversation-social-narrator",
                 max_tokens=256,
                 temperature=0.3,
@@ -319,6 +341,7 @@ class AzureOpenAISemanticJudgmentModel:
         max_tokens: int,
         temperature: float,
         timeout_seconds: float,
+        prompt_manifest: PromptReplayManifest | None = None,
         allow_candidate_failover: bool = True,
         cancelled: asyncio.Event | None = None,
     ) -> SemanticJudgmentModelResponse | None:
@@ -328,6 +351,7 @@ class AzureOpenAISemanticJudgmentModel:
                 input_digest=input_digest,
                 proposal_schema=proposal_schema,
                 system_prompt=system_prompt,
+                prompt_manifest=prompt_manifest,
                 call_kind=call_kind,
                 max_tokens=max_tokens,
                 temperature=temperature,
@@ -371,6 +395,7 @@ class AzureOpenAISemanticJudgmentModel:
         input_digest: str,
         proposal_schema: Mapping[str, Any],
         system_prompt: str,
+        prompt_manifest: PromptReplayManifest | None,
         call_kind: str,
         max_tokens: int,
         temperature: float,
@@ -378,6 +403,34 @@ class AzureOpenAISemanticJudgmentModel:
         allow_candidate_failover: bool,
     ) -> SemanticJudgmentModelResponse | None:
         response_format = _strict_response_format(proposal_schema, name=call_kind)
+        request_token_estimate = (
+            len(system_prompt)
+            + len(user_content)
+            + len(
+                json.dumps(
+                    response_format,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+            )
+            + 3
+        ) // 4 + max_tokens
+        if (
+            prompt_manifest is not None
+            and prompt_manifest.request_token_budget is not None
+            and request_token_estimate > prompt_manifest.request_token_budget
+        ):
+            _LOGGER.warning(
+                "semantic_judgment_request_token_budget_exceeded",
+                extra={
+                    "call_kind": call_kind,
+                    "profile_id": prompt_manifest.profile_id,
+                    "request_token_estimate": request_token_estimate,
+                    "request_token_budget": prompt_manifest.request_token_budget,
+                },
+            )
+            return None
         candidates = (
             self._config.candidates if allow_candidate_failover else self._config.candidates[:1]
         )
@@ -438,6 +491,7 @@ class AzureOpenAISemanticJudgmentModel:
                         model=target.deployment,
                         usage=bounded_usage(usage),
                         trace_call=trace_call,
+                        prompt_replay_manifest=prompt_manifest,
                     )
                     if reservation is not None:
                         reservation.record(observation)
@@ -511,6 +565,16 @@ def _strict_response_format(
             "schema": _strict_schema_node(proposal_schema),
         },
     }
+
+
+def _validate_prompt_manifest(
+    prompt: str | None,
+    manifest: PromptReplayManifest | None,
+) -> None:
+    if manifest is None:
+        return
+    if prompt is None or manifest.system_text_sha256 != hashlib.sha256(prompt.encode()).hexdigest():
+        raise ValueError("semantic judgment prompt manifest does not match its system prompt")
 
 
 def _semantic_judgment_proposal_schema(

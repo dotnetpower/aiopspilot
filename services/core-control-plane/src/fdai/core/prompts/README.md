@@ -11,6 +11,9 @@ consumes injected `ComposedPrompt` values produced by the composer.
 | File | Role |
 |------|------|
 | `types.py` | `PromptArtifact`, `PromptLayer`, `PromptMode`, `LayerRef`, `ComposedPrompt` |
+| `profiles.py` | Exact profile, artifact reference, budget, and static composition contracts |
+| `profile_loader.py` | Profile schema loading and exact artifact-reference validation |
+| `profile_evaluation.py` | Content-free active-versus-shadow size and identity comparison |
 | `registry.py` | `PromptRegistry` Protocol + `FileSystemPromptRegistry` |
 | `composer.py` | `PromptComposer` Protocol + `DefaultPromptComposer` (Base + Task Pack + Tool Manifest + Operator Memory) |
 | `testing.py` | `StaticPromptComposer` fake for tests |
@@ -29,19 +32,21 @@ both optionally so prompt-only tests do not need any registry beyond
   entries, matching the pattern in `fdai.rule_catalog.schema.llm_registry`.
 - **Fail-fast**: constructor validates every artifact before returning. A missing
   catalog root, a missing schema file, and any per-file issue all abort startup.
-- **Determinism**: `artifacts()` is sorted by (id, version); `get_base` picks the
-  highest version and tie-breaks on id; `get_packs` groups packs by id and keeps
-  the highest version so a legacy pack next to a bumped one never double-injects.
+- **Determinism**: `resolve()` uses the exact root and ordered pack references in the selected
+  profile. Discovery helpers retain highest-version lookup only for profile-free compatibility
+  catalogs and tests.
+- **Budgets**: every exact profile pins system, complete request, and reserved output token
+  budgets. Static composition rejects a system overrun, and Azure semantic adapters reject a
+  complete request overrun before provider I/O.
 - **Composer async**: `PromptComposer.compose` is async so later waves can read
   operator memory from Postgres without a Protocol change. The Wave 2 default
   implementation is CPU-only and completes immediately.
 - **Recognition primitives**: `ComposedPrompt.layer_manifest` records
   `(id, version, layer, token_estimate)` per contribution so the audit log can
   reconstruct exactly which fragments produced any given decision.
-- **Shadow-vs-enforce**: `DefaultPromptComposer(include_shadow_packs=False)` is
-  the production default. Packs authored as `default_mode: shadow` live in git
-  and are visible to recognition probes but never affect the live prompt until
-  promoted to `enforce` in a separately reviewed change.
+- **Active-vs-shadow profiles**: the default composition resolves one exact active profile. A
+  shadow treatment requires its explicit profile id, so a higher artifact version or unrelated
+  shadow pack cannot change production composition.
 - **Tool manifest (Wave 2.5-B)**: passing a `ToolRegistry` to the composer
   emits a synthetic `tool` layer that lists eligible tool descriptions. Shadow
   tools follow the same opt-in filter (`include_shadow_tools=True`) as

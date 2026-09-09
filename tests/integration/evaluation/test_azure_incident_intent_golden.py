@@ -145,10 +145,10 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
     default_prompt = await DefaultPromptComposer(registry=prompts).compose(
         capability_id="semantic.judgment"
     )
-    shadow_prompt = await DefaultPromptComposer(
-        registry=prompts,
-        enabled_shadow_pack_ids=frozenset({"semantic-judgment"}),
-    ).compose(capability_id="semantic.judgment")
+    shadow_prompt = await DefaultPromptComposer(registry=prompts).compose(
+        capability_id="semantic.judgment",
+        profile_id="shadow.semantic-judgment-v14",
+    )
 
     assert "forbidden_actions" not in default_prompt.system_text
     assert "forbidden_actions" in shadow_prompt.system_text

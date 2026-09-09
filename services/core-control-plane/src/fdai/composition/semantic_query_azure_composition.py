@@ -29,7 +29,10 @@ from fdai.core.ontology_platform.service_health_queries import ServiceHealthRead
 from fdai.core.ontology_platform.state_transitions import StateTransitionStore
 from fdai.core.ontology_platform.subscription_scope_queries import SubscriptionScopeReader
 from fdai.core.ontology_platform.vm_process_evidence import VmProcessCpuReader
-from fdai.core.prompts.registry import FileSystemPromptRegistry
+from fdai.core.prompts import (
+    FileSystemPromptRegistry,
+    compose_static_selection,
+)
 from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
     AzureOpenAISemanticPlanningModelConfig,
@@ -62,6 +65,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 _FRAME_CAPABILITY = "semantic.query.frame"
 _OPERATIONAL_FRAME_CAPABILITY = "semantic.query.frame.operational"
+_RECOVERY_FRAME_CAPABILITY = "semantic.query.frame.recovery"
 _PLAN_CAPABILITY = "semantic.query.plan"
 
 
@@ -147,17 +151,27 @@ def compose_azure_semantic_query_runtime(
             )
             return _advisory_or_unavailable(adaptive_service, reason, audiences)
         prompts = FileSystemPromptRegistry(catalog_root)
-        frame_system_prompt = prompts.get_base(_FRAME_CAPABILITY).body
-        operational_frame_system_prompt = prompts.get_base(_OPERATIONAL_FRAME_CAPABILITY).body
-        plan_system_prompt = prompts.get_base(_PLAN_CAPABILITY).body
+        frame_prompt = compose_static_selection(prompts.resolve(_FRAME_CAPABILITY))
+        operational_frame_prompt = compose_static_selection(
+            prompts.resolve(_OPERATIONAL_FRAME_CAPABILITY)
+        )
+        recovery_frame_prompt = compose_static_selection(
+            prompts.resolve(_RECOVERY_FRAME_CAPABILITY)
+        )
+        plan_prompt = compose_static_selection(prompts.resolve(_PLAN_CAPABILITY))
         t1_model = AzureOpenAISemanticPlanningModel(
             identity=identity,
             http_client=http_client,
             config=AzureOpenAISemanticPlanningModelConfig(
                 candidates=t1_candidates,
-                frame_system_prompt=frame_system_prompt,
-                plan_system_prompt=plan_system_prompt,
-                operational_frame_system_prompt=operational_frame_system_prompt,
+                frame_system_prompt=frame_prompt.system_text,
+                plan_system_prompt=plan_prompt.system_text,
+                operational_frame_system_prompt=operational_frame_prompt.system_text,
+                recovery_frame_system_prompt=recovery_frame_prompt.system_text,
+                frame_prompt_manifest=frame_prompt.replay_manifest(),
+                plan_prompt_manifest=plan_prompt.replay_manifest(),
+                operational_frame_prompt_manifest=operational_frame_prompt.replay_manifest(),
+                recovery_frame_prompt_manifest=recovery_frame_prompt.replay_manifest(),
             ),
             owner_loop=owner_loop,
         )
@@ -167,9 +181,14 @@ def compose_azure_semantic_query_runtime(
                 http_client=http_client,
                 config=AzureOpenAISemanticPlanningModelConfig(
                     candidates=t2_candidates,
-                    frame_system_prompt=frame_system_prompt,
-                    plan_system_prompt=plan_system_prompt,
-                    operational_frame_system_prompt=operational_frame_system_prompt,
+                    frame_system_prompt=frame_prompt.system_text,
+                    plan_system_prompt=plan_prompt.system_text,
+                    operational_frame_system_prompt=operational_frame_prompt.system_text,
+                    recovery_frame_system_prompt=recovery_frame_prompt.system_text,
+                    frame_prompt_manifest=frame_prompt.replay_manifest(),
+                    plan_prompt_manifest=plan_prompt.replay_manifest(),
+                    operational_frame_prompt_manifest=operational_frame_prompt.replay_manifest(),
+                    recovery_frame_prompt_manifest=recovery_frame_prompt.replay_manifest(),
                 ),
                 owner_loop=owner_loop,
             )

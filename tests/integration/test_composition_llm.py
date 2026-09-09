@@ -18,6 +18,7 @@ from fdai.composition import (
     default_container,
     install_capability_bundle,
 )
+from fdai.core.prompts import PromptRegistryError
 from fdai.core.tiers.t2_reasoning import BoundedFailoverT2Proposer
 from fdai.delivery.azure.llm.embeddings import AzureOpenAIEmbeddingModel
 from fdai.shared.config import AppConfig
@@ -1208,12 +1209,11 @@ async def test_wire_azure_container_binds_complete_ontology_council(tmp_path: Pa
     }
 
 
-async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abstention(
+async def test_wire_azure_container_missing_profile_artifact_fails_catalog_validation(
     tmp_path: Path,
 ) -> None:
     from fdai.composition import AzureWireOverrides, wire_azure_container
     from fdai.core.operator_memory import InMemoryOperatorMemoryStore
-    from fdai.shared.providers.distiller import AbstainingDistiller
 
     catalog = tmp_path / "catalog"
     shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
@@ -1224,21 +1224,20 @@ async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abst
     container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
 
-    finalized = await wire_azure_container(
-        container,
-        http_client=http,
-        identity=_StaticIdentity(),
-        overrides=AzureWireOverrides(
-            endpoint="https://legacy.example.com",
-            catalog_root=catalog,
-            operator_memory_store=InMemoryOperatorMemoryStore(),
-        ),
-    )
+    with pytest.raises(PromptRegistryError, match="profile references an unknown artifact"):
+        await wire_azure_container(
+            container,
+            http_client=http,
+            identity=_StaticIdentity(),
+            overrides=AzureWireOverrides(
+                endpoint="https://legacy.example.com",
+                catalog_root=catalog,
+                operator_memory_store=InMemoryOperatorMemoryStore(),
+            ),
+        )
 
-    assert isinstance(finalized.distiller, AbstainingDistiller)
 
-
-async def test_wire_azure_container_missing_semantic_judgment_prompt_stays_unavailable(
+async def test_wire_azure_container_missing_semantic_judgment_profile_root_fails_closed(
     tmp_path: Path,
 ) -> None:
     from fdai.composition import AzureWireOverrides, wire_azure_container
@@ -1247,25 +1246,24 @@ async def test_wire_azure_container_missing_semantic_judgment_prompt_stays_unava
     catalog = tmp_path / "catalog"
     shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
     shutil.copytree(_SHIPPED_CATALOG_ROOT / "probes", catalog / "probes")
-    (catalog / "prompts" / "base" / "semantic-judgment.v1.yaml").unlink()
+    (catalog / "prompts" / "base" / "semantic-judgment.v8.yaml").unlink()
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
     container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
 
-    finalized = await wire_azure_container(
-        container,
-        http_client=httpx.AsyncClient(
-            transport=httpx.MockTransport(lambda _request: httpx.Response(200))
-        ),
-        identity=_StaticIdentity(),
-        overrides=AzureWireOverrides(
-            endpoint="https://legacy.example.com",
-            catalog_root=catalog,
-            operator_memory_store=InMemoryOperatorMemoryStore(),
-        ),
-    )
-
-    assert finalized.require_llm_bindings().conversation_semantic_judgment_factory is None
+    with pytest.raises(PromptRegistryError, match="profile references an unknown artifact"):
+        await wire_azure_container(
+            container,
+            http_client=httpx.AsyncClient(
+                transport=httpx.MockTransport(lambda _request: httpx.Response(200))
+            ),
+            identity=_StaticIdentity(),
+            overrides=AzureWireOverrides(
+                endpoint="https://legacy.example.com",
+                catalog_root=catalog,
+                operator_memory_store=InMemoryOperatorMemoryStore(),
+            ),
+        )
 
 
 async def test_wire_azure_container_partial_council_without_prompt_fails_closed(
@@ -1282,7 +1280,7 @@ async def test_wire_azure_container_partial_council_without_prompt_fails_closed(
     container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
 
-    with pytest.raises(LlmBindingsUnavailableError, match="requires its catalog prompt"):
+    with pytest.raises(PromptRegistryError, match="profile references an unknown artifact"):
         await wire_azure_container(
             container,
             http_client=http,

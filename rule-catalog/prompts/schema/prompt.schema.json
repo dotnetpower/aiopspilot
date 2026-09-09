@@ -29,7 +29,7 @@
     "token_budget": {
       "type": "integer",
       "minimum": 1,
-      "description": "Soft budget contributed by this layer. The composer fails closed (abstain -> HIL) when the assembled prompt exceeds the capability's total token_budget."
+      "description": "Authored budget for this layer. Exact prompt profiles enforce the complete composed system and provider-request budgets."
     },
     "body": {
       "type": "string",

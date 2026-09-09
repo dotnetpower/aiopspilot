@@ -496,24 +496,24 @@ async def test_compose_includes_shadow_packs_when_opted_in(tmp_path: Path) -> No
 
 
 @pytest.mark.asyncio
-async def test_shipped_shadow_pack_lands_only_in_dev_mode() -> None:
-    """The Wave 2.5 sample task pack ships in shadow. Production composer
-    MUST NOT include it; the ``include_shadow_packs`` opt-in must pick it up.
-    """
+async def test_shipped_shadow_pack_requires_exact_treatment_profile() -> None:
+    """The shipped catalog never enables unrelated shadow packs implicitly."""
 
     repo_root = Path(__file__).resolve().parents[5]
     registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
     prod_composer = DefaultPromptComposer(registry=registry)
-    dev_composer = DefaultPromptComposer(registry=registry, include_shadow_packs=True)
 
     prod_out = await prod_composer.compose(capability_id="t2.reasoner.primary")
-    dev_out = await dev_composer.compose(capability_id="t2.reasoner.primary")
+    treatment_out = await prod_composer.compose(
+        capability_id="t2.reasoner.primary",
+        profile_id="shadow.t2-reasoner-primary-output-contract",
+    )
 
     assert len(prod_out.layer_manifest) == 1
     prod_ids = {ref.id for ref in prod_out.layer_manifest}
-    dev_ids = {ref.id for ref in dev_out.layer_manifest}
+    treatment_ids = {ref.id for ref in treatment_out.layer_manifest}
     assert "t2-cross-check-output-contract" not in prod_ids
-    assert "t2-cross-check-output-contract" in dev_ids
+    assert "t2-cross-check-output-contract" in treatment_ids
 
 
 # ---------------------------------------------------------------------------

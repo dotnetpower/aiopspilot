@@ -31,7 +31,7 @@ from fdai.core.operator_memory import (
     OperatorMemoryStore,
 )
 from fdai.core.operator_memory.proposals import OperatorMemoryProposalStore
-from fdai.core.prompts import FileSystemPromptRegistry
+from fdai.core.prompts import FileSystemPromptRegistry, compose_static_selection
 from fdai.core.skills import (
     InMemorySkillProposalStore,
     SkillProposalStore,
@@ -194,7 +194,9 @@ def build_azure_post_turn_models(
     if any(target is None for target in targets):
         return ()
     concrete_targets = tuple(target for target in targets if target is not None)
-    prompt = FileSystemPromptRegistry(repo_root / "rule-catalog").get_base("norns.post-turn-review")
+    prompt = compose_static_selection(
+        FileSystemPromptRegistry(repo_root / "rule-catalog").resolve("norns.post-turn-review")
+    )
     return tuple(
         AzureOpenAIPostTurnModel(
             identity=identity,
@@ -204,7 +206,7 @@ def build_azure_post_turn_models(
                 deployment=target.deployment,
                 model_identity=f"{item.publisher}:{item.family}:{item.name}",
                 model_family=item.family or "",
-                system_prompt=prompt.body,
+                system_prompt=prompt.system_text,
                 api_version=target.api_version or "2024-06-01",
                 api_style=target.api_style,
                 auth_audience=target.auth_audience,

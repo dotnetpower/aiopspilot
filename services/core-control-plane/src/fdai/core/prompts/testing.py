@@ -54,6 +54,7 @@ class StaticPromptComposer(PromptComposer):
         self,
         *,
         capability_id: str,
+        profile_id: str | None = None,
         scope: OperatorScope | None = None,
         skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:

@@ -1,0 +1,397 @@
+schema_version: "1.0.0"
+profiles:
+  - id: active.t2-reasoner-primary
+    version: 1
+    capability_id: t2.reasoner.primary
+    mode: active
+    root: {id: t2-cross-check, version: 1, layer: base}
+    packs: []
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.t2-reasoner-secondary
+    version: 1
+    capability_id: t2.reasoner.secondary
+    mode: active
+    root: {id: t2-cross-check, version: 1, layer: base}
+    packs: []
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: shadow.t2-reasoner-primary-output-contract
+    version: 1
+    capability_id: t2.reasoner.primary
+    mode: shadow
+    root: {id: t2-cross-check, version: 1, layer: base}
+    packs:
+      - {id: t2-cross-check-output-contract, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 4096
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.t2-proposer
+    version: 1
+    capability_id: t2.proposer
+    mode: active
+    root: {id: t2-proposer, version: 1, layer: base}
+    packs: []
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: shadow.t2-proposer-continuity
+    version: 1
+    capability_id: t2.proposer
+    mode: shadow
+    root: {id: t2-proposer, version: 1, layer: base}
+    packs:
+      - {id: answer-continuity, version: 1, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.semantic-judgment
+    version: 1
+    capability_id: semantic.judgment
+    mode: active
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 8192
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-v14
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-judgment, version: 14, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 8192
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: [a5d3627b3]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-compact
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment-common, version: 1, layer: base}
+    packs:
+      - {id: semantic-judgment, version: 14, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-preflight
+    version: 1
+    capability_id: conversation.preflight
+    mode: active
+    root: {id: conversation-preflight, version: 8, layer: base}
+    packs: []
+    system_token_budget: 2048
+    request_token_budget: 16384
+    reserved_output_tokens: 768
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-social
+    version: 1
+    capability_id: conversation.social-narrator
+    mode: active
+    root: {id: conversation-social-narrator, version: 1, layer: base}
+    packs: []
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-social-greeting
+    version: 1
+    capability_id: conversation.social-narrator.greeting
+    mode: active
+    root: {id: conversation-social-narrator, version: 1, layer: base}
+    packs:
+      - {id: conversation-social-greeting, version: 1, layer: pack}
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-social-thanks
+    version: 1
+    capability_id: conversation.social-narrator.thanks
+    mode: active
+    root: {id: conversation-social-narrator, version: 1, layer: base}
+    packs:
+      - {id: conversation-social-thanks, version: 1, layer: pack}
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-social-farewell
+    version: 1
+    capability_id: conversation.social-narrator.farewell
+    mode: active
+    root: {id: conversation-social-narrator, version: 1, layer: base}
+    packs:
+      - {id: conversation-social-farewell, version: 1, layer: pack}
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.conversation-social-self-introduction
+    version: 1
+    capability_id: conversation.social-narrator.self_introduction
+    mode: active
+    root: {id: conversation-social-narrator, version: 1, layer: base}
+    packs:
+      - {id: conversation-social-self-introduction, version: 1, layer: pack}
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.semantic-query-frame
+    version: 1
+    capability_id: semantic.query.frame
+    mode: active
+    root: {id: semantic-query-frame, version: 40, layer: base}
+    packs: []
+    system_token_budget: 12288
+    request_token_budget: 196608
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: shadow.semantic-query-frame-v41
+    version: 1
+    capability_id: semantic.query.frame
+    mode: shadow
+    root: {id: semantic-query-frame, version: 40, layer: base}
+    packs:
+      - {id: semantic-query-frame, version: 41, layer: pack}
+    system_token_budget: 12288
+    request_token_budget: 196608
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: shadow.semantic-query-frame-compact
+    version: 1
+    capability_id: semantic.query.frame
+    mode: shadow
+    root: {id: semantic-query-frame-common, version: 1, layer: base}
+    packs:
+      - {id: semantic-query-frame, version: 41, layer: pack}
+    system_token_budget: 1024
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: active.semantic-query-frame-operational
+    version: 1
+    capability_id: semantic.query.frame.operational
+    mode: active
+    root: {id: semantic-operational-query-frame, version: 1, layer: base}
+    packs: []
+    system_token_budget: 4096
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/operational-diagnostic-conversations.md]
+    provenance: {source: docs/roadmap/interfaces/operational-diagnostic-conversations.md}
+  - id: active.semantic-query-frame-recovery
+    version: 1
+    capability_id: semantic.query.frame.recovery
+    mode: active
+    root: {id: semantic-query-frame-recovery, version: 1, layer: base}
+    packs: []
+    system_token_budget: 512
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.semantic-query-plan
+    version: 1
+    capability_id: semantic.query.plan
+    mode: active
+    root: {id: semantic-query-plan, version: 18, layer: base}
+    packs: []
+    system_token_budget: 4096
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: shadow.semantic-query-plan-compact
+    version: 1
+    capability_id: semantic.query.plan
+    mode: shadow
+    root: {id: semantic-query-plan-common, version: 1, layer: base}
+    packs: []
+    system_token_budget: 512
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: active.adaptive-plan
+    version: 1
+    capability_id: conversation.adaptive.plan
+    mode: active
+    root: {id: adaptive-common, version: 1, layer: base}
+    packs:
+      - {id: adaptive-plan, version: 4, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.adaptive-answer
+    version: 1
+    capability_id: conversation.adaptive.answer
+    mode: active
+    root: {id: adaptive-common, version: 1, layer: base}
+    packs:
+      - {id: adaptive-answer, version: 2, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.adaptive-review
+    version: 1
+    capability_id: conversation.adaptive.review
+    mode: active
+    root: {id: adaptive-common, version: 1, layer: base}
+    packs:
+      - {id: adaptive-review, version: 2, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.adaptive-refine
+    version: 1
+    capability_id: conversation.adaptive.refine
+    mode: active
+    root: {id: adaptive-common, version: 1, layer: base}
+    packs:
+      - {id: adaptive-refine, version: 1, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.adaptive-verify
+    version: 1
+    capability_id: conversation.adaptive.verify
+    mode: active
+    root: {id: adaptive-common, version: 1, layer: base}
+    packs:
+      - {id: adaptive-verify, version: 1, layer: pack}
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 4096
+    promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: active.question-generation
+    version: 1
+    capability_id: t1.question.generator
+    mode: active
+    root: {id: question-generation, version: 2, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 16384
+    reserved_output_tokens: 1024
+    promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
+    provenance: {source: docs/roadmap/interfaces/continuous-question-space.md}
+  - id: active.question-review
+    version: 1
+    capability_id: t1.question.reviewer
+    mode: active
+    root: {id: question-review, version: 1, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 16384
+    reserved_output_tokens: 1024
+    promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
+    provenance: {source: docs/roadmap/interfaces/continuous-question-space.md}
+  - id: active.t2-rca
+    version: 1
+    capability_id: t2.rca
+    mode: active
+    root: {id: t2-rca, version: 2, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/architecture/observability-and-detection.md]
+    provenance: {source: docs/roadmap/architecture/observability-and-detection.md}
+  - id: active.post-turn-review
+    version: 1
+    capability_id: norns.post-turn-review
+    mode: active
+    root: {id: post-turn-review, version: 1, layer: base}
+    packs: []
+    system_token_budget: 512
+    request_token_budget: 8192
+    reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/agents/conversational-deliberation.md]
+    provenance: {source: docs/roadmap/agents/conversational-deliberation.md}
+  - id: active.conversation-assurance
+    version: 1
+    capability_id: conversation.assurance
+    mode: active
+    root: {id: conversation-assurance, version: 3, layer: rubric}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 16384
+    reserved_output_tokens: 1024
+    promotion_evidence: [docs/roadmap/decisioning/conversation-assurance.md]
+    provenance: {source: docs/roadmap/decisioning/conversation-assurance.md}
+  - id: active.ontology-council-alpha
+    version: 1
+    capability_id: t2.ontology.council.alpha
+    mode: active
+    root: {id: t2-ontology-council, version: 1, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]
+    provenance: {source: docs/roadmap/rules-and-detection/rule-catalog-collection.md}
+  - id: active.ontology-council-beta
+    version: 1
+    capability_id: t2.ontology.council.beta
+    mode: active
+    root: {id: t2-ontology-council, version: 1, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]
+    provenance: {source: docs/roadmap/rules-and-detection/rule-catalog-collection.md}
+  - id: active.ontology-council-gamma
+    version: 1
+    capability_id: t2.ontology.council.gamma
+    mode: active
+    root: {id: t2-ontology-council, version: 1, layer: base}
+    packs: []
+    system_token_budget: 1024
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]
+    provenance: {source: docs/roadmap/rules-and-detection/rule-catalog-collection.md}

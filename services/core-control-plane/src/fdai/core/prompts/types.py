@@ -359,6 +359,12 @@ class PromptReplayManifest:
     system_text_sha256: str
     layer_manifest: tuple[LayerRef, ...]
     token_estimate: int
+    profile_id: str | None = None
+    profile_version: int | None = None
+    profile_digest: str | None = None
+    system_token_budget: int | None = None
+    request_token_budget: int | None = None
+    reserved_output_tokens: int | None = None
     ablation_profile: PromptAblationProfileName = PromptAblationProfileName.NONE
     ablated_layers: tuple[AblatedLayerRef, ...] = ()
     canary_tokens: tuple[tuple[str, str], ...] = ()
@@ -389,6 +395,12 @@ class ComposedPrompt:
     system_text: str
     layer_manifest: tuple[LayerRef, ...]
     token_estimate: int
+    profile_id: str | None = None
+    profile_version: int | None = None
+    profile_digest: str | None = None
+    system_token_budget: int | None = None
+    request_token_budget: int | None = None
+    reserved_output_tokens: int | None = None
     ablation_profile: PromptAblationProfileName = PromptAblationProfileName.NONE
     ablated_layers: tuple[AblatedLayerRef, ...] = ()
     canary_tokens: Mapping[str, str] = field(default_factory=dict)
@@ -402,6 +414,12 @@ class ComposedPrompt:
             system_text_sha256=hashlib.sha256(self.system_text.encode()).hexdigest(),
             layer_manifest=self.layer_manifest,
             token_estimate=self.token_estimate,
+            profile_id=self.profile_id,
+            profile_version=self.profile_version,
+            profile_digest=self.profile_digest,
+            system_token_budget=self.system_token_budget,
+            request_token_budget=self.request_token_budget,
+            reserved_output_tokens=self.reserved_output_tokens,
             ablation_profile=self.ablation_profile,
             ablated_layers=self.ablated_layers,
             canary_tokens=tuple(sorted(self.canary_tokens.items())),

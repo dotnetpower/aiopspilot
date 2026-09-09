@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: da3ec01bc72a3ef7e33fe7d6dbf1ea2f0efb7593
-translation_revised: 2026-09-08
+translation_source_sha: a558196d6b188c67ee2d7191c6008efb2b3bb621
+translation_revised: 2026-09-09
 ---
 
 # 진화하는 시스템 프롬프트
@@ -94,57 +94,6 @@ Console 프로덕션 빌드가 통과했습니다. 공급자 시간을 고정한
 줄었습니다. 늦은 보강 시뮬레이션은 55 -> 35초였습니다. 이는 처리 방식의 측정이며 실제 속도
 개선율 주장이 아닙니다. 실제 공급자 기준선은 이전 두 턴의 51.431초와 53.841초뿐이며 새 실제
 호출은 수행하지 않았습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 10라운드 지연 최적화 | implemented | [라운드 근거](#지연-개선-10라운드-2026-09-06) | 검토를 우회하지 않고 불필요한 작업을 줄였습니다. 실제 공급자 지연과 품질 비교는 승인된 측정이 필요합니다. |
-| 적응형 역할 및 담당 관계 프롬프트 조립 | implemented | `adaptive_prompt.py`, `wire_adaptive_conversation.py`, `adaptive_relationship.py`, 조립 검사 20개와 연결된 역할 및 증명 검사 통과 | 공통 단계 정책, 고정된 선택 역할 및 권한 없는 현재 담당 관계를 사용합니다. 최종 오프라인 검증과 집중 비평 11회의 근거는 계층형 대화 계획에 기록했습니다. |
-| 카탈로그 레지스트리, 작성기, 도구 및 런타임 스킬 | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | 카탈로그 로드, 결정론적 레이어 조립, 도구 매니페스트, 스킬, canary 및 시작 대체 경로에 집중 테스트가 있습니다. |
-| 경로별 대화 prompt | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, 집중 composer 및 Azure adapter 검사 | 시작 시 compact T1 preflight와 전체 운영 의미 판단을 별도로 조립합니다. 조건에 맞는 순수 social 턴은 compact prompt와 schema만 사용합니다. 혼합, 맥락 의존, 모호함 및 운영 턴은 기능을 인식하는 전체 prompt로 계속 진행됩니다. |
-| 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
-| 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
-| 답변 연속성과 프롬프트 ablation | implemented | `services/core-control-plane/src/fdai/core/prompts/`, `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`, `services/operator-service/src/fdai_operator_service/postgres_iam.py`, 집중 Python 검사 312개 및 콘솔 검사 6개 | 감사되는 런타임 토글, 보호된 프롬프트 레이어 ablation, 재실행 근거, 유용한 안전 보류 렌더링 및 리비전으로 보호된 Operator 지속성이 구현되었습니다. 런타임 검증 전까지 통제된 shadow 근거 보존은 열려 있습니다. |
-| 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
-| 포크 우선 두 번째 승인 채널 | in-progress | [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py) | 업스트림 도메인 단계가 서로 다른 principal, 자기 승인 방지, 범위가 제한된 승인 창, 재실행을 입증합니다. 재전달된 승인은 두 번째 항목을 만드는 대신 `already_materialized` 로 거부하며, 증명할 수 없거나 만료된 창은 절대 구체화되지 않습니다. 그것을 호출하는 채널은 포크 우선으로 남아 미구현이므로 파이프라인 구획은 비활성 상태입니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-08 | implemented | 레이어 및 토큰 수와 함께 전체, Operator Memory, 스킬 공개 작업의 콘텐츠 없는 프롬프트 조립 타이밍을 추가했습니다. | `current change`, 집중 프롬프트 작성기 검사 57개가 통과했습니다. | 런타임 타이밍 분포는 별도로 보존합니다. |
-| 2026-09-08 | implemented | 독립적인 Resource Group 및 Resource Operator Memory 읽기를 동시에 실행하면서 결정론적 병합 순서를 보존했습니다. | `current change`, 집중 프롬프트 작성기 검사 56개가 통과했습니다. | PostgreSQL turn별 타이밍은 별도로 보존합니다. |
-| 2026-09-08 | implemented | 렌더링된 스킬 및 bundle XML wrapper를 프롬프트 본문 예산에 포함하고 예산을 넘기는 선택은 조립 전에 차단했습니다. | `current change`, 집중 스킬 공개 검사 8개가 통과했습니다. | 런타임 프롬프트 크기 관측은 별도로 보존합니다. |
-| 2026-09-06 | implemented | 적응형 계획, 스키마 준비, 검토 한도, 표시 및 최종 결과 전달에 걸쳐 지연 개선 10라운드를 완료했습니다. | 위의 라운드 커밋과 통합 검증. 공급자 시간을 고정한 비교에서 답변과 품질 결과를 그대로 유지했습니다. | 종단 간 속도 개선을 주장하려면 승인된 실제 공급자 전후 비교가 필요합니다. |
-| 2026-09-06 | implemented | 일반 적응형 조립에서 T2 검토자를 필수 조건으로 두지 않도록 수정했습니다. 독립적으로 구성된 T1 서술 모델이 작성과 검토를 맡고 선택적 T2 기본 모델만 보강합니다. 잘못되었거나 사용할 수 없는 보강 연결은 T1을 비활성화하지 않습니다. 공급자 스키마 지원이 구성되지 않았으면 애플리케이션에서 JSON을 검증합니다. | `current change`; 조립, 전송, 스키마, 예산, 런타임 및 프롬프트 레지스트리 집중 검사 115개 통과. 수정한 원본 모듈 두 개의 strict mypy 통과. 비교 회귀 검사는 모의 모델을 사용하되 실제 조립과 전송을 거치며 운영 조회를 하지 않습니다. | 실제 답변 품질을 주장하려면 명시적으로 승인된 실질문 증적이 필요합니다. 엄격한 no-T2 캠페인 동작과 운영 품질 검사는 변경하지 않았습니다. |
-| 2026-09-06 | implemented | 독립적으로 검토된 답변과 프로바이더의 사용량 제한 전파를 포함한 고정 역할 및 담당 관계 조립을 완료했습니다. 운영 카탈로그가 잘못되어도 독립적으로 유효한 일반 설명 서비스는 유지합니다. | `current change`; 조립 검사 20개와 연결된 Python 검사 653개 통과. 집중 비평 11회는 계층형 대화 계획에 기록했습니다. | 실제 모델 품질과 승격 근거에는 별도 승인이 필요합니다. |
-| 2026-09-06 | in-progress | 적응형 공통 단계 정책, 고정 역할 조립, 만료되는 담당 관계 맥락 및 내부 프로바이더의 사용량 제한 전파를 추가했습니다. | `current change`; `test_wire_adaptive_conversation.py` 19개와 `test_adaptive_provider_budget.py` 10개가 통과했습니다. | 계층형 대화 계획에서 연결 비평 근거를 완료합니다. 실제 승격을 주장하지 않습니다. |
-| 2026-09-02 | implemented | 답변 연속성 및 프롬프트 ablation 구획을 추가했습니다. 구현은 보장되는 종결 응답의 유용성을 사실 검증과 분리하고, 권한에 영향을 주는 프롬프트 레이어를 ablation에서 보호하고, 제외 항목을 재실행 시 볼 수 있게 하며, 리비전으로 보호된 설정을 단일 시작 스냅샷으로 적용합니다. 10회의 비평 및 강화 라운드에서 Medium 결함 4개와 Low 결함 5개를 닫았고 마지막 라운드에는 Low 초과 지적이 없었습니다. | `current change`, 집중 Python 검사 312개, 콘솔 검사 6개, 작업 범위 Ruff, 소스 파일 18개의 strict mypy 및 문서 gate가 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 shadow 근거를 보존합니다. |
-| 2026-08-29 | implemented | 강화 라운드 8에서 대화 사전 검사 관점 23개를 검토하고 social profile 범위 검사를 안전한 대체 경계 안으로 옮겼습니다. 이제 너무 큰 profile은 narrator 호출 전에 보류되며 turn 밖으로 예외를 전파하지 않습니다. | `current change`; 집중 대화 사전 검사 테스트. | 관리되는 실제 social 응답 근거를 보존합니다. |
-| 2026-08-28 | implemented | Temperature 0인 social 분류, temperature 0.3인 페르소나 narration 및 전체 운영 의미 판단을 별도의 조립 prompt 기능으로 분리했습니다. Social narration은 공통 base와 greeting, thanks, farewell 또는 self-introduction용 타입 기반 enforce pack 하나를 조합합니다. 분류기와 narrator는 온톨로지 기능 카탈로그를 받지 않고 narrator는 운영 맥락도 받지 않으며, social 문장은 narrator schema만 전달할 수 있습니다. | `current change`, 집중 prompt, adapter, routing 및 processor 검사 608개 통과, 인증된 자기소개 변형은 이전 전체 social 입력 5,819토큰과 비교해 두 호출에서 전체 약 1.7K-1.9K토큰을 사용했습니다. 조립 검사는 act pack이 서로 섞이지 않음을 입증합니다. | 인증된 pack별 waterfall 근거를 보존하고 더 큰 이중 언어 corpus에서 충돌률, 적절성 및 지연을 측정합니다. |
-| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
-| 2026-08-14 | implemented | 격리, 승인, runtime prompt eligibility를 변경하지 않고 범위가 제한된 GitHub skill-source delivery 어댑터를 추가했습니다. | `current change`; 구현 범위 표의 구체 어댑터와 focused 거부 경로 테스트입니다. | Scheduled source owner를 조립하고 governed refresh, 승인, 철회 근거를 보존합니다. |
-| 2026-08-14 | implemented | 격리 및 disabled-first prompt eligibility를 유지하면서 strict ETag 검증과 정제된 credential-provider 실패로 외부 source delivery를 강화했습니다. | `current change`; focused skill-source adapter 테스트 `28 passed`. | Scheduled 조립과 governed lifecycle 근거는 남아 있습니다. |
-| 2026-08-14 | in-progress | 포크 우선 채널이 의존하는 업스트림 두 번째 승인 근거를 추가했습니다. 범위가 제한된 승인 창, 승인에서 파생된 재실행 안전 항목 식별자, 자기 승인 방지 전수 커버리지입니다. | `current change`; [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py); 집중 operator-memory 및 bridge 검사 76건이 통과했고 strict mypy와 작업 범위 Ruff가 통과했습니다. | materializer를 호출하는 포크 우선 채널을 만든 뒤 파이프라인 구획을 활성화합니다. |
-
-### 남은 작업
-
-- [ ] 정제되고 허용 목록으로 제한된 웹 스니펫을 정확한 소스 증적, 프롬프트 다이제스트 재실행
-  및 부정 주입 테스트와 함께 코어 T2 도구 매니페스트에 연결합니다.
-- [x] 업스트림 두 번째 승인 단계가 서로 다른 principal, 자기 승인 방지, 범위가 제한된 승인 창,
-  재실행을 입증합니다. 재전달은 `already_materialized` 로 거부하고 구체화는 정확히 한 번만
-  일어납니다.
-- [ ] 두 번째 승인 단계를 호출하는 포크 우선 채널을 만든 뒤 해당 파이프라인 구획을
-  활성화합니다.
-- [ ] 하나의 고정 카탈로그 리비전에서 조립된 프롬프트, 토론, 인용, 최종 검증기 결과 및 실행
-  권한 0을 증명하는 통제된 종단 간 T2 증적을 보존합니다.
-- [ ] 적합한 각 프롬프트 레이어를 ablation하고, 정확한 활성 및 제외 레이어 매니페스트를
-  기록하고, 근거 없는 운영 주장을 0으로 유지하며, 엄격한 보류 응답보다 측정된 유용성 향상을
-  입증하는 통제된 답변 연속성 shadow 캠페인을 보존합니다.
-
 ## 한눈에 보는 설계
 
 프롬프트는 코드 안의 리터럴이 아니라 **데이터**입니다. 조립 루트가 부팅 시
@@ -185,12 +134,26 @@ disagreement에서만 라우터를 통해 실행됩니다.
 없습니다. 권위가 아니라 빼기 전용 환각 필터입니다 -
 [hallucination-rubric-gate-ko.md](hallucination-rubric-gate-ko.md) 참조.
 
+### 선택 및 수명 주기
+
+런타임 선택은 루트 아티팩트 하나와 순서가 지정된 모든 묶음의 id, 버전 및 레이어를 정확히
+지정하는 카탈로그 소유 프로필을 사용합니다. 파일 순서나 사용 가능한 최고 버전은 프롬프트를
+활성화하지 않습니다. 기능마다 활성 프로필 하나가 있으며, 추가 프로필은 shadow 후보로 남아
+명시적인 처리군 선택을 통해서만 실행됩니다. 프로필은 시스템 입력 예산, 전체 프로바이더 요청
+예산, 예약 출력 및 승격 근거도 고정합니다.
+
+조립 과정은 프로필, 순서가 지정된 아티팩트, 유효 텍스트 및 예산을 다이제스트에 결속한 선택
+증적을 만듭니다. Frame과 plan 어댑터는 카탈로그를 직접 열거나 base를 고르지 않고 같은 증적을
+사용합니다. 승격은 활성 프로필 참조만 바꾸며, 롤백은 불변 아티팩트를 수정하지 않고 이전
+프로필 다이제스트를 복원합니다.
+
 ## 레이어 카탈로그
 
 각 레이어는 고정된 역할과 고정된 저장 티어를 가집니다.
 
 - **Base** - 짧고 불변인 역할 스켈레톤 (출력 계약, verifier-as-authority 리마인드,
-  JSON-only 출력 규칙). Wave 1 목표: <= 128 토큰.
+  JSON-only 출력 규칙). Base 목표는 128토큰 이하이며 도메인 조립법은 이 레이어에
+  포함하지 않습니다.
 - **작업 스킬 묶음** - capability-scoped 지시 (예: RCA grounding, 액션 제안,
   novelty 분류). 각 묶음은 기능이 참조할 수 있는 rule-catalog 항목을 인용합니다.
 - **도구 매니페스트** - 이 역할이 호출할 수 있는 툴의 부분집합. base 프롬프트 밖에서
@@ -464,12 +427,14 @@ PR review comment on rem PR     --/         v
 
 ## 인식 측정
 
-긴 프롬프트는 조용히 지시를 흘립니다. "모델이 우리가 보낸 것을 실제로 읽었는가"를
-1급 KPI로 다루며, 프롬프트를 강제 적용으로 승격하기 전에 게이트합니다.
+긴 프롬프트는 지시를 조용히 누락할 수 있습니다. "모델이 우리가 보낸 것을 실제로 읽었는가"를
+핵심 KPI로 다루며, 프롬프트를 적용 모드로 승격하기 전에 검증합니다.
 
-- **하드 토큰 예산** - 작성기가 조립된 프롬프트당 토큰을 추정. 초과 시 HIL로
-  abort하고 `prompt.token_budget.exceeded_rate`를 증가. 우선순위가 낮은 레이어
-  (가장 오래된 운영자 기억부터)는 감사에 보이는 이유와 함께 명시적으로 폐기.
+- **전체 요청 예산** - 작성기와 어댑터는 선택한 아티팩트, 생성된 스키마, 서술자, 범위가
+  제한된 맥락, 운영자 입력 및 예약 출력을 모두 계산합니다. 초과 요청은 프로바이더 I/O 전에
+  보류하고 `prompt.token_budget.exceeded_rate`를 증가시킵니다. 우선순위가 낮은 선택적
+  레이어는 감사 가능한 프로필 규칙으로만 제외하며, 보호된 역할 및 안전 레이어는 줄이지
+  않습니다.
 - **Canary 토큰** - 작성기가 태그된 레이어 마커
   (`<layer id="pack.rca.v3">...</layer>`)를 삽입. 역할들은 어느 레이어를
   인식했는지 보고. 인식되지 않은 고우선순위 레이어는 결함으로 surfacing.
@@ -612,6 +577,7 @@ PR review comment on rem PR     --/         v
 
 | 목적 | 시작 지점 |
 |------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/prompt-composition.md) |
 | Tier 경계와 quality 게이트 | [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) |
 | Trust 라우팅과 컨트롤 루프 | [../../.github/instructions/architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) |
 | 이 설계가 확장하는 Human 재정의 정책 | [../../.github/instructions/architecture.instructions.md#human-override](../../../.github/instructions/architecture.instructions.md#human-override) |

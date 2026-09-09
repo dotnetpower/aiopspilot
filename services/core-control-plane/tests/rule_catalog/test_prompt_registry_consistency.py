@@ -42,6 +42,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.adaptive.review",
         "conversation.adaptive.refine",
         "conversation.adaptive.verify",
+        "conversation.assurance",
         "conversation.preflight",
         "conversation.social-narrator",
         "conversation.social-narrator.farewell",
@@ -52,6 +53,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "semantic.judgment",
         "semantic.query.frame",
         "semantic.query.frame.operational",
+        "semantic.query.frame.recovery",
         "semantic.query.plan",
         "t2.proposer",
     }

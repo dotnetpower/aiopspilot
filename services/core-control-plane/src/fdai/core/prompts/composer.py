@@ -31,6 +31,7 @@ from fdai.core.operator_memory import (
     ScopeKind,
     wrap_operator_note,
 )
+from fdai.core.prompts.profiles import PromptBudgetExceededError
 from fdai.core.prompts.registry import PromptRegistry
 from fdai.core.prompts.skill_disclosure import compose_skill_disclosure
 from fdai.core.prompts.types import (
@@ -97,6 +98,7 @@ class PromptComposer(Protocol):
         self,
         *,
         capability_id: str,
+        profile_id: str | None = None,
         scope: OperatorScope | None = None,
         skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:
@@ -203,14 +205,16 @@ class DefaultPromptComposer(PromptComposer):
         self,
         *,
         capability_id: str,
+        profile_id: str | None = None,
         scope: OperatorScope | None = None,
         skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:
         started = time.perf_counter()
-        base = self._registry.get_base(capability_id)
+        selection = self._registry.resolve(capability_id, profile_id=profile_id)
+        base = selection.root
         self._ablation.disables(base.layer, base.id)
-        packs = self._registry.get_packs(capability_id)
-        if not self._include_shadow_packs:
+        packs = selection.packs
+        if selection.profile is None and not self._include_shadow_packs:
             packs = tuple(
                 pack
                 for pack in packs
@@ -298,10 +302,24 @@ class DefaultPromptComposer(PromptComposer):
         canary_tokens = self._inject_canaries(assembled)
         system_text = _LAYER_JOIN.join(layer.body for layer in assembled)
         manifest = tuple(layer.ref for layer in assembled)
+        token_estimate = _estimate_tokens(system_text)
+        profile = selection.profile
+        if profile is not None and token_estimate > profile.system_token_budget:
+            raise PromptBudgetExceededError(
+                profile_id=profile.id,
+                estimate=token_estimate,
+                budget=profile.system_token_budget,
+            )
         composed = ComposedPrompt(
             system_text=system_text,
             layer_manifest=manifest,
-            token_estimate=_estimate_tokens(system_text),
+            token_estimate=token_estimate,
+            profile_id=profile.id if profile is not None else None,
+            profile_version=profile.version if profile is not None else None,
+            profile_digest=profile.digest if profile is not None else None,
+            system_token_budget=profile.system_token_budget if profile is not None else None,
+            request_token_budget=profile.request_token_budget if profile is not None else None,
+            reserved_output_tokens=profile.reserved_output_tokens if profile is not None else None,
             ablation_profile=self._ablation.name,
             ablated_layers=tuple(ablated),
             canary_tokens=canary_tokens,
@@ -312,6 +330,8 @@ class DefaultPromptComposer(PromptComposer):
             "prompt_composition_completed",
             extra={
                 "capability_id": capability_id,
+                "profile_id": composed.profile_id,
+                "profile_digest": composed.profile_digest,
                 "duration_ms": max(0, round((time.perf_counter() - started) * 1000)),
                 "memory_duration_ms": memory_duration_ms,
                 "skill_duration_ms": skill_duration_ms,

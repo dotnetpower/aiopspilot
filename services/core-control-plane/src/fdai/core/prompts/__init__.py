@@ -25,6 +25,18 @@ from fdai.core.prompts.composer import (
     DefaultPromptComposer,
     PromptComposer,
 )
+from fdai.core.prompts.profile_evaluation import (
+    PromptProfileComparison,
+    compare_prompt_profiles,
+)
+from fdai.core.prompts.profiles import (
+    PromptArtifactRef,
+    PromptBudgetExceededError,
+    PromptProfile,
+    PromptProfileMode,
+    PromptSelection,
+    compose_static_selection,
+)
 from fdai.core.prompts.registry import (
     FileSystemPromptRegistry,
     PromptRegistry,
@@ -51,6 +63,7 @@ from fdai.core.prompts.types import (
 __all__ = [
     "AblatedLayerRef",
     "ComposedPrompt",
+    "compose_static_selection",
     "DefaultPromptComposer",
     "FileSystemPromptRegistry",
     "LayerRef",
@@ -58,12 +71,19 @@ __all__ = [
     "PromptArtifact",
     "PromptAblationProfile",
     "PromptAblationProfileName",
+    "PromptArtifactRef",
+    "PromptBudgetExceededError",
+    "PromptProfileComparison",
     "PromptComposer",
     "PromptLayer",
     "PromptMode",
+    "PromptProfile",
+    "PromptProfileMode",
     "PromptRegistry",
     "PromptRegistryError",
     "PromptRegistryIssue",
+    "PromptSelection",
+    "compare_prompt_profiles",
     "SkillDisclosureRequest",
     "SkillBundleMemberReplayRecord",
     "SkillBundleReplayRecord",

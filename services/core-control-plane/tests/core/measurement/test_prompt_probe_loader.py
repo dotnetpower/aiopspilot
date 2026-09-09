@@ -224,13 +224,16 @@ def test_shipped_scenario_schema_is_valid_draft202012() -> None:
     Draft202012Validator.check_schema(schema)
 
 
-def test_shipped_tree_loads_empty_scenarios() -> None:
-    """The upstream ships zero authored scenarios in Wave 3 step
-    D-2b-ii-beta; loading MUST succeed with an empty tuple."""
+def test_shipped_tree_loads_semantic_profile_scenarios() -> None:
+    """The shipped tree carries structural scenarios for the compact profiles."""
 
     repo_root = Path(__file__).resolve().parents[5]
     scenarios = load_scenarios(repo_root / "rule-catalog")
-    assert scenarios == ()
+    assert [scenario.id for scenario in scenarios] == [
+        "semantic-frame-structure",
+        "semantic-judgment-structure",
+        "semantic-plan-structure",
+    ]
 
 
 def test_prompt_registry_still_loads_with_scenarios_present() -> None:

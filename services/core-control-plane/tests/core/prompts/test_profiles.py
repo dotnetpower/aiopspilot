@@ -1,0 +1,87 @@
+"""Exact prompt-profile loading, selection, and budget tests."""
+
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+import pytest
+from fdai.core.prompts import (
+    FileSystemPromptRegistry,
+    PromptBudgetExceededError,
+    PromptProfileMode,
+    PromptRegistryError,
+    compose_static_selection,
+)
+
+_ROOT = Path(__file__).resolve().parents[5]
+_CATALOG = _ROOT / "rule-catalog"
+
+
+def test_shipped_active_profiles_pin_exact_versions() -> None:
+    registry = FileSystemPromptRegistry(_CATALOG)
+
+    judgment = registry.resolve("semantic.judgment")
+    frame = registry.resolve("semantic.query.frame")
+    plan = registry.resolve("semantic.query.plan")
+
+    assert judgment.profile is not None
+    assert judgment.profile.mode is PromptProfileMode.ACTIVE
+    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment", 8)
+    assert (frame.root.id, frame.root.version) == ("semantic-query-frame", 40)
+    assert (plan.root.id, plan.root.version) == ("semantic-query-plan", 18)
+
+
+def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:
+    registry = FileSystemPromptRegistry(_CATALOG)
+
+    active = registry.resolve("semantic.query.frame")
+    treatment = registry.resolve(
+        "semantic.query.frame",
+        profile_id="shadow.semantic-query-frame-compact",
+    )
+
+    assert active.profile is not None
+    assert treatment.profile is not None
+    assert active.profile.mode is PromptProfileMode.ACTIVE
+    assert treatment.profile.mode is PromptProfileMode.SHADOW
+    assert active.root.id == "semantic-query-frame"
+    assert treatment.root.id == "semantic-query-frame-common"
+
+
+def test_profile_cannot_bind_a_different_capability() -> None:
+    registry = FileSystemPromptRegistry(_CATALOG)
+
+    with pytest.raises(LookupError, match="does not bind capability"):
+        registry.resolve(
+            "semantic.query.plan",
+            profile_id="shadow.semantic-query-frame-compact",
+        )
+
+
+def test_profile_catalog_rejects_missing_exact_artifact(tmp_path: Path) -> None:
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
+    (catalog / "prompts" / "base" / "semantic-query-frame.v40.yaml").unlink()
+
+    with pytest.raises(PromptRegistryError) as excinfo:
+        FileSystemPromptRegistry(catalog)
+
+    assert any("unknown artifact" in issue.message for issue in excinfo.value.issues)
+
+
+def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> None:
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
+    profile_path = catalog / "prompts" / "profiles" / "catalog.yaml"
+    profile_path.write_text(
+        profile_path.read_text().replace(
+            "system_token_budget: 12288\n    request_token_budget: 196608",
+            "system_token_budget: 1\n    request_token_budget: 196608",
+            1,
+        )
+    )
+    registry = FileSystemPromptRegistry(catalog)
+
+    with pytest.raises(PromptBudgetExceededError, match="exceeds system token budget"):
+        compose_static_selection(registry.resolve("semantic.query.frame"))

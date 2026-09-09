@@ -26,6 +26,7 @@ import httpx
 from ..core.metering.emitter import MeteringEmitter
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
+from ..core.prompts import PromptReplayManifest
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator, DebateOrchestratorConfig
 from ..core.quality_gate.gate import CrossCheckModel
@@ -64,8 +65,13 @@ def bind_azure_llm_bindings(
     rca_system_prompt: str | None = None,
     proposer_system_prompt: str | None = None,
     semantic_judgment_system_prompt: str | None = None,
+    semantic_judgment_prompt_manifest: PromptReplayManifest | None = None,
     conversation_preflight_system_prompt: str | None = None,
+    conversation_preflight_prompt_manifest: PromptReplayManifest | None = None,
     conversation_social_narrator_system_prompts: Mapping[str, str] | None = None,
+    conversation_social_narrator_prompt_manifests: (
+        Mapping[str, PromptReplayManifest] | None
+    ) = None,
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     model_health_sink: Any | None = None,
@@ -193,8 +199,11 @@ def bind_azure_llm_bindings(
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
         system_prompt=semantic_judgment_system_prompt,
+        system_prompt_manifest=semantic_judgment_prompt_manifest,
         preflight_system_prompt=conversation_preflight_system_prompt,
+        preflight_prompt_manifest=conversation_preflight_prompt_manifest,
         social_narrator_system_prompts=conversation_social_narrator_system_prompts,
+        social_narrator_prompt_manifests=conversation_social_narrator_prompt_manifests,
         held_capabilities=held,
     )
     supported_binding_capabilities = {

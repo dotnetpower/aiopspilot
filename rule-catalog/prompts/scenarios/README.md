@@ -3,8 +3,8 @@
 Recognition-probe scenarios the runner replays against the composer +
 responder pair. Each scenario names a capability, an optional operator-memory
 scope, and the ground-truth contract the model response is scored against.
-Wave 3 step D-2b-ii-beta ships the schema and the directory contract; the CLI
-runner and the KPI dashboard emission land in Wave 3 step D-2b-ii-gamma.
+The shipped catalog includes structural judgment, frame, and plan scenarios. The CLI runner can
+also load deployment-owned scenarios without changing prompt selection or runtime authority.
 
 See [docs/roadmap/decisioning/prompt-composition.md](../../../docs/roadmap/decisioning/prompt-composition.md)
 for the full recognition-probe design.
@@ -14,7 +14,7 @@ for the full recognition-probe design.
 | Path | What lives here |
 |------|-----------------|
 | `schema/scenario.schema.json` | JSON Schema every scenario YAML validates against |
-| `catalog/<id>.v<n>.yaml` | Per-scenario fixtures (empty in Wave 3 step D-2b-ii-beta) |
+| `catalog/<id>.v<n>.yaml` | Per-scenario recognition fixtures |
 
 ## Contract
 

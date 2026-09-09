@@ -1,0 +1,10 @@
+id: semantic-plan-structure
+version: 1
+capability_id: semantic.query.plan
+expected:
+  required_fields:
+    - {name: nodes, expected_type: array}
+    - {name: output_node_ids, expected_type: array}
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Structural recognition scenario for active and compact plan profiles.

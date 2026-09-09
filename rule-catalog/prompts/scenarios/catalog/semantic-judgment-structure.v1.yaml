@@ -1,0 +1,11 @@
+id: semantic-judgment-structure
+version: 1
+capability_id: semantic.judgment
+expected:
+  required_fields:
+    - {name: primary_intent, expected_type: string}
+    - {name: requested_facets, expected_type: array, non_empty: false}
+    - {name: authority, expected_type: string}
+provenance:
+  source: eval/golden-dataset/azure-incident-intent-golden.yaml
+  notes: Structural recognition scenario for active and compact judgment profiles.

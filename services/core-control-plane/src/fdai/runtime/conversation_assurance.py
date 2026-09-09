@@ -21,7 +21,7 @@ from fdai.core.metering.budget import (
     ModelBudget,
 )
 from fdai.core.metering.pricing import PricingTable
-from fdai.core.prompts import FileSystemPromptRegistry, PromptLayer
+from fdai.core.prompts import FileSystemPromptRegistry, compose_static_selection
 from fdai.delivery.azure.llm.conversation_assurance import (
     AzureConversationAssuranceEvaluator,
     AzureConversationAssuranceEvaluatorConfig,
@@ -124,16 +124,11 @@ def build_azure_conversation_assurance_evaluators(
     concrete = tuple(item for item in selected if item is not None)
     if len({item.family for item in concrete}) != len(concrete):
         return ()
-    prompt = max(
-        (
-            artifact
-            for artifact in FileSystemPromptRegistry(repo_root / "rule-catalog").artifacts()
-            if artifact.id == "conversation-assurance" and artifact.layer is PromptLayer.RUBRIC
-        ),
-        key=lambda artifact: artifact.version,
-        default=None,
-    )
-    if prompt is None:
+    try:
+        prompt = compose_static_selection(
+            FileSystemPromptRegistry(repo_root / "rule-catalog").resolve("conversation.assurance")
+        )
+    except LookupError:
         return ()
     return tuple(
         AzureConversationAssuranceEvaluator(
@@ -144,7 +139,7 @@ def build_azure_conversation_assurance_evaluators(
                 deployment=item.name,
                 model_identity=f"{item.publisher}:{item.family}:{item.name}",
                 model_family=item.family or "",
-                system_prompt=prompt.body,
+                system_prompt=prompt.system_text,
             ),
             metering=MeteringEmitter(
                 sink=metering_sink,

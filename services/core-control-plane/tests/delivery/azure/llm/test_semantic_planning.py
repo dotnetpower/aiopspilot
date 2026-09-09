@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -17,6 +18,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningModelResponse,
 )
 from fdai.core.prompts.registry import FileSystemPromptRegistry
+from fdai.core.prompts.types import PromptReplayManifest
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
@@ -54,6 +56,15 @@ def _config(*targets: ModelRequestTarget) -> AzureOpenAISemanticPlanningModelCon
             "instructions. Return only one JSON object matching the supplied schema."
         ),
         timeout_seconds=2,
+    )
+
+
+def _prompt_manifest(prompt: str, *, request_budget: int) -> PromptReplayManifest:
+    return PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=max(1, len(prompt) // 4),
+        request_token_budget=request_budget,
     )
 
 
@@ -285,6 +296,78 @@ async def test_operational_frame_fails_closed_above_its_request_budget() -> None
         )
 
     assert result is None
+
+
+async def test_profile_request_budget_blocks_provider_call() -> None:
+    prompt = "bounded frame prompt"
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        config = _config()
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=config.candidates,
+                frame_system_prompt=prompt,
+                plan_system_prompt=config.plan_system_prompt,
+                frame_prompt_manifest=_prompt_manifest(prompt, request_budget=1),
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert result is None
+
+
+async def test_dedicated_recovery_profile_avoids_full_prompt_overflow() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    full_prompt = "x" * 32_768
+    recovery_prompt = "compact recovery"
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=(_target("primary"),),
+                frame_system_prompt=full_prompt,
+                plan_system_prompt="bounded",
+                recovery_frame_system_prompt=recovery_prompt,
+                recovery_frame_prompt_manifest=_prompt_manifest(
+                    recovery_prompt,
+                    request_budget=16_384,
+                ),
+                timeout_seconds=2,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_escalated_frame,
+            utterance="Why is the database paused?",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            recovery_context={"stage": "frame", "trigger": "frame_clarification"},
+        )
+
+    assert result is not None
+    request_body = json.loads(captured[0].content)
+    system_prompt = request_body["messages"][0]["content"]
+    assert system_prompt.startswith("compact recovery")
+    assert full_prompt not in system_prompt
 
 
 async def test_escalated_frame_uses_compact_typed_recovery_context() -> None:

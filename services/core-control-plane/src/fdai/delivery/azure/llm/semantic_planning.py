@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import partial
 from typing import Any, TypeVar
@@ -27,6 +27,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticPlanningModelResponse,
 )
+from fdai.core.prompts.types import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -77,6 +78,11 @@ class AzureOpenAISemanticPlanningModelConfig:
     frame_system_prompt: str
     plan_system_prompt: str
     operational_frame_system_prompt: str | None = None
+    recovery_frame_system_prompt: str | None = None
+    frame_prompt_manifest: PromptReplayManifest | None = None
+    plan_prompt_manifest: PromptReplayManifest | None = None
+    operational_frame_prompt_manifest: PromptReplayManifest | None = None
+    recovery_frame_prompt_manifest: PromptReplayManifest | None = None
     timeout_seconds: float = 90.0
     max_tokens: int = 2_048
 
@@ -97,6 +103,21 @@ class AzureOpenAISemanticPlanningModelConfig:
             or len(self.operational_frame_system_prompt) > _MAX_SYSTEM_PROMPT_CHARS
         ):
             raise ValueError("operational frame system prompt MUST be non-empty and bounded")
+        if self.recovery_frame_system_prompt is not None and (
+            not self.recovery_frame_system_prompt
+            or len(self.recovery_frame_system_prompt) > _MAX_SYSTEM_PROMPT_CHARS
+        ):
+            raise ValueError("recovery frame system prompt MUST be non-empty and bounded")
+        _validate_prompt_manifest(self.frame_system_prompt, self.frame_prompt_manifest)
+        _validate_prompt_manifest(self.plan_system_prompt, self.plan_prompt_manifest)
+        _validate_prompt_manifest(
+            self.operational_frame_system_prompt,
+            self.operational_frame_prompt_manifest,
+        )
+        _validate_prompt_manifest(
+            self.recovery_frame_system_prompt,
+            self.recovery_frame_prompt_manifest,
+        )
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("semantic planning timeout_seconds MUST be in (0, 120]")
         if not 1 <= self.max_tokens <= 4_096:
@@ -214,7 +235,9 @@ class AzureOpenAISemanticPlanningModel:
         }
         if not _bounded_input(payload, context=context, descriptors=descriptors):
             return None
-        prompt = _recovery_prompt(self._frame_prompt(semantic_judgment))
+        prompt = _recovery_prompt(
+            self._config.recovery_frame_system_prompt or self._frame_prompt(semantic_judgment)
+        )
         if prompt is None:
             return None
         return self._complete(
@@ -344,6 +367,25 @@ class AzureOpenAISemanticPlanningModel:
                 extra={"request_bytes": request_bytes},
             )
             return None
+        prompt_manifest = self._prompt_manifest(prompt)
+        request_token_estimate = (
+            len(system_content) + len(user_content) + 3
+        ) // 4 + self._config.max_tokens
+        if (
+            prompt_manifest is not None
+            and prompt_manifest.request_token_budget is not None
+            and request_token_estimate > prompt_manifest.request_token_budget
+        ):
+            _LOGGER.warning(
+                "semantic_planning_request_token_budget_exceeded",
+                extra={
+                    "operation": operation,
+                    "profile_id": prompt_manifest.profile_id,
+                    "request_token_estimate": request_token_estimate,
+                    "request_token_budget": prompt_manifest.request_token_budget,
+                },
+            )
+            return None
         _LOGGER.info(
             "semantic_planning_request_prepared",
             extra={
@@ -413,6 +455,7 @@ class AzureOpenAISemanticPlanningModel:
                                 model=target.deployment,
                                 usage=bounded_usage(usage),
                                 trace_call=trace_call,
+                                prompt_replay_manifest=prompt_manifest,
                             )
                             if reservation is not None:
                                 reservation.record(observation)
@@ -465,6 +508,32 @@ class AzureOpenAISemanticPlanningModel:
                 )
         return None
 
+    def _prompt_manifest(self, prompt: str) -> PromptReplayManifest | None:
+        candidates = (
+            (self._config.frame_system_prompt, self._config.frame_prompt_manifest),
+            (self._config.plan_system_prompt, self._config.plan_prompt_manifest),
+            (
+                self._config.operational_frame_system_prompt,
+                self._config.operational_frame_prompt_manifest,
+            ),
+            (
+                self._config.recovery_frame_system_prompt,
+                self._config.recovery_frame_prompt_manifest,
+            ),
+        )
+        for configured_prompt, manifest in candidates:
+            if configured_prompt is None or manifest is None:
+                continue
+            if prompt == configured_prompt:
+                return manifest
+            if prompt.startswith(f"{configured_prompt}\n\n"):
+                return replace(
+                    manifest,
+                    system_text_sha256=_sha256(prompt),
+                    token_estimate=max(1, (len(prompt) + 3) // 4),
+                )
+        return None
+
 
 def _bounded_recovery_context(context: Mapping[str, str]) -> dict[str, str]:
     normalized = {
@@ -476,6 +545,22 @@ def _bounded_recovery_context(context: Mapping[str, str]) -> dict[str, str]:
     if len(encoded) > _MAX_RECOVERY_CONTEXT_CHARS:
         raise ValueError("semantic planning recovery context is too large")
     return normalized
+
+
+def _validate_prompt_manifest(
+    prompt: str | None,
+    manifest: PromptReplayManifest | None,
+) -> None:
+    if manifest is None:
+        return
+    if prompt is None or manifest.system_text_sha256 != _sha256(prompt):
+        raise ValueError("semantic planning prompt manifest does not match its system prompt")
+
+
+def _sha256(value: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
 def _recovery_prompt(base_prompt: str) -> str | None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from fdai.core.prompts.types import PromptReplayManifest
+
 
 @dataclass(frozen=True, slots=True)
 class ConversationModelObservation:
@@ -13,6 +15,7 @@ class ConversationModelObservation:
     model: str
     usage: Mapping[str, int] | None
     trace_call: Mapping[str, object]
+    prompt_replay_manifest: PromptReplayManifest | None = None
 
 
 @dataclass(frozen=True, slots=True)

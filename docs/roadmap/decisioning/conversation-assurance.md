@@ -41,9 +41,9 @@ The fixed census contains 230 balanced cases:
 | Routing | 30 | One explicit and one implicit owner route for every agent. |
 | T2 | 20 | Required, forbidden, unavailable, budget, provider, and output-safety outcomes. |
 
-Every measured turn binds content-free prompt, route, evidence, verification, T1/T2, budget,
-metering, timing, and terminal-state data in one trace receipt. Private question and answer bodies
-remain outside tracked evidence.
+Every measured turn binds the exact prompt-profile digest, content-free route, evidence,
+verification, T1/T2, complete request budget, metering, timing, and terminal-state data in one trace
+receipt. Private question and answer bodies remain outside tracked evidence.
 
 ### Explicit campaign operation
 

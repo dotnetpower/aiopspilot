@@ -19,6 +19,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
 )
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import (
     AzureOpenAISemanticJudgmentModel,
@@ -41,8 +42,11 @@ def build_azure_semantic_judgment_factory(
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
     system_prompt: str | None,
+    system_prompt_manifest: PromptReplayManifest | None = None,
     preflight_system_prompt: str | None = None,
+    preflight_prompt_manifest: PromptReplayManifest | None = None,
     social_narrator_system_prompts: Mapping[str, str] | None = None,
+    social_narrator_prompt_manifests: Mapping[str, PromptReplayManifest] | None = None,
     held_capabilities: frozenset[str] = frozenset(),
     intent_hardening_enabled: bool = False,
 ) -> SemanticJudgmentFactory | None:
@@ -101,8 +105,11 @@ def build_azure_semantic_judgment_factory(
             config=AzureOpenAISemanticJudgmentModelConfig(
                 candidates=t1_targets,
                 system_prompt=system_prompt,
+                system_prompt_manifest=system_prompt_manifest,
                 preflight_system_prompt=preflight_system_prompt,
+                preflight_prompt_manifest=preflight_prompt_manifest,
                 social_narrator_system_prompts=narrator_prompts,
+                social_narrator_prompt_manifests=dict(social_narrator_prompt_manifests or {}),
                 intent_hardening_enabled=intent_hardening_enabled,
             ),
             owner_loop=owner_loop,
@@ -114,7 +121,9 @@ def build_azure_semantic_judgment_factory(
                 config=AzureOpenAISemanticJudgmentModelConfig(
                     candidates=t2_targets,
                     system_prompt=system_prompt,
+                    system_prompt_manifest=system_prompt_manifest,
                     preflight_system_prompt=preflight_system_prompt,
+                    preflight_prompt_manifest=preflight_prompt_manifest,
                     intent_hardening_enabled=intent_hardening_enabled,
                 ),
                 owner_loop=owner_loop,
@@ -187,6 +196,3 @@ def _target_record(target: ModelRequestTarget) -> dict[str, object]:
         "route_kind": target.route_kind.value,
         "binding_id": target.binding_id,
     }
-
-
-__all__ = ["SemanticJudgmentFactory", "build_azure_semantic_judgment_factory"]

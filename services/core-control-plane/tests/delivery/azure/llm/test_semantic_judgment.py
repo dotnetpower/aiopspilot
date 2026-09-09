@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -10,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from fdai.core.conversation.conversation_preflight import ConversationPreflightProposal
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import (
     AzureOpenAISemanticJudgmentModel,
@@ -79,6 +81,54 @@ def test_conversation_preflight_uses_the_same_strict_contract() -> None:
     envelope = response_format["json_schema"]
     assert isinstance(envelope, Mapping)
     _assert_strict_objects(envelope["schema"])
+
+
+@pytest.mark.asyncio
+async def test_profile_request_budget_blocks_judgment_provider_call() -> None:
+    prompt = "Judge."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=2,
+        request_token_budget=1,
+    )
+    candidate = ModelRequestTarget(
+        endpoint="https://candidate.example",
+        deployment="candidate",
+        api_version="2024-06-01",
+    )
+
+    class _Identity:
+        async def get_token(self, audience: str) -> IdentityToken:
+            raise AssertionError(f"unexpected identity request for {audience}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAISemanticJudgmentModel(
+            identity=_Identity(),
+            http_client=client,
+            config=AzureOpenAISemanticJudgmentModelConfig(
+                candidates=(candidate,),
+                system_prompt=prompt,
+                system_prompt_manifest=manifest,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await model._complete_attempts(
+            "{}",
+            input_digest="sha256:" + ("a" * 64),
+            proposal_schema=SemanticJudgmentProposal.model_json_schema(),
+            system_prompt=prompt,
+            prompt_manifest=manifest,
+            call_kind="semantic-judgment",
+            max_tokens=512,
+            temperature=0.0,
+            timeout_seconds=10,
+            allow_candidate_failover=False,
+        )
+
+    assert result is None
 
 
 def test_strict_structured_output_normalizes_schema_name_without_regex() -> None:
