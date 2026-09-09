@@ -78,12 +78,40 @@ evidence limitations, forbidden-claim oracle, and required validation exist. Que
 recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
 `execution_authority=false`.
 
+## Semantic intent evaluation denominator
+
+Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
+`eval/golden-dataset/semantic-intent-coverage.json`. Do not edit the generated artifact. It keeps
+the following source-derived topic layers separate:
+
+- **Operating model:** SRE operations, resilience engineering, change and architecture governance,
+  and FinOps.
+- **Question bank:** 7 domains, 13 categories, and 400 questions.
+- **Agent accountability:** 15 fixed agents and all 47 Pantheon question domains.
+- **Ontology planning:** all 36 declared `query.*` FunctionTypes.
+- **Reviewed assurance:** all 12 Golden categories and the 16-case Azure and incident intent
+  contract.
+
+The artifact defines 47 metrics across intent, target extraction, ambiguity, discourse and action,
+time and evidence, locale and robustness, and authority. Unsupported slices are `not_scored`; an
+empty denominator never becomes 100%. Promotion requires scored support for every required topic,
+locale, discourse mode, evidence posture, and action posture. Read-to-action, prohibited-action,
+non-direct-action, invented identity or capability, authority, legacy-route, and schema-fallback
+violations remain hard-zero metrics.
+
+Current structural coverage is 12/12 Golden categories, 7/7 question-bank domains, 40/400 reviewed
+questions, 40/400 contract-validated questions, 7/36 Golden-covered query functions, and 12/36 query
+functions covered by any reviewed intent contract. Pantheon-to-semantic-case coverage is 0/47
+because no reviewed crosswalk exists. The generator reports zero rather than guessing from labels.
+These are coverage measurements, not model accuracy or operational answer evidence.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Semantic intent topic and metric inventory | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/semantic_intent_metrics.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; focused drift and invariant tests | The artifact enumerates the complete current topic denominator and 47 promotion metrics. It separates structural coverage from measured model accuracy and records unsupported Pantheon mappings as 0/47 rather than inferring coverage. |
 | Federated question-bank inventory | implemented | `eval/golden-dataset/question-bank/`; official question-bank generator; focused question-bank and Golden dataset checks (`19 passed`) | The generated inventory contains 400 logical questions from 11 source files. The 50 current-resource SRE candidates cover 19 generic Azure resource types, require server-owned scope, remain read-only, and retain `execution_authority=false`. Candidate membership does not certify runtime binding or live evidence. |
 | Semantic capability bridge | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; focused capability and composition checks | `query.ontology_declaration` is bound in production composition. Release diff, evidence health, and inventory impact remain visible as `runtime_binding_unavailable` until their exact providers or server-owned anchor are bound. |
 | Seven-perspective universe | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; focused universe and selection checks | Applicability is non-Cartesian. Case identity includes locale, case class, perspective, capability, evidence posture, anchor, terminal posture, action posture, Rule state, depth, and result bound. Active and collected Rule cases are distinct. |
@@ -109,6 +137,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added a source-derived semantic intent topic inventory and a fail-closed 47-metric evaluation contract. Removed unreviewed label-based Pantheon coverage and supplied-capability coverage assumptions before publication. | `current change`; generated artifact drift test, denominator invariants, focused Ruff, and strict mypy. | Add reviewed semantic cases or an explicit crosswalk for all 47 Pantheon domains, raise 36 FunctionType and 400-question contract coverage, and collect exact-source multilingual model measurements before promotion. |
 | 2026-09-09 | validated | Removed the first-page candidate false truncation for object-only state scopes, included operational and availability transitions in the broad recent-change plan, and preserved an explicit conflict-free decision through canonical row serialization. | `current change`; 872 focused Core checks; strict mypy, Ruff, and documentation gates; authenticated fresh-conversation replay listed five recent verified transitions. Browser timing was 45 ms to pending, 445 ms to first progress, 7.545 s to first answer, and 7.766 s to terminal. | Interval coverage remains explicitly incomplete until the retained transition source can prove continuous coverage. Concurrent inventory generation replacement can also lower scope completeness without discarding verified partial rows. |
 | 2026-09-08 | implemented | Separated durable queue timing in schema v2, marked pre-plan terminal waits as failed, cancelled thread-owned model provider work with the request, and made concurrent semantic index retries rebuild same-name relations. | `current change`; focused Core timing and model-scope tests, Console timing parser tests and typecheck, migration inventory checks, local index replacement, and PostgreSQL `EXPLAIN`. | Retain an authenticated Browser latency receipt when the shared browser connection is available. |
 | 2026-09-08 | implemented | Added content-free queue-delay and remaining-deadline observations at Core semantic processing start. | `current change`; focused expired-request checks passed 2 tests. | Retain deployed queue-delay distributions separately. |
@@ -203,6 +232,9 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 ### Remaining work
 
+- [ ] Add reviewed semantic expectations or an explicit source-owned crosswalk for all 47 Pantheon
+  question domains, then score every required locale and safety slice without converting missing
+  support into passing accuracy.
 - [ ] Complete a 7/7 exact-target follow-up matrix for the Container Apps examples. The authenticated
   bounded `MemoryPercentage` chart is retained; add typed ingress output, bounded seven-day change
   activity, and deterministic causal investigation with zero generic-row substitutions.
