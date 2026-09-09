@@ -139,8 +139,16 @@ jobs:
             terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
           )"
           if [[ -z "$inventory_job_name" ]]; then
+            state_snapshot="$RUNNER_TEMP/platform-state.tfstate"
+            umask 077
+            trap 'shred --force --remove -- "$state_snapshot"' EXIT
+            terraform -chdir=infra state pull > "$state_snapshot"
+            [[ -s "$state_snapshot" ]] || {
+              echo "platform state snapshot is empty" >&2
+              exit 1
+            }
             inventory_job_name="$(
-              terraform -chdir=infra show -json |
+              terraform -chdir=infra show -json "$state_snapshot" |
                 jq -er '
                   [.. | objects |
                     select(.address? ==

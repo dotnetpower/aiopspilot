@@ -42,7 +42,12 @@ def test_oi12_workflow_recovers_legacy_inventory_job_from_exact_state_address() 
     root_output = "terraform -chdir=infra output -raw inventory_job_name"
     state_address = "module.compute.azurerm_container_app_job.inventory[0]"
     assert _WORKFLOW.index(root_output) < _WORKFLOW.index(state_address)
-    assert "terraform -chdir=infra show -json" in _WORKFLOW
+    assert 'state_snapshot="$RUNNER_TEMP/platform-state.tfstate"' in _WORKFLOW
+    assert "umask 077" in _WORKFLOW
+    assert 'terraform -chdir=infra state pull > "$state_snapshot"' in _WORKFLOW
+    assert 'terraform -chdir=infra show -json "$state_snapshot"' in _WORKFLOW
+    assert 'shred --force --remove -- "$state_snapshot"' in _WORKFLOW
+    assert "platform state snapshot is empty" in _WORKFLOW
     assert 'if [[ -z "$inventory_job_name" ]]; then' in _WORKFLOW
     assert "if length == 1 then" in _WORKFLOW
     assert 'error("expected exactly one tracked inventory job")' in _WORKFLOW
