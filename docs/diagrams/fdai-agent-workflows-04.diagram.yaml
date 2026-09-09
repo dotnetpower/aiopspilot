@@ -9,13 +9,13 @@ locales:
     title: 4. Override -> Discovery
     description: Ordered FDAI interactions for 4. Override -> Discovery.
     alt: 4. Override -> Discovery. The main stages are object.approval {rule_id, override_signal}, signal (batched), rolling
-      count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow
+      count per rule_id, threshold check, object.rule-candidate {rule_id, pattern, proposed_revision}, shadow
       evaluation on override cases.
   ko:
     title: 4. 재정의 -> 발견
     description: 4. 재정의 -> 발견에 대한 순서가 있는 FDAI 상호 작용입니다.
     alt: 4. 재정의 -> 발견. 주요 단계는 object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id,
-      threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on
+      threshold check, object.rule-candidate {rule_id, pattern, proposed_revision}, shadow evaluation on
       override cases입니다.
 canvas:
   width: 1100
@@ -57,8 +57,8 @@ nodes:
       en: Norns -> Mimir
       ko: Norns -> Mimir
     description:
-      en: "alt: count > threshold / object.rule-candidate {rule_id, override_pattern, proposed_revision}"
-      ko: "alt: count > threshold / object.rule-candidate {rule_id, override_pattern, proposed_revision}"
+      en: "alt: count > threshold / object.rule-candidate {rule_id, pattern, proposed_revision}"
+      ko: "alt: count > threshold / object.rule-candidate {rule_id, pattern, proposed_revision}"
   - id: step-05
     kind: process
     badge: 5

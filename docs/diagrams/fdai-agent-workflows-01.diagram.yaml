@@ -6,18 +6,18 @@ formats:
   - svg
 locales:
   en:
-    title: 1. Cost-aware fix
-    description: Ordered FDAI interactions for 1. Cost-aware fix.
-    alt: 1. Cost-aware fix. The main stages are object.drift {resource, delta}, typed query {proposed_action,
+    title: 1. Cost-aware remediation
+    description: Ordered FDAI interactions for 1. Cost-aware remediation.
+    alt: 1. Cost-aware remediation. The main stages are object.drift {resource, delta}, typed query {proposed_action,
       target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation,
-      object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual
-      (post-execute)}, attribution event (async).
+      object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {outcome,
+      execution_audit_receipt}, attribution event (async).
   ko:
-    title: 1. Cost-aware 수정
-    description: 1. Cost-aware 수정에 대한 순서가 있는 FDAI 상호 작용입니다.
-    alt: 1. Cost-aware 수정. 주요 단계는 object.drift {resource, delta}, typed query {proposed_action, target_resource},
+    title: 1. Cost-aware 교정
+    description: 1. Cost-aware 교정에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 1. Cost-aware 교정. 주요 단계는 object.drift {resource, delta}, typed query {proposed_action, target_resource},
       cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict
-      {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual (post-execute)},
+      {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {outcome, execution_audit_receipt},
       attribution event (async)입니다.
 canvas:
   width: 1100
@@ -86,8 +86,8 @@ nodes:
       en: Thor -> Saga
       ko: Thor -> Saga
     description:
-      en: object.action-run {result, cost_actual (post-execute)}
-      ko: object.action-run {result, cost_actual (post-execute)}
+      en: object.action-run {outcome, execution_audit_receipt}
+      ko: object.action-run {outcome, execution_audit_receipt}
   - id: step-08
     kind: process
     badge: 8
