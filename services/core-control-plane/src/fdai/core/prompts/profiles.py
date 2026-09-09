@@ -8,9 +8,9 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
+from fdai.core.prompts.budget import estimate_prompt_tokens
 from fdai.core.prompts.types import ComposedPrompt, LayerRef, PromptArtifact, PromptLayer
 
-_CHARS_PER_TOKEN = 4
 _COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-]{0,127}$")
 _MAX_CAPABILITY_CHARS = 128
 
@@ -142,7 +142,7 @@ def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
 
     artifacts = (selection.root, *selection.packs)
     system_text = "\n\n".join(artifact.body for artifact in artifacts)
-    token_estimate = max(1, (len(system_text) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN)
+    token_estimate = estimate_prompt_tokens(system_text)
     profile = selection.profile
     if profile is not None and token_estimate > profile.system_token_budget:
         raise PromptBudgetExceededError(
@@ -157,10 +157,7 @@ def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
                 id=artifact.id,
                 version=artifact.version,
                 layer=artifact.layer,
-                token_estimate=max(
-                    1,
-                    (len(artifact.body) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN,
-                ),
+                token_estimate=estimate_prompt_tokens(artifact.body),
             )
             for artifact in artifacts
         ),

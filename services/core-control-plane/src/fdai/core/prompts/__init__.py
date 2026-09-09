@@ -21,6 +21,7 @@ Design references:
 
 from __future__ import annotations
 
+from fdai.core.prompts.budget import estimate_prompt_tokens
 from fdai.core.prompts.composer import (
     DefaultPromptComposer,
     PromptComposer,
@@ -84,6 +85,7 @@ __all__ = [
     "PromptRegistryIssue",
     "PromptSelection",
     "compare_prompt_profiles",
+    "estimate_prompt_tokens",
     "SkillDisclosureRequest",
     "SkillBundleMemberReplayRecord",
     "SkillBundleReplayRecord",

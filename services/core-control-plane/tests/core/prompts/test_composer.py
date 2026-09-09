@@ -296,6 +296,25 @@ async def test_compose_token_estimate_matches_body_length(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_compose_token_estimate_counts_multibyte_utf8_conservatively(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(
+        tmp_path,
+        "base",
+        "hello.v1.yaml",
+        _base("t2.reasoner.primary", "가나다라"),
+    )
+
+    out = await DefaultPromptComposer(registry=FileSystemPromptRegistry(tmp_path)).compose(
+        capability_id="t2.reasoner.primary"
+    )
+
+    assert out.token_estimate == 3
+
+
+@pytest.mark.asyncio
 async def test_static_prompt_composer_records_capability_calls() -> None:
     fake = StaticPromptComposer("canned text", layer_id="stub", layer_version=1)
 

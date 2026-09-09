@@ -31,6 +31,7 @@ from fdai.core.operator_memory import (
     ScopeKind,
     wrap_operator_note,
 )
+from fdai.core.prompts.budget import estimate_prompt_tokens
 from fdai.core.prompts.profiles import PromptBudgetExceededError
 from fdai.core.prompts.registry import PromptRegistry
 from fdai.core.prompts.skill_disclosure import compose_skill_disclosure
@@ -61,9 +62,6 @@ if TYPE_CHECKING:
     from fdai.core.tools.registry import ToolRegistry
     from fdai.core.tools.types import ToolArtifact
 
-# Rough characters-per-token estimate used until Wave 3 step D swaps
-# in a model-specific tokenizer via the ``TokenEstimator`` seam.
-_CHARS_PER_TOKEN: Final[int] = 4
 _LOG = logging.getLogger(__name__)
 
 # Delimiter between concatenated layers. Kept as a bare blank line so
@@ -302,7 +300,7 @@ class DefaultPromptComposer(PromptComposer):
         canary_tokens = self._inject_canaries(assembled)
         system_text = _LAYER_JOIN.join(layer.body for layer in assembled)
         manifest = tuple(layer.ref for layer in assembled)
-        token_estimate = _estimate_tokens(system_text)
+        token_estimate = estimate_prompt_tokens(system_text)
         profile = selection.profile
         if profile is not None and token_estimate > profile.system_token_budget:
             raise PromptBudgetExceededError(
@@ -375,7 +373,7 @@ class DefaultPromptComposer(PromptComposer):
                 id=layer.ref.id,
                 version=layer.ref.version,
                 layer=layer.ref.layer,
-                token_estimate=_estimate_tokens(new_body),
+                token_estimate=estimate_prompt_tokens(new_body),
             )
             assembled[index] = _AssembledLayer(body=new_body, ref=new_ref)
         return tokens
@@ -416,7 +414,7 @@ class DefaultPromptComposer(PromptComposer):
                 id=_TOOL_MANIFEST_ID,
                 version=_TOOL_MANIFEST_VERSION,
                 layer=PromptLayer.TOOL,
-                token_estimate=_estimate_tokens(body),
+                token_estimate=estimate_prompt_tokens(body),
             ),
         )
 
@@ -477,7 +475,7 @@ class DefaultPromptComposer(PromptComposer):
                 id=_OPERATOR_MEMORY_ID,
                 version=_OPERATOR_MEMORY_VERSION,
                 layer=PromptLayer.OPERATOR_MEMORY,
-                token_estimate=_estimate_tokens(body),
+                token_estimate=estimate_prompt_tokens(body),
             ),
         )
 
@@ -490,7 +488,7 @@ def _assemble(artifact: PromptArtifact) -> _AssembledLayer:
             id=artifact.id,
             version=artifact.version,
             layer=artifact.layer,
-            token_estimate=_estimate_tokens(body),
+            token_estimate=estimate_prompt_tokens(body),
         ),
     )
 
@@ -571,7 +569,7 @@ def _synthetic_layer(*, body: str, layer_id: str, layer: PromptLayer) -> _Assemb
             id=layer_id,
             version=_SKILL_LAYER_VERSION,
             layer=layer,
-            token_estimate=_estimate_tokens(body),
+            token_estimate=estimate_prompt_tokens(body),
         ),
     )
 
@@ -616,13 +614,6 @@ def _render_operator_memory_layer(entries: tuple[OperatorMemoryEntry, ...]) -> s
         for entry in entries
     ]
     return "\n".join([_OPERATOR_MEMORY_HEADER, *wrapped_notes])
-
-
-def _estimate_tokens(text: str) -> int:
-    if not text:
-        return 0
-    # Round up so a short prompt does not report zero tokens.
-    return max(1, (len(text) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN)
 
 
 __all__ = [
