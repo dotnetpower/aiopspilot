@@ -108,8 +108,8 @@ prompt change is a combined treatment, not model-only evidence. Models propose m
 deterministic presentation planning selects renderer-neutral blocks from verified evidence shape,
 and browser scenarios assess the rendered result.
 
-The local SRE assurance catalog also defines five manifest-backed declaration-kind counts, eight
-ObjectType declaration-detail questions, and six ObjectType relationship questions. These
+The local SRE assurance catalog also defines five manifest-backed declaration-kind counts, thirteen
+ObjectType declaration-detail questions, and eleven ObjectType relationship questions. These
 challenges become selectable only when the ephemeral runtime proves `query.manifest`,
 `query.ontology_declaration`, or `query.ontology_relationships` evidence-ready with
 `server_ontology_manifest` authority. They complement Service Health without marking unavailable
@@ -167,6 +167,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Added ten principal-catalog schema canaries for Approval, Decision, Observation, Rule, and ServiceObjective so the conditional repair can be evaluated in one fresh 10-question full-answer child without deleting duplicate history. | `current change`; typed contract, catalog-subject, watchdog, Ruff, and mypy checks. | Run one explicit 10-question child on the new challenge ids. |
 | 2026-09-10 | implemented | Tightened the conditional repair trigger to the exact CQAS schema contract after synonym-only primary facets caused repair fallback. | `current change`; five perfect conditional-repair-v2 schema cohorts and focused trigger/fallback tests. | Preserve global primary behavior and validate full answers when new unique questions are available. |
 | 2026-09-10 | validated | Conditional schema-repair v2 passed five distinct 10-question schema cohorts at 100% each. The trigger does not run for non-schema families; repeated v14 legacy primary accuracy still varied from 81.25% to 93.75%, so no global primary promotion occurred. | Five 50/50 local live schema artifacts; five legacy artifacts; zero read/action false positives and zero invented identities in every legacy run. | Validate full answer rendering on new questions when the immutable generator has new non-duplicate space; treat primary-model variance separately. |
 | 2026-09-10 | implemented | Wired the promoted schema-repair prompt as one typed-triggered T1 retry after active v8. Complete schema and every non-schema proposal use one model call; invalid repair retains the primary proposal. | `current change`; boundary, production factory, prompt composition, package-layout, Ruff, and mypy checks. | Run new end-to-end answer cohorts and retain per-turn repair observations. |

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: c08eecafbfdeaa4ffa3cbf6bf5a30320a9578670
+translation_source_sha: 168347079848446b699a964f6e0a5d43f4328860
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -107,8 +107,8 @@ CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니�
 결정론적 표현 플래너가 검증된 근거 형태에서 렌더러 중립 블록을 선택하고, 브라우저
 시나리오가 실제 표현 결과를 평가합니다.
 
-로컬 SRE 보증 catalog는 매니페스트에 근거한 선언 kind 개수 5개, ObjectType 선언 상세 질문 8개,
-ObjectType 관계 질문 6개도 정의합니다. Ephemeral runtime이
+로컬 SRE 보증 catalog는 매니페스트에 근거한 선언 kind 개수 5개, ObjectType 선언 상세 질문 13개,
+ObjectType 관계 질문 11개도 정의합니다. Ephemeral runtime이
 `query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`를
 `server_ontology_manifest` 권한의 evidence-ready 상태로 증명할 때만 해당 challenge를
 선택합니다. Service Health를 보완하되 사용할 수 없는 Resource 상태 또는 Resource Health
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
 | 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |
 | 2026-09-10 | validated | Conditional schema-repair v2가 서로 다른 10문항 스키마 cohort 5개를 각각 100%로 통과했습니다. Trigger는 non-schema family에서 실행되지 않습니다. 반복한 v14 legacy primary accuracy는 81.25%~93.75%로 변동하여 전역 primary를 승격하지 않았습니다. | 로컬 live 스키마 artifact 50/50 5개, legacy artifact 5개, 모든 legacy 실행에서 read/action 오탐과 만들어 낸 신원 0 | 불변 generator에 새로운 non-duplicate 공간이 생기면 새 질문으로 전체 답변 rendering을 검증하고 primary-model 변동은 별도로 처리합니다. |
 | 2026-09-10 | implemented | 승격한 schema-repair prompt를 active v8 뒤의 typed-triggered T1 재시도 한 번으로 연결했습니다. 완전한 schema 및 모든 non-schema 제안은 model call 하나를 사용하며 유효하지 않은 repair는 primary 제안을 유지합니다. | `current change`, boundary, 운영 factory, prompt composition, package-layout, Ruff 및 mypy 검사 | 새로운 end-to-end 답변 cohort를 실행하고 turn별 repair observation을 보존합니다. |
