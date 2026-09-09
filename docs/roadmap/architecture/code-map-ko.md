@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bc3b0074a80c94a64181c02a3c90a98533b70aba
+translation_source_sha: dd7f5f9a519c06efddf7c207f0504fc54412d1e7
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -61,7 +61,7 @@ FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 
 Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다. 명시적으로 선택한 T2
 연결은 하나의 preflight에서 일반 답변을 분류하고 범위가 제한된 답변을 작성합니다. 명시적 운영
 요청은 Adaptive 설명 계획을 우회하고 검증된 의미 계획을 유지합니다. Azure 의미 계획은 검토된
-서술자 범위와 전체 요청의 64KiB 상한을 적용합니다.
+서술자 범위와 전체 요청의 64KiB 상한을 적용합니다. 전체 판단은 selector 순서를 보존하는 32 KiB 후보 전용 기능 변환 결과를 사용하고, 수락된 Resource 이벤트 이력 의도는 frame 서술자를 정확한 `Resource` 및 `query.resource_event_history` 선언으로 축소합니다.
 정확한 F1-F4 형식에서는 preflight가 출처가 결속된 후보 의미를 제공해 직렬 전체 의미 판단 호출 하나를
 제거할 수도 있습니다. Core는 이를 재사용하기 전에 현재 입력 digest, 원문 범위, 확신도, 맥락
 독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다. 이후의 모든 운영 요약에는 수락된 일치 판단이 필요하며, 영어 `subscription` 명사 앞뒤의 범위가 제한된 Unicode 이름은 지정된 범위로 유지합니다.

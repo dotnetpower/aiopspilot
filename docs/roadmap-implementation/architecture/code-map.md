@@ -71,6 +71,7 @@ title: Archived Code Map Implementation Ledger
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Bounded full-judgment capability projection in selector order and narrowed accepted Resource event-history frames to exact declarations. | `current change`; focused descriptor-budget, event-history, semantic-planning, Ruff, mypy, and authenticated original-plus-paraphrase checks. | Retain the bounded recovery path and add a direct preflight family only after separate shadow evidence. |
 | 2026-09-09 | implemented | Added provider-neutral notification capability, bounded presentation, and idempotent shadow-delivery contracts. | `current change`; focused notification tests and static checks. | Bind concrete channel adapters separately without widening this shared contract. |
 | 2026-09-09 | implemented | Extracted admission-bound change-window provider construction from the oversized control-loop composition root into shared runtime support. | `current change`; focused workflow, execution-port, LOC, and static checks. | Retain one governed deployed operating-intent receipt. |
 | 2026-09-09 | implemented | Enforced strict lowercase hexadecimal SHA-256 syntax for operating-intent configured bindings and durable admission records. | `current change`; focused binding and admission regressions. | Retain one governed deployed operating-intent receipt. |

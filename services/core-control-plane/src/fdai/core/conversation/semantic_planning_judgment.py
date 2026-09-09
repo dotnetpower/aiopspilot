@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
     "query.contextual_resources": frozenset({"Resource"}),
     "query.resource_health_inventory": frozenset({"Resource", "query.resource_health_inventory"}),
     "query.resource_current_state": frozenset({"Resource", "query.resource_current_state"}),
+    "query.resource_event_history": frozenset({"Resource", "query.resource_event_history"}),
     "query.resource_state_inventory": frozenset({"Resource", "query.resource_state_inventory"}),
     "query.subscription_scope_identity": frozenset({"query.subscription_scope_identity"}),
     "query.subscription_service_health": frozenset({"query.subscription_service_health"}),
@@ -62,6 +64,7 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
         }
     ),
 }
+_MAX_JUDGMENT_CAPABILITY_BYTES = 32 * 1024
 _PRIMARY_OPERATIONAL_OUTPUT_INTENTS = {
     "resource_configuration_changes": "query.resource_configuration_changes",
     "gateway_diagnostic_evidence": "query.gateway_diagnostic_evidence",
@@ -196,6 +199,7 @@ def _semantic_judgment_capabilities(
         "object": "object_type",
     }
     capabilities: list[dict[str, Any]] = []
+    encoded_bytes = 2
     for descriptor in descriptors:
         kind = descriptor.get("kind")
         name = descriptor.get("name")
@@ -226,7 +230,19 @@ def _semantic_judgment_capabilities(
                     name,
                     *(f"{name}.{property_name}" for property_name in sorted(properties)),
                 ]
+        capability_bytes = len(
+            json.dumps(
+                capability,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        candidate_bytes = encoded_bytes + int(bool(capabilities)) + capability_bytes
+        if candidate_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
+            break
         capabilities.append(capability)
+        encoded_bytes = candidate_bytes
     return tuple(capabilities)
 
 

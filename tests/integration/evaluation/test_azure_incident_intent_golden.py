@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBoundary,
 )
 from fdai.core.conversation.semantic_planning_judgment import (
+    _descriptors_for_operational_intent,
     _semantic_judgment_capabilities,
 )
 from fdai.core.prompts.composer import DefaultPromptComposer
@@ -219,4 +221,55 @@ def test_judgment_capability_projection_omits_oversized_semantic_axes() -> None:
     ) == (
         {"kind": "function_type", "name": "query.large"},
         {"kind": "object_type", "name": "LargeObject"},
+    )
+
+
+def test_judgment_capability_projection_preserves_ranked_prefix_within_byte_cap() -> None:
+    descriptors = (
+        {
+            "kind": "function",
+            "name": "query.resource_event_history",
+            "output_schema": {"x-fdai-measure-concepts": ["resource_event.resource_health"]},
+        },
+        *(
+            {
+                "kind": "object",
+                "name": f"Object{index:03d}",
+                "properties": {f"property_{item:02d}": {} for item in range(32)},
+            }
+            for index in range(512)
+        ),
+    )
+
+    capabilities = _semantic_judgment_capabilities(descriptors)
+    encoded = json.dumps(
+        capabilities,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+    assert len(encoded) <= 32 * 1024
+    assert len(capabilities) < len(descriptors)
+    assert capabilities[0]["name"] == "query.resource_event_history"
+    assert [item["name"] for item in capabilities] == [
+        item["name"] for item in descriptors[: len(capabilities)]
+    ]
+
+
+def test_resource_event_history_narrows_frame_descriptors_after_judgment() -> None:
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "function", "name": "query.resource_event_history"},
+        {"kind": "object", "name": "Incident"},
+    )
+
+    selected = _descriptors_for_operational_intent(
+        descriptors,
+        "query.resource_event_history",
+    )
+
+    assert tuple(item["name"] for item in selected) == (
+        "Resource",
+        "query.resource_event_history",
     )
