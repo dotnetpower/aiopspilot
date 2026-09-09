@@ -111,6 +111,16 @@ def test_policy_rejects_a_narrowed_exact_correlation_key_set(tmp_path: Path) -> 
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_rejects_a_weakened_t1_similarity_floor(tmp_path: Path) -> None:
+    raw = _policy()
+    correlation = raw["correlation"]
+    assert isinstance(correlation, dict)
+    correlation["t1_similarity_floor"] = 0.5
+
+    with pytest.raises(DetectionGovernancePolicyError, match="t1_similarity_floor"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
     raw = _policy()
     promotion = raw["forecast_promotion"]

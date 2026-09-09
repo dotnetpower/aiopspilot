@@ -20,6 +20,7 @@ _PHASES = frozenset({"hour_of_day", "day_of_week", "hour_of_week"})
 _CORRELATION_KEYS = frozenset({"correlation_id", "resource_ref"})
 _REQUIRED_CORRELATION_KEYS = ("correlation_id", "resource_ref")
 _FORECAST_CONFIDENCE_LEVELS = frozenset({"0.80", "0.90", "0.95", "0.99"})
+_MIN_T1_SIMILARITY = 0.85
 
 
 class DetectionGovernancePolicyError(ValueError):
@@ -270,7 +271,11 @@ def _correlation(value: object) -> CorrelationPolicy:
         trace_window_seconds=_integer(
             raw["trace_window_seconds"], "trace_window_seconds", minimum=10, maximum=86_400
         ),
-        t1_similarity_floor=_ratio(raw["t1_similarity_floor"], "t1_similarity_floor"),
+        t1_similarity_floor=_ratio(
+            raw["t1_similarity_floor"],
+            "t1_similarity_floor",
+            minimum=_MIN_T1_SIMILARITY,
+        ),
         t1_min_shared_evidence_fields=_integer(
             raw["t1_min_shared_evidence_fields"],
             "t1_min_shared_evidence_fields",
@@ -391,9 +396,13 @@ def _integer(value: object, label: str, *, minimum: int, maximum: int) -> int:
     return value
 
 
-def _ratio(value: object, label: str) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
-        raise DetectionGovernancePolicyError(f"{label} MUST be in [0, 1]")
+def _ratio(value: object, label: str, *, minimum: float = 0.0, maximum: float = 1.0) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not minimum <= value <= maximum
+    ):
+        raise DetectionGovernancePolicyError(f"{label} MUST be in [{minimum}, {maximum}]")
     return float(value)
 
 
