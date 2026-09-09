@@ -2303,6 +2303,7 @@
         "services/operator-service/src/fdai_operator_service/family_adapters.py",
         "services/operator-service/src/fdai_operator_service/postgres_family_store.py",
         "services/operator-service/tests/test_operator_workflow_family.py",
+        "tests/integration/service-suites.json",
         "console/src/routes/best-practice-controls*",
         "console/src/routes/controls-catalog.tsx",
         "console/src/routes/i18n/governance.*.json"
