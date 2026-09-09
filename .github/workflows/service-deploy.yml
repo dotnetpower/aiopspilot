@@ -647,10 +647,32 @@ jobs:
           fi
           if [[ "$SERVICE" == "operator-service" \
             && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "enable" ]]; then
-            operator_channel_edge_identity_binding="$(
+            if ! operator_channel_edge_identity_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
-                output -json operator_channel_edge_identity
-            )"
+                output -json operator_channel_edge_identity 2>/dev/null
+            )"; then
+              platform_resource_group="$(
+                terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                  output -raw resource_group_name
+              )"
+              operator_channel_edge_identity_binding="$(
+                az identity list \
+                  --resource-group "$platform_resource_group" \
+                  --output json |
+                  jq -ce '
+                    [.[] | select(.name | endswith("-channel-edge"))] |
+                    if length == 1 then
+                      .[0] | {
+                        client_id: .clientId,
+                        principal_id: .principalId,
+                        resource_id: .id
+                      }
+                    else
+                      error("expected exactly one deployed channel-edge identity")
+                    end
+                  '
+              )"
+            fi
             jq -e '
               type == "object" and
               keys == ["client_id", "principal_id", "resource_id"] and
