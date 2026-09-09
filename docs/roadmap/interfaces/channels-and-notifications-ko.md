@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: c4ff168838c16f2f03f7db10be8351a37df17623
+translation_source_sha: 990546ddaa3857d8f19d5a9f60ff4fc242ca8842
 translation_revised: 2026-09-09
 ---
 
@@ -107,7 +107,7 @@ Teams Workflows 웹훅 바인딩은
 
 ## 2. 아키텍처 상 채널의 위치
 
-![2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter, slack adapter, email adapter, webhook adapter, pager adapter, fdai-api입니다.](../../diagrams/generated/fdai-channels-and-notifications-01.ko.svg)
+![2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, 채널 인터페이스, teams 어댑터, slack 어댑터, email 어댑터, webhook 어댑터, pager 어댑터, fdai-api입니다.](../../diagrams/generated/fdai-channels-and-notifications-01.ko.svg)
 
 - 아웃바운드 어댑터는 `delivery/notifications/`, bidirectional 어댑터는 `delivery/channels/`,
   A1 승인 어댑터는 `delivery/chatops/`에 있습니다. 계약은 각각
@@ -165,7 +165,7 @@ Teams Workflows 웹훅 바인딩은
 | 채널 | Entra 테넌트 | 인증 경로 | 허용 카테고리 |
 |------|--------------|-----------|--------------|
 | **Teams (same 테넌트)** | ✓ | Teams SSO → OBO 교환 → `fdai-api` 토큰 | **A1, A2, A3, A4** |
-| **Teams (게스트 테넌트)** | 게스트 | 게스트 OID로 OBO | **A2, A3, A4** (A1 거부 - [user-rbac-and-identity-ko.md §10.5](user-rbac-and-identity-ko.md#105-guest-entra-b2b-users)와 동일한 게스트 규칙) |
+| **Teams (게스트 테넌트)** | 게스트 | 게스트 OID로 OBO | **A2, A3, A4** (A1 거부 - [user-rbac-and-identity-ko.md §10.5](user-rbac-and-identity-ko.md#105-게스트-entra-b2b-사용자)와 동일한 게스트 규칙) |
 | **Slack** | ✗ | Slack OAuth, **포크 필수** Slack userId ↔ Entra OID 매핑, A1 승인은 브라우저에서 Entra 재인증을 위해 `fdai-api`로 이동 | 비어 있지 않은 매핑이 있을 때만 **A1 콜백**, **A2, A3, A4**, 아웃바운드 A1 전달은 계획 상태 |
 | **이메일 (SMTP / Graph)** | ✗ | 발신 전용, return 채널 없음 | **A2, A4 only** - 절대 A1 아님 (magic-link 승인 금지) |
 | **범용 웹훅** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
@@ -214,17 +214,17 @@ oversized, malformed 첨부는 도구 전달을 차단합니다. 일반 bitmap �
 배포는 P0-15 채널 조립에서 벤더 자격 증명 가져오기 도구를 연결하며 arbitrary
 첨부 URL은 지원 경계가 아닙니다.
 
-Teams 유입은 두 신원을 분리합니다. `BotFrameworkJwtAuthenticator`는 cached JWKS를
+Teams 유입은 두 신원을 분리합니다. `TeamsServiceTokenVerifier`는 cached JWKS를
 사용해 Bot Framework 서비스 토큰의 RS256 서명, 앱 대상, Bot Framework 발급자,
 만료/not-before, 필수 `serviceurl`을 검증합니다. 그 다음 경로는 활동의
 `serviceUrl` 및 `channelId=msteams`가 검증된 서비스 신원과 일치하도록 요구합니다. 이
-검사를 통과한 뒤에만 `TeamsPrincipalResolver`가 활동 테넌트를 검증하고
+검사를 통과한 뒤에만 `ChannelPrincipalResolver`가 활동 테넌트를 검증하고
 `from.aadObjectId`를 범위가 제한된 구성된 정본 FDAI principal로 대응합니다. Service-token
 실패는 `401`, 알 수 없음 테넌트 또는 user 연결은 `403`이며 둘 다 채널 큐에 도달하지
 않습니다. 대화 게이트웨이가 턴을 보기 전에 벤더 id는 정본 principal로 교체됩니다.
 
-운영 조립은 `FDAI_TEAMS_BOT_APP_ID`, 선택적 HTTPS 발급자/JWKS 재정의,
-`FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_PRINCIPAL_BINDINGS_JSON`을 읽습니다. 연결 지도는 비어 있지 않은
+운영 조립은 `FDAI_TEAMS_APPLICATION_ID`, 선택적 HTTPS 발급자/JWKS 재정의,
+`FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`을 읽습니다. 연결 지도는 비어 있지 않은
 string-to-string JSON 객체이며 최대 1000 항목입니다. 누락된, malformed, unbounded 구성은
 시작에서 실패합니다. Bot 서비스 토큰은 채널 서비스를 인증하며 운영자의 Entra
 principal을 대체하거나 FDAI 역할을 부여하지 않습니다.
@@ -353,7 +353,7 @@ Initial 게시가 acknowledged된 후의 갱신 실패는 모호한 중복 risk�
 외부 대화 회신은 [durable-conversation-delivery-ko.md](durable-conversation-delivery-ko.md)의
 저장된 원장을 사용합니다. 프로바이더 HTTP 거절은 범위가 제한된 재시도가 가능한 definitive
 실패입니다. 전송 계층 중단 또는 누락된/malformed 확인 응답은 모호한이며
-자동으로 재시도하지 않습니다. Pause/재개 변경은 별도로 인증된된 ChatOps 명령
+자동으로 재시도하지 않습니다. Pause/재개 변경은 별도로 인증된 ChatOps 명령
 경로에만 있고 콘솔에는 GET-only reliability 메트릭만 제공됩니다.
 
 인증된 범용 웹훅은 `TypedWebhookMapping`을 명시적 선택할 수 있습니다. 대응은 하나의
@@ -422,42 +422,44 @@ protection, 전달 감사가 필요하며 Operator API에 속하지 않습니다
   team**으로 생성. 멤버십은 Entra에서 자동 sync ("Owner가 Portal에서 `aw-approvers`에
   사람 추가" → 그들은 즉시 다음 다이제스트와 모든 A1/A2/A3 포스트 보게 됨). 이는 관리를 하나의
   표면에 유지
-  ([user-rbac-and-identity-ko.md §4.2](user-rbac-and-identity-ko.md#42-security-groups-slots)).
-- **In-message `@mentions`**은 채널 포스트 안에서 아티팩트-소유자를 호출(예: 만료되는 exemption
-  의 요청자). 멘션은 감사 스트림이 이미 운반하는 아티팩트 메타데이터(`requested_by`, PR 작성자,
-  룰 작성자)에서 파생 - 다이제스트 시점에 Graph 조회 없음.
-- **롤-파생 direct messaging**은 break-glass 사용 요약에만 사용(채널 포스트로 충분하지 않은
-  작고 시간-임계 오디언스). 다른 모든 A4 다이제스트는 채널 전용.
+  ([user-rbac-and-identity-ko.md §4.2](user-rbac-and-identity-ko.md#42-보안-그룹-slots)).
+- **In-message `@mentions`**은 채널 포스트 안에서 아티팩트-소유자를 호출하는 선언된 설계(예:
+  만료되는 exemption의 요청자)이며, 감사 스트림이 이미 운반하는 아티팩트 메타데이터
+  (`requested_by`, PR 작성자, 룰 작성자)에서 파생 - 다이제스트 시점에 Graph 조회 없음 -
+  하지만 matrix 로더는 이 모드를 아직 시행하지 않음.
+- **롤-파생 direct messaging**은 break-glass 사용 요약에만 쓰이는 선언된 설계(채널 포스트로
+  충분하지 않은 작고 시간-임계 오디언스); 다른 모든 A4 다이제스트는 채널 전용으로 남고, 이
+  모드 역시 matrix 로더가 아직 시행하지 않음.
 
 다이제스트 엔트리의 허용 오디언스 모드:
 
 | 모드 | 의미 | 허용 위치 |
 |------|------|----------|
 | `channel: <id>` | 채널/DL에 포스트; Entra 그룹 바인딩으로 멤버십 관리 | A2, A3, A4 (기본) |
-| `mention-artifact-owner` | 추가적: 채널 포스트 안에서 아티팩트 소유자 `@mention` | A4 (다이제스트별 명시적 선택) |
-| `role-dm: <RoleName>` | `aw-<role>` 멤버 Graph 조회, 각각 DM | A4 **break-glass 전용** (구성 로드에서 다른 곳은 deny-list) |
+| `mention-artifact-owner` | 추가적: 채널 포스트 안에서 아티팩트 소유자 `@mention` | 선언된 설계; matrix 로더에서 아직 시행되지 않음 |
+| `role-dm: <RoleName>` | `aw-<role>` 멤버 Graph 조회, 각각 DM | 선언된 설계; matrix 로더에서 아직 시행되지 않음 |
 
 ### 5.2 능동적 이해관계자 브리핑 (A4 종합)
 
-조직은 리더십을 위해 주기적 운영 요약을 작성하는 사람을 둔다 - "이번 구간 에
+조직은 리더십을 위해 주기적 운영 요약을 작성하는 사람을 둔다 - "이번 구간에
 무슨 일이 있었고, 우리가 무엇을 했으며, 리스크가 어디 있는가." `core/notifications/briefing.py`
-(`StakeholderBriefingComposer`) 가 그 A4 다이제스트를 집계된 운영 카운트(심각도 별
-인시던트 tally, auto / HIL / rolled-back / shadow-only 로 나뉜 액션 결과, 비용 run-rate
-delta 와 driver, forward-looking 예측 리스크, guard-metric breach)로부터
-**결정론적으로** 합성한다 - per-event noise 로부터가 아니다.
+(`StakeholderBriefingComposer`)가 그 A4 다이제스트를 집계된 운영 카운트(심각도별
+인시던트 tally, auto / HIL / rolled-back / shadow-only로 나뉜 액션 결과, 비용 run-rate
+delta와 driver, forward-looking 예측 리스크, guard-metric breach)로부터
+**결정론적으로** 합성한다 - per-event noise로부터가 아니다.
 
-- **실패 시 차단, fabrication 없음.** 작성기 는 호출자 가 제공하는 감사 로그 / KPI
-  텔레메트리 로부터 모든 수치를 sourcing 하고 받지 않은 것은 아무것도 assert 하지 않는다.
-  actionable 활동이 없는 구간 는 명시적인 "No significant operational 활동" headline
-  과 `has_significant_activity = False` 를 렌더링하므로, 호출자 는 아무 일도 없었다고
-  리더십에 이메일하는 대신 전송 를 **suppress** 한다. 다른 것 없이 1% 미만의 비용 흔들림은
-  briefing 이 아니라 noise 로 취급한다.
-- **가드 breach 는 escalate.** guard-metric breach(리더십이 절대 놓치면 안 되는 것)는
-  결과에 명시적 `escalations` 로 표면 되어 호출자 가 더 높은 trust 계층 로 경로 할 수
-  있고, briefing 본문 에도 나타난다([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)).
-- **Pure 하고 delivery-agnostic.** 작성기 는 벤더 지식을 갖지 않고 절대 전달 하지
-  않는다; 위 대상 모드를 통한 A4 전달 를 위해 호출자 가 §6 의 라우터 에 넘기는
-  `StakeholderBriefing` (markdown 본문 와 per-section 페이로드)를 반환한다. 동일 입력, 동일 briefing.
+- **실패 시 차단, fabrication 없음.** 작성기는 호출자가 제공하는 감사 로그 / KPI
+  텔레메트리로부터 모든 수치를 sourcing하고 받지 않은 것은 아무것도 assert하지 않는다.
+  actionable 활동이 없는 구간은 명시적인 "No significant operational 활동" headline과
+  `has_significant_activity = False`를 렌더링하므로, 호출자는 아무 일도 없었다고
+  리더십에 이메일하는 대신 전송을 **suppress**한다. 다른 것 없이 1% 미만의 비용 흔들림은
+  briefing이 아니라 noise로 취급한다.
+- **가드 breach는 escalate.** guard-metric breach(리더십이 절대 놓치면 안 되는 것)는
+  결과에 명시적 `escalations`로 표면되어 호출자가 더 높은 trust 계층으로 경로할 수
+  있고, briefing 본문에도 나타난다([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)).
+- **Pure하고 delivery-agnostic.** 작성기는 벤더 지식을 갖지 않고 절대 전달하지
+  않는다; 위 대상 모드를 통한 A4 전달을 위해 호출자가 §6의 라우터에 넘기는
+  `StakeholderBriefing` (markdown 본문과 per-section 페이로드)를 반환한다. 동일 입력, 동일 briefing.
 
 ## 6. 라우팅 정책 (config-driven)
 
@@ -503,11 +505,11 @@ matrix:
   기록을 `INFO`로 기록하고 실패 시 차단 HIL 에스컬레이션을 유지합니다.
 - **인시던트 심각도 에스컬레이션** - 커밋된 단조 증가 심각도 상향은 A2 `severity_changed`
   notice를 한 번 발행하며 고정된 감사 id가 immediate 전달과 시작 재생을 deduplicate합니다.
-- **`role-dm`은 `break_glass_usage_summary`를 제외하고 deny-list.** `role-dm`을 시도하는
-  다른 다이제스트는 구성 로드 실패.
-- **`mention-artifact-owner`를 선언하는 다이제스트는 유효한 메타데이터 필드를 명시** 해야 함
-  (`rule_author`, `override_requester`, `exemption_requester`, `pr_author_and_reviewers`);
-  알려지지 않은 값은 구성 로드 실패.
+- **`role-dm`과 `mention-artifact-owner`는 선언된 설계일 뿐, 아직 시행되지 않습니다.** matrix
+  로더(`core/notifications/matrix.py`)는 오늘날 선언된 채널, 신뢰 계층,
+  `on_all_fail`/`default_route` 구조만 검증하며, `break_glass_usage_summary`로 제한된
+  `role-dm` deny-list와 `mention-artifact-owner` 메타데이터 필드 검사는 현재 config-load
+  동작이 아니라 미해결 후속 작업으로 남아 있습니다.
 - **범위가 제한된 재시도** - 각 어댑터는 자체 재시도 예산을 선언; 라우터는 소진 시 다음 채널 또는
   `on_all_fail`로 escalate.
 - **영속 A1 결정** - `fdai-api`는 정규화한 승인자, 결정, 증적을 이벤트 버스에
@@ -517,9 +519,9 @@ matrix:
   게시하지 않고 반환합니다. 다른 행위자 또는 결정은 충돌로 처리합니다. 시작 및 주기적
   복구는 사람의 추가 작업 없이 미전달 증적을 배출합니다. 전달 시도는 영구 저장되며
   설정된 상한에서 `abandoned`가 됩니다. 최종 전달 상태는 이전 상태로 돌아가지 않습니다.
-  운영 한계는 `FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
-  `FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`,
-  `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`로 설정합니다.
+  `HilDecisionRecoveryConfig`가 복구 간격, 시도별 게시 타임아웃, 전달 시도 상한을
+  생성자 기본값으로 설정하며, 복구 루프는 오늘날 운영 조립에서 환경 변수 재정의
+  연결을 갖지 않습니다.
 - **비율 정책은 배포가 소유** - 테넌트별 승인자 비율, quiet 시간, fatigue 제한은 인증된
   유입과 라우팅 구성에 둡니다. 레지스트리 멱등성, 만료, 정족수, no-self-approval 검사를
   약화하지 않습니다.
@@ -544,13 +546,13 @@ matrix:
   콜백은 기존 시간 초과를 반환하며 실행하지 않습니다. 부하 controller는 만료된 항목마다
   A2 메시지를 보내지 않습니다. 알림 계층은 감사 신호를 범위가 제한된 A2/A4 요약으로
   집계할 수 있습니다
-  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#hil-approval-integrity)).
+  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#사람-승인-무결성)).
 
 ## 7. 채널 특이 노트
 
 | 채널 | 노트 |
 |------|------|
-| **Teams** | A1에 Adaptive Cards를 사용하고 OAuth 범위를 최소로 유지합니다(`ChannelMessage.Send.Group` + 봇 신호). SSO + OBO는 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-sign-in)를 따릅니다. **`aw-*` Entra 보안 그룹이 뒷받침하는 그룹 연결 팀**에 `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`, 전용 `FDAI_TEAMS_BOT_MI_CLIENT_ID`를 함께 구성합니다. Core는 실행 신원이 아닌 이 Bot 신원으로 전송하고 `teams:<team-id>:<channel-id>` 대상을 카드에 넣으며 Operator는 같은 값을 검증합니다. Incoming Webhook은 `Action.Execute` 콜백을 전달할 수 없으므로 A1에서 지원되지 않습니다. 수신기에는 `FDAI_TEAMS_APPLICATION_ID`, `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`, 공유 콜백 시크릿, 구성된 HIL 결정 토픽과 영속 outbox도 필요하며 모든 입력이 갖춰질 때까지 Teams A1은 닫혀 있습니다. |
+| **Teams** | A1에 Adaptive Cards를 사용하고 OAuth 범위를 최소로 유지합니다(`ChannelMessage.Send.Group` + 봇 신호). SSO + OBO는 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-사인인)를 따릅니다. **`aw-*` Entra 보안 그룹이 뒷받침하는 그룹 연결 팀**에 `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`, 전용 `FDAI_TEAMS_BOT_MI_CLIENT_ID`를 함께 구성합니다. Core는 실행 신원이 아닌 이 Bot 신원으로 전송하고 `teams:<team-id>:<channel-id>` 대상을 카드에 넣으며 Operator는 같은 값을 검증합니다. Incoming Webhook은 `Action.Execute` 콜백을 전달할 수 없으므로 A1에서 지원되지 않습니다. 수신기에는 `FDAI_TEAMS_APPLICATION_ID`, `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`, 공유 콜백 시크릿, 구성된 HIL 결정 토픽과 영속 outbox도 필요하며 모든 입력이 갖춰질 때까지 Teams A1은 닫혀 있습니다. |
 | **Slack** | A2/A3에 블록 키트를 사용합니다. 승인 콜백 URL은 `fdai-api`를 통해 이동하므로 Entra 재인증은 Slack 내부가 아니라 브라우저에서 수행됩니다. 배포에서는 `FDAI_SLACK_TEAM_ID`와 userId-OID 매핑을 함께 제공합니다. 둘 중 하나라도 없으면 A1 트래픽을 차단합니다. 완전한 Slack 전용 구성에는 Teams 설정이 필요하지 않습니다. 서명된 HMAC 콜백은 이 내부 중계 경로만 담당하며 `teams` 채널 주장을 거부하므로, 공유 비밀이 유출되어도 Teams 행위자를 주장할 수 없습니다. |
 | **이메일** | Azure Communication Services 이메일을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. 어댑터는 모든 메시지에 `plainText`를 보내고 `notice_kind=opened`일 때 범위가 제한된 HTML을 추가합니다. 인시던트 템플릿은 인시던트 id, 상태, 심각도, opened 시간, 집계 구성원 개수, 배정 상태, `audit_id` 및 HTTPS Console 링크만 사용합니다. 상관관계 키, 리소스 페이로드, 행위자 신원 또는 free-form 사유는 렌더링하지 않습니다. Terraform은 Azure-managed 발신자 도메인과 Communication Services 리소스에 범위가 제한된 전용 알림 managed 신원을 프로비저닝합니다. `FDAI_CONSOLE_BASE_URL`이 Console 출처를 제공하며, 값이 없거나 완성된 링크가 absolute HTTPS가 아니면 렌더러는 CTA를 생략합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 프로바이더 연산이 `Succeeded`가 될 때까지 기다린 후 프로바이더 메시지 id를 기록합니다. Settings > Integrations는 합성 자리 표시자만 사용하는 인증된 GET으로 동일한 렌더러를 가져옵니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
@@ -584,7 +586,7 @@ Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 
   비상 정지 상태 자체는 모든 운영 채널에서 A2로 공지.
 - **모든 A2 채널이 다운** 이면, 어댑터 헬스 원격측정은 여전히 관측성에 랜딩하고 콘솔에 나타남;
   비상 정지는 전용 break-glass 경로를 통해 조작 가능
-  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#rate-limiting-and-kill-switch-dos-and-containment)).
+  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#비율-limiting과-비상-정지-dos와-억제)).
 - 어댑터 불건강 자체는 A2 신호 - A1 딜리버리를 중단한 Teams 장애는 대체 경로 채널을 통해
   운영 라인을 페이지.
 
