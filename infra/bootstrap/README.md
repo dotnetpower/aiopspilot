@@ -166,7 +166,7 @@ VM's current name before importing its VM and network interface into bootstrap s
 variable empty for the canonical `vm-runner-<workload>-<env>-<region_short>` name. Bootstrap
 preserves the adopted image reference; replace it only through an explicit reviewed taint.
 
-The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` before the bootstrap
+The scheduled `infra-drift.yml` workflow runs, and reruns when changed, `check-runner-storage-posture.sh` before the bootstrap
 plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an
 actual managed disk resource. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
 check confirms the disk against the ops resource group's inventory before reporting drift. A mismatch fails
