@@ -1,14 +1,14 @@
 ---
-title: 에이전트와 자가 치유(Agents and self-healing)
-description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분을 승인-거절 수준에 두는 방식.
+title: 에이전트와 자가 치유
+description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분이 승인 또는 거절에 집중하도록 돕는 방식입니다.
 translation_of: agents-and-self-healing.md
-translation_source_sha: 18c0f09c80995635ce5193fd5b6586a845909a37
-translation_revised: 2026-08-24
+translation_source_sha: fb54aa2e79cf14f102ae79dcd7ebb0ab93ca95fb
+translation_revised: 2026-09-09
 sidebar:
   order: 5
 ---
 
-# 에이전트와 자가 치유(에이전트 and self-healing)
+# 에이전트와 자가 치유
 
 FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합니다. 각 에이전트는 하나의
 임무를 맡고 객체 및 작업 타입 집합을 소유하며, 스키마가 검증된 이벤트 버스에서
@@ -22,25 +22,29 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 
 ## 조직
 
-에이전트 구성은 상위 프로젝트에서 한 번 정의되고 포크가 바꾸지 않습니다. Odin이
-계획하고, Forseti가 판단하고, Thor가 실행하며, 스태프 에이전트가 카탈로그와 메모리를
-관리합니다.
+에이전트 구성은 업스트림에서 한 번 정의되고 포크가 바꾸지 않습니다. Forseti가 결정을
+소유하고, Odin이 영역 간 충돌을 중재하며, Thor가 실행합니다. 스태프 에이전트는 실행 권한을
+얻지 않고 카탈로그, 근거 및 메모리를 관리합니다.
 
 ![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 발견된 문제, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
 
 | 에이전트 | 역할 | 한 줄 |
 |----------|------|-------|
-| Odin | Master 플래너 | 영역 간 충돌을 중재하는 최종 조정자 |
-| Forseti | Judge | 결정(자동 실행 / 사람 승인 / 거부)을 발행하고 실행하지 않음 |
+| Odin | 총괄 플래너 | 영역 간 충돌을 중재하는 최종 조정자 |
+| Forseti | 판단자 | 결정(자동 실행 / 사람 승인 / 거부)을 발행하고 실행하지 않음 |
 | Thor | 응답자 | 결정을 배분하는 유일한 권한 실행기 |
-| Var | Approver | 사람 승인을 전달하며 Thor와 분리 |
+| Var | 승인 전달자 | 사람 승인을 전달하며 Thor와 분리 |
 | Vidar | 복구 | 롤백과 DR 장애 조치를 소유 |
-| Huginn | Event Collector / Resource 발견 | 실시간 리소스 변경 수집과 상관관계 연결을 소유 |
-| Heimdall | Observer | 탐색 최신성, 커버리지, 드리프트, 리소스 변경을 감시 |
-| Njord / Freyr / Loki | 도메인 전문가 | 비용, 용량, 카오스를 자문하며 실행하지 않음 |
-| Mimir / Norns / Muninn | 거버넌스 스태프 | 룰 관리, 학습, 메모리 |
-| Saga | Auditor | 추가 전용 감사 로그를 기록 |
-| Bragi | Narrator | 여러분의 질문을 파이프라인 안팎으로 옮김 |
+| Huginn | 이벤트 수집 및 리소스 탐색 | 실시간 리소스 변경 수집과 상관관계 연결을 소유 |
+| Heimdall | 관찰자 | 탐색 최신성, 커버리지, 드리프트, 리소스 변경을 감시 |
+| Njord | 비용 전문가 | 비용을 자문하며 실행하지 않음 |
+| Freyr | 용량 전문가 | 용량을 자문하며 실행하지 않음 |
+| Loki | 카오스 전문가 | 범위가 제한된 실험을 제안하며 실행하지 않음 |
+| Mimir | 규칙 담당자 | 통제된 규칙 수명 주기 결정을 소유 |
+| Norns | 학습 전문가 | 감사된 결과에서 비활성 후보를 제안 |
+| Muninn | 메모리 전문가 | 범위가 지정된 맥락과 이전 근거를 제공 |
+| Saga | 감사자 | 추가 전용 감사 로그를 기록 |
+| Bragi | 서술기 | 여러분의 질문을 파이프라인 안팎으로 옮김 |
 
 ## 직무 분리
 
@@ -65,9 +69,9 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 - **승격된 저위험 작업은 스스로 처리할 수 있습니다.** 중단 조건, 롤백 경로, 영향 범위
   제한, 감사 기록을 갖추며, 새 작업은 승격 기준을 통과할 때까지 관찰 모드에
   머무릅니다.
-- **위험한 소수는 여러분을 기다립니다.** 승인 카드가 이미 쓰는 채널인 Teams나 Slack으로
-  도착하고, 여러분은 승인하거나 거절합니다. 거절과 시간 초과는 모두 감사되는
-  미실행으로 끝납니다.
+- **위험한 소수는 여러분을 기다립니다.** 승인 카드는 구성되고 승격된 승인 채널을 통해
+  도착하며, 여러분은 승인하거나 거절합니다. 채널이 있다는 사실만으로 권한이 생기지
+  않습니다. 거절과 시간 초과는 모두 감사되는 미실행으로 끝납니다.
 - Bragi에게 "왜 장애 조치가 일어났지?" 같은 **질문을 평범한 말로** 할 수 있고, 실행기의
   특권 자격 증명 없이도 근거가 붙은 답을 받습니다.
 
@@ -78,7 +82,7 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 리소스가 나빠지면 에이전트들은 모든 이벤트를 다루는 바로 그 파이프라인에서 함께
 움직입니다. 장애 조치 하나를 처음부터 끝까지 따라가 보겠습니다.
 
-![장애는 어떻게 자가 치유되는가. 주요 단계는 Huginn / 변경 discovery, Heimdall / coverage 확인, Forseti / 판정, Njord, Freyr, Thor / 실행, Var / 여러분의 승인, Vidar / 롤백 / failover, Saga / 감사, Norns / 학습입니다.](../../diagrams/generated/fdai-agents-and-self-healing-02.ko.svg)
+![Huginn이 변경을 탐색하고 Heimdall이 근거 범위를 확인합니다. Njord, Freyr, Loki가 Forseti에게 자문합니다. 목표가 충돌할 때만 Forseti가 Odin에게 중재를 요청한 뒤, 실행 가능한 작업을 Thor에게 보내거나 Var를 통해 사람 승인을 요청하거나 거부된 미실행을 Saga에 기록합니다. Thor가 실행하고 Vidar가 필요한 복구를 처리하며 Saga가 결과를 감사한 뒤 Norns가 비활성 후보를 제안합니다.](../../diagrams/generated/fdai-agents-and-self-healing-02.ko.svg)
 
 1. **감지.** Huginn이 리소스 변경과 장애 신호를 실시간으로 모읍니다. 주기적인 인벤토리
   작업이 놓친 변경을 메우고, Heimdall이 최신성과 커버리지를 확인해 알림 폭주 대신 하나의
@@ -97,10 +101,10 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 Freyr는 용량을 위해 `scale_up`을 원할 수 있습니다. 이때 Forseti가 결정을 확정하기 전에
 Odin이 정리하므로, 상충하는 목표가 실행 단계로 동시에 달려가지 않습니다.
 
-## 에이전트를 사용할 수 없는 경우
+## 에이전트를 사용할 수 없을 때의 안전한 성능 저하
 
-자가 회복에는 조직 자체도 포함됩니다. 역할 하나가 빠지면 자율성이 낮아질 뿐, 다른
-에이전트가 받지 않은 권한을 대신 갖지는 않습니다.
+역할을 사용할 수 없으면 조직은 안전한 쪽으로 동작합니다. 역할 하나가 빠지면 자율성이
+낮아지고, 해당 역할의 권한이 다른 에이전트에게 조용히 넘어가지 않습니다.
 
 | 사용할 수 없는 역할 | 안전한 성능 저하 방식 |
 |----------------------|-----------------------|

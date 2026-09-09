@@ -20,9 +20,10 @@ approve-or-reject level, and how they heal a failure end to end.
 
 ## The organization
 
-The set of agents is defined once upstream and a fork never changes it. Odin
-plans, Forseti judges, Thor executes, and the staff agents govern the catalog and
-the memory.
+The set of agents is defined once upstream and a fork never changes it. Forseti
+owns the decision, Odin arbitrates cross-domain conflicts, Thor executes, and
+the staff agents govern the catalog, evidence, and memory without gaining
+execution authority.
 
 ![External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute detected issues, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path.](../../diagrams/generated/fdai-agent-driven-runtime.en.svg)
 
@@ -35,8 +36,12 @@ the memory.
 | Vidar | Recovery | Owns rollback and DR failover |
 | Huginn | Event Collector / Resource Discovery | Owns real-time resource-change ingress and correlation |
 | Heimdall | Observer | Watches discovery freshness, coverage, drift, and resource change |
-| Njord / Freyr / Loki | Specialists | Advise on cost, capacity, and chaos, and never execute |
-| Mimir / Norns / Muninn | Governance staff | Rule ownership, learning, memory |
+| Njord | Cost specialist | Advises on cost and never executes |
+| Freyr | Capacity specialist | Advises on capacity and never executes |
+| Loki | Chaos specialist | Proposes bounded experiments and never executes |
+| Mimir | Rule steward | Owns governed rule lifecycle decisions |
+| Norns | Learning specialist | Proposes inert candidates from audited outcomes |
+| Muninn | Memory specialist | Supplies scoped context and prior evidence |
 | Saga | Auditor | Writes the append-only audit log |
 | Bragi | Narrator | Translates your questions to and from the pipeline |
 
@@ -63,9 +68,10 @@ brings decisions to you:
 - **Promoted low-risk actions can resolve themselves** with a stop condition, a
   rollback path, an impact scope limit, and an audit entry. A new action stays in
   observation mode until its evidence clears the promotion gate.
-- **The risky few wait for you.** An approval card arrives in the channel you
-  already use, such as Teams or Slack, and you approve or reject it. A rejection
-  and a timeout both end as an audited no-op.
+- **The risky few wait for you.** An approval card arrives through a configured
+  and promoted approval channel, and you approve or reject it. Channel presence
+  alone grants no authority. A rejection and a timeout both end as an audited
+  no-op.
 - **You can ask questions** in plain language through Bragi, such as "why did
   this fail over?", and get an answer backed by evidence. You never need the
   executor's privileged identity to do it.
@@ -77,7 +83,7 @@ Full walkthrough: [../guides/approve-change.md](../guides/approve-change.md).
 When a resource degrades, the agents collaborate through the same pipeline that
 handles every event. Here is one failover, end to end:
 
-![How a failure self-heals. The main stages are Huginn / discovers changes, Heimdall / checks coverage, Forseti / judges decision, Njord, Freyr, Thor / executes, Var / your approval, Vidar / rollback / failover, Saga / audits, Norns / learns.](../../diagrams/generated/fdai-agents-and-self-healing-02.en.svg)
+![Huginn discovers a change and Heimdall checks evidence coverage. Njord, Freyr, and Loki advise Forseti. Forseti asks Odin only when objectives conflict, then either sends an eligible action to Thor, requests human approval through Var, or records a denied no-op with Saga. Thor executes, Vidar handles required recovery, Saga audits outcomes, and Norns proposes an inert candidate.](../../diagrams/generated/fdai-agents-and-self-healing-02.en.svg)
 
 1. **Sense.** Huginn takes in resource changes and failure signals in real time.
   The periodic Inventory job catches anything missed, and Heimdall checks
@@ -99,10 +105,11 @@ Specialists sometimes disagree about the same resource. Njord may want
 that before Forseti finalizes the decision, so competing goals never race each
 other to the executor.
 
-## When an agent is unavailable
+## Safe degradation when an agent is unavailable
 
-Self-healing covers the organization itself. A missing role lowers autonomy. It
-never lets another agent take over authority it was not given.
+The organization fails toward safety when a role is unavailable. A missing role
+lowers autonomy; it does not silently transfer that role's authority to another
+agent.
 
 | Unavailable role | Safe degradation |
 |------------------|------------------|
