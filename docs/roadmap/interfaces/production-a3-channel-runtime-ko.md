@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 290415233bfc98080077ce54dafeda67ae419322
-translation_revised: 2026-09-08
+translation_source_sha: e7c42a867281fcbe601dd8b204c837265359187c
+translation_revised: 2026-09-09
 ---
 # 운영 A3 채널 런타임
 
@@ -81,7 +81,8 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 보호된 Slack 비밀 구체화 | 구현됨 | `deploy-channel-edge-secrets.yml`, `materialize_channel_edge_secrets.py`, 보호된 서비스 구체화 도구, 집중 작업 흐름 및 전송 테스트 | 필수 CI가 통과한 정확한 개발 리비전은 GitHub Secrets 5개를 태그가 지정된 단일 배포 소유 Key Vault의 고정 비밀 4개로 전송할 수 있습니다. 별도의 마스킹된 프로바이더 결속은 고정된 버전 없는 비밀 리소스 식별자 4개와 Slack 작업 영역 식별자만 제공합니다. 서비스 구체화 도구는 edge 이름과 닫힌 Slack 전용 런타임 기본값을 파생하기 전에 정확한 키, 고정 비밀 이름 및 단일 vault를 검증합니다. 비공개 네트워크 및 RBAC 상태는 플랫폼과 tenant 정책이 계속 소유합니다. 이 단계는 채널, 승인 또는 실행 권한을 부여하지 않습니다. |
-| A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. 통제된 프로바이더 및 배포 근거는 열린 상태입니다. |
+| A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. Slack 프로바이더와 배포된 런타임 근거는 아래에서 검증했으며 Teams는 프로바이더 검증 없이 구현된 상태를 유지합니다. |
+| Slack 프로바이더 및 보호된 런타임 | 검증됨 | 보호된 계획 실행 `34229586152`, 커밋 `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`의 보호된 적용 실행 `34229833026`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235) | Slack HTTP Events API가 서명된 요청을 배포된 edge로 전달했습니다. 매핑된 principal의 요청 하나가 영속 전달, 시도, 확인 응답 각각 1건과 대체 텍스트를 포함한 Block Kit 스레드 응답 하나를 생성했습니다. 현재 리비전을 재시작한 뒤에도 확인 응답과 Slack 응답이 각각 1건으로 유지됐고 중복 위험이 없었습니다. 전용 신원에는 이미지 가져오기, Event Hubs 데이터 및 Key Vault 비밀 읽기 역할만 유지했습니다. |
 | 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
@@ -94,6 +95,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | 검증됨 | 기존 Slack 앱을 Socket Mode에서 HTTP Events API로 전환하고 리비전 재시작을 거친 통제된 운영 A3 요청 하나를 보존했습니다. | 보호된 계획 실행 `34229586152`, 커밋 `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`의 보호된 적용 실행 `34229833026`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 2xx를 반환한 서명된 HTTP 요청 3건, 재시작 전후에 전달 완료 레코드, 시도 및 확인 응답 각각 1건을 유지한 영속 변환 결과, 대체 텍스트를 포함한 Block Kit 응답 1건을 유지한 Slack 스레드, 실행기와 유사한 역할이 없는 전용 신원 | Slack 런타임 근거를 완료했습니다. Teams 프로바이더 검증은 선택 사항이며 이슈 #235 완료를 차단하지 않습니다. |
 | 2026-09-08 | 구현됨 | Operator 롤백 사전 검사가 Core 전용 모델 결속을 호출하지 않고 비활성화된 channel-edge tfvars를 구체화할 수 있도록 빈 모델 엔드포인트 입력의 기본값을 빈 JSON 객체로 설정했습니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 계획을 다시 만들고 적용한 뒤 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 검증된 각 고정 이름 Azure 비밀 리소스 식별자를 Container Apps가 요구하는 같은 vault의 버전 없는 Key Vault HTTPS 비밀 참조로 변환했습니다. 구체화 도구는 검증된 vault 이름 구간만 사용해 호스트 이름을 만들고 임의 프로바이더 엔드포인트를 받지 않습니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 활성화 전환 중에 권위 있는 플랫폼 상태 출력의 전용 비실행기 edge 신원을 Operator 서비스 tfvars에 결속했습니다. 구체화 도구는 정확한 신원 형태를 검증하고 리소스 및 클라이언트 식별자가 모두 없으면 활성 edge를 차단합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |
@@ -122,10 +124,10 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
   모델 근거를 별도 승인을 받아 보존합니다.
 - [x] 이 문서의 모든 구현 범위를 완성하고 focused 검사를 통과합니다. Focused commit에 exact-diff 근거를 보존합니다.
 - [x] 최소 10개 비평 round를 완료하고 Low 또는 기각된 잔여만 보존합니다.
-- [ ] 저장소나 workflow 출력에 값을 노출하지 않고 local-only input, Key Vault, GitHub secret
+- [x] 저장소나 workflow 출력에 값을 노출하지 않고 local-only input, Key Vault, GitHub secret
   configuration 및 versionless secret-id variable을 통해 실제 Slack 또는 Teams 프로바이더
   profile과 principal mapping 하나를 구성합니다.
-- [ ] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포
+- [x] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포
   plan/apply/provider-acknowledgement/rollback 증적을 보존합니다.
 
 ## 아키텍처 결정
