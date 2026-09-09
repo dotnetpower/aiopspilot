@@ -180,6 +180,21 @@ def test_zero_council_records_preserve_existing_abstaining_distiller() -> None:
     assert ontology_council_binding_state(resolved) is OntologyCouncilBindingState.ABSENT
 
 
+def test_zero_council_records_do_not_require_unused_endpoint() -> None:
+    resolved = _resolved(capabilities=(), bindings=())
+    container = _container(resolved)
+
+    result = _bind(
+        resolved,
+        container=container,
+        endpoint="",
+        endpoint_resolver=None,
+    )
+
+    assert result is container
+    assert isinstance(result.distiller, AbstainingDistiller)
+
+
 def test_complete_bindings_attach_exact_versioned_metered_council() -> None:
     resolved = _resolved()
     metering = InMemoryMeteringSink()

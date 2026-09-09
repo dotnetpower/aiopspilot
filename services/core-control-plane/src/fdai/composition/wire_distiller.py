@@ -202,8 +202,6 @@ def bind_azure_ontology_distiller(
         raise ValueError("bind_azure_ontology_distiller requires llm.mode='azure'")
     if container.config.llm.resolved_models_path is None:
         raise ValueError("bind_azure_ontology_distiller requires llm.resolved_models_path")
-    if not endpoint:
-        raise ValueError("bind_azure_ontology_distiller requires a non-empty endpoint")
     resolved = resolved_models_for_binding(container)
     state = ontology_council_binding_state(
         resolved,
@@ -211,6 +209,8 @@ def bind_azure_ontology_distiller(
     )
     if state == OntologyCouncilBindingState.ABSENT:
         return container
+    if not endpoint:
+        raise ValueError("bind_azure_ontology_distiller requires a non-empty endpoint")
     if state != OntologyCouncilBindingState.COMPLETE:
         raise LlmBindingsUnavailableError(
             "ontology council requires all three bindable capabilities and endpoint bindings"
