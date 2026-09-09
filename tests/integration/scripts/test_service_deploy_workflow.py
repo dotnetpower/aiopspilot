@@ -1032,6 +1032,10 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert "current_channel_edge_id" in _WORKFLOW
     assert 'terraform -chdir="$TERRAFORM_ROOT" output -json service' in _WORKFLOW
     assert "channel_edge_args+=(--operator-channel-edge-enabled true)" in _WORKFLOW
+    assert '|| -n "$current_channel_edge_id"' in _WORKFLOW
+    assert 'OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding"' in (
+        _WORKFLOW
+    )
     assert "Platform state returned an invalid database hostname." in _WORKFLOW
     assert "CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}" in _WORKFLOW
     assert 'console_hostname="$CONSOLE_DEFAULT_HOSTNAME"' in _WORKFLOW
