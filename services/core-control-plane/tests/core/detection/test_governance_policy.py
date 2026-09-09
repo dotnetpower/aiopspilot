@@ -141,6 +141,17 @@ def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+@pytest.mark.parametrize("metric", ("min_precision", "min_recall"))
+def test_policy_rejects_weakened_forecast_accuracy_floors(tmp_path: Path, metric: str) -> None:
+    raw = _policy()
+    promotion = raw["forecast_promotion"]
+    assert isinstance(promotion, dict)
+    promotion[metric] = 0.79
+
+    with pytest.raises(DetectionGovernancePolicyError, match=metric):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_confidence_levels_the_forecast_band_cannot_evaluate(
     tmp_path: Path,
 ) -> None:

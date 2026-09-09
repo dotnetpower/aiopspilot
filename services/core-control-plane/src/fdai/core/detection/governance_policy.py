@@ -315,8 +315,8 @@ def _promotion(value: object) -> ForecastPromotionPolicy:
             raw["min_scorable_episodes"], "min_scorable_episodes", minimum=30, maximum=10_000
         ),
         min_shadow_days=_integer(raw["min_shadow_days"], "min_shadow_days", minimum=1, maximum=365),
-        min_precision=_ratio(raw["min_precision"], "min_precision"),
-        min_recall=_ratio(raw["min_recall"], "min_recall"),
+        min_precision=_ratio(raw["min_precision"], "min_precision", minimum=0.8),
+        min_recall=_ratio(raw["min_recall"], "min_recall", minimum=0.8),
         min_interval_coverage=minimum_coverage,
         max_interval_coverage=maximum_coverage,
         min_median_lead_seconds=_integer(
