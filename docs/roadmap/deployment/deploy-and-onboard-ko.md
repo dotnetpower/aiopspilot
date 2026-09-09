@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7f4ef0358bf5c9d56e3c99d1885f3560d31c3df3
+translation_source_sha: 6d06e2e40a9fbf8303563abb5b08d590cf4df69e
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -79,15 +79,10 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
   조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
-  검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에
-  `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. 예약된 상태 점검은
-  모델에만 존재하는 OS 디스크 ID를 실제 Azure 디스크 인벤토리와 비교하므로 실제 관리 디스크
-  리소스가 있을 때만 임시 OS 실행기를 차단합니다.
-체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
-residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을
-`RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다. 배포 작업의
-기본 경로가 `infra/`이므로 이 pre-checkout 단계도 `RUNNER_TEMP`에서 실행합니다. Fresh slot에는
-아직 저장소 디렉터리가 없으며 이전 checkout residue에 의존하지 않습니다.
+  검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다.
+  예약된 상태 점검은 모델에만 존재하는 OS 디스크 ID를 실제 Azure 디스크 인벤토리와 비교하므로 실제 관리 디스크 리소스가 있을 때만 임시 OS 실행기를 차단합니다.
+체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.
+해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
 `extra_vnet_links` 경계로 ops VNet에 링크해, 러너가 앱 Key Vault를 비공개로 해석하게
 합니다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고의
