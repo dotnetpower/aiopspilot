@@ -17,6 +17,10 @@ from .conversation_preflight import (
     operational_target_is_generic,
     operational_time_is_past_hour,
 )
+from .semantic_action_guidance import (
+    incident_mitigation_requirements_guidance,
+    targetless_incident_mitigation_draft_clarification,
+)
 from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import build_ontology_schema_frame
@@ -112,8 +116,41 @@ def deterministic_pre_frame_outcome(
     descriptors: tuple[dict[str, Any], ...],
     manifest_digest: str,
     bound_incident: bool,
+    judgment_accepted: bool = False,
+    locale: str = "en",
 ) -> SemanticPlanningOutcome | None:
     """Return deterministic short-circuit outcomes before model frame proposal."""
+
+    guidance = incident_mitigation_requirements_guidance(
+        judgment,
+        judgment_accepted=judgment_accepted,
+        descriptors=descriptors,
+        locale=locale,
+    )
+    if guidance is not None:
+        intent, answer = guidance
+        return _outcome(
+            SemanticPlanningDisposition.ADVISORY_RESPONSE,
+            "semantic_advisory_response",
+            manifest_digest=manifest_digest,
+            advisory_response_intent=intent,
+            advisory_response_answer=answer,
+        )
+    draft_clarification = targetless_incident_mitigation_draft_clarification(
+        judgment,
+        bound_incident=bound_incident,
+        utterance=utterance,
+        context=context,
+    )
+    if draft_clarification is not None:
+        proposal, frame = draft_clarification
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=frame,
+            clarification=proposal.clarification,
+        )
 
     if judgment is not None and judgment.discourse_mode is not SemanticDiscourseMode.DIRECT:
         return _outcome(
