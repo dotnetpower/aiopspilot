@@ -38,27 +38,47 @@ def test_oi12_workflow_refreshes_inventory_before_seven_axis_measurement() -> No
     assert "authoritative inventory refresh exceeded its 1200-second deadline" in _WORKFLOW
 
 
-def test_oi12_workflow_recovers_legacy_inventory_job_from_reviewed_arm_contract() -> None:
+def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> None:
     root_output = "terraform -chdir=infra output -raw inventory_job_name"
     arm_fallback = "az resource list"
     assert _WORKFLOW.index(root_output) < _WORKFLOW.index(arm_fallback)
     assert "--resource-type Microsoft.App/jobs" in _WORKFLOW
-    assert "inventory_job_ids" in _WORKFLOW
-    assert "${#inventory_job_ids[@]} <= 64" in _WORKFLOW
+    assert "certification_job_ids" in _WORKFLOW
+    assert "${#certification_job_ids[@]} <= 64" in _WORKFLOW
     assert "timeout 30s az resource show" in _WORKFLOW
     assert "--api-version 2024-03-01" in _WORKFLOW
     assert "inventory_job_candidates" in _WORKFLOW
     assert "${#inventory_job_candidates[@]} -eq 1" in _WORKFLOW
+    assert "history_job_candidates" in _WORKFLOW
+    assert "history_container_candidates" in _WORKFLOW
+    assert "${#history_job_candidates[@]} -eq 1" in _WORKFLOW
+    assert "${#history_container_candidates[@]} -eq 1" in _WORKFLOW
     assert "az containerapp job list" not in _WORKFLOW
+    assert "az containerapp job show" not in _WORKFLOW
     assert '.name == "inventory"' in _WORKFLOW
     assert '"fdai.delivery.inventory_sync_cli"' in _WORKFLOW
     assert "(.args // []) == []" in _WORKFLOW
+    assert '.name == "operational-history-lifecycle"' in _WORKFLOW
+    assert '"fdai.delivery.operational_history_lifecycle_runner"' in _WORKFLOW
+    assert '(.args // []) == ["--mode", "shadow"]' in _WORKFLOW
+    assert '"FDAI_OPERATIONAL_HISTORY_CONTAINER_URL"' in _WORKFLOW
+    assert '"FDAI_MI_CLIENT_ID"' in _WORKFLOW
     assert "(.properties.template.containers | length) == 1" in _WORKFLOW
-    assert 'if [[ -z "$inventory_job_name" ]]; then' in _WORKFLOW
     assert "expected exactly one inventory job matching the reviewed runtime contract" in _WORKFLOW
+    assert "expected exactly one history job matching the reviewed runtime contract" in _WORKFLOW
+    assert "inventory job output does not match the reviewed ARM runtime" in _WORKFLOW
+    assert "history job output does not match the reviewed ARM runtime" in _WORKFLOW
+    assert "history container output does not match the reviewed ARM runtime" in _WORKFLOW
+    assert (
+        '[[ "$mi_client_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
+        "[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]"
+    ) in _WORKFLOW
     assert "providers/Microsoft.App/jobs?api-version" not in _WORKFLOW
     assert "state pull" not in _WORKFLOW
     assert "startswith" not in _WORKFLOW
+    assert 'job_json="$RUNNER_TEMP/operational-history-job.json"' in _WORKFLOW
+    assert "umask 077" in _WORKFLOW
+    assert 'rm -f -- "$job_json"' in _WORKFLOW
 
 
 def test_oi12_workflow_retains_only_sanitized_no_authority_evidence() -> None:

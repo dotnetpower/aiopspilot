@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Extended the bounded ARM fallback to the legacy history Job ID and archive container URL after both Terraform root outputs were empty. One enumeration now resolves exactly one inventory runtime and one history runtime, cross-checks any non-empty root output, and re-reads the selected history Job through the stable resource API. | `current change`; failed protected certification `34416935783`; sanitized runner reproduction; bounded live ARM validation found one exact inventory and one exact history contract; focused workflow test. | Publish the history fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Replaced the unavailable provider collection endpoint with bounded generic ARM resource enumeration and stable per-resource Container Apps reads. The fallback admits at most 64 Job IDs, gives each read 30 seconds, and still requires exactly one reviewed inventory runtime contract. | `current change`; failed protected certification `34410700086`; bounded live enumeration found 12 Jobs and one exact contract match; focused workflow contract test. | Publish the bounded enumeration, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Pinned the ARM-observed inventory Job lookup to the supported stable Container Apps `2024-03-01` API instead of the runner CLI extension's invalid default version. The exact resource-group and runtime-contract cardinality checks remain unchanged. | `current change`; failed protected certification `34406488996`; stable-API live read returned one reviewed contract match; focused workflow contract test. | Publish the API pin, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Replaced the unavailable Terraform state snapshot fallback with an ARM-observed inventory Job lookup in the exact platform resource group. The fallback requires exactly one container with the reviewed name, command, and empty arguments; it never derives identity from the Job name. | `current change`; failed protected certification `34403565287`; bounded live ARM cardinality diagnostic; focused workflow contract test. | Publish the ARM fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
@@ -282,12 +283,13 @@ prod topology so shadow evaluation is representative.
   an explicit promotion input, normalizes the Terraform ACR output or verified deployed Job image
   to its exact Azure login host, verifies the ACR digest is identical, and then binds the digest to
   Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
-  Protected OI-12 inventory refresh prefers the platform root output for the inventory Job. When a
-  deployed state predates that output, it enumerates at most 64 generic ARM Job IDs inside the exact
-  platform resource group and reads each resource through the stable Container Apps `2024-03-01`
-  API with a 30-second bound. Exactly one container must match the reviewed inventory name, command,
-  and empty arguments. The fallback does not derive Job identity from a naming pattern or persist
-  provider output.
+  Protected OI-12 binding prefers the platform root outputs for the inventory Job, history Job, and
+  archive container URL. When a deployed state predates those outputs, it enumerates at most 64
+  generic ARM Job IDs inside the exact platform resource group and reads each resource through the
+  stable Container Apps `2024-03-01` API with a 30-second bound. Exactly one container must match
+  each reviewed inventory and history runtime contract. A non-empty root output must match the
+  selected ARM runtime. The fallback does not derive Job identity from a naming pattern or retain
+  provider output after the step.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.
