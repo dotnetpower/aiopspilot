@@ -79,7 +79,8 @@ from tools.reference_agent import ReferenceAgent  # noqa: E402
 EXTERNAL_RESIDUAL = (
     "governed non-synthetic baseline and treatment cohorts of at least "
     f"{MINIMUM_COHORT_SAMPLE_SIZE} samples each, retained on one pinned revision and the "
-    "identical frozen scenario set, with a current independent decision-evidence admission"
+    "same precommitted operational protocol, with a current independent "
+    "decision-evidence admission"
 )
 
 

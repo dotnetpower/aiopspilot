@@ -72,11 +72,11 @@ class CohortMetricEstimate(ContractBase):
     """One absolute metric value with the interval of the retained cohort."""
 
     metric_id: MetricId
-    absolute_value: float = Field(ge=0.0)
+    absolute_value: float = Field(ge=0.0, allow_inf_nan=False)
     sample_size: SampleCount
     confidence_level_basis_points: Annotated[int, Field(strict=True, ge=5_000, le=9_999)] = 9_500
-    lower_bound: float = Field(ge=0.0)
-    upper_bound: float = Field(ge=0.0)
+    lower_bound: float = Field(ge=0.0, allow_inf_nan=False)
+    upper_bound: float = Field(ge=0.0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _validate_interval(self) -> CohortMetricEstimate:
@@ -205,6 +205,12 @@ class BaselineTreatmentCohortReceipt(_BaselineTreatmentCohortReceiptBody):
             raise ValueError("cohort baseline arm MUST be labelled baseline")
         if self.treatment.arm is not CohortArm.TREATMENT:
             raise ValueError("cohort treatment arm MUST be labelled treatment")
+        expected_cutoff = max(
+            self.baseline.evidence_receipt.evidence_cutoff,
+            self.treatment.evidence_receipt.evidence_cutoff,
+        )
+        if self.evidence_cutoff != expected_cutoff:
+            raise ValueError("cohort evidence cutoff MUST equal the latest arm cutoff")
         expected = content_digest(self.model_dump(mode="json", exclude={"receipt_digest"}))
         if self.receipt_digest != expected:
             raise ValueError("cohort receipt digest does not match its content")
@@ -398,6 +404,8 @@ def _assess_arm(
         metric for metric in report.metrics if metric.metric_id in requirement.required_metric_ids
     ]
     if any(metric.sample_size < report.sample_count for metric in required_metrics):
+        reasons.add(CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE)
+    if any(metric.confidence_level_basis_points != 9_500 for metric in required_metrics):
         reasons.add(CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE)
 
     guards = {guard.guard_id: guard for guard in report.guards}

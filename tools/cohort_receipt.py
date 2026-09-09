@@ -46,6 +46,7 @@ UNTRUSTED_BUNDLE_KEYS: tuple[str, ...] = (
     "requirement",
     "verification_bundles",
 )
+MAX_COHORT_BUNDLE_BYTES = 1_048_576
 
 
 class CohortClaimBundleError(ValueError):
@@ -71,8 +72,12 @@ def load_cohort_claim_receipt(path: Path) -> BaselineTreatmentCohortReceipt:
     """Parse one governed artifact into its retained receipt and nothing else."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_COHORT_BUNDLE_BYTES + 1)
+        if len(payload) > MAX_COHORT_BUNDLE_BYTES:
+            raise CohortClaimBundleError("cohort claim bundle exceeds the 1 MiB limit")
+        raw = json.loads(payload)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CohortClaimBundleError(f"unreadable cohort claim bundle: {error}") from error
     body = _require_mapping(raw, "bundle")
     receipt = _require_mapping(body.get("receipt"), "receipt")
@@ -149,6 +154,7 @@ def evaluate_cohort_claim_receipt(
 
 __all__ = [
     "UNTRUSTED_BUNDLE_KEYS",
+    "MAX_COHORT_BUNDLE_BYTES",
     "CohortAdmissionProvider",
     "CohortClaimBundleError",
     "evaluate_cohort_claim_bundle",

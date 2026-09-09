@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-09T07:56:34.020180+00:00",
+  "generated_at": "2026-09-09T11:18:59.331331+00:00",
   "reference_agent": "reference-agent-stub@1.0.0",
   "scenario_set_version": "v2026.07",
   "scenario_count": 12,
@@ -144,7 +144,7 @@
       "unverified_success_claim_rate",
       "wrong_target_or_stale_revision_execution_rate"
     ],
-    "external_residual": "governed non-synthetic baseline and treatment cohorts of at least 30 samples each, retained on one pinned revision and the identical frozen scenario set, with a current independent decision-evidence admission"
+    "external_residual": "governed non-synthetic baseline and treatment cohorts of at least 30 samples each, retained on one pinned revision and the same precommitted operational protocol, with a current independent decision-evidence admission"
   },
   "release_gate": {
     "release_eligible": false,

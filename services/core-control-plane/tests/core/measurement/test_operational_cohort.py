@@ -14,6 +14,7 @@ from fdai.core.measurement.operational_cohort import (
     OperationalCohortArmBatch,
     OperationalGuardObservation,
     OperationalMetricObservation,
+    _zero_threshold_basis_points,
     aggregate_operational_cohort_arm,
 )
 from fdai_service_contracts.baseline_cohort import CohortArm
@@ -246,3 +247,8 @@ def test_synthetic_status_is_preserved_instead_of_relabelled() -> None:
     result = aggregate_operational_cohort_arm(_batch(synthetic=True), POLICY)
 
     assert result.synthetic is True
+
+
+def test_one_zero_threshold_breach_cannot_round_down_to_zero() -> None:
+    assert _zero_threshold_basis_points(0, 1_000_000) == 0
+    assert _zero_threshold_basis_points(1, 1_000_000) == 1

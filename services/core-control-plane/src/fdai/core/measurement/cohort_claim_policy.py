@@ -57,6 +57,14 @@ ZERO_THRESHOLD_GUARD_IDS: tuple[str, ...] = (
     "wrong_target_or_stale_revision_execution_rate",
 )
 
+REQUIRED_INTERVAL_METHODS: Mapping[str, str] = {
+    "auto_resolution_rate": "wilson_95",
+    "change_lead_time_seconds": "deterministic_bootstrap_95",
+    "cost_per_unit_usd": "deterministic_bootstrap_95",
+    "human_touchpoints_per_100_events": "deterministic_bootstrap_95",
+    "mttr_seconds": "deterministic_bootstrap_95",
+}
+
 
 class CohortClaimPolicyError(ValueError):
     """Raised when the trusted cohort claim policy is absent or weakened."""
@@ -361,13 +369,21 @@ def _validate_measurement_basis(
     allowed = {"deterministic_bootstrap_95", "wilson_95"}
     if any(method not in allowed for method in methods.values()):
         raise CohortClaimPolicyError("cohort claim interval method is not supported")
-    if methods.get("auto_resolution_rate") != "wilson_95":
-        raise CohortClaimPolicyError("cohort claim auto-resolution interval MUST use Wilson 95%")
+    incorrect = sorted(
+        metric_id
+        for metric_id, expected in REQUIRED_INTERVAL_METHODS.items()
+        if methods.get(metric_id) != expected
+    )
+    if incorrect:
+        raise CohortClaimPolicyError(
+            "cohort claim required interval methods are incorrect: " + ", ".join(incorrect)
+        )
 
 
 __all__ = [
     "COHORT_CLAIM_POLICY_PATH",
     "COHORT_CLAIM_POLICY_SCHEMA_VERSION",
+    "REQUIRED_INTERVAL_METHODS",
     "REQUIRED_SUCCESS_METRIC_IDS",
     "ZERO_THRESHOLD_GUARD_IDS",
     "CohortClaimPolicy",

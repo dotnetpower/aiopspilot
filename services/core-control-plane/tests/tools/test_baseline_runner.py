@@ -28,7 +28,11 @@ from fdai_service_contracts.decision_evidence import decision_critical_evidence_
 from tools.baseline_run import _render_markdown, _render_markdown_ko, _run
 from tools.baseline_run import main as baseline_main
 from tools.cohort_publication import publish_governed_baseline
-from tools.cohort_receipt import UNTRUSTED_BUNDLE_KEYS, CohortClaimBundleError
+from tools.cohort_receipt import (
+    MAX_COHORT_BUNDLE_BYTES,
+    UNTRUSTED_BUNDLE_KEYS,
+    CohortClaimBundleError,
+)
 from tools.reference_agent import AgentDecision, ReferenceAgent
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -706,6 +710,14 @@ def test_an_unreadable_cohort_receipt_is_refused(tmp_path: Path) -> None:
     bundle.write_text("{", encoding="utf-8")
 
     with pytest.raises(CohortClaimBundleError, match="unreadable"):
+        _run(SCENARIOS, None, bundle, cohort_revision=COHORT_REVISION)
+
+
+def test_an_oversized_cohort_receipt_is_refused_before_parsing(tmp_path: Path) -> None:
+    bundle = tmp_path / "cohort.json"
+    bundle.write_bytes(b"{" + b" " * MAX_COHORT_BUNDLE_BYTES + b"}")
+
+    with pytest.raises(CohortClaimBundleError, match="1 MiB limit"):
         _run(SCENARIOS, None, bundle, cohort_revision=COHORT_REVISION)
 
 
