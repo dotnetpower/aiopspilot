@@ -11,6 +11,8 @@ risk and human-approval decision.
 > **Authority boundary:** The ontology describes required capability and policy relationships. It
 > never grants access. An action can proceed only when scoped policy allows the capability, the
 > selected workload identity has verified effective access, and the ordinary risk gate permits it.
+> Runtime licensing may add a current-time ceiling around Thor, but it cannot replace or raise this
+> authorization decision.
 >
 > **Customer boundary:** Upstream owns the metamodel and deterministic resolver. A downstream
 > distribution adds policy and provider mappings through supported catalog and provider seams.

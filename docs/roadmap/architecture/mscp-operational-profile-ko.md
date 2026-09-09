@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 8e3cb54babb31455269ea1dad22fbc530d8f5be9
-translation_revised: 2026-08-31
+translation_source_sha: f046c61b600c4ec2c6a6697f812afab125c8cd46
+translation_revised: 2026-09-09
 ---
 # MSCP Operational 프로파일
 
@@ -16,6 +16,8 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 > 이 프로파일은 실행 권한이 아닙니다. Trust 라우터, quality 게이트, risk 게이트, 사람 승인,
 > 실행기, 롤백 principal, 승격 레지스트리 및 감사 저장소는 기존 소유권을 유지합니다.
+> 런타임 라이선싱은 별도의 선택적 Thor 상한을 소유하며, 이 프로파일은 해당 상한을 구성하거나
+> 높일 수 없습니다.
 
 ## 한눈에 보는 설계
 

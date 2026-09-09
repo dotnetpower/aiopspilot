@@ -14,6 +14,7 @@ implements every MSCP level or satisfies full MSCP conformance.
 > The profile is not an execution authority. The trust router, quality gate, risk gate, human
 > approval, executor, rollback principal, promotion registry, and audit store retain their existing
 > ownership.
+> Runtime licensing owns its separate optional Thor ceiling; this profile cannot configure or raise it.
 
 ## Design at a glance
 
