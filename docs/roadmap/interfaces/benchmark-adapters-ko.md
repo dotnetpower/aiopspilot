@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 74cccb0e8cb9b064daa9dca66d668114418479a5
+translation_source_sha: 3ca5aee36490b6b45eaa9b0c7611e3a88e700e50
 translation_revised: 2026-09-10
 ---
 
@@ -52,8 +52,6 @@ driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받�
 
 실행 장치 driver는 별도 Python 분포입니다. FDAI만 설치하면 벤치마크 통합이
 설치되거나 활성화되지 않습니다. Driver를 제거해도 FDAI 런타임은 변경되지 않습니다.
-SREGym 이미지는 서비스 이미지와 같은 취약점 수정 완료 OPA 전이 모듈 override를 사용해
-OPA를 컴파일하며, 저장소 정합성 검사는 해당 핀 사이의 드리프트를 거부합니다.
 
 ## 계약
 
@@ -449,7 +447,8 @@ digest-pinned Go toolchain 위에서 취약한 전이 모듈을 핀 고정한 �
 핀과 각 모듈 override는 advisory 피드에 결함이 보고되면 올리며, 빌드가 결과 모듈 버전을
 단언합니다. 따라서 스캔된 이미지가 알려진 취약 의존성을 실어 나르지 않습니다. Core, Cost
 Governance, SREGym Dockerfile은 이러한 OPA override 핀을 동일하게 유지하며, 집중 정합성 검사는
-오래된 모듈 버전이 특정 이미지 프로필에 다시 포함되는 것을 차단합니다.
+오래된 모듈 버전이 특정 이미지 프로필에 다시 포함되는 것을 차단합니다. 검토된
+`golang.org/x/crypto` override는 `v0.56.0`입니다.
 
 ## CyberGym driver
 
@@ -536,6 +535,7 @@ PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 이미지 스캐너가 `v0.55.0`에서 수정된 서비스 거부 취약점 두 개를 보고한 뒤 Core, Cost Governance, SREGym의 공유 OPA `golang.org/x/crypto` override를 `v0.56.0`으로 올렸습니다. | `current change`; 실패한 공급망 실행 `34398041249`; 세 이미지 핀 정합성 집중 검사; 로컬 Core OPA 메타데이터 및 MEDIUM/HIGH/CRITICAL 이미지 스캔 통과. | 정확한 이미지를 게시하고 통과한 공급망 증적을 보존합니다. benchmark 호스트 통합은 휴면 상태를 유지합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 패키지 source, focused 모음 및 경계 검사입니다. | 실행 권한을 높이지 않고 관리되는 준비 상태 및 benchmark 실행 근거를 보존해야 합니다. |
 | 2026-08-21 | deferred | 서비스 분해가 호스트, 런타임 진입점, 호스트 테스트, 호환성 파사드를 제거한 뒤에도 남아 있던 활성 호스트 주장을 정정했습니다. 세 휴면 패키지를 루트 `dev` 의존성 표면에서 제거하고 workspace 패키지 테스트와 빌드는 유지했습니다. | `current change`, `pyproject.toml`, `uv.lock`, 패키지 README, 패키지 테스트 68개 통과, lock 검사 및 all-package frozen sync 통과 | 검토된 호스트 설계, 집중 호스트 테스트 모음, 통제된 end-to-end 근거를 함께 승인할 때까지 통합을 휴면 상태로 유지합니다. |
 

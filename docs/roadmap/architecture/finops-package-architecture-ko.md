@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: f34bac485812e8aa2e177c4670337f53439a62b5
+translation_source_sha: 09a075542ed420697272ed6ba7ff544d4ce9af87
 translation_revised: 2026-09-10
 ---
 
@@ -57,7 +57,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 | 영역 | 현재 근거 | 패키징 시사점 |
 |------|-----------|---------------|
 | FinOps 가드레일 | `core/verticals/cost_governance/finops.py`와 11개 집중 테스트 | 순수 도메인 로직은 컨트롤 루프나 에이전트를 가져오지 않고 이동할 수 있습니다. |
-| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 공급망 근거를 위해 모든 서비스 이미지를 다시 빌드하며, 정합성 검사는 취약점이 수정된 검토 완료 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. |
+| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 공급망 근거를 위해 모든 서비스 이미지를 다시 빌드하며, 정합성 검사는 검토된 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` override는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
 | 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
 | 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |

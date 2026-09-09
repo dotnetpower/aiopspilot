@@ -52,8 +52,6 @@ The layers have different release and dependency boundaries:
 
 A harness driver is a separate Python distribution. Installing FDAI alone does not install or
 activate a benchmark integration. Removing a driver leaves the FDAI runtime unchanged.
-The SREGym image compiles OPA with the same reviewed, vulnerability-fixed transitive-module
-overrides as service images, and the repository parity check rejects drift between those pins.
 
 ## Contracts
 
@@ -452,7 +450,8 @@ toolchain with pinned overrides for its vulnerable transitive modules. Both the 
 each module override advance whenever the advisory feed flags a defect, and the build asserts the
 resulting module versions, so no scanned image ships a known-vulnerable dependency. The Core, Cost
 Governance, and SREGym Dockerfiles keep these OPA override pins aligned, and a focused parity check
-blocks an outdated module version from re-entering one image profile.
+blocks an outdated module version from re-entering one image profile. The reviewed
+`golang.org/x/crypto` override is `v0.56.0`.
 
 ## CyberGym driver
 
@@ -541,6 +540,7 @@ and both benchmark lifecycles.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Advanced the shared OPA `golang.org/x/crypto` override to `v0.56.0` across Core, Cost Governance, and SREGym after the image scanner reported two fixed denial-of-service vulnerabilities in `v0.55.0`. | `current change`; failed supply-chain run `34398041249`; focused three-image pin parity test; local Core OPA metadata and MEDIUM/HIGH/CRITICAL image scan passed. | Publish the exact images and retain a passing supply-chain receipt; benchmark host integration remains dormant. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; package source, focused suites, and boundary checks listed in the scope table. | Retain governed readiness and benchmark-run evidence without raising execution authority. |
 | 2026-08-21 | deferred | Corrected the stale active-host claim after service extraction had removed the host, runtime entry points, host tests, and compatibility facade. Removed the three dormant packages from the root `dev` dependency surface while retaining workspace package tests and builds. | `current change`; `pyproject.toml`; `uv.lock`; package READMEs; 68 package tests passed; lock check and all-package frozen sync passed. | Keep the integration dormant until a reviewed host design, focused host suite, and governed end-to-end evidence are approved together. |
 

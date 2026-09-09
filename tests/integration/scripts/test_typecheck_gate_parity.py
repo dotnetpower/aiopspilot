@@ -104,9 +104,9 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         _ROOT / "services" / "core-control-plane" / "docker" / "Dockerfile",
     )
     for path in dockerfile_paths:
-        dockerfile = path.read_text(encoding="utf-8")
-        assert "ARG OPA_GRPC_VERSION=v1.83.2" in dockerfile, path
-        assert "ARG OPA_X_CRYPTO_VERSION=v0.56.0" in dockerfile, path
+        content = path.read_text(encoding="utf-8")
+        assert "ARG OPA_GRPC_VERSION=v1.83.2" in content, path
+        assert "ARG OPA_X_CRYPTO_VERSION=v0.56.0" in content, path
 
     dockerfile = dockerfile_paths[-1].read_text(encoding="utf-8")
 
