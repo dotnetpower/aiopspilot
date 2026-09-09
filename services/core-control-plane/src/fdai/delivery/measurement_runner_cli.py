@@ -60,7 +60,10 @@ from fdai.delivery.measurement.postgres_growth import (
     PostgresVerifiedOutcomeSource,
     PostgresVerifiedPatternBuilder,
 )
-from fdai.delivery.measurement.scenario_replayer import FrozenScenarioReplayer
+from fdai.delivery.measurement.scenario_replayer import (
+    FROZEN_SCENARIO_ASSET_ROOT,
+    FrozenScenarioReplayer,
+)
 from fdai.delivery.persistence import (
     PgVectorPatternLibrary,
     PgVectorPatternLibraryConfig,
@@ -92,7 +95,9 @@ def _required_env(name: str) -> str:
 
 def _repo_root() -> Path:
     for candidate in (Path.cwd(), Path("/app"), *Path(__file__).resolve().parents):
-        if (candidate / "rule-catalog").is_dir() and (candidate / "tests" / "scenarios").is_dir():
+        if (candidate / "rule-catalog").is_dir() and (
+            candidate / FROZEN_SCENARIO_ASSET_ROOT
+        ).is_dir():
             return candidate
     raise FileNotFoundError("measurement artifacts are missing from the runtime image")
 
