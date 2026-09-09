@@ -116,6 +116,21 @@ def test_policy_rejects_weakened_anomaly_cold_start_floors(
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+@pytest.mark.parametrize(("metric", "value"), (("min_samples", 4), ("min_r_squared", 0.49)))
+def test_policy_rejects_weakened_forecast_fit_floors(
+    tmp_path: Path,
+    metric: str,
+    value: float,
+) -> None:
+    raw = _policy()
+    targets = raw["forecast_targets"]
+    assert isinstance(targets, list)
+    targets[0][metric] = value
+
+    with pytest.raises(DetectionGovernancePolicyError, match=metric):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_a_narrowed_exact_correlation_key_set(tmp_path: Path) -> None:
     raw = _policy()
     correlation = raw["correlation"]

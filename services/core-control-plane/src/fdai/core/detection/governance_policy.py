@@ -235,8 +235,8 @@ def _forecast_target(value: object, *, index: int) -> ForecastTargetPolicy:
         horizon_seconds=_integer(
             raw["horizon_seconds"], "horizon_seconds", minimum=60, maximum=31_536_000
         ),
-        min_samples=_integer(raw["min_samples"], "min_samples", minimum=2, maximum=10_000),
-        min_r_squared=_ratio(raw["min_r_squared"], "min_r_squared"),
+        min_samples=_integer(raw["min_samples"], "min_samples", minimum=5, maximum=10_000),
+        min_r_squared=_ratio(raw["min_r_squared"], "min_r_squared", minimum=0.5),
         confidence_level=_member(
             raw["confidence_level"],
             "confidence_level",
