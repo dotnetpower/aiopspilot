@@ -193,6 +193,12 @@ def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
     )
 
 
+def test_sharded_coverage_defers_threshold_until_combined_report() -> None:
+    source = _PYTHON_TESTS.read_text(encoding="utf-8")
+
+    assert "coverage_args+=(--cov-report= --cov-fail-under=0)" in source
+
+
 def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()

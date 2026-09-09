@@ -28,6 +28,10 @@ from fdai_operator_service.adapters import (
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
+from fdai_operator_service.assessment_projections import (
+    FrameworkAssessmentProjectionBridge,
+    WaraAssessmentProjectionBridge,
+)
 from fdai_operator_service.auth import (
     EntraJwtVerifier,
     LocalAzureCliIdentity,
@@ -76,9 +80,6 @@ from fdai_operator_service.family_adapters import (
     UnavailableWorkflowAdapters,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
-from fdai_operator_service.framework_assessment_projection import (
-    FrameworkAssessmentProjectionBridge,
-)
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
     HilDecisionOutboxBridge,
@@ -134,7 +135,6 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
-from fdai_operator_service.wara_projection import WaraAssessmentProjectionBridge
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
