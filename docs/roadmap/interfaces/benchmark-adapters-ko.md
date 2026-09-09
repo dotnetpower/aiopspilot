@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ff8acbfe57485ec1026442d56e8e905b0ae1200f
-translation_revised: 2026-08-21
+translation_source_sha: de90ed58a0d55d37825949e831d7329393601315
+translation_revised: 2026-09-09
 ---
 
 # 벤치마크 어댑터
@@ -445,7 +445,9 @@ SREGym 플러그인을 포함합니다. 고정된 FDAI/SREGym workspace 패키�
 상태, resolved 모델 파일, 로그, temporary 산출물 및 시크릿을 제외합니다. 검토된 OPA binary는
 digest-pinned Go toolchain 위에서 취약한 전이 모듈을 핀 고정한 채 소스로 컴파일합니다. toolchain
 핀과 각 모듈 override는 advisory 피드에 결함이 보고되면 올리며, 빌드가 결과 모듈 버전을
-단언합니다. 따라서 스캔된 이미지가 알려진 취약 의존성을 실어 나르지 않습니다.
+단언합니다. 따라서 스캔된 이미지가 알려진 취약 의존성을 실어 나르지 않습니다. Core, Cost
+Governance, SREGym Dockerfile은 이러한 OPA override 핀을 동일하게 유지하며, 집중 정합성 검사는
+오래된 모듈 버전이 특정 이미지 프로필에 다시 포함되는 것을 차단합니다.
 
 ## CyberGym driver
 

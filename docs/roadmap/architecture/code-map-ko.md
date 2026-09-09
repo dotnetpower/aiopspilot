@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4e390c2484649d419247bcdaa6f93ca7cb17f7d8
+translation_source_sha: 40c2dd3896e5f19570d04bf94d29ea9bfdee4bec
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -39,9 +39,6 @@ translation_revised: 2026-09-09
   `azd-up.sh`가 이미지 없는 플랫폼 단계, 배포 소유 ACR 다이제스트, 마이그레이션, 카탈로그,
   민감한 Core 인계, 정확한 Core 계획 및 범위가 제한된 검증을 조립합니다. 비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
-- **OPA 이미지 의존성 종결:** Core, 선택적 Cost Governance 이미지 및 SREGym은 동일하게
-  고정된 소스에서 OPA를 컴파일하고, 보안에 민감한 전이 모듈을 검토된 수정 버전으로
-  재정의합니다. 공유 이미지 계약 검사는 공급망 검사 전에 gRPC-Go 패치 수준을 일치시킵니다.
 - **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
   및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
   결과를 명시적으로 선택할 수 있습니다.

@@ -448,7 +448,9 @@ root Docker build context excludes local runtime state, resolved model files, lo
 artifacts, and secrets. The reviewed OPA binary is compiled from source on a digest-pinned Go
 toolchain with pinned overrides for its vulnerable transitive modules. Both the toolchain pin and
 each module override advance whenever the advisory feed flags a defect, and the build asserts the
-resulting module versions, so no scanned image ships a known-vulnerable dependency.
+resulting module versions, so no scanned image ships a known-vulnerable dependency. The Core, Cost
+Governance, and SREGym Dockerfiles keep these OPA override pins aligned, and a focused parity check
+blocks an outdated module version from re-entering one image profile.
 
 ## CyberGym driver
 
