@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: c4ff67cc4b9a1c7562514fe657eb56f2d99d492f
+translation_source_sha: 0fb8b4eabd4dfafdbffcc7b902250913736bb11c
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -136,7 +136,8 @@ matching은 신원을 자동 해석하지 않으며 향후 review-only 후보 �
 
 링크 제안에서는 출발 신원과 도착 신원을 선언된 끝점 유형에 맞춰 각각 해석합니다. canonical
 링크 `target_identity`는 해석된 출발 신원이므로 구성된 고유 별칭을 잘못된 식별자로 오인하지
-않습니다.
+않습니다. 모호한 끝점 별칭은 정렬되고 범위가 제한된 후보 집합을 비활성 제안에 유지하며
+`review_required`로 보냅니다.
 
 ## 묶음 출처 이력 브리지
 

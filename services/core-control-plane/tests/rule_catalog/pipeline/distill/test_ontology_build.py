@@ -271,6 +271,61 @@ def test_builder_resolves_unique_aliases_for_link_endpoints() -> None:
     assert proposal.from_identity == "service:checkout"
     assert proposal.to_identity == "owner:platform"
     assert proposal.entity_resolution.method == "alias"
+    assert proposal.from_resolution is not None
+    assert proposal.from_resolution.method == "alias"
+    assert proposal.to_resolution is not None
+    assert proposal.to_resolution.method == "alias"
+
+
+def test_builder_keeps_ambiguous_alias_for_link_endpoint_for_review() -> None:
+    body = {
+        "operation": "add",
+        "target_type": "owned_by",
+        "target_identity": "Checkout Service",
+        "authority": "declared_intent",
+        "source_assertion": "Checkout service is owned by Platform team.",
+        "properties": {},
+        "from_identity": "Checkout Service",
+        "to_identity": "Platform Owner",
+    }
+    context = _context(
+        aliases=(
+            EntityAliasRecord("Checkout Service", "service:checkout"),
+            EntityAliasRecord("Checkout Service", "service:checkout-v2"),
+            EntityAliasRecord("Platform Owner", "owner:platform"),
+        ),
+        links=(LinkDeclaration("owned_by", "BusinessService", "Ownership"),),
+    )
+
+    result = _build(
+        DistilledCandidate(
+            kind=CandidateKind.ONTOLOGY_LINK,
+            candidate_id="candidate-link",
+            source_ref="doc:service-map",
+            source_section="Ownership",
+            source_lines=(1, 1),
+            content_sha=_document().content_sha,
+            body=body,
+        ),
+        context=context,
+    )
+
+    assert result.issues == ()
+    proposal = result.proposals[0]
+    assert proposal.from_resolution is not None
+    assert proposal.from_resolution.selected_identity is None
+    assert proposal.from_resolution.candidates == (
+        "service:checkout",
+        "service:checkout-v2",
+    )
+    claim = inventory_claims(_document())[0]
+    identity = next(
+        receipt
+        for receipt in verify_ontology_proposal(proposal, claim, context).receipts
+        if receipt.gate == "identity"
+    )
+    assert identity.outcome is GateOutcome.REVIEW
+    assert identity.reason_codes == ("ambiguous_alias",)
 
 
 def test_builder_keeps_ambiguous_alias_and_unknown_add_for_review() -> None:

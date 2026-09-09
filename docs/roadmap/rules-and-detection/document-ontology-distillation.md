@@ -136,7 +136,8 @@ method and candidates participate in the content-addressed proposal identity.
 
 For a link proposal, the source and destination identities resolve independently against the
 declared endpoint types. The canonical link `target_identity` is the resolved source identity, so a
-configured unique alias cannot be mistaken for a malformed identifier.
+configured unique alias cannot be mistaken for a malformed identifier. Ambiguous endpoint aliases
+retain their sorted, bounded candidate sets on the inert proposal and route to `review_required`.
 
 ## Envelope provenance bridge
 
