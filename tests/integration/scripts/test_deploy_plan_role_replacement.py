@@ -43,9 +43,38 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
             "replace_paths": [["principal_id"]],
         },
     }
+    identity_before = {
+        "client_id": "old-client",
+        "id": "old-resource-id",
+        "location": "same-region",
+        "name": "old-operator-name",
+        "principal_id": "old-operator-principal",
+        "resource_group_name": "same-resource-group",
+        "tags": {"component": "operator-api"},
+        "tenant_id": "same-tenant",
+    }
+    identity_after = {
+        **identity_before,
+        "client_id": None,
+        "id": None,
+        "name": "new-operator-name",
+        "principal_id": None,
+        "tenant_id": None,
+    }
     identity_change = {
         "address": guard.IDENTITY_ADDRESS,
-        "change": {"actions": ["create"], "before": None, "after": {}},
+        "change": {
+            "actions": ["delete", "create"],
+            "before": identity_before,
+            "after": identity_after,
+            "after_unknown": {
+                "client_id": True,
+                "id": True,
+                "principal_id": True,
+                "tenant_id": True,
+            },
+            "replace_paths": [["name"]],
+        },
     }
     changes = [role_change, identity_change]
     details = role_change["change"]
@@ -55,6 +84,16 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
         changes.pop()
     elif mutation == "successor-update":
         identity_change["change"] = {"actions": ["update"], "before": {}, "after": {}}
+    elif mutation == "successor-scope":
+        identity_after["resource_group_name"] = "different-resource-group"
+    elif mutation == "successor-name":
+        identity_after["name"] = identity_before["name"]
+    elif mutation == "successor-replace-path":
+        successor_details = identity_change["change"]
+        assert isinstance(successor_details, dict)
+        successor_details["replace_paths"] = [["location"]]
+    elif mutation == "successor-known-principal":
+        identity_after["principal_id"] = "new-operator-principal"
     elif mutation == "scope":
         after["scope"] = "different-account"
     elif mutation == "role":
@@ -112,6 +151,10 @@ def test_guard_cli_filters_the_temporary_review_copy(
     [
         "missing-successor",
         "successor-update",
+        "successor-scope",
+        "successor-name",
+        "successor-replace-path",
+        "successor-known-principal",
         "scope",
         "role",
         "concrete-principal",
