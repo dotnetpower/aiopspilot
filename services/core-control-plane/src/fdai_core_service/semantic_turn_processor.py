@@ -2915,6 +2915,10 @@ _REDACTED_ANSWER_VALUE = "<redacted>"
 
 def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
     """Keep bounded scalar answer fields and exclude nested provider payloads."""
+    if values.get("section") == "detail" and "declaration" in values:
+        declaration_values = _ontology_declaration_answer_values(values)
+        if declaration_values is not None:
+            return declaration_values
     projected = {
         field: _redact_answer_scalar(field, value)
         for field, value in values.items()
@@ -2942,6 +2946,71 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
                     projected.setdefault(field, _redact_answer_scalar(field, value))
         current = nested
     return projected
+
+
+def _ontology_declaration_answer_values(
+    values: Mapping[str, object],
+) -> dict[str, object] | None:
+    """Preserve one server-filtered declaration detail without widening generic rows."""
+
+    declaration = values.get("declaration")
+    redaction_reasons = values.get("redaction_reasons")
+    if (
+        values.get("section") != "detail"
+        or not _is_presentable_declaration_kind(values.get("declaration_kind"))
+        or not isinstance(values.get("declaration_name"), str)
+        or not values["declaration_name"]
+        or not isinstance(values.get("ontology_release_digest"), str)
+        or not values["ontology_release_digest"]
+        or values.get("execution_authority") is not False
+        or values.get("mutation_authority") is not False
+        or not isinstance(declaration, Mapping)
+        or declaration.get("name") != values["declaration_name"]
+        or not isinstance(redaction_reasons, list)
+        or any(not isinstance(reason, str) or not reason for reason in redaction_reasons)
+    ):
+        return None
+    valid_declaration, projected_declaration = _project_json_answer_value(declaration)
+    if not valid_declaration or not isinstance(projected_declaration, dict):
+        return None
+    projected: dict[str, object] = {}
+    projected["ontology_release_digest"] = values["ontology_release_digest"]
+    projected["declaration_kind"] = values["declaration_kind"]
+    projected["declaration_name"] = values["declaration_name"]
+    projected["section"] = "detail"
+    projected["declaration"] = projected_declaration
+    projected["redaction_reasons"] = list(redaction_reasons)
+    projected["execution_authority"] = False
+    projected["mutation_authority"] = False
+    return projected
+
+
+def _is_presentable_declaration_kind(value: object) -> bool:
+    return value == "action" or value == "link" or value == "object"
+
+
+def _project_json_answer_value(value: object) -> tuple[bool, object]:
+    if value is None or isinstance(value, str | int | float | bool):
+        return True, value
+    if isinstance(value, Mapping):
+        projected: dict[str, object] = {}
+        for key, nested in value.items():
+            if not isinstance(key, str):
+                return False, None
+            valid, projected_nested = _project_json_answer_value(nested)
+            if not valid:
+                return False, None
+            projected[key] = projected_nested
+        return True, projected
+    if isinstance(value, list | tuple):
+        projected_items: list[object] = []
+        for item in value:
+            valid, projected_item = _project_json_answer_value(item)
+            if not valid:
+                return False, None
+            projected_items.append(projected_item)
+        return True, projected_items
+    return False, None
 
 
 def _inventory_document_row_values(values: Mapping[str, object]) -> dict[str, object]:
@@ -3526,6 +3595,13 @@ def _render_general_query_answer(
     )
     if resource_state_answer is not None:
         return resource_state_answer
+    ontology_declaration_answer = _render_ontology_declaration_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if ontology_declaration_answer is not None:
+        return ontology_declaration_answer
     declaration_count_answer = _render_ontology_declaration_count_answer(
         outputs,
         korean=korean,
@@ -4293,6 +4369,121 @@ def _render_ontology_declaration_count_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _render_ontology_declaration_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render one complete declaration exactly as filtered by the active manifest."""
+
+    if output_shape != "ontology_declaration":
+        return None
+    output = outputs[0] if len(outputs) == 1 else None
+    rows = output.get("rows") if isinstance(output, Mapping) else None
+    row = rows[0] if isinstance(rows, list) and len(rows) == 1 else None
+    values = row.get("values") if isinstance(row, Mapping) else None
+    declaration = values.get("declaration") if isinstance(values, Mapping) else None
+    redaction_reasons = values.get("redaction_reasons") if isinstance(values, Mapping) else None
+    declaration_kind = values.get("declaration_kind") if isinstance(values, Mapping) else None
+    declaration_name = values.get("declaration_name") if isinstance(values, Mapping) else None
+    release_digest = values.get("ontology_release_digest") if isinstance(values, Mapping) else None
+    complete = (
+        isinstance(output, Mapping)
+        and output.get("source_complete") is True
+        and output.get("display_truncated") is not True
+        and output.get("returned_rows") == 1
+        and output.get("total_rows") == 1
+    )
+    valid = (
+        complete
+        and isinstance(values, Mapping)
+        and values.get("section") == "detail"
+        and _is_presentable_declaration_kind(declaration_kind)
+        and isinstance(declaration_name, str)
+        and bool(declaration_name)
+        and isinstance(release_digest, str)
+        and bool(release_digest)
+        and values.get("execution_authority") is False
+        and values.get("mutation_authority") is False
+        and isinstance(declaration, Mapping)
+        and declaration.get("name") == declaration_name
+        and isinstance(redaction_reasons, list)
+        and all(isinstance(reason, str) and reason for reason in redaction_reasons)
+    )
+    properties = declaration.get("properties") if isinstance(declaration, Mapping) else None
+    if valid and declaration_kind == "object" and not isinstance(properties, Mapping):
+        valid = False
+    if not valid:
+        if korean:
+            return (
+                "## 온톨로지 선언을 확인할 수 없음\n\n"
+                "- 활성 온톨로지 release의 완전한 권위 선언을 검증하지 못해 선언 내용을 "
+                "보고하지 않습니다.\n"
+                "- 읽기 전용 출처: `query.ontology_declaration`.\n\n"
+                "이 결과는 실행 권한을 부여하지 않습니다."
+            )
+        return (
+            "## Ontology declaration unavailable\n\n"
+            "- The complete authoritative declaration from the active ontology release could "
+            "not be verified, so no declaration content is reported.\n"
+            "- Read-only source: `query.ontology_declaration`.\n\n"
+            "This result grants no execution authority."
+        )
+
+    declaration_json = json.dumps(
+        declaration,
+        allow_nan=False,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
+    readable_properties = (
+        sorted(str(name) for name in properties) if isinstance(properties, Mapping) else []
+    )
+    if korean:
+        property_summary = (
+            ", ".join(f"`{name}`" for name in readable_properties)
+            if readable_properties
+            else "없음"
+        )
+        redaction_summary = (
+            ", ".join(f"`{reason}`" for reason in redaction_reasons)
+            if redaction_reasons
+            else "없음"
+        )
+        return (
+            "## 검증된 온톨로지 선언\n\n"
+            f"- 활성 release: `{release_digest}`\n"
+            f"- 선언: `{declaration_kind}:{declaration_name}`\n"
+            f"- 읽기 허용 속성: {property_summary}\n"
+            f"- 속성 제외 사유: {redaction_summary}\n"
+            "- 읽기 전용 출처: 역할과 목적으로 범위가 제한된 "
+            "`query.ontology_declaration`.\n\n"
+            "### 정확한 선언 명세\n\n"
+            f"```json\n{declaration_json}\n```\n\n"
+            "이 결과는 읽기 전용이며 실행 또는 변경 권한을 부여하지 않습니다."
+        )
+    property_summary = (
+        ", ".join(f"`{name}`" for name in readable_properties) if readable_properties else "none"
+    )
+    redaction_summary = (
+        ", ".join(f"`{reason}`" for reason in redaction_reasons) if redaction_reasons else "none"
+    )
+    return (
+        "## Verified ontology declaration\n\n"
+        f"- Active release: `{release_digest}`\n"
+        f"- Declaration: `{declaration_kind}:{declaration_name}`\n"
+        f"- Readable properties: {property_summary}\n"
+        f"- Property redaction reasons: {redaction_summary}\n"
+        "- Read-only source: role- and purpose-scoped "
+        "`query.ontology_declaration`.\n\n"
+        "### Exact declaration\n\n"
+        f"```json\n{declaration_json}\n```\n\n"
+        "This result is read-only and grants no execution or mutation authority."
+    )
 
 
 def _render_resource_state_list_answer(

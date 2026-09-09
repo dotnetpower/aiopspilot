@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 72008d823d871be74e9ff53136ffffa4a5db0b11
-translation_revised: 2026-09-09
+translation_source_sha: 52f6029fd8aac86559f7d493cb2b94b0a6f1dde6
+translation_revised: 2026-09-10
 ---
 # 지속형 질문 공간
 
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 서버에서 필터링한 `query.ontology_declaration` 상세 전체를 Core 답변 변환 결과에 보존하고, 활성 release의 정확한 선언과 읽기 허용 속성을 표시하도록 했습니다. 불완전하거나 형식이 잘못된 상세 정보는 일반 성공 요약 대신 명시적인 사용 불가 답변을 반환합니다. | `current change`, `semantic_turn_processor.py`, 정확한 상세 정보 및 불완전 근거 회귀, 집중 프로세서 테스트 185개, Ruff, strict mypy | 서버 온톨로지 매니페스트 권위를 사용하는 다음 원문 및 유사 질문의 범위가 제한된 코호트 결과를 보존합니다. |
 | 2026-09-09 | implemented | 승인된 typed 매니페스트 개수, 선언 상세 정보, 단일 ObjectType 관계 judgment를 결정론적 frame 및 닫힌 query plan에 연결하고 로컬 hardening worktree의 측정 의존성을 복구했습니다. | `current change`, 집중 스키마 planning 회귀, 전체 tier-routing 테스트, Ruff, mypy, watchdog 안전 gate | 보류된 76문항 series를 재시도하지 말고 새로운 bounded series를 실행합니다. |
 | 2026-09-09 | implemented | Evidence-ready manifest, declaration, relationship 함수만 사용하도록 타입이 지정된 SRE 온톨로지 challenge 계약 4개를 추가하고 기존 ActionType 개수 계약을 SRE focus에도 노출했습니다. | `current change`, 집중 불변 계약, challenge readiness, watchdog 인증, Ruff, selectable runtime 검사 | 다음 명시적 10문항 child를 실행하고 요청된 95%를 넘는 batch 5개 연속 근거를 보존합니다. |
 | 2026-09-09 | withdrawn | 정확한 baseline 검사에서 검증된 preflight와 결정론적 명확화를 우회하는 것으로 확인된 성급한 collection-type catalog gate를 제거했습니다. | `current change`, PR #542의 정확한 회귀 2개와 집중 preflight 검사 | 재사용 뒤의 기존 value-group binding을 권위 있는 경계로 유지합니다. |

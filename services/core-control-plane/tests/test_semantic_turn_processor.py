@@ -1219,6 +1219,128 @@ def test_declaration_count_answer_reports_the_aggregate_value_and_source(
     )
 
 
+def test_ontology_declaration_answer_preserves_exact_manifest_detail() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    declaration = {
+        "schema_version": "1.0.0",
+        "name": "Incident",
+        "version": "1.2.0",
+        "key": "id",
+        "properties": {
+            "id": {
+                "type": "string",
+                "required": True,
+                "access_scope": "Reader",
+                "purpose_binding": [],
+            },
+            "severity": {
+                "type": "string",
+                "required": False,
+                "access_scope": "Reader",
+                "purpose_binding": ["operations-review"],
+            },
+        },
+    }
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "ontology-declaration-detail": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "object:Incident",
+                                {
+                                    "ontology_release_digest": RELEASE_DIGEST,
+                                    "declaration_kind": "object",
+                                    "declaration_name": "Incident",
+                                    "section": "detail",
+                                    "declaration": declaration,
+                                    "redaction_reasons": [],
+                                    "execution_authority": False,
+                                    "mutation_authority": False,
+                                },
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("ontology-release:active",),
+                    authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("ontology-declaration-detail",),
+    )
+
+    answer, technical_details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="ontology_declaration",
+        subject_constraints=("Incident",),
+        measure_concepts=("declaration_detail",),
+    )
+
+    assert answer is not None
+    assert "## 검증된 온톨로지 선언" in answer
+    assert f"- 활성 release: `{RELEASE_DIGEST}`" in answer
+    assert "- 선언: `object:Incident`" in answer
+    assert "- 읽기 허용 속성: `id`, `severity`" in answer
+    assert '"name": "Incident"' in answer
+    assert '"purpose_binding": [' in answer
+    assert "`query.ontology_declaration`" in answer
+    assert "실행 또는 변경 권한을 부여하지 않습니다" in answer
+    assert technical_details is not None
+    output = cast(list[dict[str, object]], technical_details["outputs"])[0]
+    row = cast(list[dict[str, object]], output["rows"])[0]
+    assert cast(dict[str, object], row["values"])["declaration"] == declaration
+
+
+def test_ontology_declaration_answer_does_not_render_incomplete_detail() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "ontology-declaration-detail",
+                "rows": [
+                    {
+                        "row_id": "object:Example",
+                        "values": {
+                            "ontology_release_digest": RELEASE_DIGEST,
+                            "declaration_kind": "object",
+                            "declaration_name": "Example",
+                            "section": "detail",
+                            "declaration": {
+                                "name": "Example",
+                                "properties": {"id": {"type": "string"}},
+                            },
+                            "redaction_reasons": [],
+                            "execution_authority": False,
+                            "mutation_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": False,
+                "source_truncation_reason": "source_incomplete",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="ontology_declaration",
+    )
+
+    assert answer.startswith("## Ontology declaration unavailable")
+    assert '"name": "Example"' not in answer
+    assert "grants no execution authority" in answer
+
+
 def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
