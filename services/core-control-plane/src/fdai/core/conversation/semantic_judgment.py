@@ -21,6 +21,8 @@ from fdai_service_contracts.semantic_judgment import (
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
+from fdai.shared.contracts.models import OntologyDeclarationKind
+
 from . import semantic_judgment_grounding as grounding
 from .conversation_preflight import (
     ConversationPreflightBoundary,
@@ -74,6 +76,10 @@ _COLLECTION_FUNCTION_INTENTS = frozenset(
         "query.subscription_service_health",
     }
 )
+_ONTOLOGY_COUNT_INTENT_KINDS = {
+    f"query.ontology_{declaration_kind.value}_type_count": declaration_kind
+    for declaration_kind in OntologyDeclarationKind
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -663,6 +669,22 @@ def _normalize_primary_intent_capability(
         if capability.get("kind") == "function_type"
         if isinstance((name := capability.get("name")), str)
     }
+    count_kind = _ONTOLOGY_COUNT_INTENT_KINDS.get(proposal.primary_intent)
+    if count_kind is not None:
+        if "query.manifest" not in function_names:
+            raise ValueError("semantic ontology count intent requires supplied manifest capability")
+        count_facet = f"{count_kind.value}_type_count"
+        requested_facets = (
+            proposal.requested_facets
+            if count_facet in proposal.requested_facets
+            else (*proposal.requested_facets, count_facet)
+        )
+        return proposal.model_copy(
+            update={
+                "primary_intent": "query.manifest",
+                "requested_facets": requested_facets,
+            }
+        )
     if (
         proposal.primary_intent in {"query.kubernetes_event_history", "query.kubernetes_events"}
         and "query.resource_event_history" in function_names

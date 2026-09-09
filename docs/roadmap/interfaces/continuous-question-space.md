@@ -167,6 +167,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Rejected the retained downstream count-intent candidate and instead normalized model count aliases to the supplied manifest capability at semantic judgment. | `current change`; focused capability-boundary and planning tests. | Confirm new ActionType and FunctionType questions pass without accepting invented capabilities. |
 | 2026-09-10 | implemented | Recovered one supplied declaration or relationship subject from typed facets, normalized canonical metatype count labels, added the schema-versus-instance answer boundary, and fixed JSON-safe URL redaction in the independent reviewer input. | `current change`; focused Core rendering, schema-frame, and watchdog redaction regressions. | Run a new unique-question series; do not reuse the failed questions. |
 | 2026-09-10 | implemented | Closed two model-variance gaps with typed count-facet and collection-scope normalization, and admitted canonical aggregate presentation so the count oracle can inspect structured output. | `current change`; focused Core, Operator presentation, and answer-gate regressions. | Run a new active-profile CQAS series after commit. |
 | 2026-09-10 | implemented | Added cumulative shadow semantic-judgment v17 to preserve collection-wide history scope and keep independently requested action advice out of forbidden actions. | `current change`; prompt tests and bounded live diagnosis. | Re-run both live cohorts before promotion. |
