@@ -128,6 +128,36 @@ def test_profile_catalog_rejects_invalid_profile_schema(tmp_path: Path) -> None:
     assert any("invalid prompt profile schema" in issue.message for issue in excinfo.value.issues)
 
 
+def test_profile_catalog_reports_one_missing_active_issue_per_capability(
+    tmp_path: Path,
+) -> None:
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
+    profile_path = catalog / "prompts" / "profiles" / "catalog.yaml"
+    profile_path.write_text(
+        profile_path.read_text().replace(
+            "id: active.t2-reasoner-primary\n"
+            "    version: 1\n"
+            "    capability_id: t2.reasoner.primary\n"
+            "    mode: active",
+            "id: active.t2-reasoner-primary\n"
+            "    version: 1\n"
+            "    capability_id: t2.reasoner.primary\n"
+            "    mode: shadow",
+            1,
+        )
+    )
+
+    with pytest.raises(PromptRegistryError) as excinfo:
+        FileSystemPromptRegistry(catalog)
+
+    active_issues = [
+        issue for issue in excinfo.value.issues if "exactly one active profile" in issue.message
+    ]
+    assert len(active_issues) == 1
+    assert active_issues[0].path.endswith("capabilities/t2.reasoner.primary")
+
+
 def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> None:
     catalog = tmp_path / "catalog"
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")

@@ -149,18 +149,18 @@ def _validate_profiles(
     )
     capability_counts = Counter(profile.capability_id for profile in profiles)
     artifact_index = {(item.id, item.version, item.layer): item for item in artifacts}
+    for capability_id in sorted(capability_counts):
+        if active_counts[capability_id] != 1:
+            issues.append(
+                PromptProfileIssue(
+                    f"{catalog_path}#capabilities/{capability_id}",
+                    "capability MUST declare exactly one active profile",
+                )
+            )
     for profile in profiles:
         location = f"{catalog_path}#profiles/{profile.id}"
         if id_counts[profile.id] > 1:
             issues.append(PromptProfileIssue(location, "profile id MUST be unique"))
-        if profile.mode is PromptProfileMode.ACTIVE and active_counts[profile.capability_id] > 1:
-            issues.append(
-                PromptProfileIssue(location, "capability MUST declare exactly one active profile")
-            )
-        if capability_counts[profile.capability_id] and active_counts[profile.capability_id] == 0:
-            issues.append(
-                PromptProfileIssue(location, "capability MUST declare one active profile")
-            )
         if profile.mode is PromptProfileMode.ACTIVE and not profile.promotion_evidence:
             issues.append(
                 PromptProfileIssue(location, "active profile requires promotion evidence")
