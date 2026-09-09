@@ -9,9 +9,12 @@ import sys
 import time
 from pathlib import Path
 
+import yaml
+
 _BASH = "/usr/bin/bash"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEV_UP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/dev-up.sh"
+_LOCAL_COMPOSE = _REPO_ROOT / "infra/local/docker-compose.yml"
 _PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _RUN_SERVICE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/run-console-service.sh"
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
@@ -29,6 +32,13 @@ def _write_ready_dependency_script(repo: Path) -> None:
         repo / "scripts/deployment/local/dev-up.sh",
         "#!/usr/bin/env bash\nexit 0\n",
     )
+
+
+def test_local_redpanda_reserves_capacity_for_parallel_semantic_partitions() -> None:
+    compose = yaml.safe_load(_LOCAL_COMPOSE.read_text(encoding="utf-8"))
+    nofile = compose["services"]["redpanda"]["ulimits"]["nofile"]
+
+    assert nofile == {"soft": 65536, "hard": 65536}
 
 
 def test_core_runtime_digest_includes_prompt_catalog() -> None:
@@ -601,6 +611,15 @@ case "$*" in
   "exec fdai-redpanda rpk cluster config set core_balancing_continuous false")
     printf 'core-balancing-disabled\\n'
     ;;
+  "exec fdai-redpanda rpk cluster config set default_topic_partitions 2")
+    printf 'topic-default-set\\n'
+    ;;
+  "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
+    printf 'PARTITION LEADER\\n0 0\\n'
+    ;;
+  "exec fdai-redpanda rpk topic add-partitions fdai.pantheon.objects --num 1")
+    printf 'semantic-topic-expanded\\n'
+    ;;
   *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
 esac
 """,
@@ -609,6 +628,52 @@ esac
     assert result.returncode == 0
     assert "partition-balancing-disabled" in result.stdout
     assert "core-balancing-disabled" in result.stdout
+    assert "topic-default-set" in result.stdout
+    assert "semantic-topic-expanded" in result.stdout
+    assert "dev-up: OK" in result.stdout
+
+
+def test_dev_up_allows_semantic_topic_auto_creation(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  "compose version"|"info"|"compose up -d --wait") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set core_balancing_continuous false") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set default_topic_partitions 2") exit 0 ;;
+  "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
+    printf 'PARTITION LEADER\\n'
+    ;;
+  *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    assert result.returncode == 0
+    assert "dev-up: OK" in result.stdout
+
+
+def test_dev_up_preserves_existing_two_partition_semantic_topic(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  "compose version"|"info"|"compose up -d --wait") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set core_balancing_continuous false") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set default_topic_partitions 2") exit 0 ;;
+  "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
+    printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
+    ;;
+  *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    assert result.returncode == 0
     assert "dev-up: OK" in result.stdout
 
 

@@ -721,9 +721,14 @@ class SemanticTurnOutboxDrainer:
         if claim is None:
             return False
         try:
+            partition_key = claim.envelope.get("resource_ref")
+            if not isinstance(partition_key, str) or not partition_key.startswith(
+                "operator-conversation:"
+            ):
+                raise ValueError("semantic request resource_ref is not a conversation partition")
             await self.publisher.publish(
                 self.request_topic,
-                claim.request_id,
+                partition_key,
                 claim.envelope,
             )
         except Exception:  # noqa: BLE001 - durable row remains retryable

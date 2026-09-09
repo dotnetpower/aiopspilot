@@ -38,6 +38,36 @@ reconcile_redpanda_community_config() {
     echo "dev-up: failed to disable licensed continuous core balancing" >&2
     return 1
   fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set default_topic_partitions 2; then
+    echo "dev-up: failed to set the two-partition local topic default" >&2
+    return 1
+  fi
+}
+
+reconcile_semantic_topic_partitions() {
+  local topic="${FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC:-fdai.pantheon.objects}"
+  local description
+  if ! description="$(
+    docker exec fdai-redpanda rpk topic describe "$topic" --print-partitions 2>/dev/null
+  )"; then
+    return 0
+  fi
+  local partition_count
+  partition_count="$(
+    awk 'NR > 1 && $1 ~ /^[0-9]+$/ { count += 1 } END { print count + 0 }' \
+      <<<"$description"
+  )"
+  if (( partition_count == 0 )); then
+    return 0
+  fi
+  if (( partition_count < 2 )); then
+    if ! docker exec fdai-redpanda \
+      rpk topic add-partitions "$topic" --num "$((2 - partition_count))"; then
+      echo "dev-up: failed to expand the semantic topic to two partitions" >&2
+      return 1
+    fi
+  fi
 }
 
 if [[ ! -f .env ]]; then
@@ -48,6 +78,7 @@ fi
 echo "dev-up: bringing up postgres + redpanda + clamav..."
 docker compose up -d --wait
 reconcile_redpanda_community_config
+reconcile_semantic_topic_partitions
 
 echo
 echo "dev-up: OK"

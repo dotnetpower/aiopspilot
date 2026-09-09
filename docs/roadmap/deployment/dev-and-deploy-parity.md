@@ -58,7 +58,7 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 |-----------|---------------|--------------|
 | Runtime state store and service integration | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
-| Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
+| Event bus (integration tests) | Redpanda on `:19092` with at least two partitions (Kafka wire) | Event Hubs Kafka on `:9093` with at least two partitions |
 ### Fixed workspace ports
 Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
 on `5474` and starts with the authenticated Console full stack so the in-product help library is
@@ -84,11 +84,9 @@ start static design mocks or fixture applications.
 
 The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Local readiness and the 10-minute watchdog include all three processes plus the active-scope inventory coverage fence, so a stopped help library, stopped inventory producer, or checkpoint that does not match the active generation and exact scope set keeps the stack unavailable. Newer pending observations lower answer completeness but do not make a continuously collecting process unready. The startup supervisor gives generation recovery and graph projection a bounded 180-second readiness window before it reports failure and stops its child processes. The preparation cache reuses the authoritative inventory stage only when that same checkpoint check passes; unchanged files cannot hide a stale database generation.
 
-The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
-state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
-Ingestion API, Document Processing Worker, and Isolated Executor, and local event transport uses Docker
-Redpanda on `127.0.0.1:19092`. A deployed Azure process sets `FDAI_EXECUTION_VENUE=deployed` and uses its
-service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state, human identity, or executor authority. Move schema parity through the legacy and five service-owned migrations, then regenerate target Settings, catalog, ontology, and inventory projections from their authoritative inputs. Never clone local `audit_log`, `state_kv`, approvals, idempotency records, leases, or executor receipts into a deployed environment; those records retain the source venue's causality and authority.
+The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event transport uses Redpanda on `127.0.0.1:19092`.
+Preparation keeps the semantic physical topic at the deployed Event Hubs floor of two partitions.
+A deployed Azure process sets `FDAI_EXECUTION_VENUE=deployed` and uses its service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state, human identity, or executor authority. Move schema parity through the legacy and five service-owned migrations, then regenerate target Settings, catalog, ontology, and inventory projections from their authoritative inputs. Never clone local `audit_log`, `state_kv`, approvals, idempotency records, leases, or executor receipts into a deployed environment; those records retain the source venue's causality and authority.
 
 The provider-contract Docker job uses only the isolated validation PostgreSQL port `5433` and
 Redpanda host port `19092`; Compose clients use `redpanda:29092`. The same assertion file runs the
