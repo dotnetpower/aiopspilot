@@ -36,7 +36,8 @@ output "private_handoff" {
       account_id       = azapi_resource.state.id
       account_name     = azapi_resource.state.name
       blob_service_id  = azapi_update_resource.state_blob_service.id
-      container_name   = module.bootstrap.state_container_name
+      container_name   = azapi_resource.state_container[module.bootstrap.state_container_name].name
+      plan_container   = azapi_resource.state_container["deployment-plans"].name
       foundation_key   = "ops/genesis-foundation/${var.env}.tfstate"
       use_azuread_auth = true
     }

@@ -31,6 +31,12 @@ if [[ "$1 $2" == "account show" ]]; then
     fi
 elif [[ "$1 $2" == "account set" ]]; then
   exit 0
+elif [[ "$1 $2" == "cloud show" ]]; then
+    printf '%s\n' AzureCloud
+elif [[ "$1 $2" == "provider show" ]]; then
+    printf '%s\n' "${FAKE_AZ_PROVIDER_STATE:-Registered}"
+elif [[ "$1 $2 $3" == "ad signed-in-user show" ]]; then
+    printf '%s\n' 00000000-0000-0000-0000-000000000003
 else
   exit 9
 fi
@@ -149,12 +155,12 @@ def _fake_azd(tmp_path: Path) -> Path:
 set -euo pipefail
 printf '%s\n' "$*" >> "$FAKE_AZD_CALLS"
 case "$1 $2" in
-  "env list") exit 0 ;;
-  "env get-value") printf '%s\n' "$FAKE_AZD_SUBSCRIPTION" ;;
-  "auth login") exit 0 ;;
-  "provision --preview") exit 0 ;;
-  "up ") exit 0 ;;
-  *) exit 9 ;;
+    "env select") exit 0 ;;
+    "env get-value") printf '%s\n' "$FAKE_AZD_SUBSCRIPTION" ;;
+    "env set") exit 0 ;;
+    "auth login") exit 0 ;;
+    "provision --environment") exit 0 ;;
+    *) exit 9 ;;
 esac
 """,
         encoding="ascii",
@@ -163,9 +169,36 @@ esac
     return calls
 
 
+def _fake_uv(tmp_path: Path) -> None:
+    binary = tmp_path / "uv"
+    binary.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --out|--output)
+            output="$2"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$output" ]]; then
+    payload='{"schema_version":"1.0.0","capabilities":[]'
+    payload+=',"mixed_model_mode":"hil-only"}'
+    printf '%s\n' "$payload" > "$output"
+fi
+""",
+        encoding="ascii",
+    )
+    binary.chmod(0o755)
+
+
 def test_azd_wrapper_rejects_mismatched_selected_environment(tmp_path: Path) -> None:
     _binary, az_calls = _fake_az(tmp_path)
     azd_calls = _fake_azd(tmp_path)
+    _fake_uv(tmp_path)
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
@@ -176,6 +209,7 @@ def test_azd_wrapper_rejects_mismatched_selected_environment(tmp_path: Path) -> 
         "FAKE_AZD_SUBSCRIPTION": "sub-other",
         "AZURE_SUBSCRIPTION_ID": "sub-expected",
         "AZURE_TENANT_ID": "tenant-expected",
+        "FDAI_AZD_WORK_DIR": str(tmp_path / "work"),
     }
 
     result = subprocess.run(  # noqa: S603 - controlled repository script
@@ -195,6 +229,7 @@ def test_azd_wrapper_rejects_mismatched_selected_environment(tmp_path: Path) -> 
 def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -> None:
     _binary, az_calls = _fake_az(tmp_path)
     azd_calls = _fake_azd(tmp_path)
+    _fake_uv(tmp_path)
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
@@ -205,6 +240,7 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
         "FAKE_AZD_SUBSCRIPTION": "sub-expected",
         "AZURE_SUBSCRIPTION_ID": "sub-expected",
         "AZURE_TENANT_ID": "tenant-expected",
+        "FDAI_AZD_WORK_DIR": str(tmp_path / "work"),
     }
 
     result = subprocess.run(  # noqa: S603 - controlled repository script
@@ -217,5 +253,47 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
     )
 
     assert result.returncode == 0
-    assert "account set --subscription sub-expected" in az_calls.read_text(encoding="ascii")
-    assert "provision --preview" in azd_calls.read_text(encoding="ascii")
+    azure_calls = az_calls.read_text(encoding="ascii")
+    deployment_calls = azd_calls.read_text(encoding="ascii")
+    assert "account set --subscription sub-expected" in azure_calls
+    assert "provider register" not in azure_calls
+    assert "role assignment create" not in azure_calls
+    assert "acr build" not in azure_calls
+    assert "postgres flexible-server firewall-rule create" not in azure_calls
+    assert "provision --environment fdai-dev" in deployment_calls
+    assert "--preview" in deployment_calls
+
+
+def test_azd_wrapper_reports_provider_registration_without_mutating(
+    tmp_path: Path,
+) -> None:
+    _binary, az_calls = _fake_az(tmp_path)
+    azd_calls = _fake_azd(tmp_path)
+    _fake_uv(tmp_path)
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "FAKE_AZ_CALLS": str(az_calls),
+        "FAKE_AZ_SUBSCRIPTION": "sub-expected",
+        "FAKE_AZ_TENANT": "tenant-expected",
+        "FAKE_AZ_PROVIDER_STATE": "NotRegistered",
+        "FAKE_AZD_CALLS": str(azd_calls),
+        "FAKE_AZD_SUBSCRIPTION": "sub-expected",
+        "AZURE_SUBSCRIPTION_ID": "sub-expected",
+        "AZURE_TENANT_ID": "tenant-expected",
+        "FDAI_AZD_WORK_DIR": str(tmp_path / "work"),
+    }
+
+    result = subprocess.run(  # noqa: S603 - controlled repository script
+        [str(_AZD_UP)],
+        cwd=_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "require registration" in result.stderr
+    assert "provider register" not in az_calls.read_text(encoding="ascii")
+    assert "provision" not in azd_calls.read_text(encoding="ascii")

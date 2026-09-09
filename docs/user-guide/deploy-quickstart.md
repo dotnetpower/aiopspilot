@@ -1,22 +1,40 @@
 ---
 title: Deploy Quickstart
-description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 243c8141bb8083311765e37d878e6cc2ee542506 }]
+description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 13484b88a17570edf3aea4cec5ba3717061e38f7 }]
 ---
 
 # Deploy Quickstart
 
 FDAI is provisioned from infrastructure-as-code under `infra/`. Terraform is the
 execution engine and the source of truth. We recommend the protected `fdaictl`
-workflow for private `dev` and `staging` environments. The `azd` wrapper is an
-infrastructure-only path for direct public-network development, and direct
-Terraform remains an expert path.
+workflow for private or shared `dev` and `staging` environments. A contributor
+with a clean clone can use the guarded `azd` wrapper to deploy the shared platform
+and one independently owned Core service to a public-network development subscription.
+
+## Choose a deployment path
+
+| Your environment | Use | Result |
+|------------------|-----|--------|
+| Personal Azure public-cloud subscription for development | `make azd-up`, then `FDAI_AZD_CONFIRM=1 make azd-up` | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
+| Private-network, shared, staging, or production environment | Protected `fdaictl` plan and exact apply | Private state, VNet runner, approval policy, all selected independent services, and protected evidence |
+| Existing custom Terraform automation | Direct Terraform | Expert integration with deployment-owned state, image, migration, and verification orchestration |
+
+The public path is a development bootstrap, not a production shortcut. It keeps autonomous actions
+in observation mode and does not deploy Console, Operator API, document services, or the isolated
+Executor.
 
 ## Before you start
 
 - An **Azure subscription** you can create resources in, and the **Azure CLI**
   (`az`). The protected path also needs the GitHub CLI (`gh`); the direct
-  development path needs the Azure Developer CLI (`azd`).
+  development path needs the Azure Developer CLI (`azd`), Terraform, `uv`,
+  `curl`, and `tar`.
+- For the direct path, use Azure public cloud and an interactive identity that can register resource
+  providers, create the platform resources, and assign roles at subscription scope. The script
+  temporarily grants `Cognitive Services Contributor` when the exact role is absent and removes
+  that grant before success. It also opens one temporary PostgreSQL `/32` rule for schema and
+  catalog bootstrap and removes it before Core starts.
 - A completed
   [deployment preflight](../roadmap/deployment/deployment-preflight.md). It
   collects quota, permission, connectivity, and rollback blockers before the
@@ -185,18 +203,41 @@ and the GitHub Environment requires one independent reviewer with self-review an
 bypass disabled. Profiles that require more than one approval and all `prod` requests remain
 blocked.
 
-#### azd (direct development infrastructure)
+#### azd (direct public development Core)
 
 ```bash
+az login --tenant "<expected-tenant-id>"
 azd auth login
-azd env new fdai-dev
 export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
 export AZURE_TENANT_ID="<expected-tenant-id>"
-# safe preview - runs `azd provision --preview`, applies nothing
+# Optional when you don't use the koreacentral / krc defaults.
+export FDAI_AZURE_REGION="westeurope"
+export FDAI_AZURE_REGION_SHORT="weu"
+# Safe preview. Missing provider registrations are reported without mutation.
 scripts/deployment/azure/azd-up.sh
-# provision infrastructure for real - runtime images use protected service workflows
+# Apply the staged platform, image, database, Core, and verification flow.
 FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 ```
+
+The wrapper creates or selects the `fdai-dev` azd environment, rejects a target mismatch, derives a
+stable six-character suffix from the verified subscription for globally scoped Azure names, and
+uses an ACR cloud build from the exact clean commit. It stores local Terraform state and generated
+inputs under `.fdai/deploy/public-dev-<suffix>/` with private permissions. Set
+`FDAI_AZD_CLIENT_IP` to one canonical public IPv4 address when automatic address discovery is not
+available. The first platform stage omits every image-backed Job, so a fresh subscription does not
+need an existing Core image. After ACR is ready, the wrapper builds the deployment-owned image and
+uses its immutable digest for Core and the enabled Jobs.
+
+The preview performs no Azure mutation. If a resource provider is not registered, it stops and
+lists the missing namespaces; only the confirmed run registers them. The confirmed run previews
+each platform change before applying it, disables scheduled jobs until migrations and Core rollout
+complete, removes temporary access on failure, and retains local state for safe reruns. A model
+that is unavailable or lacks quota remains `hil-only`, which keeps dependent decisions at human
+review instead of silently selecting another model.
+
+Bare `azd provision` still manages only the platform root. Use the wrapper when you need a runnable
+Core. Use the protected `fdaictl` path when local state, public data-service endpoints, or a
+single-user deployment host is not acceptable.
 
 #### terraform (direct expert path)
 

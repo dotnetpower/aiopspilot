@@ -1,13 +1,15 @@
 # azd (Azure Developer CLI) configuration for FDAI.
 #
-# Provides a direct public-network development `azd up` path over the Terraform under
-# `infra/` (docs/roadmap/deployment/deploy-and-onboard.md). azd drives Terraform as its
-# infrastructure provider; the CSP-neutral seams stay defined in HCL.
+# Provides the platform phase of the direct public-network development path over
+# the Terraform under `infra/` (docs/roadmap/deployment/deploy-and-onboard.md).
+# The guarded `azd-up.sh` wrapper composes that phase with the service-owned Core
+# root, migrations, image build, and bounded verification.
 #
-# Scope: `azd provision` and `azd up` provision the integrated Terraform root.
-# Runtime images deploy through the service-owned protected workflows because
-# the integrated root no longer owns one `azd-service-name` Container App.
-# Private subscription genesis uses `fdaictl` plus the protected runner.
+# Scope: bare `azd provision` and `azd up` still provision only the integrated
+# Terraform root. Use the wrapper for a runnable public dev Core. Runtime images
+# for private, shared, staging, and production environments continue to deploy
+# through the protected service workflow. Private subscription genesis uses
+# `fdaictl` plus the protected runner.
 #
 # Environment values (subscription id, tenant id, resource group, region) are
 # supplied at run time by the azd environment / env vars, never committed -

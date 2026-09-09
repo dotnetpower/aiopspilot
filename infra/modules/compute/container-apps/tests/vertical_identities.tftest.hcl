@@ -63,6 +63,22 @@ run "legacy_workflow_retains_vertical_identity_catalog" {
   }
 }
 
+run "staged_bootstrap_omits_legacy_oob_job" {
+  command = plan
+
+  variables {
+    enable_legacy_oob_job = false
+  }
+
+  assert {
+    condition = (
+      length(azurerm_container_app_job.oob) == 0 &&
+      output.oob_job_name == ""
+    )
+    error_message = "staged bootstrap must not require a runtime image through the legacy OOB Job"
+  }
+}
+
 run "scheduled_jobs_use_complete_non_executor_bindings" {
   command = plan
 

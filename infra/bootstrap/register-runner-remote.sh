@@ -47,7 +47,7 @@ for slot in $(seq 1 "$PARALLELISM"); do
     --url "https://github.com/$REPO" \
     --token "$TOKEN" \
     --name "$runner_name" \
-    --labels self-hosted,fdai-deploy
+    --labels self-hosted,fdai-deploy,fdai-deploy-candidate
   ./svc.sh install "$RUNNER_USER"
   ./svc.sh start
   ./svc.sh status

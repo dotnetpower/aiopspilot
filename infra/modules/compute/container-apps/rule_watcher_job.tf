@@ -18,6 +18,8 @@
 // and access to the StateStore secret. It never receives the executor identity.
 
 resource "azurerm_container_app_job" "rule_watcher" {
+  count = var.rule_watcher_cron_expression == "" ? 0 : 1
+
   name                         = var.rule_watcher_job_name
   container_app_environment_id = azurerm_container_app_environment.primary.id
   resource_group_name          = var.resource_group_name

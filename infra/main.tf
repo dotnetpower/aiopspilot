@@ -55,7 +55,8 @@ locals {
   env_suffix                         = var.env == "" ? "" : "-${var.env}"
   region_suffix                      = var.region_short == "" ? "" : "-${var.region_short}"
   full_suffix                        = "${local.env_suffix}${local.region_suffix}"
-  document_intelligence_account_name = "di-${var.workload}${local.full_suffix}"
+  global_name_suffix                 = var.resource_name_suffix == "" ? "" : "-${var.resource_name_suffix}"
+  document_intelligence_account_name = "di-${var.workload}${local.full_suffix}${local.global_name_suffix}"
 
   static_web_app_region_shorts = {
     westus2    = "wus2"
@@ -92,7 +93,7 @@ locals {
   operator_channel_edge_state_store_secret_id = join("", [
     "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
     "/resourceGroups/rg-${var.workload}${local.full_suffix}",
-    "/providers/Microsoft.KeyVault/vaults/kv-${var.workload}${local.full_suffix}",
+    "/providers/Microsoft.KeyVault/vaults/kv-${var.workload}${local.full_suffix}${local.global_name_suffix}",
     "/secrets/fdai-state-store-dsn",
   ])
   operator_channel_edge_effective_secret_ids = var.enable_operator_channel_edge ? setunion(
@@ -322,7 +323,7 @@ locals {
 
 module "container_registry" {
   source                        = "./modules/container-registry"
-  name                          = "cr${var.workload}${local.acr_suffix}"
+  name                          = "cr${var.workload}${local.acr_suffix}${var.resource_name_suffix}"
   location                      = var.region
   resource_group_name           = module.resource_group.name
   sku                           = var.acr_sku
@@ -612,7 +613,7 @@ resource "azurerm_role_assignment" "operator_channel_edge_acr_pull" {
 # -----------------------------------------------------------------------
 resource "azurerm_communication_service" "notifications" {
   count               = var.enable_email_notifications ? 1 : 0
-  name                = "acs-${var.workload}${local.full_suffix}"
+  name                = "acs-${var.workload}${local.full_suffix}${local.global_name_suffix}"
   resource_group_name = module.resource_group.name
   data_location       = var.email_data_location
   tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
@@ -620,7 +621,7 @@ resource "azurerm_communication_service" "notifications" {
 
 resource "azurerm_email_communication_service" "notifications" {
   count               = var.enable_email_notifications ? 1 : 0
-  name                = "ec-${var.workload}${local.full_suffix}"
+  name                = "ec-${var.workload}${local.full_suffix}${local.global_name_suffix}"
   resource_group_name = module.resource_group.name
   data_location       = var.email_data_location
   tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
@@ -657,31 +658,31 @@ import {
 import {
   for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
   to       = azurerm_communication_service.notifications[0]
-  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}"
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}${local.global_name_suffix}"
 }
 
 import {
   for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
   to       = azurerm_email_communication_service.notifications[0]
-  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}"
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}${local.global_name_suffix}"
 }
 
 import {
   for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
   to       = azurerm_email_communication_service_domain.notifications[0]
-  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}/domains/AzureManagedDomain"
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}${local.global_name_suffix}/domains/AzureManagedDomain"
 }
 
 import {
   for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
   to       = azurerm_communication_service_email_domain_association.notifications[0]
-  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}|/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}/domains/AzureManagedDomain"
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}${local.global_name_suffix}|/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}${local.global_name_suffix}/domains/AzureManagedDomain"
 }
 
 import {
   for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
   to       = azurerm_role_assignment.notification_email_sender[0]
-  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}/providers/Microsoft.Authorization/roleAssignments/${uuidv5("url", "fdai.notification-email-sender:/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}")}"
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}${local.global_name_suffix}/providers/Microsoft.Authorization/roleAssignments/${uuidv5("url", "fdai.notification-email-sender:/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}${local.global_name_suffix}")}"
 }
 
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
@@ -1131,7 +1132,7 @@ resource "terraform_data" "isolated_executor_authority_cutover_contract" {
 # -----------------------------------------------------------------------
 module "key_vault" {
   source                = "./modules/secret-store/key-vault"
-  name                  = "kv-${var.workload}${local.full_suffix}"
+  name                  = "kv-${var.workload}${local.full_suffix}${local.global_name_suffix}"
   location              = var.region
   resource_group_name   = module.resource_group.name
   tenant_id             = var.tenant_id
@@ -1938,7 +1939,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres_ops" {
 # -----------------------------------------------------------------------
 module "event_bus" {
   source                        = "./modules/event-bus/event-hubs-kafka"
-  name                          = "evhns-${var.workload}${local.full_suffix}"
+  name                          = "evhns-${var.workload}${local.full_suffix}${local.global_name_suffix}"
   location                      = var.region
   resource_group_name           = module.resource_group.name
   topics                        = local.event_topics
@@ -1953,7 +1954,7 @@ module "event_bus" {
 # isolated namespace so synthetic and parser-specific consumers stay separate.
 module "event_bus_auxiliary" {
   source                        = "./modules/event-bus/event-hubs-kafka"
-  name                          = "evhns-${var.workload}${local.full_suffix}-ops"
+  name                          = "evhns-${var.workload}${local.full_suffix}-ops${local.global_name_suffix}"
   location                      = var.region
   resource_group_name           = module.resource_group.name
   topics                        = [local.canary_topic, local.startup_probe_topic, local.executor_command_topic]
@@ -2018,7 +2019,7 @@ resource "azurerm_role_assignment" "executor_eventhubs_data_owner" {
 # -----------------------------------------------------------------------
 module "state_store" {
   source                 = "./modules/state-store/postgres-flex"
-  name                   = "psql-${var.workload}${local.full_suffix}"
+  name                   = "psql-${var.workload}${local.full_suffix}${local.global_name_suffix}"
   location               = var.region
   resource_group_name    = module.resource_group.name
   tenant_id              = var.tenant_id
@@ -2278,6 +2279,7 @@ module "compute" {
   core_app_name                = "ca-${var.workload}${local.full_suffix}-core"
   core_job_name_prefix         = "caj-${var.workload}${local.env_suffix}"
   oob_job_name                 = "caj-${var.workload}${local.full_suffix}-oob"
+  enable_legacy_oob_job        = var.enable_legacy_oob_job
   rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
   rule_watcher_cron_expression = var.rule_watcher_cron_expression
   provider_schema_job_name = (
@@ -2553,8 +2555,8 @@ module "compute" {
 # Skipped by default so a Reader-only deployer can plan/apply.
 # -----------------------------------------------------------------------
 locals {
-  openai_model_account_name  = "oai-${var.workload}${local.full_suffix}"
-  partner_model_account_name = "aif-${var.workload}-models${local.full_suffix}"
+  openai_model_account_name  = "oai-${var.workload}${local.full_suffix}${local.global_name_suffix}"
+  partner_model_account_name = "aif-${var.workload}-models${local.full_suffix}${local.global_name_suffix}"
   openai_resolved_capabilities = [
     for capability in var.resolved_capabilities : capability
     if capability.publisher == "OpenAI"
@@ -2600,10 +2602,11 @@ module "llm_foundry_partner" {
   count  = var.enable_llm && length(local.partner_resolved_capabilities) > 0 ? 1 : 0
   source = "./modules/llm/foundry-partner"
 
-  account_name        = local.partner_model_account_name
-  project_name        = "proj-${var.workload}-models${local.full_suffix}"
-  location            = var.region
-  resource_group_name = module.resource_group.name
+  account_name                  = local.partner_model_account_name
+  project_name                  = "proj-${var.workload}-models${local.full_suffix}${local.global_name_suffix}"
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  public_network_access_enabled = var.llm_public_network_access_enabled
   deployments = [
     for capability in local.partner_resolved_capabilities : {
       name         = capability.name
@@ -2673,8 +2676,8 @@ module "foundry_web_search" {
   count  = local.foundry_web_search_enabled ? 1 : 0
   source = "./modules/llm/foundry-web-search"
 
-  account_name               = "aif-${var.workload}-search${local.full_suffix}"
-  project_name               = "proj-${var.workload}-search${local.full_suffix}"
+  account_name               = "aif-${var.workload}-search${local.full_suffix}${local.global_name_suffix}"
+  project_name               = "proj-${var.workload}-search${local.full_suffix}${local.global_name_suffix}"
   location                   = var.region
   resource_group_name        = module.resource_group.name
   private_networking_enabled = var.enable_private_networking

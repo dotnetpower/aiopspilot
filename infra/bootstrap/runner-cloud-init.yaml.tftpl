@@ -71,7 +71,7 @@ write_files:
             --url "$RUNNER_URL" \
             --token "$RUNNER_TOKEN" \
             --name "$runner_name" \
-            --labels self-hosted,fdai-deploy \
+            --labels self-hosted,fdai-deploy,fdai-deploy-candidate \
             --replace
           ./svc.sh install "$RUNNER_USER"
           ./svc.sh start

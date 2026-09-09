@@ -17,7 +17,7 @@ makes that possible, and it survives app rebuilds.
 | NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. Set `enable_public_egress = false` on a closed network: the host becomes a jumpbox rather than a GitHub-registered runner, no public IP is created at all, and the tenant supplies its own approved path to the management and identity planes. |
 | Stable deploy UAMI | Survives runner VM replacement and exposes separate client and principal IDs for login and token verification. |
 | Runner VM (no public IP) | `Standard_D4ds_v5` provides sustained CPU and a local SSD-backed ephemeral OS disk. The stable UAMI is attached alongside the system identity during migration. |
-| Role assignments | Stable deploy UAMI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor on the subscription. |
+| Role assignments | Stable deploy UAMI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor + Cognitive Services Contributor + Reader + conditional Role Based Access Control Administrator on the subscription. The condition permits only Reader, Monitoring Reader, and Cost Management Reader grants to service principals. |
 
 The app config (`../`) peers its spoke VNet to `ops_vnet_id`, links its
 private DNS zones to the ops VNet, and grants `runner_principal_id` **Key Vault
@@ -55,6 +55,11 @@ The first apply keeps local state because the private backend does not exist yet
 container and VNet runner are available, copy `backend.azurerm.tf.example` to `backend.tf` on a
 host with private backend access and migrate the state to the dedicated
 `ops/bootstrap/<environment>.tfstate` key:
+
+`onboard.sh` replaces the copied `st....` placeholder with the created account name, writes
+`bootstrap.tfvars` with mode `0600`, and passes that same valid name back to the account helper on
+later runs. A rerun therefore reconciles the existing FDAI-owned account instead of creating a new
+random account.
 
 ```bash
 cp infra/bootstrap/backend.azurerm.tf.example infra/bootstrap/backend.tf
@@ -134,7 +139,8 @@ Two options:
    ```bash
    cd ~/actions-runner
    sudo -u <runner_user> ./config.sh --url https://github.com/<owner>/<repo> \
-     --token <short-lived-token> --labels self-hosted,fdai-deploy
+   --token <short-lived-token> \
+   --labels self-hosted,fdai-deploy,fdai-deploy-candidate
    sudo ./svc.sh install <runner_user> && sudo ./svc.sh start
    ```
 
@@ -184,9 +190,10 @@ association.
 
 ## Security notes
 
-- The stable deploy UAMI uses app-RG Contributor for resource mutation. Its subscription-scope role is
-   limited to Event Grid system-topic and subscription management for realtime inventory; it is not subscription
-   Contributor. The deploy workflow clears the Azure CLI account cache before each managed-identity
+- The stable deploy UAMI uses app-RG Contributor for resource mutation. At subscription scope it has
+   EventGrid Contributor, Cognitive Services Contributor, and Reader plus conditional role delegation
+   limited to Reader, Monitoring Reader, and Cost Management Reader assignments for service principals;
+   it is not subscription Contributor and cannot assign privileged roles. The deploy workflow clears the Azure CLI account cache before each managed-identity
    login and selects the UAMI by client ID so newly granted roles are reflected in Terraform provider tokens.
 - No public IP; access is Bastion / run-command / serial console.
 - The state account is private + versioned; a bad apply is recoverable.

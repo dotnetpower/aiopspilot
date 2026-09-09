@@ -31,10 +31,10 @@ and owning designs. Use it instead of the retired top-level application tree.
   Governance projections or any other lifecycle bridge starts.
   The fence grants no mapping, assessment, or execution authority. If startup fails, composition
   attempts every acquired service cleanup and reports cleanup errors with the original failure.
-- **Platform-to-service bindings:** Root Terraform exports reviewed non-secret targets and Key Vault
-  secret references. Protected service deployment validates those objects before delivery, and the
-  bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
-  from its sealed mode, including combined Core bindings; service tfvars cannot replace ownership or approval.
+- **Platform-to-service bindings:** Root Terraform exports reviewed targets and Key Vault references.
+  Protected deployment validates them, and its bot wrapper accepts only exact service plans. For
+  public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest,
+  migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
 - **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
   Operations routes can opt into explicit Sample projections that remain read-only, generic, and

@@ -160,6 +160,8 @@ locals {
 # own the implemented scheduled work. Keep this Job inert so the runtime image's
 # long-running core entry point is never launched under a five-minute Job budget.
 resource "azurerm_container_app_job" "oob" {
+  count = var.enable_legacy_oob_job ? 1 : 0
+
   name                         = var.oob_job_name
   container_app_environment_id = azurerm_container_app_environment.primary.id
   resource_group_name          = var.resource_group_name

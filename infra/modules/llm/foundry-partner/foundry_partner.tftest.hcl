@@ -46,3 +46,21 @@ run "plans_private_partner_model" {
     error_message = "Runtime principals must receive only the project user role."
   }
 }
+
+run "allows_explicit_public_development_access" {
+  command = plan
+
+  variables {
+    public_network_access_enabled = true
+  }
+
+  assert {
+    condition     = azurerm_cognitive_account.partner.public_network_access_enabled == true
+    error_message = "The explicit public development profile must reach its deployment-owned Foundry account."
+  }
+
+  assert {
+    condition     = azurerm_cognitive_account.partner.local_auth_enabled == false
+    error_message = "Public network access must not enable local-key authentication."
+  }
+}

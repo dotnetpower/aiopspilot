@@ -23,6 +23,7 @@ bindings through configuration (see
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Fresh-clone public development Core path | implemented | `azd-up.sh`, platform and Core Terraform roots, contributor deployment tests, and focused Terraform plans | A confirmed clean-checkout run stages platform, image, schema, catalogs, Core, jobs, canary, and initial inventory in one public `dev` subscription. It keeps observation mode and is not a private, shared, staging, or production path. |
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
 | Single-maintainer direct dev apply | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py`, and focused verifier and workflow tests | `DEV_DEPLOY_REQUIRED_APPROVALS=0` permits only direct dev applies without a reviewer rule. Exact plans, image attestations, identity checks, health verification, and rollback remain required; staging, production, and bot-owned paths keep independent approval. |
@@ -40,6 +41,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Composed the public `dev` platform and independent Core roots into one guarded fresh-clone path, including exact ACR build, schema and catalog bootstrap, scheduled-job activation, and bounded health checks. | `current change`; focused deployment workflow tests passed 86 cases; focused native Terraform plans passed 46 cases; Terraform configuration validation passed. | Retain a governed fresh-subscription apply, cleanup, second-run no-change, Core health, canary, and inventory receipt before classifying the path as validated. |
 | 2026-09-07 | implemented | Separated scheduled out-of-band drift detection from desired-state deployment planning. Every drift root now uses a refresh-only plan, so missing dispatch-only feature inputs cannot render enabled resources as deletion candidates. | `current change`; `.github/workflows/infra-drift.yml` and focused drift workflow contract tests | Retain one exact protected run showing deletion-free refresh plans; use protected deploy plans for unapplied code and configuration changes. |
 | 2026-09-07 | implemented | Added an explicit single-maintainer dev policy that validates a no-review Environment while retaining exact-plan and runtime safety gates. | `current change`; focused verifier and deployment workflow tests | Retain one successful direct dev apply and post-apply projection readback. |
 | 2026-09-05 | validated | Completed the first bot-requested protected Core service apply with a distinct human Environment approval, successful health and peer-isolation checks, and independent image and identity readback. | PR #455; plan `33965356996`; request `33965478498`; apply `33965498775`; Issue #454 | Keep the path non-production, exact-plan-bound, and subject to the protected Environment policy. |
@@ -61,6 +63,8 @@ bindings through configuration (see
 | 2026-09-05 | validated | Applied the protected Console origin and completed authenticated Help drawer validation. The drawer rendered five journey stages, 11 manual cards, and 22 loaded cover images without an alert or horizontal overflow; the selected same-origin manual returned HTTP 200. | Protected plan `33959768010`; apply `33959860773`; Issue #414 browser evidence. The apply and health steps succeeded; the final workflow failed only because concurrent Core state advanced from serial 53 to 54 during peer isolation. | No remaining work for the Operator Console origin binding. |
 ### Remaining work
 
+- [ ] Retain one repository-safe public fresh-subscription receipt for the exact clean revision,
+  reviewed previews, temporary-access cleanup, Core health, canary, initial inventory, and second-run no-change plan.
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
   succeeds before the catalog Job and that both immutable projection keys are readable afterward.
 - [ ] Retain a repository-safe protected apply and successful and failed execution receipts for the browser-evidence retention Job.

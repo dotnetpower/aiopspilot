@@ -138,11 +138,11 @@ run "explicit_context_preserves_private_offline_runner" {
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].placement == "ResourceDisk" &&
       azurerm_linux_virtual_machine.runner[0].identity[0].type == "SystemAssigned, UserAssigned" &&
       length(azurerm_linux_virtual_machine.runner[0].identity[0].identity_ids) == 1 &&
-      length(output.deploy_runner_role_manifest) == 5 &&
+      length(output.deploy_runner_role_manifest) == 8 &&
       var.genesis_provider_context.subscription_id == "00000000-0000-0000-0000-000000000000" &&
       var.genesis_provider_context.tenant_id == "00000000-0000-0000-0000-000000000000"
     )
-    error_message = "Explicit-context bootstrap must preserve the ephemeral ResourceDisk, stable deploy identity, and existing five-role manifest."
+    error_message = "Explicit-context bootstrap must preserve the ephemeral ResourceDisk, stable deploy identity, and eight-role manifest."
   }
 }
 

@@ -1,8 +1,8 @@
 ---
 title: 배포 빠른 시작
-description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
+description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 48c6da35ae5713793931daa984f34772a0252cc1
+translation_source_sha: 202325dcd6ed1393786d8ee60d5a2d438f822fbc
 translation_revised: 2026-09-09
 ---
 
@@ -10,14 +10,30 @@ translation_revised: 2026-09-09
 
 FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Terraform이 실행 엔진이자 단일
 기준입니다. 비공개 `dev` 및 `staging` 환경에는 보호된 `fdaictl` 작업 흐름을 사용하는 것이
-좋습니다. `azd` 래퍼는 상용 네트워크 개발을 위한 인프라 전용 경로이며 Terraform 직접
-실행은 전문가용 경로입니다.
+좋습니다. 기여자는 깨끗한 clone에서 보호 장치가 있는 `azd` 래퍼를 사용해 공개 네트워크 개발
+구독에 공유 플랫폼과 독립 Core 서비스 하나를 배포할 수 있습니다.
+
+## 배포 경로 선택
+
+| 환경 | 사용할 경로 | 결과 |
+|------|-------------|------|
+| 개인 Azure 퍼블릭 클라우드 개발 구독 | `make azd-up` 실행 후 `FDAI_AZD_CONFIRM=1 make azd-up` 실행 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
+| 비공개 네트워크, 공유, 스테이징 또는 운영 환경 | 보호된 `fdaictl` 계획 및 exact 적용 | 비공개 상태, VNet runner, 승인 정책, 선택한 모든 독립 서비스 및 보호된 증거 |
+| 기존 사용자 지정 Terraform 자동화 | Terraform 직접 실행 | 배포 소유 상태, 이미지, 마이그레이션 및 검증 오케스트레이션을 사용하는 전문가 통합 |
+
+공개 경로는 개발 부트스트랩이며 운영 우회 경로가 아닙니다. 자율 작업은 관찰 모드로 유지되며
+Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
 
 ## 시작하기 전에
 
 - 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된
   경로에는 GitHub CLI(`gh`)가 필요하며 직접 개발 경로에는 **Azure Developer CLI**(`azd`)가
-  필요합니다.
+  필요합니다. 직접 개발 경로에는 Terraform, `uv`, `curl`, `tar`도 필요합니다.
+- 직접 경로에서는 Azure 퍼블릭 클라우드와 리소스 공급자 등록, 플랫폼 리소스 생성 및 구독
+  범위 역할 할당이 가능한 대화형 신원을 사용하세요. 스크립트는 정확한 역할이 없을 때
+  `Cognitive Services Contributor`를 임시로 부여하고 성공 전에 제거합니다. 또한 스키마 및
+  카탈로그 부트스트랩을 위해 PostgreSQL `/32` 규칙 하나를 임시로 열고 Core가 시작되기 전에
+  제거합니다.
 - [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
   이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
 - 환경별 값을 `*.tfvars` 파일에 입력합니다. 새 PostgreSQL 서버는 보호된 입력으로 관리자 암호를 제공하거나 암호를 제공하지 않고 Terraform 생성을 활성화합니다. 이 파일은 커밋하지 마세요.
@@ -169,18 +185,40 @@ fdaictl deploy apply \
 한 명을 요구하고 자체 검토와 관리자 우회를 차단해야 적용 명령을 진행할 수 있습니다.
 두 명 이상의 승인이 필요한 프로필과 모든 `prod` 요청은 차단됩니다.
 
-#### azd (직접 개발 인프라)
+#### azd (직접 공개 개발 Core)
 
 ```bash
+az login --tenant "<expected-tenant-id>"
 azd auth login
-azd env new fdai-dev
 export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
 export AZURE_TENANT_ID="<expected-tenant-id>"
-# 안전한 미리보기 - `azd provision --preview` 실행, 아무것도 적용하지 않음
+# koreacentral 및 krc 기본값을 사용하지 않을 때 선택 사항입니다.
+export FDAI_AZURE_REGION="westeurope"
+export FDAI_AZURE_REGION_SHORT="weu"
+# 안전한 미리보기입니다. 누락된 리소스 공급자를 변경 없이 보고합니다.
 scripts/deployment/azure/azd-up.sh
-# 실제 인프라 프로비저닝 - 런타임 이미지는 보호된 서비스 작업 흐름 사용
+# 단계별 플랫폼, 이미지, 데이터베이스, Core 및 검증 흐름을 적용합니다.
 FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 ```
+
+래퍼는 필요할 때 `fdai-dev` azd 환경을 만들거나 선택하고 대상 불일치를 차단합니다. 전역 범위
+Azure 이름에는 검증한 구독에서 파생한 안정적인 6자 접미사를 사용하며, 정확한 clean commit을
+배포 소유 ACR에서 클라우드 빌드합니다. 로컬 Terraform 상태와 생성 입력은 비공개 권한으로
+`.fdai/deploy/public-dev-<suffix>/` 아래에 저장합니다. 자동 주소 검색을 사용할 수 없으면
+`FDAI_AZD_CLIENT_IP`에 정규화된 공개 IPv4 주소 하나를 설정하세요.
+첫 platform 단계는 image를 사용하는 모든 Job을 생략하므로 새 구독에 기존 Core image가
+필요하지 않습니다. ACR이 준비되면 래퍼가 배포 소유 image를 빌드하고 변경 불가능한 digest를
+Core와 활성화된 Job에 사용합니다.
+
+미리보기는 Azure를 변경하지 않습니다. 리소스 공급자가 등록되지 않았다면 누락된 namespace를
+나열하고 중단하며, 확인된 실행에서만 등록합니다. 확인된 실행은 각 플랫폼 변경을 적용 전에
+미리 보고, 마이그레이션과 Core 배포가 끝날 때까지 예약 Job을 비활성화하며, 실패 시 임시 접근을
+제거하고 안전한 재실행을 위해 로컬 상태를 보존합니다. 사용할 수 없거나 쿼터가 부족한 모델은
+`hil-only`로 유지하므로 다른 모델을 암묵적으로 선택하지 않고 관련 결정을 사람 검토로 보냅니다.
+
+`azd provision`을 직접 실행하면 여전히 플랫폼 루트만 관리합니다. 실행 가능한 Core가 필요하면
+래퍼를 사용하세요. 로컬 상태, 공개 데이터 서비스 endpoint 또는 단일 사용자 배포 호스트를
+허용할 수 없다면 보호된 `fdaictl` 경로를 사용하세요.
 
 #### terraform (전문가용 직접 경로)
 

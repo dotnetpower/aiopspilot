@@ -573,7 +573,7 @@ Each work item below reflects what actually landed - code, tests, and gate cover
 - New: `infra/modules/llm/azure-openai/`.
   - `main.tf`: `azurerm_cognitive_account` (kind=`OpenAI`) + N
     `azurerm_cognitive_deployment` from `resolved_capabilities`.
-  - `variables.tf`: `enable_llm` (default `false` so bare-minimum deploys still succeed), `resolved_capabilities` (object list from resolver), and the explicit `llm_public_network_access_enabled` opt-in. Public access stays disabled by default; an environment that enables it through repository variable `LLM_PUBLIC_NETWORK_ACCESS_ENABLED=true` should retain a deny-by-default network ACL with explicit trusted-source rules, and key authentication remains disabled.
+  - `variables.tf`: `enable_llm` (default `false` so bare-minimum deploys still succeed), `resolved_capabilities` (object list from resolver), and the explicit `llm_public_network_access_enabled` opt-in shared by Azure OpenAI and partner Foundry accounts. Public access stays disabled by default; the direct public-development wrapper enables it for deployment-owned model endpoints, while protected environments should retain a deny-by-default network ACL with explicit trusted-source rules. Key authentication remains disabled in every mode.
   - `outputs.tf`: `endpoint`, `deployments` map, `resource_id`.
 - Role assignment: executor MI → `Cognitive Services OpenAI User` on the account.
 - Root `infra/main.tf` wires the module conditionally on `var.enable_llm`.

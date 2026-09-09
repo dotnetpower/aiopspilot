@@ -28,18 +28,18 @@ output "core_app_name" {
 }
 
 output "oob_job_name" {
-  description = "Out-of-band Container Apps Job name."
-  value       = azurerm_container_app_job.oob.name
+  description = "Out-of-band compatibility Job name, or empty when disabled."
+  value       = try(azurerm_container_app_job.oob[0].name, "")
 }
 
 output "rule_watcher_job_name" {
-  description = "Rule-catalog source watcher Container Apps Job name."
-  value       = azurerm_container_app_job.rule_watcher.name
+  description = "Rule-catalog source watcher Container Apps Job name, or null when disabled."
+  value       = try(azurerm_container_app_job.rule_watcher[0].name, null)
 }
 
 output "rule_watcher_job_id" {
-  description = "Rule-catalog source watcher Container Apps Job resource id."
-  value       = azurerm_container_app_job.rule_watcher.id
+  description = "Rule-catalog source watcher Container Apps Job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.rule_watcher[0].id, null)
 }
 
 output "provider_schema_job_id" {
@@ -70,6 +70,11 @@ output "wara_assessment_job_id" {
 output "canary_job_name" {
   description = "Synthetic full-loop canary publisher Job name, or empty when disabled."
   value       = try(azurerm_container_app_job.canary[0].name, "")
+}
+
+output "inventory_job_name" {
+  description = "Scheduled inventory reconciliation Job name, or empty when disabled."
+  value       = try(azurerm_container_app_job.inventory[0].name, "")
 }
 
 output "ohl_evidence_proposal_job_name" {

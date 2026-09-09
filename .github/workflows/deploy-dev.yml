@@ -2,12 +2,15 @@ name: deploy-dev
 run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, github.run_number) }}
 # Prerequisites (see infra/bootstrap/README.md):
 #   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
-#     with labels [self-hosted, fdai-deploy] and the stable deploy UAMI holding
-#     Contributor on the app RG + Storage Blob Data Contributor on the state SA.
+#     with labels [self-hosted, fdai-deploy, fdai-deploy-candidate] and the stable
+#     deploy UAMI holding the bootstrap-owned constrained role manifest.
 #   - Repo variables (Settings > Secrets and variables > Actions > Variables):
 #       ARM_SUBSCRIPTION_ID, AZURE_REGION, AZURE_REGION_SHORT, AZURE_TENANT_ID,
 #       DEPLOY_RUNNER_CLIENT_ID, DEPLOY_RUNNER_PRINCIPAL_ID,
-#       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
+#       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID,
+#       OPS_VNET_NAME, STATE_RESOURCE_GROUP, STATE_STORAGE_ACCOUNT, STATE_CONTAINER,
+#       CORE_IMAGE, DEV_DEPLOY_REQUIRED_APPROVALS,
+#       optional FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE,
 #       ENABLE_STEWARDSHIP_GOVERNANCE, GITOPS_OWNER, GITOPS_REPO,
@@ -358,6 +361,7 @@ jobs:
         # resolves from the workspace root.
         working-directory: ${{ github.workspace }}
         env:
+          FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST: ${{ vars.FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST }}
           OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
           STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: |
@@ -365,6 +369,13 @@ jobs:
           bash scripts/deployment/azure/login-deploy-identity.sh \
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id" \
             "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          if [[ -n "$FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST" ]]; then
+            [[ "$FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST must be a lowercase SHA-256 digest." >&2
+              exit 1
+            }
+            echo "TF_VAR_foundation_resource_group_context_digest=$FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST" >> "$GITHUB_ENV"
+          fi
           if [[ "$OCR_POLICY_ONLY" == "true" ]]; then
             bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
               "${{ inputs.environment }}" "${{ inputs.request_id }}" \

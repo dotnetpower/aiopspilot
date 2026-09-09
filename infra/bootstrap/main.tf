@@ -246,6 +246,17 @@ data "azurerm_resource_group" "app" {
 
 data "azurerm_subscription" "current" {}
 
+data "azurerm_role_definition" "subscription_observation" {
+  for_each = toset([
+    "Cost Management Reader",
+    "Monitoring Reader",
+    "Reader",
+  ])
+
+  name  = each.value
+  scope = data.azurerm_subscription.current.id
+}
+
 locals {
   deploy_runner_role_manifest = var.enable_deploy_identity_roles ? {
     app_contributor = {
@@ -268,7 +279,43 @@ locals {
       role_definition_name = "EventGrid Contributor"
       scope                = data.azurerm_subscription.current.id
     }
+    subscription_cognitive_services_contributor = {
+      role_definition_name = "Cognitive Services Contributor"
+      scope                = data.azurerm_subscription.current.id
+    }
+    subscription_reader = {
+      role_definition_name = "Reader"
+      scope                = data.azurerm_subscription.current.id
+    }
+    subscription_observation_role_delegate = {
+      role_definition_name = "Role Based Access Control Administrator"
+      scope                = data.azurerm_subscription.current.id
+    }
   } : {}
+  subscription_observation_role_ids = sort([
+    for role in data.azurerm_role_definition.subscription_observation : role.role_definition_id
+  ])
+  subscription_observation_role_condition = <<-EOT
+    (
+      (!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'}))
+      OR
+      (
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${join(", ", local.subscription_observation_role_ids)}}
+        AND
+        @Request[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'}
+      )
+    )
+    AND
+    (
+      (!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'}))
+      OR
+      (
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${join(", ", local.subscription_observation_role_ids)}}
+        AND
+        @Resource[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'}
+      )
+    )
+  EOT
 }
 
 # Only the runner needs data-plane access to the state account (Storage Blob
@@ -319,6 +366,39 @@ resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
   scope                = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+}
+
+# Model resolution checks this exact role on the target subscription before
+# producing deployable capabilities. Keep model provisioning distinct from the
+# conditional delegation grant below.
+resource "azurerm_role_assignment" "runner_cognitive_services_contributor" {
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  name                 = uuidv5("url", "fdai.runner-cognitive-services:${data.azurerm_subscription.current.id}:${module.deploy_runner_identity.principal_id}")
+  scope                = local.deploy_runner_role_manifest.subscription_cognitive_services_contributor.scope
+  role_definition_name = local.deploy_runner_role_manifest.subscription_cognitive_services_contributor.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
+}
+
+# The platform creates read-only inventory and RCA role assignments at subscription
+# scope. Give the deploy identity subscription read access and delegate only those
+# three read roles to service principals; it cannot assign Owner, Contributor, or
+# another privileged administrator role.
+resource "azurerm_role_assignment" "runner_subscription_reader" {
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  name                 = uuidv5("url", "fdai.runner-reader:${data.azurerm_subscription.current.id}:${module.deploy_runner_identity.principal_id}")
+  scope                = local.deploy_runner_role_manifest.subscription_reader.scope
+  role_definition_name = local.deploy_runner_role_manifest.subscription_reader.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "runner_subscription_observation_role_delegate" {
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  name                 = uuidv5("url", "fdai.runner-observation-role-delegate:${data.azurerm_subscription.current.id}:${module.deploy_runner_identity.principal_id}")
+  scope                = local.deploy_runner_role_manifest.subscription_observation_role_delegate.scope
+  role_definition_name = local.deploy_runner_role_manifest.subscription_observation_role_delegate.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
+  condition_version    = "2.0"
+  condition            = local.subscription_observation_role_condition
 }
 
 # Optional delete protection on the state account. Standard FDAI profiles keep

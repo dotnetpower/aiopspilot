@@ -9,27 +9,44 @@ identity) into Azure resources. Entry command: `terraform apply` per
 ## Direct development path (`azd`)
 
 For a public-network development environment, [`azure.yaml`](../azure.yaml) drives this Terraform
-through the Azure Developer CLI. `scripts/deployment/azure/azd-up.sh` (or `make azd-up`) runs a
-non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to run a real `azd up`.
-The two-gate design keeps an accidental apply impossible.
+through the Azure Developer CLI. [`scripts/deployment/azure/azd-up.sh`](../scripts/deployment/azure/azd-up.sh)
+(or `make azd-up`) runs read-only model discovery and `azd provision --preview` by default. Set
+`FDAI_AZD_CONFIRM=1` only after reviewing that output. The confirmed run:
+
+1. registers the required Azure resource providers and temporarily grants the signed-in deployer
+  the model-provisioning role;
+2. provisions the public development platform with every image-backed Job omitted;
+3. builds the exact committed Core source and resolved model manifest in deployment-owned ACR;
+4. opens one temporary PostgreSQL `/32` rule, applies all migrations, materializes the authoritative
+  catalogs, and removes the rule;
+5. applies the independent Core Terraform root from an exact saved plan, enables the scheduled
+  jobs with the digest-pinned image, and verifies Core, canary, and initial inventory health.
+
+The wrapper creates the `fdai-dev` azd environment when needed. Set `FDAI_AZD_ENVIRONMENT`,
+`FDAI_AZURE_REGION`, or `FDAI_AZURE_REGION_SHORT` to override its generic defaults. It derives a
+stable six-character subscription hash for globally scoped names and keeps local Terraform state
+and generated inputs under the gitignored mode-`0700` `.fdai/deploy/` directory. Apply requires a
+clean checkout so the image tag and source archive refer to the same commit.
+The first stage therefore has no dependency on a previously published Core image. The second
+platform apply creates the selected Jobs only after the deployment-owned ACR digest exists.
 
 This path is not the private subscription-genesis product. A private deployment first needs the
 ops network, state backend, deployment identity, and attested runner described in
 [`bootstrap/`](bootstrap/). The target one-operation experience is the resumable `fdaictl onboard`
 flow in [Subscription Genesis Provisioning](../docs/roadmap/deployment/subscription-genesis-provisioning.md).
 
-`azure.yaml` intentionally has no `services` block. The integrated root no longer owns a Core
-Container App with an `azd-service-name` tag, so claiming `azd deploy` support would fail after
-provisioning. Runtime images deploy through the service-owned protected workflows and Terraform
-roots.
+[`azure.yaml`](../azure.yaml) intentionally has no `services` block. Bare `azd provision` and
+`azd up` therefore manage only the platform root. The wrapper explicitly composes the independent
+Core root; the other four services, Console, private networking, staging, and production remain on
+their protected workflows.
 
-Direct Terraform plans require `core_image` to reference an FDAI image built
-from the repository Dockerfile. The variable rejects the former
-`mcr.microsoft.com/azure-cli` bootstrap placeholder. The core Container App
-keeps one replica, exposes internal `/live` and `/ready` probes, and starts a
-dedicated five-minute canary Job. The canary UAMI has only ACR pull and Event
-Hubs send. When the Operator API is enabled, a read UAMI owns ACR, Key Vault, and
-Reader access while a separate command UAMI owns Event Hubs send/receive.
+Direct Terraform plans require `core_image` to reference an FDAI image built from the repository
+Dockerfile. The variable rejects the former `mcr.microsoft.com/azure-cli` bootstrap placeholder.
+The independent Core Container App keeps one replica and exposes internal `/live` and `/ready`
+probes. The platform starts a dedicated five-minute canary Job after the wrapper completes schema
+bootstrap and Core rollout. The canary UAMI has only ACR pull and Event Hubs send. When the Operator
+API is enabled, a read UAMI owns ACR, Key Vault, and Reader access while a separate command UAMI owns
+Event Hubs send/receive.
 
 Production plans also require PostgreSQL `ZoneRedundant` high availability,
 35-day geo-redundant backup, and signed human approval delivery. Supply the human approval URL and

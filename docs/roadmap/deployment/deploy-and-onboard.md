@@ -44,7 +44,7 @@ For a fresh database, supply its administrator password through the protected in
 - **Application resource group:** Standalone bootstrap expects the group to exist before assigning the runner's roles.
 - **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Offline bootstrap also requires an exact prebuilt image.
 
-[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups and the private state account through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
+[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
 `fdaictl provision plan --stage foundation` provides a dry run with optional private `--save-plan` capture. Approval, host enrollment, and remote-state migration remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
@@ -72,8 +72,8 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
 - a **stable deploy user-assigned managed identity (UAMI)** whose lifecycle is independent of the current and candidate runner VMs. Bootstrap owns its exact role manifest and outputs separate client and principal IDs;
 - a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
   VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock.
-  The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
-  the ops RG, `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
+  The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG, `Storage Blob Data Contributor` on state, and subscription `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`.
+  Its conditional `Role Based Access Control Administrator` grant can assign only `Reader`, `Monitoring Reader`, and `Cost Management Reader` to service principals.
   During migration, the current VM keeps its system identity alongside the UAMI, but workflows never select an identity implicitly. Each run clears the Azure CLI account cache, logs in with the configured UAMI client ID, and proves the exact repository-configured subscription, tenant, and ARM token `oid` before any storage, plan, or apply step.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
@@ -154,8 +154,9 @@ The inventory reconciliation Job inherits the same required non-secret runtime c
 recovery-delta forwarding can open its typed Event Bus publisher without a partial config.
 Scheduler and analyzer Jobs set `FDAI_MI_CLIENT_ID` to the client id of the user-assigned identity
 attached to that Job, so Azure Monitor and Event Hubs token acquisition never relies on implicit
-identity selection. The legacy generic OOB Job remains a bounded, inert compatibility resource
-until a probe entry point owns it; implemented recurring work stays in the dedicated Jobs.
+identity selection. The legacy generic OOB Job is a bounded, inert compatibility resource until a
+probe entry point owns it; the public contributor bootstrap omits it until a deployment-owned image
+exists, and implemented recurring work stays in the dedicated Jobs.
 On a public-network profile, Terraform also adopts the deterministic realtime-inventory Event Grid
 subscription when an operator restores it out of band, then converges its Event Hub destination,
 delivery identity, event filter, and retry policy on the next protected apply. Private-networking
@@ -181,8 +182,7 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 #### Onboarding automation
 
-Seven helpers make the runner path repeatable (all customer-agnostic, parameterized):
-
+These customer-agnostic, parameterized helpers make both deployment paths repeatable:
 Set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` to the approved deployment target before running
 any helper. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)
 requires both axes as explicit protected-workflow inputs, selects the expected subscription only after
@@ -190,7 +190,7 @@ it proves the tenant, and fails before mutation when the identity cannot access 
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair.
-
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) previews a public `dev` platform without Azure mutation, then on confirmation stages the platform, exact Core image, migrations, catalogs, independent Core, canary, and initial inventory. It is not a private or production path.
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) probes a
   throwaway KV + storage to tell you up front whether the tenant forces private-everything
   (and thus mandates the runner path).

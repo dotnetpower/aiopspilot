@@ -56,6 +56,11 @@ output "container_registry_login_server" {
   value       = module.container_registry.login_server
 }
 
+output "container_registry_name" {
+  description = "ACR resource name used by contributor image builds."
+  value       = "cr${var.workload}${local.acr_suffix}${var.resource_name_suffix}"
+}
+
 output "key_vault_uri" {
   description = "Key Vault URI. Runtime reads secrets via Container Apps native secret + KV reference."
   value       = module.key_vault.uri
@@ -135,6 +140,87 @@ output "core_app_name" {
   value       = module.compute.core_app_name
 }
 
+output "contributor_core_service_tfvars" {
+  description = "Private complete Core service input for the public-network dev quickstart. Null for private, non-dev, or model-free platform plans."
+  sensitive   = true
+  value = var.env == "dev" && !var.enable_private_networking && var.enable_llm ? {
+    name  = module.compute.core_app_name
+    image = var.core_image
+    platform = {
+      resource_group_name                 = module.resource_group.name
+      container_app_environment_id        = module.compute.environment_id
+      acr_login_server                    = module.container_registry.login_server
+      kafka_bootstrap_servers             = module.event_bus.kafka_bootstrap
+      operational_kafka_bootstrap_servers = module.event_bus_auxiliary.kafka_bootstrap
+    }
+    bootstrap = {
+      azure_tenant_id       = var.tenant_id
+      azure_subscription_id = data.azurerm_client_config.current.subscription_id
+      azure_region          = var.region
+      postgres_host         = module.state_store.fqdn
+      postgres_database     = module.state_store.database_name
+    }
+    identity = {
+      resource_id = module.identity.resource_id
+      client_id   = module.identity.client_id
+      extra_resource_ids = concat(
+        [module.rca_reader_identity.resource_id],
+        local.core_vertical_identity_ids,
+        var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
+        var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
+      )
+    }
+    rca_reader_identity = {
+      resource_id = module.rca_reader_identity.resource_id
+      client_id   = module.rca_reader_identity.client_id
+    }
+    event_topics = {
+      canary                      = local.canary_topic
+      events                      = local.event_topics[0]
+      executor_command            = local.executor_command_topic
+      executor_receipt            = local.executor_receipt_topic
+      hil_decisions               = local.event_auxiliary_topics[0]
+      inventory_raw               = local.inventory_raw_topic
+      pipeline_stages             = local.event_auxiliary_topics[1]
+      startup_probe               = local.startup_probe_topic
+      semantic_requests           = local.semantic_turn_request_topic
+      semantic_projections        = local.semantic_turn_projection_topic
+      semantic_physical           = local.semantic_turn_physical_topic
+      read_investigation_requests = local.read_investigation_request_topic
+    }
+    database = {
+      dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+      host          = module.state_store.fqdn
+      role          = "fdai_core"
+    }
+    rollback = {
+      strategy                 = "previous-revision"
+      previous_image           = var.core_image
+      max_unavailable_replicas = 0
+    }
+    runtime_env = var.env
+    llm = {
+      endpoint                   = module.llm_azure_openai[0].endpoint
+      model_endpoints            = local.llm_model_endpoints
+      web_search_enabled         = false
+      web_search_allowed_domains = []
+      web_search_max_results     = 8
+      web_search_timeout_seconds = 45
+      resolved_models_digest     = var.resolved_models_sha256
+    }
+    observation_context = {
+      enabled                     = var.enable_isolated_executor
+      signing_seed_secret_id      = var.enable_isolated_executor ? azurerm_key_vault_secret.ohl_observation_signing_seed.id : ""
+      executor_credential_lineage = var.enable_isolated_executor ? "azure-managed-identity:${module.isolated_executor_identity[0].client_id}" : ""
+      source_credential_lineage   = var.enable_isolated_executor ? "azure-managed-identity:${module.inventory_identity.client_id}" : ""
+    }
+    decision_evidence_container_url = (
+      var.enable_operational_history ? module.decision_evidence_storage[0].container_url : ""
+    )
+    tags = local.tags
+  } : null
+}
+
 output "dev_operations_gateway_url" {
   description = "Authenticated development operations gateway URL. Empty when disabled."
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
@@ -202,6 +288,11 @@ output "email_sender_address" {
 output "canary_job_name" {
   description = "Synthetic control-loop canary publisher Job name."
   value       = module.compute.canary_job_name
+}
+
+output "inventory_job_name" {
+  description = "Scheduled inventory reconciliation Job name, or empty when disabled."
+  value       = module.compute.inventory_job_name
 }
 
 output "browser_evidence_cleanup_job_id" {

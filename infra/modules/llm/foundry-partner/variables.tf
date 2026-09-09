@@ -18,6 +18,12 @@ variable "resource_group_name" {
   type        = string
 }
 
+variable "public_network_access_enabled" {
+  description = "Whether the account accepts its public data-plane endpoint. Keep false for private deployments."
+  type        = bool
+  default     = false
+}
+
 variable "deployments" {
   description = "Publisher-qualified partner capability deployments."
   type = list(object({

@@ -5,6 +5,26 @@ output "ops_resource_group_name" {
   description = "Ops (hub) resource group."
 }
 
+output "app_resource_group_name" {
+  value       = var.app_resource_group_name
+  description = "Foundation-owned application resource group consumed in platform reference mode."
+}
+
+output "environment" {
+  value       = var.env
+  description = "Deployment environment used by repository configuration."
+}
+
+output "region" {
+  value       = var.region
+  description = "Azure region used by the bootstrap deployment."
+}
+
+output "region_short" {
+  value       = var.region_short
+  description = "Short Azure region token used in resource names."
+}
+
 output "ops_vnet_id" {
   value       = azurerm_virtual_network.ops.id
   description = "Ops (hub) VNet id. The app config peers its spoke VNet to this and links its private DNS zones here so the runner resolves app private endpoints."

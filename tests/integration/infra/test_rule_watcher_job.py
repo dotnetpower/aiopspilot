@@ -16,6 +16,7 @@ def test_rule_collector_job_is_scheduled_and_records_verified_evidence() -> None
     main = _MAIN.read_text(encoding="utf-8")
     variables = _VARIABLES.read_text(encoding="utf-8")
 
+    assert 'count = var.rule_watcher_cron_expression == "" ? 0 : 1' in job
     assert "cron_expression          = var.rule_watcher_cron_expression" in job
     assert 'command = ["python", "-m", "fdai.delivery.rule_collector_job_cli"]' in job
     assert 'name        = "FDAI_STATE_STORE_DSN"' in job
@@ -25,6 +26,7 @@ def test_rule_collector_job_is_scheduled_and_records_verified_evidence() -> None
     )
     assert 'variable "rule_watcher_cron_expression"' in variables
     assert 'default     = "0 3 * * *"' in variables
+    assert "Empty disables the Job during staged bootstrap." in variables
 
 
 def test_rule_collector_job_never_receives_the_executor_identity() -> None:

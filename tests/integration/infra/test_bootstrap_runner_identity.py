@@ -37,8 +37,11 @@ def test_bootstrap_role_manifest_is_exact_and_vm_independent() -> None:
     )[0]
     assert set(re.findall(r'role_definition_name = "([^"]+)"', manifest)) == {
         "Contributor",
+        "Cognitive Services Contributor",
         "EventGrid Contributor",
         "Network Contributor",
+        "Reader",
+        "Role Based Access Control Administrator",
         "Storage Blob Data Contributor",
         "User Access Administrator",
     }
@@ -49,6 +52,9 @@ def test_bootstrap_role_manifest_is_exact_and_vm_independent() -> None:
         "runner_ops_network",
         "runner_state_blob",
         "runner_eventgrid_contributor",
+        "runner_cognitive_services_contributor",
+        "runner_subscription_reader",
+        "runner_subscription_observation_role_delegate",
     )
     for resource_name in resources:
         body = _resource_body("azurerm_role_assignment", resource_name)
@@ -58,6 +64,18 @@ def test_bootstrap_role_manifest_is_exact_and_vm_independent() -> None:
 
     variable = _VARIABLES.split('variable "enable_deploy_identity_roles"', maxsplit=1)[1]
     assert "default     = true" in variable.split("}", maxsplit=1)[0]
+
+    delegated = _resource_body(
+        "azurerm_role_assignment", "runner_subscription_observation_role_delegate"
+    )
+    assert 'condition_version    = "2.0"' in delegated
+    assert "subscription_observation_role_condition" in delegated
+    condition = _MAIN.split("subscription_observation_role_condition = <<-EOT", maxsplit=1)[
+        1
+    ].split("\n  EOT", maxsplit=1)[0]
+    assert "RoleDefinitionId" in condition
+    assert "PrincipalType" in condition
+    assert "ServicePrincipal" in condition
 
 
 def test_bootstrap_exports_both_workflow_identity_coordinates() -> None:

@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: cc7a38ed7cdecd75e447322d030c248b6a792317
-translation_revised: 2026-09-08
+translation_source_sha: b9a834ff5d4c93e027c34ab2be33c227e2eb31f4
+translation_revised: 2026-09-09
 ---
 # 배포 리소스 규약
 
@@ -71,12 +71,13 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | Core 파생 Job의 제한된 명명 | implemented | `infra/modules/compute/container-apps/`; `test_container_app_job_names.py`; Terraform 검증 | 유효한 기존 이름은 바꾸지 않습니다. 32자를 넘는 이름은 환경별 resource group 안에서 `caj-<workload>-<env>`를 사용합니다. |
 | Event Bus 소비자 지연 경고 | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; 보호된 적용 실행 `32383519737`; 실제 발생 및 해제 경고 관측; 집중 소비자, 인프라 및 workflow 검사 | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 보호된 monitoring-only 적용은 scheduled-query rule만 변경했으며 정제된 합성 지연 행으로 stateful 경고가 발생하고 자동 해제되었습니다. |
 | 보호된 모델 해석 및 endpoint 산출물 | implemented | `.github/workflows/deploy-dev.yml`; model binding sealer; 정확한 기능 gate; `llm_model_endpoints` Terraform 출력; 보호된 서비스 구체화; 집중 검사 | 보호된 `plan-chatops-*` 및 `apply-chatops-*` 요청 ID는 추가 dispatch 입력 없이 검증을 선택합니다. 계획 metadata는 모드를 봉인하며 적용은 검토된 Mistral 프로필과 정확한 배포 소유 Foundry 참조를 다시 검증합니다. |
-| Private Foundry partner 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root, 모듈 및 Checkov 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 public access를 항상 끄며 partner format/버전/용량 및 project user 역할을 고정하고 partner 기능에 조건부로 조립됩니다. |
+| Partner Foundry 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root, 모듈 및 Checkov 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 public access를 기본적으로 끄며 명시적인 공개 기여자 profile을 지원합니다. Local 인증은 계속 비활성화하고 partner format/버전/용량 및 project user 역할을 고정하며 partner 기능에 조건부로 조립됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 기본적으로 비공개인 Foundry network 입력을 추가하고 local 인증을 활성화하지 않은 채 공개 기여자 profile을 명시적인 공개 선택 항목에 연결했습니다. | `current change`; 집중 Foundry 비공개 및 공개 Terraform 계획 통과. | Runtime 사용을 validated로 분류하기 전에 새 구독 endpoint와 managed identity 추론 재확인을 보존합니다. |
 | 2026-09-08 | implemented | Core 이외 서비스의 롤백 tfvars 구체화가 Core 모델 결속 계약과 독립적으로 유지되도록 모델 엔드포인트 입력이 없을 때 빈 JSON 객체를 기본값으로 사용합니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 Operator 계획을 다시 만들고 적용합니다. |
 | 2026-09-08 | implemented | 검증된 고정 이름 Azure 비밀 리소스 식별자 4개를 Container Apps에 전달하기 전에 버전 없는 Key Vault HTTPS 참조로 변환했습니다. 다른 엔드포인트 입력을 받는 대신 검증된 리소스 식별자에서 Azure vault 호스트 이름을 파생합니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
 | 2026-09-08 | implemented | 활성화 계획 중에 권위 있는 플랫폼 상태 출력의 Operator channel-edge 워크로드 신원을 구체화했습니다. 서비스 구체화 도구는 정확한 리소스, 클라이언트 및 principal 식별자 형태만 수락하고 전용 리소스 및 클라이언트 식별자 없이 활성 edge가 생성되지 않게 합니다. | 실패한 서비스 계획 `34225350538`, `current change`, 집중 서비스 구체화 도구 및 작업 흐름 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
@@ -271,6 +272,10 @@ State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 �
   `crfdaidevkrc01`처럼 연속된 소문자 영숫자 문자열을 사용합니다.
 - **Storage 계정**는 최대 24자의 소문자 영숫자를 사용합니다. 문서 저장소는
   전역 고유성을 위해 구독 + 환경에서 파생한 안정적인 6자 해시를 추가합니다.
+- **새 공개 기여자 배포**는 검증된 구독의 안정적인 6자 소문자 해시를
+  `resource_name_suffix`로 설정합니다. Terraform은 전역 범위 registry, vault, event bus,
+  database, communication 및 AI account 이름에만 이 값을 추가합니다. 빈 기본값은 기존 배포
+  이름을 모두 보존하며 in-place rename을 만들지 않습니다.
 - **Static Web Apps는 호스팅 지역 접미사를 사용합니다.** Design-mocks 리소스는
   `design-mocks` 컴포넌트와 Static Web Apps 지역을 포함합니다. 예를 들면
   `stapp-fdai-design-mocks-dev-ea`입니다. Static Web Apps는 모든 Azure 지역에서 제공되지
@@ -283,8 +288,8 @@ State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 �
 
 ### 이 규칙이 방지하는 항목
 
-- **무작위 접미사**: Storage처럼 전역 고유 이름이 필요한 경우 짧고 결정론적인 해시는
-  허용됩니다. 플랜마다 바뀌는 접미사는 리뷰를 차단합니다.
+- **무작위 접미사**: Storage 또는 새 공개 기여자 배포처럼 전역 고유 이름이 필요한 경우
+  짧고 결정론적인 해시는 허용됩니다. 플랜마다 바뀌는 접미사는 리뷰를 차단합니다.
 - **식별자 안의 고객 이름 또는 환경 값**: 이 값은 리소스 이름이 아니라 `*.tfvars`와
   태그 맵에 둡니다.
 - **Python의 인라인 명명 로직**: 앱은 환경 변수에서 식별자를 읽고, `infra/`가 플랜 시점에

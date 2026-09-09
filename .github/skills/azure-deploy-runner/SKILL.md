@@ -56,6 +56,9 @@ Two Terraform layers plus a runner VM.
   - **Network Contributor** on the ops RG (VNet peering + DNS zone
     links).
   - **Storage Blob Data Contributor** on the state storage account.
+  - **EventGrid Contributor** + **Cognitive Services Contributor** + **Reader** on the subscription.
+  - Conditional **Role Based Access Control Administrator** on the subscription, limited to
+    `Reader`, `Monitoring Reader`, and `Cost Management Reader` assignments for service principals.
 - The state Storage account is created **out of band** by
   `az storage account create ...` (a private + key-auth-off account
   cannot finish Terraform's blob poll from a laptop). Terraform
@@ -75,7 +78,8 @@ Two Terraform layers plus a runner VM.
 
 ### GitHub Actions workflow
 
-- `.github/workflows/deploy-dev.yml` on `[self-hosted, fdai-deploy]`.
+- Protected workflows use the registered label set `self-hosted, fdai-deploy,
+  fdai-deploy-candidate`.
 - **Plan-only by default**; an `apply=true` input is required to run
   `terraform apply`.
 - Non-secret Azure identifiers (subscription id / region / ops
@@ -104,7 +108,8 @@ Two Terraform layers plus a runner VM.
   az vm start -g <ops-rg> -n <runner-vm-name>
   ```
 - The VM registers one to five independent systemd runner slots labeled
-  `self-hosted,fdai-deploy`. Slots use separate work directories and the same stable deploy UAMI.
+  `self-hosted,fdai-deploy,fdai-deploy-candidate`. Slots use separate work directories and the same
+  stable deploy UAMI.
   Service plans and read-only checks can run in parallel. Service apply and state-migration runs
   serialize per environment so peer-isolation evidence always has one writer.
 

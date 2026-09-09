@@ -147,6 +147,12 @@ variable "core_image" {
   }
 }
 
+variable "enable_legacy_oob_job" {
+  description = "Keep the inert legacy out-of-band compatibility Job. Disable it during public bootstrap before the deployment-owned image exists."
+  type        = bool
+  default     = true
+}
+
 variable "canary_cron_expression" {
   description = "Full-loop canary cadence in UTC cron format. Empty disables canary publication."
   type        = string
@@ -154,14 +160,9 @@ variable "canary_cron_expression" {
 }
 
 variable "rule_watcher_cron_expression" {
-  description = "Rule collector cadence in UTC cron format. Per-source manifests apply their own due intervals."
+  description = "Rule collector cadence in UTC cron format. Per-source manifests apply their own due intervals. Empty disables the Job during staged bootstrap."
   type        = string
   default     = "0 3 * * *"
-
-  validation {
-    condition     = trimspace(var.rule_watcher_cron_expression) != ""
-    error_message = "rule_watcher_cron_expression must not be empty."
-  }
 }
 
 variable "provider_schema_cron_expression" {
@@ -233,6 +234,16 @@ variable "event_bus_kind" {
   }
 }
 
+variable "resource_name_suffix" {
+  description = "Optional stable lowercase suffix for globally scoped Azure names. Fresh contributor deployments derive it from the target subscription; existing deployments leave it empty to preserve resource names."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.resource_name_suffix == "" || can(regex("^[a-z0-9]{6}$", var.resource_name_suffix))
+    error_message = "resource_name_suffix must be empty or exactly six lowercase letters or digits."
+  }
+}
 
 variable "enable_llm" {
   description = "Opt-in switch for the Azure OpenAI module (docs/roadmap/deployment/dev-and-deploy-parity.md § W-D). When false, no Cognitive Services account is created; the runtime binds the deterministic fake."

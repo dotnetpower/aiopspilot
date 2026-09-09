@@ -91,7 +91,7 @@ run "offline_gallery_version_skips_network_bootstrap" {
     condition = (
       azurerm_linux_virtual_machine.runner[0].identity[0].type == "SystemAssigned, UserAssigned" &&
       length(azurerm_linux_virtual_machine.runner[0].identity[0].identity_ids) == 1 &&
-      length(output.deploy_runner_role_manifest) == 5 &&
+      length(output.deploy_runner_role_manifest) == 8 &&
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].option == "Local" &&
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].placement == "ResourceDisk" &&
       length(azurerm_dev_test_global_vm_shutdown_schedule.runner) == 0

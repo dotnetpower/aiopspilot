@@ -7,9 +7,14 @@ evidence_dir="${2:-${RUNNER_TEMP:-$repo_root/.fdai}/integrated-service-migration
 rollback_revision="${3:-$(git -C "$repo_root" rev-parse HEAD)}"
 migration_budget="${FDAI_MIGRATION_BUDGET_SECONDS:-1200}"
 migration_deadline=$((SECONDS + migration_budget))
+materialize_catalogs="${FDAI_MATERIALIZE_AUTHORITATIVE_CATALOGS:-0}"
 
 if [[ ! "$migration_budget" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_MIGRATION_BUDGET_SECONDS must be a positive integer" >&2
+  exit 2
+fi
+if [[ "$materialize_catalogs" != "0" && "$materialize_catalogs" != "1" ]]; then
+  echo "FDAI_MATERIALIZE_AUTHORITATIVE_CATALOGS must be 0 or 1" >&2
   exit 2
 fi
 if [[ ! "$rollback_revision" =~ ^[0-9a-f]{40}$ ]]; then
@@ -95,3 +100,9 @@ for service in "${migration_services[@]}"; do
     --rollback-reference \
       "git:${rollback_revision}:service-migrations/branches/${service}/adoption.json#rollback"
 done
+
+if [[ "$materialize_catalogs" == "1" ]]; then
+  FDAI_STATE_STORE_DSN="$migration_dsn" PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src" \
+    run_migration uv run --frozen --package fdai-core-control-plane python \
+      scripts/deployment/local/materialize-authoritative-catalogs.py
+fi

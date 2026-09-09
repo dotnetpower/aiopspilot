@@ -98,6 +98,21 @@ resource "azapi_update_resource" "state_blob_service" {
   }
 }
 
+resource "azapi_resource" "state_container" {
+  for_each = toset(["deployment-plans", "tfstate"])
+
+  type      = "Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01"
+  name      = each.value
+  parent_id = "${azapi_resource.state.id}/blobServices/default"
+  body = {
+    properties = {
+      publicAccess = "None"
+    }
+  }
+
+  depends_on = [azapi_update_resource.state_blob_service]
+}
+
 # Preserve bootstrap's resources, private endpoint/DNS, ephemeral image contract,
 # and exact deploy-UAMI role manifest. No module-wide depends_on or provider
 # override: the legacy child provider receives the same explicit target.

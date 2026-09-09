@@ -67,19 +67,22 @@ run "public_egress_provisions_one_nat_path" {
 
   assert {
     condition = (
-      length(output.deploy_runner_role_manifest) == 5 &&
+      length(output.deploy_runner_role_manifest) == 8 &&
       toset([
         for assignment in values(output.deploy_runner_role_manifest) :
         assignment.role_definition_name
         ]) == toset([
         "Contributor",
+        "Cognitive Services Contributor",
         "EventGrid Contributor",
         "Network Contributor",
+        "Reader",
+        "Role Based Access Control Administrator",
         "Storage Blob Data Contributor",
         "User Access Administrator",
       ])
     )
-    error_message = "the stable deploy UAMI role manifest MUST contain exactly the five bootstrap-owned roles"
+    error_message = "the stable deploy UAMI role manifest MUST contain exactly the eight bootstrap-owned roles"
   }
 
 }
@@ -131,6 +134,9 @@ run "deploy_identity_authority_survives_runner_removal" {
       length(azurerm_role_assignment.runner_ops_network) == 1,
       length(azurerm_role_assignment.runner_state_blob) == 1,
       length(azurerm_role_assignment.runner_eventgrid_contributor) == 1,
+      length(azurerm_role_assignment.runner_cognitive_services_contributor) == 1,
+      length(azurerm_role_assignment.runner_subscription_reader) == 1,
+      length(azurerm_role_assignment.runner_subscription_observation_role_delegate) == 1,
     ])
     error_message = "stable deploy UAMI roles MUST remain when no runner VM exists"
   }

@@ -41,6 +41,14 @@ override_module {
         role_definition_name = "EventGrid Contributor"
         scope                = "/subscriptions/00000000-0000-0000-0000-000000000000"
       }
+      subscription_reader = {
+        role_definition_name = "Reader"
+        scope                = "/subscriptions/00000000-0000-0000-0000-000000000000"
+      }
+      subscription_observation_role_delegate = {
+        role_definition_name = "Role Based Access Control Administrator"
+        scope                = "/subscriptions/00000000-0000-0000-0000-000000000000"
+      }
     }
   }
 }
@@ -128,6 +136,17 @@ run "foundation_contracts_with_bootstrap_outputs" {
       azapi_update_resource.state_blob_service.body.properties.containerDeleteRetentionPolicy.days == 30
     )
     error_message = "Blob versioning and both retention policies must be configured through the ARM child resource."
+  }
+
+  assert {
+    condition = (
+      length(azapi_resource.state_container) == 2 &&
+      azapi_resource.state_container["tfstate"].body.properties.publicAccess == "None" &&
+      azapi_resource.state_container["deployment-plans"].body.properties.publicAccess == "None" &&
+      output.private_handoff.state.container_name == "tfstate" &&
+      output.private_handoff.state.plan_container == "deployment-plans"
+    )
+    error_message = "Foundation must create both private state containers through ARM and expose their exact handoff names."
   }
 
   assert {

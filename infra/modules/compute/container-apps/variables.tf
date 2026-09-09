@@ -25,6 +25,12 @@ variable "oob_job_name" {
   type        = string
 }
 
+variable "enable_legacy_oob_job" {
+  description = "Keep the inert legacy out-of-band compatibility Job. Disable it when staging a platform before its runtime image exists."
+  type        = bool
+  default     = true
+}
+
 variable "rule_watcher_job_name" {
   description = "Container Apps Job name for the rule-catalog source watcher (CAF: caj-<workload>[-env][-region]-rule-watcher)."
   type        = string
@@ -41,7 +47,7 @@ variable "browser_evidence_cleanup_job_name" {
 }
 
 variable "rule_watcher_cron_expression" {
-  description = "Cron for the rule watcher job. Daily at 03:00 UTC; the CLI filters by manifest cadence so weekly / monthly sources fire from the same job."
+  description = "Cron for the rule watcher job. Daily at 03:00 UTC by default; empty disables the Job during staged bootstrap."
   type        = string
   default     = "0 3 * * *"
 }

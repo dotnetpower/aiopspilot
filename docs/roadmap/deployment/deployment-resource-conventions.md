@@ -70,12 +70,13 @@ enabling self-review or administrator bypass.
 | Bounded Core-derived Job naming | implemented | `infra/modules/compute/container-apps/`; `test_container_app_job_names.py`; Terraform validation | Existing names remain unchanged when valid. Names that exceed 32 characters use `caj-<workload>-<env>` within their environment-specific resource group. |
 | Event Bus consumer lag alert | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; protected apply run `32383519737`; live fired and resolved alert observations; focused consumer, infrastructure, and workflow checks | Bounded commits export sanitized partition progress and lag. A broker-backed heartbeat also reports assigned partitions while downstream processing is stalled, and an idle partial batch flushes at its wall-clock commit deadline. The protected monitoring-only apply changed only the scheduled-query rule, and a synthetic sanitized lag row caused the stateful alert to fire and resolve automatically. |
 | Protected model resolution and endpoint artifacts | implemented | `.github/workflows/deploy-dev.yml`; model binding sealer; exact capability gate; `llm_model_endpoints` Terraform output; protected service materializer; focused checks | Protected `plan-chatops-*` and `apply-chatops-*` request ids select validation without another dispatch input. Plan metadata seals the mode, and apply revalidates the reviewed Mistral profile and exact deployment-owned Foundry reference. |
-| Private Foundry partner module | implemented | `infra/modules/llm/foundry-partner/`; root, module, and Checkov checks | The reusable module follows `aif-`/`proj-` naming, always disables public access, pins partner format/version/capacity, grants project-user roles, and is conditionally composed for partner capabilities. |
+| Partner Foundry module | implemented | `infra/modules/llm/foundry-partner/`; root, module, and Checkov checks | The reusable module follows `aif-`/`proj-` naming, disables public access by default, supports the explicit public contributor profile, keeps local authentication disabled, pins partner format/version/capacity, grants project-user roles, and is conditionally composed for partner capabilities. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added a private-by-default Foundry network input and routed the public contributor profile through the explicit public option without enabling local authentication. | `current change`; focused Foundry private and public Terraform plans passed. | Retain a fresh-subscription endpoint and managed-identity inference readback before classifying runtime use as validated. |
 | 2026-09-08 | implemented | Defaulted absent model-endpoint input to an empty JSON object so non-Core rollback tfvars materialization remains independent from the Core model-binding contract. | Failed apply preflight `34228191755`; `current change`; focused materializer CLI regression test. | Recreate and apply the exact protected Operator plan. |
 | 2026-09-08 | implemented | Converted the four validated fixed-name Azure secret resource identifiers into versionless Key Vault HTTPS references before passing them to Container Apps. The conversion derives the Azure vault hostname from the validated resource identifier instead of accepting another endpoint input. | Failed service plan `34226726167`; `current change`; focused service materializer tests. | Rerun the create-only Operator plan and retain exact protected coordinates before apply. |
 | 2026-09-08 | implemented | Hydrated the Operator channel-edge workload identity from the authoritative platform state output during enable planning. The service materializer accepts only the exact resource, client, and principal identifier shape and blocks an enabled edge without the dedicated resource and client identifiers. | Failed service plan `34225350538`; `current change`; focused service materializer and workflow tests. | Rerun the create-only Operator plan and retain exact protected coordinates before apply. |
@@ -273,6 +274,10 @@ replacement work after state reaches the canonical keys.
   continuous lowercase alphanumeric string (e.g. `crfdaidevkrc01`).
 - **Storage accounts** use at most 24 lowercase alphanumeric characters. Document storage
   adds a stable six-character hash derived from subscription + environment for global uniqueness.
+- **Fresh public contributor deployments** set `resource_name_suffix` to a stable six-character
+  lowercase hash of the verified subscription. Terraform appends it only to globally scoped
+  registry, vault, event-bus, database, communication, and AI account names. The empty default
+  preserves every existing deployment name and avoids an in-place rename.
 - **Static Web Apps use their hosting region suffix.** The design-mocks resource includes the
   `design-mocks` component and the Static Web Apps region, for example
   `stapp-fdai-design-mocks-dev-ea`. This region can differ from the control-plane region because
@@ -286,7 +291,8 @@ replacement work after state reaches the canonical keys.
 ### What this rule prevents
 
 - **Random suffixes**: A short deterministic hash is allowed where globally unique names
-  require it, such as Storage. A suffix that changes on every plan blocks review.
+  require it, such as Storage or a fresh public contributor deployment. A suffix that changes on
+  every plan blocks review.
 - **Customer names or environment values in the identifier**: These values belong in
   `*.tfvars` and the tag map, not in the resource name.
 - **Inline naming logic in Python**: The app reads identifiers from environment variables;

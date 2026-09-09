@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 243c8141bb8083311765e37d878e6cc2ee542506
+translation_source_sha: 13484b88a17570edf3aea4cec5ba3717061e38f7
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -48,7 +48,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 - **애플리케이션 리소스 그룹:** 독립 Bootstrap은 실행기 역할을 할당하기 전에 그룹이 존재해야 합니다.
 - **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
 
-[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹과 블롭 보호를 포함한 비공개 상태 계정을 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
+[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
 `fdaictl provision plan --stage foundation`은 선택적 비공개 `--save-plan` 저장을 지원하는 모의 실행입니다. 승인, 호스트 등록, 원격 상태 이전은 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
@@ -76,8 +76,8 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 - 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
   VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
-  UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`,
-  상태 계정에 `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
+  UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
+  조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을
@@ -158,7 +158,8 @@ recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버�
 스케줄러 및 analyzer 작업은 해당 작업에 연결된 user-assigned 신원의 클라이언트 id를
 `FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs 토큰 획득에서 암묵적 신원
 선택을 사용하지 않습니다. 이전 방식 범용 OOB 작업은 탐색 항목 지점이 소유할 때까지 범위가 제한된
-inert 호환성 리소스로 유지되며, 구현된 recurring 작업은 dedicated 작업이 담당합니다.
+inert 호환성 리소스입니다. 공개 기여자 bootstrap은 배포 소유 image가 생길 때까지 이를 생략하며,
+구현된 recurring 작업은 dedicated 작업이 담당합니다.
 Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구독을 out-of-band로
 복구한 경우 Terraform은 결정론적 구독을 가져오고 다음 protected 적용에서 Event 허브
 대상, 전달 신원, 이벤트 필터 및 재시도 정책을 수렴시킵니다. Private-networking
@@ -183,8 +184,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 #### 온보딩 자동화
 
-러너 경로를 반복 가능하게 만드는 7개 헬퍼(전부 customer-agnostic, 파라미터화):
-
+두 배포 경로를 반복 가능하게 만드는 customer-agnostic 파라미터형 헬퍼는 다음과 같습니다.
 보조 로직 실행 전 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 승인된 배포 대상으로
 설정합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
 두 축을 보호된 workflow의 명시적 입력으로 요구합니다. 테넌트를 증명한 뒤에만 예상 구독을
@@ -192,7 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
   CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
-
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Azure를 변경하지 않고 공개 `dev` 플랫폼을 미리 봅니다. 확인하면 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 배포하고 검증합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
   KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
   사전에 알려준다.

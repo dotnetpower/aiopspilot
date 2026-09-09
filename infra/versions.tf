@@ -21,7 +21,8 @@ terraform {
 }
 
 provider "azurerm" {
-  storage_use_azuread = true
+  resource_provider_registrations = "none"
+  storage_use_azuread             = true
 
   features {
     cognitive_account {

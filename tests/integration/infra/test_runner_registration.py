@@ -55,6 +55,7 @@ def test_registration_replaces_existing_local_configuration() -> None:
     )
     assert "config.sh remove --unattended" not in remote_script
     assert "FDAI_RUNNER_REGISTRATION_OK" in remote_script
+    assert "--labels self-hosted,fdai-deploy,fdai-deploy-candidate" in remote_script
     assert 'grep -Fq "FDAI_RUNNER_REGISTRATION_OK slots=${PARALLELISM}"' in script
 
 
@@ -80,6 +81,7 @@ def test_registration_supports_bounded_parallel_runner_slots() -> None:
     assert 'RUNNER_PARALLELISM="${runner_parallelism}"' in cloud_init
     assert 'runner_home="$RUNNER_BASE_HOME-$slot"' in cloud_init
     assert 'runner_name="$(hostname)-$slot"' in cloud_init
+    assert "--labels self-hosted,fdai-deploy,fdai-deploy-candidate" in cloud_init
 
 
 def test_runner_uses_sustained_compute_and_an_ephemeral_resource_disk() -> None:
