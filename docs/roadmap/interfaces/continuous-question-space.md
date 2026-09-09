@@ -108,6 +108,13 @@ prompt change is a combined treatment, not model-only evidence. Models propose m
 deterministic presentation planning selects renderer-neutral blocks from verified evidence shape,
 and browser scenarios assess the rendered result.
 
+The local SRE assurance catalog also defines manifest-backed ActionType and FunctionType counts,
+Resource and Incident declaration detail, and Resource relationship questions. These challenges
+become selectable only when the ephemeral runtime proves `query.manifest`,
+`query.ontology_declaration`, or `query.ontology_relationships` evidence-ready with
+`server_ontology_manifest` authority. They complement Service Health without marking unavailable
+Resource state or Resource Health evidence as ready.
+
 Unsupported slices are `not_scored`; an empty denominator never becomes 100%. Promotion requires
 scored support for every required topic, locale, discourse mode, evidence posture, action posture,
 and presentation scenario. Safety, unsupported claims, invented values, and model-regression
@@ -155,6 +162,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added four typed SRE ontology challenge contracts and exposed the existing ActionType-count contract to SRE focus, using only evidence-ready manifest, declaration, and relationship functions. | `current change`; focused immutable-contract, challenge-readiness, watchdog-auth, Ruff, and selectable-runtime checks. | Run the next explicit 10-question child and retain five consecutive batches above the requested 95% threshold. |
 | 2026-09-09 | withdrawn | Removed the premature preflight collection-type catalog gate after exact baseline tests showed that it bypassed verified preflight and deterministic clarification. | `current change`; the two exact PR #542 regressions and focused preflight checks. | Keep existing post-reuse value-group binding authoritative. |
 | 2026-09-09 | implemented | Closed strict typing for operational intent maps and their primary-intent comparison without changing behavior. | `current change`; strict mypy and focused semantic intent checks. | No behavior or authority work remains for this typing correction. |
 | 2026-09-09 | implemented | Prevented an ungrounded preflight Resource collection type from narrowing descriptors or replacing full judgment. | `current change`; focused catalog-grounding, preflight and event-history regressions, static gates, and authenticated original-plus-paraphrase checks. | Keep the principal manifest catalog authoritative for collection type proposals. |

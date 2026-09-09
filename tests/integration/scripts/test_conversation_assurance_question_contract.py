@@ -130,6 +130,10 @@ def test_every_assurance_challenge_has_an_immutable_typed_contract() -> None:
         "insufficient-evidence",
         "llm-usage-trend-chart",
         "ontology-action-count",
+        "ontology-function-count",
+        "ontology-incident-declaration",
+        "ontology-resource-declaration",
+        "ontology-resource-relationships",
         "pantheon-count",
         "resource-health-timeline",
         "resource-state",
@@ -150,6 +154,23 @@ def test_every_assurance_challenge_has_an_immutable_typed_contract() -> None:
         and contract.allowed_evidence_posture
         for contract in CHALLENGE_QUESTION_CONTRACTS.values()
     )
+
+
+def test_sre_ontology_contracts_use_current_manifest_authority() -> None:
+    expected_functions = {
+        "ontology-action-count": ("query.manifest",),
+        "ontology-function-count": ("query.manifest",),
+        "ontology-incident-declaration": ("query.ontology_declaration",),
+        "ontology-resource-declaration": ("query.ontology_declaration",),
+        "ontology-resource-relationships": ("query.ontology_relationships",),
+    }
+
+    for challenge_id, functions in expected_functions.items():
+        contract = challenge_question_contract(challenge_id)
+        assert contract.required_authority == "server_ontology_manifest"
+        assert contract.required_capability == functions
+        assert contract.scope_kind == "active_ontology_release"
+        assert contract.time_window == "current"
 
 
 def test_regression_challenge_contracts_preserve_scope_and_cardinality() -> None:

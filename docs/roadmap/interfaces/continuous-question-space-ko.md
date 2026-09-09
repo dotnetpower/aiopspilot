@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 564e404a0a4e138b0d573fe786989682305f9e4b
+translation_source_sha: 242bab1909428458c909f3130fd1f41df46c934a
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -107,6 +107,13 @@ CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니�
 결정론적 표현 플래너가 검증된 근거 형태에서 렌더러 중립 블록을 선택하고, 브라우저
 시나리오가 실제 표현 결과를 평가합니다.
 
+로컬 SRE 보증 catalog는 매니페스트에 근거한 ActionType 및 FunctionType 개수, Resource 및
+Incident 선언 상세 정보, Resource 관계 질문도 정의합니다. Ephemeral runtime이
+`query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`를
+`server_ontology_manifest` 권한의 evidence-ready 상태로 증명할 때만 해당 challenge를
+선택합니다. Service Health를 보완하되 사용할 수 없는 Resource 상태 또는 Resource Health
+근거를 ready로 표시하지 않습니다.
+
 지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지 않습니다. 승격하려면 필요한
 모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세, 표현 시나리오에 채점 사례가 있어야 합니다.
 안전 위반, 근거 없는 주장, 만들어 낸 값, 모델 회귀는 계속 hard-zero 지표입니다.
@@ -154,6 +161,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | Evidence-ready manifest, declaration, relationship 함수만 사용하도록 타입이 지정된 SRE 온톨로지 challenge 계약 4개를 추가하고 기존 ActionType 개수 계약을 SRE focus에도 노출했습니다. | `current change`, 집중 불변 계약, challenge readiness, watchdog 인증, Ruff, selectable runtime 검사 | 다음 명시적 10문항 child를 실행하고 요청된 95%를 넘는 batch 5개 연속 근거를 보존합니다. |
 | 2026-09-09 | withdrawn | 정확한 baseline 검사에서 검증된 preflight와 결정론적 명확화를 우회하는 것으로 확인된 성급한 collection-type catalog gate를 제거했습니다. | `current change`, PR #542의 정확한 회귀 2개와 집중 preflight 검사 | 재사용 뒤의 기존 value-group binding을 권위 있는 경계로 유지합니다. |
 | 2026-09-09 | implemented | 동작 변경 없이 운영 의도 map과 기본 의도 비교의 strict typing을 완료했습니다. | `current change`, strict mypy 및 집중 의미 의도 검사 | 이 타입 수정에는 남은 동작 또는 권한 작업이 없습니다. |
 | 2026-09-09 | implemented | 근거를 확인하지 못한 preflight Resource 컬렉션 타입이 서술자를 축소하거나 전체 판단을 대체하지 못하도록 했습니다. | `current change`, 집중 catalog 근거 확인, preflight 및 이벤트 이력 회귀, 정적 gate, 인증된 원문 및 유사 질문 검사 | 컬렉션 타입 제안에는 principal 매니페스트 catalog를 권위 있는 출처로 유지합니다. |
