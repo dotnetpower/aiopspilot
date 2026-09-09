@@ -16,8 +16,8 @@ locales:
     title: 2. 3-layer 아키텍처
     description: 2. 3-layer 아키텍처에 대한 FDAI 흐름입니다.
     alt: 2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1
-      translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC
-      gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop,
+      translation 기본\nT2 translation 에스컬레이션, 의도 분류\n(read | simulate | approve | breakglass), RBAC
+      gate\n(도구별 역할 하한), 검증기 re-check\n(자동 실행 없음), 세션 상태\n(감사 로그 기반), ControlLoop,
       RuleIndex / T0Engine, QualityGate입니다.
 canvas:
   width: 1600
@@ -29,21 +29,21 @@ groups:
     presentation: lane
     label:
       en: Layer 3 - Channel (thin adapter)
-      ko: Layer 3 - Channel (thin adapter)
+      ko: 계층 3 - 채널 (얇은 어댑터)
     direction: DOWN
   - id: l2
     kind: layer
     presentation: lane
     label:
       en: Layer 2 - Conversation Coordinator
-      ko: Layer 2 - Conversation Coordinator
+      ko: 계층 2 - 대화 조정기
     direction: DOWN
   - id: l1
     kind: layer
     presentation: lane
     label:
       en: Layer 1 - Existing deterministic core (unchanged)
-      ko: Layer 1 - Existing deterministic core (unchanged)
+      ko: 계층 1 - 기존 결정론적 코어 (변경 없음)
     direction: DOWN
 nodes:
   - id: cli
@@ -80,35 +80,35 @@ nodes:
     shape: card
     label:
       en: Narrator (LLM)\nT1 translation default\nT2 translation escalation
-      ko: Narrator (LLM)\nT1 translation default\nT2 translation escalation
+      ko: Narrator (LLM)\nT1 translation 기본\nT2 translation 에스컬레이션
   - id: intent
     parent: l2
     kind: process
     shape: card
     label:
       en: Intent classify\n(read | simulate | approve | breakglass)
-      ko: Intent classify\n(read | simulate | approve | breakglass)
+      ko: 의도 분류\n(read | simulate | approve | breakglass)
   - id: rbac
     parent: l2
     kind: process
     shape: card
     label:
       en: RBAC gate\n(per-tool role floor)
-      ko: RBAC gate\n(per-tool role floor)
+      ko: RBAC gate\n(도구별 역할 하한)
   - id: verif
     parent: l2
     kind: process
     shape: card
     label:
       en: Verifier re-check\n(no auto-execute)
-      ko: Verifier re-check\n(no auto-execute)
+      ko: 검증기 re-check\n(자동 실행 없음)
   - id: sess
     parent: l2
     kind: process
     shape: card
     label:
       en: Session state\n(audit-log-backed)
-      ko: Session state\n(audit-log-backed)
+      ko: 세션 상태\n(감사 로그 기반)
   - id: cl
     parent: l1
     kind: process

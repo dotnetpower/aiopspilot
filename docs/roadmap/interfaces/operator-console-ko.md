@@ -1,12 +1,12 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 00640afd63073c576e105a72f704bda116685a5d
+translation_source_sha: e443d8da7484712d8aa116da0fff422119918b60
 translation_revised: 2026-09-09
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
-Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
+Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 저장하고 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. 배포 환경은 전용 Key Vault 시크릿과 버전이 지정된 이 시크릿 하나만 쓸 수 있는 Managed Identity를 사용합니다. 로컬 프로필은 비공개 서비스 DSN에서 도메인을 분리하여 파생한 키로 값을 암호화하고 루프백 Operator 데이터베이스에는 암호문만 저장합니다. FDAI는 저장된 정확한 버전을 다시 읽고 다이제스트를 확인한 후 테스트합니다. Contributor, Approver 및 Owner 역할은 새로고침 후 `no-store` 응답으로 현재 URL을 받고 Reader와 BreakGlass 역할은 `visible: false`만 받습니다. reveal에 성공할 때마다 URL 없이 행위자, 다이제스트, 바인딩 버전 및 타임스탬프를 담은 감사 기록을 남깁니다. 시크릿 저장 또는 reveal은 승인이나 실행 권한을 부여하지 않으며 알림 런타임이 이 바인딩을 참조하는 시점은 배포에서 계속 제어합니다. Teams A1 안내는 보호된 FDAI 준비와 프로바이더가 호스팅하는 테넌트 동의, Teams 앱 설치 및 최종 배포 승인을 구분하며 client secret을 입력받지 않습니다. Owner 전용 작업은 보호된 plan을 위한 revisioned 권한 없는 제안을 영속화하며 프로바이더 또는 배포 성공을 주장하지 않고 영속 요청 상태만 표시합니다.
 Settings > Runtime policies에서는 Owner가 적극적인 T2 답변 복구를 제어할 수 있습니다. 모든 환경에서 기본적으로 비활성화하며, 승격 근거가 있을 때만 감사되는 override로 활성화합니다. 감사되는 리비전을 저장하면 Core를 재시작하지 않고 이후 대화형 읽기 턴에 적용됩니다. 이 컨트롤은 Golden 캠페인, 액션 초안, 범위 또는 권한 부여 차단, 실행 경로에서 T2를 활성화할 수 없으며 온톨로지 또는 근거 검증을 완화하지 않습니다. 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다. Settings > Integrations > Document OCR에서는 Owner가 프로세스로 격리된 로컬 한국어 및 영어 OCR을 선택하거나 Azure Document Intelligence를 요청할 수 있습니다. 저장하면 적용 권한 없이 수정 버전과 다이제스트로 보호되는 정책 및 보호된 계획 요청을 생성합니다. 패널은 배포 후 실제 상태 확인으로 확정한 공급자를 표시하고 계획 요청 재시도를 지원하며, 로컬 OCR 전환과 Azure 리소스의 명시적 제거를 분리합니다.
 컨트롤 보기에서는 카탈로그 존재와 의미 매핑을 범위별 평가, 적용 가능성, 충족 상태와 구분합니다.
@@ -87,7 +87,7 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
 
 ## 2. 3-layer 아키텍처
 
-![2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate입니다.](../../diagrams/generated/fdai-operator-console-01.ko.svg)
+![2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation 기본\nT2 translation 에스컬레이션, 의도 분류\n(read | simulate | approve | breakglass), RBAC gate\n(도구별 역할 하한), 검증기 re-check\n(자동 실행 없음), 세션 상태\n(감사 로그 기반), ControlLoop, RuleIndex / T0Engine, QualityGate입니다.](../../diagrams/generated/fdai-operator-console-01.ko.svg)
 
 - **계층 3 (채널)**은 얇습니다. 어댑터는 wire format과 `ConversationTurn` 사이에서 한 턴을 변환하며 판단하지 않습니다. Streamed 읽기는 프로바이더 작업이 idle인 동안 진행 상황 또는 근거가
   없는 SSE comment 하트비트를 전송합니다. 스트림을 닫으면 해당 작업을 취소하고 대기합니다.
@@ -220,6 +220,7 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 | `query_t2_recovery()` | 서버 StateStore에서 정제된 proposer 시도 증적을 읽습니다. 프로바이더 오류 텍스트를 노출하지 않고 retained 시도 개수, 복구 상태, 경로 역할, 실패 등급, 관측 시간 및 명시적인 legacy-detail 공백을 반환합니다. | 읽기 담당 | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX 인용을 읽습니다. 호출자는 범위, 버전, 다이제스트, 문서 또는 변경 연산을 선택할 수 없습니다. 구조화된 topology가 없으면 알 수 없음으로 유지합니다. | 읽기 담당 | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 서버가 소유한 정책 아래에서 자격 증명이 없는 범위가 제한된 수집을 제출합니다. 변경할 수 없는 산출물 증적을 반환하며 페이지 또는 interaction API를 반환하지 않습니다. | 읽기 담당 | `BrowserEvidenceCaptureService` |
+| `query_operator_memory(scope_kind, scope_ref)` | 범위가 제한된 (scope_kind, scope_ref)에 대해 활성 상태(대체되지 않고 만료되지 않은)인 통제된 운영자 기억 항목을 반환합니다. 읽기 전용입니다. | 읽기 담당 | `OperatorMemoryStore` |
 
 증적에서 도출한 답변 권한과 타입이 지정된 보류는 [Operator Console 점진적 대화](operator-console-progressive-conversations-ko.md#증적에-결속된-답변-권한)에서 정의합니다.
 일치하는 인벤토리 결과 집합은 40개 기록 제한을 적용하기 전에 정렬합니다. 목록은 기본적으로
@@ -249,9 +250,8 @@ Exact 카탈로그 용어는 유일한 항목 gate가 아니라 T0 지연 시간
 검색합니다. Retrieved 개념은 `candidate_only`를 유지하고 인벤토리를 조회하지 않은 채 localized
 명확화를 만듭니다. Embedder가 없거나 실패하면 해석기는 후보를 반환하지 않고
 결정론적 보류가 권위 있는 상태를 유지합니다. 해석기는 카탈로그 vector를 빌드하거나 조회 embedder를 호출하기 전에 빈 프롬프트, 컨트롤 character 및 4,096자를 초과하는 텍스트를 거부합니다.
-`FDAI_INVENTORY_SEMANTIC_ENABLED`는 이 명확화 기능을
-`FDAI_CATALOG_SEARCH_ENABLED`와 독립적으로 제어합니다. Rule 검색을 비활성화해도 인벤토리
-semantic 수집이 암묵적으로 비활성화되지 않습니다.
+인벤토리 semantic 수집과 Rule-카탈로그 검색은 독립적으로 제어됩니다. Rule 검색을 비활성화해도
+인벤토리 semantic 수집이 암묵적으로 비활성화되지 않습니다.
 명확화는 dead end가 아닙니다. 이후 운영자 턴에서 exact promoted 카탈로그 표현식을
 선택하면 결정론적하게 다시 compile하고 프로바이더 읽기를 수행할 수 있습니다. 이전 모델 또는
 임베딩 인자는 조회 권한으로 재사용하지 않습니다.
@@ -432,9 +432,8 @@ Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
 발행 MAY. 검증기 re-check (safeguard 8) 시:
 
 - 검증기 pass AND RBAC 충족 → 도구 호출 진행.
-- 검증기 abstain 또는 RBAC 하한 미달 → 조정기는 기존 HIL 큐에
-  검토 항목을 파일 하는 `enqueue_hil(...)` 호출로 substitute 하고
-  오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
+- 검증기 abstain 또는 RBAC 하한 미달 → 조정기는 내부적으로 기존 HIL 큐에
+  검토 항목을 파일 하고 오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
 - 어떠한 상황에서도 전달 전 감사 항목 없이 쓰기는 발생하지 않음.
 ## 8. 채널 통합 (push vs pull)
 
@@ -447,7 +446,7 @@ send-only와 receive-plus-send의 trust 자세 및 영향 범위가 다르기 �
 
 공유 pull-direction 계약, 게이트웨이, Slack signed 유입, Teams 인증된 활동 정규화기, 범위가 제한된 Starlette 경로, Slack Web API 발행기, Teams Bot Framework 발행기는 구현되었습니다.
 Slack 경로는 timestamped 서명을 검증합니다. Teams 경로는 활동 JSON parse 전에 injected bearer authenticator를 호출합니다. 회신 발행기는 구성된 HTTPS 엔드포인트, injected 앱/워크로드
-자격 증명, 서버가 소유한 대화 해석만 사용합니다. `ProductionChannelRuntime`은 구체적인 Bot Framework JWT 검증기, Teams principal 해석기, Slack 시크릿/앱 자격 증명, fixed 엔드포인트
+자격 증명, 서버가 소유한 대화 해석만 사용합니다. Delivery 계층 채널 런타임은 구체적인 Bot Framework JWT 검증기, Teams principal 해석기, Slack 시크릿/앱 자격 증명, fixed 엔드포인트
 발행기와 background 게이트웨이 수명 주기를 조립합니다. 필수 자격 증명 또는 신원 연결이 없으면 트래픽 전 시작에서 실패합니다. 이 연결은 `delivery/`에 유지되며 조정기를 변경하지 않습니다.
 
 `ChannelAccessService`는 해당 principal 해석기의 sender-access foundation입니다. 각 채널은
@@ -467,8 +466,8 @@ pending 상한과 승인 transition을 atomic하게 강제합니다. Native 도�
 
 | 채널 | Push (기존) | Pull (이 문서) | 공유 구성 |
 |---------|-----------------|-----------------|---------------|
-| Teams | A1 HIL 및 아웃바운드 notification 어댑터 | `TeamsBotChannel` + 인증된 범위가 제한된 활동 경로 + workload-identity 회신 발행기 + principal 연결 | 일부 신원/시크릿 프로바이더를 배포에서 재사용 가능 |
-| Slack | `SlackWebhookChannel` 및 A1 어댑터 | `SlackBotChannel` + signed 이벤트 API 경로 + fixed-endpoint Web API 회신 발행기 | 일부 시크릿 프로바이더를 배포에서 재사용 가능 |
+| Teams | A1 HIL 및 아웃바운드 notification 어댑터 | `TeamsIngressVerifier` + 인증된 범위가 제한된 활동 경로 + workload-identity 회신 발행기 + principal 연결 | 일부 신원/시크릿 프로바이더를 배포에서 재사용 가능 |
+| Slack | `SlackWebhookChannel` 및 A1 어댑터 | `SlackIngressVerifier` + signed 이벤트 API 경로 + fixed-endpoint Web API 회신 발행기 | 일부 시크릿 프로바이더를 배포에서 재사용 가능 |
 | 이메일 | send-only | (계획 없음; 비동기, 인터랙티브에 부적합) | n/a |
 | Webhook | send-only | (계획 없음; 호출자가 인터랙티브 프로토콜을 자체 소유해야) | n/a |
 | Pager (PagerDuty) | send-only | (계획 없음) | n/a |
@@ -501,7 +500,7 @@ Day-1 콘솔은 답변 가능:
 
 쓰기 없음, 런북 없음, 승인 없음 - 오리엔테이션만.
 
-### 9.2 주 1
+### 9.2 Week 1
 
 `simulate_change`, `approve_hil`, `run_runbook --dry-run`, Teams / Slack
 pull 어댑터 추가. 콘솔은 이제:
@@ -511,7 +510,7 @@ pull 어댑터 추가. 콘솔은 이제:
 - 어느 채널에서든 shipped 런북 ([docs/runbooks/](../../runbooks))을
   트리거.
 
-### 9.3 월 1
+### 9.3 Month 1
 
 관찰 깊이 도구 (§3.3)과 discovery-loop 훅 추가:
 
@@ -530,9 +529,9 @@ pull 어댑터 추가. 콘솔은 이제:
 
 | Slice | 현재 상태 |
 |-------|----------|
-| Core/CLI translator | `Narrator`, `AzureOpenAINarratorModel`의 근거에 기반한 답변 렌더링, 조정기, 읽기 도구, Python headless 실행 장치 및 shared-API TypeScript CLI가 제공됩니다. 의도 translation과 답변 렌더링은 별도 프롬프트를 사용하며 둘 다 결정론적 도구 및 RBAC 경계를 유지합니다. |
+| Core/CLI translator | `Narrator`, delivery 계층 Azure OpenAI narrator adapter의 근거에 기반한 답변 렌더링, 조정기, 읽기 도구, Python headless 실행 장치 및 shared-API TypeScript CLI가 제공됩니다. 의도 translation과 답변 렌더링은 별도 프롬프트를 사용하며 둘 다 결정론적 도구 및 RBAC 경계를 유지합니다. |
 | 쓰기/승인 도구 | simulate, HIL, 런북, 제안 경로가 제공됩니다. Break-glass는 §7.3의 pager/감사 요청 증적까지만 제공하며 권한 상승은 없습니다. |
-| Teams/Slack 대화 | `ProductionChannelRuntime`, 인증된 유입, principal 해석, 발행기, 영속 회신 옵션이 제공됩니다. 실제 배포 활성화/자격 증명은 environment-owned입니다. |
+| Teams/Slack 대화 | Delivery 계층 채널 런타임, 인증된 유입, principal 해석, 발행기, 영속 회신 옵션이 제공됩니다. 실제 배포 활성화/자격 증명은 environment-owned입니다. |
 | Web chat and 기억 | JSON/SSE chat, principal 범위로 한정된 대화 이력/preferences/기억, AnswerPlan 및 progressive 검증이 제공됩니다. 제한된 timing parser는 기존 v1 envelope와 Core의 v2 영속 큐 단계를 받아들이며 전체 timing envelope를 폐기하지 않습니다. |
 | 관측/발견 | `POST /read-investigations`는 Azure I/O 전에 영속 지연 시간 근거로 direct, streamed, detached 실행을 선택합니다. Direct Command Deck 및 HTTP 읽기는 owner-scoped result-replay 원장을 공유하며 streamed 응답이 닫히면 in-flight 읽기를 취소합니다. Dedicated 읽기 담당 연결이 있을 때만 등록되며 카탈로그 presence만으로 프로바이더 상태나 승격을 주장하지 않습니다. |
 | 예측 및 Dynamic learning | `GET /forecast-learning`은 예측 closure와 게시 상태를 변환 결과하고, `GET /dynamic-assurance`는 영속 scalar/그래프 모델 요약과 trajectory closure 개수를 변환 결과합니다. 두 경로 모두 Reader-only이며 detector/모델 변경, 승격, 승인 또는 실행 컨트롤을 제공하지 않습니다. |
@@ -574,8 +573,8 @@ pull 어댑터 추가. 콘솔은 이제:
   반환합니다. 모델이 빈 답변이나 oversized 답변을 반환하거나 필수 근거 참조를
   누락해도 같은 대체 경로를 사용합니다. 렌더링 실패는 도구 데이터, 상태, 권한 확인 또는
   실행 상태를 변경하지 않습니다.
-- **Write-class 도구에 검증기 abstain** - `enqueue_hil(...)`로
-  substitute (§7.4 참조), HIL id 반환, 감사 사유 `verifier_abstained`.
+- **Write-class 도구에 검증기 abstain** - 내부적으로 HIL 검토 항목을
+  파일 (§7.4 참조), HIL id 반환, 감사 사유 `verifier_abstained`.
 - **채널 어댑터 disconnect** - 영속 전달이 구성되면 완전한 응답과 최종/모호한
   상태를 원장에 남깁니다. 구성되지 않은 direct 경로도 영속 대화 이력을 세션 id로
   재개하지만 프로바이더 전송을 exactly-once로 주장하지 않습니다.
@@ -599,17 +598,16 @@ focused 소유자 문서로 분리했습니다:
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록 및 교정 이력(13.5).
 ## 14. MCP 전달 및 managed 카탈로그
 
-FDAI는 `services/core-control-plane/src/fdai/delivery/mcp/` 아래 managed 아웃바운드 카탈로그를 통해 외부 hosted MCP 도구를
-사용할 수 있습니다. 서버는 비활성화된 상태로 install됩니다. 활성화는 non-invoking
-`tools/list` 발견을 실행하고 모든 ActionType-to-tool 허용 목록 항목을 검증합니다.
-카탈로그 변경은 영속 revision-CAS 스냅샷을 사용하며 매니페스트, 상태, 개정 번호, admin
-감사 기록은 한 PostgreSQL 트랜잭션에서 커밋됩니다. 주기적 monitor가 상태 transition을
-기록하고 활성화된 및 healthy 서버만 routable합니다. 엔드포인트 검증은 자격 증명, 조회,
-fragment, non-loopback plaintext HTTP를 거부합니다.
-
-이 아웃바운드 카탈로그는 FDAI 자체를 MCP 서버로 publish하는 것과 구분됩니다. 현재 저장소는
-인바운드 MCP 서버 프로세스, `list_tools`/`call_tool` wire 엔드포인트, 외부 MCP principal 대응을
-ship하지 않습니다. 따라서 포크가 문서만 근거로 FDAI 도구를 MCP 클라이언트에 expose하면 안 됩니다.
+FDAI가 현재 shipped 상태로 제공하는 유일한 MCP 통합은 단일 fixed-transport 읽기 전용 Azure MCP 클라이언트
+(`services/core-control-plane/src/fdai/delivery/azure/mcp_read_investigation.py`)이며,
+선택적 읽기 조사에 사용되고 transport를 사용할 수 없을 때는 typed 프로바이더 fallback을 사용합니다. 이것은 아웃바운드
+카탈로그가 아닙니다 - 외부 hosted MCP 서버를 위한 서버별 install/활성화 lifecycle, `tools/list` 발견, 상태
+monitor, admin 감사 기록은 오늘 존재하지 않습니다.
+`services/core-control-plane/src/fdai/delivery/mcp/` 아래의 managed 아웃바운드 카탈로그 -
+기본적으로 비활성화된 install, non-invoking 발견, 허용 목록 검증, 영속 revision-CAS 스냅샷, 상태
+monitoring, 엔드포인트 검증 - 은 여전히 설계 목표이며 shipped 기능이 아닙니다. FDAI 자체를 MCP 서버로 publish하는
+것도 마찬가지로 shipped되지 않았습니다 - 인바운드 MCP 서버 프로세스, `list_tools`/`call_tool` wire 엔드포인트,
+외부 MCP principal 대응이 오늘 존재하지 않으며, 포크는 이 문서만 근거로 이 둘을 추론하면 안 됩니다.
 
 향후 인바운드 MCP 제안은 가산하게 같은 조정기/RBAC를 재사용하고 anonymous 호출자를
 거부하며 mTLS 또는 audience-scoped Entra 토큰을 서비스 `Principal`에 대응하고 감사해야 합니다.
@@ -617,7 +615,7 @@ ship하지 않습니다. 따라서 포크가 문서만 근거로 FDAI 도구를 
 future 범위입니다.
 ## 15. 결정 상태
 
-- **OD-C1 resolved** - strict 코어 서술기 프롬프트는 `AzureOpenAINarratorModel` 코드가 소유하고,
+- **OD-C1 resolved** - strict 코어 서술기 프롬프트는 delivery 계층 Azure OpenAI narrator adapter가 소유하고,
   broader 프롬프트 카탈로그는 `rule-catalog/prompts/base`, `packs`, `scenarios`, `tools` 구조를 사용합니다.
 - **OD-C2 resolved** - principal 범위로 한정된 user 기억/선호 설정과 별도 통제된 운영자 기억 스키마,
   출처 이력, consent, 보존 경로가 구현되어 있습니다.
@@ -625,7 +623,7 @@ future 범위입니다.
   향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
 - **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다.
   Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
-## 16. 관련 문서
+## 16. 추가 참고 자료
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust 라우팅, 검증기 권한.
@@ -646,7 +644,7 @@ future 범위입니다.
   오케스트레이터 (Wave 4.5).
 - [rule-governance.md](../rules-and-detection/rule-governance-ko.md) - Month-1 콘솔이 피드 하는
   발견 루프.
-- [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app) -
+- [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries) -
   Month-1 web-chat 채널이 확장하는 읽기 전용 콘솔 SPA.
 
 ## 관련 문서

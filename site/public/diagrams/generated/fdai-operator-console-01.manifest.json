@@ -12,7 +12,7 @@
     "ko": {
       "title": "2. 3-layer 아키텍처",
       "description": "2. 3-layer 아키텍처에 대한 FDAI 흐름입니다.",
-      "alt": "2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\\nT1 translation default\\nT2 translation escalation, Intent classify\\n(read | simulate | approve | breakglass), RBAC gate\\n(per-tool role floor), Verifier re-check\\n(no auto-execute), Session state\\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate입니다."
+      "alt": "2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\\nT1 translation 기본\\nT2 translation 에스컬레이션, 의도 분류\\n(read | simulate | approve | breakglass), RBAC gate\\n(도구별 역할 하한), 검증기 re-check\\n(자동 실행 없음), 세션 상태\\n(감사 로그 기반), ControlLoop, RuleIndex / T0Engine, QualityGate입니다."
     }
   },
   "assets": {
@@ -82,11 +82,11 @@
       "shape": "card",
       "label": {
         "en": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation",
-        "ko": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation"
+        "ko": "Narrator (LLM)\\nT1 translation 기본\\nT2 translation 에스컬레이션"
       },
       "description": {
         "en": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation",
-        "ko": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation"
+        "ko": "Narrator (LLM)\\nT1 translation 기본\\nT2 translation 에스컬레이션"
       }
     },
     {
@@ -95,11 +95,11 @@
       "shape": "card",
       "label": {
         "en": "Intent classify\\n(read | simulate | approve | breakglass)",
-        "ko": "Intent classify\\n(read | simulate | approve | breakglass)"
+        "ko": "의도 분류\\n(read | simulate | approve | breakglass)"
       },
       "description": {
         "en": "Intent classify\\n(read | simulate | approve | breakglass)",
-        "ko": "Intent classify\\n(read | simulate | approve | breakglass)"
+        "ko": "의도 분류\\n(read | simulate | approve | breakglass)"
       }
     },
     {
@@ -108,11 +108,11 @@
       "shape": "card",
       "label": {
         "en": "RBAC gate\\n(per-tool role floor)",
-        "ko": "RBAC gate\\n(per-tool role floor)"
+        "ko": "RBAC gate\\n(도구별 역할 하한)"
       },
       "description": {
         "en": "RBAC gate\\n(per-tool role floor)",
-        "ko": "RBAC gate\\n(per-tool role floor)"
+        "ko": "RBAC gate\\n(도구별 역할 하한)"
       }
     },
     {
@@ -121,11 +121,11 @@
       "shape": "card",
       "label": {
         "en": "Verifier re-check\\n(no auto-execute)",
-        "ko": "Verifier re-check\\n(no auto-execute)"
+        "ko": "검증기 re-check\\n(자동 실행 없음)"
       },
       "description": {
         "en": "Verifier re-check\\n(no auto-execute)",
-        "ko": "Verifier re-check\\n(no auto-execute)"
+        "ko": "검증기 re-check\\n(자동 실행 없음)"
       }
     },
     {
@@ -134,11 +134,11 @@
       "shape": "card",
       "label": {
         "en": "Session state\\n(audit-log-backed)",
-        "ko": "Session state\\n(audit-log-backed)"
+        "ko": "세션 상태\\n(감사 로그 기반)"
       },
       "description": {
         "en": "Session state\\n(audit-log-backed)",
-        "ko": "Session state\\n(audit-log-backed)"
+        "ko": "세션 상태\\n(감사 로그 기반)"
       }
     },
     {
