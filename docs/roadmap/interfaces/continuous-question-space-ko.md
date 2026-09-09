@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 28a8a4be4a161e6542cdfefed0f81dd0d79bf5a1
+translation_source_sha: dc295f3301909c675e6a5b1c31100035b44f94e4
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Typed count facet 및 collection-scope 정규화로 모델 변동 간격 2개를 닫고 count oracle이 구조화 출력을 검사할 수 있도록 표준 aggregate presentation을 허용했습니다. | `current change`, 집중 Core, Operator presentation 및 answer-gate 회귀 | 커밋 뒤 새로운 active-profile CQAS series를 실행합니다. |
 | 2026-09-10 | implemented | Collection-wide history 범위를 보존하고 독립적으로 요청한 action advice를 forbidden action에서 제외하도록 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 두 live cohort를 다시 실행합니다. |
 | 2026-09-10 | implemented | 첫 v15 기존 cohort에서 발견한 exact-span 및 forbidden operation kind 회귀를 닫도록 cumulative shadow semantic-judgment v16을 추가했습니다. | `current change`, 집중 prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 clean committed source에서 두 cohort를 다시 실행합니다. |
 | 2026-09-10 | implemented | Live SRE 스키마 질문에서 관측한 만들어 낸 온톨로지 count intent와 일반 메타타입 target을 방지하도록 cumulative shadow semantic-judgment v15를 추가했습니다. | `current change`, prompt composition 및 typed-boundary 테스트 | Active profile로 승격하기 전에 exact-source 스키마 cohort에서 v15를 측정합니다. |

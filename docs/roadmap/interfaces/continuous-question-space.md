@@ -167,6 +167,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Closed two model-variance gaps with typed count-facet and collection-scope normalization, and admitted canonical aggregate presentation so the count oracle can inspect structured output. | `current change`; focused Core, Operator presentation, and answer-gate regressions. | Run a new active-profile CQAS series after commit. |
 | 2026-09-10 | implemented | Added cumulative shadow semantic-judgment v17 to preserve collection-wide history scope and keep independently requested action advice out of forbidden actions. | `current change`; prompt tests and bounded live diagnosis. | Re-run both live cohorts before promotion. |
 | 2026-09-10 | implemented | Added cumulative shadow semantic-judgment v16 to close the exact-span and forbidden-operation kind regressions found in the first v15 legacy cohort. | `current change`; focused prompt tests and bounded live diagnosis. | Re-run both cohorts on clean committed source before promotion. |
 | 2026-09-10 | implemented | Added cumulative shadow semantic-judgment v15 to prevent invented ontology count intents and generic metatype targets observed in live SRE schema questions. | `current change`; prompt composition and typed-boundary tests. | Measure v15 on the exact-source schema cohort before any active-profile promotion. |
