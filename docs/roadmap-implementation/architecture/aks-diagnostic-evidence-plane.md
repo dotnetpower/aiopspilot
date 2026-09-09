@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Hardening round 2 isolated each fleet relationship projection so later clusters cannot collide with or remove earlier accepted links. | `current change`; focused two-cluster sequential enrichment and existing Kubernetes inventory tests. | Complete rounds 3-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 1 rejected subscription, resource-group, and child scopes for both legacy and fleet AKS Reader assignments. | `current change`; focused Terraform identity tests and `terraform validate`. | Complete rounds 2-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Added independent per-cluster leases and resourceVersion watch collection for fleet bindings. | `current change`; focused fleet lifecycle success, isolation, scope-digest logging, and failure tests. | Retain live multi-window Event evidence and explicit cursor-gap history. |
 | 2026-09-10 | in-progress | Added mutually exclusive legacy and fleet AKS deployment bindings with per-cluster Reader assignments. | `current change`; focused Terraform structure, formatting, and identity tests. | Validate a protected deployment separately after the local implementation campaign. |

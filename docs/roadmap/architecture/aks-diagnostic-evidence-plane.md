@@ -62,6 +62,8 @@ Collection isolates failures by cluster. One unavailable cluster does not erase 
 evidence from another cluster, but fleet completeness remains false until every required binding
 is current and complete. Source-state keys are `(source, scope_digest)`, so one cluster cannot
 overwrite another cluster's unavailable reason.
+Each relationship projection combines provider resources with one cluster's API objects. It does
+not re-project objects or links accepted from an earlier fleet binding.
 
 ## Exact resource identity
 

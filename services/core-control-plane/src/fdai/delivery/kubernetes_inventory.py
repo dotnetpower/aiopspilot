@@ -135,14 +135,22 @@ class KubernetesInventoryEnricher:
             )
 
         combined_resources = (*observation.resources, *snapshot.resources)
+        projection_resources = (
+            *(
+                resource
+                for resource in observation.resources
+                if not resource.type.startswith("kubernetes.")
+            ),
+            *snapshot.resources,
+        )
         projected = project_kubernetes_relationships(
-            combined_resources,
+            projection_resources,
             catalog=self._relationship_mapping_catalog,
             complete=True,
         )
         verified = verify_inventory_relationships(
             generation=observation.generation,
-            resources=combined_resources,
+            resources=projection_resources,
             links=projected.links,
             complete=True,
             recorded_at=snapshot.observed_at,
