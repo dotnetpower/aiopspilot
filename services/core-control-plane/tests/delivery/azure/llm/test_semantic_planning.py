@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -95,6 +96,21 @@ def test_adapter_config_rejects_a_system_prompt_above_the_hard_limit() -> None:
             candidates=(_target("primary"),),
             frame_system_prompt="x" * 33_001,
             plan_system_prompt="bounded",
+        )
+
+
+def test_adapter_config_rejects_output_above_profile_reserve() -> None:
+    prompt = "bounded"
+    manifest = _prompt_manifest(prompt, request_budget=16_384)
+    manifest = replace(manifest, reserved_output_tokens=1)
+
+    with pytest.raises(ValueError, match="output reserve"):
+        AzureOpenAISemanticPlanningModelConfig(
+            candidates=(_target("primary"),),
+            frame_system_prompt=prompt,
+            plan_system_prompt="plan",
+            frame_prompt_manifest=manifest,
+            max_tokens=2,
         )
 
 

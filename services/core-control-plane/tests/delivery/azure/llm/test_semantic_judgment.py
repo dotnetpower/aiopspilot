@@ -72,6 +72,30 @@ def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
     assert "forbidden_actions" in shadow_strict["json_schema"]["schema"]["required"]
 
 
+def test_config_rejects_output_above_profile_reserve() -> None:
+    prompt = "Judge."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=2,
+        request_token_budget=16_384,
+        reserved_output_tokens=1,
+    )
+    candidate = ModelRequestTarget(
+        endpoint="https://candidate.example",
+        deployment="candidate",
+        api_version="2024-06-01",
+    )
+
+    with pytest.raises(ValueError, match="output reserve"):
+        AzureOpenAISemanticJudgmentModelConfig(
+            candidates=(candidate,),
+            system_prompt=prompt,
+            system_prompt_manifest=manifest,
+            max_tokens=2,
+        )
+
+
 def test_conversation_preflight_uses_the_same_strict_contract() -> None:
     response_format = _strict_response_format(
         ConversationPreflightProposal.model_json_schema(),

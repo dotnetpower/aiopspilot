@@ -123,6 +123,13 @@ class AzureOpenAISemanticPlanningModelConfig:
             raise ValueError("semantic planning timeout_seconds MUST be in (0, 120]")
         if not 1 <= self.max_tokens <= 4_096:
             raise ValueError("semantic planning max_tokens MUST be in [1, 4096]")
+        for name, manifest in (
+            ("frame", self.frame_prompt_manifest),
+            ("plan", self.plan_prompt_manifest),
+            ("operational frame", self.operational_frame_prompt_manifest),
+            ("recovery frame", self.recovery_frame_prompt_manifest),
+        ):
+            _validate_output_reserve(name, manifest, self.max_tokens)
 
 
 class AzureOpenAISemanticPlanningModel:
@@ -561,6 +568,19 @@ def _validate_prompt_manifest(
         return
     if prompt is None or manifest.system_text_sha256 != _sha256(prompt):
         raise ValueError("semantic planning prompt manifest does not match its system prompt")
+
+
+def _validate_output_reserve(
+    name: str,
+    manifest: PromptReplayManifest | None,
+    required_tokens: int,
+) -> None:
+    if (
+        manifest is not None
+        and manifest.reserved_output_tokens is not None
+        and manifest.reserved_output_tokens < required_tokens
+    ):
+        raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
 
 
 def _sha256(value: str) -> str:

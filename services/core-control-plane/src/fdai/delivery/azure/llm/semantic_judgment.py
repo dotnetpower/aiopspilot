@@ -108,6 +108,18 @@ class AzureOpenAISemanticJudgmentModelConfig:
             raise ValueError("social narrator timeout_seconds MUST be in (0, 30]")
         if not 1 <= self.max_tokens <= 4_096:
             raise ValueError("semantic judgment max_tokens MUST be in [1, 4096]")
+        _validate_output_reserve(
+            "semantic judgment",
+            self.system_prompt_manifest,
+            self.max_tokens,
+        )
+        _validate_output_reserve(
+            "conversation preflight",
+            self.preflight_prompt_manifest,
+            min(self.max_tokens, _MAX_PREFLIGHT_TOKENS),
+        )
+        for social_act, manifest in self.social_narrator_prompt_manifests.items():
+            _validate_output_reserve(f"social narrator {social_act}", manifest, 256)
 
 
 class AzureOpenAISemanticJudgmentModel:
@@ -570,6 +582,19 @@ def _validate_prompt_manifest(
         return
     if prompt is None or manifest.system_text_sha256 != hashlib.sha256(prompt.encode()).hexdigest():
         raise ValueError("semantic judgment prompt manifest does not match its system prompt")
+
+
+def _validate_output_reserve(
+    name: str,
+    manifest: PromptReplayManifest | None,
+    required_tokens: int,
+) -> None:
+    if (
+        manifest is not None
+        and manifest.reserved_output_tokens is not None
+        and manifest.reserved_output_tokens < required_tokens
+    ):
+        raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
 
 
 def _semantic_judgment_proposal_schema(
