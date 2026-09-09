@@ -15,6 +15,7 @@ DETECTION_GOVERNANCE_POLICY_PATH = "config/detection-governance-policy.json"
 DETECTION_GOVERNANCE_SCHEMA_VERSION = "1.0.0"
 
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+_SEMANTIC_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 _PHASES = frozenset({"hour_of_day", "day_of_week", "hour_of_week"})
 _CORRELATION_KEYS = frozenset({"correlation_id", "resource_ref"})
 _FORECAST_CONFIDENCE_LEVELS = frozenset({"0.80", "0.90", "0.95", "0.99"})
@@ -167,7 +168,7 @@ def load_detection_governance_policy(path: Path) -> DetectionGovernancePolicy:
     canonical = json.dumps(root, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return DetectionGovernancePolicy(
         policy_id=_identifier(root["policy_id"], "policy_id"),
-        policy_version=_text(root["policy_version"], "policy_version"),
+        policy_version=_semantic_version(root["policy_version"], "policy_version"),
         signal_classes=signal_classes,
         forecast_targets=forecast_targets,
         correlation=_correlation(root["correlation"]),
@@ -367,6 +368,13 @@ def _identifier(value: object, label: str) -> str:
     text = _text(value, label)
     if _IDENTIFIER.fullmatch(text) is None:
         raise DetectionGovernancePolicyError(f"{label} MUST be a canonical identifier")
+    return text
+
+
+def _semantic_version(value: object, label: str) -> str:
+    text = _text(value, label)
+    if _SEMANTIC_VERSION.fullmatch(text) is None:
+        raise DetectionGovernancePolicyError(f"{label} MUST be a semantic version")
     return text
 
 
