@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: a89942059f2fe756eeddd62fbb50923d0d9ac6b5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 6335714e0f2e7d4ee67589b124fc54662ee65d18 }]
 ---
 
 # Deploy Quickstart
@@ -88,9 +88,9 @@ key, Core starts in observation-only Trial and denies acting paths.
   `run_live_preflight.py` checks Azure Policy, Compute quota, executor RBAC, and
   value-blind Key Vault secret metadata. An incomplete check stops before the
   plan artifact is stored.
-- Retaining a protected plan that creates a new Operator API UAMI may include its exact OpenAI User
-  role replacement only when the scope and role are unchanged. Retention permits review, not apply;
-  applying the exact plan remains a separate approved operation.
+- Retaining a protected plan that renames the Operator API UAMI may include its exact OpenAI User
+  role replacement only when the role scope and all non-name UAMI settings are unchanged. Retention
+  permits review, not apply; applying the exact plan remains a separate approved operation.
 - Deploy the five service roots independently from the VNet-connected runner.
   Each service owns its image, Terraform state, migration branch, health
   probes, and workload identity. The Isolated Executor is the only service that

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a89942059f2fe756eeddd62fbb50923d0d9ac6b5
+translation_source_sha: 6335714e0f2e7d4ee67589b124fc54662ee65d18
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -92,7 +92,7 @@ GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으�
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 교체 경로이며 같은 계획에서 정확한 새 Operator UAMI를 생성할 때만 Operator API OpenAI User 역할 교체를 허용합니다. 이 허용은 검토 메타데이터만 저장하며 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
+구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 계산되는 신원 필드는 apply 전까지 알 수 없는 상태이며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
 검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 권한 있는 workflow는 먼저
 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을

@@ -16,7 +16,7 @@ ROLE_DEFINITION_NAME = "Cognitive Services OpenAI User"
 
 
 def validate_operator_role_replacement(plan: object) -> bool:
-    """Accept only the exact role migration paired with its new UAMI."""
+    """Accept only the exact role migration paired with a name-only UAMI replacement."""
 
     if not isinstance(plan, Mapping):
         raise ValueError("protected Terraform plan MUST be an object")
@@ -34,17 +34,15 @@ def validate_operator_role_replacement(plan: object) -> bool:
     if len(role_changes) != 1:
         raise ValueError("protected plan has duplicate Operator API role replacements")
 
-    actions_by_address: dict[str, tuple[object, ...]] = {}
+    changes_by_address: dict[str, Mapping[str, object]] = {}
     for change in changes:
         address = change.get("address")
         details = change.get("change")
         if not isinstance(address, str) or not isinstance(details, Mapping):
             continue
-        actions = details.get("actions")
-        if isinstance(actions, list):
-            if address in actions_by_address:
-                raise ValueError("protected plan has duplicate resource addresses")
-            actions_by_address[address] = tuple(actions)
+        if address in changes_by_address:
+            raise ValueError("protected plan has duplicate resource addresses")
+        changes_by_address[address] = change
 
     details = role_changes[0].get("change")
     if not isinstance(details, Mapping):
@@ -79,7 +77,7 @@ def validate_operator_role_replacement(plan: object) -> bool:
         and after.get("condition") is None
         and before.get("delegated_managed_identity_resource_id") is None
         and after.get("delegated_managed_identity_resource_id") is None
-        and actions_by_address.get(IDENTITY_ADDRESS) == ("create",)
+        and _exact_operator_identity_replacement(changes_by_address.get(IDENTITY_ADDRESS))
     )
     if not accepted:
         raise ValueError("protected plan has an unapproved Operator API role replacement")
@@ -106,6 +104,42 @@ def filter_validated_operator_role_replacement(
         if not isinstance(change, Mapping) or change.get("address") != ROLE_ADDRESS
     ]
     return copied, True
+
+
+def _exact_operator_identity_replacement(change: object) -> bool:
+    if not isinstance(change, Mapping):
+        return False
+    details = change.get("change")
+    if not isinstance(details, Mapping):
+        return False
+    before = details.get("before")
+    after = details.get("after")
+    after_unknown = details.get("after_unknown")
+    if (
+        not isinstance(before, Mapping)
+        or not isinstance(after, Mapping)
+        or not isinstance(after_unknown, Mapping)
+    ):
+        return False
+    computed_fields = ("client_id", "id", "principal_id", "tenant_id")
+    return (
+        tuple(details.get("actions", ())) == ("delete", "create")
+        and details.get("replace_paths") == [["name"]]
+        and _nonempty(before.get("name"))
+        and _nonempty(after.get("name"))
+        and before.get("name") != after.get("name")
+        and _nonempty(before.get("location"))
+        and before.get("location") == after.get("location")
+        and _nonempty(before.get("resource_group_name"))
+        and before.get("resource_group_name") == after.get("resource_group_name")
+        and before.get("tags") == after.get("tags")
+        and all(
+            _nonempty(before.get(field))
+            and after.get(field) is None
+            and after_unknown.get(field) is True
+            for field in computed_fields
+        )
+    )
 
 
 def _nonempty(value: object) -> bool:
