@@ -79,7 +79,9 @@ _SERVICE_HEALTH_COLUMNS = (
     "impacted_resource_count",
     "resource_name",
 )
-_OPERATIONS = frozenset({"select", "compare", "explain_change", "validate", "action_draft"})
+_OPERATIONS = frozenset(
+    {"select", "aggregate", "compare", "explain_change", "validate", "action_draft"}
+)
 _OUTPUT_SHAPES = frozenset(
     {
         "aggregation_table",

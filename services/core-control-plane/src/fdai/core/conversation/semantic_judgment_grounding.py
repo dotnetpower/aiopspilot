@@ -124,8 +124,13 @@ def normalize_complete_target_ambiguity(
     )
     resource_health_history_complete = (
         proposal.primary_intent == "query.resource_event_history"
-        and {"resource_health_events", "time_range"} <= facets
         and "time_range" in kinds
+        and not {"resource", "resource_group"}.intersection(kinds)
+    )
+    compound_resource_collection_complete = (
+        proposal.primary_intent == "query.subscription_service_health"
+        and "query.resource_state_inventory" in proposal.secondary_intents
+        and "resource_type" in kinds
         and not {"resource", "resource_group"}.intersection(kinds)
     )
     error_correlation_complete = (
@@ -144,6 +149,7 @@ def normalize_complete_target_ambiguity(
         if (
             subscription_complete
             or resource_health_history_complete
+            or compound_resource_collection_complete
             or error_correlation_complete
             or incident_create_complete
         )

@@ -1391,6 +1391,81 @@ def test_collection_function_discards_only_redundant_resource_identity_ambiguity
 
 
 @pytest.mark.parametrize(
+    ("primary_intent", "secondary_intents", "targets", "capabilities"),
+    (
+        (
+            "query.resource_event_history",
+            [],
+            [
+                {
+                    "kind": "time_range",
+                    "value": "지난 24시간",
+                    "source_start": 0,
+                    "source_end": 7,
+                }
+            ],
+            ({"kind": "function_type", "name": "query.resource_event_history"},),
+        ),
+        (
+            "query.subscription_service_health",
+            ["query.resource_state_inventory"],
+            [
+                {
+                    "kind": "resource_type",
+                    "value": "VM",
+                    "canonical_value": "compute.vm",
+                    "source_start": 0,
+                    "source_end": 2,
+                }
+            ],
+            (
+                {"kind": "function_type", "name": "query.subscription_service_health"},
+                {"kind": "function_type", "name": "query.resource_state_inventory"},
+                {"kind": "resource_type", "name": "compute.vm"},
+            ),
+        ),
+    ),
+)
+def test_complete_collection_scope_drops_redundant_resource_identity_clarification(
+    primary_intent: str,
+    secondary_intents: list[str],
+    targets: list[dict[str, object]],
+    capabilities: tuple[dict[str, object], ...],
+) -> None:
+    utterance = (
+        "지난 24시간 Resource Health 이벤트를 보여줘"
+        if primary_intent == "query.resource_event_history"
+        else "VM과 Service Health를 같이 보여줘"
+    )
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                secondary_intents=secondary_intents,
+                targets=targets,
+                requested_facets=["current_state"],
+                ambiguous=True,
+                alternatives=["resource_identity"],
+                unresolved_terms=["Resource"],
+                clarification="어느 Resource를 조회할까요?",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=capabilities,
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert result.proposal.unresolved_terms == ()
+    assert result.proposal.clarification is None
+
+
+@pytest.mark.parametrize(
     ("confidence", "unresolved_terms", "alternatives", "expected_disposition"),
     (
         (0.5, ["resource_identity"], [], SemanticJudgmentDisposition.LOW_CONFIDENCE),
