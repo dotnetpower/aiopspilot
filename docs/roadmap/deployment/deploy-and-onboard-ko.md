@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 0435b33a35bdd2d42897871c9768ed3a464bb008
+translation_source_sha: 4a1024907bfa05dfbd7cfb2f0024e257496d8e46
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -78,7 +78,7 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
   UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
   조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.
-  이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
+  이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 승격된 VM에는 UAMI만 남고 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
   검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지 참조를 보존합니다.
   예약된 상태 점검은 모델에만 존재하는 OS 디스크 ID를 실제 Azure 디스크 인벤토리와 비교하므로 실제 관리 디스크 리소스가 있을 때만 임시 OS 실행기를 차단합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.

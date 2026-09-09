@@ -94,6 +94,8 @@ def test_runner_uses_sustained_compute_and_an_ephemeral_resource_disk() -> None:
     assert 'runner_vm_name  = var.runner_vm_name != ""' in main
     assert "name                = local.runner_vm_name" in main
     assert "name                = local.runner_nic_name" in main
+    assert 'type         = "UserAssigned"' in main
+    assert '"SystemAssigned, UserAssigned"' not in main
     assert 'storage_account_type = "Standard_LRS"' in main
     assert 'option    = "Local"' in main
     assert 'placement = "ResourceDisk"' in main
