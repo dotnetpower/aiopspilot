@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8b3ef23b5148e1326780471a3ff61ee91198e43a
-translation_revised: 2026-09-09
+translation_source_sha: 6b47371d4fce929373b3a75d7c0e973878fc1f50
+translation_revised: 2026-09-10
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -14,8 +14,10 @@ translation_revised: 2026-09-09
 > 프로바이더 데이터, 이력 또는 근거가 없을 때 완전하거나 정확한 답을 보장한다는 뜻이 아닙니다.
 >
 > **권한 경계:** 자연어 및 임베딩 출력은 후보 전용으로 유지합니다. 읽기 계획에는
-> 실행 권한이 없습니다. 명시적 변경 요청은 기존 judgment, 안전성, 사람 승인, 실행, 복구 및
-> 감사 경로로 다시 들어가는 타입이 지정된 초안만 만들 수 있습니다.
+> 실행 권한이 없습니다. 스키마로 검증된 `quoted` 또는 `hypothetical` 담화 모드는 frame 선택
+> 전에 비운영 결과로 종료하므로 `direct` 판단만 운영 조회 또는 초안 계획으로 진입할 수 있습니다.
+> 명시적 변경 요청은 기존 judgment, 안전성, 사람 승인, 실행, 복구 및 감사 경로로 다시 들어가는
+> 타입이 지정된 초안만 만들 수 있습니다.
 >
 > **무작위 보증 상태(2026-08-11):** 인증된 Console은 생성된 영어 및 한국어 턴 100/100개를
 > 완료했지만 측정된 경로는 로컬 Azure 서술기만 사용했습니다. 의도 인식은 100%, 답변 성공은
@@ -199,7 +201,7 @@ translation_revised: 2026-09-09
 | 수명 주기 없는 선언 커버리지 | implemented | `object-type-lifecycle-classification.yaml`, 엄격한 온톨로지 로더 및 이중 언어 일치 검사 | 수명 주기가 없는 모든 ObjectType을 정확히 한 번 분류합니다. 새 항목, 삭제된 항목, 중복 항목 또는 오래된 항목이 있으면 소유권 의미를 조용히 바꾸는 대신 카탈로그 로딩을 차단합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
-| T1 명확화 및 frame-plan 정렬 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`, `semantic_planning_alignment.py`, 집중 플래너 검사 90개 통과 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료됩니다. 집중된 결정론적 helper는 서버 소유 명확화 맥락을 결속하고 승인된 frame 또는 정확한 기능군을 바꾸는 plan을 거부합니다. Server-bound context 요청, 모호하거나 혼합된 대상, 유효하지 않은 스키마, 결정론적 frame-plan 불일치는 T2 없이 안전하게 종료되고 타입이 지정된 T1 unavailable만 interactive runtime의 범위가 제한된 fallback을 사용할 수 있습니다. |
+| T1 명확화 및 frame-plan 정렬 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`, `semantic_planning_frame_checks.py`, `semantic_planning_alignment.py`, 집중 플래너 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료됩니다. 타입이 지정된 비직접 담화 결과는 모델 frame 선택과 서버 소유 조회 대체 경로 전에 종료됩니다. 집중된 결정론적 helper는 서버 소유 명확화 맥락을 결속하고 승인된 frame 또는 정확한 기능군을 바꾸는 plan을 거부합니다. Server-bound context 요청, 모호하거나 혼합된 대상, 유효하지 않은 스키마, 결정론적 frame-plan 불일치는 T2 없이 안전하게 종료되고 타입이 지정된 T1 unavailable만 interactive runtime의 범위가 제한된 fallback을 사용할 수 있습니다. |
 | 정확한 의미 프롬프트 프로필 및 복구 예산 | 구현됨 | `core/prompts/profiles.py`, `semantic_query_azure_composition.py`, Azure 의미 계획, 보증, 온톨로지, 제안자, RCA 및 검토 어댑터, 결합 검사 804개 통과 | 정확한 활성 아티팩트, 최종 전송 요청, 생성된 스키마, 복구 지시 및 거부된 보증 요청은 범위가 제한된 재실행 근거를 전달합니다. 일반 T2 frame 복구는 33,000자 legacy frame에 내용을 덧붙이지 않고 별도의 compact 역할을 사용합니다. Compact 판단, frame 및 plan 처리군은 shadow로 유지합니다. |
 | 온톨로지 선언 개수 | 구현됨 | `semantic_manifest_planning.py`, `semantic_planning_frame_checks.py`, `semantic_planning_plan_dispatch.py`, `semantic_turn_processor.py`, 집중 판단, 계획 및 이중 언어 표현 회귀 검사 | 검증된 `query.ontology_declaration` 개수 판단에서는 canonical 선언 `*Type` target 하나가 충돌하는 frame subject보다 우선하고 선언이 아닌 영역 target은 선언 선택에서 제외합니다. Canonical 선언 target이 없으면 정확한 선언 종류 또는 canonical `*Type` frame subject를 대체값으로 사용합니다. 집계 frame은 서버 소유 계획으로 `query.manifest`와 선언 종류별 `count`를 컴파일합니다. 완전한 출력은 집계 행 개수가 아니라 각 선언 종류의 개수와 읽기 전용 출처를 표시하고, 표시 종류를 모델이 작성한 노드 ID가 아니라 검증된 frame subject에 결속합니다. 운영 개수, 모호성, 충돌하는 canonical 선언 target, 사용할 수 없는 매니페스트 Function, 불완전한 출력 및 다른 측정값은 기존의 안전한 실패 경로를 유지합니다. |
 | 복합 서비스-담당 Agent 인스턴스 경로 | 구현됨 | `ontology_query.py`, `query_gateway.py`, `query_source_handlers.py`, `semantic_relationship_planning.py`, 집중 계약, 조회, 플래너, 실행기 및 보증 검사 451개 통과 | 일관된 단일 그래프 스냅샷이 실제 서비스, 워크로드, 리소스 및 담당 Agent의 각 경로를 보존합니다. 최종 증적은 정확한 매니페스트와 인벤토리 입력, principal 범위, release, 기준 시점, 출처 세대, 경로 정의 및 결과 다이제스트를 결합합니다. 빈 경로는 신원을 주장하지 않으며 담당 체계는 실행 권한을 부여하지 않습니다. |
@@ -219,6 +221,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | 구현됨 | 스키마로 검증된 인용 및 가정 담화 경계를 frame 선택 전에 적용했습니다. 전달되거나 조건부로 제시된 작업 언어는 더 이상 모델 frame, 서버 소유 대상 후보 조회 또는 작업 초안이 되지 않으며, 인용절 밖의 직접 읽기 요청은 계속 검증된 계획으로 진행할 수 있습니다. | `current change`, [이슈 #540](https://github.com/dotnetpower/fdai/issues/540), `semantic_planning_frame_checks.py`, `test_semantic_planning.py`, 원래 한국어 사례, 한국어 유사 표현 3개, 영어 대조군 및 이중 언어 직접 읽기 대조군의 집중 플래너 회귀 검사 | 이슈 #540의 남은 구현 작업은 없습니다. 모델 프로필 승격은 기존 shadow 집단 게이트에 따라 계속 관리합니다. |
 | 2026-09-09 | 구현됨 | 정확한 프로필 선택, 요청 예산, 재실행 신원, 런타임 전달, 영구 보증 근거 및 의미 커버리지 재생성을 대상으로 비평과 하드닝 31회를 완료했습니다. 최종 독립 검토에서는 Medium 이상 결함을 찾지 못했습니다. | `1048f6feb`까지의 커밋, 결합 테스트 804개와 계약 고정 검사 102개 통과, 변경 소스 23개 대상 strict mypy 및 Ruff 통과, 번역, 로드맵, 문서 크기 및 무결성 게이트 통과 | 명시적으로 승인된 모델 집단이 승격 게이트를 충족할 때까지 compact 판단, frame 및 plan 프로필을 shadow로 유지합니다. |
 | 2026-09-09 | implemented | 의미 판단, frame, plan 및 복구 프롬프트를 요청 예산 및 재실행 매니페스트가 있는 정확한 프로필에 결속했습니다. Compact shadow 조립을 추가하고 활성 판단, frame 또는 plan 텍스트를 바꾸지 않으면서 비활성 프롬프트 버전을 런타임 검사 밖으로 옮겼습니다. | `current change`, 집중 프롬프트, 의미 어댑터, 보증 및 조립 검사 224개, 대상 Ruff 및 strict mypy 통과 | 활성 compact 프로필 결속을 바꾸기 전에 승인된 모델 기반 비교를 실행합니다. |
 | 2026-09-09 | implemented | 한국어 Azure 및 인시던트 계약 사례 16개, 타입이 지정된 금지 작업, 범위가 제한된 기능 의미, 엄격한 shadow 검증과 탐색용 실제 v9 집단의 정확도 미달을 보정하는 v10을 추가했습니다. | `current change`, 집중 계약, 프롬프트, 인시던트 확인, 조립 및 내용 없는 로컬 v8 또는 v9 집계 근거 | 정확한 소스의 이중 언어 집단에서 v10을 실행하고, 승격 전에 안전 오탐률 두 가지와 만들어 낸 신원 수가 모두 0인지 확인합니다. |
