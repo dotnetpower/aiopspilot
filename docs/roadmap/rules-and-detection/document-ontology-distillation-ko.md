@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 9e30c03b8c0d5468a3e3cb0d87a90ae6bc6b6d73
+translation_source_sha: c4ff67cc4b9a1c7562514fe657eb56f2d99d492f
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -176,7 +176,8 @@ library 오류는 문서 내용을 포함하지 않도록 normalize합니다.
 
 고정된 synthetic 말뭉치는 같은 operational 점유를 Markdown, DOCX, PPTX, native 텍스트 PDF 및 scanned
 PDF로 표현합니다. Conformance는 source-format과 위치 지정자 필드만 다를 수 있도록 허용하고 정규화된
-점유, 제안 및 그래프 연산을 비교합니다. release에는 critical 점유 accounting 100%, 의미
+점유, 제안 및 그래프 연산을 비교합니다. 모든 형식의 링크 고정본은 해석된 정본 출발 신원을
+`target_identity`로 사용합니다. release에는 critical 점유 accounting 100%, 의미
 또는 인용 오류 0건, 정규화된 그래프 difference 0건, critical-claim 재현율과 개체/링크 정밀도
 각 0.98 이상 및 모든 format의 replay-stable 다이제스트가 필요합니다.
 

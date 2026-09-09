@@ -175,7 +175,8 @@ are normalized without including document content.
 
 The frozen synthetic corpus expresses the same operational claims as Markdown, DOCX, PPTX, native
 text PDF, and scanned PDF. Conformance compares normalized claims, proposals, and graph operations
-while allowing only source-format and locator fields to differ. Release requires 100% critical
+while allowing only source-format and locator fields to differ. Link fixtures use the canonical
+resolved source identity as `target_identity` in every format. Release requires 100% critical
 claim accounting, zero semantic or citation errors, zero normalized graph differences, at least
 0.98 critical-claim recall and entity/link precision, and replay-stable digests for every format.
 
