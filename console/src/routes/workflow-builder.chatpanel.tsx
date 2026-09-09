@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Fragment, type ComponentChildren } from "preact";
+import type { OperatorApiClient } from "../api";
 import { Tooltip } from "../components/tooltip";
 import { CopyButton } from "../components/ui";
 import {
@@ -32,6 +33,11 @@ import { buildVizModel } from "./workflow-builder.viz";
 import { WorkflowDraftEditor } from "./workflow-builder.draft-editor";
 import { validateDraftStructure } from "./workflow-builder.structure";
 import {
+  loadWorkflowBehaviorSimulation,
+  simulationIsCurrent,
+  type WorkflowBehaviorSimulation,
+} from "./workflow-builder.simulation";
+import {
   loadWorkflowChatSession,
   saveWorkflowChatSession,
 } from "./workflow-builder.session";
@@ -46,6 +52,7 @@ import {
 } from "./workflow-builder.chat";
 
 interface Props {
+  readonly client: OperatorApiClient;
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly gateRefs: readonly string[];
   readonly onBack: () => void;
@@ -61,7 +68,7 @@ export interface Message {
   readonly preview?: FormState | undefined;
 }
 
-export function WorkflowChat({ palette, gateRefs, onBack }: Props) {
+export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [slots, setSlots] = useState<ChatSlots | null>(null);
   const [input, setInput] = useState("");
@@ -160,6 +167,7 @@ export function WorkflowChat({ palette, gateRefs, onBack }: Props) {
           <MessageBubble
             key={m.id}
             message={m}
+            client={client}
             palette={palette}
             gateRefs={gateRefs}
             onChip={send}
@@ -249,6 +257,7 @@ export function displayInput(raw: string, messages: readonly Message[]): string 
 
 function MessageBubble({
   message,
+  client,
   palette,
   gateRefs,
   onChip,
@@ -256,6 +265,7 @@ function MessageBubble({
   onPreviewChange,
 }: {
   readonly message: Message;
+  readonly client: OperatorApiClient;
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly gateRefs: readonly string[];
   readonly onChip: (value: string) => void;
@@ -276,6 +286,7 @@ function MessageBubble({
         )}
         {message.preview ? (
           <WorkflowPreview
+            client={client}
             form={message.preview}
             palette={palette}
             gateRefs={gateRefs}
@@ -359,11 +370,13 @@ function renderSpans(spans: readonly InlineToken[]): ComponentChildren {
 // ---------------------------------------------------------------------------
 
 function WorkflowPreview({
+  client,
   form,
   palette,
   gateRefs,
   onChange,
 }: {
+  readonly client: OperatorApiClient;
   readonly form: FormState;
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly gateRefs: readonly string[];
@@ -375,16 +388,22 @@ function WorkflowPreview({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<SavedWorkflowDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [simulation, setSimulation] = useState<WorkflowBehaviorSimulation | null>(null);
+  const [simulationError, setSimulationError] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+  const [validatedDraftIdentity, setValidatedDraftIdentity] = useState<string | null>(null);
   // Bumped by the Retry button to re-run a validation that failed on a
   // transient network error, without rebuilding the draft.
   const [retryKey, setRetryKey] = useState(0);
 
   const draft = useMemo(() => buildDraft(form), [form]);
+  const draftIdentity = useMemo(() => JSON.stringify(draft), [draft]);
 
   useEffect(() => {
     let cancelled = false;
     setValidating(true);
     setResult(null);
+    setValidatedDraftIdentity(null);
     setError(null);
     setSaved(null);
     setSaveError(null);
@@ -400,6 +419,7 @@ function WorkflowPreview({
                 issues: [...structureIssues, ...res.issues],
                 yaml_preview: null,
               });
+          setValidatedDraftIdentity(draftIdentity);
         })
         .catch((err: unknown) => {
           if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -412,7 +432,36 @@ function WorkflowPreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [draft, form, gateRefs, retryKey]);
+  }, [draft, draftIdentity, form, gateRefs, retryKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSimulation(null);
+    setSimulationError(false);
+    setSimulating(false);
+    if (
+      !simulationIsCurrent(result?.valid === true, validatedDraftIdentity, draftIdentity)
+      || !form.name.trim()
+    ) return () => {
+      cancelled = true;
+    };
+    setSimulating(true);
+    void loadWorkflowBehaviorSimulation(client, form.name, form.version).then(
+      (value) => {
+        if (!cancelled) setSimulation(value);
+      },
+      () => {
+        if (!cancelled) {
+          setSimulationError(true);
+        }
+      },
+    ).finally(() => {
+      if (!cancelled) setSimulating(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, draftIdentity, form.name, form.version, result?.valid, validatedDraftIdentity]);
 
   const yaml = result?.yaml_preview ?? null;
   const prUrl = yaml ? githubNewFileUrl(`rule-catalog/workflows/${form.name}.yaml`, yaml) : null;
@@ -479,6 +528,56 @@ function WorkflowPreview({
         ) : result ? (
           <TestResult result={result} />
         ) : null}
+      </div>
+
+      <div class="wf-preview-section">
+        <h4 class="wf-preview-title">{t("workflow.chat.behaviorSimulation")}</h4>
+        <p class="muted small">{t("workflow.chat.behaviorSimulationBoundary")}</p>
+        {simulating ? (
+          <p class="muted small" aria-busy="true">{t("workflow.chat.simulating")}</p>
+        ) : simulationError ? (
+          <p class="wf-test-fail" role="status">
+            {t("workflow.chat.simulationUnavailable", {
+              reason: "authoritative_process_history_unavailable",
+            })}
+          </p>
+        ) : simulation?.status === "unavailable" ? (
+          <p class="muted small" role="status">
+            {t("workflow.chat.simulationUnavailable", {
+              reason: simulation.unavailable_reason ?? "unknown",
+            })}
+          </p>
+        ) : simulation ? (
+          <div class="stack-sm">
+            <p class="wf-test-pass" role="status">
+              {t("workflow.chat.simulationReady", {
+                count: formatNumber(simulation.sample_count),
+                targets: formatNumber(simulation.target_refs.length),
+              })}
+            </p>
+            <ul class="wf-issue-list">
+              {simulation.observations.map((observation) => (
+                <li key={`${observation.status}:${observation.current_step}`}>
+                  {t("workflow.chat.simulationObservation", {
+                    status: observation.status,
+                    step: observation.current_step || t("workflow.chat.terminal"),
+                    count: formatNumber(observation.count),
+                  })}{" "}
+                  <a href={observation.process_refs[0]}>
+                    {t("workflow.chat.openEvidence")}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p class="muted small">
+              {t("workflow.chat.simulationTargets", {
+                targets: simulation.target_refs.join(", "),
+              })}
+            </p>
+          </div>
+        ) : (
+          <p class="muted small">{t("workflow.chat.simulationAfterValidation")}</p>
+        )}
       </div>
 
       {yaml ? (

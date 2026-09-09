@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: d35758e39281cce1b412ac8ae6ae7a42fc18049a
-translation_revised: 2026-09-01
+translation_source_sha: 492d9eab89aecd4738cb2868662ed2a50b6aaa31
+translation_revised: 2026-09-09
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -15,9 +15,9 @@ translation_revised: 2026-09-01
 > 임계값 및 어댑터 구성은 배포 구성이나 다운스트림 배포판에 둡니다. 업스트림 저장소는
 > customer-agnostic 상태를 유지합니다.
 
-> **현재 상태.** 워크플로 저작, 검증, 지속성, 트리거, 프로세스 저널, 제어 스텝 및 통제된
-> 작업 제안 전달은 구현되어 있습니다. 광범위한 리소스 변경, 동작 시뮬레이션 및 고객
-> 시스템 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된
+> **현재 상태.** 워크플로 저작, 검증, 지속성, 트리거, 프로세스 저널, 제어 스텝, 과거
+> 워크플로 상태 시뮬레이션 및 통제된 작업 제안 전달은 구현되어 있습니다. 광범위한 리소스
+> 변경, 스테이징 동등성 및 고객 시스템 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된
 > 프로세스를 한 번에 하나씩 승격하는 것이 좋습니다.
 
 ## 구현 상태
@@ -27,7 +27,7 @@ translation_revised: 2026-09-01
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 웨이브 0-2 카탈로그, 관찰, 저널 및 승인 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 구조 검증, shadow 실행, 영속 Process 상태 및 승인 동작에 집중 테스트가 있습니다. |
-| 웨이브 3 동작 시뮬레이션 및 제한된 변경 | not-started | [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 구조 검증은 있지만 동작 차이 시뮬레이션과 staging 비교는 구현되지 않았습니다. |
+| 웨이브 3 동작 시뮬레이션 및 제한된 변경 | in-progress | [`workflow-builder.simulation.ts`](../../../console/src/routes/workflow-builder.simulation.ts), [`workflow-builder.simulation.test.ts`](../../../console/src/routes/workflow-builder.simulation.test.ts), [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 빌더는 사용자 범위의 영속 Process 이력에서 정확한 관측 대상과 워크플로 상태 결과를 요약합니다. 권한을 부여하지 않고 실제 기반 환경 변경 미리 보기와 명시적으로 구분합니다. 제한된 변경과 스테이징 동등성은 남아 있습니다. |
 | 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업과 다섯 가지 런타임 제어 단계 유형의 저작 및 principal 범위 운영 요청을 지원합니다. 검토된 카탈로그 제안, Process 수신함 필터 및 통제된 런타임 진행 근거는 남아 있습니다. |
 | 웨이브 5 확장, SLI 및 자동 강등 | not-started | [웨이브 5](#웨이브-5---확장-및-운영-인수인계) | 분산 잠금, 범위별 backpressure, 운영 SLI 또는 자동 강등 근거가 보존되지 않았습니다. |
 
@@ -35,6 +35,7 @@ translation_revised: 2026-09-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | in-progress | 워크플로 빌더에 범위가 제한된 과거 동작 시뮬레이션을 추가했습니다. 사용자 범위의 영속 비합성 Process 이력만 허용하고 일치하는 최신 Process 20개로 근거를 제한하며 정확한 과거 대상과 관측된 워크플로 상태를 보고합니다. 구조 검증 및 실제 기반 환경 변경 미리 보기와 명시적으로 분리합니다. | `current change`; `console/src/routes/workflow-builder.simulation.ts`; 집중 시뮬레이션, 빌더, 형식 검사, 지역화 및 로드맵 검사. | 웨이브 3 완료 전에 상태 차이의 스테이징 동등성을 보존하고 별도로 통제되는 실제 기반 환경 변경 어댑터를 구현합니다. |
 | 2026-08-31 | implemented | 배포에서 기존 URL 참조만 제공할 때 알림 스텝에 사용할 Teams 및 Slack 바인딩을 구성에서 파생하도록 추가했습니다. 명시적 바인딩 JSON은 계속 우선하며, 파생된 레지스트리는 Workflow, ActionType, 승인 또는 실행 권한을 변경하지 않고 전달 경로만 추가합니다. | `current change`; `delivery/notifications/bindings.py`, `runtime/delivery.py` 및 알림 바인딩과 런타임 Settings 집중 테스트입니다. | 런타임 검증을 선언하기 전에 승격된 워크플로 알림의 통제된 전달 증적을 보존해야 합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
 | 2026-08-31 | in-progress | 필수 제한 시간, 권한, 정족수, 자기 승인 방지, 손실 없는 복제 및 세션 복구, 현지화된 안내, 유형별 미리 보기를 포함한 카탈로그 기반 `WAIT` 및 `APPROVAL` 저작을 추가했습니다. 비공개 초안은 shadow이며 실행할 수 없습니다. | `current change`; [`workflow-builder.model.ts`](../../../console/src/routes/workflow-builder.model.ts), [`workflow-builder.session.ts`](../../../console/src/routes/workflow-builder.session.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 집중 Vitest 검사 72개, 서버 계약 검사 12개, Console 형식 검사와 빌드, 카탈로그 일치, 읽을 수 있는 한글, 문장 부호, 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사를 통과했습니다. | #396에서 구조 저작을 완료하고 #397에서 권위 있는 운영자 전환을 완료해야 합니다. |
@@ -43,8 +44,11 @@ translation_revised: 2026-09-01
 
 ### 남은 작업
 
-- [ ] 정확한 대상과 예상 상태 차이를 반환하는 읽기 전용 동작 시뮬레이터를 구현하고 staging
-  실행과의 동등성 근거를 보존합니다.
+- [x] 사용자 범위의 영속 Process 근거에서 정확한 과거 대상과 관측된 워크플로 상태 결과를
+  보고하며 실제 기반 환경 변경 미리 보기를 주장하지 않는 읽기 전용 동작 시뮬레이터를
+  구현합니다.
+- [ ] 변경 동작을 제시하기 전에 예상 실제 기반 환경 상태 차이와 스테이징 실행 사이의 동등성
+  근거를 보존합니다.
 - [x] #396에서 손실 없는 `DECISION`, `PARALLEL`, `GATE` 저작과 집중 구조, 복원,
   접근성, 형식 검사, 빌드 및 세 viewport 근거를 완료했습니다.
 - [x] #397에서 principal 범위의 권위 있는 단계 상태와 보호된 전환 요청을 완료하고 오래됨,
@@ -101,7 +105,7 @@ translation_revised: 2026-09-01
 | 도구 실행 | 선택된 어댑터에 제공됨 | GitHub, Jira, chaos, 조사 및 Azure VM 경로에는 명시적 구성과 도구별 승격이 필요합니다. |
 | PR-native 수정 | 관찰 모드 전용 | 초안 수정 pull 요청을 생성하며 병합하지 않습니다. |
 | Direct API 실행 | Core에서 관찰 모드 | 실제 운영 Kubernetes 핸들러는 범위가 좁고 일반 프로덕션 조립이 아닙니다. |
-| 동작 시뮬레이션 | 구현되지 않음 | 구조 검증을 변경 미리 보기로 표현하면 안 됩니다. |
+| 동작 시뮬레이션 | 과거 워크플로 상태에 구현됨 | 사용자 범위의 영속 비합성 Process 이력만 요약합니다. 구조 검증과 실제 기반 환경 변경 미리 보기는 별도이며, 상태 차이의 스테이징 동등성은 아직 남아 있습니다. |
 | 고객 프로세스 카탈로그 | 다운스트림 책임 | 고객 절차와 여기서 파생된 카탈로그 항목은 업스트림에 두지 않습니다. |
 
 ## 제공 원칙

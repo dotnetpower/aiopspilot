@@ -14,8 +14,8 @@ bounded enforcement.
 > downstream distribution. The upstream repository remains customer-agnostic.
 
 > **Current posture.** Workflow authoring, validation, persistence, triggers, process journals,
-> control steps, and governed action proposal dispatch are implemented. Broad resource mutation,
-> behavior simulation, and customer-system adapters are not complete. Adoption should therefore
+> control steps, historical workflow-state simulation, and governed action proposal dispatch are
+> implemented. Broad resource mutation, staging parity, and customer-system adapters are not complete. Adoption should therefore
 > start in observation mode, then promote one measured process at a time.
 
 ## Implementation status
@@ -25,7 +25,7 @@ bounded enforcement.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Waves 0-2 catalog, observation, journal, and approval | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Structural validation, shadow execution, durable Process state, and approval mechanics have focused coverage. |
-| Wave 3 behavior simulation and bounded mutation | not-started | [Wave 3](#wave-3---add-bounded-substrate-mutations) | Structural validation exists, but behavior-delta simulation and staging comparison are not implemented. |
+| Wave 3 behavior simulation and bounded mutation | in-progress | [`workflow-builder.simulation.ts`](../../../console/src/routes/workflow-builder.simulation.ts), [`workflow-builder.simulation.test.ts`](../../../console/src/routes/workflow-builder.simulation.test.ts), [Wave 3](#wave-3---add-bounded-substrate-mutations) | The builder summarizes principal-scoped durable Process history with exact observed targets and workflow-state outcomes. It explicitly grants no authority and is not a substrate mutation preview. Bounded mutation and staging parity remain open. |
 | Wave 4 authoring and operating experience | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts), [Wave 4](#wave-4---complete-the-authoring-and-operating-experience) | Action and all five runtime control-step kinds support authoring and principal-scoped operating requests. Reviewed catalog proposal, process inbox filters, and governed runtime advancement evidence remain open. |
 | Wave 5 scale, SLIs, and automated demotion | not-started | [Wave 5](#wave-5---scale-and-hand-over-operations) | No retained distributed-lock, per-scope backpressure, operational SLI, or automated-demotion evidence exists. |
 
@@ -33,6 +33,7 @@ bounded enforcement.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | in-progress | Added a bounded historical behavior simulation to the workflow builder. It accepts only principal-scoped, durable, non-synthetic Process history, limits evidence to the newest 20 matching processes, reports exact historical targets and observed workflow states, and keeps structural validation and substrate mutation preview explicitly separate. | `current change`; `console/src/routes/workflow-builder.simulation.ts`; focused simulation, builder, typecheck, localization, and roadmap checks. | Retain staging parity for state deltas and implement separately governed substrate mutation adapters before Wave 3 can complete. |
 | 2026-08-31 | implemented | Added configuration-derived Teams and Slack bindings for notification steps when deployments provide only the existing URL references. Explicit binding JSON remains authoritative, and the derived registry adds delivery routes without changing workflow, ActionType, approval, or execution authority. | `current change`; `delivery/notifications/bindings.py`, `runtime/delivery.py`, and focused notification binding and runtime Settings tests. | Retain governed delivery receipts for a promoted workflow notification before claiming runtime validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the current posture with wave evidence. | `current change`; current source and focused tests listed in the scope table. | Complete Waves 3-5 and retain promotion evidence per process. |
 | 2026-08-31 | in-progress | Added catalog-backed `WAIT` and `APPROVAL` authoring with required timeout, authority, quorum, anti-self-approval, lossless clone and session recovery, localized guidance, and typed preview. Private drafts remain shadow and non-runnable. | `current change`; [`workflow-builder.model.ts`](../../../console/src/routes/workflow-builder.model.ts), [`workflow-builder.session.ts`](../../../console/src/routes/workflow-builder.session.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 72 focused Vitest checks, 12 server contract checks, Console typecheck and build, catalog parity, readable Hangul, punctuation, and desktop, constrained, and mobile Playwright checks passed. | Complete structural authoring in #396 and authoritative operator transitions in #397. |
@@ -41,8 +42,11 @@ bounded enforcement.
 
 ### Remaining work
 
-- [ ] Implement a read-only behavior simulator that returns exact targets and expected state deltas,
-  then retain parity evidence against a staging execution.
+- [x] Implement a read-only behavior simulator that reports exact historical targets and observed
+  workflow-state outcomes from principal-scoped durable Process evidence without claiming a
+  substrate mutation preview.
+- [ ] Retain parity evidence between an expected substrate state delta and a staging execution
+  before presenting mutation behavior.
 - [x] Completed #396 with lossless `DECISION`, `PARALLEL`, and `GATE` authoring plus focused
   structural, restore, accessibility, typecheck, build, and three-viewport evidence.
 - [x] Completed #397 with principal-scoped authoritative step state, guarded transition requests,
@@ -99,7 +103,7 @@ The baseline separates implemented platform capability from adoption work.
 | Tool execution | Available for selected adapters | GitHub, Jira, chaos, investigation, and Azure VM paths require explicit configuration and per-tool promotion. |
 | PR-native remediation | Observation mode only | It creates draft remediation pull requests and doesn't merge them. |
 | Direct API execution | Observation mode in core | Live Kubernetes handlers are narrow and aren't the generic production composition. |
-| Behavior simulation | Not implemented | Structural validation must not be presented as a mutation preview. |
+| Behavior simulation | Implemented for historical workflow state | Summarizes only principal-scoped durable non-synthetic Process history. Structural validation and substrate mutation preview stay separate, and staging parity for state deltas remains open. |
 | Customer process catalog | Downstream responsibility | Customer procedures and derived catalog entries don't belong upstream. |
 
 ## Delivery principles
