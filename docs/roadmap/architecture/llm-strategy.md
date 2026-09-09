@@ -412,12 +412,9 @@ corresponding protocols. Otherwise the existing single-route behavior remains un
 
 ### Reconciler Job
 
-The governed weekly reconciler is owned by
-[Model Capability Lifecycle](model-capability-lifecycle.md#reconciler-job). It compares exact
-family, version, publisher, SKU, capacity, and status, normalizes version- and SKU-scoped
-deprecations within 60 days, and opens only an idempotent draft PR. It never changes the live
-mapping. An expired unmerged replacement lowers the capability to human review, and any accepted
-registry change still needs Owner review plus frozen-scenario shadow replay.
+The [Model Capability Lifecycle reconciler](model-capability-lifecycle.md#reconciler-job) compares exact family,
+version, publisher, SKU, capacity, and status, normalizes deprecations within 60 days, and opens only an
+idempotent draft PR. It never changes the live mapping; acceptance still needs Owner review and shadow replay.
 
 ### Mixed-Model Family Strategies
 

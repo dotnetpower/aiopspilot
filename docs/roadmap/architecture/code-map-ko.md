@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 81483b4f71e5e35af04d49ea83bb0a53acc2a5ad
+translation_source_sha: 6b1dcf407d1f382b3d7e8e979cd55b6a8efdb00e
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -29,18 +29,13 @@ translation_revised: 2026-09-09
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
   저장소 검사를 소유합니다.
-- **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 수명 주기 전용
-  모듈에 위임하고 불변 다이제스트를 검증합니다. 로컬 Azure 서술기를 사용하면 같은 리비전에서
-  대상을 검증한 뒤 Cost Governance 변환 결과 또는 다른 수명 주기 bridge를 시작합니다. 이 경계는
-  매핑, 평가 또는 실행 권한을 부여하지 않습니다. 시작에 실패하면 조립은 획득한 모든 서비스
-  정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
+- **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
+  로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
+  시작합니다. 이 경계는 매핑, 평가, 실행 권한을 부여하지 않으며 시작 실패 시 획득한 서비스를 정리합니다.
 - **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 대상과 Key Vault 참조를 내보냅니다. 보호된
   배포는 이를 검증하며 봇 소유 래퍼는 정확한 서비스 계획만 수락합니다. 공개 개발에서는
   `azd-up.sh`가 이미지 없는 플랫폼 단계, 배포 소유 ACR 다이제스트, 마이그레이션, 카탈로그,
-  민감한 Core 인계, 정확한 Core 계획 및 범위가 제한된 검증을 조립합니다. 런타임 호출 인계는
-  정확한 Operator 및 Core Container App Resource ID를 Core에만 전달합니다. 인벤토리 Job은
-  단일 기록기가 관계를 변환하기 전에 결과 플랫폼 로그를 독립적으로 읽습니다. 비공개, 공유,
-  스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
+  민감한 Core 인계, 정확한 Core 계획 및 범위가 제한된 검증을 조립합니다. 비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
 - **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
   및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
