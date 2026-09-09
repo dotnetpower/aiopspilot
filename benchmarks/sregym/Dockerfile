@@ -2,7 +2,7 @@ FROM docker.io/library/golang@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8d
 
 ARG OPA_VERSION=v1.18.2
 ARG OPA_GRPC_VERSION=v1.83.2
-ARG OPA_X_CRYPTO_VERSION=v0.55.0
+ARG OPA_X_CRYPTO_VERSION=v0.56.0
 ARG OPA_X_TEXT_VERSION=v0.41.0
 ARG OPA_ORAS_VERSION=v2.6.2
 RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \

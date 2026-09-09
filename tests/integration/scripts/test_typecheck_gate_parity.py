@@ -104,12 +104,13 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         _ROOT / "services" / "core-control-plane" / "docker" / "Dockerfile",
     )
     for path in dockerfile_paths:
-        assert "ARG OPA_GRPC_VERSION=v1.83.2" in path.read_text(encoding="utf-8"), path
+        content = path.read_text(encoding="utf-8")
+        assert "ARG OPA_GRPC_VERSION=v1.83.2" in content, path
+        assert "ARG OPA_X_CRYPTO_VERSION=v0.56.0" in content, path
 
     dockerfile = dockerfile_paths[-1].read_text(encoding="utf-8")
 
     assert "ARG OPA_VERSION=v1.18.2" in dockerfile
-    assert "ARG OPA_X_CRYPTO_VERSION=v0.55.0" in dockerfile
     assert "ARG OPA_X_TEXT_VERSION=v0.41.0" in dockerfile
     assert "ARG OPA_ORAS_VERSION=v2.6.2" in dockerfile
     assert 'go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}"' in dockerfile
