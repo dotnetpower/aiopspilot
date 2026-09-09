@@ -54,7 +54,7 @@ if [[ -n "${FDAI_PYTEST_SHARD_COUNT:-}" || -n "${FDAI_PYTEST_SHARD_INDEX:-}" ]];
 fi
 
 if ((${#shard_args[@]} > 0)); then
-  coverage_args+=(--cov-report=)
+  coverage_args+=(--cov-report= --cov-fail-under=0)
 else
   coverage_args+=(
     --cov-report=term-missing

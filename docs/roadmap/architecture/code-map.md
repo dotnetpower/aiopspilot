@@ -453,8 +453,8 @@ attachment mappings. The Console instance presentation omits role assignments, k
 selected non-scope root's immediate Resource Group, and renders the evidence-backed AKS managed
 group, VMSS, VM, and NIC hierarchy without adding provider relationships.
 
-The safety-core coverage floor applies to the deterministic tier and risk gate inside the Core
-package. Their tests remain under the Core-owned test tree.
+The safety-core coverage floor applies to the deterministic tier and risk gate inside the Core package.
+Tests remain under the Core-owned tree; shards record without a local floor, and the aggregate job combines every shard and enforces 90 percent.
 
 Ontology query execution rechecks the exact release, manifest, role, and purpose at runtime. Its
 bounded dependency waves include queue wait in each node deadline, propagate in-flight

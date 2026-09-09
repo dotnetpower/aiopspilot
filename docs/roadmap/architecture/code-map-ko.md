@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b353726f1bcf01c06675b6e86e83f14bb2aacc39
+translation_source_sha: bbbbd136cdbdb50f05bbc07cf8f7e1d93c4a04c4
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -446,8 +446,8 @@ collection을 소유합니다. Console instance presentation은 role assignment�
 non-scope root의 immediate Resource Group 하나만 유지하며 provider relationship을 추가하지 않고
 evidence-backed AKS managed group, VMSS, VM, NIC hierarchy를 렌더링합니다.
 
-Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다. 해당
-테스트는 Core 소유 테스트 트리에 유지합니다.
+Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다.
+테스트는 Core 소유 트리에 유지하며, 개별 CI 샤드는 자체 하한 없이 기록하고 집계 job이 모든 샤드를 결합해 90% 하한을 적용합니다.
 
 온톨로지 조회 실행은 런타임에서 exact release, 매니페스트, 역할 및 용도를 다시 검사합니다.
 범위가 제한된 의존성 wave는 노드 기한에 큐 wait를 포함하고 in-flight 취소를 전파하며
