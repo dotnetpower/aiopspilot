@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fdai.delivery import analyzer_tick_cli as analyzer_tick_cli_module
+from fdai.delivery.analyzer_run_receipt import resolve_analyzer_run_id
 from fdai.delivery.analyzer_targets import AnalyzerTargetResolution
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport
 from fdai.delivery.analyzer_tick_cli import (
@@ -68,6 +69,28 @@ def test_missing_state_store_leaves_target_admission_unbound(
     monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
 
     assert build_decision_evidence_admission_provider() is None
+
+
+def test_run_receipts_prefer_explicit_then_platform_execution_identity() -> None:
+    assert (
+        resolve_analyzer_run_id(
+            {
+                "FDAI_ANALYZER_RUN_ID": "manual-run-1",
+                "CONTAINER_APP_JOB_EXECUTION_NAME": "platform-run-1",
+            }
+        )
+        == "manual-run-1"
+    )
+    assert (
+        resolve_analyzer_run_id({"CONTAINER_APP_JOB_EXECUTION_NAME": "platform-run-1"})
+        == "platform-run-1"
+    )
+    assert resolve_analyzer_run_id({}) is None
+
+
+def test_run_receipts_reject_unstable_whitespace_identity() -> None:
+    with pytest.raises(ValueError, match="run identity"):
+        resolve_analyzer_run_id({"FDAI_ANALYZER_RUN_ID": "run 1"})
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:
@@ -197,6 +220,34 @@ def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
         "log_analytics": "120-300_seconds",
         "prometheus": "15_seconds_plus_ingestion",
     }
+
+
+async def test_persisted_receipt_uses_the_exact_operational_report_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def record_receipt(**values: object) -> None:
+        captured.update(values)
+
+    monkeypatch.setenv("FDAI_ANALYZER_RUN_ID", "test-run-1")
+    monkeypatch.setenv("FDAI_MONITOR_WORKSPACE_ID", "configured")
+    monkeypatch.setenv("FDAI_PROMETHEUS_ENDPOINT", "https://metrics.example")
+    monkeypatch.setattr(analyzer_tick_cli_module, "record_analyzer_run_receipt", record_receipt)
+    report = _job_report()
+
+    await analyzer_tick_cli_module._record_run_receipt(
+        report,
+        scheduling="local_loop",
+        tick_id="7",
+    )
+
+    assert captured["environment"]["FDAI_ANALYZER_RUN_ID"] == "test-run-1"  # type: ignore[index]
+    assert captured["tick_id"] == "7"
+    assert captured["report"] == analyzer_tick_cli_module._report_body(
+        report,
+        scheduling="local_loop",
+    )
 
 
 async def test_local_loop_runs_serial_ticks_and_stops_after_the_bound(

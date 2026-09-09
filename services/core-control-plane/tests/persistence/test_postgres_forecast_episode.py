@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import os
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from fdai.core.detection.forecast_episode import ForecastClosureReason, ForecastEpisodeClosure
+from fdai.core.detection.forecast_outcome import (
+    ForecastExpectation,
+    ForecastObservation,
+    close_forecast,
+)
 from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
     PostgresForecastEpisodeStoreConfig,
+    _aggregate_outcome_counts,
 )
+from fdai.shared.contracts.models import TelemetryCompleteness
 
 from tests.core.detection.test_forecast_episode import T0, _episode
 
@@ -18,6 +26,16 @@ def test_config_rejects_empty_dsn_and_invalid_timeouts() -> None:
         PostgresForecastEpisodeStoreConfig(dsn="")
     with pytest.raises(ValueError, match="timeouts"):
         PostgresForecastEpisodeStoreConfig(dsn="postgresql://example", statement_timeout_ms=0)
+
+
+def test_operational_metrics_sum_false_negatives_across_miss_origins() -> None:
+    assert _aggregate_outcome_counts(
+        (
+            {"label": "false_negative", "miss_origin": "model", "count": 2},
+            {"label": "false_negative", "miss_origin": "pipeline", "count": 3},
+            {"label": "true_positive", "miss_origin": None, "count": 4},
+        )
+    ) == {"false_negative": 5, "true_positive": 4}
 
 
 @pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
@@ -77,6 +95,83 @@ async def test_publication_claims_do_not_increment_failure_count() -> None:
             )
             == ()
         )
+    finally:
+        import psycopg
+
+        plain = dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+        async with await psycopg.AsyncConnection.connect(plain) as connection:
+            await connection.execute(
+                "DELETE FROM forecast_publication_outbox WHERE episode_id = %s",
+                (episode.episode_id,),
+            )
+            await connection.execute(
+                "DELETE FROM forecast_episode WHERE episode_id = %s",
+                (episode.episode_id,),
+            )
+
+
+@pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
+async def test_health_snapshot_executes_operational_accuracy_query() -> None:
+    dsn = os.environ["FDAI_DATABASE_URL"]
+    store = PostgresForecastEpisodeStore(config=PostgresForecastEpisodeStoreConfig(dsn=dsn))
+    issued_at = datetime.now(tz=UTC)
+    episode = _episode(
+        episode_id=uuid4(),
+        correlation_id=f"metrics-{os.getpid()}",
+        feature_cutoff=issued_at,
+        horizon_started_at=issued_at,
+        horizon_ended_at=issued_at + timedelta(hours=1),
+    )
+    outcome = close_forecast(
+        ForecastExpectation(
+            prediction_id=episode.episode_id,
+            correlation_id=episode.correlation_id,
+            detector_id=episode.detector_id,
+            detector_version=episode.detector_version,
+            access_scope_digest=episode.access_scope_digest,
+            target_ref=episode.target_ref,
+            metric=episode.metric,
+            feature_cutoff=episode.feature_cutoff,
+            horizon_started_at=episode.horizon_started_at,
+            horizon_ended_at=episode.horizon_ended_at,
+            direction="rising",
+            threshold=episode.threshold,
+            predicted_value=episode.predicted_value or 0.0,
+            interval_lower=episode.interval_lower or 0.0,
+            interval_upper=episode.interval_upper or 0.0,
+            evidence_refs=episode.evidence_refs,
+        ),
+        ForecastObservation(
+            observed_value=95.0,
+            actual_breach_at=issued_at + timedelta(minutes=30),
+            telemetry_completeness=TelemetryCompleteness.COMPLETE,
+            evidence_refs=("metric-window:outcome",),
+        ),
+        closed_at=issued_at + timedelta(hours=1, minutes=5),
+    )
+    try:
+        await store.record(episode)
+        assert await store.close(
+            ForecastEpisodeClosure(
+                episode_id=episode.episode_id,
+                expected_revision=episode.revision,
+                closed_at=outcome.closed_at,
+                reason=ForecastClosureReason.SCORED,
+                outcome_payload=outcome.model_dump(mode="json"),
+            )
+        )
+
+        snapshot = await store.health_snapshot(now=outcome.closed_at)
+        metrics = snapshot["operational_metrics"]
+
+        assert isinstance(metrics, dict)
+        assert metrics["episode_count"] >= 1
+        assert metrics["episode_count"] == snapshot["episodes"]["closed"]
+        assert metrics["lead_time_sample_count"] >= 1
+        assert metrics["non_positive_lead_time_count"] >= 0
+        assert 1_799.0 <= metrics["mean_lead_time_seconds"] <= 1_800.0
+        assert 1_799.0 <= metrics["median_lead_time_seconds"] <= 1_800.0
+        assert metrics["execution_authority"] is False
     finally:
         import psycopg
 

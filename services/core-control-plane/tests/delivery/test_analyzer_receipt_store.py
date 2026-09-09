@@ -6,7 +6,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fdai.delivery.analyzer_receipt_store import (
     ANALYZER_RECEIPT_STATE_PREFIX,
+    ANALYZER_RUN_RECEIPT_STATE_PREFIX,
     StateStoreAnalyzerReceiptStore,
+    StateStoreAnalyzerRunReceiptStore,
 )
 from fdai.delivery.analyzer_tick import (
     AnalyzerEvidenceState,
@@ -104,3 +106,87 @@ async def test_store_still_rejects_a_conflicting_repeat_with_later_timing() -> N
                 detection_latency_seconds=64.0,
             )
         )
+
+
+async def test_run_store_retains_complete_tick_reports_without_authority() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state, retain_newest=2)
+
+    for index in range(3):
+        await store.record(
+            run_id=f"run-{index}",
+            recorded_at=NOW + timedelta(seconds=index),
+            report={
+                "targets": 2,
+                "target_resolution": {
+                    "configured": 1,
+                    "discovered": 1,
+                    "inventory_consulted": True,
+                    "skipped_reasons": [],
+                    "truncated": False,
+                },
+            },
+        )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["run_id"] for record in records} == {"run-1", "run-2"}
+    assert all(record["execution_authority"] is False for record in records)
+    assert all(len(str(record["report_digest"])) == 64 for record in records)
+
+
+async def test_run_store_retains_changed_retry_as_another_content_addressed_attempt() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 1})
+    await store.record(
+        run_id="run-1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 2},
+    )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["run_id"] for record in records} == {"run-1"}
+    assert len({record["attempt_id"] for record in records}) == 2
+
+
+async def test_run_store_keeps_first_time_for_an_idempotent_retry() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 1})
+    await store.record(
+        run_id="run-1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 1},
+    )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 1
+    assert records[0]["recorded_at"] == NOW.isoformat()
+    assert records[0]["attempt_id"] == records[0]["report_digest"]
+
+
+async def test_run_store_retains_identical_reports_from_distinct_ticks() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(
+        run_id="run-1",
+        tick_id="0",
+        recorded_at=NOW,
+        report={"targets": 1},
+    )
+    await store.record(
+        run_id="run-1",
+        tick_id="1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 1},
+    )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["tick_id"] for record in records} == {"0", "1"}

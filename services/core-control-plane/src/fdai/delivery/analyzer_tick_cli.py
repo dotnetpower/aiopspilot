@@ -29,7 +29,10 @@ import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
-from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
+from fdai.delivery.analyzer_receipt_store import (
+    StateStoreAnalyzerReceiptStore,
+)
+from fdai.delivery.analyzer_run_receipt import record_analyzer_run_receipt
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
@@ -516,11 +519,12 @@ async def run_once() -> AnalyzerJobReport:
     targets = resolution.targets
     if not targets and not trace_topologies:
         _LOGGER.info("analyzer_tick_no_targets")
-        return AnalyzerJobReport(
+        report = AnalyzerJobReport(
             analyzer=AnalyzerTickReport(targets=0, findings=0, published=0),
             trace_continuity=_empty_trace_report(),
             target_resolution=resolution,
         )
+        return report
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not bootstrap_servers:
@@ -586,13 +590,28 @@ async def run_once() -> AnalyzerJobReport:
                 ).run_once(trace_topologies)
             else:
                 trace_report = _empty_trace_report()
-            return AnalyzerJobReport(
+            report = AnalyzerJobReport(
                 analyzer=analyzer_report,
                 trace_continuity=trace_report,
                 target_resolution=resolution,
             )
+            return report
         finally:
             await bus.close()
+
+
+async def _record_run_receipt(
+    report: AnalyzerJobReport,
+    *,
+    scheduling: str,
+    tick_id: str,
+) -> None:
+    await record_analyzer_run_receipt(
+        environment=os.environ,
+        tick_id=tick_id,
+        recorded_at=datetime.now(tz=UTC),
+        report=_report_body(report, scheduling=scheduling),
+    )
 
 
 def _empty_trace_report() -> TraceContinuityTickReport:
@@ -662,6 +681,11 @@ async def run_loop(
         except TimeoutError:
             print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
             return 1
+        await _record_run_receipt(
+            report,
+            scheduling="local_loop",
+            tick_id=str(completed),
+        )
         _emit_report(report, scheduling="local_loop")
         completed += 1
         if report.failed:
@@ -676,12 +700,24 @@ async def run_loop(
 
 
 def _emit_report(report: AnalyzerJobReport, *, scheduling: str) -> None:
-    summary: dict[str, Any] = report.to_dict(
+    summary = _report_body(report, scheduling=scheduling)
+    _LOGGER.info("analyzer_tick_complete", extra=summary)
+    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
+def _report_body(report: AnalyzerJobReport, *, scheduling: str) -> dict[str, Any]:
+    """Build the one report body shared by persistence, logs, and stdout."""
+
+    return report.to_dict(
         scheduling=scheduling,
         metric_delays=metric_source_delays(os.environ),
     )
-    _LOGGER.info("analyzer_tick_complete", extra=summary)
-    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
+async def _run_once_with_receipt(*, timeout_seconds: float, scheduling: str) -> AnalyzerJobReport:
+    report = await asyncio.wait_for(run_once(), timeout=timeout_seconds)
+    await _record_run_receipt(report, scheduling=scheduling, tick_id="0")
+    return report
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -714,12 +750,18 @@ def main(argv: list[str] | None = None) -> int:
                     tick_timeout_seconds=tick_budget,
                 )
             )
-        report = asyncio.run(asyncio.wait_for(run_once(), timeout=tick_budget))
+        scheduling = resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", ""))
+        report = asyncio.run(
+            _run_once_with_receipt(
+                timeout_seconds=tick_budget,
+                scheduling=scheduling,
+            )
+        )
     except KeyboardInterrupt:
         return 130
     _emit_report(
         report,
-        scheduling=resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", "")),
+        scheduling=scheduling,
     )
     return 1 if report.failed else 0
 

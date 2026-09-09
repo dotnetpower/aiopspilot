@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 22178ec7527234e7f7a7455cb035781a81beea3b
+translation_source_sha: f8651abdb21e1c0780371aff036ec7c2b84439ac
 translation_revised: 2026-09-10
 ---
 
@@ -327,8 +327,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      케이스 히스토리 Blob 역할이 없으며, 비공개 네트워크 룰은 Defender scanner
      private-link 접근을 유지하고, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된 삭제
      주기와 일치합니다.
-   - **예측 학습**: 옵트인 작업이 원시 틱만 발행하고, 코어에 검토된
-     `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
+   - **예측 학습**: 명시적으로 사용하는 작업은 원시 틱만 발행합니다. 각
+     `FDAI_FORECAST_TARGETS_JSON` 항목은 관리되는 `target_kind`를 지정하며 Core는 저장소 정책을
+     완화하는 설정을 거부합니다.
    - **Analyzer tick**: `FDAI_INVENTORY_DSN`이 설정되면 Job이 명시적 대상과 영속 인벤토리
      projection에서 지원되는 리소스만 병합하고 구성된 발견 상한을 보고합니다. 지원하지 않는
      리소스 타입은 제외하며, 완전히 해석된 대상 집합이 비어 있으면 정상 no-op으로 종료합니다.
