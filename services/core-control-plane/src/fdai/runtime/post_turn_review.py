@@ -207,6 +207,8 @@ def build_azure_post_turn_models(
                 model_identity=f"{item.publisher}:{item.family}:{item.name}",
                 model_family=item.family or "",
                 system_prompt=prompt.system_text,
+                prompt_manifest=prompt.replay_manifest(),
+                max_tokens=prompt.reserved_output_tokens or 2_048,
                 api_version=target.api_version or "2024-06-01",
                 api_style=target.api_style,
                 auth_audience=target.auth_audience,

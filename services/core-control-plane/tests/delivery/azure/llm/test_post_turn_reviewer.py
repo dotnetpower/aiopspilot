@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from fdai.core.learning import OperatorMemoryCandidate, PostTurnReviewInput
 from fdai.core.operator_memory import MemoryCategory, ScopeKind
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.post_turn_reviewer import (
     AzureOpenAIPostTurnModel,
     AzureOpenAIPostTurnModelConfig,
@@ -117,3 +120,38 @@ async def test_invalid_response_fails_closed() -> None:
             assert "MUST be a JSON object" in str(exc)
         else:
             raise AssertionError("invalid response did not fail closed")
+
+
+async def test_profile_budget_blocks_before_identity_or_provider_io() -> None:
+    prompt = "Return strict JSON."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=5,
+        request_token_budget=1,
+        reserved_output_tokens=512,
+    )
+
+    class NoIdentity:
+        async def get_token(self, audience: str) -> IdentityToken:
+            raise AssertionError(f"unexpected identity request for {audience}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAIPostTurnModel(
+            identity=NoIdentity(),
+            http_client=client,
+            config=AzureOpenAIPostTurnModelConfig(
+                endpoint="https://example.openai.azure.com",
+                deployment="review-model",
+                model_identity="review-model-a",
+                model_family="family-a",
+                system_prompt=prompt,
+                prompt_manifest=manifest,
+                max_tokens=512,
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="profile budget"):
+            await model.propose(_input())

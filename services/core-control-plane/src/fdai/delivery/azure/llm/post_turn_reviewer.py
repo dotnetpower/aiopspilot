@@ -18,6 +18,7 @@ from fdai.core.learning import (
     SkillProposalDraft,
 )
 from fdai.core.operator_memory import MemoryCategory, ScopeKind
+from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
@@ -34,6 +35,7 @@ class AzureOpenAIPostTurnModelConfig:
     model_identity: str
     model_family: str
     system_prompt: str
+    prompt_manifest: PromptReplayManifest | None = None
     api_version: str = "2024-06-01"
     max_tokens: int = 2_048
     timeout_seconds: float = 30.0
@@ -47,6 +49,17 @@ class AzureOpenAIPostTurnModelConfig:
             raise ValueError("post-turn model identity and family MUST be non-empty")
         if not self.system_prompt.strip():
             raise ValueError("post-turn system_prompt MUST be non-empty")
+        if self.prompt_manifest is not None:
+            expected_hash = self.prompt_manifest.system_text_sha256
+            import hashlib
+
+            if expected_hash != hashlib.sha256(self.system_prompt.encode()).hexdigest():
+                raise ValueError("post-turn prompt manifest does not match its system prompt")
+            if (
+                self.prompt_manifest.reserved_output_tokens is not None
+                and self.prompt_manifest.reserved_output_tokens < self.max_tokens
+            ):
+                raise ValueError("post-turn max_tokens exceeds the prompt output reserve")
         if not 256 <= self.max_tokens <= 8_192:
             raise ValueError("post-turn max_tokens MUST be in [256, 8192]")
         if self.timeout_seconds <= 0:
@@ -88,13 +101,26 @@ class AzureOpenAIPostTurnModel:
         self,
         review_input: PostTurnReviewInput,
     ) -> PostTurnProposal | NoImprovement:
+        messages = [
+            {"role": "system", "content": self._config.system_prompt},
+            {"role": "user", "content": _review_prompt(review_input)},
+        ]
+        request_tokens = estimate_chat_request_tokens(
+            messages=messages,
+            response_format={"type": "json_object"},
+            reserved_output_tokens=self._config.max_tokens,
+        )
+        manifest = self._config.prompt_manifest
+        if (
+            manifest is not None
+            and manifest.request_token_budget is not None
+            and request_tokens > manifest.request_token_budget
+        ):
+            raise RuntimeError("post-turn reviewer request exceeds its prompt profile budget")
         token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
         body: dict[str, Any] = {
-            "messages": [
-                {"role": "system", "content": self._config.system_prompt},
-                {"role": "user", "content": _review_prompt(review_input)},
-            ],
+            "messages": messages,
             "temperature": 0.0,
             "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
