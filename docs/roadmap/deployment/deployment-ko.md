@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 14fb703697cae6942f689f528c920ef780f6c0f0
-translation_revised: 2026-09-09
+translation_source_sha: d95e79c2174b363d565c8391251c82cef3b4ee7f
+translation_revised: 2026-09-10
 ---
 
 # 배포(배포)
@@ -270,8 +270,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   `signed-image-provenance`로 연결합니다. ACR용 두 번째 빌드는 다른 대상을 만들기 때문에
   수락하지 않습니다. Private-runner 실행기 계획은 하나의 출처 개정 번호를 attested GHCR
   다이제스트로 해석하고 명시적 승격 입력이 있을 때만 해당 exact 대상을 가져오기하며 ACR
-  다이제스트가 동일한지 검증한 뒤 Terraform에 연결합니다. Exact 적용은 protected 계획에 기록된
-  이미지를 promote하거나 교체할 수 없습니다.
+  Terraform 출력을 정확한 Azure login host로 정규화합니다. 이후 ACR 다이제스트가 동일한지
+  검증하고 Terraform에 연결합니다. Exact 적용은 protected 계획에 기록된 이미지를 promote하거나
+  교체할 수 없습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + 의존성 + 시크릿 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.
