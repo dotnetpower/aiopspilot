@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 8d62c78df20755772fe9a294add6870d2ad04e73
-translation_revised: 2026-08-24
+translation_source_sha: 2f0df1dd6886e09a3a0462993754aeb96901a0b8
+translation_revised: 2026-09-09
 ---
 
 # FDAI 아키텍처
@@ -46,7 +46,7 @@ Azure 리소스 배치와 분리해서 보여 줍니다.
 Azure 배포 기반은 이 내부 경계 밖에 유지됩니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-reference-architecture.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 headless FDAI control plane에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 remediation pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 headless control-plane 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 헤드리스 FDAI 컨트롤 플레인에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 수정 pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 헤드리스 FDAI 컨트롤 플레인 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 Pantheon 통합 표시는 고정된 15개 에이전트 조직을 나타내며 16번째 에이전트가 아닙니다. T2만
@@ -62,7 +62,7 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 않습니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-system-overview.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-system-overview.ko.svg" alt="Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 결정 수준을 선택하고 근거와 위험을 검토합니다. 실행 가능한 작업은 권한 있는 실행기로 보내고, 근거가 부족하면 검토 대기로 보관하며, 실행 실패는 롤백 경로로 보냅니다. 모든 결과는 감사 저장소에 기록됩니다. 사람 승인, 수정 pull request, 읽기 전용 콘솔은 컨트롤 플레인 경계 밖에 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-system-overview.ko.svg" alt="Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 이벤트를 수집하고 결정 수준을 선택한 뒤 근거와 위험을 검증합니다. 실행 가능한 작업은 권한 있는 실행기로 전달되고, 승인이 필요한 작업은 사람 승인으로 보내며, 불확실한 작업은 검토 대기로 보관합니다. 실행 실패는 롤백 경로로 이어지고 모든 결과는 PostgreSQL 감사 저장소에 기록됩니다." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 콘솔은 상태 저장소와 감사 저장소의 조회용 데이터만 읽습니다. 실행기 자격 증명을 사용하지
@@ -92,7 +92,7 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 사용하지만 가독성을 위해 이 보기에서는 생략합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 FDAI Web Console을 사용합니다. 계획된 private Application Gateway는 Operator Service와 Document Ingestion API로 요청을 전달합니다. Container Apps 환경은 5개 독립 FDAI 서비스와 예약 job을 실행합니다. Core에는 관리 대상 resource effect identity가 없고 Isolated Executor만 명시적으로 승인된 effect role을 보유할 수 있습니다. Private endpoint는 서비스와 Event Hubs, Container Registry, Key Vault, model service, PostgreSQL, 선택적 document storage를 연결합니다. 분리된 채널은 사람 승인과 통제된 pull request를 전달합니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. 계획된 private Application Gateway는 WAF policy로 보호되며 Operator Service와 Document Ingestion API로 요청을 전달합니다. VNet에 통합된 Container Apps 환경에서는 Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor 및 예약 job이 실행됩니다. Core에는 effect identity가 없고 Isolated Executor만 명시적으로 승인된 effect role을 보유할 수 있습니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 기준선 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` 비공개 엔드포인트를
@@ -334,7 +334,7 @@ FDAI에서 권한 분리는 아키텍처 속성입니다. 나중에 손쉬운 �
 
 리포지토리는 런타임 시스템과 같은 의존 방향을 따릅니다.
 
-![연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 FDAI 자동 운영 판단 엔진에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 복구 pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 FDAI 자동 운영 판단 엔진 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다.](../diagrams/generated/fdai-reference-architecture.ko.svg)
+![연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 헤드리스 FDAI 컨트롤 플레인에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 수정 pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 헤드리스 FDAI 컨트롤 플레인 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다.](../diagrams/generated/fdai-reference-architecture.ko.svg)
 
 - **`core/`**에는 판단과 조율 로직이 들어 있습니다. Azure SDK나 UI 컴포넌트가 아니라 공유
   계약에만 의존합니다.

@@ -1,7 +1,7 @@
 id: fdai-agent-driven-runtime
 version: 1
 kind: data-flow
-updated: 2026-07-23
+updated: 2026-09-09
 locales:
   en:
     title: FDAI agent-driven runtime
@@ -29,30 +29,30 @@ nodes:
   - id: typed-event-bus
     parent: agent-runtime
     kind: service
-    label: { en: Shared typed event bus, ko: Shared typed event bus }
+    label: { en: Shared typed event bus, ko: 공유 typed event bus }
     description: { en: "Schema validation, subscriber isolation, retry, dead-letter, and replay", ko: "Schema validation, subscriber isolation, retry, dead-letter 및 replay" }
   - id: huginn
     parent: agent-runtime
     kind: agent
-    label: { en: Huginn - event owner, ko: Huginn - event owner }
+    label: { en: Huginn - event owner, ko: Huginn - event 소유자 }
     description: { en: Normalizes and publishes object.event, ko: object.event를 normalize하고 publish합니다. }
   - id: heimdall
     parent: agent-runtime
     kind: agent
-    label: { en: Heimdall - observer, ko: Heimdall - observer }
+    label: { en: Heimdall - observer, ko: Heimdall - 관찰자 }
     description: { en: "Anomaly, drift, and forecast findings", ko: "Anomaly, drift 및 forecast finding" }
   - id: njord
     parent: agent-runtime
     kind: agent
-    label: { en: Njord - cost evidence, ko: Njord - cost evidence }
+    label: { en: Njord - cost evidence, ko: Njord - 비용 근거 }
   - id: freyr
     parent: agent-runtime
     kind: agent
-    label: { en: Freyr - capacity evidence, ko: Freyr - capacity evidence }
+    label: { en: Freyr - capacity evidence, ko: Freyr - 용량 근거 }
   - id: loki
     parent: agent-runtime
     kind: agent
-    label: { en: Loki - chaos evidence, ko: Loki - chaos evidence }
+    label: { en: Loki - chaos evidence, ko: Loki - 카오스 근거 }
   - id: mimir
     parent: agent-runtime
     kind: agent
@@ -64,39 +64,39 @@ nodes:
   - id: forseti
     parent: agent-runtime
     kind: agent
-    label: { en: Forseti - decision owner, ko: Forseti - decision owner }
+    label: { en: Forseti - decision owner, ko: Forseti - 결정 소유자 }
     description: { en: Sole writer of object.verdict, ko: object.verdict의 sole writer }
   - id: odin
     parent: agent-runtime
     kind: agent
-    label: { en: Odin - arbitration owner, ko: Odin - arbitration owner }
+    label: { en: Odin - arbitration owner, ko: Odin - arbitration 소유자 }
     description: { en: Resolves cross-domain conflicts, ko: Cross-domain conflict를 해결합니다. }
   - id: thor
     parent: agent-runtime
     kind: agent
-    label: { en: Thor - action owner, ko: Thor - action owner }
-    description: { en: Sole privileged executor, ko: Sole privileged executor }
+    label: { en: Thor - action owner, ko: Thor - 작업 소유자 }
+    description: { en: Sole privileged executor, ko: 유일한 privileged executor }
   - id: var
     parent: agent-runtime
     kind: agent
-    label: { en: Var - approval owner, ko: Var - approval owner }
+    label: { en: Var - approval owner, ko: Var - 승인 소유자 }
   - id: vidar
     parent: agent-runtime
     kind: agent
-    label: { en: Vidar - rollback owner, ko: Vidar - rollback owner }
+    label: { en: Vidar - rollback owner, ko: Vidar - rollback 소유자 }
   - id: saga
     parent: agent-runtime
     kind: agent
-    label: { en: Saga - audit owner, ko: Saga - audit owner }
-    description: { en: Append-only terminal evidence, ko: Append-only terminal evidence }
+    label: { en: Saga - audit owner, ko: Saga - 감사 소유자 }
+    description: { en: Append-only terminal evidence, ko: 추가 전용 terminal 근거 }
   - id: norns
     parent: agent-runtime
     kind: agent
-    label: { en: Norns - learning candidate owner, ko: Norns - learning candidate owner }
+    label: { en: Norns - learning candidate owner, ko: Norns - learning candidate 소유자 }
   - id: bragi
     parent: agent-runtime
     kind: agent
-    label: { en: Bragi - conversation translator, ko: Bragi - conversation translator }
+    label: { en: Bragi - conversation translator, ko: Bragi - conversation 번역가 }
 edges:
   - id: signals-to-bus
     from: external-signals
@@ -111,7 +111,7 @@ edges:
     from: huginn
     to: heimdall
     kind: event
-    label: { en: concurrent fan-out, ko: concurrent fan-out }
+    label: { en: concurrent fan-out, ko: 동시 fan-out }
   - id: huginn-to-forseti
     from: huginn
     to: forseti
@@ -141,12 +141,12 @@ edges:
     from: muninn
     to: forseti
     kind: read
-    label: { en: correlated context, ko: correlated context }
+    label: { en: correlated context, ko: 연관된 context }
   - id: forseti-to-odin
     from: forseti
     to: odin
     kind: request
-    label: { en: conflict, ko: conflict }
+    label: { en: conflict, ko: 충돌 }
   - id: odin-to-forseti
     from: odin
     to: forseti
@@ -171,12 +171,12 @@ edges:
     from: thor
     to: vidar
     kind: rollback
-    label: { en: failed action, ko: failed action }
+    label: { en: failed action, ko: 실패한 작업 }
   - id: vidar-to-thor
     from: vidar
     to: thor
     kind: rollback
-    label: { en: rollback result, ko: rollback result }
+    label: { en: rollback result, ko: rollback 결과 }
   - id: forseti-to-saga
     from: forseti
     to: saga
@@ -202,29 +202,29 @@ edges:
     from: norns
     to: mimir
     kind: write
-    label: { en: inert candidate, ko: inert candidate }
+    label: { en: inert candidate, ko: 비활성 후보 }
   - id: bragi-to-muninn
     from: bragi
     to: muninn
     kind: read
-    label: { en: read-only context, ko: read-only context }
+    label: { en: read-only context, ko: 읽기 전용 context }
   - id: bragi-to-huginn
     from: bragi
     to: huginn
     kind: request
-    label: { en: typed action proposal, ko: typed action proposal }
+    label: { en: typed action proposal, ko: typed 작업 제안 }
 legend:
   - kind: event
     label: { en: Typed event, ko: Typed event }
   - kind: request
-    label: { en: Request, ko: Request }
+    label: { en: Request, ko: 요청 }
   - kind: read
-    label: { en: Evidence read, ko: Evidence read }
+    label: { en: Evidence read, ko: 근거 조회 }
   - kind: approval
     label: { en: Human approval, ko: 사람 승인 }
   - kind: rollback
     label: { en: Rollback, ko: Rollback }
   - kind: audit
-    label: { en: Audit, ko: Audit }
+    label: { en: Audit, ko: 감사 }
   - kind: write
-    label: { en: Candidate, ko: Candidate }
+    label: { en: Candidate, ko: 후보 }

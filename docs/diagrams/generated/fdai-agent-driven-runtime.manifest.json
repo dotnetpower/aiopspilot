@@ -2,7 +2,7 @@
   "id": "fdai-agent-driven-runtime",
   "kind": "data-flow",
   "version": 1,
-  "updated": "2026-07-23",
+  "updated": "2026-09-09",
   "locales": {
     "en": {
       "title": "FDAI agent-driven runtime",
@@ -43,7 +43,7 @@
       "kind": "service",
       "label": {
         "en": "Shared typed event bus",
-        "ko": "Shared typed event bus"
+        "ko": "공유 typed event bus"
       },
       "description": {
         "en": "Schema validation, subscriber isolation, retry, dead-letter, and replay",
@@ -55,7 +55,7 @@
       "kind": "agent",
       "label": {
         "en": "Huginn - event owner",
-        "ko": "Huginn - event owner"
+        "ko": "Huginn - event 소유자"
       },
       "description": {
         "en": "Normalizes and publishes object.event",
@@ -67,7 +67,7 @@
       "kind": "agent",
       "label": {
         "en": "Heimdall - observer",
-        "ko": "Heimdall - observer"
+        "ko": "Heimdall - 관찰자"
       },
       "description": {
         "en": "Anomaly, drift, and forecast findings",
@@ -79,11 +79,11 @@
       "kind": "agent",
       "label": {
         "en": "Njord - cost evidence",
-        "ko": "Njord - cost evidence"
+        "ko": "Njord - 비용 근거"
       },
       "description": {
         "en": "Njord - cost evidence",
-        "ko": "Njord - cost evidence"
+        "ko": "Njord - 비용 근거"
       }
     },
     {
@@ -91,11 +91,11 @@
       "kind": "agent",
       "label": {
         "en": "Freyr - capacity evidence",
-        "ko": "Freyr - capacity evidence"
+        "ko": "Freyr - 용량 근거"
       },
       "description": {
         "en": "Freyr - capacity evidence",
-        "ko": "Freyr - capacity evidence"
+        "ko": "Freyr - 용량 근거"
       }
     },
     {
@@ -103,11 +103,11 @@
       "kind": "agent",
       "label": {
         "en": "Loki - chaos evidence",
-        "ko": "Loki - chaos evidence"
+        "ko": "Loki - 카오스 근거"
       },
       "description": {
         "en": "Loki - chaos evidence",
-        "ko": "Loki - chaos evidence"
+        "ko": "Loki - 카오스 근거"
       }
     },
     {
@@ -139,7 +139,7 @@
       "kind": "agent",
       "label": {
         "en": "Forseti - decision owner",
-        "ko": "Forseti - decision owner"
+        "ko": "Forseti - 결정 소유자"
       },
       "description": {
         "en": "Sole writer of object.verdict",
@@ -151,7 +151,7 @@
       "kind": "agent",
       "label": {
         "en": "Odin - arbitration owner",
-        "ko": "Odin - arbitration owner"
+        "ko": "Odin - arbitration 소유자"
       },
       "description": {
         "en": "Resolves cross-domain conflicts",
@@ -163,11 +163,11 @@
       "kind": "agent",
       "label": {
         "en": "Thor - action owner",
-        "ko": "Thor - action owner"
+        "ko": "Thor - 작업 소유자"
       },
       "description": {
         "en": "Sole privileged executor",
-        "ko": "Sole privileged executor"
+        "ko": "유일한 privileged executor"
       }
     },
     {
@@ -175,11 +175,11 @@
       "kind": "agent",
       "label": {
         "en": "Var - approval owner",
-        "ko": "Var - approval owner"
+        "ko": "Var - 승인 소유자"
       },
       "description": {
         "en": "Var - approval owner",
-        "ko": "Var - approval owner"
+        "ko": "Var - 승인 소유자"
       }
     },
     {
@@ -187,11 +187,11 @@
       "kind": "agent",
       "label": {
         "en": "Vidar - rollback owner",
-        "ko": "Vidar - rollback owner"
+        "ko": "Vidar - rollback 소유자"
       },
       "description": {
         "en": "Vidar - rollback owner",
-        "ko": "Vidar - rollback owner"
+        "ko": "Vidar - rollback 소유자"
       }
     },
     {
@@ -199,11 +199,11 @@
       "kind": "agent",
       "label": {
         "en": "Saga - audit owner",
-        "ko": "Saga - audit owner"
+        "ko": "Saga - 감사 소유자"
       },
       "description": {
         "en": "Append-only terminal evidence",
-        "ko": "Append-only terminal evidence"
+        "ko": "추가 전용 terminal 근거"
       }
     },
     {
@@ -211,11 +211,11 @@
       "kind": "agent",
       "label": {
         "en": "Norns - learning candidate owner",
-        "ko": "Norns - learning candidate owner"
+        "ko": "Norns - learning candidate 소유자"
       },
       "description": {
         "en": "Norns - learning candidate owner",
-        "ko": "Norns - learning candidate owner"
+        "ko": "Norns - learning candidate 소유자"
       }
     },
     {
@@ -223,11 +223,11 @@
       "kind": "agent",
       "label": {
         "en": "Bragi - conversation translator",
-        "ko": "Bragi - conversation translator"
+        "ko": "Bragi - conversation 번역가"
       },
       "description": {
         "en": "Bragi - conversation translator",
-        "ko": "Bragi - conversation translator"
+        "ko": "Bragi - conversation 번역가"
       }
     }
   ],
@@ -256,7 +256,7 @@
       "kind": "event",
       "label": {
         "en": "concurrent fan-out",
-        "ko": "concurrent fan-out"
+        "ko": "동시 fan-out"
       }
     },
     {
@@ -311,7 +311,7 @@
       "kind": "read",
       "label": {
         "en": "correlated context",
-        "ko": "correlated context"
+        "ko": "연관된 context"
       }
     },
     {
@@ -321,7 +321,7 @@
       "kind": "request",
       "label": {
         "en": "conflict",
-        "ko": "conflict"
+        "ko": "충돌"
       }
     },
     {
@@ -371,7 +371,7 @@
       "kind": "rollback",
       "label": {
         "en": "failed action",
-        "ko": "failed action"
+        "ko": "실패한 작업"
       }
     },
     {
@@ -381,7 +381,7 @@
       "kind": "rollback",
       "label": {
         "en": "rollback result",
-        "ko": "rollback result"
+        "ko": "rollback 결과"
       }
     },
     {
@@ -429,7 +429,7 @@
       "kind": "write",
       "label": {
         "en": "inert candidate",
-        "ko": "inert candidate"
+        "ko": "비활성 후보"
       }
     },
     {
@@ -439,7 +439,7 @@
       "kind": "read",
       "label": {
         "en": "read-only context",
-        "ko": "read-only context"
+        "ko": "읽기 전용 context"
       }
     },
     {
@@ -449,7 +449,7 @@
       "kind": "request",
       "label": {
         "en": "typed action proposal",
-        "ko": "typed action proposal"
+        "ko": "typed 작업 제안"
       }
     }
   ]
