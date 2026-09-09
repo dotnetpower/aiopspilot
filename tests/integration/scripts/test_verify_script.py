@@ -193,7 +193,7 @@ def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
     )
 
 
-def test_sharded_coverage_defers_the_floor_to_the_aggregate_job(tmp_path: Path) -> None:
+def test_sharded_coverage_invocation_disables_the_per_shard_floor(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     recorded = tmp_path / "arguments.txt"
@@ -262,6 +262,15 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     assert all(Path(entry).is_relative_to(_ROOT) for entry in entries[:-1])
     assert str(_ROOT / "services" / "core-control-plane" / "src") in entries[:-1]
     assert str(_ROOT / "packages" / "service-contracts" / "src") in entries[:-1]
+
+
+def test_sharded_coverage_contract_retains_the_aggregate_floor() -> None:
+    runner = _PYTHON_TESTS.read_text(encoding="utf-8")
+    workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "coverage_args+=(--cov-report= --cov-fail-under=0)" in runner
+    assert "uv run coverage combine coverage-data" in workflow
+    assert "uv run coverage report --fail-under=90" in workflow
 
 
 def test_python_test_runner_isolates_database_env_by_phase(tmp_path: Path) -> None:

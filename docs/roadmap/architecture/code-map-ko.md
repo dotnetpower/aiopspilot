@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 29f9803b14824a2c2ba1226cc930ad473f24b60a
+translation_source_sha: 9094a46a61ca9ad25701eae3d6ea41d832ed495b
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -25,8 +25,8 @@ translation_revised: 2026-09-10
   승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
-- **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유자 옆에 있으며, 추적 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.
-- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. 실행 장소 기능 gate도 같은 패키지를 검사합니다. `pytest-timeout` 기본값은 120초이며, 전체 카탈로그를 두 번 조립하는 결정성 증명만 240초의 제한된 예외를 선언합니다. `faulthandler_timeout`(90초)은 종료 전에 진단 스택을 보존합니다.
+- **서비스 소유 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다. 추적된 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.
+- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. 실행 장소 기능 게이트도 같은 패키지를 검사합니다. `pytest-timeout` 기본값은 테스트당 120초 상한이며, 중단된 테스트 하나가 xdist 샤드를 무기한 차단하지 못하게 합니다. 전체 카탈로그를 두 번 조립하는 결정성 증명만 범위가 제한된 240초 예외를 사용합니다. `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프해 진단 근거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및 저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
