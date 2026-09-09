@@ -192,9 +192,10 @@ Operator decoding, localization, and projection quarantine.
 Local fixtures prove mechanics only. A validated WAF or CAF state additionally requires one
 governed live-Azure shadow receipt from an exact pushed required-CI-green revision. The retained
 receipt contains sanitized digests and counts, is independently reviewed, and grants no execution
-authority. The validation workflow reads the already deployed WARA workload binding, current
-PostgreSQL inventory generation, and Azure management hierarchy from the private runner. It never
-runs Terraform apply.
+authority. The validation workflow selects exactly one topology-bound Workload from the current
+PostgreSQL ontology, then reads its current inventory generation and the Azure management hierarchy
+from the private runner. Zero or multiple candidates fail before provider observation. The workflow
+never runs Terraform apply.
 
 ## Related docs
 

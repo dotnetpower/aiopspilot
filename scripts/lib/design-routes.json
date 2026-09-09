@@ -2312,7 +2312,7 @@
         "rule-catalog/framework-assessments/**",
         ".github/workflows/framework-assessment-shadow.yml",
         "scripts/catalog/build_framework_assessments.py",
-        "scripts/deployment/azure/export_wara_job_context.py",
+        "scripts/deployment/azure/export_wara_database_context.py",
         "services/core-control-plane/src/fdai/core/framework_assessment/**",
         "services/core-control-plane/src/fdai/shared/providers/framework_assessment.py",
         "services/core-control-plane/src/fdai/delivery/azure/framework_assessment.py",
