@@ -131,15 +131,18 @@ async def test_drop_fetch_rejects_symlink_to_outside(tmp_path: Path) -> None:
     assert await source.fetch("escape.md") is None
 
 
-async def test_drop_skips_oversize_files(tmp_path: Path) -> None:
+async def test_drop_lists_oversize_files_without_reading_them(tmp_path: Path) -> None:
     small = tmp_path / "small.md"
     small.write_text("tiny manual", encoding="utf-8")
     big = tmp_path / "big.md"
     big.write_text("x" * 200, encoding="utf-8")
     source = DropDirectoryManualSource(tmp_path, max_bytes=100)
 
-    ids = [c.doc_id for c in await source.list_candidates()]
-    assert ids == ["small.md"]  # oversize file excluded from listing
+    candidates = await source.list_candidates()
+    assert [candidate.doc_id for candidate in candidates] == ["big.md", "small.md"]
+    oversized = candidates[0]
+    assert oversized.content_sha == ""
+    assert oversized.metadata == {"source_status": "oversize"}
     assert await source.fetch("small.md") is not None
     assert await source.fetch("big.md") is None  # oversize refused on fetch too
 

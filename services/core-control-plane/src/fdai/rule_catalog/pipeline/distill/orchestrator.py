@@ -203,11 +203,18 @@ async def build_distillation_plan(
     unique, dup_drops = dedupe_exact(triage.kept)
     filtered = triage.dropped + dup_drops
 
-    classified = await classifier.classify(unique)
-    _require_classified_covers(unique, classified)
+    held: list[HeldManual] = [
+        HeldManual(candidate=candidate, reason="source:oversize")
+        for candidate in unique
+        if candidate.metadata.get("source_status") == "oversize"
+    ]
+    classifiable = tuple(
+        candidate for candidate in unique if candidate.metadata.get("source_status") != "oversize"
+    )
+    classified = await classifier.classify(classifiable)
+    _require_classified_covers(classifiable, classified)
     procedures: list[ManualCandidate] = []
     rejected: list[ManualCandidate] = []
-    held: list[HeldManual] = []
     for item in classified:
         if item.verdict is ProcedureVerdict.PROCEDURE:
             procedures.append(item.candidate)
@@ -258,12 +265,12 @@ async def build_distillation_plan(
     # outcomes are non-terminal and must re-enter processing on the next run.
     # Uncertain / rejected / distilled outcomes are content- or
     # decision-terminal and stay recorded so deletion tracking still works.
-    sensitivity_held = {
+    retry_held = {
         held_item.candidate.source_ref
         for held_item in held
-        if held_item.reason.startswith("sensitivity:")
+        if held_item.reason.startswith(("sensitivity:", "source:"))
     }
-    retry_refs = sensitivity_held | unfetched
+    retry_refs = retry_held | unfetched
     snapshot = {ref: sha for ref, sha in snapshot_of(current).items() if ref not in retry_refs}
 
     return DistillationPlan(

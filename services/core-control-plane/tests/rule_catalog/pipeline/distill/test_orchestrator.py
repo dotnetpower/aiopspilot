@@ -323,6 +323,30 @@ async def test_empty_source_with_empty_prior_is_not_outage() -> None:
     assert plan.snapshot == {}
 
 
+async def test_oversize_candidate_is_held_without_false_retirement() -> None:
+    prior_candidate = _cand("run", labels=("proc",), sha="small")
+    oversized = ManualCandidate(
+        doc_id="run",
+        source_ref=prior_candidate.source_ref,
+        labels=prior_candidate.labels,
+        content_sha="",
+        metadata={"source_status": "oversize"},
+    )
+
+    plan = await build_distillation_plan(
+        source=FakeSource([oversized], docs={}),
+        classifier=LabelClassifier(),
+        distiller=OneRuleDistiller(),
+        previous_snapshot=snapshot_of([prior_candidate]),
+    )
+
+    assert plan.retirements == ()
+    assert [(item.candidate.doc_id, item.reason) for item in plan.held] == [
+        ("run", "source:oversize")
+    ]
+    assert plan.snapshot == {}
+
+
 async def test_vanished_document_is_skipped() -> None:
     cands = [_cand("run", labels=("proc",))]
     first = await build_distillation_plan(

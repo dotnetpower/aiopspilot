@@ -179,10 +179,10 @@ class DropDirectoryManualSource:
     downstream open decision, not this adapter's job.
 
     ``max_bytes`` caps the size of a file this adapter will read: a drop folder
-    is an untrusted input boundary, so an oversize or binary blob is skipped
-    from the listing rather than read whole into memory (which would OOM the
-    build and make the sensitivity scanner chew a single huge line). A text
-    manual well exceeding the default is almost certainly not distillable text.
+    is an untrusted input boundary, so an oversize blob remains visible as a
+    metadata-only candidate but is never read into memory. Keeping the source
+    identity in the listing prevents a read limit from being mistaken for a
+    deletion and routed to catalog retirement.
     """
 
     _SOURCE_SCHEME = "drop://"
@@ -208,12 +208,8 @@ class DropDirectoryManualSource:
         # the drop root (its real path escapes the directory), and an escaping
         # real path would otherwise crash _rel_id's relative_to(). glob does not
         # recurse into symlinked directories, so filtering symlink entries here
-        # is the complete boundary. Oversize files are skipped too (see max_bytes).
-        files = [
-            p
-            for p in self._root.glob(self._glob)
-            if p.is_file() and not p.is_symlink() and p.stat().st_size <= self._max_bytes
-        ]
+        # is the complete boundary.
+        files = [p for p in self._root.glob(self._glob) if p.is_file() and not p.is_symlink()]
         return sorted(files)
 
     def _rel_id(self, path: Path) -> str:
@@ -233,8 +229,16 @@ class DropDirectoryManualSource:
 
     def _candidate(self, path: Path) -> ManualCandidate:
         doc_id = self._rel_id(path)
-        _, content_sha, _ = self._read(path)
         stat = path.stat()
+        if stat.st_size > self._max_bytes:
+            return ManualCandidate(
+                doc_id=doc_id,
+                source_ref=f"{self._SOURCE_SCHEME}{doc_id}",
+                title=path.name,
+                last_edited=_iso_utc(stat.st_mtime),
+                metadata={"source_status": "oversize"},
+            )
+        _, content_sha, _ = self._read(path)
         return ManualCandidate(
             doc_id=doc_id,
             source_ref=f"{self._SOURCE_SCHEME}{doc_id}",

@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 216eb1aca1cd6b8ae9326baf97b182da7a9bbbc7
+translation_source_sha: 489ef0b45a31780528ab18900f900f936bc18553
 translation_revised: 2026-09-10
 ---
 
@@ -167,6 +167,10 @@ living-rules 폐기 경로처럼 다뤄진다.
 
 목록에는 있지만 가져올 수 없는 후보도 새 스냅샷에서 제외합니다. 다음 실행은 불완전한
 가져오기를 처리 완료로 잘못 간주하지 않고 내용이 바뀌지 않은 후보를 다시 시도합니다.
+
+드롭 디렉터리 어댑터는 크기 상한을 넘은 파일을 내용을 읽지 않는 메타데이터 전용 후보로
+계속 표시하고 사람 검토로 보냅니다. 따라서 읽기 상한 초과를 삭제로 오인하거나 규칙 폐기를
+트리거할 수 없습니다.
 
 ## 증류 파이프라인
 

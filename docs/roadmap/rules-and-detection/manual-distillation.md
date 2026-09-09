@@ -188,6 +188,10 @@ A candidate that appears in the listing but cannot be fetched is also excluded
 from the new snapshot. The next run retries the unchanged candidate instead of
 silently treating an incomplete fetch as processed.
 
+The drop-directory adapter keeps an oversize file visible as a metadata-only
+candidate and routes it to human review without reading its content. Crossing a
+read limit therefore cannot impersonate a deletion or trigger rule retirement.
+
 ## The distillation pipeline
 
 Offline, build-time, and staged behind the same gate every rule candidate passes.
