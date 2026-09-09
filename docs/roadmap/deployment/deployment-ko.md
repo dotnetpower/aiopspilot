@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 0de26a46085f785faf5d59a93cc71e1731c5d0fc
+translation_source_sha: bf371d77765e11fce95a6d67858293ca14ba8c58
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 암시적 상태 렌더링에서 일치하는 리소스를 찾지 못한 뒤 OI-12 기존 인벤토리 Job 조회를 mode 0600의 특정 시점 Terraform 상태 스냅샷에 결속했습니다. 실행기는 단계가 끝날 때 스냅샷을 삭제하며 추적된 주소가 정확히 하나여야 한다는 조건을 유지합니다. | `current change`; 실패한 보호 인증 `34400981555`; 실제 비공개 상태 주소 진단; 집중 작업 흐름 계약 검사. | 스냅샷 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 보호된 OI-12 인벤토리 새로 고침이 최상위 인벤토리 Job 출력보다 먼저 배포된 플랫폼 상태와 호환되도록 수정했습니다. 작업 흐름은 최상위 출력을 우선 사용하고, 이름에서 신원을 유추하지 않은 채 상태에 추적된 인벤토리 Job 리소스 하나만 정확히 확인합니다. | `current change`; 실패한 보호 인증 `34389423964`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 호환성 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기존 out-of-band Job과 rule-watcher Job을 개발 운영 게이트웨이 대상 의존성 집합에 추가했습니다. 이제 Terraform은 선언되지 않은 의존성 대상을 요구하지 않고 이미 선택한 게이트웨이 및 측정 리소스의 계획을 만들 수 있습니다. | `current change`; 실패한 보호 계획 `34316856951`; `.github/workflows/deploy-dev.yml`; 집중 workflow 대상 검사. | workflow 수정 사항을 게시하고 적용 전에 정확한 런타임 이미지 승격 계획을 다시 실행합니다. |
 | 2026-09-09 | implemented | 라이선스 필수 Trial 동작, 암호학적으로 검증된 로컬 발급자 예외, 소비자가 강제하는 30일 토큰, 다이제스트 이름의 Key Vault 시크릿을 통한 격리된 갱신 및 보호된 공개 Core 경로의 재시작 가능한 tfvars 구체화를 추가했습니다. | `current change`; 결합된 집중 회귀 검사 228개, 검토 후 기여자 검사 9개와 air-gap 제품화 검사 6개 통과, 두 Core Terraform 계층 검증 완료, 빌드한 Core wheel에 공개 키 포함 확인. | 키 없는 새 Azure 배포의 Trial, 활성 토큰이 있는 발급자 배포, 만료 차단 및 동일 이미지 갱신 증적을 보존합니다. |
@@ -275,8 +276,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   ACR 다이제스트가 동일한지 검증하고 Terraform에 연결합니다. Exact 적용은 protected 계획에
   기록된 이미지를 promote하거나 교체할 수 없습니다.
   보호된 OI-12 인벤토리 새로 고침은 인벤토리 Job의 플랫폼 최상위 출력을 우선 사용합니다.
-  배포된 상태가 해당 출력보다 오래된 경우에는 Terraform에 추적된 정확한 리소스 주소만
-  확인하며 이름 패턴으로 Job 신원을 유추하지 않습니다.
+  배포된 상태가 해당 출력보다 오래된 경우에는 mode 0600의 특정 시점 상태 스냅샷을 읽고
+  Terraform에 추적된 정확한 리소스 주소만 확인한 뒤 단계가 끝날 때 스냅샷을 삭제합니다. 이름
+  패턴으로 Job 신원을 유추하지 않습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + 의존성 + 시크릿 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.
