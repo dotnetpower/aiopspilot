@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Hardening round 9 preserved nil EndpointSlice readiness as unknown so it cannot create a complete false unready diagnosis. | `current change`; focused unknown-readiness no-signal and explicit-unready regression tests. | Complete round 10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 8 blocked complete metric coverage when provider cutoff precedes the requested interval end. | `current change`; focused collector limitation, typed-contract rejection, reducer, Ruff, and strict mypy checks. | Complete rounds 9-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 7 revalidated metric cluster, UID, namespace, point labels, source revision, and time window before Forseti signal reduction. | `current change`; focused exact-target positive, foreign cluster/UID/namespace, and future-window hold tests. | Complete rounds 8-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 6 synchronized Operator and Console allowlists with collected rollout, storage, policy, and ephemeral-container diagnostics. | `current change`; focused projection parity, Console decode, and unsupported-key rejection tests. | Complete rounds 7-10, integrated validation, and live AKS evidence. |

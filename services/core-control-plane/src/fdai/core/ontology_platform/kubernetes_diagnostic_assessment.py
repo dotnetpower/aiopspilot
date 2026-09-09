@@ -175,7 +175,8 @@ def _signals(
     if context.target.type == "kubernetes.endpoint-slice":
         endpoint_count = _count(props, "endpoint_count")
         ready = _count(props, "ready")
-        if endpoint_count > 0 and ready == 0:
+        ready_unknown = _count(props, "ready_unknown")
+        if endpoint_count > 0 and ready == 0 and ready_unknown == 0:
             signals.add(AksDiagnosticStatus.ENDPOINT_UNREADY)
     if context.target.type in {
         "kubernetes.daemon-set",

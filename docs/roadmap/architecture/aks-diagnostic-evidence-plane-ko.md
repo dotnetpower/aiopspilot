@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 057a864f66a2380232af087566415def2c062c4a
+translation_source_sha: b69785d5c4e728ef95fdc9f615e61fae45705bc4
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -117,6 +117,9 @@ Secret, 원시 Event 메시지, 엔드포인트 주소 또는 원시 로그 본�
 잘리지 않고 사용할 수 없는 상태가 됩니다.
 Operator와 Console 허용 목록은 수집된 내용 안전 롤아웃, 스토리지, 정책 및 임시 컨테이너 진단
 필드를 모두 포함합니다. 수집한 필드를 완전해 보이는 응답에서 조용히 제거하지 않습니다.
+EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_unknown`에 보존합니다. Forseti는
+엔드포인트가 하나 이상 있고 준비 및 준비 상태 미확인 수가 모두 0인 경우에만 `endpoint_unready`를
+만듭니다.
 
 ### 수명 주기 이력
 

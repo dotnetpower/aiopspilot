@@ -43,6 +43,8 @@ and owning designs. Use it instead of the retired top-level application tree.
   and time window match the exact diagnostic context. A mismatch produces a held conflict. The
   shared metric contract permits complete coverage only when provider cutoff reaches the requested
   interval end.
+- **AKS endpoint admission:** The same reducer retains omitted EndpointSlice readiness as unknown.
+  It cannot convert a nil readiness value into a complete `endpoint_unready` signal.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

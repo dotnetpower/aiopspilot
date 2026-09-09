@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d770d28e0675a5867a4897d66b460802c2bbe560
+translation_source_sha: 06d42a92eed6ed5cc2995ea9a2f241db887cbd6c
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -45,6 +45,8 @@ translation_revised: 2026-09-10
   네임스페이스, 지점 레이블, 출처 revision 및 시간 구간이 정확한 진단 맥락과 일치할 때만 메트릭
   신호를 수락합니다. 불일치는 보류된 충돌을 만듭니다. 공유 메트릭 계약은 프로바이더 기준 시점이
   요청 구간의 끝에 도달한 경우에만 완전한 범위를 허용합니다.
+- **AKS 엔드포인트 수락:** 같은 축약기는 생략된 EndpointSlice 준비 상태를 알 수 없음으로
+  보존합니다. null 준비 상태를 완전한 `endpoint_unready` 신호로 바꿀 수 없습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

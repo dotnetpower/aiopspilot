@@ -162,6 +162,22 @@ def test_incomplete_evidence_holds_when_no_positive_signal_exists() -> None:
     assert result.evidence_gaps == ("required_evidence_incomplete",)
 
 
+def test_endpoint_with_nil_readiness_does_not_become_a_false_failure() -> None:
+    result = assess_aks_diagnostic(
+        _context(
+            _target(
+                "kubernetes.endpoint-slice",
+                endpoint_count=1,
+                ready=0,
+                ready_unknown=1,
+            )
+        )
+    )
+
+    assert result.status is AksDiagnosticStatus.NO_FAILURE_SIGNAL
+    assert AksDiagnosticStatus.ENDPOINT_UNREADY not in result.signals
+
+
 def test_conflicting_source_identity_holds_even_with_positive_signal() -> None:
     result = assess_aks_diagnostic(
         _context(

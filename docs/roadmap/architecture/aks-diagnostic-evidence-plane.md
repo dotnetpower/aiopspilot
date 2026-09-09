@@ -118,6 +118,9 @@ instead of being silently truncated.
 Operator and Console allowlists cover every content-safe collected rollout, storage, policy, and
 ephemeral-container diagnostic field. A collected field is not silently removed from a
 complete-looking response.
+EndpointSlice readiness keeps omitted or null `ready` values in `ready_unknown`. Forseti emits
+`endpoint_unready` only when at least one endpoint exists and both ready and unknown-ready counts
+are zero.
 
 ### Lifecycle history
 
