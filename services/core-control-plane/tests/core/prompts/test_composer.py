@@ -398,6 +398,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
     assert "Resource name-fragment objective" in out.system_text
     assert [layer.id for layer in out.layer_manifest] == [
         "semantic-judgment",
+        "semantic-incident-action-guidance",
         "semantic-resource-name-filter",
         "semantic-sre-diagnostic",
     ]
