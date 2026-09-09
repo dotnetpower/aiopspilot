@@ -163,7 +163,8 @@ transition when the VM size or OS placement must change.
 When a reviewed blue/green transition promotes an existing candidate, set `runner_vm_name` to that
 VM's current name before importing its VM and network interface into bootstrap state. The
 `infra-drift` workflow reads the deployment-specific value from `DEPLOY_RUNNER_VM_NAME`. Leave the
-variable empty for the canonical `vm-runner-<workload>-<env>-<region_short>` name.
+variable empty for the canonical `vm-runner-<workload>-<env>-<region_short>` name. Bootstrap
+preserves the adopted image reference; replace it only through an explicit reviewed taint.
 
 The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` before the bootstrap
 plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an

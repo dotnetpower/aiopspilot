@@ -97,6 +97,7 @@ def test_runner_uses_sustained_compute_and_an_ephemeral_resource_disk() -> None:
     assert 'storage_account_type = "Standard_LRS"' in main
     assert 'option    = "Local"' in main
     assert 'placement = "ResourceDisk"' in main
+    assert "ignore_changes = [custom_data, source_image_id, source_image_reference]" in main
     assert 'condition     = var.runner_auto_shutdown_time == ""' in main
 
 

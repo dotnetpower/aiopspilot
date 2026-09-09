@@ -220,11 +220,11 @@ resource "azurerm_linux_virtual_machine" "runner" {
     runner_user        = var.runner_admin_username
   }))
 
-  # Do not replace the runner on a cloud-init edit or a new "latest" image:
-  # replacing the VM destroys the registered GitHub runner (and any in-flight
-  # job). Re-provision deliberately (taint) when the bootstrap really changes.
+  # Do not replace the runner when an adopted image reference or cloud-init
+  # differs: replacement destroys the registered GitHub runner and any
+  # in-flight job. Re-provision deliberately (taint) after a reviewed cutover.
   lifecycle {
-    ignore_changes = [custom_data, source_image_reference[0].version]
+    ignore_changes = [custom_data, source_image_id, source_image_reference]
 
     precondition {
       condition     = var.runner_auto_shutdown_time == ""
