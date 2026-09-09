@@ -215,17 +215,17 @@ bitmap signatures produce metadata-only envelopes with no text units, so image b
 prompt instructions. Deployments bind vendor credential fetchers as part of the P0-15 channel
 composition; arbitrary attachment URLs are not a supported seam.
 
-Teams ingress separates two identities. `BotFrameworkJwtAuthenticator` verifies the Bot Framework
+Teams ingress separates two identities. `TeamsServiceTokenVerifier` verifies the Bot Framework
 service token against cached JWKS with RS256 signature, app audience, Bot Framework issuer,
 expiration/not-before, and required `serviceurl`. The route then requires the activity
 `serviceUrl` and `channelId=msteams` to match that verified service identity. Only after that check
-does `TeamsPrincipalResolver` validate the activity tenant and map `from.aadObjectId` to a bounded,
+does `ChannelPrincipalResolver` validate the activity tenant and map `from.aadObjectId` to a bounded,
 configured canonical FDAI principal. A service-token failure returns `401`; an unknown tenant or
 user binding returns `403`; neither reaches the channel queue. The vendor id is replaced by the
 canonical principal before the conversation gateway sees the turn.
 
-Production composition reads `FDAI_TEAMS_BOT_APP_ID`, optional HTTPS issuer/JWKS overrides,
-`FDAI_TEAMS_TENANT_ID`, and `FDAI_TEAMS_PRINCIPAL_BINDINGS_JSON`. The binding map is a non-empty
+Production composition reads `FDAI_TEAMS_APPLICATION_ID`, optional HTTPS issuer/JWKS overrides,
+`FDAI_TEAMS_TENANT_ID`, and `FDAI_TEAMS_PRINCIPAL_MAP_JSON`. The binding map is a non-empty
 string-to-string JSON object capped at 1000 entries. Missing, malformed, or unbounded configuration
 fails at startup. The Bot service token authenticates the channel service; it never substitutes
 for the operator's Entra principal or grants an FDAI role.
@@ -425,21 +425,21 @@ to an Entra security group.
   ("Owner adds a person to `aw-approvers` in the Portal" → they immediately see the next
   digest and every A1/A2/A3 post). This keeps administration in one surface
   ([user-rbac-and-identity.md §4.2](user-rbac-and-identity.md#42-security-groups-slots)).
-- **In-message `@mentions`** call out artifact-owners inside a channel post (e.g. the
-  requester of an expiring exemption). Mentions are derived from artifact metadata
-  (`requested_by`, PR author, rule author) already carried in the audit stream - no Graph
-  lookup at digest time.
-- **Role-derived direct messaging** is used **only** for break-glass usage summary
-  (small, time-critical audience where a channel post is not enough). Every other A4
-  digest is channel-only.
+- **In-message `@mentions`** are the declared design for calling out artifact-owners inside
+  a channel post (e.g. the requester of an expiring exemption), derived from artifact
+  metadata (`requested_by`, PR author, rule author) already carried in the audit stream - no
+  Graph lookup at digest time - but the matrix loader does not yet enforce this mode.
+- **Role-derived direct messaging** is the declared design for break-glass usage summary
+  only (small, time-critical audience where a channel post is not enough); every other A4
+  digest stays channel-only, and this mode too is not yet enforced by the matrix loader.
 
 Allowed audience modes for a digest entry:
 
 | Mode | Meaning | Where allowed |
 |------|---------|---------------|
 | `channel: <id>` | post to a channel/DL; membership managed via Entra group binding | A2, A3, A4 (default) |
-| `mention-artifact-owner` | additive: `@mention` the artifact's owner inside a channel post | A4 (opt-in per digest) |
-| `role-dm: <RoleName>` | Graph-lookup members of `aw-<role>`, DM each | A4 **only for break-glass** (deny-listed elsewhere at config load) |
+| `mention-artifact-owner` | additive: `@mention` the artifact's owner inside a channel post | Declared design; not yet enforced by the matrix loader |
+| `role-dm: <RoleName>` | Graph-lookup members of `aw-<role>`, DM each | Declared design; not yet enforced by the matrix loader |
 
 ### 5.2 Proactive Stakeholder Briefing (A4 synthesis)
 
@@ -514,11 +514,11 @@ matrix:
   `notification_route_unavailable` lifecycle record at `INFO` and keeps fail-closed HIL escalation.
 - **Incident severity escalation** - A committed monotonic severity increase emits one A2
   `severity_changed` notice. Its stable audit id deduplicates immediate delivery and startup replay.
-- **`role-dm` is deny-listed except for `break_glass_usage_summary`.** Any other digest
-  attempting `role-dm` fails at config load.
-- **Digests declaring `mention-artifact-owner` MUST specify a valid metadata field**
-  (`rule_author`, `override_requester`, `exemption_requester`, `pr_author_and_reviewers`);
-  unknown values fail at config load.
+- **`role-dm` and `mention-artifact-owner` are declared design, not yet enforced.** The matrix
+  loader (`core/notifications/matrix.py`) validates declared channels, trust tiers, and
+  `on_all_fail`/`default_route` structure today; a `role-dm` deny-list limited to
+  `break_glass_usage_summary` and a `mention-artifact-owner` metadata-field check remain open
+  follow-up work, not current config-load behavior.
 - **Bounded retries** - each adapter declares its own retry budget; router escalates to
   the next channel or to `on_all_fail` on exhaustion.
 - **Durable A1 decisions** - `fdai-api` records the normalized approver, decision, and receipt
@@ -528,9 +528,9 @@ matrix:
   receipt without republishing. A different actor or decision is a conflict. Startup and periodic
   recovery drain undelivered receipts without another human action. Delivery attempts persist and
   become `abandoned` at the configured ceiling; terminal delivery state never regresses.
-  `FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
-  `FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`, and
-  `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS` set the production bounds.
+  `HilDecisionRecoveryConfig` sets the recovery interval, per-attempt publish timeout, and
+  delivery-attempt ceiling as constructor defaults; the recovery loop has no environment-variable
+  override wiring in production composition today.
 - **Rate policy stays deployment-owned** - tenant-specific approver rate, quiet-hour, and fatigue
   limits belong in authenticated ingress and routing configuration. They never weaken registry
   idempotency, expiry, quorum, or the no-self-approval checks.
@@ -554,7 +554,7 @@ matrix:
   pending park to terminal `timeout` and appends one audit entry across replicas. Late callbacks
   return the existing timeout and never execute. The load controller does not emit one A2 message
   per expired item; a notification layer can aggregate the audit signals into a bounded A2/A4
-  summary ([security-and-identity.md](../architecture/security-and-identity.md#hil-approval-integrity)).
+  summary ([security-and-identity.md](../architecture/security-and-identity.md#human-approval-integrity)).
 
 ## 7. Channel-Specific Notes
 

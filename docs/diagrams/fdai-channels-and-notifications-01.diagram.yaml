@@ -14,8 +14,8 @@ locales:
   ko:
     title: 2. 아키텍처 상 채널의 위치
     description: 2. 아키텍처 상 채널의 위치에 대한 FDAI 흐름입니다.
-    alt: 2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter,
-      slack adapter, email adapter, webhook adapter, pager adapter, fdai-api입니다.
+    alt: 2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, 채널 인터페이스, teams 어댑터,
+      slack 어댑터, email 어댑터, webhook 어댑터, pager 어댑터, fdai-api입니다.
 canvas:
   width: 1600
   height: 990
@@ -70,42 +70,42 @@ nodes:
     shape: card
     label:
       en: Channel interface
-      ko: Channel interface
+      ko: 채널 인터페이스
   - id: t
     parent: delivery
     kind: process
     shape: card
     label:
       en: teams adapter
-      ko: teams adapter
+      ko: teams 어댑터
   - id: s
     parent: delivery
     kind: process
     shape: card
     label:
       en: slack adapter
-      ko: slack adapter
+      ko: slack 어댑터
   - id: e
     parent: delivery
     kind: process
     shape: card
     label:
       en: email adapter
-      ko: email adapter
+      ko: email 어댑터
   - id: w
     parent: delivery
     kind: process
     shape: card
     label:
       en: webhook adapter
-      ko: webhook adapter
+      ko: webhook 어댑터
   - id: p
     parent: delivery
     kind: process
     shape: card
     label:
       en: pager adapter
-      ko: pager adapter
+      ko: pager 어댑터
   - id: api
     kind: process
     shape: card
@@ -131,7 +131,7 @@ edges:
     kind: request
     label:
       en: category-tagged / message
-      ko: category-tagged / message
+      ko: 카테고리 태그 / 메시지
   - id: flow-05
     from: ch
     to: t
