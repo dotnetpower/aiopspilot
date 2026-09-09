@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 15d9f05205aa2e09a862962e66d9b1c63ed6ce83
+translation_source_sha: 4f3400cd0497f75aaad859b9ace1b3449333012c
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -25,10 +25,9 @@ translation_revised: 2026-09-10
   승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
-- **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
-- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
-- **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
-  저장소 검사를 소유합니다.
+- **서비스 소유 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다. 추적된 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.
+- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. 실행 장소 기능 게이트도 같은 패키지를 검사합니다. `pytest-timeout` 기본값은 테스트당 120초 상한이며, 중단된 테스트 하나가 xdist 샤드를 무기한 차단하지 못하게 합니다. 전체 카탈로그를 두 번 조립하는 결정성 증명만 범위가 제한된 240초 예외를 사용합니다. `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프해 진단 근거를 보존합니다.
+- **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및 저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
   시작합니다. 이 경계는 매핑, 평가, 실행 권한을 부여하지 않으며 시작 실패 시 획득한 서비스를 정리합니다.
@@ -76,8 +75,14 @@ catalog 값 필터를 추가하지 않습니다.
 결정론적 frame과 닫힌 FunctionType 인자로 compile됩니다. 이 경로는 lexical route를 추가하거나
 권한을 부여하지 않습니다.
 매니페스트 개수 judgment가 메타타입 target을 누락하면 Core는 이미 typed된 count facet에서 선언
-kind 하나만 복구할 수 있습니다. Operator presentation은 표준 `aggregate` operation을 수락하고
-독립 oracle 검증에 필요한 구조화 count를 보존합니다.
+kind 하나만 복구할 수 있습니다. 선언 및 관계 조회도 typed facet에 인코딩된 제공 스키마 객체
+하나만 복구할 수 있습니다. Operator presentation은 표준 `aggregate` operation을 수락하고 독립
+oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` 같은 표준 메타타입 subject는
+답변 rendering에서만 정규화합니다. 선언 답변은 스키마 메타데이터와 현재 객체 관측값을 명시적으로
+구분합니다.
+모델이 범위가 제한된 온톨로지 선언 개수 별칭을 제안하면
+`semantic_judgment_capabilities.py`가 이를 제공된 `query.manifest` FunctionType과 형식화된 선언 종류
+개수 facet 하나로 다시 작성한 후 계획을 시작합니다. 해당 FunctionType이 없으면 제안을 거부합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
@@ -450,8 +455,8 @@ collection을 소유합니다. Console instance presentation은 role assignment�
 non-scope root의 immediate Resource Group 하나만 유지하며 provider relationship을 추가하지 않고
 evidence-backed AKS managed group, VMSS, VM, NIC hierarchy를 렌더링합니다.
 
-Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다. 해당
-테스트는 Core 소유 테스트 트리에 유지합니다.
+Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다.
+테스트는 Core 소유 트리에 유지하며, 개별 CI 샤드는 자체 하한 없이 기록하고 집계 job이 모든 샤드를 결합해 90% 하한을 적용합니다.
 
 온톨로지 조회 실행은 런타임에서 exact release, 매니페스트, 역할 및 용도를 다시 검사합니다.
 범위가 제한된 의존성 wave는 노드 기한에 큐 wait를 포함하고 in-flight 취소를 전파하며

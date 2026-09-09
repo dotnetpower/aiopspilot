@@ -84,16 +84,7 @@ def build_ontology_schema_frame(
         return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
     if judgment.primary_intent != ONTOLOGY_DECLARATION_FUNCTION_NAME:
         return None
-    declared_subjects = {
-        target.canonical_value
-        for target in judgment.targets
-        if target.canonical_value is not None
-        and any(
-            descriptor.get("kind") in {"action", "link", "object"}
-            and descriptor.get("name") == target.canonical_value
-            for descriptor in descriptors
-        )
-    }
+    declared_subjects = schema_subjects_from_judgment(judgment, descriptors=descriptors)
     if ONTOLOGY_DECLARATION_FUNCTION_NAME not in available_functions or len(declared_subjects) != 1:
         return None
     measures = tuple(
@@ -119,24 +110,61 @@ def build_ontology_schema_frame(
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
+def schema_subjects_from_judgment(
+    judgment: SemanticJudgmentProposal,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> set[str]:
+    """Resolve one schema subject only from typed targets or facets and supplied descriptors."""
+
+    declared_subjects = {
+        target.canonical_value
+        for target in judgment.targets
+        if target.canonical_value is not None
+        and any(
+            descriptor.get("kind") in {"action", "link", "object"}
+            and descriptor.get("name") == target.canonical_value
+            for descriptor in descriptors
+        )
+    }
+    if declared_subjects:
+        return {subject for subject in declared_subjects if subject is not None}
+    normalized_facets = {
+        facet.replace("_", "").replace("-", "").casefold() for facet in judgment.requested_facets
+    }
+    descriptor_names = {
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") in {"action", "link", "object"}
+        if isinstance((name := descriptor.get("name")), str)
+    }
+    exact_subjects = {name for name in descriptor_names if name.casefold() in normalized_facets}
+    if exact_subjects:
+        return exact_subjects
+    return {
+        name
+        for name in descriptor_names
+        if any(facet.startswith(name.casefold()) for facet in normalized_facets)
+    }
+
+
 def _declaration_kinds_from_judgment(
     judgment: SemanticJudgmentProposal,
 ) -> set[OntologyDeclarationKind]:
-    declaration_kinds = {
+    target_kinds = {
         declaration_kind
         for target in judgment.targets
         if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
     }
-    if declaration_kinds:
-        return declaration_kinds
     normalized_facets = {
         facet.replace("_", "").replace("-", "") for facet in judgment.requested_facets
     }
-    return {
+    facet_kinds = {
         declaration_kind
         for declaration_kind in OntologyDeclarationKind
         if any(f"{declaration_kind.value}type" in facet for facet in normalized_facets)
     }
+    return target_kinds | facet_kinds
 
 
 def _is_schema_read_intent(primary_intent: str) -> bool:

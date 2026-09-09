@@ -4313,9 +4313,8 @@ def _render_ontology_declaration_count_answer(
 
     if output_shape != "aggregation_table" or len(outputs) != 1 or len(subject_constraints) != 1:
         return None
-    try:
-        declaration_kind = OntologyDeclarationKind(subject_constraints[0])
-    except ValueError:
+    declaration_kind = _answer_declaration_kind(subject_constraints[0])
+    if declaration_kind is None:
         return None
     output = outputs[0]
     complete = output.get("source_complete") is True and output.get("display_truncated") is not True
@@ -4377,6 +4376,18 @@ def _render_ontology_declaration_count_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _answer_declaration_kind(subject: str) -> OntologyDeclarationKind | None:
+    try:
+        return OntologyDeclarationKind(subject)
+    except ValueError:
+        if not subject.endswith("Type"):
+            return None
+    try:
+        return OntologyDeclarationKind(subject.removesuffix("Type").casefold())
+    except ValueError:
+        return None
 
 
 def _render_ontology_declaration_answer(
@@ -4468,7 +4479,9 @@ def _render_ontology_declaration_answer(
             f"- 읽기 허용 속성: {property_summary}\n"
             f"- 속성 제외 사유: {redaction_summary}\n"
             "- 읽기 전용 출처: 역할과 목적으로 범위가 제한된 "
-            "`query.ontology_declaration`.\n\n"
+            "`query.ontology_declaration`.\n"
+            "- 범위 경계: 온톨로지 선언 메타데이터이며, 현행 객체 인스턴스의 관측값이 "
+            "아닙니다.\n\n"
             "### 정확한 선언 명세\n\n"
             f"```json\n{declaration_json}\n```\n\n"
             "이 결과는 읽기 전용이며 실행 또는 변경 권한을 부여하지 않습니다."
@@ -4486,7 +4499,9 @@ def _render_ontology_declaration_answer(
         f"- Readable properties: {property_summary}\n"
         f"- Property redaction reasons: {redaction_summary}\n"
         "- Read-only source: role- and purpose-scoped "
-        "`query.ontology_declaration`.\n\n"
+        "`query.ontology_declaration`.\n"
+        "- Scope boundary: this is ontology declaration metadata, not observed values for a "
+        "current object instance.\n\n"
         "### Exact declaration\n\n"
         f"```json\n{declaration_json}\n```\n\n"
         "This result is read-only and grants no execution or mutation authority."

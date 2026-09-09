@@ -22,10 +22,9 @@ and owning designs. Use it instead of the retired top-level application tree.
   inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
   and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
   `BuildStatus`; canonical ontology projection keeps that child source and effective time.
-- **Service-owned tests:** Unit and component tests live beside their owning service or package.
-- **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
-- **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
-  and repository checks.
+- **Service-owned tests:** Unit and component tests live beside their owning service or package; tracked release catalogs bind a reachable source revision and exact cited blobs.
+- **Virtual root:** The root `pyproject.toml` has `package = false`, coordinates the uv workspace, and enumerates every service `src` root plus the independent deployment CLI for root pytest collection. The venue-capability gate scans the same packages. `pytest-timeout` defaults to a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; the two-pass full-catalog determinism proof declares a bounded 240 s exception. `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
+- **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology, and repository checks.
 - **Operator startup revision fence:** Production Operator composition delegates resolved-model source
   construction, verifies its immutable digest, and validates local Azure narrator targets from that
   revision before Cost Governance or other lifecycle bridges start. The fence grants no mapping,
@@ -59,8 +58,15 @@ Accepted manifest-count, exact declaration-detail, and single-ObjectType schema-
 judgments likewise compile deterministic frames and closed FunctionType arguments. They do not
 introduce a lexical route or grant authority.
 When a manifest-count judgment omits its metatype target, Core can recover only one declaration
-kind from its already typed count facets. Operator presentation accepts the canonical `aggregate`
-operation and preserves its structured count for independent oracle verification.
+kind from its already typed count facets. Declaration and relationship reads can likewise recover
+only one supplied schema object encoded in typed facets. Operator presentation accepts the
+canonical `aggregate` operation and preserves its structured count for independent oracle
+verification.
+Canonical metatype subjects such as `FunctionType` normalize only for answer rendering. Declaration
+answers explicitly distinguish schema metadata from current object observations.
+When a model proposes a bounded ontology declaration-count alias,
+`semantic_judgment_capabilities.py` rewrites it to the supplied `query.manifest` FunctionType and
+one typed declaration-kind count facet before planning. Without that FunctionType, the proposal is rejected.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
@@ -457,8 +463,8 @@ attachment mappings. The Console instance presentation omits role assignments, k
 selected non-scope root's immediate Resource Group, and renders the evidence-backed AKS managed
 group, VMSS, VM, and NIC hierarchy without adding provider relationships.
 
-The safety-core coverage floor applies to the deterministic tier and risk gate inside the Core
-package. Their tests remain under the Core-owned test tree.
+The safety-core coverage floor applies to the deterministic tier and risk gate inside the Core package.
+Tests remain under the Core-owned tree; shards record without a local floor, and the aggregate job combines every shard and enforces 90 percent.
 
 Ontology query execution rechecks the exact release, manifest, role, and purpose at runtime. Its
 bounded dependency waves include queue wait in each node deadline, propagate in-flight

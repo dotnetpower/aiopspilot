@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -22,12 +24,31 @@ def _request(query: str, *, locale: str = "en") -> SystemKnowledgeQueryRequest:
     )
 
 
+def _git(*arguments: str) -> subprocess.CompletedProcess[str]:
+    git = shutil.which("git")
+    assert git is not None
+    return subprocess.run(  # noqa: S603 - resolved git executes fixed test-owned arguments
+        [git, *arguments],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_packaged_catalog_matches_current_reviewed_sources() -> None:
     packaged = load_catalog(CATALOG_PATH)
     rebuilt = compile_reference_catalog(REPO_ROOT, generated_at=packaged.generated_at)
 
-    assert rebuilt.catalog_digest == packaged.catalog_digest
-    assert rebuilt.source_revision == packaged.source_revision
+    assert rebuilt.records == packaged.records
+    if _git("rev-parse", "--is-shallow-repository").stdout.strip() == "false":
+        _git("merge-base", "--is-ancestor", packaged.source_revision, "HEAD")
+        for record in packaged.records:
+            for source in record.sources:
+                assert (
+                    _git("rev-parse", f"{packaged.source_revision}:{source.path}").stdout.strip()
+                    == source.blob_sha
+                )
     assert len(rebuilt.records) == 14
 
 

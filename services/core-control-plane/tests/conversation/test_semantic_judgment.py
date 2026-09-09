@@ -316,6 +316,60 @@ def test_does_not_normalize_kubernetes_event_history_without_the_function() -> N
     assert result.proposal.primary_intent == "query.kubernetes_event_history"
 
 
+@pytest.mark.parametrize(
+    ("proposed_intent", "expected_facet"),
+    (
+        ("query.ontology_action_type_count", "action_type_count"),
+        ("query.ontology_function_type_count", "function_type_count"),
+        ("query.ontology_interface_type_count", "interface_type_count"),
+        ("query.ontology_link_type_count", "link_type_count"),
+        ("query.ontology_object_type_count", "object_type_count"),
+    ),
+)
+def test_normalizes_ontology_count_alias_to_the_supplied_manifest_function(
+    proposed_intent: str,
+    expected_facet: str,
+) -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=proposed_intent,
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Count the declarations in the active ontology release.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.manifest"},),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.manifest"
+    assert result.proposal.requested_facets == (expected_facet,)
+
+
+def test_rejects_ontology_count_alias_without_the_manifest_function() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_action_type_count",
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Count ActionTypes.",
+        context=(),
+        capabilities=(),
+    )
+
+    assert result.accepted is False
+    assert result.proposal is None
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+
+
 def test_preserves_measured_provider_observation_without_changing_proposal_validation() -> None:
     observation = SemanticJudgmentObservation(
         model="semantic-test",

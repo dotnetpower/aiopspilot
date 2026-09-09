@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: dc295f3301909c675e6a5b1c31100035b44f94e4
+translation_source_sha: 32c154e90298af1e35b2ffe4457c79a39ad8bde3
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -107,8 +107,8 @@ CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니�
 결정론적 표현 플래너가 검증된 근거 형태에서 렌더러 중립 블록을 선택하고, 브라우저
 시나리오가 실제 표현 결과를 평가합니다.
 
-로컬 SRE 보증 catalog는 매니페스트에 근거한 ActionType 및 FunctionType 개수, Resource 및
-Incident 선언 상세 정보, Resource 관계 질문도 정의합니다. Ephemeral runtime이
+로컬 SRE 보증 catalog는 매니페스트에 근거한 선언 kind 개수 5개, ObjectType 선언 상세 질문 8개,
+ObjectType 관계 질문 6개도 정의합니다. Ephemeral runtime이
 `query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`를
 `server_ontology_manifest` 권한의 evidence-ready 상태로 증명할 때만 해당 challenge를
 선택합니다. Service Health를 보완하되 사용할 수 없는 Resource 상태 또는 Resource Health
@@ -166,6 +166,9 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 소진된 SRE 스키마 질문 공간을 선언 kind 개수 3개, 선언된 ObjectType 6개, 관계 subject 5개로 확장했습니다. 모두 같은 evidence-ready 함수와 서버 권한으로 gate하며 count 계약은 제공된 `query.manifest` intent를 사용합니다. | `current change`, 불변 question-contract, runtime challenge, Ruff 및 안전 테스트 | 이전 ledger 질문을 삭제하거나 재사용하지 않고 새로운 child campaign을 실행합니다. |
+| 2026-09-10 | implemented | 보존된 후단 count-intent 후보를 거부하고 semantic judgment에서 모델 count alias를 제공된 manifest 기능으로 정규화했습니다. | `current change`, 집중 기능 경계 및 planning 테스트 | 만들어 낸 기능을 수락하지 않고 새로운 ActionType 및 FunctionType 질문이 통과하는지 확인합니다. |
+| 2026-09-10 | implemented | Typed facet에서 제공된 선언 또는 관계 subject 하나를 복구하고 표준 메타타입 count label을 정규화했으며 스키마와 인스턴스 답변 경계를 추가하고 독립 reviewer 입력의 JSON-safe URL redaction을 수정했습니다. | `current change`, 집중 Core rendering, schema-frame 및 watchdog redaction 회귀 | 실패한 질문을 재사용하지 말고 새로운 unique-question series를 실행합니다. |
 | 2026-09-10 | implemented | Typed count facet 및 collection-scope 정규화로 모델 변동 간격 2개를 닫고 count oracle이 구조화 출력을 검사할 수 있도록 표준 aggregate presentation을 허용했습니다. | `current change`, 집중 Core, Operator presentation 및 answer-gate 회귀 | 커밋 뒤 새로운 active-profile CQAS series를 실행합니다. |
 | 2026-09-10 | implemented | Collection-wide history 범위를 보존하고 독립적으로 요청한 action advice를 forbidden action에서 제외하도록 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 두 live cohort를 다시 실행합니다. |
 | 2026-09-10 | implemented | 첫 v15 기존 cohort에서 발견한 exact-span 및 forbidden operation kind 회귀를 닫도록 cumulative shadow semantic-judgment v16을 추가했습니다. | `current change`, 집중 prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 clean committed source에서 두 cohort를 다시 실행합니다. |
