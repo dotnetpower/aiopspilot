@@ -577,6 +577,52 @@ def test_bilingual_action_posture_receipts_are_typed_and_authority_free(
     assert result.receipt.execution_authority is False
 
 
+@pytest.mark.parametrize(
+    ("locale", "expected_clarification"),
+    [
+        ("en", "Which exact incident ID should the mitigation draft use?"),
+        ("ko", "완화 초안에 사용할 정확한 장애 ID는 무엇인가요?"),
+    ],
+)
+def test_targetless_incident_mitigation_draft_requires_typed_identity_clarification(
+    locale: str,
+    expected_clarification: str,
+) -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="action_request",
+                targets=[],
+                requested_facets=["incident_mitigation", "draft"],
+                action_posture="draft_only",
+                action_subject="Incident",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=(
+            "검토 전용 장애 완화 초안을 작성해 주세요."
+            if locale == "ko"
+            else "Draft a review-only incident mitigation proposal."
+        ),
+        context=(),
+        capabilities=(
+            {"kind": "intent", "name": "action_request"},
+            {"kind": "object_type", "name": "Incident"},
+        ),
+        allow_escalation=False,
+        locale=locale,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.CLARIFICATION
+    assert result.proposal is not None
+    assert result.proposal.unresolved_terms == ("incident_identity",)
+    assert result.proposal.clarification == expected_clarification
+    assert result.proposal.targets == ()
+    assert result.proposal.execution_authority is False
+
+
 def test_malformed_t1_escalates_once_to_valid_t2() -> None:
     t1 = _Model({"primary_intent": "broken"})
     t2 = _Model(_proposal())

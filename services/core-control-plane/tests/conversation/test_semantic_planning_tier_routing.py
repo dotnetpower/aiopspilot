@@ -79,6 +79,7 @@ from fdai.core.conversation.semantic_planning_frame_checks import (
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
     ClarificationRequirement,
+    SemanticAdvisoryResponseIntent,
     SemanticDirectResponseIntent,
     SemanticFrameProposal,
     SemanticOutputShape,
@@ -476,6 +477,44 @@ class _IncidentDraftJudgmentModel:
         return {
             "primary_intent": "action_request",
             "targets": [],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Incident",
+            "execution_authority": False,
+        }
+
+
+class _IncidentRequirementsJudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        value = "장애" if "장애" in utterance else "incident"
+        source_start = utterance.index(value)
+        return {
+            "primary_intent": "action_requirements",
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": value,
+                    "canonical_value": "Incident",
+                    "source_start": source_start,
+                    "source_end": source_start + len(value),
+                }
+            ],
+            "requested_facets": ["incident_mitigation", "requirements"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+
+
+class _TargetlessIncidentDraftJudgmentModel:
+    def judge(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "primary_intent": "action_request",
+            "targets": [],
+            "requested_facets": ["incident_mitigation", "draft"],
             "confidence": 0.95,
             "ambiguous": False,
             "action_posture": "draft_only",
@@ -5591,6 +5630,143 @@ def test_action_draft_frame_terminates_before_plan_without_t2() -> None:
     assert outcome.frame.output_shape == "action_draft"
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("locale", "utterance", "expected_fragment"),
+    [
+        (
+            "en",
+            "What information is required for a review-only incident mitigation draft?",
+            "exact incident identity",
+        ),
+        (
+            "ko",
+            "검토 전용 장애 완화 초안에는 어떤 정보가 필요한가요?",
+            "정확한 장애 ID",
+        ),
+    ],
+)
+async def test_targetless_incident_requirements_return_bounded_advisory_terminal(
+    locale: str,
+    utterance: str,
+    expected_fragment: str,
+) -> None:
+    incident = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Incident",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(incident,))
+    frame_model = _Model(frame=None, plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_IncidentRequirementsJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    runtime = SemanticConversationRuntime(
+        planner=SemanticPlanningService(
+            model=frame_model,
+            semantic_judgment=judgment,
+            manifests=_ManifestProvider(manifest),
+            verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+            now=lambda: NOW,
+        ),
+        executor=object(),  # type: ignore[arg-type]
+    )
+
+    result = await runtime.handle(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        locale=locale,
+    )
+
+    assert result.disposition == "advisory_response"
+    assert result.reason == "semantic_advisory_response"
+    assert result.execution is None
+    assert result.execution_authority is False
+    assert result.planning.advisory_response_intent is (
+        SemanticAdvisoryResponseIntent.INCIDENT_MITIGATION_REQUIREMENTS
+    )
+    assert result.adaptive_answer is not None
+    assert expected_fragment in result.adaptive_answer.answer
+    assert result.adaptive_answer.goals[0].goal_id == "incident_mitigation_requirements"
+    assert result.adaptive_answer.goals[0].evidence_refs == ()
+    assert result.adaptive_answer.execution_authority is False
+    assert (frame_model.frame_calls, frame_model.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("locale", "utterance", "expected_clarification"),
+    [
+        (
+            "en",
+            "Draft a review-only incident mitigation proposal.",
+            "Which exact incident ID should the mitigation draft use?",
+        ),
+        (
+            "ko",
+            "검토 전용 장애 완화 초안을 작성해 주세요.",
+            "완화 초안에 사용할 정확한 장애 ID는 무엇인가요?",
+        ),
+    ],
+)
+def test_targetless_incident_draft_clarifies_without_frame_or_plan(
+    locale: str,
+    utterance: str,
+    expected_clarification: str,
+) -> None:
+    incident = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Incident",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(incident,))
+    frame_model = _Model(frame=None, plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_TargetlessIncidentDraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+
+    outcome = SemanticPlanningService(
+        model=frame_model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale=locale,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.clarification == expected_clarification
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.ACTION_DRAFT
+    assert outcome.frame.subject_constraints == ("Incident",)
+    assert outcome.frame.unresolved_terms == ("incident_identity",)
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert (frame_model.frame_calls, frame_model.plan_calls) == (0, 0)
 
 
 @pytest.mark.parametrize(

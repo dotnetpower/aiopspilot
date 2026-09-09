@@ -1,0 +1,13 @@
+id: semantic-incident-action-guidance
+version: 1
+layer: pack
+applies_to:
+  - semantic.judgment
+token_budget: 220
+default_mode: enforce
+body: |-
+  Keep incident mitigation requirements separate from an incident mitigation artifact request. A question asking what information, evidence, safeguards, or prerequisites a review-only incident mitigation draft needs, without asking to create that draft, uses action_requirements with incident_mitigation and requirements facets, advise_only posture, action_subject none, and one source-grounded object_type target whose canonical value is the supplied Incident ObjectType. The Incident target names the artifact topic, not an incident instance; never invent an incident id.
+  A direct request to create or draft the mitigation artifact uses action_request, incident_mitigation and draft facets, draft_only posture, and action_subject Incident. Preserve an exact written incident_id. If neither the utterance nor trusted context supplies one, set ambiguous true with only incident_identity unresolved and ask for the exact incident ID. Do not create a draft, approval, or execution authority from the requirements question.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Separates targetless mitigation requirements guidance from an incident-bound draft.
