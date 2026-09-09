@@ -202,6 +202,7 @@ class FileSystemPromptRegistry(PromptRegistry):
         self._profiles: tuple[PromptProfile, ...] = tuple(
             sorted(profiles, key=lambda profile: (profile.id, profile.version))
         )
+        self._profiles_configured = bool(self._profiles)
         self._profiles_by_id = {profile.id: profile for profile in self._profiles}
         self._active_profiles = {
             profile.capability_id: profile
@@ -257,6 +258,8 @@ class FileSystemPromptRegistry(PromptRegistry):
         if profile_id is not None and profile is None:
             raise LookupError(f"unknown prompt profile {profile_id!r}")
         if profile is None:
+            if self._profiles_configured:
+                raise LookupError(f"no active prompt profile declares capability {capability_id!r}")
             return PromptSelection(
                 root=self.get_base(capability_id),
                 packs=self.get_packs(capability_id),

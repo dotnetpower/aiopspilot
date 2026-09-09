@@ -59,6 +59,13 @@ def test_profile_cannot_bind_a_different_capability() -> None:
         )
 
 
+def test_profile_catalog_never_falls_back_to_highest_unprofiled_artifact() -> None:
+    registry = FileSystemPromptRegistry(_CATALOG)
+
+    with pytest.raises(LookupError, match="no active prompt profile"):
+        registry.resolve("t2.critic")
+
+
 def test_profile_catalog_rejects_missing_exact_artifact(tmp_path: Path) -> None:
     catalog = tmp_path / "catalog"
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
