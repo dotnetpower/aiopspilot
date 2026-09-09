@@ -245,7 +245,7 @@ class _Publisher:
         key: str,
         payload: Mapping[str, object],
     ) -> object:
-        assert key == payload["request_id"]
+        assert key == payload["resource_ref"]
         self.topic = topic
         self.payload = payload
         return object()
