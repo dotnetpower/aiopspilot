@@ -744,9 +744,18 @@ def _guard_database_host_binding(
     )
     if console_origin_changed and valid_console_origin:
         operator_runtime_bindings.add("FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
+    deployed_venue_binding = {
+        name
+        for name in changed_names
+        if name == "FDAI_EXECUTION_VENUE"
+        and _environment_binding(after_environment.get(name)) == ("deployed", None)
+    }
     unexpected = sorted(
         changed_names.difference(
-            {"POSTGRES_HOST"} | additional_allowed_names | operator_runtime_bindings
+            {"POSTGRES_HOST"}
+            | additional_allowed_names
+            | operator_runtime_bindings
+            | deployed_venue_binding
         )
     )
     host_binding = _environment_binding(after_environment.get("POSTGRES_HOST"))

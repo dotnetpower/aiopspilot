@@ -141,18 +141,22 @@ def _environment(value: object, *, observed: bool) -> list[dict[str, str]]:
         name = item.get("name")
         plain = item.get("value")
         secret = item.get(secret_key)
+        secret_present = isinstance(secret, str) and bool(secret)
+        plain_present = isinstance(plain, str) and (bool(plain) or not secret_present)
         if (
             not isinstance(name, str)
             or not name
             or name in bindings
-            or (isinstance(plain, str) and isinstance(secret, str))
-            or (not isinstance(plain, str) and not isinstance(secret, str))
+            or plain_present == secret_present
         ):
+            raise RuntimeContainerContractError("primary container environment is invalid")
+        binding = plain if plain_present else secret
+        if not isinstance(binding, str):
             raise RuntimeContainerContractError("primary container environment is invalid")
         bindings[name] = {
             "name": name,
-            "kind": "value" if isinstance(plain, str) else "secret_ref",
-            "binding": plain if isinstance(plain, str) else secret,
+            "kind": "value" if plain_present else "secret_ref",
+            "binding": binding,
         }
     return [bindings[name] for name in sorted(bindings)]
 

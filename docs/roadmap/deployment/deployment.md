@@ -139,7 +139,9 @@ prod topology so shadow evaluation is representative.
   normalized Static Web Apps HTTPS origin. It also resolves the canonical primary ingress,
   pipeline-stage, and Pantheon-object topics from platform state and overwrites only their owned
   `event_topics` fields for Core, Operator, and the document services. The write-only service
-  tfvars secret remains the source for DSN references, roles, and other inputs. Core may also add
+  tfvars secret remains the source for DSN references, roles, and other inputs. An unrelated
+  current Operator channel edge is preserved from exact service-state readback, and a previously
+  absent `FDAI_EXECUTION_VENUE` binding can be adopted only as the exact `deployed` value. Core may add
   the canonical `fdai.notifications.delivery-receipts` topic once; the guard requires that exact
   non-secret value and rejects every accompanying command, identity, or environment change. All
   primary-container environment comparisons use exact name-to-binding maps, so Terraform list order
