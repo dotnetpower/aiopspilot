@@ -1975,6 +1975,71 @@ def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> N
     assert model.frame_calls == model.plan_calls == 0
 
 
+def test_unbound_collection_state_filter_clarifies_without_broadening() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_AKS_GROUP,),
+        include_resource_state=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "실행 중인 fdai 목록"
+    type_value = "fdai"
+    state_value = "실행 중"
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("verified preflight should clarify before full judgment")
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+            SemanticTarget(
+                kind="resource_state_filter",
+                value=state_value,
+                source_start=utterance.index(state_value),
+                source_end=utterance.index(state_value) + len(state_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list", "current_state"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.plan is None
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("resource_filter_meaning",)
+    assert model.frame_calls == model.plan_calls == 0
+
+
 def test_verified_deployed_llm_preflight_skips_full_semantic_judgment() -> None:
     manifest, _definition = _typed_fixture(groups=(_LLM_DEPLOYMENT_GROUP,))
     model = _Model(frame=None, plan=None)
