@@ -18,6 +18,7 @@ from .conversation_preflight import (
 )
 from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
+from .semantic_manifest_planning import build_ontology_schema_frame
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
@@ -97,6 +98,7 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_support import _clarification, _outcome
+from .semantic_relationship_planning import build_ontology_relationship_frame
 from .semantic_resource_configuration_planning import build_resource_configuration_frame
 from .semantic_state_transition_planning import build_recent_resource_state_transition_frame
 
@@ -543,6 +545,24 @@ def deterministic_pre_frame_selection(
     )
     if recent_state_changes is not None:
         proposal, frame = recent_state_changes
+        return proposal, frame, None
+    schema = build_ontology_schema_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=manifest_descriptors or descriptors,
+    )
+    if schema is not None:
+        proposal, frame = schema
+        return proposal, frame, None
+    schema_relationship = build_ontology_relationship_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=manifest_descriptors or descriptors,
+    )
+    if schema_relationship is not None:
+        proposal, frame = schema_relationship
         return proposal, frame, None
     document_draft = _build_document_draft_frame(
         judgment=judgment,
