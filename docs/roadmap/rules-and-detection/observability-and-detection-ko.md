@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: ad5c780a66a3de95d61f919d74ecaf630fc7b793
-translation_revised: 2026-09-09
+translation_source_sha: 7ace1e46cadba36b81e509f9f915b6355cd2e5f8
+translation_revised: 2026-09-10
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -458,6 +458,11 @@ telemetry / metrics
 
 ## 설정과 안전
 
+- 저장소가 관리하는 `config/detection-governance-policy.json`은 감지기 방식, 콜드 스타트
+  하한, 예측 대상 계열과 기간, 정확한 상관관계 키와 창, 백테스트 승격 임계값, 변경 창 처리
+  방식을 고정합니다. Core는 `core/detection/governance_policy.py`를 통해 필드가 정확한지
+  검증하며 정책을 로드합니다. 알 수 없는 방식, 중복 신원, 완화된 정책 이탈 0건 가드 또는
+  잘못된 경계값이 있으면 기본값을 임의로 선택하지 않고 시작을 실패 처리합니다.
 - 베이스라인, 편차 임계, 예보 지평, 상관관계 키, 모델 바인딩은 **설정**; 포크는
   [project-structure-ko.md](../architecture/project-structure-ko.md) 의 DI 경계로 오버라이드, 절대 코어를
   편집하지 않음.
@@ -557,13 +562,18 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 - [x] 독립적으로 인용된 신호 하나에서만 계측, 수집기, 헤더 전파 원인을 구분하고 수정 권한을
   포함하지 않는 근거 제한 추적 RCA를 추가합니다.
 - [ ] [이슈 #142](https://github.com/dotnetpower/fdai/issues/142)를 완료합니다. 집중 검사와 실시간 Azure 근거를 통해 `preserve`가 정상으로 유지되고, `regenerate`와 `drop`이 근거가 있는 발견 사항을 만들며, 반복 발견이 인시던트 하나를 열고, 복구 경로가 검증된 종결 전에 사람 승인 또는 모든 안전조건을 갖춘 작업에 도달함을 증명합니다.
-- [ ] [열린 결정](#열림-decisions)의 신호 등급별 방법, 기준선 이력, 승격 임계값을 확정하고 관리되는 구성에 인코딩합니다.
+- [x] `config/detection-governance-policy.json`에서 신호 클래스 방식, 기준선 이력,
+  상관관계 기본값, 예측 기간, 변경 창 처리, 승격 임계값을 확정하고
+  `services/core-control-plane/tests/core/detection/test_governance_policy.py`의 정확한 로더
+  검사로 검증합니다.
 
-## 열림 Decisions
+## 확정된 결정
 
-- [ ] 신호 클래스별 이상 방법(z-score vs robust percentile vs seasonal decomposition).
-- [ ] 대상별 예보 모델 패밀리와 기본 지평(용량, lag, 비용, 만료).
-- [ ] 상관관계 키 세트와 시간-윈도우 기본; 퍼지 상관관계를 T1으로 escalate하는 때.
-- [ ] 콜드스타트 정책: 감지기가 발동하기 전 신호 클래스별 최소 베이스라인 히스토리.
-- [ ] Backtest 주기와 예보기가 shadow를 떠나기 위해 통과해야 할 정확도 바.
-- [ ] 변경 윈도우 억제: 이상이 in-flight 변경 이벤트와 어떻게 상관되는가.
+| 결정 | 관리되는 기본값 |
+|------|------------------|
+| 신호 클래스별 이상 방식 | 정상성이 있는 안정성 및 보안 활동 신호는 z-score를 사용합니다. 주기적인 안정성 및 비용 신호는 명시적인 위상을 가진 seasonal z-score를 사용합니다. |
+| 예측 계열과 기간 | 현재 대상은 모두 구현된 선형 추세 계열을 사용합니다. 용량은 24시간, 복제 지연은 1시간, 비용은 7일, 만료는 30일을 사용합니다. |
+| 상관관계 | 정확한 `correlation_id` 및 `resource_ref` 키를 T1보다 먼저 사용합니다. 일반 창은 60초, 추적 및 반복 창은 300초이며, fuzzy T1에는 `0.85` 이상의 유사도와 공유 근거 필드 2개가 필요합니다. |
+| 콜드 스타트 | 정상성이 있는 클래스에는 기준선 샘플 30개, 계절 클래스에는 같은 위상의 샘플 10개가 필요합니다. 예측에는 샘플 5개와 `R-squared >= 0.5`가 필요합니다. |
+| 백테스트 및 승격 | 최소 14일의 관찰 모드와 점수화 가능한 에피소드 30개를 확보한 뒤 매주 평가합니다. 정밀도와 재현율은 각각 `0.8` 이상이어야 하고, 90% 구간 포괄률은 `[0.85, 0.95]`, 중앙값 선행 시간은 300초 이상, 판단 보류율은 `0.2` 이하, 정책 이탈은 0건이어야 합니다. |
+| 변경 창 | 완전한 근거가 있는 정확한 범위의 활성 창은 발견된 문제에 주석을 남기고 Incident 승격을 보류합니다. 누락되거나 오래되었거나 불완전하거나 일치하지 않는 창 근거는 발견된 문제를 억제할 수 없습니다. |

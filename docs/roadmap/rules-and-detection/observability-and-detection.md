@@ -479,6 +479,12 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 
 ## Configuration and Safety
 
+- The repository-governed `config/detection-governance-policy.json` pins detector methods,
+  cold-start floors, forecast target families and horizons, exact correlation keys and windows,
+  backtest promotion thresholds, and change-window treatment. Core loads the policy through
+  `core/detection/governance_policy.py` with exact-field validation. An unknown method, duplicate
+  identity, weakened zero-escape guard, or malformed bound fails startup instead of silently
+  selecting a default.
 - Baselines, deviation thresholds, forecast horizons, correlation keys, and model bindings are
   **configuration**; a fork overrides them via the DI seams in
   [project-structure.md](../architecture/project-structure.md), never by editing core.
@@ -582,13 +588,18 @@ produce batches. The complete collection, retention, rollup, and archive contrac
 - [x] Add evidence-bounded trace RCA that distinguishes instrumentation, collector, and
   header-propagation causes only from one independently cited signal, with no remediation authority.
 - [ ] Complete [issue #142](https://github.com/dotnetpower/fdai/issues/142) with focused checks and live Azure evidence that `preserve` stays healthy, `regenerate` and `drop` produce evidence-backed findings, repeated findings open one Incident, and the recovery path reaches human approval or a fully safeguarded action before verified closure.
-- [ ] Resolve the signal-class methods, baseline history, and promotion thresholds in [Open decisions](#open-decisions) and encode them in governed configuration.
+- [x] Resolve signal-class methods, baseline history, correlation defaults, forecast horizons,
+  change-window treatment, and promotion thresholds in
+  `config/detection-governance-policy.json`, with exact loader checks in
+  `services/core-control-plane/tests/core/detection/test_governance_policy.py`.
 
-## Open Decisions
+## Resolved Decisions
 
-- [ ] Anomaly method per signal class (z-score vs robust percentile vs seasonal decomposition).
-- [ ] Forecast model family and default horizons per target (capacity, lag, cost, expiry).
-- [ ] Correlation key set and time-window defaults; when to escalate fuzzy correlation to T1.
-- [ ] Cold-start policy: minimum baseline history per signal class before a detector may fire.
-- [ ] Backtesting cadence and the accuracy bar a forecaster must clear to leave shadow.
-- [ ] Change-window suppression: how anomalies are correlated with in-flight change events.
+| Decision | Governed default |
+|----------|------------------|
+| Anomaly method by signal class | Stationary reliability and security activity use z-score. Periodic reliability and cost signals use seasonal z-score with an explicit phase. |
+| Forecast family and horizon | Every current target uses the implemented linear trend family. Capacity uses 24 hours, replication lag 1 hour, cost 7 days, and expiry 30 days. |
+| Correlation | Exact `correlation_id` and `resource_ref` keys precede T1. The ordinary window is 60 seconds, the trace/repeat window is 300 seconds, and fuzzy T1 requires similarity of at least `0.85` plus two shared evidence fields. |
+| Cold start | Stationary classes require 30 baseline samples, seasonal classes require 10 same-phase samples, and forecasts require 5 samples plus `R-squared >= 0.5`. |
+| Backtesting and promotion | Evaluate weekly after at least 14 shadow days and 30 scorable episodes. Precision and recall must each be at least `0.8`, 90% interval coverage must remain in `[0.85, 0.95]`, median lead time must be at least 300 seconds, abstention must be at most `0.2`, and policy escapes must remain zero. |
+| Change windows | An exact-scope active window with complete evidence annotates the finding and holds Incident promotion. Missing, stale, incomplete, or mismatched window evidence cannot suppress a finding. |
