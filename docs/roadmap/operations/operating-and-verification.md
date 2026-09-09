@@ -13,7 +13,7 @@ for this document.
 Complements [deploy-and-onboard.md](../deployment/deploy-and-onboard.md) (provisioning) and
 [startup-and-lifecycle.md](startup-and-lifecycle.md) (bootstrap). Azure focus: non-Azure
 providers are TBD (see
-[Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
+[Always-On Rules](../../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## Self-Health Signals
 
@@ -55,7 +55,7 @@ remain incomplete, so no area is claimed as fully operationally validated.
 | Complete self-health exporters, alert-rule mapping, fallback delivery, and operational drills | in-progress | Transition telemetry, readiness, and canary sources above provide a subset of the required signals | No upstream configuration maps every signal in the health contract to an alert threshold, owner lane, fallback, and tested delivery receipt. |
 | Correlation-based audit investigation and unified version/configuration exposure | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), and runtime state projections | Correlation and reporting primitives exist, but one public read surface doesn't yet expose every version, hash, rule effect, override, canary, kill-switch, and break-glass field listed below. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
-| Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#implementation-status) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
+| Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
 | ActionType operator-runbook schema and coverage | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback.md`](../../runbooks/incident-mitigation-and-rollback.md), and [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | Every shipped ActionType matches exactly one generic upstream runbook whose declared precondition, procedure, verification, rollback, and audit sections exist. Deployment-specific commands remain fork-owned. |
 | Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) and measurement primitives | The daily health, drift, and deployment-baseline jobs and `console.recurrent_query` signal aren't registered upstream. |
 
@@ -266,7 +266,7 @@ JMeter) drives the traffic - but while that traffic runs, the control plane
 proves its detection and judgment against realistic conditions without acting:
 
 - **Shadow judgment under real load.** New rules and actions run judge-and-log
-  only ([architecture.instructions.md § Shadow -> Enforce](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+  only ([architecture.instructions.md § Shadow -> Enforce](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)),
   so the load test exercises the deterministic tiers and the T2 quality gate
   and every verdict is recorded, none executed.
 - **Detection latency measured against budget.** The events the load generates

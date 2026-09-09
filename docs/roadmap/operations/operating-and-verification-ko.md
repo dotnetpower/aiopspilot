@@ -1,11 +1,11 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: d3259d79ee8fd5b52712a498b88f66ce25b31fb1
-translation_revised: 2026-08-21
+translation_source_sha: 7be4ecc94d99feeb101a1ffd4588308a77f33ff1
+translation_revised: 2026-09-09
 ---
 
-# 운영과 검증(Operating and 검증)
+# 운영과 검증(Operating and Verification)
 
 새로 프로비저닝된 배포부터 FDAI가 **살아 있고, 올바르며, 정상 동작 중**인지 어떻게
 아는가. 이 문서는 **자체 관측성(self-observability)** : 시스템이 자신에 대해 어떻게 보고하는가.
@@ -16,7 +16,7 @@ translation_revised: 2026-08-21
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) (프로비저닝) 과
 [startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md) (부트스트랩) 보완. Azure 초점:
 비-Azure 프로바이더는 TBD
-([Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)).
+([Always-On 룰](../../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## 자체 헬스 신호(Self-Health Signals)
 
@@ -57,7 +57,7 @@ translation_revised: 2026-08-21
 | 전체 자체 상태 신호 내보내기, 경보 규칙 대응, 대체 전달, 운영 훈련 | in-progress | 위 전이 텔레메트리, 준비 상태, 카나리 출처가 필수 신호의 일부를 제공합니다. | 업스트림에는 상태 계약의 모든 신호를 경보 임계값, 담당 경로, 대체 경로, 테스트된 전달 증적에 연결하는 구성이 없습니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), 런타임 상태 변환 결과 | 상관관계와 보고 기본 기능은 있지만 아래에 나열한 모든 버전, 해시, 규칙 효과, 재정의, 카나리, 비상 정지, 긴급 액세스 필드를 한 공개 읽기 표면에서 제공하지는 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
-| 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#구현-상태) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
+| 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
 | ActionType 운영자 런북 스키마와 커버리지 | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback-ko.md`](../../runbooks/incident-mitigation-and-rollback-ko.md), [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | 제공되는 모든 ActionType은 선언된 전제조건, 절차, 검증, 롤백, 감사 섹션이 존재하는 제네릭 업스트림 런북 하나와 정확히 일치합니다. 배포별 명령은 포크가 소유합니다. |
 | 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) 및 측정 기본 기능 | 일일 상태, 드리프트, 배포 기준선 작업과 `console.recurrent_query` 신호는 업스트림에 등록되지 않았습니다. |
 
@@ -105,10 +105,10 @@ translation_revised: 2026-08-21
 `degraded`이면 `/ready`는 열어 두되 `authority_ceilings`를 확인합니다. `shadow`,
 `human_approval`, `deterministic_fallback` 및 `disabled`는 예상된 안전 대응이며 quality 게이트 또는
 승격 레지스트리를 우회할 권한이 아닙니다. 탐색 예산과 registered-destination 계약은
-[startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#제공되는-runtime-경계)를 참조하세요.
+[startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#제공되는-런타임-경계)를 참조하세요.
 
 신호는 OpenTelemetry로 설정된 백엔드로 발행
-([deployment-ko.md#observability-slos-and-alerting](../deployment/deployment-ko.md#observability-slos-and-alerting)).
+([deployment-ko.md#관측성-slo-알림](../deployment/deployment-ko.md#관측성-slo-알림)).
 
 `OTEL_EXPORTER_OTLP_ENDPOINT`는 OTLP/gRPC 추적 및 메트릭 내보내기를 활성화합니다. Loopback 밖에서는
 HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각은 거부됩니다. 엔드포인트가 없으면
@@ -146,7 +146,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 
 목표 자동화 모음은 모든 승격 후 라이브 배포에 대해 실행됩니다. 실패한 smoke 테스트는 **승격을
 중단하고 트래픽을 롤백**하는 것이 좋습니다
-([deployment-ko.md#release-and-rollback](../deployment/deployment-ko.md#release-and-rollback)).
+([deployment-ko.md#릴리스와-롤백release-and-rollback](../deployment/deployment-ko.md#릴리스와-롤백release-and-rollback)).
 
 1. **어댑터 도달성** - Kafka 왕복 (Event Hubs `:9093` 프로브 토픽에 produce + consume),
    Key Vault 참조 해석, 탐색 테이블에 DB 쓰기 + 삭제,
@@ -159,7 +159,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 5. **비상 정지 검사** - 비상 정지 **on** 토글, 윈도우 동안 모든 액션이 abstain 검증
    (카나리로 프로빙); **off** 토글, 정상 결정 재개 검증. 두 상태 모두 감사 엔트리를 남김.
 6. **HIL 예행 실행** - 합성 고위험 발견 사항이 HIL 채널로 라우팅, 승인자가 승인(실행하지 않는
-   예행 실행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
+   예행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
 
 현재 적용 작업 흐름은 스키마 이행, 선택적 HTTP 상태 엔드포인트, 성공한 canary 발행기
 작업을 검증합니다. 전체 감사 round-trip, 고정본 재생, 비상 정지 훈련, HIL 예행 실행은 운영
@@ -194,7 +194,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 상관 id 또는 감사 id를 주면 운영자가 고정 경로를 걷습니다. 각 홉은 검색이 아니라 **쓰기
 시점에 캡처된 저장 링크** - 왕복은 O(1) 조회.
 
-![감사 조사 흐름. 주요 단계는 Audit id or correlation id, Event lookup, Tier decision plus confidence, Cited rules and their versions, Risk-gate decision auto or HIL, Approver identity when HIL, Action outcome plus idempotency key, Rollback reference when applicable입니다.](../../diagrams/generated/fdai-operating-and-verification-01.ko.svg)
+![감사 조사 흐름. 주요 단계는 감사 id 또는 상관관계 id, 이벤트 조회, 티어 결정 및 신뢰도, 인용된 규칙과 버전, Risk-gate 결정 (auto 또는 HIL), HIL 시 승인자 신원, 액션 결과 및 멱등성 키, 해당 시 롤백 참조입니다.](../../diagrams/generated/fdai-operating-and-verification-01.ko.svg)
 
 감사 기록은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 추가 전용이며
 hash-chain됨; 같은 워크는 shadow와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
@@ -255,7 +255,7 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 현실적인 조건에서 감지와 판정을 증명한다:
 
 - **실부하 하 shadow 판정.** 새 룰 과 액션 은 judge-and-log 만 수행하므로
-  ([architecture.instructions.md § Shadow -> 강제 적용](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+  ([architecture.instructions.md § Shadow -> 강제 적용](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)),
   부하 테스트가 결정론적 계층 와 T2 quality 게이트 를 exercise 하고 모든 판정 는
   기록되되 실행되지 않는다.
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 계층 별 `LatencyBudgetMonitor`
@@ -284,7 +284,7 @@ customer-neutral synthetic 페이로드를 사용하는 저장소 테스트로 �
 | 승인되지 않은 범위 | 실제 운영 | 통과했습니다. 접근할 수 없는 범위가 실패한 범위가 제한된 증적과 함께 `unavailable`로 변환되었습니다. |
 | 모호한 리소스 이름 | 실제 운영 | 통과했습니다. 중복 이름 하나가 범위가 제한된 후보 4개, exact 리소스 연결 없음 및 이력 조회 없음으로 반환되었습니다. |
 | 게스트 OS 종료 | 실제 운영 및 계약 | 완료되지 않았습니다. 접근 가능한 workspace 16개에는 available 이력 전체에서 retained Event 또는 Syslog 종료 기록이 없었습니다. 실제 운영 missing-workspace 행동은 `unavailable`을 반환했고 matched Event 및 Syslog 정규화는 계약 테스트만 통과했습니다. |
-| 프로바이더 throttling | 계약 | 동작은 통과했습니다. Synthetic `429` 응답이 범위가 제한된 재시도 및 최종 실패를 검증했습니다. Deliberate throttling은 bounded-read 정책을 위반하므로 실제 실제 운영 `429`는 유도하지 않았습니다. |
+| 프로바이더 throttling | 계약 | 동작은 통과했습니다. Synthetic `429` 응답이 범위가 제한된 재시도 및 최종 실패를 검증했습니다. Deliberate throttling은 bounded-read 정책을 위반하므로 실제 운영 `429`는 유도하지 않았습니다. |
 | 보존 부족 | 계약 | 통과했습니다. 구성된 Activity Log 또는 guest-log 보존을 넘는 조회 구간은 HTTP 전에 실패하고 프로바이더 경계에서 사용 불가로 normalize됩니다. |
 
 완료되지 않은 guest-event 행과 자연스럽게 발생한 실제 운영 `429` 부재는 구현 defect가 아니라
@@ -329,7 +329,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 - [x] 런북 템플릿 - 필수 섹션, 포맷, 모든 자동 액션에 런북 존재 여부 CI 검사.
 - [ ] 감사 조사 흐름을 위한 보존 윈도우와 쿼리 모델.
 - [ ] Cold-start 데드라인 값
-      ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#cold-start-scale-to-zero-specifics) 와 공유).
+      ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#콜드-스타트-scale-to-zero-세부사항) 와 공유).
 - [ ] 오픈 후 안정화 윈도우 길이(기본 "며칠") 와 이를 종료시키는 구체적 안정화 신호
       (guard-metric 정지, canary 연속 성공, 시나리오 재생 통과).
 - [ ] 오픈 전 부하 테스트 통합 표면(어느 부하 생성기, 부하 하에서 assert 할 계층 별
