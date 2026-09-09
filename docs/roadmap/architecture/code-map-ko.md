@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e70188bfb8e8977c0143a3e97de894717e9dd11f
+translation_source_sha: 4f3400cd0497f75aaad859b9ace1b3449333012c
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -80,9 +80,9 @@ kind 하나만 복구할 수 있습니다. 선언 및 관계 조회도 typed fac
 oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` 같은 표준 메타타입 subject는
 답변 rendering에서만 정규화합니다. 선언 답변은 스키마 메타데이터와 현재 객체 관측값을 명시적으로
 구분합니다.
-모델이 범위가 제한된 온톨로지 선언 count alias를 제안하면 semantic judgment는 planning 전에 이를
-제공된 `query.manifest` FunctionType과 typed 선언 kind count facet 하나로 다시 작성합니다. 해당
-FunctionType이 제공되지 않으면 제안을 거부합니다.
+모델이 범위가 제한된 온톨로지 선언 개수 별칭을 제안하면
+`semantic_judgment_capabilities.py`가 이를 제공된 `query.manifest` FunctionType과 형식화된 선언 종류
+개수 facet 하나로 다시 작성한 후 계획을 시작합니다. 해당 FunctionType이 없으면 제안을 거부합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
