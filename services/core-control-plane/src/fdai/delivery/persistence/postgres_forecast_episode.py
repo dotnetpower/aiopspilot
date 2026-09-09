@@ -70,7 +70,9 @@ class PostgresForecastEpisodeStore:
                 "COUNT(*) FILTER (WHERE state = 'open' AND closure_due_at < %s) AS overdue, "
                 "COUNT(*) FILTER (WHERE closure_due_at <= %s) AS due_total, "
                 "COUNT(*) FILTER (WHERE state = 'closed' AND closure_due_at <= %s) AS due_closed, "
-                "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained "
+                "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained, "
+                "COUNT(*) FILTER (WHERE state = 'closed' "
+                "AND evaluation_kind = 'abstained') AS abstained_closed "
                 "FROM forecast_episode",
                 (now, now, now),
             )
@@ -136,8 +138,8 @@ class PostgresForecastEpisodeStore:
             int(lead_time_row["sample_count"]) if lead_time_row is not None else 0
         )
         operational_metrics = reduce_forecast_operational_metrics(
-            episode_count=total,
-            abstained_count=int(episode_row["abstained"]) if episode_row else 0,
+            episode_count=closed,
+            abstained_count=int(episode_row["abstained_closed"]) if episode_row else 0,
             outcome_counts=outcome_counts,
             mean_lead_time_seconds=(
                 float(lead_time_row["mean_seconds"])
