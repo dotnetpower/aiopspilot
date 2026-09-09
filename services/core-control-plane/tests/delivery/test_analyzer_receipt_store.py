@@ -168,3 +168,25 @@ async def test_run_store_keeps_first_time_for_an_idempotent_retry() -> None:
     assert len(records) == 1
     assert records[0]["recorded_at"] == NOW.isoformat()
     assert records[0]["attempt_id"] == records[0]["report_digest"]
+
+
+async def test_run_store_retains_identical_reports_from_distinct_ticks() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(
+        run_id="run-1",
+        tick_id="0",
+        recorded_at=NOW,
+        report={"targets": 1},
+    )
+    await store.record(
+        run_id="run-1",
+        tick_id="1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 1},
+    )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["tick_id"] for record in records} == {"0", "1"}

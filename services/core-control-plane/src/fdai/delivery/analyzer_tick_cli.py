@@ -617,7 +617,12 @@ async def run_once() -> AnalyzerJobReport:
             await bus.close()
 
 
-async def _record_run_receipt(report: AnalyzerJobReport, *, scheduling: str) -> None:
+async def _record_run_receipt(
+    report: AnalyzerJobReport,
+    *,
+    scheduling: str,
+    tick_id: str,
+) -> None:
     run_id = resolve_analyzer_run_id(os.environ)
     if run_id is None:
         _LOGGER.info(
@@ -630,7 +635,12 @@ async def _record_run_receipt(report: AnalyzerJobReport, *, scheduling: str) -> 
         return
     recorded_at = datetime.now(tz=UTC)
     body = _report_body(report, scheduling=scheduling)
-    await store.record(run_id=run_id, recorded_at=recorded_at, report=body)
+    await store.record(
+        run_id=run_id,
+        tick_id=tick_id,
+        recorded_at=recorded_at,
+        report=body,
+    )
 
 
 def resolve_analyzer_run_id(environment: Mapping[str, str]) -> str | None:
@@ -714,7 +724,11 @@ async def run_loop(
         except TimeoutError:
             print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
             return 1
-        await _record_run_receipt(report, scheduling="local_loop")
+        await _record_run_receipt(
+            report,
+            scheduling="local_loop",
+            tick_id=str(completed),
+        )
         _emit_report(report, scheduling="local_loop")
         completed += 1
         if report.failed:
@@ -745,7 +759,7 @@ def _report_body(report: AnalyzerJobReport, *, scheduling: str) -> dict[str, Any
 
 async def _run_once_with_receipt(*, timeout_seconds: float, scheduling: str) -> AnalyzerJobReport:
     report = await asyncio.wait_for(run_once(), timeout=timeout_seconds)
-    await _record_run_receipt(report, scheduling=scheduling)
+    await _record_run_receipt(report, scheduling=scheduling, tick_id="0")
     return report
 
 

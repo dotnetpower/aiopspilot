@@ -77,6 +77,7 @@ class StateStoreAnalyzerRunReceiptStore:
         self,
         *,
         run_id: str,
+        tick_id: str = "0",
         recorded_at: datetime,
         report: Mapping[str, object],
     ) -> None:
@@ -84,6 +85,8 @@ class StateStoreAnalyzerRunReceiptStore:
 
         if not run_id.strip() or len(run_id) > 256:
             raise ValueError("analyzer run receipt id MUST be bounded text")
+        if not tick_id.strip() or len(tick_id) > 64 or any(char.isspace() for char in tick_id):
+            raise ValueError("analyzer tick receipt id MUST be bounded and contain no whitespace")
         if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
             raise ValueError("analyzer run receipt time MUST be timezone-aware")
         canonical_report = json.dumps(
@@ -94,11 +97,14 @@ class StateStoreAnalyzerRunReceiptStore:
             allow_nan=False,
         )
         report_digest = hashlib.sha256(canonical_report.encode("utf-8")).hexdigest()
-        attempt_digest = hashlib.sha256(f"{run_id}\n{report_digest}".encode()).hexdigest()
+        attempt_digest = hashlib.sha256(
+            f"{run_id}\n{tick_id}\n{report_digest}".encode()
+        ).hexdigest()
         key = f"{ANALYZER_RUN_RECEIPT_STATE_PREFIX}{attempt_digest}"
         value: dict[str, object] = {
-            "schema_version": "1.1.0",
+            "schema_version": "1.2.0",
             "run_id": run_id,
+            "tick_id": tick_id,
             "attempt_id": report_digest,
             "recorded_at": recorded_at.isoformat(),
             "report_digest": report_digest,
@@ -110,6 +116,7 @@ class StateStoreAnalyzerRunReceiptStore:
             immutable_fields = (
                 "schema_version",
                 "run_id",
+                "tick_id",
                 "attempt_id",
                 "report_digest",
                 "report",

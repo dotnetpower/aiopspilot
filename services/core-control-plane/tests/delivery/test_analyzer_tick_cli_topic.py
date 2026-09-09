@@ -237,9 +237,14 @@ async def test_persisted_receipt_uses_the_exact_operational_report_body(
     monkeypatch.setattr(analyzer_tick_cli_module, "build_run_receipt_store", lambda: _Store())
     report = _job_report()
 
-    await analyzer_tick_cli_module._record_run_receipt(report, scheduling="local_loop")
+    await analyzer_tick_cli_module._record_run_receipt(
+        report,
+        scheduling="local_loop",
+        tick_id="7",
+    )
 
     assert captured["run_id"] == "test-run-1"
+    assert captured["tick_id"] == "7"
     assert captured["report"] == analyzer_tick_cli_module._report_body(
         report,
         scheduling="local_loop",
