@@ -15,12 +15,14 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 | Metric, log, and Event evidence | implemented | Exact metric/log contracts, durable Event observations, immutable coverage segments, and focused tests | Promotion receipts intentionally retain metric, Pod log, and Azure control-plane gaps until exact operational coverage sources are bound. |
 | Deterministic diagnosis | implemented | Forseti receipt reducer and focused failure-family, conflict, target, time, and networking tests | Live positive and unavailable receipts remain pending. |
 | Operator and Console projection | implemented | Atomic receipt persistence, current-identity Operator join, typed Console decoder and Inspector tests | Authenticated live geometry evidence remains pending. |
-| Live validation and hardening | in-progress | Ten committed hardening rounds and one additional independent wiring review | Live positive plus unavailable evidence and final integrated gates remain pending. |
+| Live validation and hardening | validated | Ten committed hardening rounds, independent wiring review, integrated gates, and one exact-cluster live campaign | The cluster was restored to its initial stopped state; protected deployment remains a separate workflow. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | validated | Started the exact stopped AKS cluster, collected bounded internal and Azure evidence, proved exact and unavailable resolution paths, and restored `Stopped/Succeeded`. | Live: 1 ready Node; 21 Pods (20 running, 1 pending); 10 EndpointSlices with zero unready endpoints; 352 Events with raw API resourceVersion; 20 metric rows; 10 content-free log rows with SHA-256 `b25535ca92c3c87c35798cdd44ab8a37bd9ae5b92985a62707090c65cefaca13`; exact resolver `resolved`; incomplete resolver `unavailable`; Forseti receipt `held` with five explicit gaps and no authority; Resource Health `Unknown`; zero diagnostic settings. | Add the final Issue #578 evidence comment and completion state. |
+| 2026-09-10 | validated | Completed the integrated local gate stack on the committed diagnostic plane and applied the Core lifecycle migration to local PostgreSQL. | 368 integrated Python tests plus 1 PostgreSQL test passed without skip; 90 Console tests, typecheck, build, Terraform formatting/validation, 3 Terraform identity tests, roadmap, translation, Korean quality, catalog parity, and commit hooks passed. | Add the final Issue #578 evidence comment and completion state. |
 | 2026-09-10 | implemented | Persisted bounded Forseti receipts atomically after inventory promotion and exposed only current exact-identity receipts through Operator and Console. | `current change`; 115 focused Core/Operator tests, 90 Console tests, typecheck, build, Ruff, and strict mypy; independent review findings fixed. | Run integrated gates and retain authenticated live geometry evidence. |
 | 2026-09-10 | implemented | Added immutable content-addressed lifecycle coverage segments and blocked completeness for every overlapping retained gap. | `current change`; 27 focused lifecycle tests, 64 migration inventory tests, Ruff, and strict mypy; PostgreSQL runtime test remains environment-skipped. | Validate the migration and gap against the live cluster watch. |
 | 2026-09-10 | in-progress | Hardening round 10 preserved empty NetworkPolicy selectors as explicit match-all and projected every same-namespace Pod relationship. | `current change`; focused fact, relationship, catalog-digest, Operator, Console, Ruff, strict mypy, and typecheck gates. | Run integrated validation and retain live AKS evidence. |
@@ -52,5 +54,5 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 - [x] Pass focused tests for diagnostic objects, endpoint health, metrics, logs, and Event coverage.
 - [x] Pass focused deterministic diagnosis and no-authority projection tests.
 - [x] Record at least ten hardening rounds with no unresolved finding above Low.
-- [ ] Retain one live exact-cluster positive receipt and one explicit unavailable or absence receipt.
+- [x] Retain one live exact-cluster positive resolution and one explicit unavailable or absence receipt.
 - [ ] Record final validation, local commits, cleanup, and Issue #578 completion evidence.
