@@ -176,7 +176,7 @@ def load_detection_governance_policy(path: Path) -> DetectionGovernancePolicy:
         )
     return DetectionGovernancePolicy(
         policy_id=policy_id,
-        policy_version=_semantic_version(root["policy_version"], "policy_version"),
+        policy_version=_version(root["policy_version"], "policy_version"),
         signal_classes=signal_classes,
         forecast_targets=forecast_targets,
         correlation=_correlation(root["correlation"]),
@@ -404,7 +404,7 @@ def _identifier(value: object, label: str) -> str:
     return text
 
 
-def _semantic_version(value: object, label: str) -> str:
+def _version(value: object, label: str) -> str:
     text = _text(value, label)
     if _SEMANTIC_VERSION.fullmatch(text) is None:
         raise DetectionGovernancePolicyError(f"{label} MUST be a semantic version")
