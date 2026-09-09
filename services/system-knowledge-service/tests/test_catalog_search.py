@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 from fdai_service_contracts.system_knowledge import SystemKnowledgeQueryRequest
-from fdai_system_knowledge_service.catalog import compile_reference_catalog, load_catalog
+from fdai_system_knowledge_service.catalog import (
+    compile_reference_catalog,
+    load_catalog,
+    resolve_protected_main_revision,
+)
 from fdai_system_knowledge_service.search import SystemKnowledgeIndex
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -24,32 +28,60 @@ def _request(query: str, *, locale: str = "en") -> SystemKnowledgeQueryRequest:
     )
 
 
-def _git(*arguments: str) -> subprocess.CompletedProcess[str]:
+def _git_at(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     git = shutil.which("git")
     assert git is not None
     return subprocess.run(  # noqa: S603 - resolved git executes fixed test-owned arguments
         [git, *arguments],
-        cwd=REPO_ROOT,
+        cwd=root,
         check=True,
         capture_output=True,
         text=True,
     )
 
 
+def _git(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return _git_at(REPO_ROOT, *arguments)
+
+
 def test_packaged_catalog_matches_current_reviewed_sources() -> None:
     packaged = load_catalog(CATALOG_PATH)
-    rebuilt = compile_reference_catalog(REPO_ROOT, generated_at=packaged.generated_at)
+    rebuilt = compile_reference_catalog(
+        REPO_ROOT,
+        generated_at=packaged.generated_at,
+        source_revision="HEAD",
+    )
 
     assert rebuilt.records == packaged.records
     if _git("rev-parse", "--is-shallow-repository").stdout.strip() == "false":
-        _git("merge-base", "--is-ancestor", packaged.source_revision, "HEAD")
+        _git(
+            "merge-base",
+            "--is-ancestor",
+            packaged.source_revision,
+            "refs/remotes/origin/main",
+        )
         for record in packaged.records:
             for source in record.sources:
-                assert (
-                    _git("rev-parse", f"{packaged.source_revision}:{source.path}").stdout.strip()
-                    == source.blob_sha
-                )
+                assert _git("hash-object", source.path).stdout.strip() == source.blob_sha
     assert len(rebuilt.records) == 14
+
+
+def test_protected_main_resolver_ignores_side_branch_head(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git_at(repo, "init", "--quiet", "--initial-branch", "main")
+    _git_at(repo, "config", "user.email", "tests@example.com")
+    _git_at(repo, "config", "user.name", "FDAI Tests")
+    (repo / "source.txt").write_text("main\n", encoding="utf-8")
+    _git_at(repo, "add", "source.txt")
+    _git_at(repo, "commit", "--quiet", "-m", "main")
+    main_revision = _git_at(repo, "rev-parse", "HEAD").stdout.strip()
+    _git_at(repo, "update-ref", "refs/remotes/origin/main", main_revision)
+    _git_at(repo, "switch", "--quiet", "-c", "feature")
+    (repo / "source.txt").write_text("feature\n", encoding="utf-8")
+    _git_at(repo, "commit", "--quiet", "-am", "feature")
+
+    assert resolve_protected_main_revision(repo) == main_revision
 
 
 def test_exact_alias_and_korean_paraphrase_return_grounded_records() -> None:

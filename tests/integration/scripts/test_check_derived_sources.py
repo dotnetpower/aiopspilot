@@ -54,6 +54,7 @@ def docs_repo(tmp_path: Path) -> Path:
     catalog.write_text(
         json.dumps(
             {
+                "source_revision": "0" * 40,
                 "records": [
                     {
                         "sources": [
@@ -63,13 +64,20 @@ def docs_repo(tmp_path: Path) -> Path:
                             }
                         ]
                     }
-                ]
+                ],
             }
         ),
         encoding="utf-8",
     )
     assert _git(repo, "add", ".").returncode == 0
     assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    source_revision = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["source_revision"] = source_revision
+    catalog.write_text(json.dumps(payload), encoding="utf-8")
+    assert _git(repo, "add", str(catalog)).returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "catalog provenance").returncode == 0
+    assert _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").returncode == 0
     return repo
 
 
@@ -156,6 +164,33 @@ def test_cached_mode_accepts_staged_system_catalog_refresh(docs_repo: Path) -> N
 
     assert result.returncode == 0, result.stderr
     assert "1 System Knowledge source(s) pinned" in result.stdout
+
+
+def test_cached_mode_rejects_side_branch_catalog_revision(docs_repo: Path) -> None:
+    side_file = docs_repo / "side.txt"
+    side_file.write_text("side branch\n", encoding="utf-8")
+    assert _git(docs_repo, "add", str(side_file)).returncode == 0
+    assert _git(docs_repo, "commit", "--quiet", "-m", "side branch").returncode == 0
+    side_revision = _git(docs_repo, "rev-parse", "HEAD").stdout.strip()
+    catalog = (
+        docs_repo / "services/system-knowledge-service/src/"
+        "fdai_system_knowledge_service/data/catalog.json"
+    )
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["source_revision"] = side_revision
+    catalog.write_text(json.dumps(payload), encoding="utf-8")
+    assert _git(docs_repo, "add", str(catalog)).returncode == 0
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script.
+        [sys.executable, str(SCRIPT), "--cached"],
+        cwd=docs_repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "is not an ancestor of protected main" in result.stderr
 
 
 def test_pre_commit_runs_cached_derived_source_check() -> None:

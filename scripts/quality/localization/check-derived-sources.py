@@ -54,6 +54,7 @@ FRONT_MATTER_DELIM = "---"
 SYSTEM_KNOWLEDGE_CATALOG = Path(
     "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json"
 )
+PROTECTED_MAIN_REFS = ("refs/remotes/origin/main", "refs/heads/main")
 
 
 def repo_root() -> Path:
@@ -76,6 +77,40 @@ def git_hash(root: Path, path: Path, *, cached: bool) -> str | None:
     if not path.is_file():
         return None
     return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
+
+
+def git_commit(root: Path, ref: str) -> str | None:
+    """Resolve one Git ref to a commit, or return None when unavailable."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def git_is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    """Return whether Git proves ``ancestor`` precedes ``descendant``."""
+    return (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=root,
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def protected_main_revision(root: Path) -> str | None:
+    """Resolve the local protected-main tracking ref when history is available."""
+    for ref in PROTECTED_MAIN_REFS:
+        revision = git_commit(root, ref)
+        if revision is not None:
+            return revision
+    return None
 
 
 def read_repo_text(root: Path, path: Path, *, cached: bool) -> str | None:
@@ -204,6 +239,30 @@ def check_system_knowledge_catalog(
         return [f"{SYSTEM_KNOWLEDGE_CATALOG}: 'records' must be a list"], 0
 
     errors: list[str] = []
+    source_revision = payload.get("source_revision")
+    if not isinstance(source_revision, str) or len(source_revision) != 40:
+        errors.append(f"{SYSTEM_KNOWLEDGE_CATALOG}: source_revision must be a full Git commit SHA")
+    else:
+        shallow = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--is-shallow-repository"],
+                cwd=root,
+                text=True,
+            ).strip()
+            == "true"
+        )
+        protected_revision = protected_main_revision(root)
+        if not shallow and protected_revision is None:
+            errors.append(f"{SYSTEM_KNOWLEDGE_CATALOG}: protected main ref is unavailable")
+        elif (
+            not shallow
+            and protected_revision is not None
+            and not git_is_ancestor(root, source_revision, protected_revision)
+        ):
+            errors.append(
+                f"{SYSTEM_KNOWLEDGE_CATALOG}: source_revision {source_revision} "
+                "is not an ancestor of protected main"
+            )
     pinned: dict[str, str] = {}
     for record_index, record in enumerate(records):
         sources = record.get("sources") if isinstance(record, dict) else None
@@ -242,7 +301,8 @@ def check_system_knowledge_catalog(
                 f"{SYSTEM_KNOWLEDGE_CATALOG}: stale System Knowledge catalog source "
                 f"'{source}' (recorded={recorded}, current={current}). Regenerate with "
                 "`uv run --package fdai-system-knowledge-service "
-                "fdai-system-knowledge-build-catalog --repo-root . --output "
+                "fdai-system-knowledge-build-catalog --repo-root . "
+                "--protected-main-ref refs/remotes/origin/main --output "
                 "services/system-knowledge-service/src/"
                 "fdai_system_knowledge_service/data/catalog.json`."
             )
