@@ -128,6 +128,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert '"scripts/deployment/service/drift_contract.py"' in workflow
     assert "github.event_name == 'push' && github.ref == 'refs/heads/main'" in workflow
     assert '"infra/bootstrap/check-runner-storage-posture.sh"' in workflow
+    assert "options: [all, runner]" in workflow
+    assert workflow.count("if: inputs.scope != 'runner'") == 3
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
     assert "drift_contract.py \\\n            platform-inputs" in workflow
@@ -163,6 +165,7 @@ def test_workflow_plans_every_production_root() -> None:
         "Enforce complete drift evidence"
     )
     assert "RUNNER_STORAGE_OUTCOME" in workflow
+    assert 'if [[ "$DRIFT_SCOPE" != "runner" ]]' in workflow
     assert "Enforce complete drift evidence" in workflow
 
 
