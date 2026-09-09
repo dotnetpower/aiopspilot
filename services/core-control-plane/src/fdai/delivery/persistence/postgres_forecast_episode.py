@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -120,9 +120,7 @@ class PostgresForecastEpisodeStore:
         closed = int(episode_row["closed"]) if episode_row else 0
         due_total = int(episode_row["due_total"]) if episode_row else 0
         due_closed = int(episode_row["due_closed"]) if episode_row else 0
-        outcome_counts = {
-            str(row["label"]): int(row["count"]) for row in outcome_rows if row["label"] is not None
-        }
+        outcome_counts = _aggregate_outcome_counts(outcome_rows)
         lead_time_sample_count = (
             int(lead_time_row["sample_count"]) if lead_time_row is not None else 0
         )
@@ -408,6 +406,19 @@ class PostgresForecastEpisodeStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+def _aggregate_outcome_counts(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Combine label counts while preserving separate miss-origin rows."""
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        label = row.get("label")
+        if label is None:
+            continue
+        key = str(label)
+        counts[key] = counts.get(key, 0) + int(row["count"])
+    return counts
 
 
 def _episode_values(episode: ForecastEpisode) -> tuple[object, ...]:

@@ -14,6 +14,7 @@ from fdai.core.detection.forecast_outcome import (
 from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
     PostgresForecastEpisodeStoreConfig,
+    _aggregate_outcome_counts,
 )
 from fdai.shared.contracts.models import TelemetryCompleteness
 
@@ -25,6 +26,16 @@ def test_config_rejects_empty_dsn_and_invalid_timeouts() -> None:
         PostgresForecastEpisodeStoreConfig(dsn="")
     with pytest.raises(ValueError, match="timeouts"):
         PostgresForecastEpisodeStoreConfig(dsn="postgresql://example", statement_timeout_ms=0)
+
+
+def test_operational_metrics_sum_false_negatives_across_miss_origins() -> None:
+    assert _aggregate_outcome_counts(
+        (
+            {"label": "false_negative", "miss_origin": "model", "count": 2},
+            {"label": "false_negative", "miss_origin": "pipeline", "count": 3},
+            {"label": "true_positive", "miss_origin": None, "count": 4},
+        )
+    ) == {"false_negative": 5, "true_positive": 4}
 
 
 @pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
