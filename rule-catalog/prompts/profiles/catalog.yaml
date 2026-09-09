@@ -198,7 +198,7 @@ profiles:
     root: {id: semantic-query-frame-common, version: 1, layer: base}
     packs:
       - {id: semantic-query-frame, version: 41, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: []
@@ -209,7 +209,7 @@ profiles:
     mode: active
     root: {id: semantic-operational-query-frame, version: 1, layer: base}
     packs: []
-    system_token_budget: 4096
+    system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/operational-diagnostic-conversations.md]
@@ -220,7 +220,7 @@ profiles:
     mode: active
     root: {id: semantic-query-frame-recovery, version: 1, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -242,7 +242,7 @@ profiles:
     mode: shadow
     root: {id: semantic-query-plan-common, version: 1, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: []

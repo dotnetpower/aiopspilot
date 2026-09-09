@@ -399,6 +399,21 @@ class AzureOpenAISemanticPlanningModel:
             system_content=transmitted_system,
             schema=schema,
         )
+        if (
+            prompt_manifest is not None
+            and prompt_manifest.system_token_budget is not None
+            and prompt_manifest.token_estimate > prompt_manifest.system_token_budget
+        ):
+            _LOGGER.warning(
+                "semantic_planning_system_token_budget_exceeded",
+                extra={
+                    "operation": operation,
+                    "profile_id": prompt_manifest.profile_id,
+                    "system_token_estimate": prompt_manifest.token_estimate,
+                    "system_token_budget": prompt_manifest.system_token_budget,
+                },
+            )
+            return None
         request_token_estimate = estimate_chat_request_tokens(
             messages=messages,
             response_format={"type": "json_object"},

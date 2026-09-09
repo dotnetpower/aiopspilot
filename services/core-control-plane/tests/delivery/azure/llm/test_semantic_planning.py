@@ -343,6 +343,45 @@ async def test_profile_request_budget_blocks_provider_call() -> None:
     assert result is None
 
 
+async def test_final_system_budget_includes_generated_schema() -> None:
+    prompt = "bounded frame prompt"
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=16_384,
+        reserved_output_tokens=2048,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=(_target("primary"),),
+                frame_system_prompt=prompt,
+                plan_system_prompt="plan",
+                frame_prompt_manifest=manifest,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert result is None
+
+
 async def test_observation_manifest_hashes_transmitted_system_content() -> None:
     captured: list[httpx.Request] = []
 
