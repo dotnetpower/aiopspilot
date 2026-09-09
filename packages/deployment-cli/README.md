@@ -29,8 +29,8 @@ Terraform apply.
 
 ## Offline release preparation
 
-On the connected release host, first assemble the prebuilt artifacts into one closed runtime v2
-tree. The descriptor is a mode-`0600` JSON file under a mode-`0700` directory. It names relative
+On the connected release host, describe the prebuilt artifacts for one closed runtime v2 tree.
+The descriptor is a mode-`0600` JSON file under a mode-`0700` directory. It names relative
 files below `--source-root` and pins the SHA-256 of every OCI archive, SBOM, provenance record,
 Console archive, and deployment-support archive. It also pins each OCI manifest digest, the exact
 source commit, and `linux-x86_64` or `linux-aarch64`.
@@ -44,6 +44,9 @@ uv run --project packages/deployment-cli python \
   --output /private/runtime-release
 ```
 
+For a standalone review, the command above binds an existing deployment bundle. For kit staging,
+pass the descriptor and source root directly to `stage-offline-kit.sh`; it builds the signed
+deployment bundle first, then assembles runtime v2 against those exact bytes before outer signing.
 The builder validates all five FDAI service OCI archives and the revision-neutral ClamAV archive
 before publishing `runtime/release.json`. It does not download, build, sign, attest, or publish an
 image. It reports `production_release_eligibility=unverified`; the protected supply-chain gate must
@@ -89,7 +92,8 @@ DNS.
 
 ```bash
 bash scripts/deployment/release/airgap-drill.sh \
-  --runtime-release /private/runtime-release \
+  --runtime-descriptor /private/runtime-release-build.json \
+  --runtime-source-root /private/release-inputs \
   --require-runtime
 ```
 

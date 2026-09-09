@@ -45,19 +45,24 @@
 #
 # Usage:
 #   bash scripts/deployment/release/airgap-drill.sh [--workdir DIR] [--skip-stage]
-#     [--runtime-release DIR] [--require-runtime]
+#     [--runtime-release DIR] \
+#     [--runtime-descriptor FILE --runtime-source-root DIR] [--require-runtime]
 
 set -euo pipefail
 
 WORKDIR="${TMPDIR:-/tmp}/fdai-airgap-drill"
 SKIP_STAGE=0
 RUNTIME_RELEASE=""
+RUNTIME_DESCRIPTOR=""
+RUNTIME_SOURCE_ROOT=""
 REQUIRE_RUNTIME=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workdir) WORKDIR="$2"; shift 2 ;;
     --skip-stage) SKIP_STAGE=1; shift ;;
     --runtime-release) RUNTIME_RELEASE="$2"; shift 2 ;;
+    --runtime-descriptor) RUNTIME_DESCRIPTOR="$2"; shift 2 ;;
+    --runtime-source-root) RUNTIME_SOURCE_ROOT="$2"; shift 2 ;;
     --require-runtime) REQUIRE_RUNTIME=1; shift ;;
     *) echo "airgap-drill: unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -81,6 +86,26 @@ if [[ -n "$RUNTIME_RELEASE" ]] && {
   [[ "$RUNTIME_RELEASE" != /* ]] || [[ ! -d "$RUNTIME_RELEASE" ]] || [[ -L "$RUNTIME_RELEASE" ]];
 }; then
   echo "airgap-drill: --runtime-release must be an absolute real directory." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_RELEASE" && -n "$RUNTIME_DESCRIPTOR" ]]; then
+  echo "airgap-drill: --runtime-release and --runtime-descriptor are mutually exclusive." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_DESCRIPTOR" ]] && {
+  [[ "$RUNTIME_DESCRIPTOR" != /* ]] || [[ ! -f "$RUNTIME_DESCRIPTOR" ]] || [[ -L "$RUNTIME_DESCRIPTOR" ]];
+}; then
+  echo "airgap-drill: --runtime-descriptor must be an absolute regular file." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_DESCRIPTOR" && -z "$RUNTIME_SOURCE_ROOT" ]]; then
+  echo "airgap-drill: --runtime-descriptor requires --runtime-source-root." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_SOURCE_ROOT" ]] && {
+  [[ -z "$RUNTIME_DESCRIPTOR" ]] || [[ "$RUNTIME_SOURCE_ROOT" != /* ]] || [[ ! -d "$RUNTIME_SOURCE_ROOT" ]] || [[ -L "$RUNTIME_SOURCE_ROOT" ]];
+}; then
+  echo "airgap-drill: --runtime-source-root requires a descriptor and an absolute real directory." >&2
   exit 2
 fi
 if [[ "$SKIP_STAGE" -eq 0 ]]; then
@@ -131,6 +156,12 @@ stage() {
   )
   if [[ -n "$RUNTIME_RELEASE" ]]; then
     stage_arguments+=(--runtime-release "$RUNTIME_RELEASE" --with-runtime-wheels)
+  elif [[ -n "$RUNTIME_DESCRIPTOR" ]]; then
+    stage_arguments+=(
+      --runtime-descriptor "$RUNTIME_DESCRIPTOR"
+      --runtime-source-root "$RUNTIME_SOURCE_ROOT"
+      --with-runtime-wheels
+    )
   fi
   bash scripts/deployment/release/stage-offline-kit.sh \
     "${stage_arguments[@]}" >/dev/null

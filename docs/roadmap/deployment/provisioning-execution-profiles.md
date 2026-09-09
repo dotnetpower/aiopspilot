@@ -171,6 +171,10 @@ offline kit. The kit contains:
 - OPA and required helper binaries;
 - an SBOM, SHA-256 manifest, signatures, and the release trust metadata.
 
+Complete staging builds the signed deployment bundle first, then assembles runtime v2 from a
+private digest-bound descriptor against those exact bundle bytes before signing the outer kit.
+An independently prebuilt runtime remains supported only when it already binds that exact bundle.
+
 Offline mode blocks fallback to PyPI, GitHub, and the public Terraform registry. The artifact
 source may be an approved internal mirror or removable media. The installer and `fdaictl` verify
 the same pinned release root in both cases.

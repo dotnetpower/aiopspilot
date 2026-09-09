@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 6beb02066e9fe9105801b4b6ab2527a39c309446
+translation_source_sha: 7b247617fea7943e179232c797022490b040419d
 translation_revised: 2026-09-09
 ---
 # 폐쇄망 배포
@@ -88,7 +88,7 @@ translation_revised: 2026-09-09
 운영용 신뢰 루트 확립과 배포 적격성은 별도의 사전 조건입니다.
 
 연결된 release 호스트에서 외부 키트를 서명하기 전에 사전 빌드된 OCI 아카이브와 공급망
-근거를 하나의 런타임 v2 디렉터리로 조립합니다. 비공개 빌드 서술자는 소스 루트 아래의 상대
+근거를 하나의 런타임 v2 디렉터리로 기술합니다. 비공개 빌드 서술자는 소스 루트 아래의 상대
 경로를 사용하고 모든 아카이브, SBOM, 출처, OCI 매니페스트 다이제스트를 고정합니다.
 
 ```bash
@@ -104,6 +104,9 @@ uv run --project packages/deployment-cli python \
 사전 빌드된 입력만 받아 OCI 아카이브 6개를 검증하고
 `production_release_eligibility=unverified`인 닫힌 트리를 게시합니다. Release 정책은 이
 트리를 구성하고 서명하기 전에 소스와 근거의 적격성을 독립적으로 확립해야 합니다.
+전체 키트에는 staging 스크립트의 `--runtime-descriptor`와 `--runtime-source-root`를
+사용합니다. 스크립트가 정확한 서명 배포 번들을 먼저 만들고 그 바이트를 런타임 조립기에
+전달하므로 다른 서명 시도의 번들에 의존하는 순환을 방지합니다.
 
 ```bash
 fdaictl offline prepare \
@@ -357,7 +360,8 @@ Stage 단계는 실제 `stage-offline-kit.sh`를
 
 ```bash
 bash scripts/deployment/release/airgap-drill.sh \
-  --runtime-release /private/runtime-release \
+  --runtime-descriptor /private/runtime-release-build.json \
+  --runtime-source-root /private/release-inputs \
   --require-runtime
 ```
 
