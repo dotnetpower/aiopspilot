@@ -1,18 +1,18 @@
 {
   "id": "fdai-agents-and-self-healing-02",
   "kind": "flowchart",
-  "version": 1,
-  "updated": "2026-08-20",
+  "version": 2,
+  "updated": "2026-09-09",
   "locales": {
     "en": {
       "title": "How a failure self-heals",
-      "description": "FDAI flow for How a failure self-heals.",
-      "alt": "How a failure self-heals. The main stages are Huginn / discovers changes, Heimdall / checks coverage, Forseti / judges verdict, Njord, Freyr, Thor / executes, Var / your approval, Vidar / rollback / failover, Saga / audits, Norns / learns."
+      "description": "FDAI separates sensing, specialist advice, conflict arbitration, decisions, approval, execution, recovery, audit, and inert learning proposals.",
+      "alt": "Huginn discovers a change and Heimdall checks evidence coverage. Njord, Freyr, and Loki advise Forseti. Forseti asks Odin only when objectives conflict, then either sends an eligible action to Thor, requests human approval through Var, or records a denied no-op with Saga. Thor executes, Vidar handles required recovery, Saga audits outcomes, and Norns proposes an inert candidate."
     },
     "ko": {
       "title": "장애는 어떻게 자가 치유되는가",
       "description": "장애는 어떻게 자가 치유되는가에 대한 FDAI 흐름입니다.",
-      "alt": "장애는 어떻게 자가 치유되는가. 주요 단계는 Huginn / 변경 discovery, Heimdall / coverage 확인, Forseti / 판정, Njord, Freyr, Thor / 실행, Var / 여러분의 승인, Vidar / 롤백 / failover, Saga / 감사, Norns / 학습입니다."
+      "alt": "Huginn이 변경을 탐색하고 Heimdall이 근거 범위를 확인합니다. Njord, Freyr, Loki가 Forseti에게 자문합니다. 목표가 충돌할 때만 Forseti가 Odin에게 중재를 요청한 뒤, 실행 가능한 작업을 Thor에게 보내거나 Var를 통해 사람 승인을 요청하거나 거부된 미실행을 Saga에 기록합니다. Thor가 실행하고 Vidar가 필요한 복구를 처리하며 Saga가 결과를 감사한 뒤 Norns가 비활성 후보를 제안합니다."
     }
   },
   "assets": {
@@ -30,11 +30,11 @@
       "shape": "card",
       "label": {
         "en": "Huginn / discovers changes",
-        "ko": "Huginn / 변경 discovery"
+        "ko": "Huginn / 변경 탐색"
       },
       "description": {
-        "en": "Huginn / discovers changes",
-        "ko": "Huginn / 변경 discovery"
+        "en": "Collects and normalizes the resource change without deciding or executing.",
+        "ko": "판단하거나 실행하지 않고 리소스 변경을 수집하고 정규화합니다."
       }
     },
     {
@@ -43,11 +43,11 @@
       "shape": "card",
       "label": {
         "en": "Heimdall / checks coverage",
-        "ko": "Heimdall / coverage 확인"
+        "ko": "Heimdall / 근거 범위 확인"
       },
       "description": {
-        "en": "Heimdall / checks coverage",
-        "ko": "Heimdall / coverage 확인"
+        "en": "Checks freshness and coverage before a decision can use the evidence.",
+        "ko": "결정에서 근거를 사용하기 전에 최신성과 범위를 확인합니다."
       }
     },
     {
@@ -55,12 +55,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Forseti / judges verdict",
+        "en": "Forseti / decides",
         "ko": "Forseti / 판정"
       },
       "description": {
-        "en": "Forseti / judges verdict",
-        "ko": "Forseti / 판정"
+        "en": "Owns the decision and never executes it.",
+        "ko": "결정을 소유하며 직접 실행하지 않습니다."
       }
     },
     {
@@ -71,8 +71,8 @@
         "ko": "Njord"
       },
       "description": {
-        "en": "Njord",
-        "ko": "Njord"
+        "en": "Advises on cost.",
+        "ko": "비용 관점에서 자문합니다."
       }
     },
     {
@@ -83,8 +83,33 @@
         "ko": "Freyr"
       },
       "description": {
-        "en": "Freyr",
-        "ko": "Freyr"
+        "en": "Advises on capacity.",
+        "ko": "용량 관점에서 자문합니다."
+      }
+    },
+    {
+      "id": "loki",
+      "kind": "process",
+      "label": {
+        "en": "Loki",
+        "ko": "Loki"
+      },
+      "description": {
+        "en": "Advises on bounded chaos and recovery evidence.",
+        "ko": "범위가 제한된 카오스와 복구 근거를 자문합니다."
+      }
+    },
+    {
+      "id": "odin",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Odin / arbitrates conflicts",
+        "ko": "Odin / 충돌 중재"
+      },
+      "description": {
+        "en": "Orders eligible options only when objectives conflict.",
+        "ko": "목표가 충돌할 때만 실행 가능한 선택지의 순서를 정합니다."
       }
     },
     {
@@ -96,8 +121,8 @@
         "ko": "Thor / 실행"
       },
       "description": {
-        "en": "Thor / executes",
-        "ko": "Thor / 실행"
+        "en": "Dispatches only an eligible decision.",
+        "ko": "실행 가능한 결정만 전달합니다."
       }
     },
     {
@@ -105,12 +130,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Var / your approval",
-        "ko": "Var / 여러분의 승인"
+        "en": "Var / carries approval",
+        "ko": "Var / 승인 전달"
       },
       "description": {
-        "en": "Var / your approval",
-        "ko": "Var / 여러분의 승인"
+        "en": "Carries a distinct human decision and cannot execute it.",
+        "ko": "별도의 사람 결정을 전달하며 직접 실행할 수 없습니다."
       }
     },
     {
@@ -118,12 +143,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Vidar / rollback / failover",
-        "ko": "Vidar / 롤백 / failover"
+        "en": "Vidar / recovery",
+        "ko": "Vidar / 복구"
       },
       "description": {
-        "en": "Vidar / rollback / failover",
-        "ko": "Vidar / 롤백 / failover"
+        "en": "Owns required rollback, failover, or state-forward recovery.",
+        "ko": "필요한 롤백, 장애 조치 또는 상태 전진 복구를 소유합니다."
       }
     },
     {
@@ -135,8 +160,8 @@
         "ko": "Saga / 감사"
       },
       "description": {
-        "en": "Saga / audits",
-        "ko": "Saga / 감사"
+        "en": "Records every terminal outcome, including denied no-ops.",
+        "ko": "거부된 미실행을 포함한 모든 최종 결과를 기록합니다."
       }
     },
     {
@@ -144,12 +169,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Norns / learns",
-        "ko": "Norns / 학습"
+        "en": "Norns / proposes candidate",
+        "ko": "Norns / 후보 제안"
       },
       "description": {
-        "en": "Norns / learns",
-        "ko": "Norns / 학습"
+        "en": "Proposes an inert candidate without promoting or executing it.",
+        "ko": "승격하거나 실행하지 않고 비활성 후보를 제안합니다."
       }
     }
   ],
@@ -186,6 +211,36 @@
       "label": null
     },
     {
+      "id": "flow-04b",
+      "from": "loki",
+      "to": "forseti",
+      "kind": "dependency",
+      "label": {
+        "en": "advises",
+        "ko": "자문"
+      }
+    },
+    {
+      "id": "flow-04c",
+      "from": "forseti",
+      "to": "odin",
+      "kind": "dependency",
+      "label": {
+        "en": "conflict only",
+        "ko": "충돌 시에만"
+      }
+    },
+    {
+      "id": "flow-04d",
+      "from": "odin",
+      "to": "forseti",
+      "kind": "dependency",
+      "label": {
+        "en": "ordering",
+        "ko": "우선순위"
+      }
+    },
+    {
       "id": "flow-05",
       "from": "forseti",
       "to": "thor",
@@ -217,7 +272,10 @@
       "from": "thor",
       "to": "vidar",
       "kind": "request",
-      "label": null
+      "label": {
+        "en": "recovery required",
+        "ko": "복구 필요"
+      }
     },
     {
       "id": "flow-09",
@@ -231,7 +289,20 @@
       "from": "thor",
       "to": "saga",
       "kind": "request",
-      "label": null
+      "label": {
+        "en": "outcome",
+        "ko": "결과"
+      }
+    },
+    {
+      "id": "flow-10b",
+      "from": "forseti",
+      "to": "saga",
+      "kind": "request",
+      "label": {
+        "en": "denied no-op",
+        "ko": "거부된 미실행"
+      }
     },
     {
       "id": "flow-11",
