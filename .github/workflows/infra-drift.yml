@@ -253,10 +253,23 @@ jobs:
           refresh_plan_json="$RUNNER_TEMP/bootstrap-refresh-plan.json"
           trap 'rm -f "$state_json" "$refresh_plan" "$refresh_plan_json"' EXIT
           terraform show -json >"$state_json"
-          stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
-            bootstrap-inputs --state-json "$state_json")"
-          app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
-          runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          if stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
+            bootstrap-inputs --state-json "$state_json" 2>/dev/null)"; then
+            app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+            runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          else
+            app_resource_group_name="$(terraform output -raw app_resource_group_name)"
+            runner_vm_name="$(terraform output -raw runner_vm_name)"
+            runner_ssh_public_key="$(az vm show \
+              --subscription "$ARM_SUBSCRIPTION_ID" \
+              --resource-group "$TF_VAR_ops_resource_group_name" \
+              --name "$runner_vm_name" \
+              --query 'osProfile.linuxConfiguration.ssh.publicKeys[0].keyData' \
+              --output tsv \
+              --only-show-errors)"
+            [[ -n "$app_resource_group_name" && -n "$runner_ssh_public_key" ]]
+            echo "Recovered promoted runner plan inputs from authoritative readback."
+          fi
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
           set +e
