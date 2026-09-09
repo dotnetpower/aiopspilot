@@ -136,13 +136,21 @@ async def test_run_store_retains_complete_tick_reports_without_authority() -> No
     assert all(len(str(record["report_digest"])) == 64 for record in records)
 
 
-async def test_run_store_rejects_reusing_an_identity_for_another_report() -> None:
+async def test_run_store_retains_changed_retry_as_another_content_addressed_attempt() -> None:
     state = InMemoryStateStore()
     store = StateStoreAnalyzerRunReceiptStore(state)
     await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 1})
+    await store.record(
+        run_id="run-1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 2},
+    )
 
-    with pytest.raises(ValueError, match="identity collision"):
-        await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 2})
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 2
+    assert {record["run_id"] for record in records} == {"run-1"}
+    assert len({record["attempt_id"] for record in records}) == 2
 
 
 async def test_run_store_keeps_first_time_for_an_idempotent_retry() -> None:
@@ -159,3 +167,4 @@ async def test_run_store_keeps_first_time_for_an_idempotent_retry() -> None:
 
     assert len(records) == 1
     assert records[0]["recorded_at"] == NOW.isoformat()
+    assert records[0]["attempt_id"] == records[0]["report_digest"]

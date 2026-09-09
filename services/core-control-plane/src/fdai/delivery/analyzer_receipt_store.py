@@ -93,13 +93,15 @@ class StateStoreAnalyzerRunReceiptStore:
             ensure_ascii=True,
             allow_nan=False,
         )
-        digest = hashlib.sha256(run_id.encode("utf-8")).hexdigest()
-        key = f"{ANALYZER_RUN_RECEIPT_STATE_PREFIX}{digest}"
+        report_digest = hashlib.sha256(canonical_report.encode("utf-8")).hexdigest()
+        attempt_digest = hashlib.sha256(f"{run_id}\n{report_digest}".encode()).hexdigest()
+        key = f"{ANALYZER_RUN_RECEIPT_STATE_PREFIX}{attempt_digest}"
         value: dict[str, object] = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "run_id": run_id,
+            "attempt_id": report_digest,
             "recorded_at": recorded_at.isoformat(),
-            "report_digest": hashlib.sha256(canonical_report.encode("utf-8")).hexdigest(),
+            "report_digest": report_digest,
             "report": dict(report),
             "execution_authority": False,
         }
@@ -108,6 +110,7 @@ class StateStoreAnalyzerRunReceiptStore:
             immutable_fields = (
                 "schema_version",
                 "run_id",
+                "attempt_id",
                 "report_digest",
                 "report",
                 "execution_authority",

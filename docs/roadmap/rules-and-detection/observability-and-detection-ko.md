@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 56bdd553b96596879009f064e83c5c7b6fdfe86e
+translation_source_sha: 4a8b7462a2e196fb1334f13883d9089a0d3399e2
 translation_revised: 2026-09-10
 ---
 
@@ -511,9 +511,10 @@ telemetry / metrics
 추적 상태와 재시도에도 유지되는 명시적 실행 신원 또는 Container Apps 작업 실행 신원이 구성된
 경우 완료된 각 실행은 대상 해석 수, 발견된 문제의 발행, 추적 연속성 결과, 준비 상태를 포함한
 내용 다이제스트 기반 `runtime:analyzer-tick-receipt:` 레코드 하나도 보존합니다. 같은 내용의
-재시도는 no-op입니다. 다른 내용에 같은 실행 신원을 다시 사용하는 시도는 차단되며, 이 증적은
-항상 `execution_authority: false`를 포함합니다. 안정적인 실행 신원이 없는 로컬 실행은 운영
-증적을 만들지 않습니다.
+재시도는 no-op입니다. 안정적인 작업 실행 ID는 상위 신원이고 보고서 다이제스트는 시도
+신원입니다. 내용이 달라진 재시도는 이전 실패와 복구 근거가 충돌하지 않도록 별도의 내용 기반
+시도로 보존합니다. 각 증적은 항상 `execution_authority: false`를 포함합니다. 안정적인 실행
+신원이 없는 로컬 실행은 운영 증적을 만들지 않습니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,

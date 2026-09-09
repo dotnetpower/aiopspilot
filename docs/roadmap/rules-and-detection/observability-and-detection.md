@@ -536,10 +536,11 @@ check. Publish failure keeps a scheduled item retryable and returns a non-zero j
 When tracked state and a retry-stable explicit or Container Apps Job execution identity are
 configured, every completed pass also retains one content-digested
 `runtime:analyzer-tick-receipt:` record with target-resolution counts, finding publication,
-trace-continuity outcomes, and readiness. A retry with the same content is a no-op. Reusing the
-execution identity with different content is blocked, and the receipt always carries
-`execution_authority: false`. Local runs without a stable execution identity do not create an
-operational receipt.
+trace-continuity outcomes, and readiness. The stable Job execution id is the parent identity, while
+the report digest is the attempt identity. An exact retry is a no-op, and a changed retry becomes a
+separate content-addressed attempt so recovery evidence does not collide with the earlier failure.
+Every receipt carries `execution_authority: false`. Local runs without a stable execution identity
+do not create an operational receipt.
 
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,
