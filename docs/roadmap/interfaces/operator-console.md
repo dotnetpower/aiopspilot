@@ -3,7 +3,7 @@ title: FDAI Console Conversations
 ---
 # FDAI Console Conversations
 How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI Console capability owns the **conversational surface**, not a separate product: layered architecture, tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status.
-Push-direction notifications (system → human) live in [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are defined in [console-operations.md](console-operations.md), and the SPA lives under [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). Login bootstrap derives assigned-principal access from verified App Roles without requiring the optional access-request projection; unassigned access remains closed when that projection is unavailable. In local development, an independent service adapter may use Azure CLI only for model narration; it has no provider-read or execution authority. Ontology presents a reviewed Semantic model and Catalog topology from one exact-release registry projection. Runtime instances appear only in a separate, purpose-scoped Context snapshot backed by a secured receipt. The instance surface keeps source candidate accounting, bounded response counts, focus-graph items, Inspector-only relationships, and IAM-only relationships separate so layout omission never reads as missing provider evidence. While visible, it consumes an authenticated inventory-invalidation SSE stream and immediately revalidates the selected instance after a committed watermark. Cross-origin replay explicitly admits the bounded `Last-Event-ID` request header. When SSE is unavailable, a monotonic countdown shows the next 15-second fallback poll; browser resume also triggers immediate revalidation. Refresh failure preserves the last verified response, provider states remain text-bearing semantic badges, and neither SSE nor polling substitutes for inventory observation or raises relationship completeness. Incident attention never submits during mount; each explicit click opens a fresh incident-bound conversation, and a receipt-bound planner outage renders a localized model-connectivity or semantic-runtime recovery step. Once server verification exists, its evidence references exclusively own citations, including an explicit zero-reference result; screen context is cited only when no verification result exists.
+Push-direction notifications (system → human) live in [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are defined in [console-operations.md](console-operations.md), and the SPA lives under [project-structure.md § console/](../architecture/project-structure.md#module-boundaries); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). Login bootstrap derives assigned-principal access from verified App Roles without requiring the optional access-request projection; unassigned access remains closed when that projection is unavailable. In local development, an independent service adapter may use Azure CLI only for model narration; it has no provider-read or execution authority. Ontology presents a reviewed Semantic model and Catalog topology from one exact-release registry projection. Runtime instances appear only in a separate, purpose-scoped Context snapshot backed by a secured receipt. The instance surface keeps source candidate accounting, bounded response counts, focus-graph items, Inspector-only relationships, and IAM-only relationships separate so layout omission never reads as missing provider evidence. While visible, it consumes an authenticated inventory-invalidation SSE stream and immediately revalidates the selected instance after a committed watermark. Cross-origin replay explicitly admits the bounded `Last-Event-ID` request header. When SSE is unavailable, a monotonic countdown shows the next 15-second fallback poll; browser resume also triggers immediate revalidation. Refresh failure preserves the last verified response, provider states remain text-bearing semantic badges, and neither SSE nor polling substitutes for inventory observation or raises relationship completeness. Incident attention never submits during mount; each explicit click opens a fresh incident-bound conversation, and a receipt-bound planner outage renders a localized model-connectivity or semantic-runtime recovery step. Once server verification exists, its evidence references exclusively own citations, including an explicit zero-reference result; screen context is cited only when no verification result exists.
 Settings > Integrations can preview the production incident-open email renderer with synthetic placeholders. An Owner can also save one public-cloud Teams Workflows URL and send a fixed synthetic Adaptive Card through a bounded diagnostic. A deployment uses a dedicated Key Vault secret and a managed identity that can write only that versioned secret. The local profile encrypts the value with a domain-separated key derived from its private service DSN and stores only ciphertext in the loopback Operator database. FDAI reads the exact saved version back and verifies its digest before testing. Contributor, Approver, and Owner roles receive the current URL through a no-store response after refresh; Reader and BreakGlass roles receive only `visible: false`. Every successful reveal writes an audit record containing the actor, digest, binding version, and timestamp without the URL. Saving or revealing the secret does not grant approval or execution authority, and a deployment still controls when its notification runtime references the binding. The Teams A1 guide separates protected FDAI preparation from the tenant consent, Teams app installation, and final deployment approval that remain provider-hosted human actions, and it never accepts a client secret. Its Owner-only action persists one revisioned, no-authority proposal for a protected plan and reports the durable request state without claiming provider or deployment success.
 Settings > Runtime policies exposes aggressive T2 answer recovery to Owners. Every environment defaults the control off until promotion evidence justifies an audited override. Saving the audited revision applies to later interactive read turns without restarting Core. The control cannot enable T2 for Golden campaigns, action drafts, scope or authorization denials, or execution paths, and it does not relax ontology or evidence verification. For optional Console projections, typed `404`, `501`, and source-gate `503` responses render as unavailable. Authentication failures, unexpected transport or `500` responses, and decoder failures remain visible errors. Settings > Integrations > Document OCR lets an Owner choose process-isolated local Korean and English OCR or request Azure Document Intelligence. Saving creates a revision- and digest-bound policy plus a protected plan request without apply authority. The panel reports the provider that deployment readback confirms, supports retrying a plan request, and separates switching to local OCR from explicit Azure resource removal.
 The Controls view separates catalog presence and semantic mapping from scope-bound evaluation, applicability, and satisfaction. The WAF checklist can therefore show all pinned definitions.
@@ -221,6 +221,7 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
+| `query_operator_memory(scope_kind, scope_ref)` | Return active (non-superseded, non-expired) governed operator-memory entries for a bounded scope. Read-only. | Reader | `OperatorMemoryStore` |
 
 Receipt-derived answer authority and typed holds are defined in [Operator Console Progressive Conversations](operator-console-progressive-conversations.md#receipt-bound-answer-authority).
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
@@ -250,9 +251,8 @@ the existing T1 embedding binding, the same credential path retrieves state and 
 descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
 clarification without querying inventory. If the embedder is absent or fails, the resolver returns
 no candidate and the deterministic hold remains authoritative. The resolver rejects empty prompts, control characters, and text over 4,096 characters before building catalog vectors or calling the query embedder.
-`FDAI_INVENTORY_SEMANTIC_ENABLED` controls this clarification capability independently from
-`FDAI_CATALOG_SEARCH_ENABLED`; disabling Rule search does not silently disable inventory semantic
-retrieval.
+Inventory semantic retrieval and Rule-catalog search are controlled independently; disabling
+Rule search does not silently disable inventory semantic retrieval.
 The clarification is not a dead end. A later operator turn that selects an exact promoted catalog
 expression recompiles deterministically and can perform the provider read. The earlier model or
 embedding arguments are never reused as query authority.
@@ -434,9 +434,8 @@ verifier re-check (safeguard 8):
 
 - If verifier passes AND RBAC is satisfied → the tool call proceeds.
 - If verifier abstains or RBAC is under the floor → the coordinator
-  substitutes an `enqueue_hil(...)` call that files a review item in the
-  existing HIL queue and returns "I filed a HIL item, id X" to the
-  operator.
+  internally files a review item in the existing HIL queue and returns
+  "I filed a HIL item, id X" to the operator.
 - Under no circumstance does the write happen without an audit entry
   before dispatch.
 ## 8. Channel integration (push vs pull)
@@ -449,7 +448,7 @@ radius of send-only and receive-plus-send surfaces.
 The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity normalizer, bounded Starlette routes, Slack
 Web API publisher, and Teams Bot Framework publisher are implemented. The Slack route verifies timestamped signatures. The Teams route calls
 an injected bearer authenticator before parsing activity JSON. Reply publishers use only configured HTTPS endpoints, injected app/workload
-credentials, and server-owned conversation resolution. `ProductionChannelRuntime` binds the concrete Bot Framework JWT verifier, Teams
+credentials, and server-owned conversation resolution. The delivery-layer channel runtime binds the concrete Bot Framework JWT verifier, Teams
 principal resolver, Slack secrets/app credentials, fixed-endpoint publishers, and background gateway lifecycle. Missing required credentials
 or identity bindings fail startup before traffic. Those bindings stay in `delivery/`; they do not change the coordinator.
 
@@ -466,8 +465,8 @@ durable link is idempotent and does not merge principal records, roles, sessions
 
 | Channel | Push (existing) | Pull (this doc) | Shared config |
 |---------|-----------------|-----------------|---------------|
-| Teams | A1 HIL and outbound notification adapters | `TeamsBotChannel` + authenticated bounded activity route + workload-identity reply publisher + principal binding | Deployments can reuse selected identity/secret providers. |
-| Slack | `SlackWebhookChannel` and A1 adapter | `SlackBotChannel` + signed Events API route + fixed-endpoint Web API reply publisher | Deployments can reuse selected secret providers. |
+| Teams | A1 HIL and outbound notification adapters | `TeamsIngressVerifier` + authenticated bounded activity route + workload-identity reply publisher + principal binding | Deployments can reuse selected identity/secret providers. |
+| Slack | `SlackWebhookChannel` and A1 adapter | `SlackIngressVerifier` + signed Events API route + fixed-endpoint Web API reply publisher | Deployments can reuse selected secret providers. |
 | Email | send-only | (not planned; asynchronous, ill-suited to interactive) | n/a |
 | Webhook | send-only | (not planned; caller must own an interactive protocol themselves) | n/a |
 | Pager (PagerDuty) | send-only | (not planned) | n/a |
@@ -533,9 +532,9 @@ availability source.
 
 | Slice | Current status |
 |-------|----------------|
-| Core/CLI translator | `Narrator`, grounded answer rendering in `AzureOpenAINarratorModel`, coordinator, read tools, Python headless harness, and shared-API TypeScript CLI ship. Intent translation and answer rendering use separate prompts; both retain the deterministic tool and RBAC boundary. |
+| Core/CLI translator | `Narrator`, grounded answer rendering in the delivery-layer Azure OpenAI narrator adapter, coordinator, read tools, Python headless harness, and shared-API TypeScript CLI ship. Intent translation and answer rendering use separate prompts; both retain the deterministic tool and RBAC boundary. |
 | Write/approval tools | Simulation, HIL, runbook, and proposal routes ship. Break-glass stops at the pager/audit request receipt in §7.3 and grants no elevation. |
-| Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publishers, and optional durable replies ship; environment-owned enablement and credentials remain required. |
+| Teams/Slack conversation | The delivery-layer channel runtime, authenticated ingress, principal resolution, publishers, and optional durable replies ship; environment-owned enablement and credentials remain required. |
 | Web chat and memory | JSON/SSE chat, principal-scoped history/preferences/memory, AnswerPlan, and progressive verification ship. The bounded timing parser accepts existing v1 envelopes and Core's v2 durable queue phase instead of discarding the complete timing envelope. |
 | Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O. Direct Command Deck and HTTP reads share an owner-scoped result-replay ledger; closing a streamed response cancels its in-flight read. The surface is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
 | Forecast and Dynamic learning | `GET /forecast-learning` projects forecast closure and publication health; `GET /dynamic-assurance` projects durable scalar/graph model summaries and trajectory closure counts. Both routes are Reader-only and expose no detector/model mutation, promotion, approval, or execution control. |
@@ -578,8 +577,8 @@ and the authoritative registry, never inferred from phase names in this document
   preview. The coordinator also uses this fallback when the model returns an empty or oversized
   answer or drops any required evidence reference. Rendering failure never changes tool data,
   status, authorization, or execution state.
-- **Verifier abstain on write-class tool** - substitute
-  `enqueue_hil(...)` (see §7.4), return the HIL id, audit reason
+- **Verifier abstain on write-class tool** - internally file a HIL
+  review item (see §7.4), return the HIL id, audit reason
   `verifier_abstained`.
 - **Channel adapter disconnects** - when durable delivery is configured, the complete response and
   terminal/ambiguous state remain in the ledger. The direct path still resumes durable conversation
@@ -604,15 +603,16 @@ Split into focused owner documents:
 - [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster and fix history (13.5).
 ## 14. MCP delivery and managed catalog
 
-FDAI can consume externally hosted MCP tools through the managed outbound catalog under
-`services/core-control-plane/src/fdai/delivery/mcp/`. Servers install disabled. Enable performs a non-invoking `tools/list` discovery and
-verifies every ActionType-to-tool allowlist entry. Catalog mutations use a durable revision-CAS snapshot; manifest, health, revision, and
-the admin audit record commit in one PostgreSQL transaction. A periodic monitor records health transitions, and only enabled, healthy
-servers are routable. Endpoint validation rejects credentials, query strings, fragments, and non-loopback plaintext HTTP.
-
-This outbound catalog is distinct from publishing FDAI itself as an MCP server. The repository
-currently ships no inbound MCP server process, `list_tools`/`call_tool` wire endpoint, or external
-MCP principal mapping. A fork MUST NOT infer an FDAI-to-client MCP surface from this document.
+FDAI's only shipped MCP integration is a single fixed-transport, read-only Azure MCP client
+(`services/core-control-plane/src/fdai/delivery/azure/mcp_read_investigation.py`) for optional read
+investigations, with typed provider fallback when unavailable. It is not an outbound catalog: there
+is no per-server install/enable lifecycle, `tools/list` discovery, health monitor, or admin audit
+record for externally hosted MCP servers today. A managed outbound catalog under
+`services/core-control-plane/src/fdai/delivery/mcp/` - disabled-by-default install, non-invoking
+discovery, allowlist verification, a durable revision-CAS snapshot, health monitoring, and endpoint
+validation - remains a design target, not shipped behavior. Like publishing FDAI as an MCP server,
+this is also unshipped: no inbound MCP server process, `list_tools`/`call_tool` wire endpoint, or
+external MCP principal mapping exists today. A fork MUST NOT infer either surface here.
 
 A future inbound MCP proposal can additively reuse the coordinator and RBAC, reject anonymous
 callers, map mTLS or audience-scoped Entra identities to service `Principal` records, and audit the
@@ -620,7 +620,7 @@ resolved role. That remains future scope requiring its own threat model, protoco
 deployment gates.
 ## 15. Decision status
 
-- **OD-C1 resolved** - the strict core narrator prompt lives in `AzureOpenAINarratorModel`; the
+- **OD-C1 resolved** - the strict core narrator prompt lives in the delivery-layer Azure OpenAI narrator adapter; the
   broader prompt catalog uses `rule-catalog/prompts/base`, `packs`, `scenarios`, and `tools`.
 - **OD-C2 resolved** - principal-scoped user memory/preferences and separate governed operator
   memory now have schemas, provenance, consent, and retention paths.
@@ -628,7 +628,7 @@ deployment gates.
   must retain no-self-approval and separately approve any distinct-approver requirement.
 - **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
   history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
-## 16. Related docs
+## 16. Further reading
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust routing, verifier authority.
@@ -649,7 +649,7 @@ deployment gates.
   Month 1 may consume.
 - [rule-governance.md](../rules-and-detection/rule-governance.md) - the discovery loop the
   Month-1 console feeds.
-- [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app) -
+- [project-structure.md § console/](../architecture/project-structure.md#module-boundaries) -
   the FDAI Console SPA the Month-1 web-chat channel extends.
 
 ## Related docs
