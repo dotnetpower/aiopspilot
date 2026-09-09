@@ -303,8 +303,8 @@ def _promotion(value: object) -> ForecastPromotionPolicy:
             "max_policy_escapes",
         },
     )
-    minimum_coverage = _ratio(raw["min_interval_coverage"], "min_interval_coverage")
-    maximum_coverage = _ratio(raw["max_interval_coverage"], "max_interval_coverage")
+    minimum_coverage = _ratio(raw["min_interval_coverage"], "min_interval_coverage", minimum=0.85)
+    maximum_coverage = _ratio(raw["max_interval_coverage"], "max_interval_coverage", maximum=0.95)
     if minimum_coverage > maximum_coverage:
         raise DetectionGovernancePolicyError("forecast interval coverage bounds are reversed")
     return ForecastPromotionPolicy(
