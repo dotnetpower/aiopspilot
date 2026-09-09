@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import logging
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,6 +22,7 @@ from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
+from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
@@ -35,7 +37,55 @@ _CLAIM_PREFIX = "semantic-turn-claim:"
 _DEFAULT_CLAIM_LEASE_SECONDS = 120.0
 _MAX_PROGRESS_RECORDS = 64
 _PROGRESS_DRAIN_SECONDS = 0.5
+_RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
 _LOGGER = logging.getLogger(__name__)
+
+
+def _emit_runtime_call_record(record: str) -> None:
+    sys.stdout.write(f"{record}\n")
+    sys.stdout.flush()
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeCallEndpointObserver:
+    """Emit one authority-free target witness after typed request admission."""
+
+    caller_resource_id: str
+    target_resource_id: str
+    clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    emit: Callable[[str], None] = _emit_runtime_call_record
+
+    def __post_init__(self) -> None:
+        _container_app_name(self.caller_resource_id, field_name="caller_resource_id")
+        _container_app_name(self.target_resource_id, field_name="target_resource_id")
+        if self.caller_resource_id.casefold() == self.target_resource_id.casefold():
+            raise ValueError("runtime call caller and target Resource IDs MUST be distinct")
+
+    def observe(self, request: Mapping[str, Any]) -> None:
+        """Write a replay-stable target witness without request content or authority."""
+
+        request_id = request.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip() or len(request_id) > 512:
+            raise ValueError("runtime call request_id MUST be bounded non-empty text")
+        observed_at = self.clock()
+        if observed_at.tzinfo is None:
+            raise ValueError("runtime call observation clock MUST be timezone-aware")
+        payload = {
+            "schema_version": _RUNTIME_CALL_LOG_SCHEMA,
+            "message": "runtime_call_endpoint_observed",
+            "endpoint_role": "target",
+            "observation_id": _runtime_call_observation_id(
+                request_id=request_id,
+                caller_resource_id=self.caller_resource_id,
+                target_resource_id=self.target_resource_id,
+            ),
+            "caller_resource_id": self.caller_resource_id,
+            "target_resource_id": self.target_resource_id,
+            "observed_at": observed_at.astimezone(UTC).isoformat(),
+            "execution_authority": False,
+            "mutation_authority": False,
+        }
+        self.emit(json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +99,7 @@ class SemanticTurnConsumerBinding:
     processor: SemanticTurnProcessor
     available: bool
     unavailable_reason: str | None
+    runtime_call_observer: RuntimeCallEndpointObserver | None = None
 
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Consume semantic turns until the shared runtime stop event is set."""
@@ -61,6 +112,7 @@ class SemanticTurnConsumerBinding:
             group_id=self.group_id,
             processor=self.processor,
             stop=stop,
+            runtime_call_observer=self.runtime_call_observer,
         )
 
 
@@ -251,6 +303,7 @@ def semantic_turn_binding_from_config(
         unavailable_reason=(
             None if runtime is not None else unavailable_reason or "semantic_runtime_unavailable"
         ),
+        runtime_call_observer=_runtime_call_observer_from_config(config),
     )
 
 
@@ -265,6 +318,7 @@ async def consume_semantic_turns(
     stop: asyncio.Event,
     publish_attempts: int = 3,
     publish_retry_delay_seconds: float = 0.1,
+    runtime_call_observer: RuntimeCallEndpointObserver | None = None,
 ) -> None:
     """Consume at-least-once requests and publish one idempotent projection.
 
@@ -276,17 +330,19 @@ async def consume_semantic_turns(
         async for envelope in stream:
             if stop.is_set():
                 return
-            progress_queue: asyncio.Queue[SemanticQueryProgress] = asyncio.Queue(
-                maxsize=_MAX_PROGRESS_RECORDS
-            )
-            progress_publisher = asyncio.create_task(
-                _drain_progress(
-                    bus=bus,
-                    topic=progress_topic,
-                    queue=progress_queue,
-                )
-            )
             try:
+                if runtime_call_observer is not None:
+                    runtime_call_observer.observe(envelope.payload)
+                progress_queue: asyncio.Queue[SemanticQueryProgress] = asyncio.Queue(
+                    maxsize=_MAX_PROGRESS_RECORDS
+                )
+                progress_publisher = asyncio.create_task(
+                    _drain_progress(
+                        bus=bus,
+                        topic=progress_topic,
+                        queue=progress_queue,
+                    )
+                )
                 progress_sequence = 0
 
                 async def publish_progress(
@@ -399,6 +455,61 @@ async def _publish_projection(
     return False
 
 
+def _runtime_call_observer_from_config(
+    config: Mapping[str, str],
+) -> RuntimeCallEndpointObserver | None:
+    caller = config.get("FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", "").strip()
+    target = config.get("FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", "").strip()
+    if bool(caller) != bool(target):
+        raise RuntimeError(
+            "runtime call caller and target Resource IDs MUST be configured together"
+        )
+    if not caller:
+        return None
+    if resolve_execution_venue(config) is not ExecutionVenue.DEPLOYED:
+        raise RuntimeError("runtime call Resource IDs are valid only in the deployed venue")
+    return RuntimeCallEndpointObserver(
+        caller_resource_id=caller,
+        target_resource_id=target,
+    )
+
+
+def _runtime_call_observation_id(
+    *,
+    request_id: str,
+    caller_resource_id: str,
+    target_resource_id: str,
+) -> str:
+    body = json.dumps(
+        {
+            "caller_resource_id": caller_resource_id,
+            "request_id": request_id,
+            "schema_version": _RUNTIME_CALL_LOG_SCHEMA,
+            "target_resource_id": target_resource_id,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(body).hexdigest()
+
+
+def _container_app_name(value: str, *, field_name: str) -> str:
+    segments = value.split("/")
+    if (
+        len(segments) != 9
+        or segments[0] != ""
+        or segments[1].casefold() != "subscriptions"
+        or not segments[2]
+        or segments[3].casefold() != "resourcegroups"
+        or not segments[4]
+        or segments[5].casefold() != "providers"
+        or f"{segments[6]}/{segments[7]}".casefold() != "microsoft.app/containerapps"
+        or not segments[8]
+    ):
+        raise ValueError(f"runtime call {field_name} MUST identify a Container App")
+    return segments[8]
+
+
 def _projection_mapping(encoded: bytes) -> Mapping[str, Any]:
     loaded = json.loads(encoded)
     if not isinstance(loaded, dict):
@@ -504,6 +615,7 @@ def _claim_audit(action_kind: str) -> dict[str, str]:
 
 
 __all__ = [
+    "RuntimeCallEndpointObserver",
     "SemanticTurnConsumerBinding",
     "StateStoreSemanticTurnResultStore",
     "build_semantic_turn_processor",

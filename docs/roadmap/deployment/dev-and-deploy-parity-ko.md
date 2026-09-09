@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2fe39cab9eee5bb1193fc878d8acfbbabff05d2e
+translation_source_sha: 8da59998ab1137f30a159ceb198f1a9ccca04a87
 translation_revised: 2026-09-09
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -288,8 +288,25 @@ Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니�
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재
 Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
-Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace
-customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면
+Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다.
+
+배포된 런타임 호출 근거는 인벤토리 Job을 통해 같은 프로바이더를 사용하지만, 생산자는 의도적으로
+실행 장소에 한정됩니다. 배포된 Operator는 인증된 브로커가 의미 요청을 수락한 뒤에만 권한이 없는
+호출자 증표를 내보내고, 배포된 Core는 의미 처리가 turn을 거절하기 전에 해당 전달이 소비자
+경계에 도달하면 일치하는 대상 증표를 내보냅니다. Terraform은 두 서비스에 같은 정확한 Operator
+및 Core Resource ID를 제공합니다.
+Azure Monitor는 각 증표를 해당 플랫폼 워크로드에 독립적으로 결속합니다. 인벤토리 신원은 각
+증표가 주장한 ARM ID 아래의 정확한 revision과 replica를 다시 읽습니다. Operator가 있으면
+보호된 Core 및 Operator 계획에 이 플랫폼 소유 바인딩이 필요합니다. 첫 도입은 독립적인
+`runtime_call_evidence_transition` 계획 모드를 사용하므로 관련 없는 환경 또는 리소스 식별 드리프트가
+계속 차단됩니다. Operator를 비활성화할 때도 같은 봉인 모드로 두 바인딩을 제거합니다. 인벤토리
+Job은 배포 장소와 명시적인 플랫폼 플래그가 모두 있을 때만 원본을 활성화합니다. 헤드리스 Core 배포는 원본을
+명시적으로 사용 불가 상태로 유지합니다. Interactive 로컬은 같은 변환 결과 및 사용 불가 상태
+계약을 사용하지만 배포 플랫폼 증표를 주장할 수 없으므로 `runtime_call_graph`를 사용 불가로
+유지합니다.
+
+로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를
+읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면
 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
 원격 Kubernetes 수명 주기 수집은 명시적으로 로컬 실시간 데이터를 사용하도록 설정해야 합니다. 런타임 환경 생성기는 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
 API 서버, 대상, 인증 모드, CA 경로 및 클러스터 리소스 바인딩이 모두 `console/.env.local`에 있을 때만 준비 프로세스에서 `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1`을 설정하세요.

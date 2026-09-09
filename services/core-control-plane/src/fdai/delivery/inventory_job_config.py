@@ -61,6 +61,8 @@ class InventoryJobConfig:
     kubernetes_ca_pem: str | None = None
     kubernetes_auth_mode: str | None = None
     kubernetes_audience: str | None = None
+    monitor_workspace_id: str | None = None
+    runtime_call_evidence_enabled: bool = False
     collection_policy: InventoryCollectionPolicy | None = None
 
     def snapshot_policy(self, source_name: str) -> SourceCollectionPolicy:
@@ -143,6 +145,12 @@ class InventoryJobConfig:
             "FDAI_KUBERNETES_AUDIENCE",
             "",
         ).strip()
+        monitor_workspace_id = source.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
+        runtime_call_evidence_enabled = read_bool_env(
+            source,
+            "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED",
+            False,
+        )
         collection_policy_path = Path(
             source.get(
                 "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
@@ -213,6 +221,16 @@ class InventoryJobConfig:
                 or parsed_kubernetes.fragment
             ):
                 raise ValueError("FDAI_KUBERNETES_API_SERVER MUST be credential-free HTTPS")
+        if monitor_workspace_id is not None and (
+            len(monitor_workspace_id) > 128
+            or not monitor_workspace_id.isprintable()
+            or any(character.isspace() for character in monitor_workspace_id)
+        ):
+            raise ValueError("FDAI_MONITOR_WORKSPACE_ID MUST be bounded printable text")
+        if runtime_call_evidence_enabled and monitor_workspace_id is None:
+            raise ValueError(
+                "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED requires FDAI_MONITOR_WORKSPACE_ID"
+            )
         collection_policy = load_inventory_collection_policy(collection_policy_path)
         _validate_collection_policy_bindings(
             collection_policy,
@@ -255,6 +273,8 @@ class InventoryJobConfig:
             kubernetes_audience=(
                 kubernetes_audience if kubernetes_auth_mode == "workload-identity" else None
             ),
+            monitor_workspace_id=monitor_workspace_id,
+            runtime_call_evidence_enabled=runtime_call_evidence_enabled,
             collection_policy=collection_policy,
         )
 

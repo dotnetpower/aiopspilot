@@ -2,6 +2,13 @@ variable "name" { type = string }
 variable "platform" { type = object({ resource_group_name = string, container_app_environment_id = string, acr_login_server = string, kafka_bootstrap_servers = string }) }
 variable "image" { type = string }
 variable "identity" { type = object({ runtime_resource_id = string, runtime_client_id = string, command_resource_id = string, command_client_id = string, edge_resource_id = optional(string, ""), edge_client_id = optional(string, "") }) }
+variable "runtime_call_evidence" {
+  type = object({
+    caller_resource_id = optional(string, "")
+    target_resource_id = optional(string, "")
+  })
+  default = {}
+}
 variable "event_topics" {
   type = object({
     events                         = string

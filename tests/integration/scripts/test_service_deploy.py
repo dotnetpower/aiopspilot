@@ -303,6 +303,51 @@ def _core_plan_with_handover_cadence_adoption(guard: ModuleType) -> dict[str, ob
     return plan
 
 
+def _runtime_call_evidence_plan(
+    guard: ModuleType,
+    *,
+    service: str,
+) -> dict[str, object]:
+    contract = guard.resolve_service(service, "dev")
+    service_name = "example-core" if service == "core-control-plane" else "example-operator-api"
+    caller_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/example-operator-api"
+    )
+    target_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/example-core"
+    )
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["id"] = target_id if service == "core-control-plane" else caller_id
+        resource["name"] = service_name
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["name"] = service
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": f"value-{index}"}
+            for index, name in enumerate(contract.required_environment)
+        ]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    after_environment.extend(
+        [
+            {
+                "name": "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID",
+                "value": caller_id,
+            },
+            {
+                "name": "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID",
+                "value": target_id,
+            },
+        ]
+    )
+    return plan
+
+
 def _stewardship_adoption_plan(
     guard: ModuleType,
     *,
@@ -1625,6 +1670,110 @@ def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> Non
             environment="dev",
             image_ref="image",
         )
+
+
+@pytest.mark.parametrize("service", ("core-control-plane", "operator-service"))
+def test_plan_guard_requires_exact_runtime_call_evidence_transition(
+    guard: ModuleType,
+    service: str,
+) -> None:
+    plan = _runtime_call_evidence_plan(guard, service=service)
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        runtime_call_evidence_transition=True,
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+        )
+    with pytest.raises(guard.PlanGuardError, match="must be applied independently"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            database_host_binding=True,
+            runtime_call_evidence_transition=True,
+        )
+
+
+def test_plan_guard_rejects_runtime_call_self_edge(guard: ModuleType) -> None:
+    plan = _runtime_call_evidence_plan(guard, service="operator-service")
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    caller = next(
+        item["value"]
+        for item in after_environment
+        if item["name"] == "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID"
+    )
+    next(
+        item for item in after_environment if item["name"] == "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID"
+    )["value"] = caller
+
+    with pytest.raises(guard.PlanGuardError, match="runtime-call evidence transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            runtime_call_evidence_transition=True,
+        )
+
+
+def test_plan_guard_allows_explicit_runtime_call_evidence_disable(
+    guard: ModuleType,
+) -> None:
+    plan = _runtime_call_evidence_plan(guard, service="core-control-plane")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    runtime_bindings = [
+        item
+        for item in after_environment
+        if item["name"]
+        in {
+            "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID",
+            "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID",
+        }
+    ]
+    before_environment.extend(copy.deepcopy(runtime_bindings))
+    after_environment[:] = [item for item in after_environment if item not in runtime_bindings]
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        runtime_call_evidence_transition=True,
+    )
+
+
+@pytest.mark.parametrize("service", ("core-control-plane", "operator-service"))
+def test_plan_bundle_seals_runtime_call_evidence_transition(
+    bundle: ModuleType,
+    service: str,
+) -> None:
+    mode = bundle._deployment_mode(
+        service=service,
+        initial_cutover=False,
+        database_host_binding=False,
+        core_evidence_bindings_transition=False,
+        runtime_call_evidence_transition=True,
+        model_binding_transition=False,
+        operator_channel_edge_transition="none",
+        sharepoint_connector_transition="none",
+    )
+
+    assert mode == "runtime-call-evidence"
 
 
 def test_plan_guard_allows_only_explicit_sharepoint_connector_transition(

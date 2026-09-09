@@ -396,6 +396,9 @@ reader, database purge gate, and fixed shadow schedule are ready for a dedicated
 that Job and its protected receipt exist, Genesis reports the archive lifecycle as incomplete.
 CI applies the complete service-owned migration chain before database integration tests and points
 those tests at that migrated database, matching the Genesis runtime ordering.
+Runtime-call enrichment activates only after the deployed inventory Job receives the explicit
+platform flag and paired endpoint witnesses. A missing binding or empty query remains unavailable
+and cannot advance Genesis graph completeness.
 
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,
 retains the previous complete graph, and leaves a resumable cursor or a bounded restart decision.

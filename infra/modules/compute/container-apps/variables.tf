@@ -606,6 +606,12 @@ variable "monitor_workspace_customer_id" {
   default     = ""
 }
 
+variable "runtime_call_evidence_enabled" {
+  description = "Enable authenticated runtime-call witness collection after Operator is provisioned."
+  type        = bool
+  default     = false
+}
+
 variable "case_history_container_url" {
   description = "Private HTTPS Blob container URL for FDAI_CASE_HISTORY_CONTAINER_URL."
   type        = string

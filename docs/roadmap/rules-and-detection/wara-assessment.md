@@ -260,6 +260,8 @@ The shared conversation transport accepts request version `1.7.0` and projection
 Its general explanations and goal-local support remain advisory, not WARA observations, assessment
 receipts, or satisfaction results. Default conversation relationship binding does not change WARA
 scope, consumer filtering, evidence admission, or the shadow-only assessment lifecycle.
+The same Operator composition may emit an authority-free runtime-call witness after broker
+acceptance. That telemetry does not enter WARA scope, evidence admission, or assessment results.
 
 ## Related docs
 

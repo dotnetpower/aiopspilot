@@ -22,6 +22,7 @@ module "core_control_plane" {
   handover_knowledge_interval_seconds = var.handover_knowledge_interval_seconds
   startup_readiness                   = var.startup_readiness
   llm                                 = var.llm
+  runtime_call_evidence               = var.runtime_call_evidence
   observation_context                 = var.observation_context
   governed_rca                        = var.governed_rca
   configuration_drift                 = var.configuration_drift

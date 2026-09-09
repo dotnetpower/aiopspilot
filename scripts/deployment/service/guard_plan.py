@@ -135,6 +135,12 @@ _APP_GITHUB_AUTH_ENVIRONMENT = frozenset(
     }
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
+_RUNTIME_CALL_EVIDENCE_ENVIRONMENT = frozenset(
+    {
+        "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID",
+        "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID",
+    }
+)
 _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT = frozenset(
     {
         "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
@@ -1266,6 +1272,86 @@ def _only_core_evidence_binding_adoption(
     )
 
 
+def _runtime_call_evidence_transition(
+    *,
+    contract: ServiceContract,
+    service_name: object,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> tuple[str, frozenset[str]] | None:
+    if contract.service not in {"core-control-plane", "operator-service"}:
+        return None
+    if set(runtime_drift_names) != {f"env:{name}" for name in _RUNTIME_CALL_EVIDENCE_ENVIRONMENT}:
+        return None
+    before_bindings = {
+        name: _environment_binding(before_environment.get(name))
+        for name in _RUNTIME_CALL_EVIDENCE_ENVIRONMENT
+    }
+    after_bindings = {
+        name: _environment_binding(after_environment.get(name))
+        for name in _RUNTIME_CALL_EVIDENCE_ENVIRONMENT
+    }
+    before_absent = all(binding is None for binding in before_bindings.values())
+    after_absent = all(binding is None for binding in after_bindings.values())
+    if before_absent == after_absent:
+        return None
+    selected_bindings = after_bindings if before_absent else before_bindings
+    values: dict[str, str] = {}
+    for name in _RUNTIME_CALL_EVIDENCE_ENVIRONMENT:
+        binding = selected_bindings[name]
+        if binding is None or binding[1] is not None or not isinstance(binding[0], str):
+            return None
+        values[name] = binding[0]
+    caller = values["FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID"]
+    target = values["FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID"]
+    caller_name = _container_app_resource_name(caller)
+    target_name = _container_app_resource_name(target)
+    if (
+        not isinstance(service_name, str)
+        or caller_name is None
+        or target_name is None
+        or caller.casefold() == target.casefold()
+    ):
+        return None
+    if contract.service == "core-control-plane":
+        valid_service_binding = (
+            target_name.casefold() == service_name.casefold()
+            and caller_name.casefold().endswith(("-operator-api", "-readapi"))
+        )
+    else:
+        valid_service_binding = (
+            caller_name.casefold() == service_name.casefold()
+            and target_name.casefold().endswith("-core")
+        )
+    if not valid_service_binding:
+        return None
+    mode = "enable" if before_absent else "disable"
+    return mode, frozenset({caller.casefold(), target.casefold()})
+
+
+def _container_app_resource_name(value: str) -> str | None:
+    parts = value.split("/")
+    if (
+        len(parts) != 9
+        or parts[0] != ""
+        or parts[1].casefold() != "subscriptions"
+        or re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+            r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            parts[2],
+        )
+        is None
+        or parts[3].casefold() != "resourcegroups"
+        or not parts[4]
+        or parts[5].casefold() != "providers"
+        or f"{parts[6]}/{parts[7]}".casefold() != "microsoft.app/containerapps"
+        or not parts[8]
+    ):
+        return None
+    return parts[8]
+
+
 def _guard_update(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -1275,6 +1361,7 @@ def _guard_update(
     initial_cutover: bool,
     database_host_binding: bool = False,
     core_evidence_bindings_transition: bool = False,
+    runtime_call_evidence_transition: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     sharepoint_connector_transition: str = "none",
@@ -1425,6 +1512,16 @@ def _guard_update(
     )
     if core_evidence_bindings_transition and not allowed_core_evidence_bindings:
         violations.append(f"core evidence binding transition is invalid at {address}")
+    runtime_call_transition = _runtime_call_evidence_transition(
+        contract=contract,
+        service_name=after.get("name"),
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=runtime_drift_names,
+    )
+    allowed_runtime_call_evidence = runtime_call_transition is not None
+    if runtime_call_evidence_transition and not allowed_runtime_call_evidence:
+        violations.append(f"runtime-call evidence transition is invalid at {address}")
     stewardship_secret_ids = _stewardship_auth_adoption(
         before=before,
         after=after,
@@ -1439,6 +1536,7 @@ def _guard_update(
         not initial_cutover
         and not database_host_binding
         and not core_evidence_bindings_transition
+        and not runtime_call_evidence_transition
         and not model_binding_transition
         and sharepoint_connector_transition == "none"
         and not (
@@ -1473,6 +1571,21 @@ def _guard_update(
             allowed_stewardship_adoption
             and after_resource_ids - before_resource_ids == stewardship_secret_ids
         )
+        or (
+            runtime_call_transition is not None
+            and (
+                (
+                    runtime_call_transition[0] == "enable"
+                    and after_resource_ids - before_resource_ids
+                    == runtime_call_transition[1] - before_resource_ids
+                )
+                or (
+                    runtime_call_transition[0] == "disable"
+                    and before_resource_ids - after_resource_ids
+                    == runtime_call_transition[1] - after_resource_ids
+                )
+            )
+        )
     ):
         violations.append(f"platform or peer resource identity drift at {address}")
     before_tags = before.get("tags")
@@ -1503,6 +1616,7 @@ def _guard_update(
     if (
         database_host_binding
         or core_evidence_bindings_transition
+        or runtime_call_evidence_transition
         or model_binding_transition
         or allowed_rca_reader
         or allowed_notification_topic
@@ -1901,6 +2015,7 @@ def validate_plan(
     initial_cutover: bool = False,
     database_host_binding: bool = False,
     core_evidence_bindings_transition: bool = False,
+    runtime_call_evidence_transition: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     operator_channel_edge_transition: str = "none",
@@ -1921,6 +2036,7 @@ def validate_plan(
         initial_cutover
         or database_host_binding
         or core_evidence_bindings_transition
+        or runtime_call_evidence_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
     ):
@@ -1948,6 +2064,19 @@ def validate_plan(
     ):
         raise PlanGuardError(
             "core evidence binding transition is Core-only and must be applied independently"
+        )
+    if runtime_call_evidence_transition and (
+        service not in {"core-control-plane", "operator-service"}
+        or initial_cutover
+        or database_host_binding
+        or core_evidence_bindings_transition
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+        or sharepoint_connector_transition != "none"
+    ):
+        raise PlanGuardError(
+            "runtime-call evidence transition is Core/Operator-only "
+            "and must be applied independently"
         )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
@@ -2072,6 +2201,7 @@ def validate_plan(
                 initial_cutover=initial_cutover,
                 database_host_binding=database_host_binding,
                 core_evidence_bindings_transition=core_evidence_bindings_transition,
+                runtime_call_evidence_transition=runtime_call_evidence_transition,
                 model_binding_transition=model_binding_transition,
                 resolved_models_digest=resolved_models_digest,
                 sharepoint_connector_transition=sharepoint_connector_transition,
@@ -2111,6 +2241,7 @@ def validate_plan(
             initial_cutover
             or database_host_binding
             or core_evidence_bindings_transition
+            or runtime_call_evidence_transition
             or model_binding_transition
             or sharepoint_connector_transition != "none"
         )
@@ -2165,6 +2296,7 @@ def main() -> int:
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument("--core-evidence-bindings-transition", action="store_true")
+    parser.add_argument("--runtime-call-evidence-transition", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument(
@@ -2190,6 +2322,7 @@ def main() -> int:
             initial_cutover=args.initial_cutover,
             database_host_binding=args.database_host_binding,
             core_evidence_bindings_transition=args.core_evidence_bindings_transition,
+            runtime_call_evidence_transition=args.runtime_call_evidence_transition,
             model_binding_transition=args.model_binding_transition,
             resolved_models_digest=args.resolved_models_digest,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
