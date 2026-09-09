@@ -40,18 +40,23 @@ def test_oi12_workflow_refreshes_inventory_before_seven_axis_measurement() -> No
 
 def test_oi12_workflow_recovers_legacy_inventory_job_from_reviewed_arm_contract() -> None:
     root_output = "terraform -chdir=infra output -raw inventory_job_name"
-    arm_fallback = "az rest"
+    arm_fallback = "az resource list"
     assert _WORKFLOW.index(root_output) < _WORKFLOW.index(arm_fallback)
-    assert "Microsoft.App/jobs?api-version=2024-03-01" in _WORKFLOW
-    assert ".value[]" in _WORKFLOW
+    assert "--resource-type Microsoft.App/jobs" in _WORKFLOW
+    assert "inventory_job_ids" in _WORKFLOW
+    assert "${#inventory_job_ids[@]} <= 64" in _WORKFLOW
+    assert "timeout 30s az resource show" in _WORKFLOW
+    assert "--api-version 2024-03-01" in _WORKFLOW
+    assert "inventory_job_candidates" in _WORKFLOW
+    assert "${#inventory_job_candidates[@]} -eq 1" in _WORKFLOW
     assert "az containerapp job list" not in _WORKFLOW
     assert '.name == "inventory"' in _WORKFLOW
     assert '"fdai.delivery.inventory_sync_cli"' in _WORKFLOW
     assert "(.args // []) == []" in _WORKFLOW
     assert "(.properties.template.containers | length) == 1" in _WORKFLOW
     assert 'if [[ -z "$inventory_job_name" ]]; then' in _WORKFLOW
-    assert "if length == 1 then" in _WORKFLOW
     assert "expected exactly one inventory job matching the reviewed runtime contract" in _WORKFLOW
+    assert "providers/Microsoft.App/jobs?api-version" not in _WORKFLOW
     assert "state pull" not in _WORKFLOW
     assert "startswith" not in _WORKFLOW
 

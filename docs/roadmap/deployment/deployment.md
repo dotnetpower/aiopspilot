@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Replaced the unavailable provider collection endpoint with bounded generic ARM resource enumeration and stable per-resource Container Apps reads. The fallback admits at most 64 Job IDs, gives each read 30 seconds, and still requires exactly one reviewed inventory runtime contract. | `current change`; failed protected certification `34410700086`; bounded live enumeration found 12 Jobs and one exact contract match; focused workflow contract test. | Publish the bounded enumeration, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Pinned the ARM-observed inventory Job lookup to the supported stable Container Apps `2024-03-01` API instead of the runner CLI extension's invalid default version. The exact resource-group and runtime-contract cardinality checks remain unchanged. | `current change`; failed protected certification `34406488996`; stable-API live read returned one reviewed contract match; focused workflow contract test. | Publish the API pin, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Replaced the unavailable Terraform state snapshot fallback with an ARM-observed inventory Job lookup in the exact platform resource group. The fallback requires exactly one container with the reviewed name, command, and empty arguments; it never derives identity from the Job name. | `current change`; failed protected certification `34403565287`; bounded live ARM cardinality diagnostic; focused workflow contract test. | Publish the ARM fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Allowed protected plan retention for the exact Operator API OpenAI User role replacement only when the role and scope are unchanged, `principal_id` is the sole replacement path and remains unknown until apply, and the new Operator API UAMI is created in the same plan. This does not authorize apply. | Failed protected plan `34404837936`; sanitized plan review; focused positive and negative guard tests. | Rerun plan-only, review all retained changes and cost-sensitive resources, and stop before apply. |
@@ -281,10 +282,11 @@ prod topology so shadow evaluation is representative.
   to its exact Azure login host, verifies the ACR digest is identical, and then binds the digest to
   Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
   Protected OI-12 inventory refresh prefers the platform root output for the inventory Job. When a
-  deployed state predates that output, it queries ARM only inside the exact platform resource group
-  through the stable Container Apps `2024-03-01` API and requires one container with the reviewed
-  inventory name, command, and empty arguments. It does not derive Job identity from a naming
-  pattern or persist provider output.
+  deployed state predates that output, it enumerates at most 64 generic ARM Job IDs inside the exact
+  platform resource group and reads each resource through the stable Container Apps `2024-03-01`
+  API with a 30-second bound. Exactly one container must match the reviewed inventory name, command,
+  and empty arguments. The fallback does not derive Job identity from a naming pattern or persist
+  provider output.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.
