@@ -63,6 +63,7 @@ from fdai.runtime.configuration import (
     _resolve_catalog_root,
 )
 from fdai.runtime.conversation_assurance_readiness import (
+    conversation_assurance_probe_principal,
     observe_runtime_readiness,
     write_runtime_readiness_receipt,
 )
@@ -342,7 +343,8 @@ async def build_semantic_runtime(
                 if semantic_composition.runtime is not None
                 else {}
             ),
-            service_health_reader=service_health_reader,
+            current_evidence_probe=semantic_composition.current_evidence_probe,
+            principal=conversation_assurance_probe_principal(),
         )
         write_runtime_readiness_receipt(Path(readiness_path), readiness)
     semantic_turn_binding = build_semantic_turn_binding(

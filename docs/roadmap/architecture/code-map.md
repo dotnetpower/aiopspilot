@@ -179,6 +179,10 @@ abstentions separately.
 Azure semantic query construction lives in `semantic_query_azure_composition.py`.
 `wire_semantic_query.py` directly re-exports that constructor while retaining the established
 public import, and the general wiring module stays below the enforced 800-line ceiling.
+`semantic_query_current_evidence.py` binds the same exact function registry, secured graph-first
+Resource scope, and invocation authority to principal-scoped readiness probes for Service Health,
+Resource state, and Resource Health. Incomplete scope or a mismatched principal digest remains
+unavailable and cannot become conversation-assurance evidence.
 Governed conversational document retrieval spans the semantic judgment and planning modules,
 `core/knowledge/governed_document_reader.py`, the read-only
 `query.governed_documents` FunctionType, Operator identity projection, and Console evidence

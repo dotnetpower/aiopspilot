@@ -79,6 +79,8 @@ _EXPECTED_FILES = frozenset(
         "wire_browser_evidence.py",
         # Owns the semantic runtime availability result without growing its wire module.
         "semantic_query_runtime_composition.py",
+        # Binds principal-scoped current-evidence probes to the exact semantic registry.
+        "semantic_query_current_evidence.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
         # Binds fixed-role adaptive prompts and independent, bounded answer models.

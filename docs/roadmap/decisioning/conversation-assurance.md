@@ -371,7 +371,9 @@ answered. Selection follows the same ephemeral runtime instance that will measur
 2. `build_semantic_query_runtime()` registers only callbacks whose composition dependencies exist.
    The registry exposes an immutable function-to-authority snapshot to the runtime, and the same
    registered set enters the principal-scoped query manifest.
-3. A runtime-owned probe exercises the concrete provider with the current identity and scope. Its
+3. A runtime-owned probe uses the same authenticated local human principal, role, purpose, and
+   principal-scope digest as the measured turn. It materializes the secured current Resource set
+   through the graph-first refresh policy and invokes the exact registered FunctionType. Its
    private mode-`0600` receipt records only bounded readiness fields.
 4. The readiness reducer compares the challenge's expected authority with the authority actually
    provided by the successful probe.
@@ -383,8 +385,16 @@ The readiness contract is monotonic:
 |-------|----------------|------------------|
 | `declared` | A reviewed `FunctionType` exists in the active release. | Unavailable backlog |
 | `bound` | The ephemeral composition registered a concrete callback and all required adapters. | Unavailable backlog |
-| `reachable` | The provider responded through the runtime identity and configured scope. | Unavailable backlog |
+| `reachable` | The bound evidence source responded through the runtime identity and configured scope. | Unavailable backlog |
 | `evidence_ready` | The bounded result is complete, current enough for the challenge, and carries the expected authority. | Selectable |
+
+The current-evidence probe set covers subscription Service Health, Resource state, and
+Resource Health. Resource Health requires a nonempty secured Resource denominator and complete
+per-resource coverage, so an empty scope cannot claim provider reachability. Schema-only manifest,
+declaration, and relationship functions remain evidence-ready from the exact in-memory release.
+Together, those schema contracts provide at least 10 distinct SRE challenges without weakening
+exact or near-duplicate rejection. The metering challenge stays disabled until
+`query.chat_token_usage` has a declared, bound, and probed implementation.
 
 An environment variable can select a provider or identity mode, but it cannot advance readiness by
 itself. Missing data, provider failure, or inaccessible authority records

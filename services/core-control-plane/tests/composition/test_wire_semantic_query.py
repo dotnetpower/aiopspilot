@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
+from fdai.core.conversation.semantic_manifest import semantic_principal_scope_digest
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
     MetricAggregation,
@@ -58,9 +59,11 @@ from fdai.core.ontology_platform.resource_health_assessment_queries import (
 )
 from fdai.core.ontology_platform.resource_health_queries import (
     RESOURCE_HEALTH_FUNCTION_NAME,
+    ResourceHealthAvailabilityState,
     ResourceHealthCollection,
     ResourceHealthCoverage,
     ResourceHealthCoverageStatus,
+    ResourceHealthObservation,
 )
 from fdai.core.ontology_platform.resource_ingress_queries import (
     RESOURCE_INGRESS_FUNCTION_NAME,
@@ -1123,6 +1126,41 @@ class _EmptyResourceHealthReader:
         )
 
 
+class _CompleteResourceHealthReader:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, ...]] = []
+
+    async def read_current(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+    ) -> ResourceHealthCollection:
+        self.calls.append(resource_ids)
+        return ResourceHealthCollection(
+            resource_ids=resource_ids,
+            observations=tuple(
+                ResourceHealthObservation(
+                    resource_id=resource_id,
+                    availability_state=ResourceHealthAvailabilityState.AVAILABLE,
+                    reason_kind="platform_initiated",
+                    provider_observed_at=NOW,
+                    evidence_ref=f"resource-health:{resource_id}",
+                )
+                for resource_id in resource_ids
+            ),
+            coverage=tuple(
+                ResourceHealthCoverage(
+                    resource_id=resource_id,
+                    status=ResourceHealthCoverageStatus.OBSERVED,
+                )
+                for resource_id in resource_ids
+            ),
+            started_at=NOW,
+            completed_at=NOW,
+            attempt_ref="azure-resource-health-query:complete",
+        )
+
+
 class _EmptyResourceEventReader:
     async def read_history(
         self,
@@ -1428,6 +1466,98 @@ async def test_runtime_exposes_service_health_only_when_reader_is_bound() -> Non
     )
 
     assert SERVICE_HEALTH_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_authority() -> None:
+    object_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+            "properties": PropertyDecl(type=PropertyType.OBJECT, required=True),
+        },
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    observed_at = NOW - timedelta(minutes=1)
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="snapshot-1",
+        effective_at=observed_at,
+        evidence_cutoff=observed_at,
+        recorded_at=observed_at,
+        freshness_ceiling_seconds=3600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory:state",),
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={
+                "id": "resource-a",
+                "name": "resource-a",
+                "type": "virtual-machine",
+                "properties": {
+                    "state": "PowerState/running",
+                    STATE_FACT_METADATA_PROPERTY: {"state": metadata.to_mapping()},
+                },
+            },
+        )
+    )
+    health_reader = _CompleteResourceHealthReader()
+    runtime = build_semantic_query_runtime(
+        model=_ManifestCaptureModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        resource_health_reader=health_reader,
+        service_health_reader=_EmptyServiceHealthReader(),
+        inventory_query_language=_health_language(),
+        resource_freshness_seconds=300,
+        now=lambda: NOW,
+    )
+    principal = Principal(id="watchdog-local", role=Role.CONTRIBUTOR)
+    probe = runtime.current_evidence_probe
+    assert probe is not None
+
+    observations = {
+        function_name: await probe.observe(
+            function_name=function_name,
+            principal=principal,
+        )
+        for function_name in (
+            RESOURCE_HEALTH_FUNCTION_NAME,
+            RESOURCE_STATE_FUNCTION_NAME,
+            SERVICE_HEALTH_FUNCTION_NAME,
+        )
+    }
+
+    assert health_reader.calls == [("resource-a",)]
+    assert all(item.complete for item in observations.values())
+    assert observations[RESOURCE_HEALTH_FUNCTION_NAME].authority is (
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH
+    )
+    assert observations[RESOURCE_STATE_FUNCTION_NAME].authority is (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH
+    )
+    assert observations[SERVICE_HEALTH_FUNCTION_NAME].authority is (
+        EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH
+    )
+    expected_scope = semantic_principal_scope_digest(
+        principal=principal,
+        purpose="operations-review",
+    )
+    assert {item.principal_scope_digest for item in observations.values()} == {expected_scope}
 
 
 async def test_runtime_exposes_vm_process_cpu_only_when_reader_is_bound() -> None:

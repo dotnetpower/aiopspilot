@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fdai.core.conversation.semantic_current_evidence import SemanticCurrentEvidenceProbe
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 
 
@@ -14,6 +15,7 @@ class SemanticQueryRuntimeComposition:
     runtime: SemanticConversationRuntime | None
     unavailable_reason: str | None
     model_auth_audiences: tuple[str, ...] = ()
+    current_evidence_probe: SemanticCurrentEvidenceProbe | None = None
 
     def __post_init__(self) -> None:
         if (self.runtime is None) != (self.unavailable_reason is not None):
@@ -22,3 +24,5 @@ class SemanticQueryRuntimeComposition:
             raise ValueError("available semantic runtime requires model auth audiences")
         if self.runtime is None and self.model_auth_audiences:
             raise ValueError("unavailable semantic runtime cannot expose model auth audiences")
+        if self.runtime is None and self.current_evidence_probe is not None:
+            raise ValueError("unavailable semantic runtime cannot expose an evidence probe")
