@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: de90ed58a0d55d37825949e831d7329393601315
-translation_revised: 2026-09-09
+translation_source_sha: 74cccb0e8cb9b064daa9dca66d668114418479a5
+translation_revised: 2026-09-10
 ---
 
 # 벤치마크 어댑터
@@ -52,6 +52,8 @@ driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받�
 
 실행 장치 driver는 별도 Python 분포입니다. FDAI만 설치하면 벤치마크 통합이
 설치되거나 활성화되지 않습니다. Driver를 제거해도 FDAI 런타임은 변경되지 않습니다.
+SREGym 이미지는 서비스 이미지와 같은 취약점 수정 완료 OPA 전이 모듈 override를 사용해
+OPA를 컴파일하며, 저장소 정합성 검사는 해당 핀 사이의 드리프트를 거부합니다.
 
 ## 계약
 

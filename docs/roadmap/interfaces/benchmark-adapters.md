@@ -52,6 +52,8 @@ The layers have different release and dependency boundaries:
 
 A harness driver is a separate Python distribution. Installing FDAI alone does not install or
 activate a benchmark integration. Removing a driver leaves the FDAI runtime unchanged.
+The SREGym image compiles OPA with the same reviewed, vulnerability-fixed transitive-module
+overrides as service images, and the repository parity check rejects drift between those pins.
 
 ## Contracts
 
