@@ -101,6 +101,21 @@ def test_policy_reports_a_malformed_seasonal_phase_as_a_policy_error(tmp_path: P
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+@pytest.mark.parametrize(("index", "samples"), ((0, 9), (2, 29)))
+def test_policy_rejects_weakened_anomaly_cold_start_floors(
+    tmp_path: Path,
+    index: int,
+    samples: int,
+) -> None:
+    raw = _policy()
+    signal_classes = raw["signal_classes"]
+    assert isinstance(signal_classes, list)
+    signal_classes[index]["min_baseline_samples"] = samples
+
+    with pytest.raises(DetectionGovernancePolicyError, match="min_baseline_samples"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_a_narrowed_exact_correlation_key_set(tmp_path: Path) -> None:
     raw = _policy()
     correlation = raw["correlation"]

@@ -197,11 +197,15 @@ def _signal_class(value: object, *, index: int) -> SignalClassPolicy:
         raise DetectionGovernancePolicyError("seasonal anomaly method requires seasonal_phase")
     if method is AnomalyMethod.Z_SCORE and phase is not None:
         raise DetectionGovernancePolicyError("non-seasonal anomaly method forbids seasonal_phase")
+    minimum_samples = 10 if method is AnomalyMethod.SEASONAL_Z_SCORE else 30
     return SignalClassPolicy(
         signal_class=_identifier(raw["signal_class"], "signal_class"),
         anomaly_method=method,
         min_baseline_samples=_integer(
-            raw["min_baseline_samples"], "min_baseline_samples", minimum=2, maximum=10_000
+            raw["min_baseline_samples"],
+            "min_baseline_samples",
+            minimum=minimum_samples,
+            maximum=10_000,
         ),
         seasonal_phase=phase,
     )
