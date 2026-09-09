@@ -84,16 +84,17 @@ class PostgresForecastEpisodeStore:
             lead_times = await connection.execute(
                 "SELECT COUNT(*) AS sample_count, "
                 "AVG(EXTRACT(EPOCH FROM ("
-                "(payload->>'actual_breach_at')::timestamptz - "
-                "(payload->>'feature_cutoff')::timestamptz"
+                "(outcome.payload->>'actual_breach_at')::timestamptz - "
+                "episode.created_at"
                 "))) AS mean_seconds, "
                 "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ("
-                "(payload->>'actual_breach_at')::timestamptz - "
-                "(payload->>'feature_cutoff')::timestamptz"
+                "(outcome.payload->>'actual_breach_at')::timestamptz - "
+                "episode.created_at"
                 "))) AS median_seconds "
-                "FROM forecast_publication_outbox "
-                "WHERE topic = 'object.forecast-outcome' "
-                "AND payload->>'label' IN ('true_positive', 'magnitude_error')",
+                "FROM forecast_publication_outbox AS outcome "
+                "JOIN forecast_episode AS episode USING (episode_id) "
+                "WHERE outcome.topic = 'object.forecast-outcome' "
+                "AND outcome.payload->>'label' IN ('true_positive', 'magnitude_error')",
             )
             publication = await connection.execute(
                 "SELECT COUNT(*) FILTER (WHERE published_at IS NULL "

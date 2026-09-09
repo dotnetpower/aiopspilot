@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -114,9 +114,13 @@ async def test_publication_claims_do_not_increment_failure_count() -> None:
 async def test_health_snapshot_executes_operational_accuracy_query() -> None:
     dsn = os.environ["FDAI_DATABASE_URL"]
     store = PostgresForecastEpisodeStore(config=PostgresForecastEpisodeStoreConfig(dsn=dsn))
+    issued_at = datetime.now(tz=UTC)
     episode = _episode(
         episode_id=uuid4(),
         correlation_id=f"metrics-{os.getpid()}",
+        feature_cutoff=issued_at,
+        horizon_started_at=issued_at,
+        horizon_ended_at=issued_at + timedelta(hours=1),
     )
     outcome = close_forecast(
         ForecastExpectation(
@@ -139,11 +143,11 @@ async def test_health_snapshot_executes_operational_accuracy_query() -> None:
         ),
         ForecastObservation(
             observed_value=95.0,
-            actual_breach_at=T0 + timedelta(minutes=30),
+            actual_breach_at=issued_at + timedelta(minutes=30),
             telemetry_completeness=TelemetryCompleteness.COMPLETE,
             evidence_refs=("metric-window:outcome",),
         ),
-        closed_at=T0 + timedelta(hours=1, minutes=5),
+        closed_at=issued_at + timedelta(hours=1, minutes=5),
     )
     try:
         await store.record(episode)
@@ -163,6 +167,8 @@ async def test_health_snapshot_executes_operational_accuracy_query() -> None:
         assert isinstance(metrics, dict)
         assert metrics["episode_count"] >= 1
         assert metrics["lead_time_sample_count"] >= 1
+        assert 1_799.0 <= metrics["mean_lead_time_seconds"] <= 1_800.0
+        assert 1_799.0 <= metrics["median_lead_time_seconds"] <= 1_800.0
         assert metrics["execution_authority"] is False
     finally:
         import psycopg
