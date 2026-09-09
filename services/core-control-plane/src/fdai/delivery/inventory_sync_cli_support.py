@@ -29,6 +29,7 @@ from fdai.delivery.kubernetes_api_inventory import (
     ServiceAccountTokenAuth,
     WorkloadIdentityKubernetesAuth,
 )
+from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
@@ -285,21 +286,55 @@ async def collect_kubernetes_lifecycle(
 ) -> int | None:
     """Collect one leased Kubernetes lifecycle window without affecting due-state."""
 
-    if (
-        config.kubernetes_api_server is None
-        or config.kubernetes_cluster_ref is None
-        or config.kubernetes_auth_mode is None
-        or (config.kubernetes_ca_path is None and config.kubernetes_ca_pem is None)
-    ):
+    if not config.kubernetes_bindings:
         return 0
-    now = datetime.now(UTC)
-    holder = f"inventory-lifecycle:{uuid4()}"
     store = PostgresKubernetesLifecycleStore(
         config=PostgresKubernetesLifecycleConfig(dsn=config.dsn)
     )
+    total = 0
+    failed = False
+    identity: WorkloadIdentity | None = None
+    if any(binding.auth_mode == "workload-identity" for binding in config.kubernetes_bindings):
+        async with httpx.AsyncClient() as identity_client:
+            identity = workload_identity_factory(http_client=identity_client)
+            for binding in config.kubernetes_bindings:
+                result = await _collect_kubernetes_binding_lifecycle(
+                    binding,
+                    store=store,
+                    logger=logger,
+                    identity=identity,
+                )
+                if result is None:
+                    failed = True
+                else:
+                    total += result
+    else:
+        for binding in config.kubernetes_bindings:
+            result = await _collect_kubernetes_binding_lifecycle(
+                binding,
+                store=store,
+                logger=logger,
+                identity=None,
+            )
+            if result is None:
+                failed = True
+            else:
+                total += result
+    return None if failed else total
+
+
+async def _collect_kubernetes_binding_lifecycle(
+    binding: KubernetesClusterBinding,
+    *,
+    store: PostgresKubernetesLifecycleStore,
+    logger: logging.Logger,
+    identity: WorkloadIdentity | None,
+) -> int | None:
+    now = datetime.now(UTC)
+    holder = f"inventory-lifecycle:{binding.scope_digest}:{uuid4()}"
     try:
         cursor = await store.acquire(
-            cluster_ref=config.kubernetes_cluster_ref,
+            cluster_ref=binding.cluster_ref,
             holder=holder,
             now=now,
             lease_until=now + timedelta(seconds=45),
@@ -307,45 +342,46 @@ async def collect_kubernetes_lifecycle(
         if cursor is None:
             return 0
         kubernetes_ssl = ssl.create_default_context(
-            cafile=str(config.kubernetes_ca_path) if config.kubernetes_ca_path else None,
-            cadata=config.kubernetes_ca_pem,
+            cafile=str(binding.ca_path) if binding.ca_path else None,
+            cadata=binding.ca_pem,
         )
-        async with httpx.AsyncClient() as identity_client:
-            identity = workload_identity_factory(http_client=identity_client)
-            auth: KubernetesApiAuth
-            if config.kubernetes_auth_mode == "workload-identity":
-                if config.kubernetes_audience is None:
-                    raise RuntimeError("Kubernetes lifecycle workload audience is unavailable")
-                auth = WorkloadIdentityKubernetesAuth(
-                    identity=identity,
-                    audience=config.kubernetes_audience,
-                )
-            else:
-                if config.kubernetes_token_path is None:
-                    raise RuntimeError("Kubernetes lifecycle service-account token is unavailable")
-                auth = ServiceAccountTokenAuth(config.kubernetes_token_path)
-            async with httpx.AsyncClient(verify=kubernetes_ssl) as kubernetes_client:
-                batch = await KubernetesLifecycleCollector(
-                    api_server=config.kubernetes_api_server,
-                    cluster_ref=config.kubernetes_cluster_ref,
-                    auth=auth,
-                    http_client=kubernetes_client,
-                ).collect(cursor)
+        auth: KubernetesApiAuth
+        if binding.auth_mode == "workload-identity":
+            if identity is None or binding.audience is None:
+                raise RuntimeError("Kubernetes lifecycle workload identity is unavailable")
+            auth = WorkloadIdentityKubernetesAuth(
+                identity=identity,
+                audience=binding.audience,
+            )
+        else:
+            if binding.token_path is None:
+                raise RuntimeError("Kubernetes lifecycle service-account token is unavailable")
+            auth = ServiceAccountTokenAuth(binding.token_path)
+        async with httpx.AsyncClient(verify=kubernetes_ssl) as kubernetes_client:
+            batch = await KubernetesLifecycleCollector(
+                api_server=binding.api_server,
+                cluster_ref=binding.cluster_ref,
+                auth=auth,
+                http_client=kubernetes_client,
+            ).collect(cursor)
         if not await store.append(batch, holder=holder, now=datetime.now(UTC)):
             logger.warning(
                 "kubernetes_lifecycle_cursor_contended",
-                extra={"reason": "lease_or_sequence_changed"},
+                extra={
+                    "reason": "lease_or_sequence_changed",
+                    "scope_digest": binding.scope_digest,
+                },
             )
             return None
         if batch.limitation is not None:
             logger.warning(
                 "kubernetes_lifecycle_collection_incomplete",
-                extra={"reason": batch.limitation},
+                extra={"reason": batch.limitation, "scope_digest": binding.scope_digest},
             )
         return len(batch.observations)
     except Exception as exc:  # noqa: BLE001 - independent read-only evidence source
         logger.warning(
             "kubernetes_lifecycle_collection_failed",
-            extra={"reason": type(exc).__name__},
+            extra={"reason": type(exc).__name__, "scope_digest": binding.scope_digest},
         )
         return None

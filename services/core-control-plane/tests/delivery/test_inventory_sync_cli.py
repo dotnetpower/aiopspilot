@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 import yaml
+from fdai.delivery import inventory_sync_cli_support
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
@@ -50,6 +51,7 @@ from fdai.delivery.inventory_sync_cli import (
     run,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventoryConfig
+from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.delivery.kubernetes_inventory import (
     SequentialInventoryPromotionEnricher,
     UnavailableKubernetesInventoryEnricher,
@@ -339,6 +341,50 @@ async def test_lifecycle_collection_skips_an_unconfigured_source() -> None:
     )
 
     assert await _collect_kubernetes_lifecycle(config) == 0
+
+
+async def test_lifecycle_collection_visits_every_fleet_binding_and_preserves_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fleet = json.dumps(
+        [
+            {
+                "api_server": "https://one.example",
+                "cluster_ref": _CLUSTER_REF,
+                "auth_mode": "service-account",
+                "ca_path": "/var/run/fdai/one-ca.crt",
+                "token_path": "/var/run/fdai/one-token",
+            },
+            {
+                "api_server": "https://two.example",
+                "cluster_ref": _CLUSTER_REF.replace("aks-example", "aks-two"),
+                "auth_mode": "service-account",
+                "ca_path": "/var/run/fdai/two-ca.crt",
+                "token_path": "/var/run/fdai/two-token",
+            },
+        ]
+    )
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": fleet,
+        }
+    )
+    calls: list[str] = []
+
+    async def collect(binding: KubernetesClusterBinding, **_kwargs: Any) -> int | None:
+        calls.append(binding.scope_digest)
+        return 2 if len(calls) == 1 else None
+
+    monkeypatch.setattr(
+        inventory_sync_cli_support,
+        "_collect_kubernetes_binding_lifecycle",
+        collect,
+    )
+
+    assert await _collect_kubernetes_lifecycle(config) is None
+    assert calls == [binding.scope_digest for binding in config.kubernetes_bindings]
 
 
 def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:

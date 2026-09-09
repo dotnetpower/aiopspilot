@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 6bed8a2f6aebc309638df9d95fc0e004af46562b
+translation_source_sha: 316bd8429aa43ea19a86215521e1a5133ed2eab7
 translation_revised: 2026-09-10
 ---
 # 구독 초기 프로비저닝
@@ -64,6 +64,8 @@ Activity Log 복구와 Resource Graph 변경 가속은 범위별 잠금과 커�
 AKS fleet 관측은 정확한 클러스터 연결을 최대 32개 허용하며 기존 단일 클러스터 변수와 함께
 사용할 수 없습니다. 각 클러스터는 독립적으로 정제된 출처 상태를 제공하며 일부 fleet은 최초
 인벤토리 준비 게이트를 높일 수 없습니다.
+같은 범위 제한 수집 루프는 연결마다 Kubernetes Event 커서를 독립적으로 lease하고 전진시킵니다.
+따라서 사용할 수 없는 클러스터 하나는 계속 표시되지만 다른 클러스터의 추가 작업을 차단하지 않습니다.
 승격된 세대는 정확한 활성 범위 그래프 checkpoint를 전체 범위 보존 경계와 별도로 기록합니다.
 보존된 비활성 범위 이력은 현재 범위 준비 상태를 차단하지 않으며, 활성 범위에서 스냅샷 이후에
 발생한 관측은 변환 결과가 따라잡을 때까지 준비 상태를 불완전하게 유지합니다.

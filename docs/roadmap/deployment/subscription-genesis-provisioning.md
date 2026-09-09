@@ -62,6 +62,8 @@ interval. Neither mode changes source authority or readiness semantics.
 AKS fleet observation accepts at most 32 exact cluster bindings and keeps them mutually exclusive
 with the legacy single-cluster variables. Each cluster contributes an independent sanitized source
 state; a partial fleet cannot raise the initial inventory readiness gate.
+The same bounded collection loop leases and advances Kubernetes Event cursors independently per
+binding, so one unavailable cluster remains visible without blocking another cluster's append.
 A promoted generation records an exact active-scope graph checkpoint separately from the all-scope
 retention fence. Retained inactive-scope history cannot block current-scope readiness, while active
 post-snapshot observations still keep readiness incomplete until projection catches up.

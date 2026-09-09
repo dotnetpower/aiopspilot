@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added independent per-cluster leases and resourceVersion watch collection for fleet bindings. | `current change`; focused fleet lifecycle success, isolation, scope-digest logging, and failure tests. | Retain live multi-window Event evidence and explicit cursor-gap history. |
 | 2026-09-10 | in-progress | Added mutually exclusive legacy and fleet AKS deployment bindings with per-cluster Reader assignments. | `current change`; focused Terraform structure, formatting, and identity tests. | Validate a protected deployment separately after the local implementation campaign. |
 | 2026-09-10 | in-progress | Added server-allowlisted Kubernetes identity and diagnostic facts to the instance projection and Console Inspector. | `current change`; focused Operator decoder, Console decoder, i18n, typecheck, and build checks. | Bind Forseti receipt history and retain authenticated live geometry evidence. |
 | 2026-09-10 | in-progress | Added Forseti-owned deterministic T0 diagnostic receipts for workload, Node, endpoint, storage, quota, autoscale, metric, and control-plane signals. | `current change`; focused family, hold, conflict, and no-authority tests. | Bind receipts through the secured Operator projection and add remaining live evidence. |
