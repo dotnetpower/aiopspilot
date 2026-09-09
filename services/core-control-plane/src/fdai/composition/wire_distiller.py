@@ -14,6 +14,7 @@ import httpx
 from ..core.metering.emitter import MeteringEmitter
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
+from ..core.prompts import PromptReplayManifest
 from ..rule_catalog.pipeline.distill.ontology_council import (
     OntologyCouncilDistiller,
     OntologyCouncilPolicy,
@@ -119,6 +120,7 @@ async def bind_azure_ontology_distiller_from_catalog(
     system_prompt = ""
     prompt_digest = ""
     schema_digest = ""
+    prompt_manifest: PromptReplayManifest | None = None
     if state != OntologyCouncilBindingState.ABSENT:
         try:
             prompts = tuple(
@@ -148,7 +150,13 @@ async def bind_azure_ontology_distiller_from_catalog(
                 "ontology council roles require identical prompt text and replay layers"
             )
         system_prompt = prompts[0].system_text
-        prompt_digest = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()
+        prompt_manifest = replay_manifests[0]
+        prompt_digest = hashlib.sha256(
+            (
+                f"{prompt_manifest.profile_digest}\0"
+                f"{prompt_manifest.request_token_budget}\0{system_prompt}"
+            ).encode()
+        ).hexdigest()
         schema_path = (
             overrides.catalog_root / "prompts" / "schema" / "ontology-council-vote.schema.json"
         )
@@ -166,6 +174,7 @@ async def bind_azure_ontology_distiller_from_catalog(
         system_prompt=system_prompt,
         prompt_digest=prompt_digest,
         schema_digest=schema_digest,
+        prompt_manifest=prompt_manifest,
         endpoint_resolver=overrides.model_endpoint_resolver,
         metering_sink=overrides.metering_sink,
         pricing=pricing,
@@ -182,6 +191,7 @@ def bind_azure_ontology_distiller(
     system_prompt: str,
     prompt_digest: str,
     schema_digest: str,
+    prompt_manifest: PromptReplayManifest | None = None,
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     model_health_sink: Any | None = None,
@@ -258,6 +268,7 @@ def bind_azure_ontology_distiller(
                     config=AzureOpenAIOntologyCouncilModelConfig(
                         **target,
                         system_prompt=system_prompt,
+                        prompt_manifest=prompt_manifest,
                         model_identity=model_identity,
                         capability_id=capability_id,
                     ),

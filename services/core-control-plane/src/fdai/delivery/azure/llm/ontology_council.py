@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 import httpx
 
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
+from fdai.core.prompts import (
+    PromptProfileEvidence,
+    PromptReplayManifest,
+    estimate_prompt_tokens,
+    estimate_serialized_request_tokens,
+)
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
@@ -55,6 +62,7 @@ class AzureOpenAIOntologyCouncilModelConfig:
     deployment: str
     system_prompt: str
     model_identity: CouncilModelIdentity
+    prompt_manifest: PromptReplayManifest | None = None
     api_version: str = "2024-10-21"
     max_completion_tokens: int = 2048
     timeout_seconds: float = 30.0
@@ -77,6 +85,17 @@ class AzureOpenAIOntologyCouncilModelConfig:
         )
         if not self.system_prompt.strip():
             raise ValueError("system_prompt MUST NOT be empty")
+        if self.prompt_manifest is not None:
+            if (
+                self.prompt_manifest.system_text_sha256
+                != hashlib.sha256(self.system_prompt.encode()).hexdigest()
+            ):
+                raise ValueError("ontology council prompt manifest does not match system_prompt")
+            if (
+                self.prompt_manifest.reserved_output_tokens is not None
+                and self.prompt_manifest.reserved_output_tokens < self.max_completion_tokens
+            ):
+                raise ValueError("ontology council completion exceeds prompt output reserve")
         if self.model_identity.deployment != self.deployment:
             raise ValueError("model_identity deployment MUST match deployment")
         if type(self.max_completion_tokens) is not int or self.max_completion_tokens < 1:
@@ -133,6 +152,15 @@ class AzureOpenAIOntologyCouncilModel:
     def identity(self) -> CouncilModelIdentity:
         return self._model_identity
 
+    @property
+    def prompt_profile_evidence(self) -> PromptProfileEvidence | None:
+        manifest = self._config.prompt_manifest
+        return (
+            PromptProfileEvidence.from_manifest(self._effective_prompt_manifest(manifest))
+            if manifest is not None
+            else None
+        )
+
     async def blind_vote(self, packet: CouncilClaimPacket) -> CouncilVote:
         return await self._vote(packet, None)
 
@@ -173,6 +201,29 @@ class AzureOpenAIOntologyCouncilModel:
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
+        manifest = self._config.prompt_manifest
+        if manifest is not None:
+            system_content = body["messages"][0]["content"]  # type: ignore[index]
+            if not isinstance(system_content, str):
+                raise CouncilContextGapError("ontology council system message is invalid")
+            manifest = self._effective_prompt_manifest(manifest)
+            system_tokens = manifest.token_estimate
+            if (
+                manifest.system_token_budget is not None
+                and system_tokens > manifest.system_token_budget
+            ):
+                raise CouncilContextGapError(
+                    "ontology council system prompt exceeds profile budget"
+                )
+            if (
+                manifest.request_token_budget is not None
+                and estimate_serialized_request_tokens(
+                    body,
+                    reserved_output_tokens=self._config.max_completion_tokens,
+                )
+                > manifest.request_token_budget
+            ):
+                raise CouncilContextGapError("ontology council request exceeds profile budget")
         encoded = encode_council_request(body)
         if len(encoded) > self._config.max_request_bytes:
             raise CouncilContextGapError("ontology council request exceeds configured byte limit")
@@ -238,6 +289,17 @@ class AzureOpenAIOntologyCouncilModel:
         finally:
             if response is not None and self._metering is not None:
                 await self._metering.emit_safe(usage)
+
+    def _effective_prompt_manifest(
+        self,
+        manifest: PromptReplayManifest,
+    ) -> PromptReplayManifest:
+        system_content = f"{self._config.system_prompt.strip()}\n\n{_PACKET_SAFETY_PROMPT}"
+        return replace(
+            manifest,
+            system_text_sha256=hashlib.sha256(system_content.encode()).hexdigest(),
+            token_estimate=estimate_prompt_tokens(system_content),
+        )
 
 
 def _complete_content(envelope: object) -> str:

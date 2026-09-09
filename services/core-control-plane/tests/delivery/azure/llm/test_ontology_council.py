@@ -13,6 +13,7 @@ import httpx
 import pytest
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.latency_routed_cross_check import (
     InMemoryModelHealthTransitionSink,
 )
@@ -264,6 +265,35 @@ async def test_blind_vote_parses_object_proposal_and_sends_tool_free_request() -
     assert requests[0].url.params["api-version"] == "2024-10-21"
     assert requests[0].headers["Content-Type"] == "application/json"
     assert workload_identity.audiences == ["https://cognitiveservices.azure.com/.default"]
+
+
+async def test_profile_budget_blocks_before_authentication_or_provider_io() -> None:
+    prompt = "Return one strict council vote."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        profile_id="active.ontology-council",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=1024,
+        request_token_budget=2049,
+        reserved_output_tokens=2048,
+    )
+    identity = _Identity()
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAIOntologyCouncilModel(
+            identity=identity,
+            http_client=client,
+            config=_config(prompt_manifest=manifest),
+        )
+
+        with pytest.raises(CouncilContextGapError, match="profile budget"):
+            await model.blind_vote(_packet())
+
+    assert identity.audiences == []
 
 
 async def test_blind_vote_parses_link_proposal() -> None:
