@@ -215,9 +215,10 @@ provider payloads, and validation results remain unchanged.
 
 ## Web presentation module registry
 
-The Command Deck validates a complete artifact before module lookup. The registry maps each closed
-block kind to one Preact component, responsive policy, and accessibility fallback. A module receives
-only its validated block and never inspects prose to infer a table, chart, status, or unit.
+The Command Deck validates a complete artifact before module lookup. The registry maps each closed block
+kind to one Preact component, responsive policy, and accessibility fallback; modules never infer a table, chart, status, or unit from prose.
+Offline and production builds lock Mermaid parsing and DOM sanitization. A known Moderate-or-higher
+advisory in that shipped graph blocks release until Console tests, typecheck, offline build, and audit pass.
 
 | Block family | Module responsibility | Accessibility and fallback |
 |--------------|-----------------------|----------------------------|
@@ -229,9 +230,8 @@ only its validated block and never inspects prose to infer a table, chart, statu
 | `timeline` | Evidence-bearing order | Ordered list with machine timestamps preserved in `time` elements |
 
 The registry owns component selection only after parser acceptance. Unknown or malformed v2 input,
-an unbound evidence reference, duplicate slot, non-finite value, timestamp disorder, unit mismatch,
-or missing required fallback rejects the artifact and leaves canonical text visible. A module error
-cannot expose raw JSON as the primary answer.
+an unbound reference, duplicate slot, non-finite value, timestamp disorder, unit mismatch, or missing
+fallback rejects the artifact and leaves canonical text visible; module errors cannot expose raw JSON.
 
 Charts use CSS and semantic HTML rather than a canvas-only surface. Keyboard users can reach every
 data point that has a tooltip, and the visible tooltip repeats exact values rather than introducing
