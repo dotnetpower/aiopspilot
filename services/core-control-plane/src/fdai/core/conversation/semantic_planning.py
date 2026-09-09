@@ -103,7 +103,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
-    {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+    {
+        "query.gateway_diagnostic_evidence",
+        "query.resource_configuration_changes",
+        "query.resource_event_history",
+    }
 )
 
 

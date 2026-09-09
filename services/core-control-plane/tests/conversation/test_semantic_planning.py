@@ -27,6 +27,7 @@ from fdai.core.conversation.intent_graph import (
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import (
+    _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
     SemanticPlanningService,
     _descriptors_for_judgment,
     _operational_frame_matches_accepted_judgment,
@@ -2237,6 +2238,11 @@ def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
     )
 
     assert _descriptors_for_judgment(descriptors, judgment) is descriptors
+
+
+def test_unaccepted_event_history_can_only_narrow_model_descriptors() -> None:
+    assert "query.resource_event_history" in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+    assert "query.resource_health_inventory" not in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
 
 
 def test_operational_frame_requires_accepted_matching_judgment() -> None:
