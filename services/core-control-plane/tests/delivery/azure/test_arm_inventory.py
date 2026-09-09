@@ -77,12 +77,21 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
 
 
 async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
-    deployment_id = (
+    account_id = (
         "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
-        "Microsoft.CognitiveServices/accounts/ai-example/deployments/gpt-example"
+        "Microsoft.CognitiveServices/accounts/ai-example"
     )
+    deployment_id = f"{account_id}/deployments/gpt-example"
+    requested_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path.endswith("/resources"):
+            return httpx.Response(
+                200,
+                json={"value": [{"id": account_id, "name": "ai-example"}]},
+            )
+        assert request.url.params["api-version"] == "2024-10-01"
         return httpx.Response(
             200,
             json={
@@ -106,15 +115,25 @@ async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
             },
         )
 
+    async def primary_query(_resource_type: str) -> ResourceQueryResult:
+        raise AssertionError("model deployments MUST use the ARM child collection")
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         query = AzureArmInventoryFactory(
             identity=_identity(),
             resource_types=_vocabulary(),
             http_client=client,
             config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
-        ).build_query_fn()
-        resources, _links = await query("llm-model-deployment")
+        ).build_child_overlay_query_fn(primary_query)
+        resources, links = await query("llm-model-deployment")
 
+    assert requested_paths == [
+        "/subscriptions/sub-1/resources",
+        (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+            "Microsoft.CognitiveServices/accounts/ai-example/deployments"
+        ),
+    ]
     deployment = resources[0]
     assert deployment.resource_id == to_neutral_id(deployment_id)
     assert deployment.props["model_name"] == "gpt-5.4"
@@ -127,6 +146,48 @@ async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
     assert deployment.props["capacity_tpm"] == 50_000
     assert deployment.props["capacity_tpm_source"] == "properties.rateLimits"
     assert deployment.props["parent_id"].endswith("microsoft.cognitiveservices/accounts/ai-example")
+    contains = next(link for link in links if link.link_type == "contains")
+    assert contains.from_id == to_neutral_id(account_id)
+    assert contains.to_id == deployment.resource_id
+    assert contains.mapping_evidence is not None
+    assert contains.mapping_evidence.source_identity == "azure-resource-manager-cognitiveservices"
+
+
+async def test_arm_fallback_bounds_model_deployment_parent_collections() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/resources")
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": (
+                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                            "Microsoft.CognitiveServices/accounts/ai-one"
+                        )
+                    },
+                    {
+                        "id": (
+                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                            "Microsoft.CognitiveServices/accounts/ai-two"
+                        )
+                    },
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(
+                subscription_scopes=("sub-1",),
+                max_child_collections=1,
+            ),
+        ).build_query_fn()
+        with pytest.raises(ArmInventoryError, match="Cognitive Services child collection cap"):
+            await query("llm-model-deployment")
 
 
 async def test_arm_fallback_lists_private_dns_zone_group_children() -> None:

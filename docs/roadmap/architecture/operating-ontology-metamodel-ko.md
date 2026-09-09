@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 94b29b9c43da469f78150ec5434be9fd280b623b
-translation_revised: 2026-09-06
+translation_source_sha: 34a35d8726c225c7d5e421c6e849210c804e3e13
+translation_revised: 2026-09-09
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -92,7 +92,9 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 SQL 데이터베이스,
 Communication email domain, DNS resolver inbound endpoint, AKS AgentPool 및 상위 계정 아래의
 Azure AI 모델 배포를 포함합니다. 검토된 `id.providerRoot` 경로는 File Share를 최상위 storage
-account로 별도로 해석합니다. 최상위
+account로 별도로 해석합니다. 같은 엔드포인트 pair라도 출처별 mapping은 분리합니다. ARM 모델
+배포 mapping을 추가하면 내용 주소 기반 공급자 스키마 관계 검토를 다시 생성하고 카탈로그
+다이제스트와 겹침 수를 전진시키지만 의미 승격이나 그래프 변경 권한은 부여하지 않습니다. 최상위
 리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을

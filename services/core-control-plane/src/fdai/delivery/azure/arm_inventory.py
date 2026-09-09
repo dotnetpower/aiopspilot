@@ -37,12 +37,14 @@ _DEFAULT_API_VERSION: Final[str] = "2021-04-01"
 _DEFAULT_NETWORK_API_VERSION: Final[str] = "2024-05-01"
 _DEFAULT_COMPUTE_API_VERSION: Final[str] = "2024-11-01"
 _DEFAULT_CONTAINER_SERVICE_API_VERSION: Final[str] = "2026-05-01"
+_DEFAULT_COGNITIVE_SERVICES_API_VERSION: Final[str] = "2024-10-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE: Final[str] = "network.private-dns-zone-group"
 _PRIVATE_ENDPOINT_ARM_TYPE: Final[str] = "Microsoft.Network/privateEndpoints"
 _AKS_AGENT_POOL_RESOURCE_TYPE: Final[str] = "kubernetes-node-pool"
 _AKS_CLUSTER_RESOURCE_TYPE: Final[str] = "kubernetes-cluster"
 _AKS_CLUSTER_ARM_TYPE: Final[str] = "Microsoft.ContainerService/managedClusters"
+_COGNITIVE_ACCOUNT_ARM_TYPE: Final[str] = "Microsoft.CognitiveServices/accounts"
 _VM_SCALE_SET_RESOURCE_TYPE: Final[str] = "compute.vm-scale-set"
 _VM_SCALE_SET_ARM_TYPE: Final[str] = "Microsoft.Compute/virtualMachineScaleSets"
 _VM_SCALE_SET_VM_RESOURCE_TYPE: Final[str] = "compute.vm"
@@ -58,6 +60,10 @@ _ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST: Final[str] = (
 _ARM_COMPUTE_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-compute"
 _ARM_COMPUTE_SOURCE_SCHEMA_DIGEST: Final[str] = (
     "sha256:44ea8b46d77361961316a4ce86a558768481461d8a022293cd2f4a691f16527f"
+)
+_ARM_COGNITIVE_SERVICES_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-cognitiveservices"
+_ARM_COGNITIVE_SERVICES_SOURCE_SCHEMA_DIGEST: Final[str] = (
+    "sha256:77fa461069def180b2196856b142c37f7b0ef775798e211f4a5ad64ab145d1e4"
 )
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
@@ -78,6 +84,7 @@ class AzureArmInventoryFactoryConfig:
     network_api_version: str = _DEFAULT_NETWORK_API_VERSION
     compute_api_version: str = _DEFAULT_COMPUTE_API_VERSION
     container_service_api_version: str = _DEFAULT_CONTAINER_SERVICE_API_VERSION
+    cognitive_services_api_version: str = _DEFAULT_COGNITIVE_SERVICES_API_VERSION
     audience: str = _DEFAULT_AUDIENCE
     max_pages: int = 64
     max_child_collections: int = 2_048
@@ -95,7 +102,11 @@ class AzureArmInventoryFactoryConfig:
             raise ValueError("ARM page and timeout limits MUST be positive")
         if self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
-        if not self.compute_api_version.strip() or not self.container_service_api_version.strip():
+        if (
+            not self.compute_api_version.strip()
+            or not self.container_service_api_version.strip()
+            or not self.cognitive_services_api_version.strip()
+        ):
             raise ValueError("ARM child API versions MUST be non-empty")
 
 
@@ -143,6 +154,11 @@ class AzureArmInventoryFactory:
                     )
                 elif resource_type == _AKS_AGENT_POOL_RESOURCE_TYPE:
                     rows = await self._fetch_aks_agent_pools(
+                        subscription=subscription,
+                        headers=headers,
+                    )
+                elif resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
+                    rows = await self._fetch_model_deployments(
                         subscription=subscription,
                         headers=headers,
                     )
@@ -221,6 +237,7 @@ class AzureArmInventoryFactory:
                 )
             if resource_type in {
                 _AKS_AGENT_POOL_RESOURCE_TYPE,
+                MODEL_DEPLOYMENT_RESOURCE_TYPE,
                 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
             }:
                 return await arm_query(resource_type)
@@ -374,6 +391,46 @@ class AzureArmInventoryFactory:
                     url,
                     headers=headers,
                     resource_type=_PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
+                )
+            )
+        return tuple(rows)
+
+    async def _fetch_model_deployments(
+        self,
+        *,
+        subscription: str,
+        headers: Mapping[str, str],
+    ) -> tuple[Mapping[str, Any], ...]:
+        """List model deployments through each bounded Cognitive Services account."""
+
+        accounts = await self._fetch_pages(
+            self._initial_url(
+                subscription=subscription,
+                resource_type="llm-endpoint",
+                arm_type=_COGNITIVE_ACCOUNT_ARM_TYPE,
+            ),
+            headers=headers,
+            resource_type="llm-endpoint",
+        )
+        if len(accounts) > self._config.max_child_collections:
+            raise ArmInventoryError(
+                "ARM Cognitive Services child collection cap "
+                f"({self._config.max_child_collections}) exceeded"
+            )
+
+        rows: list[Mapping[str, Any]] = []
+        for account in accounts:
+            account_id = str(account["id"])
+            encoded_account_id = quote(account_id, safe="/")
+            url = (
+                f"{self._config.arm_endpoint.rstrip('/')}{encoded_account_id}/deployments"
+                f"?api-version={self._config.cognitive_services_api_version}"
+            )
+            rows.extend(
+                await self._fetch_pages(
+                    url,
+                    headers=headers,
+                    resource_type=MODEL_DEPLOYMENT_RESOURCE_TYPE,
                 )
             )
         return tuple(rows)
@@ -535,6 +592,11 @@ def _as_query_result(
 
 
 def _relationship_source(resource_type: str) -> tuple[str, str]:
+    if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
+        return (
+            _ARM_COGNITIVE_SERVICES_SOURCE_IDENTITY,
+            _ARM_COGNITIVE_SERVICES_SOURCE_SCHEMA_DIGEST,
+        )
     if resource_type == _AKS_AGENT_POOL_RESOURCE_TYPE:
         return (
             _ARM_CONTAINER_SERVICE_SOURCE_IDENTITY,

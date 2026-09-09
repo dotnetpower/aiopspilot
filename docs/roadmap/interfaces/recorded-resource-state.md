@@ -151,6 +151,9 @@ the exact ResourceTypes whose ARM type is supported:
 - An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
   Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
   raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
+  Inventory uses a bounded read-only ARM deployment list beneath each observed Cognitive Services
+  account because ARG does not reliably enumerate this ResourceType. It preserves the verified
+  parent relationship and never creates a deployment.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
 - Missing values render as Not recorded, Not provided, Unclassified, Not applicable, or
   Applicability unknown from the machine reason. `Not provided` describes the evidence contract,

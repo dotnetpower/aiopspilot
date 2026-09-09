@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: c2fa280843d48be8fe3d255cc714f527d6ce4f6f
+translation_source_sha: 89dc0f2327d139fc4d229fffd998d3e80a681cd1
 translation_revised: 2026-09-09
 ---
 # 기록된 리소스 상태
@@ -150,6 +150,9 @@ ResourceType을 선언합니다.
 - `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환
   결과는 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용하며 원시 프로바이더 속성, 태그,
   속도 제한 근거 경로 및 자격 증명은 서버에 유지합니다.
+  ARG가 이 ResourceType을 안정적으로 열거하지 않으므로 인벤토리는 관측된 각 Cognitive Services
+  계정 아래에서 범위가 제한된 읽기 전용 ARM 배포 목록을 사용합니다. 검증된 상위 관계를 유지하며
+  모델 배포를 생성하지 않습니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
 - 값이 없으면 기계 판독용 이유에 따라 기록 없음, 미제공, 미분류, 적용 대상 아님 또는 적용 여부
   알 수 없음으로 표시합니다. `미제공`은 근거 계약을 설명하며 리소스 가용성을 뜻하지 않습니다.

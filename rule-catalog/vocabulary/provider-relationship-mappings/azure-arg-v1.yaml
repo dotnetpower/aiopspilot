@@ -339,6 +339,21 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.arm-cognitive-account-contains-model-deployment
+    provider: azure
+    source_identity: azure-resource-manager-cognitiveservices
+    source_provider_types: [Microsoft.CognitiveServices/accounts/deployments]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.CognitiveServices/accounts]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema:
+      version: azure-resource-manager-cognitiveservices@2024-10-01
+      digest: sha256:77fa461069def180b2196856b142c37f7b0ef775798e211f4a5ad64ab145d1e4
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.vm-scale-set-contains-vm
     provider: azure
     source_identity: azure-resource-manager-compute
@@ -1350,4 +1365,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-09-06T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:5d848db47ed91576a2ab1f0c884947a8cd22aab437f1881a877f3f320377d09c
+  content_hash: sha256:766b81b2140154f739f9c3ca2e2abb8cf98c1cc32f319a1a0a680b4580ccc9db
