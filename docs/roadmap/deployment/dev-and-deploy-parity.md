@@ -53,6 +53,9 @@ the tested route inventory remains synchronized with the production registry. Ex
 contracts remain visible without being treated as runtime defects. The suite also submits a
 deterministic current-time turn and an allowlisted Microsoft Learn web search through the live
 Command Deck, then requires verified or grounded terminal evidence. A governed ontology-assurance artifact records the exact source revision, canonical run configuration and digest, workspace patch digest, authentication attestation, and exact request and projection ids; the runner rejects malformed source or workspace provenance before its first request.
+The authenticated external receipt accepts only the standard `http://localhost:5273` Console and
+`http://127.0.0.1:8010` Operator API origins. Its workspace patch digest includes non-ignored
+untracked files, so an uncommitted file cannot disappear from the recorded provenance.
 ### Backed by dev-up.sh (still local)
 | Subsystem | Local backend | Prod backend |
 |-----------|---------------|--------------|

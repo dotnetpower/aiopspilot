@@ -11,6 +11,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from runtime_container_contract import (
+    RuntimeContainerContractError,
+    configuration_digest,
+    planned_primary_configuration,
+)
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
 from sidecar_contract import (
     SidecarContractError,
@@ -145,11 +150,14 @@ def _container_contract(
     primary = containers[primary_name]
     if primary.get("image") != image_ref:
         raise PlanBundleError("planned service image does not match protected image context")
-    primary_configuration = {key: value for key, value in primary.items() if key != "image"}
+    try:
+        primary_configuration = planned_primary_configuration(primary)
+    except RuntimeContainerContractError as exc:
+        raise PlanBundleError(str(exc)) from exc
     primary_contract = {
         "name": primary_name,
         "image_ref": image_ref,
-        "config_digest": hashlib.sha256(_canonical(primary_configuration)).hexdigest(),
+        "config_digest": configuration_digest(primary_configuration),
     }
     sidecar_contracts = [
         planned_sidecar_contract(containers[name], name=name) for name in sorted(expected_sidecars)
@@ -242,8 +250,6 @@ def _target_context(
         )
         if previous_sidecars != sidecar_containers:
             raise PlanBundleError("planned sidecar contract changed from the protected revision")
-    primary = _containers(after, address=allowed_address)[primary_container["name"]]
-    runtime_contract = {key: primary.get(key) for key in ("name", "command", "args", "env")}
     tags = after.get("tags")
     component_tag = tags.get("fdai:component") if isinstance(tags, dict) else None
     if not isinstance(component_tag, str) or not component_tag:
@@ -259,7 +265,7 @@ def _target_context(
         "image_ref": image_ref,
         "primary_container": primary_container,
         "sidecar_containers": sidecar_containers,
-        "runtime_contract_digest": hashlib.sha256(_canonical(runtime_contract)).hexdigest(),
+        "runtime_contract_digest": primary_container["config_digest"],
     }
 
 

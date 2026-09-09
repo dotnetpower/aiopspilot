@@ -153,7 +153,41 @@ def _workspace_patch_digest(worktree: Path, source_revision: str) -> str:
     )
     if completed.returncode != 0:
         raise AssuranceRunError("failed to compute the isolated workspace patch digest")
-    return f"sha256:{hashlib.sha256(completed.stdout).hexdigest()}"
+    digest = hashlib.sha256(completed.stdout)
+    untracked = subprocess.run(  # noqa: S603 - git arguments are fixed
+        (
+            "git",
+            "-C",
+            str(worktree),
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    if untracked.returncode != 0:
+        raise AssuranceRunError("failed to enumerate untracked workspace files")
+    for raw_path in sorted(path for path in untracked.stdout.split(b"\0") if path):
+        path = worktree / raw_path.decode("utf-8")
+        if path.is_symlink():
+            content = path.readlink().as_posix().encode("utf-8")
+            kind = b"symlink"
+        elif path.is_file():
+            content = path.read_bytes()
+            kind = b"file"
+        else:
+            raise AssuranceRunError("untracked workspace entry is not a file")
+        digest.update(b"\0untracked\0")
+        digest.update(kind)
+        digest.update(len(raw_path).to_bytes(8, "big"))
+        digest.update(raw_path)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _symlink(target: Path, link: Path) -> None:

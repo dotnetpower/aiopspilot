@@ -103,6 +103,11 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   연결합니다. Core Container App은 Managed Identity 기반 Key Vault 참조를 통해서만 private
   seed를 받습니다. 일부 구성, 로컬 실행 위치의 사용, 서명 대체, 겹치는 자격 증명 계보는 실패 시
   차단됩니다.
+- **운영 인증은 전달 계층에 유지**:
+  `fdai-operational-instance-certification`은 세대 일치가 확인된 PostgreSQL 집계를 읽고 실행기
+  신원이 아닌 Managed Identity를 사용해 내용 기반의 비공개 Blob 증적 하나를 씁니다. 이 진입점은
+  측정 범위를 기록하며 관측, 변경, 실행 권한을 모두 `false`로 고정합니다. 온톨로지 작성기나 작업
+  경로가 되지 않습니다.
 - **상시 권한 수명 주기에는 작성기가 하나만 있음**: 인증된 Operator 명령은 타입이 지정된 수신
   경로로 들어오고 하나의 Core 작성기가 공급자 중립 원자적 저장소에 위임합니다. PostgreSQL
   어댑터는 기능군 행을 기준으로 직렬화하고 변경할 수 없는 개정 번호, 해시 체인 전이, 현재 변환

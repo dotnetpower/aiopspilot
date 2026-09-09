@@ -31,7 +31,9 @@ unbounded tight polling loop.
   conflicting, or explicitly requested under a bounded read policy.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
   through the same ingress. A partial read cannot replace a complete generation or delete an
-  unobserved object or relationship.
+  unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
+  exact-identity relationship join, but their names and values are redacted before inventory
+  snapshot or ontology persistence.
 - **Time and provenance:** Every fact retains effective time, event time when available, recorded
   time, evidence cutoff, source identity, source revision, completeness, conflicts, and freshness
   policy.

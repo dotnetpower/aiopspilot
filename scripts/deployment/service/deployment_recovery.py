@@ -12,6 +12,12 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+from runtime_container_contract import (
+    RuntimeContainerContractError,
+    configuration_digest,
+    has_readiness_probe,
+    observed_primary_configuration,
+)
 from sidecar_contract import SidecarContractError, observed_configuration
 
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
@@ -209,6 +215,7 @@ def _revision_container_contracts(
             )
         return {
             "primary": _container_contract(containers[0], label="primary container"),
+            "primary_raw": containers[0],
             "sidecars": {},
         }
 
@@ -223,7 +230,8 @@ def _revision_container_contracts(
         raise DeploymentRecoveryError(
             "revision must contain one primary and the exact allowed sidecar set"
         )
-    primary = _container_contract(by_name[primary_names.pop()], label="primary container")
+    primary_raw = by_name[primary_names.pop()]
+    primary = _container_contract(primary_raw, label="primary container")
     sidecars: dict[str, dict[str, Any]] = {}
     for name in sorted(expected_sidecars):
         contract = _container_contract(by_name[name], label=f"sidecar {name}")
@@ -233,7 +241,7 @@ def _revision_container_contracts(
             allow_legacy_empty=allow_legacy_empty_sidecar_probes,
         )
         sidecars[name] = contract
-    return {"primary": primary, "sidecars": sidecars}
+    return {"primary": primary, "primary_raw": primary_raw, "sidecars": sidecars}
 
 
 def _target(context: dict[str, Any]) -> dict[str, Any]:
@@ -256,6 +264,15 @@ def _health_state_is_accepted(app: dict[str, Any], revision_properties: dict[str
     if health_state == "Healthy":
         return True
     replicas = revision_properties.get("replicas")
+    template = revision_properties.get("template")
+    raw_containers = template.get("containers") if isinstance(template, dict) else None
+    primary = raw_containers[0] if isinstance(raw_containers, list) and raw_containers else None
+    try:
+        primary_configuration = (
+            observed_primary_configuration(primary) if isinstance(primary, dict) else {}
+        )
+    except RuntimeContainerContractError:
+        return False
     return (
         ingress is None
         and health_state is None
@@ -263,6 +280,7 @@ def _health_state_is_accepted(app: dict[str, Any], revision_properties: dict[str
         and isinstance(replicas, int)
         and not isinstance(replicas, bool)
         and replicas >= 1
+        and has_readiness_probe(primary_configuration)
     )
 
 
@@ -422,6 +440,23 @@ def validate_health(
     containers = _revision_container_contracts(revision, service=service)
     if containers["primary"]["image"] != expected_image:
         raise DeploymentRecoveryError("new revision image digest does not match sealed context")
+    sealed_primary = target.get("primary_container")
+    expected_config_digest = (
+        sealed_primary.get("config_digest") if isinstance(sealed_primary, dict) else None
+    )
+    if (
+        not isinstance(expected_config_digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_config_digest) is None
+    ):
+        raise DeploymentRecoveryError("sealed primary container contract is invalid")
+    try:
+        observed_configuration = observed_primary_configuration(containers["primary_raw"])
+    except RuntimeContainerContractError as exc:
+        raise DeploymentRecoveryError(str(exc)) from exc
+    if configuration_digest(observed_configuration) != expected_config_digest:
+        raise DeploymentRecoveryError(
+            "observed primary container configuration does not match sealed context"
+        )
     expected_sidecars = _ALLOWED_SIDECARS.get(service, frozenset())
     if expected_sidecars:
         sealed_sidecars = _sealed_sidecars(target, service=service)

@@ -58,6 +58,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterat
 from dataclasses import dataclass, field, replace
 from typing import Final
 
+from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
 from fdai.shared.providers.inventory import (
     UNCLASSIFIED_RESOURCE_TYPE,
     InventoryBatch,
@@ -335,6 +336,7 @@ class AzureResourceGraphInventory:
             )
         )
         links, endpoint_drops = _close_generation_endpoints(resources, links)
+        resources = tuple(redact_runtime_environment(resource) for resource in resources)
         relationship_drops = (
             tuple(drop for batch in completed for drop in batch.relationship_drops)
             + generation_relationships.relationship_drops
@@ -384,7 +386,10 @@ class AzureResourceGraphInventory:
             pages += 1
             if page.has_more and (not page.cursor or page.cursor == current):
                 raise RuntimeError("inventory delta continuation cursor did not advance")
-            resources = _dedupe_resources(page.resources)
+            resources = tuple(
+                redact_runtime_environment(resource)
+                for resource in _dedupe_resources(page.resources)
+            )
             links, relationship_drops = _validate_links(page.links)
             if (
                 resources

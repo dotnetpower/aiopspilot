@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -15,12 +16,14 @@ from fdai.core.ontology_platform.operational_instance_certification import (
     OperationalCertificationAxis,
     OperationalCertificationStatus,
 )
+from fdai.delivery import operational_instance_certification_protected as protected
 from fdai.delivery.operational_instance_certification import (
     OperationalCertificationSnapshot,
     build_operational_certification_snapshot,
     reduce_operational_instance_certification,
 )
 from fdai.delivery.operational_instance_certification_cli import (
+    _parser,
     _write_record,
     receipt_record,
     snapshot_from_record,
@@ -78,11 +81,18 @@ def _source(connection: _Connection) -> PostgresOperationalCertificationSource:
 def _database_row() -> dict[str, Any]:
     return {
         "measured_at": _START,
-        "ontology_status": {"ontology_release_digest": _RELEASE},
+        "active_generation": "generation-1",
+        "ontology_status": {
+            "generation": "generation-1",
+            "status": "available",
+            "ontology_release_digest": _RELEASE,
+        },
         "database_bytes": 1000,
-        "freshness_seconds": Decimal("12.5"),
-        "lag_seconds": Decimal("3.5"),
-        "collection_health": {"provider_pressure": {"budget_remaining_ratio": 0.75}},
+        "collection_health": {
+            "freshness": {"age_seconds": Decimal("12.5")},
+            "cursor": {"lag_seconds": Decimal("3.5")},
+            "provider_pressure": {"budget_remaining_ratio": 0.75},
+        },
         "rollup_total_count": 4,
         "rollup_complete_count": 3,
         "restore_total_count": 2,
@@ -235,6 +245,11 @@ async def test_postgres_source_reads_one_sanitized_read_only_snapshot() -> None:
     assert len(connection.executions) == 2
     query = connection.executions[1][0]
     assert "pg_database_size" in query
+    assert "active.id AS active_generation" in query
+    assert "candidate.source = failed.source" in query
+    assert "FROM latest_failure AS failed" in query
+    assert "LEFT JOIN LATERAL" in query
+    assert "operational_archive_coverage_receipt" in query
     assert "operational_archive_manifest" in query
     assert "operational_archive_restore_receipt" in query
     assert "resource_id" not in query
@@ -269,9 +284,40 @@ async def test_postgres_source_maps_explicit_healthy_pressure_to_zero() -> None:
 
 async def test_postgres_source_requires_exact_release_binding() -> None:
     row = _database_row()
-    row["ontology_status"] = {"status": "unavailable"}
+    row["ontology_status"] = {
+        "generation": "generation-1",
+        "status": "available",
+    }
 
     with pytest.raises(ValueError, match="exact ontology release is unavailable"):
+        await _source(_Connection(row)).capture()
+
+
+@pytest.mark.parametrize(
+    "ontology_status",
+    [
+        {
+            "generation": "generation-2",
+            "status": "available",
+            "ontology_release_digest": _RELEASE,
+        },
+        {
+            "generation": "generation-1",
+            "status": "unavailable",
+            "ontology_release_digest": _RELEASE,
+        },
+    ],
+)
+async def test_postgres_source_rejects_mixed_or_unavailable_projection(
+    ontology_status: dict[str, object],
+) -> None:
+    row = _database_row()
+    row["ontology_status"] = ontology_status
+
+    with pytest.raises(
+        ValueError,
+        match="inventory and ontology generations do not match",
+    ):
         await _source(_Connection(row)).capture()
 
 
@@ -307,6 +353,104 @@ def test_receipt_record_preserves_no_authority_and_unavailable_axes() -> None:
     assert record["mutation_authority"] is False
     assert record["execution_authority"] is False
     assert record["unavailable_axes"] == ["api_pressure", "archive_restore", "storage_growth"]
+
+
+async def test_protected_certification_persists_exact_complete_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshots = [
+        _snapshot(measured_at=_START, database_bytes=1000),
+        _snapshot(measured_at=_START + timedelta(minutes=1), database_bytes=1100),
+    ]
+    stored: dict[str, bytes] = {}
+
+    class _Source:
+        async def capture(self) -> OperationalCertificationSnapshot:
+            return snapshots.pop(0)
+
+    class _Client:
+        async def __aenter__(self) -> _Client:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+    class _Identity:
+        @classmethod
+        def from_env(cls, **_: object) -> object:
+            return object()
+
+    class _Artifacts:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def put(self, storage_ref: str, content: bytes, *, digest: str) -> bool:
+            assert hashlib.sha256(content).hexdigest() == digest
+            stored[storage_ref] = content
+            return True
+
+        async def get(self, storage_ref: str) -> bytes | None:
+            return stored.get(storage_ref)
+
+    async def _no_sleep(_: int) -> None:
+        return None
+
+    monkeypatch.setattr(
+        protected,
+        "PostgresOperationalCertificationSource",
+        lambda **_: _Source(),
+    )
+    monkeypatch.setattr(protected.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(protected.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(protected, "ManagedIdentityWorkloadIdentity", _Identity)
+    monkeypatch.setattr(protected, "AzureBlobOperationalHistoryArtifactStore", _Artifacts)
+
+    summary = await protected.run_protected_certification(
+        protected.ProtectedCertificationOptions(
+            request_id="certify-instance-" + "a" * 48,
+            source_revision="b" * 40,
+            campaign_run_id=123,
+            window_seconds=30,
+        ),
+        {
+            "FDAI_DATABASE_URL": "postgresql://example",
+            "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL": "https://example.test/evidence",
+            "FDAI_MI_CLIENT_ID": "example",
+        },
+    )
+
+    assert summary["complete"] is True
+    assert summary["observation_authority"] is False
+    assert summary["mutation_authority"] is False
+    assert summary["execution_authority"] is False
+    assert summary["storage_ref"] in stored
+
+
+def test_protected_certification_options_reject_unbounded_window() -> None:
+    with pytest.raises(ValueError, match="window"):
+        protected.ProtectedCertificationOptions(
+            request_id="certify-instance-" + "a" * 48,
+            source_revision="b" * 40,
+            campaign_run_id=123,
+            window_seconds=29,
+        )
+
+
+def test_protected_cli_uses_azure_safe_positional_arguments() -> None:
+    arguments = _parser().parse_args(
+        [
+            "protected",
+            "certify-instance-" + "a" * 48,
+            "b" * 40,
+            "123",
+            "60",
+        ]
+    )
+
+    assert arguments.request_id == "certify-instance-" + "a" * 48
+    assert arguments.source_revision == "b" * 40
+    assert arguments.campaign_run_id == 123
+    assert arguments.window_seconds == 60
 
 
 def test_artifact_writer_is_atomic_private_and_valid_json(tmp_path: Path) -> None:

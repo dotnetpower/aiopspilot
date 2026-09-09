@@ -819,6 +819,27 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
         "/subscriptions/example-subscription/resourceGroups/example/providers/"
         "Microsoft.App/containerApps/example"
     )
+    primary_configuration = {
+        "name": "operator-service",
+        "command": [],
+        "args": [],
+        "env": [
+            {
+                "name": "POSTGRES_HOST",
+                "kind": "value",
+                "binding": "db.example.com",
+            }
+        ],
+        "resources": {"cpu": 0.5, "memory": "1Gi"},
+        "probes": {
+            "readiness": {
+                "transport": "HTTP",
+                "port": 8000,
+                "path": "/ready",
+                "failure_count_threshold": 3,
+            }
+        },
+    }
     context = {
         "service": "operator-service",
         "subscription_id": "example-subscription",
@@ -829,6 +850,11 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
             "component_tag": "operator-service",
             "image_ref": image,
             "identity_resource_ids": [identity_id.lower()],
+            "primary_container": {
+                "name": "operator-service",
+                "image_ref": image,
+                "config_digest": _canonical_digest(primary_configuration),
+            },
         },
     }
     service_output = {
@@ -853,7 +879,29 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
             "provisioningState": "Provisioned",
             "healthState": "Healthy",
             "active": True,
-            "template": {"containers": [{"image": image, "probes": []}]},
+            "template": {
+                "containers": [
+                    {
+                        "name": "operator-service",
+                        "image": image,
+                        "command": [],
+                        "args": [],
+                        "env": [{"name": "POSTGRES_HOST", "value": "db.example.com"}],
+                        "resources": {
+                            "cpu": 0.5,
+                            "memory": "1Gi",
+                            "ephemeralStorage": "1Gi",
+                        },
+                        "probes": [
+                            {
+                                "type": "Readiness",
+                                "httpGet": {"path": "/ready", "port": 8000},
+                                "failureThreshold": 3,
+                            }
+                        ],
+                    }
+                ]
+            },
         },
     }
     return context, service_output, account, app, revision
@@ -867,6 +915,37 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
     context["service"] = "document-processing-worker"
     context["target"]["component_tag"] = "document-processing-worker"  # type: ignore[index]
     context["target"]["image_ref"] = _image("fdai-document-processing-worker")  # type: ignore[index]
+    context["target"]["primary_container"] = {  # type: ignore[index]
+        "name": "document-processing-worker",
+        "image_ref": _image("fdai-document-processing-worker"),
+        "config_digest": _canonical_digest(
+            {
+                "name": "document-processing-worker",
+                "command": [],
+                "args": [],
+                "env": [
+                    {
+                        "name": "POSTGRES_HOST",
+                        "kind": "value",
+                        "binding": "db.example.com",
+                    }
+                ],
+                "resources": {"cpu": 0.5, "memory": "1Gi"},
+                "probes": {
+                    "liveness": {
+                        "transport": "HTTP",
+                        "port": 8000,
+                        "path": "/live",
+                    },
+                    "readiness": {
+                        "transport": "HTTP",
+                        "port": 8000,
+                        "path": "/ready",
+                    },
+                },
+            }
+        ),
+    }
     context["target"]["sidecar_containers"] = [  # type: ignore[index]
         {
             "name": "clamav",
@@ -908,6 +987,10 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
         {
             "name": "document-processing-worker",
             "image": _image("fdai-document-processing-worker"),
+            "command": [],
+            "args": [],
+            "env": [{"name": "POSTGRES_HOST", "value": "db.example.com"}],
+            "resources": {"cpu": 0.5, "memory": "1Gi"},
             "probes": [
                 {"type": "Liveness", "httpGet": {"path": "/live", "port": 8000}},
                 {"type": "Readiness", "httpGet": {"path": "/ready", "port": 8000}},
@@ -3768,6 +3851,78 @@ def test_no_ingress_health_accepts_absent_azure_health_state(
         app=app,
         revision=revision,
     )
+
+
+def test_no_ingress_health_rejects_missing_primary_readiness_probe(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    app["properties"]["configuration"]["ingress"] = None  # type: ignore[index]
+    revision["properties"]["healthState"] = None  # type: ignore[index]
+    revision["properties"]["runningState"] = "Running"  # type: ignore[index]
+    revision["properties"]["replicas"] = 1  # type: ignore[index]
+    revision["properties"]["template"]["containers"][0]["probes"] = []  # type: ignore[index]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="healthy and active"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+def test_health_verification_rejects_postgres_host_readback_drift(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    revision["properties"]["template"]["containers"][0]["env"][0]["value"] = (  # type: ignore[index]
+        "other.example.com"
+    )
+
+    with pytest.raises(
+        recovery.DeploymentRecoveryError,
+        match="primary container configuration does not match sealed context",
+    ):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("scheme", "HTTPS", "scheme"),
+        ("httpHeaders", [{"name": "X-Test", "value": "1"}], "headers"),
+        ("host", "example.internal", "host"),
+    ],
+)
+def test_health_verification_rejects_unsealed_probe_details(
+    recovery: ModuleType,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    probe = revision["properties"]["template"]["containers"][0]["probes"][0]  # type: ignore[index]
+    probe["httpGet"][field] = value
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match=message):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
 
 
 def test_ingress_health_rejects_absent_azure_health_state(recovery: ModuleType) -> None:

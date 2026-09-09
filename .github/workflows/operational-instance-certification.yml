@@ -1,0 +1,365 @@
+name: operational-instance-certification
+run-name: "certify-instance-${{ inputs.commit_sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Existing development environment to measure."
+        type: choice
+        options: [dev]
+        required: true
+      commit_sha:
+        description: "Exact protected-main source and runtime image revision."
+        type: string
+        required: true
+      request_id:
+        description: "Stable certify-instance request id."
+        type: string
+        required: true
+      window_seconds:
+        description: "Bounded measurement window."
+        type: choice
+        options: ["60", "300"]
+        default: "60"
+        required: true
+
+permissions:
+  actions: read
+  attestations: read
+  checks: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: operational-instance-certification-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.environment == 'dev'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 60
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      CERTIFICATION_REQUEST_ID: ${{ inputs.request_id }}
+      WINDOW_SECONDS: ${{ inputs.window_seconds }}
+
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/operational-instance-certification.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact protected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify exact source and required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CERTIFICATION_REQUEST_ID" =~ ^certify-instance-[0-9a-f]{48}$ ]]
+          [[ "$WINDOW_SECONDS" == "60" || "$WINDOW_SECONDS" == "300" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          checks="$RUNNER_TEMP/required-ci.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+            > "$checks"
+          required="$(
+            jq -c \
+              '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+               sort_by(.completed_at) | last // empty' "$checks"
+          )"
+          [[ -n "$required" ]] || {
+            echo "the exact source revision has no successful required CI check" >&2
+            exit 1
+          }
+          required_url="$(jq -r '.details_url' <<<"$required")"
+          required_ci_run_id="$(sed -nE 's#^.*/actions/runs/([0-9]+)(/.*)?$#\1#p' <<<"$required_url")"
+          [[ "$required_ci_run_id" =~ ^[1-9][0-9]*$ ]]
+          echo "REQUIRED_CI_RUN_ID=$required_ci_run_id" >> "$GITHUB_ENV"
+
+      - name: Bind stable deployment identity
+        env:
+          EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Initialize protected platform state
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra init -input=false -reconfigure \
+            -backend-config="resource_group_name=${{ vars.STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.STATE_CONTAINER || 'tfstate' }}" \
+            -backend-config="key=fdai-${TARGET_ENVIRONMENT}.tfstate"
+
+      - name: Bind exact attested runtime and certification jobs
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/bind_core_runtime_image.sh infra
+          resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
+          inventory_job_name="$(terraform -chdir=infra output -raw inventory_job_name)"
+          history_job_id="$(terraform -chdir=infra output -raw operational_history_lifecycle_job_id)"
+          container_url="$(terraform -chdir=infra output -raw operational_history_container_url)"
+          [[ -n "$resource_group" && -n "$inventory_job_name" ]]
+          [[ "$history_job_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.App/jobs/* ]]
+          [[ "$container_url" == https://*.blob.core.windows.net/* ]]
+          history_job_name="${history_job_id##*/}"
+          job_json="$RUNNER_TEMP/operational-history-job.json"
+          az containerapp job show --ids "$history_job_id" --output json > "$job_json"
+          mi_client_id="$(
+            jq -er '.properties.template.containers[] |
+              select(.name == "operational-history-lifecycle") |
+              .env[] | select(.name == "FDAI_MI_CLIENT_ID") | .value' "$job_json"
+          )"
+          {
+            echo "CERTIFICATION_RESOURCE_GROUP=$resource_group"
+            echo "INVENTORY_JOB_NAME=$inventory_job_name"
+            echo "CERTIFICATION_JOB_NAME=$history_job_name"
+            echo "CERTIFICATION_CONTAINER_URL=$container_url"
+            echo "CERTIFICATION_MI_CLIENT_ID=$mi_client_id"
+          } >> "$GITHUB_ENV"
+
+      - name: Refresh authoritative inventory with exact runtime
+        run: |
+          set -euo pipefail
+          execution="$(
+            az containerapp job start \
+              --name "$INVENTORY_JOB_NAME" \
+              --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+              --image "$TF_VAR_core_image" \
+              --query name --output tsv
+          )"
+          [[ -n "$execution" ]]
+          deadline=$((SECONDS + 1200))
+          while ((SECONDS < deadline)); do
+            status="$(
+              az containerapp job execution show \
+                --name "$INVENTORY_JOB_NAME" \
+                --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+                --job-execution-name "$execution" \
+                --query properties.status --output tsv
+            )"
+            [[ "$status" != "Succeeded" ]] || exit 0
+            [[ "$status" != "Failed" ]] || exit 1
+            sleep 10
+          done
+          echo "authoritative inventory refresh exceeded its 1200-second deadline" >&2
+          exit 1
+
+      - name: Run protected seven-axis certification
+        run: |
+          set -euo pipefail
+          execution="$(
+            az containerapp job start \
+              --name "$CERTIFICATION_JOB_NAME" \
+              --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+              --image "$TF_VAR_core_image" \
+              --command fdai-operational-instance-certification \
+              --args protected "$CERTIFICATION_REQUEST_ID" "$TARGET_COMMIT_SHA" \
+                "$GITHUB_RUN_ID" "$WINDOW_SECONDS" \
+              --env-vars \
+                FDAI_DATABASE_URL=secretref:operational-history-dsn \
+                FDAI_OPERATIONAL_HISTORY_CONTAINER_URL="$CERTIFICATION_CONTAINER_URL" \
+                FDAI_MI_CLIENT_ID="$CERTIFICATION_MI_CLIENT_ID" \
+              --query name --output tsv
+          )"
+          [[ -n "$execution" ]]
+          deadline=$((SECONDS + 1200))
+          while ((SECONDS < deadline)); do
+            status="$(
+              az containerapp job execution show \
+                --name "$CERTIFICATION_JOB_NAME" \
+                --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+                --job-execution-name "$execution" \
+                --query properties.status --output tsv
+            )"
+            if [[ "$status" == "Succeeded" ]]; then
+              summary="$RUNNER_TEMP/oi12-certification-summary.json"
+              logs="$RUNNER_TEMP/oi12-certification.log"
+              replica="$(
+                az containerapp job replica list \
+                  --name "$CERTIFICATION_JOB_NAME" \
+                  --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+                  --execution "$execution" --query '[0].name' --output tsv
+              )"
+              container="$(
+                az containerapp job replica list \
+                  --name "$CERTIFICATION_JOB_NAME" \
+                  --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+                  --execution "$execution" \
+                  --query '[0].properties.containers[0].name' --output tsv
+              )"
+              [[ -n "$replica" && -n "$container" ]]
+              for _ in $(seq 1 12); do
+                az containerapp job logs show \
+                  --name "$CERTIFICATION_JOB_NAME" \
+                  --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
+                  --execution "$execution" --replica "$replica" --container "$container" \
+                  --tail 100 --format text > "$logs"
+                if python3 - "$logs" "$summary" <<'PY'
+          import json
+          import os
+          import sys
+
+          matches = []
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              for line in stream:
+                  start = line.find('{"artifact_digest"')
+                  if start < 0:
+                      continue
+                  try:
+                      value = json.loads(line[start:])
+                  except json.JSONDecodeError:
+                      continue
+                  if (
+                      value.get("status") == "completed"
+                      and value.get("request_id") == os.environ["CERTIFICATION_REQUEST_ID"]
+                      and value.get("source_revision") == os.environ["TARGET_COMMIT_SHA"]
+                      and value.get("campaign_run_id") == int(os.environ["GITHUB_RUN_ID"])
+                      and value.get("complete") is True
+                      and value.get("observation_authority") is False
+                      and value.get("mutation_authority") is False
+                      and value.get("execution_authority") is False
+                  ):
+                      matches.append(value)
+          if len(matches) != 1:
+              raise SystemExit(1)
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              json.dump(matches[0], stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          PY
+                then
+                  {
+                    echo "CERTIFICATION_SUMMARY_FILE=$summary"
+                    echo "CERTIFICATION_STORAGE_REF=$(jq -r '.storage_ref' "$summary")"
+                    echo "CERTIFICATION_ARTIFACT_DIGEST=$(jq -r '.artifact_digest' "$summary")"
+                    echo "CERTIFICATION_RECEIPT_DIGEST=$(jq -r '.receipt_digest' "$summary")"
+                  } >> "$GITHUB_ENV"
+                  exit 0
+                fi
+                sleep 10
+              done
+              echo "successful certification emitted no exact summary" >&2
+              exit 1
+            fi
+            [[ "$status" != "Failed" ]] || exit 1
+            sleep 10
+          done
+          echo "operational instance certification exceeded its 1200-second deadline" >&2
+          exit 1
+
+      - name: Download and verify private certification receipt
+        run: |
+          set -euo pipefail
+          receipt="$RUNNER_TEMP/oi12-certification-receipt.json"
+          readarray -t archive_binding < <(
+            python3 - "$CERTIFICATION_CONTAINER_URL" <<'PY'
+          import sys
+          from urllib.parse import urlparse
+
+          parsed = urlparse(sys.argv[1])
+          host = parsed.hostname or ""
+          segments = [segment for segment in parsed.path.split("/") if segment]
+          if parsed.scheme != "https" or not host.endswith(".blob.core.windows.net") or len(segments) != 1:
+              raise SystemExit("invalid certification container URL")
+          print(host.split(".", 1)[0])
+          print(segments[0])
+          PY
+          )
+          [[ "${#archive_binding[@]}" -eq 2 ]]
+          az storage blob download \
+            --account-name "${archive_binding[0]}" \
+            --container-name "${archive_binding[1]}" \
+            --name "$CERTIFICATION_STORAGE_REF" \
+            --file "$receipt" \
+            --auth-mode login \
+            --only-show-errors \
+            --overwrite true \
+            --output none
+          observed_digest="sha256:$(sha256sum "$receipt" | cut -d' ' -f1)"
+          [[ "$observed_digest" == "$CERTIFICATION_ARTIFACT_DIGEST" ]]
+          jq -e \
+            --arg digest "$CERTIFICATION_RECEIPT_DIGEST" \
+            '.digest == $digest and .complete == true and
+             .observation_authority == false and
+             .mutation_authority == false and
+             .execution_authority == false and
+             ([.measurements[].status] | all(. == "available"))' \
+            "$receipt" >/dev/null
+          chmod 0600 "$receipt"
+          echo "CERTIFICATION_RECEIPT_FILE=$receipt" >> "$GITHUB_ENV"
+
+      - name: Preserve private sanitized certification artifact
+        env:
+          ARTIFACT_PATH: ${{ runner.temp }}/oi12-protected-certification.json
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["CERTIFICATION_SUMMARY_FILE"], encoding="utf-8") as stream:
+              summary = json.load(stream)
+          with open(os.environ["CERTIFICATION_RECEIPT_FILE"], encoding="utf-8") as stream:
+              receipt = json.load(stream)
+          artifact = {
+              "schema_version": "fdai.oi12.protected-campaign.v1",
+              "source_revision": os.environ["TARGET_COMMIT_SHA"],
+              "required_ci_run_id": int(os.environ["REQUIRED_CI_RUN_ID"]),
+              "runtime_image_revision": os.environ["FDAI_RUNTIME_IMAGE_REVISION"],
+              "runtime_image_digest": os.environ["FDAI_RUNTIME_IMAGE_DIGEST"],
+              "campaign_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "request_id": os.environ["CERTIFICATION_REQUEST_ID"],
+              "summary": summary,
+              "receipt": receipt,
+              "complete": True,
+              "observation_authority": False,
+              "mutation_authority": False,
+              "execution_authority": False,
+          }
+          with open(os.environ["ARTIFACT_PATH"], "w", encoding="utf-8") as stream:
+              json.dump(artifact, stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          os.chmod(os.environ["ARTIFACT_PATH"], 0o600)
+          PY
+
+      - name: Upload private sanitized certification artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: operational-instance-certification-${{ inputs.request_id }}
+          path: ${{ runner.temp }}/oi12-protected-certification.json
+          if-no-files-found: error
+          retention-days: 90

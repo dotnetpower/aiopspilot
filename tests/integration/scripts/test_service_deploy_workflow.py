@@ -103,6 +103,9 @@ def test_workflow_has_closed_five_service_input_and_runner() -> None:
     assert "format('service-apply-{0}', inputs.environment)" in _WORKFLOW
     assert "format('service-deploy-{0}-{1}', inputs.service, inputs.environment)" in _WORKFLOW
     assert "(inputs.apply || inputs.migrate_state)" in _WORKFLOW
+    assert "Verify required CI for exact revision" in _WORKFLOW
+    assert 'select(.name == "required")' in _WORKFLOW
+    assert "the exact commit does not have a successful required CI check." in _WORKFLOW
 
 
 def test_legacy_platform_cannot_recreate_migrated_core() -> None:
