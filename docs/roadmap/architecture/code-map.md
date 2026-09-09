@@ -45,6 +45,9 @@ and owning designs. Use it instead of the retired top-level application tree.
   interval end.
 - **AKS endpoint admission:** The same reducer retains omitted EndpointSlice readiness as unknown.
   It cannot convert a nil readiness value into a complete `endpoint_unready` signal.
+- **AKS policy relationships:** Kubernetes inventory preserves an explicit empty NetworkPolicy
+  `podSelector` as a typed match-all marker. Relationship projection applies it only to Pods in the
+  same cluster and namespace.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

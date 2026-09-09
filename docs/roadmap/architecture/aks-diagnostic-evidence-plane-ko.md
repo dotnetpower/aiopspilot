@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: b69785d5c4e728ef95fdc9f615e61fae45705bc4
+translation_source_sha: 02f65fef4b8083e013ef160f2d61ad33bd1b54bf
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -120,6 +120,9 @@ Operator와 Console 허용 목록은 수집된 내용 안전 롤아웃, 스토�
 EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_unknown`에 보존합니다. Forseti는
 엔드포인트가 하나 이상 있고 준비 및 준비 상태 미확인 수가 모두 0인 경우에만 `endpoint_unready`를
 만듭니다.
+명시적인 빈 NetworkPolicy `podSelector`는 `selector_matches_all: true`로 보존합니다. 형식이 지정된
+이 NetworkPolicy 표식만 같은 네임스페이스의 모든 Pod를 선택합니다. 누락된 선택기나 빈 Service
+선택기에 전체 일치 의미를 부여하지 않습니다.
 
 ### 수명 주기 이력
 

@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 4be9948a6899d62ab61e94f919255efe28396987
+translation_source_sha: 491bb8dd55047348c9cc8c4b664e8d7129c75c99
 translation_revised: 2026-09-10
 ---
 # 기록된 리소스 상태
@@ -29,6 +29,8 @@ Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상�
 정보에 적용되며 기록 상태 사실의 범위를 넓히지 않습니다.
 해당 별도 상세 정보는 인벤토리 수집기가 실제로 만든 검토된 롤아웃, 스토리지, 정책 및 임시
 컨테이너 사실을 보존합니다.
+NetworkPolicy의 `selector_matches_all: true`는 명시적으로 비어 있는 `podSelector`를 기록합니다.
+누락된 선택기 데이터는 계속 사용할 수 없으며 같은 의미를 부여받지 않습니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

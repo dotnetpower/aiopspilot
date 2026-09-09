@@ -1169,7 +1169,8 @@ const KUBERNETES_DIAGNOSTIC_KEYS = new Set([
   "ready_status", "ready_unknown", "reason", "reclaim_policy", "requested_storage",
   "restart_count", "restart_policy",
   "scale_target_api_version", "scale_target_kind", "scale_target_name", "scheduler_name",
-  "selector", "serving", "serving_unknown", "service_account_name", "status_counts",
+  "selector", "selector_matches_all", "serving", "serving_unknown", "service_account_name",
+  "status_counts",
   "storage_class_name", "target_uids", "terminating", "terminating_unknown", "tolerations",
   "unavailable_replicas", "updated_replicas", "volume_binding_mode", "volume_mode", "volume_name",
 ]);

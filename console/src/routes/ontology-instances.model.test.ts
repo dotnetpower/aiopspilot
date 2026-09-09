@@ -198,7 +198,8 @@ describe("decodeOntologyInstanceExploration", () => {
       unavailable_replicas: 2,
       progressing_status: "False",
       requested_storage: "10Gi",
-      selector: { app: "api" },
+      selector: {},
+      selector_matches_all: true,
       ephemeral_container_count: 1,
     };
 

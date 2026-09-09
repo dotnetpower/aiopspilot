@@ -135,6 +135,7 @@ _KUBERNETES_DIAGNOSTIC_KEYS = frozenset(
         "scale_target_name",
         "scheduler_name",
         "selector",
+        "selector_matches_all",
         "serving",
         "serving_unknown",
         "service_account_name",

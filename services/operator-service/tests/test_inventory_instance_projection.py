@@ -1000,7 +1000,7 @@ def test_kubernetes_projection_accepts_the_producer_sequence_bounds() -> None:
         (
             "kubernetes.network-policy",
             "NetworkPolicy",
-            {"selector": {"app": "api"}},
+            {"selector": {}, "selector_matches_all": True},
         ),
         (
             "kubernetes.pod-disruption-budget",

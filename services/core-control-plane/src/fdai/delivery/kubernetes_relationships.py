@@ -32,7 +32,8 @@ _KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA = (
     "kubernetes.service,kubernetes.stateful-set,kubernetes.storage-class;"
     "relationship_properties=backend_service_names,cluster_ref,ingress_class_name,name,"
     "namespace,node_name,node_pool,owner_uids,provider_resource_ref,pvc_claim_names,"
-    "scale_target_name,selector,service_name,storage_class_name,target_uids,volume_name;"
+    "scale_target_name,selector,selector_matches_all,service_name,storage_class_name,target_uids,"
+    "volume_name;"
     "provider_ref=kubernetes-uid:{uid};"
     "resource_id={cluster_ref}/kubernetes/{resource_type}/{namespace_or_cluster}/"
     "{sha256_uid_24}"
@@ -171,15 +172,20 @@ def _mapping_targets(
         if resource.type.casefold() in allowed_types and _same_cluster(owner, resource)
     )
     if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR:
-        selector = _string_mapping(owner.props.get(mapping.source_property_path))
-        if not selector:
+        raw_selector = owner.props.get(mapping.source_property_path)
+        selector = _string_mapping(raw_selector)
+        matches_all = _selector_matches_all(owner, mapping=mapping, value=raw_selector)
+        if not selector and not matches_all:
             return ()
         return tuple(
             resource
             for resource in scoped
-            if all(
-                _string_mapping(resource.props.get("labels")).get(key) == value
-                for key, value in selector.items()
+            if (
+                matches_all
+                or all(
+                    _string_mapping(resource.props.get("labels")).get(key) == value
+                    for key, value in selector.items()
+                )
             )
             and _namespace_compatible(owner, resource, mapping=mapping)
         )
@@ -236,7 +242,11 @@ def _has_reference(
 ) -> bool:
     value = owner.props.get(mapping.source_property_path)
     if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR:
-        return bool(_string_mapping(value))
+        return bool(_string_mapping(value)) or _selector_matches_all(
+            owner,
+            mapping=mapping,
+            value=value,
+        )
     if mapping.reference_format is ProviderReferenceFormat.RESOLVED_UID:
         return (
             isinstance(value, Sequence)
@@ -250,6 +260,21 @@ def _has_reference(
             and any(isinstance(item, str) and item.strip() for item in value)
         )
     return isinstance(value, str) and bool(value.strip())
+
+
+def _selector_matches_all(
+    owner: ResourceRecord,
+    *,
+    mapping: ProviderRelationshipMapping,
+    value: object,
+) -> bool:
+    return (
+        owner.type.casefold() == "kubernetes.network-policy"
+        and mapping.source_property_path == "selector"
+        and isinstance(value, Mapping)
+        and not value
+        and owner.props.get("selector_matches_all") is True
+    )
 
 
 def _same_cluster(left: ResourceRecord, right: ResourceRecord) -> bool:

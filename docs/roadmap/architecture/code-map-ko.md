@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 06d42a92eed6ed5cc2995ea9a2f241db887cbd6c
+translation_source_sha: 79e6aacef905468727dc8e301b81e546f4f37137
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -47,6 +47,9 @@ translation_revised: 2026-09-10
   요청 구간의 끝에 도달한 경우에만 완전한 범위를 허용합니다.
 - **AKS 엔드포인트 수락:** 같은 축약기는 생략된 EndpointSlice 준비 상태를 알 수 없음으로
   보존합니다. null 준비 상태를 완전한 `endpoint_unready` 신호로 바꿀 수 없습니다.
+- **AKS 정책 관계:** Kubernetes 인벤토리는 명시적인 빈 NetworkPolicy `podSelector`를 형식이
+  지정된 전체 일치 표식으로 보존합니다. 관계 변환은 같은 클러스터와 네임스페이스의 Pod에만 이
+  표식을 적용합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

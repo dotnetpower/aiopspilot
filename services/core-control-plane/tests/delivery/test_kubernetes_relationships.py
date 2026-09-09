@@ -262,6 +262,42 @@ def test_complete_snapshot_projects_storage_policy_and_autoscale_relationships()
     assert (network_policy_id, "kubernetes_selects", POD_ID) in edges
 
 
+def test_match_all_network_policy_selects_every_pod_in_its_namespace() -> None:
+    network_policy_id = f"{CLUSTER_REF}/resource/network-policy-all"
+    second_pod_id = f"{CLUSTER_REF}/resource/pod-worker"
+    resources = (
+        *_resources(),
+        _resource(
+            second_pod_id,
+            "kubernetes.pod",
+            name="worker",
+            labels={"app": "worker"},
+            extra={"uid": "uid-worker"},
+        ),
+        _resource(
+            network_policy_id,
+            "kubernetes.network-policy",
+            name="all",
+            selector={},
+            extra={"selector_matches_all": True},
+        ),
+    )
+
+    result = project_kubernetes_relationships(
+        resources,
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    selected = {
+        link.to_id
+        for link in result.links
+        if link.from_id == network_policy_id and link.link_type == "kubernetes_selects"
+    }
+    assert selected == {POD_ID, second_pod_id}
+    assert result.dropped == ()
+
+
 def test_reversed_snapshot_input_preserves_canonical_direction() -> None:
     catalog = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
 

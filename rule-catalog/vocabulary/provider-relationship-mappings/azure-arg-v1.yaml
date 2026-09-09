@@ -1184,7 +1184,7 @@ mappings:
     endpoint_orientation: referenced_to_owner
     source_schema: &kubernetes_inventory_schema
       version: kubernetes-api-inventory-v2
-      digest: sha256:0c8ed6cda12027f462bacd7a648471d7ed75ea117f43bc9e3c94e5dd05ecd33d
+      digest: sha256:4c870b807dea320337d94e39dc4358f9e76f273910c41d536cc7d0720fb37077
     evidence_method: deterministic-cross-check
     freshness: &kubernetes_freshness
       max_age_seconds: 300
@@ -1539,4 +1539,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-09-06T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:74f2fc1c65e9dfa1f254bfa7e0a76aee84b486e744640873fb7465cbda755073
+  content_hash: sha256:70bee7b32b32e42cea66161a19bf3728ed7bfd7a19b8a73bc4dc275da2970aa5

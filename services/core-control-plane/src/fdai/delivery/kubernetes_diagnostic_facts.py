@@ -328,9 +328,13 @@ def _pod_disruption_budget_properties(
 
 def _network_policy_properties(spec: Mapping[str, Any]) -> dict[str, object]:
     props: dict[str, object] = {}
-    selector = _match_labels(spec.get("podSelector"))
+    raw_selector = spec.get("podSelector")
+    selector = _match_labels(raw_selector)
     if selector:
         props["selector"] = selector
+    elif isinstance(raw_selector, Mapping):
+        props["selector"] = {}
+        props["selector_matches_all"] = True
     policy_types = _string_sequence(spec.get("policyTypes"), field="NetworkPolicy policyTypes")
     if policy_types:
         props["policy_types"] = policy_types

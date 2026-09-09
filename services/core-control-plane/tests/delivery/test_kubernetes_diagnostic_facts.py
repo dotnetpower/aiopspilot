@@ -205,6 +205,17 @@ def test_collects_policy_autoscale_quota_and_limit_summaries() -> None:
     assert limits["limit_summaries"] == ({"type": "Container", "default": {"cpu": "1"}},)
 
 
+def test_preserves_network_policy_match_all_selector() -> None:
+    policy = diagnostic_properties(
+        resource_type="kubernetes.network-policy",
+        spec={"podSelector": {}, "policyTypes": ["Ingress"]},
+        status=None,
+    )
+
+    assert policy["selector"] == {}
+    assert policy["selector_matches_all"] is True
+
+
 def test_collects_endpoint_slice_health_without_addresses() -> None:
     props = diagnostic_properties(
         resource_type="kubernetes.endpoint-slice",

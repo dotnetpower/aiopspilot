@@ -35,6 +35,9 @@ Bounded structural details keep producer and consumer maxima aligned. A consumer
 oversized sequence rather than converting it into a complete-looking subset.
 Reviewed producer and consumer key allowlists also stay aligned. A complete projection cannot
 discard a collected field merely because a downstream decoder omitted its key.
+Selector semantics distinguish an explicit typed match-all marker from missing or empty generic
+data. Match-all relationship projection remains constrained by exact cluster, namespace, source
+type, and reviewed mapping.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

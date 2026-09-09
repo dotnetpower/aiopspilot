@@ -29,6 +29,8 @@ Diagnostic arrays retain the collector's maximum sequence of 384 records. This b
 separate Kubernetes detail and does not widen any recorded-state fact.
 That separate detail retains the reviewed rollout, storage, policy, and ephemeral-container facts
 that the inventory collector actually produced.
+For NetworkPolicy, `selector_matches_all: true` records an explicitly empty `podSelector`. Missing
+selector data remains unavailable and does not receive the same meaning.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

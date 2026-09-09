@@ -121,6 +121,9 @@ complete-looking response.
 EndpointSlice readiness keeps omitted or null `ready` values in `ready_unknown`. Forseti emits
 `endpoint_unready` only when at least one endpoint exists and both ready and unknown-ready counts
 are zero.
+An explicit empty NetworkPolicy `podSelector` is preserved as `selector_matches_all: true`. Only
+that typed NetworkPolicy marker selects every Pod in the same namespace; an absent selector or an
+empty Service selector does not gain match-all meaning.
 
 ### Lifecycle history
 
