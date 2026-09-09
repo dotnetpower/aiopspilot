@@ -36,6 +36,10 @@ and owning designs. Use it instead of the retired top-level application tree.
   public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest,
   migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
+- **OPA image dependency closure:** Core, the optional Cost Governance image, and SREGym compile
+  OPA from the same pinned source and override security-sensitive transitive modules to reviewed
+  fixed versions. The shared image contract check keeps their gRPC-Go patch level aligned before
+  supply-chain scanning.
 - **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
   Operations routes can opt into explicit Sample projections that remain read-only, generic, and
   visibly separate from operational evidence.
