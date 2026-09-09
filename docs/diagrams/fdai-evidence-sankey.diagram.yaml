@@ -18,27 +18,33 @@ nodes:
     kind: external
     tone: input
     label: { en: Telemetry, ko: 관찰 데이터 }
+    description: { en: Observability signals feeding the verified decision, ko: 검증된 결정에 입력되는 관찰 가능성 신호입니다 }
   - id: inventory-source
     kind: external
     tone: input
     label: { en: Inventory, ko: 인벤토리 }
+    description: { en: Resource inventory records feeding the verified decision, ko: 검증된 결정에 입력되는 자원 인벤토리 기록입니다 }
   - id: policy-source
     kind: external
     tone: policy
     label: { en: Policy, ko: 정책 }
+    description: { en: Policy evaluation results feeding the verified decision, ko: 검증된 결정에 입력되는 정책 평가 결과입니다 }
   - id: verified-decision
     kind: decision
     tone: decision
     label: { en: Verified decision, ko: 검증된 결정 }
+    description: { en: "A decision verified from telemetry, inventory, and policy evidence", ko: "관찰 데이터, 인벤토리 및 정책 근거로 검증된 결정입니다" }
   - id: governed-action
     kind: process
     tone: execution
     label: { en: Governed action, ko: 통제된 작업 }
+    description: { en: A governed action produced by the verified decision, ko: 검증된 결정으로 생성된 통제된 작업입니다 }
   - id: audit-record
     kind: store
     shape: database
     tone: store
     label: { en: Audit record, ko: 감사 기록 }
+    description: { en: A durable audit record produced by the verified decision, ko: 검증된 결정으로 생성된 영구 감사 기록입니다 }
 edges:
   - id: telemetry-to-decision
     from: telemetry-source

@@ -21,6 +21,7 @@ nodes:
     value: 92
     size: 76
     label: { en: Evidence, ko: 근거 }
+    description: { en: Evidence assurance scores 92 percent, ko: 근거 보증 점수는 92퍼센트입니다 }
   - id: safety
     kind: process
     shape: circle
@@ -28,6 +29,7 @@ nodes:
     value: 94
     size: 76
     label: { en: Safety, ko: 안전 }
+    description: { en: Safety assurance scores 94 percent, ko: 안전 보증 점수는 94퍼센트입니다 }
   - id: recovery
     kind: process
     shape: circle
@@ -35,6 +37,7 @@ nodes:
     value: 78
     size: 76
     label: { en: Recovery, ko: 복구 }
+    description: { en: Recovery assurance scores 78 percent, ko: 복구 보증 점수는 78퍼센트입니다 }
   - id: observability
     kind: process
     shape: circle
@@ -42,13 +45,15 @@ nodes:
     value: 86
     size: 76
     label: { en: Observe, ko: 관찰 }
+    description: { en: Observability assurance scores 86 percent, ko: 관찰 가능성 보증 점수는 86퍼센트입니다 }
   - id: replay
     kind: process
     shape: circle
     tone: execution
     value: 72
     size: 76
-    label: { en: Replay, ko: Replay }
+    label: { en: Replay, ko: 재생 }
+    description: { en: Replay assurance scores 72 percent, ko: 재생 보증 점수는 72퍼센트입니다 }
 edges:
   - { id: evidence-safety, from: evidence, to: safety, kind: association }
   - { id: safety-recovery, from: safety, to: recovery, kind: association }

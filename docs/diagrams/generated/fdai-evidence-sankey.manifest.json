@@ -35,8 +35,8 @@
         "ko": "관찰 데이터"
       },
       "description": {
-        "en": "Telemetry",
-        "ko": "관찰 데이터"
+        "en": "Observability signals feeding the verified decision",
+        "ko": "검증된 결정에 입력되는 관찰 가능성 신호입니다"
       }
     },
     {
@@ -48,8 +48,8 @@
         "ko": "인벤토리"
       },
       "description": {
-        "en": "Inventory",
-        "ko": "인벤토리"
+        "en": "Resource inventory records feeding the verified decision",
+        "ko": "검증된 결정에 입력되는 자원 인벤토리 기록입니다"
       }
     },
     {
@@ -61,8 +61,8 @@
         "ko": "정책"
       },
       "description": {
-        "en": "Policy",
-        "ko": "정책"
+        "en": "Policy evaluation results feeding the verified decision",
+        "ko": "검증된 결정에 입력되는 정책 평가 결과입니다"
       }
     },
     {
@@ -74,8 +74,8 @@
         "ko": "검증된 결정"
       },
       "description": {
-        "en": "Verified decision",
-        "ko": "검증된 결정"
+        "en": "A decision verified from telemetry, inventory, and policy evidence",
+        "ko": "관찰 데이터, 인벤토리 및 정책 근거로 검증된 결정입니다"
       }
     },
     {
@@ -87,8 +87,8 @@
         "ko": "통제된 작업"
       },
       "description": {
-        "en": "Governed action",
-        "ko": "통제된 작업"
+        "en": "A governed action produced by the verified decision",
+        "ko": "검증된 결정으로 생성된 통제된 작업입니다"
       }
     },
     {
@@ -101,8 +101,8 @@
         "ko": "감사 기록"
       },
       "description": {
-        "en": "Audit record",
-        "ko": "감사 기록"
+        "en": "A durable audit record produced by the verified decision",
+        "ko": "검증된 결정으로 생성된 영구 감사 기록입니다"
       }
     }
   ],

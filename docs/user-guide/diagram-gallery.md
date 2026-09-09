@@ -32,7 +32,7 @@ Use a conceptual flow for numbered stages, semantic color, nested explanatory
 surfaces, feedback loops, and durable stores.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-conceptual-control-loop.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-conceptual-control-loop.en.svg" alt="A governed automation path connects language understanding, ontology, policy, action selection, execution, feedback, and data stores." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-conceptual-control-loop.en.svg" alt="Six stages run from an operator question through language understanding, dynamic ontology, policy evaluation, action selection, and execution. Shared context supports an ontology, policy engine, action catalog, and execution targets. Results flow through a feedback loop into four governed data stores." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 ## Timeline and Gantt
@@ -41,7 +41,7 @@ Use Gantt for scaled task durations, dependencies, status, and progress across
 parallel workstreams.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-delivery-roadmap.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-delivery-roadmap.en.svg" alt="Three workstreams show completed, active, planned, critical, and milestone tasks on one delivery axis." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-delivery-roadmap.en.svg" alt="Three workstreams show ontology, policy, and delivery tasks as time-scaled bars. Completed, active, planned, critical, and milestone states use distinct colors, and dependency arrows connect gated work." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 ## Radial charts
@@ -49,11 +49,11 @@ parallel workstreams.
 Pie communicates composition. Radar compares several normalized dimensions.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-decision-mix.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-decision-mix.en.svg" alt="A pie chart divides decision work among rules, verified reuse, and grounded reasoning." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-decision-mix.en.svg" alt="A pie chart assigns 62 percent to deterministic rules, 25 percent to verified reuse, and 13 percent to grounded reasoning." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-assurance-radar.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-assurance-radar.en.svg" alt="A radar profile compares evidence, safety, recovery, observability, and replay readiness." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-assurance-radar.en.svg" alt="Five assurance dimensions form a connected radial profile with values from 72 to 94 percent." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 ## Coordinate and grid views
@@ -62,11 +62,11 @@ Quadrant places capabilities on normalized axes. Kanban groups work into
 stable process columns.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-capability-quadrant.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-capability-quadrant.en.svg" alt="Capabilities are plotted by evidence confidence and change impact." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-capability-quadrant.en.svg" alt="Four capabilities are plotted on evidence confidence from low to high and change impact from low to high." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-governance-kanban.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-governance-kanban.en.svg" alt="Candidate, validation, and ready columns contain governed capability work." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-governance-kanban.en.svg" alt="Three Kanban columns contain candidate, validation, and ready work items for policies and automated actions." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 ## Weighted evidence flow
@@ -75,7 +75,7 @@ Sankey-style weighted connectors show relative contribution while preserving
 the underlying event, read, approval, mutation, and audit semantics.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-evidence-sankey.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-evidence-sankey.en.svg" alt="Weighted evidence links feed a verified decision, governed action, and audit record." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-evidence-sankey.en.svg" alt="Telemetry, inventory, and policy sources feed verified decisions with weighted links, and decisions produce actions and audit records." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 ## Related docs

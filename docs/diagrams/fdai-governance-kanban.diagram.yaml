@@ -31,29 +31,35 @@ nodes:
     kind: process
     tone: input
     label: { en: Restart policy, ko: 재시작 정책 }
+    description: { en: A candidate policy proposal awaiting validation, ko: 검증을 기다리는 후보 정책 제안입니다 }
   - id: cost-action
     parent: candidate
     kind: process
     tone: input
     label: { en: Cost action, ko: 비용 작업 }
+    description: { en: A candidate cost-governance action awaiting validation, ko: 검증을 기다리는 후보 비용 통제 작업입니다 }
   - id: scenario-pack
     parent: validation
     kind: process
     tone: policy
     label: { en: Scenario pack, ko: 시나리오 팩 }
+    description: { en: A scenario pack under active validation, ko: 검증이 진행 중인 시나리오 팩입니다 }
   - id: rollback-proof
     parent: validation
     kind: process
     tone: policy
     label: { en: Rollback proof, ko: 롤백 증명 }
+    description: { en: A rollback proof under active validation, ko: 검증이 진행 중인 롤백 증명입니다 }
   - id: notify-action
     parent: ready
     kind: process
     tone: model
     label: { en: Notification action, ko: 알림 작업 }
+    description: { en: A notification action validated and ready for release, ko: 검증을 마치고 배포 준비가 완료된 알림 작업입니다 }
   - id: read-investigation
     parent: ready
     kind: process
     tone: model
     label: { en: Read investigation, ko: 읽기 조사 }
+    description: { en: A read-only investigation validated and ready for release, ko: 검증을 마치고 배포 준비가 완료된 읽기 전용 조사입니다 }
 edges: []
