@@ -21,7 +21,6 @@ EXPECTED = {
     "fdai-document-ingestion-api",
     "fdai-document-processing-worker",
     "fdai-isolated-executor-service",
-    "fdai-system-knowledge-service",
 }
 REQUIREMENTS = b"example-dependency==1.0 \\\n    --hash=sha256:" + b"a" * 64 + b"\n"
 
@@ -173,6 +172,14 @@ def test_exact_roots_locked_exports_binary_hash_downloads(module, repository, tm
     for relative, digest in inventory["files"].items():
         assert hashlib.sha256((out / relative).read_bytes()).hexdigest() == digest
         assert not relative.startswith(".work/")
+
+
+def test_runtime_roots_match_authenticated_installer_contract(module, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "packages/deployment-cli/src"))
+    support_install = importlib.import_module("fdai_deployment_cli.support_install")
+
+    assert set(module.RUNTIME_PACKAGES) == support_install._RUNTIME_PACKAGES == EXPECTED
+    assert "fdai-system-knowledge-service" not in module.RUNTIME_PACKAGES
 
 
 def test_required_workspace_support_is_not_silently_omitted(module, repository, tmp_path):

@@ -173,6 +173,9 @@ The packaging host can add `--with-runtime-wheels` to include the locked support
 inputs under `support/python/`. `fdaictl offline install-support` authenticates those inputs,
 installs them without package indexes or caches, and verifies actual installed versions.
 This is deployment tooling, not a co-hosted replacement for the five runtime services.
+The signed support inventory is closed to service contracts plus those five distributions.
+Optional independently shipped services such as System Knowledge are excluded; the shared GitHub
+authentication library may appear only as a transitive support package.
 See the [CLI installation commands](../../../packages/deployment-cli/README.md).
 
 ### Bind a generic Console build at installation
