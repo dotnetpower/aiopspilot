@@ -255,6 +255,7 @@ class SemanticJudgmentBoundary:
                         capabilities=bounded_capabilities,
                         allow_context_target_drop=not self._strict_intent_grounding,
                     )
+                    proposal = grounding.normalize_schema_object_type_suffix(proposal)
                     grounding.validate_forbidden_action_canonical_values(
                         proposal,
                         capabilities=bounded_capabilities,

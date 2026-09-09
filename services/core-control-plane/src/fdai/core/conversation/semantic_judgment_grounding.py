@@ -264,6 +264,48 @@ def normalize_overlapping_target_fragments(
     )
 
 
+def normalize_schema_object_type_suffix(
+    proposal: SemanticJudgmentProposal,
+) -> SemanticJudgmentProposal:
+    """Remove generic metatype wording from supplied schema subjects."""
+
+    if proposal.primary_intent not in {
+        "query.ontology_declaration",
+        "query.ontology_relationships",
+    }:
+        return proposal
+    targets = tuple(
+        (
+            target.model_copy(
+                update={
+                    "value": target.canonical_value,
+                    "source_end": target.source_start + len(target.canonical_value),
+                }
+            )
+            if target.kind == "object_type"
+            and target.canonical_value is not None
+            and target.value == f"{target.canonical_value} ObjectType"
+            else target
+        )
+        for target in proposal.targets
+    )
+    metatype_targets = {"LinkType", "ObjectType"}
+    if any(
+        target.kind == "object_type" and target.canonical_value not in metatype_targets
+        for target in targets
+    ):
+        targets = tuple(
+            target
+            for target in targets
+            if not (target.kind == "object_type" and target.canonical_value in metatype_targets)
+        )
+    return (
+        proposal
+        if targets == proposal.targets
+        else proposal.model_copy(update={"targets": targets})
+    )
+
+
 def normalize_target_shape(proposal: SemanticJudgmentProposal) -> SemanticJudgmentProposal:
     """Keep only target roles licensed by the proposed typed intent family."""
 
@@ -544,6 +586,7 @@ __all__ = [
     "normalize_intents_from_typed_facets",
     "normalize_overlapping_target_fragments",
     "normalize_required_identity_clarification",
+    "normalize_schema_object_type_suffix",
     "normalize_target_shape",
     "normalize_unsupplied_time_canonical_values",
     "validate_action_target_ambiguity",

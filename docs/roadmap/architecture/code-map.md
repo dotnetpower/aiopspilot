@@ -70,6 +70,8 @@ For schema declaration and relationship reads, one supplied ObjectType encoded b
 or typed facet closes only redundant subject ambiguity. Multiple subjects remain a clarification.
 Single-subject relationship answers render incoming and outgoing sections separately. A
 self-referential LinkType appears in both directional views without creating an instance link.
+Schema target normalization removes only a generic trailing `ObjectType` phrase or an additional
+`LinkType`/`ObjectType` metatype when another supplied concrete ObjectType remains.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

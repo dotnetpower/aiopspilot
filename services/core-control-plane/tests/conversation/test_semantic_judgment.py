@@ -1606,6 +1606,93 @@ def test_schema_identity_ambiguity_preserves_multiple_typed_subjects() -> None:
 
 
 @pytest.mark.parametrize(
+    "primary_intent",
+    ("query.ontology_declaration", "query.ontology_relationships"),
+)
+def test_schema_target_drops_only_the_generic_object_type_suffix(
+    primary_intent: str,
+) -> None:
+    utterance = "Show the Resource ObjectType declaration."
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "Resource ObjectType",
+                        "canonical_value": "Resource",
+                        "source_start": 9,
+                        "source_end": 28,
+                    }
+                ],
+                requested_facets=(
+                    ["declaration_detail"]
+                    if primary_intent == "query.ontology_declaration"
+                    else ["incoming_relationships", "outgoing_relationships"]
+                ),
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert len(result.proposal.targets) == 1
+    assert result.proposal.targets[0].value == "Resource"
+    assert result.proposal.targets[0].source_start == 9
+    assert result.proposal.targets[0].source_end == 17
+
+
+def test_relationship_target_drops_a_generic_link_type_metatype() -> None:
+    utterance = "Which LinkTypes enter and leave BusinessService?"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_relationships",
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "LinkTypes",
+                        "canonical_value": "LinkType",
+                        "source_start": 6,
+                        "source_end": 15,
+                    },
+                    {
+                        "kind": "object_type",
+                        "value": "BusinessService",
+                        "canonical_value": "BusinessService",
+                        "source_start": 32,
+                        "source_end": 47,
+                    },
+                ],
+                requested_facets=["incoming_relationships", "outgoing_relationships"],
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_relationships"},
+            {"kind": "object_type", "name": "LinkType"},
+            {"kind": "object_type", "name": "BusinessService"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert [target.canonical_value for target in result.proposal.targets] == ["BusinessService"]
+
+
+@pytest.mark.parametrize(
     ("confidence", "unresolved_terms", "alternatives", "expected_disposition"),
     (
         (0.5, ["resource_identity"], [], SemanticJudgmentDisposition.LOW_CONFIDENCE),

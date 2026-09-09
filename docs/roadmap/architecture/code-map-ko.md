@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 84ad7370437f148bebc78688570bc681df35fa44
+translation_source_sha: a05cbea5ee492d267568f2389af728b2d3bcf1af
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -86,6 +86,8 @@ oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` �
 불필요한 subject 모호성을 닫습니다. Subject가 여러 개이면 명확화를 유지합니다.
 단일 subject 관계 답변은 incoming 및 outgoing section을 분리해 표시합니다. Self-reference
 LinkType은 instance link를 만들지 않고 두 방향 view에 모두 표시합니다.
+스키마 target 정규화는 제공된 구체적 ObjectType이 따로 남는 경우에만 generic 후행
+`ObjectType` 구문 또는 추가 `LinkType`/`ObjectType` 메타타입을 제거합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
