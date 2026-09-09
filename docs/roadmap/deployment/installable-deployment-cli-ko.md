@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 84a4f10be29caf49b7ff058954f8035902c49fc3
+translation_source_sha: 943d1c500e618442e7bb3d16f65906b6a2e9d258
 translation_revised: 2026-09-09
 ---
 # 설치형 배포 CLI
@@ -134,6 +134,21 @@ Low보다 높은 발견 문제가 없을 때만 종료합니다.
 현재 UID가 소유하고 mode `0600`이어야 합니다.
 연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
 제공하고 관련 없는 환경 값은 제외합니다.
+
+연결된 release 엔지니어링은 외부 키트를 서명하기 전에 전체 런타임 v2 입력을 조립할 수
+있습니다. `build-runtime-release.py`는 상대 소스 경로와 SHA-256으로 FDAI OCI 아카이브 5개,
+버전 비종속 ClamAV, 각 SBOM과 출처 파일, 사전 빌드된 Console 아카이브, 배포 지원 자료를
+연결하는 비공개 서술자를 받습니다. 콘텐츠를 다운로드, 실행, 서명, 증명, 업로드하지 않고 OCI
+아카이브 6개를 검증해 새로운 정확한 트리를 게시합니다. 결과에
+`production_release_eligibility=unverified`를 기록하므로 로컬 조립 결과를 통제된 release
+근거로 보고할 수 없습니다.
+
+`airgap-drill.sh --runtime-release <directory> --require-runtime`은 해당 트리와 고정된 런타임
+지원 휠을 구성합니다. 경로와 DNS가 없는 검증 이름 공간에서 인증된 CLI 휠을 설치하고,
+`offline prepare`가 이미지 다이제스트 6개와 `subscription_ready=false`를 포함한 v2 준비
+증적을 반환하도록 요구합니다. 이어서 인덱스, 다운로드, 소스 빌드, 캐시를 비활성화한 상태로
+해시가 고정된 모든 런타임 지원 배포판을 설치하고 재확인합니다. 이 옵션 없이 실행하면 도구
+전용 검사로 유지되며 결과에도 이를 명시합니다.
 
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored mode-`0600`
 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다. 프로필, 계획 입력, 저널 읽기 경로는 mode-`0600` 일반 파일인지 검사하기 전에 비차단 모드로 열기 때문에 이름 있는 파이프가 읽기 전용 명령을 멈추게 할 수 없습니다.

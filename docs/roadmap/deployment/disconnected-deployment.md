@@ -25,6 +25,7 @@ fully disconnected install.
 | Disconnected bundle verification and planning commands | implemented | `packages/deployment-cli`; artifact and productization tests | The package registers `fdaictl` and verifies signed local inputs. Planning does not complete a new subscription. |
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
 | Complete runtime image validation | implemented | Runtime inventory v2 and bounded OCI validators; 355 focused tests; cold-installed CPython 3.12 review wheel | Staging and preparation validate five service images plus ClamAV. Legacy v1 remains inspectable but cannot qualify for complete preparation. Synthetic signed images prove packaging and content checks, not provenance or Azure readiness. |
+| Complete runtime release assembly | implemented | `runtime_build.py`, `build-runtime-release.py`, and focused assembly tests | A private digest-bound descriptor assembles all six OCI images, Console, and deployment support into runtime v2 without network access or artifact execution. It consumes prebuilt evidence and deliberately reports production eligibility as unverified. |
 | Dependency image publication adapter | implemented | `publish_dependency_oci_archive`; 80 focused ACR tests | Shares service publication's validation-before-credentials, deadlines, no-retry transport, and manifest GET readback. Dependency receipts make no FDAI revision claim. Protected caller wiring remains open; tests use a recording transport, not Azure. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
@@ -48,12 +49,13 @@ fully disconnected install.
 | 2026-09-06 | in-progress | Added bounded multi-root provider collection and cold-installed CLI support verification. Expanded kit staging now needs a new complete drill rather than inheriting earlier validated status. | `current change`; 25 offline mirror tests; CPython 3.12 isolated installation without network or caches; seven real distributions and five service entry modules with installed-origin assertions | The kit envelope and toolchain fixtures were synthetic, services were not started, and no Azure or Console readiness was claimed. Retain actual signed release and protected runtime receipts. |
 | 2026-09-06 | implemented | Added a closed ClamAV sidecar inventory and connected OCI content validation to v2 staging and preparation. OPA remains embedded in Core and available as a kit tool, not a required extra image. | `current change`; 355 catalog, image, preparation, ACR, and support tests passed; Ruff and strict mypy passed; a CPython 3.12 wheel cold-installed without network, indexes, or caches accepted six synthetic OCI images and rejected a re-signed invalid ClamAV archive | Publish actual attested images through protected private-host execution, supply current malware signatures, implement safe initial service creation, and retain migration, authenticated Console, and complete inventory receipts. No service was started. |
 | 2026-09-06 | implemented | Connected revision-neutral dependency publication to the existing bounded ACR upload and independent manifest readback path, preserving strict service revision validation. | `current change`; 80 ACR tests, including 15 dependency cases, passed; Ruff and strict mypy passed | Bind the adapter to protected authorization, current target/executor identity, lease, audit and recovery. No public mutating CLI or Azure publication was introduced. |
+| 2026-09-09 | implemented | Added deterministic runtime v2 assembly and an explicit complete air-gap drill mode. The builder binds every input digest and validates five revision-bound service images plus revision-neutral ClamAV before publishing; the drill installs the staged CLI and runs complete preparation with no route or DNS. | `current change`; `runtime_build.py`, `build-runtime-release.py`, `airgap-drill.sh`, focused runtime, offline-preparation, productization, Ruff, and strict mypy checks | Run the complete mode with eligible release artifacts from a clean exact revision. Production signing, protected Azure apply, state handoff, and readiness receipts remain open. |
 
 ### Remaining work
 
 - [x] Restore the dedicated CLI verifier and toolchain drill, as recorded in the [deployment CLI ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md).
 - [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
-- [ ] Stage actual runtime archives from a clean eligible release revision and pass a cache-free installed-wheel preparation drill with no route or DNS.
+- [ ] Stage actual runtime archives from a clean eligible release revision and pass `airgap-drill.sh --runtime-release <directory> --require-runtime` with no package cache, route, or DNS.
 - [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
 
 ## Design at a glance
@@ -81,6 +83,24 @@ in progress, as recorded in the ledger above.
 Use an independently trusted installation of `fdaictl` and verification keys delivered through
 the approved trust process. Keys supplied with an untrusted kit cannot bootstrap trust in that kit.
 The production root ceremony and release eligibility remain separate prerequisites.
+
+On the connected release host, assemble prebuilt OCI archives and their supply-chain evidence into
+one runtime v2 directory before signing the outer kit. The private build descriptor uses relative
+paths below the source root and pins every archive, SBOM, provenance, and OCI manifest digest.
+
+```bash
+uv run --project packages/deployment-cli python \
+  scripts/deployment/release/build-runtime-release.py \
+  --source-root /private/release-inputs \
+  --descriptor /private/runtime-release-build.json \
+  --deployment-bundle /private/fdai-deployment-bundle-0.1.0.tar.gz \
+  --output /private/runtime-release
+```
+
+The builder performs no download, image build, signature, attestation, registry call, or Azure
+operation. It accepts only prebuilt inputs, validates the six OCI archives, and publishes a closed
+tree with `production_release_eligibility=unverified`. Release policy must independently establish
+the source and evidence eligibility before staging and signing that tree.
 
 ```bash
 fdaictl offline prepare \
@@ -331,9 +351,16 @@ real `stage-offline-kit.sh` with throwaway keys, so a green drill exercises the 
 rather than a second copy of it. The verify phase re-runs every disconnected step inside a network
 namespace that has no route and no name resolution.
 
+Run the explicit complete mode when a runtime v2 directory is available:
+
 ```bash
-bash scripts/deployment/release/airgap-drill.sh
+bash scripts/deployment/release/airgap-drill.sh \
+  --runtime-release /private/runtime-release \
+  --require-runtime
 ```
+
+Without those options, the script retains its historical toolchain-only rehearsal and says that
+runtime preparation was not exercised. That result is not complete-release evidence.
 
 The verify phase asserts, in order: the namespace really has no egress or DNS; the signed kit
 verifies; the signed bundle verifies; `terraform init` resolves every provider from the kit mirror
@@ -368,6 +395,12 @@ question. On a closed network an unnecessary probe is three outbound attempts to
 security team, three entries in an egress log, and - where DNS accepts the query but never answers -
 a long stall in what was supposed to be a quick local inspection. `auto` still probes, because it
 genuinely has not been told.
+
+The complete mode additionally installs `fdaictl` from the authenticated wheel snapshot and runs
+`offline prepare` over five service images, ClamAV, Console, and deployment support. It requires a
+`fdai.offline-preparation.v2` receipt with six checked image digests and
+`subscription_ready=false`. It then installs and reads back every hash-pinned runtime support
+distribution with indexes, downloads, source builds, and caches disabled.
 
 The drill stops at plan evaluation on purpose. A real `terraform apply` still needs the tenant's
 approved private path to the management plane, and pretending to simulate that locally would be the

@@ -134,6 +134,9 @@ def test_release_tooling_is_exactly_pinned() -> None:
 
 def test_runtime_release_is_staged_before_sbom_and_signing() -> None:
     stage = (ROOT / "scripts/deployment/release/stage-offline-kit.sh").read_text(encoding="utf-8")
+    builder = (ROOT / "scripts/deployment/release/build-runtime-release.py").read_text(
+        encoding="utf-8"
+    )
     assert '--runtime-release) RUNTIME_RELEASE="$2"' in stage
     assert "runtime releases require a clean exact-revision checkout" in stage
     runtime = stage.index('echo "-- prebuilt runtime release"')
@@ -141,6 +144,25 @@ def test_runtime_release_is_staged_before_sbom_and_signing() -> None:
     assert "scripts/deployment/release/stage-runtime-release.py" in stage
     assert '--deployment-bundle "$KIT/$BUNDLE_IN_KIT"' in stage
     assert '--source-commit "$(git rev-parse HEAD)"' in stage
+    assert "from fdai_deployment_cli.runtime_build import build_runtime_release" in builder
+    assert "--source-root" in builder
+    assert "--descriptor" in builder
+    assert "--deployment-bundle" in builder
+
+
+def test_airgap_drill_has_explicit_complete_runtime_mode() -> None:
+    drill = (ROOT / "scripts/deployment/release/airgap-drill.sh").read_text(encoding="utf-8")
+
+    assert '--runtime-release) RUNTIME_RELEASE="$2"' in drill
+    assert "--require-runtime) REQUIRE_RUNTIME=1" in drill
+    assert 'stage_arguments+=(--runtime-release "$RUNTIME_RELEASE" --with-runtime-wheels)' in drill
+    assert "--require-runtime needs a complete staged runtime release" in drill
+    assert '"$CLI" offline prepare' in drill
+    assert '"$CLI" offline install-support' in drill
+    assert '"$WORKDIR/authenticated-kit/runtime/release.json"' in drill
+    assert '"schema_version\\") != \\"fdai.offline-preparation.v2\\"' in drill
+    assert "complete runtime release prepared with no network" in drill
+    assert "toolchain path passed; runtime preparation was not exercised" in drill
 
 
 def test_runtime_support_wheels_do_not_change_cli_dependency_resolution() -> None:
