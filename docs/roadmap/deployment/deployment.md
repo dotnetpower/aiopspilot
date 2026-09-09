@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Made protected OI-12 inventory refresh compatible with a deployed platform state that predates the root inventory Job output. The workflow prefers the root output, then resolves exactly one tracked inventory Job resource from state without deriving identity from a name. | `current change`; failed protected certification `34389423964`; `.github/workflows/operational-instance-certification.yml`; focused workflow contract test. | Publish the compatibility fix, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Completed the development-operations gateway target dependency closure with the existing out-of-band and rule-watcher Jobs. Terraform can now plan the already selected gateway and measurement resources without requesting undeclared dependency targets. | `current change`; failed protected plan `34316856951`; `.github/workflows/deploy-dev.yml`; focused workflow target checks. | Publish the workflow fix and rerun the exact runtime-image promotion plan before any apply. |
 | 2026-09-09 | implemented | Added required-license Trial behavior, a cryptographically verified local issuer exception, consumer-enforced 30-day tokens, isolated renewal through digest-named Key Vault secrets, and restart-safe tfvars materialization for the guarded public Core path. | `current change`; the combined focused regression passed 228 cases, the post-review contributor check passed 9 cases, air-gap productization passed 6 cases, both Core Terraform layers validated, and the built Core wheel contained the public key. | Retain one fresh Azure deployment without the key in Trial, one issuer deployment with an active token, expiration denial, and renewal on the same image. |
 | 2026-09-09 | implemented | Composed the public `dev` platform and independent Core roots into one guarded fresh-clone path, including exact ACR build, schema and catalog bootstrap, scheduled-job activation, and bounded health checks. | `current change`; focused deployment workflow tests passed 86 cases; focused native Terraform plans passed 46 cases; Terraform configuration validation passed. | Retain a governed fresh-subscription apply, cleanup, second-run no-change, Core health, canary, and inventory receipt before classifying the path as validated. |
@@ -275,6 +276,9 @@ prod topology so shadow evaluation is representative.
   an explicit promotion input, normalizes the Terraform ACR output or verified deployed Job image
   to its exact Azure login host, verifies the ACR digest is identical, and then binds the digest to
   Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
+  Protected OI-12 inventory refresh prefers the platform root output for the inventory Job. When a
+  deployed state predates that output, it resolves only the exact tracked Terraform resource
+  address and does not derive Job identity from a naming pattern.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.

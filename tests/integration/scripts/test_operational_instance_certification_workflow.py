@@ -38,6 +38,17 @@ def test_oi12_workflow_refreshes_inventory_before_seven_axis_measurement() -> No
     assert "authoritative inventory refresh exceeded its 1200-second deadline" in _WORKFLOW
 
 
+def test_oi12_workflow_recovers_legacy_inventory_job_from_exact_state_address() -> None:
+    root_output = "terraform -chdir=infra output -raw inventory_job_name"
+    state_address = "module.compute.azurerm_container_app_job.inventory[0]"
+    assert _WORKFLOW.index(root_output) < _WORKFLOW.index(state_address)
+    assert "terraform -chdir=infra show -json" in _WORKFLOW
+    assert 'if [[ -z "$inventory_job_name" ]]; then' in _WORKFLOW
+    assert "if length == 1 then" in _WORKFLOW
+    assert 'error("expected exactly one tracked inventory job")' in _WORKFLOW
+    assert "startswith" not in _WORKFLOW
+
+
 def test_oi12_workflow_retains_only_sanitized_no_authority_evidence() -> None:
     assert _WORKFLOW.count("observation_authority") >= 3
     assert _WORKFLOW.count("mutation_authority") >= 3
