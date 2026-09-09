@@ -279,7 +279,7 @@ def _correlation(value: object) -> CorrelationPolicy:
         t1_min_shared_evidence_fields=_integer(
             raw["t1_min_shared_evidence_fields"],
             "t1_min_shared_evidence_fields",
-            minimum=1,
+            minimum=2,
             maximum=16,
         ),
     )

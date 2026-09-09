@@ -121,6 +121,16 @@ def test_policy_rejects_a_weakened_t1_similarity_floor(tmp_path: Path) -> None:
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_rejects_single_field_t1_evidence(tmp_path: Path) -> None:
+    raw = _policy()
+    correlation = raw["correlation"]
+    assert isinstance(correlation, dict)
+    correlation["t1_min_shared_evidence_fields"] = 1
+
+    with pytest.raises(DetectionGovernancePolicyError, match="shared_evidence"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
     raw = _policy()
     promotion = raw["forecast_promotion"]
