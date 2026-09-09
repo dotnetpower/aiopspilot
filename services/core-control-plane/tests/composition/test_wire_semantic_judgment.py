@@ -227,6 +227,85 @@ async def test_production_factory_replays_typed_routes_without_local_text_routin
         assert "forbidden_actions" not in strict_schema["required"]
 
 
+async def test_production_factory_runs_schema_repair_only_after_typed_trigger() -> None:
+    requests: list[httpx.Request] = []
+    utterance = "Show the Resource declaration and readable properties."
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        system_prompt = body["messages"][0]["content"]
+        proposal = _proposal(
+            conversation_act="information_request",
+            primary_intent=(
+                "query.ontology_declaration"
+                if system_prompt == "Repair the typed ontology schema proposal."
+                else "query.manifest"
+            ),
+        )
+        proposal["targets"] = [
+            {
+                "kind": "object_type",
+                "value": "Resource",
+                "canonical_value": "Resource",
+                "source_start": 9,
+                "source_end": 17,
+            }
+        ]
+        proposal["requested_facets"] = (
+            ["declaration_detail", "readable_properties"]
+            if proposal["primary_intent"] == "query.ontology_declaration"
+            else ["count", "readable_properties"]
+        )
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": json.dumps(proposal)}}]},
+        )
+
+    resolved = ResolvedModels(
+        schema_version="1.0.0",
+        region="example-region",
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        deployer_object_id="00000000-0000-0000-0000-000000000000",
+        mixed_model_mode="hil-only",
+        capabilities=(),
+        narrator_candidates=(
+            NarratorCandidate(
+                endpoint="https://models.example.com",
+                deployment="semantic-t1",
+            ),
+        ),
+        reasoner_primary_candidates=(),
+    )
+    factory = build_azure_semantic_judgment_factory(
+        resolved=resolved,
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        endpoint=None,
+        endpoint_resolver=None,
+        system_prompt="Return one typed semantic judgment object.",
+        schema_repair_system_prompt="Repair the typed ontology schema proposal.",
+    )
+    assert factory is not None
+
+    result = await asyncio.to_thread(
+        factory(asyncio.get_running_loop()).judge,
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.manifest"},
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.ontology_declaration"
+    assert len(requests) == 2
+
+
 async def test_production_factory_uses_compact_preflight_before_full_judgment() -> None:
     requests: list[httpx.Request] = []
     repo_root = Path(__file__).resolve().parents[4]

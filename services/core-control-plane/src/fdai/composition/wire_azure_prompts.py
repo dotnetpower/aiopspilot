@@ -29,6 +29,8 @@ class AzurePromptBundle:
     proposer: ComposedPrompt
     semantic_judgment: str
     semantic_judgment_manifest: PromptReplayManifest
+    semantic_judgment_schema_repair: str
+    semantic_judgment_schema_repair_manifest: PromptReplayManifest
     conversation_preflight: str
     conversation_preflight_manifest: PromptReplayManifest
     social_narrators: Mapping[str, str]
@@ -59,6 +61,9 @@ async def compose_azure_prompt_bundle(
         profile_id=("shadow.t2-proposer-continuity" if answer_continuity_enabled else None),
     )
     semantic_judgment_prompt = await composer.compose(capability_id="semantic.judgment")
+    semantic_judgment_schema_repair_prompt = await composer.compose(
+        capability_id="semantic.judgment.schema-repair"
+    )
     conversation_preflight_prompt = await composer.compose(capability_id="conversation.preflight")
     social_prompts = {
         act.value: await composer.compose(capability_id=capability_id)
@@ -71,6 +76,10 @@ async def compose_azure_prompt_bundle(
         proposer=proposer,
         semantic_judgment=semantic_judgment_prompt.system_text,
         semantic_judgment_manifest=semantic_judgment_prompt.replay_manifest(),
+        semantic_judgment_schema_repair=semantic_judgment_schema_repair_prompt.system_text,
+        semantic_judgment_schema_repair_manifest=(
+            semantic_judgment_schema_repair_prompt.replay_manifest()
+        ),
         conversation_preflight=conversation_preflight_prompt.system_text,
         conversation_preflight_manifest=conversation_preflight_prompt.replay_manifest(),
         social_narrators={

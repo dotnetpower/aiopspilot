@@ -144,12 +144,14 @@ def _boundary(
     primary: _Model | None,
     escalation: _Model | None = None,
     *,
+    schema_repair: _Model | None = None,
     strict_intent_grounding: bool = False,
 ) -> SemanticJudgmentBoundary:
     return SemanticJudgmentBoundary(
         profile_id="conversation.routing",
         profile_version="1.0.0",
         primary=_binding(SemanticJudgmentTier.T1, primary) if primary else None,
+        schema_repair=(_binding(SemanticJudgmentTier.T1, schema_repair) if schema_repair else None),
         escalation=_binding(SemanticJudgmentTier.T2, escalation) if escalation else None,
         strict_intent_grounding=strict_intent_grounding,
     )
@@ -171,6 +173,117 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.input_digest == content_digest({"utterance": utterance})
     assert utterance not in result.receipt.model_dump_json()
     assert result.receipt.execution_authority is False
+
+
+def test_schema_repair_runs_once_after_incomplete_typed_schema_family() -> None:
+    utterance = "Show the Resource declaration and readable properties."
+    primary = _Model(
+        _proposal(
+            primary_intent="query.manifest",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["count", "readable_properties"],
+        )
+    )
+    repair = _Model(
+        _proposal(
+            primary_intent="query.ontology_declaration",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["declaration_detail", "readable_properties"],
+        )
+    )
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.manifest"},
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.ontology_declaration"
+    assert result.proposal.requested_facets == (
+        "declaration_detail",
+        "readable_properties",
+    )
+    assert primary.calls == repair.calls == 1
+
+
+def test_complete_schema_proposal_does_not_spend_repair_call() -> None:
+    utterance = "Show the Resource declaration."
+    primary = _Model(
+        _proposal(
+            primary_intent="query.ontology_declaration",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["declaration_detail"],
+        )
+    )
+    repair = _Model(_proposal(primary_intent="query.ontology_declaration"))
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert repair.calls == 0
+
+
+def test_invalid_schema_repair_retains_primary_fail_closed_proposal() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.manifest",
+            targets=[],
+            requested_facets=[],
+        )
+    )
+    repair = _Model(_proposal(primary_intent="cost_breakdown"))
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance="Inspect the active ontology schema.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.manifest"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.manifest"
+    assert result.receipt.reason_code == "accepted_schema_repair_fallback"
+    assert repair.calls == 3
 
 
 def test_accepts_locale_bound_model_authored_direct_response() -> None:

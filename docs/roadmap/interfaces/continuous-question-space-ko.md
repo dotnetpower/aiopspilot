@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: e629e4c2001074a9895d570f2a245955d17e1979
+translation_source_sha: eef38a21c428f26aa82c7386117609ec98813e29
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 승격한 schema-repair prompt를 active v8 뒤의 typed-triggered T1 재시도 한 번으로 연결했습니다. 완전한 schema 및 모든 non-schema 제안은 model call 하나를 사용하며 유효하지 않은 repair는 primary 제안을 유지합니다. | `current change`, boundary, 운영 factory, prompt composition, package-layout, Ruff 및 mypy 검사 | 새로운 end-to-end 답변 cohort를 실행하고 turn별 repair observation을 보존합니다. |
 | 2026-09-10 | implemented | 50/50 스키마 근거를 바탕으로 별도 `semantic.judgment.schema-repair` prompt capability를 승격했습니다. 전역 semantic-judgment profile이 아니며 실행 권한을 포함하지 않습니다. | `current change`, 완전 통과 스키마 cohort 5개, active prompt-profile 검증 및 composition 테스트 | 조건부로 연결한 repair를 새로운 end-to-end 답변 cohort에서 검증하고 전역 schema-only profile은 shadow로 유지합니다. |
 | 2026-09-10 | validated | Clean local treatment snapshot에서 schema-only v2와 typed target grounding이 서로 다른 10문항 스키마 cohort 5회를 연속 100%로 통과했습니다. | 로컬 exact-source live artifact 5개, 계약 50/50 통과 | 기존 16-case 안전 cohort가 primary, target, secondary 및 clarification 지표에서 회귀했으므로 shadow를 유지합니다. |
 | 2026-09-10 | validated | 서로 다른 10문항 cohort 5개에서 schema-only v2가 100%, 100%, 100%, 90%, 90%를 기록했습니다. 미달 2건은 target shape 결함이며 authority, action posture 또는 만들어 낸 capability 결함이 아닙니다. | 로컬 exact-source live artifact | Shadow mode를 유지하고 typed target 정규화를 커밋한 뒤 다시 실행합니다. |

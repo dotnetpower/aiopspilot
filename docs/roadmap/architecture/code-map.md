@@ -78,6 +78,8 @@ Production composition uses `semantic_judgment_model_binding.py` to bind a separ
 prompt to the same T1 candidates while keeping `wire_semantic_judgment.py` under its binder size
 ceiling. The primary active judgment always runs first; the repair call is admitted only by typed
 schema incompleteness and cannot alter non-schema turns or grant authority.
+An invalid, unavailable, or family-changing repair retains the validated primary proposal instead
+of returning a success-shaped replacement.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

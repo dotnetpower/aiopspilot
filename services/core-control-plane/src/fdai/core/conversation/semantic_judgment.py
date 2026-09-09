@@ -43,6 +43,12 @@ _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
 _MAX_SCHEMA_ERRORS = 16
 _MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
 _LOGGER = logging.getLogger(__name__)
+_SCHEMA_INTENTS = frozenset(
+    {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
+)
+_SCHEMA_METATYPES = frozenset(
+    {"ActionType", "FunctionType", "InterfaceType", "LinkType", "ObjectType"}
+)
 
 
 class SemanticJudgmentModel(Protocol):
@@ -105,6 +111,7 @@ class SemanticJudgmentBoundary:
         profile_id: str,
         profile_version: str,
         primary: SemanticJudgmentBinding | None,
+        schema_repair: SemanticJudgmentBinding | None = None,
         escalation: SemanticJudgmentBinding | None = None,
         preflight: ConversationPreflightBoundary | None = None,
         confidence_threshold: float = 0.75,
@@ -112,13 +119,20 @@ class SemanticJudgmentBoundary:
     ) -> None:
         if primary is not None and primary.tier is not SemanticJudgmentTier.T1:
             raise ValueError("primary semantic judgment binding MUST use T1")
+        if schema_repair is not None and schema_repair.tier is not SemanticJudgmentTier.T1:
+            raise ValueError("schema-repair semantic judgment binding MUST use T1")
         if escalation is not None and escalation.tier is not SemanticJudgmentTier.T2:
             raise ValueError("escalation semantic judgment binding MUST use T2")
         if not 0.0 < confidence_threshold <= 1.0:
             raise ValueError("semantic judgment confidence threshold MUST be in (0, 1]")
         self.profile_id = profile_id
         self.profile_version = profile_version
-        self._bindings = tuple(item for item in (primary, escalation) if item is not None)
+        self._primary = primary
+        self._schema_repair = schema_repair
+        self._escalation = escalation
+        self._bindings = tuple(
+            item for item in (primary, schema_repair, escalation) if item is not None
+        )
         self._preflight = preflight
         self._confidence_threshold = confidence_threshold
         self._strict_intent_grounding = strict_intent_grounding
@@ -222,9 +236,16 @@ class SemanticJudgmentBoundary:
         final_reason = "model_attempts_unavailable"
         final_binding: SemanticJudgmentBinding | None = None
         final_proposal: SemanticJudgmentProposal | None = None
+        schema_fallback_binding: SemanticJudgmentBinding | None = None
+        schema_fallback_proposal: SemanticJudgmentProposal | None = None
         observations: list[SemanticJudgmentObservation] = []
-        bindings = self._bindings if allow_escalation else self._bindings[:1]
+        bindings = tuple(
+            item
+            for item in (self._primary, self._schema_repair, self._escalation)
+            if item is not None and (allow_escalation or item is not self._escalation)
+        )
         for binding in bindings:
+            strict_grounding = self._strict_intent_grounding or binding is self._schema_repair
             schema_repair: tuple[dict[str, str], ...] = ()
             for attempt in range(_MAX_SCHEMA_ATTEMPTS_PER_BINDING):
                 model_response = binding.model.judge(
@@ -253,7 +274,7 @@ class SemanticJudgmentBoundary:
                         proposal,
                         utterance=utterance,
                         capabilities=bounded_capabilities,
-                        allow_context_target_drop=not self._strict_intent_grounding,
+                        allow_context_target_drop=not strict_grounding,
                     )
                     proposal = grounding.normalize_schema_object_type_suffix(proposal)
                     proposal = grounding.recover_unique_schema_subject(
@@ -269,7 +290,7 @@ class SemanticJudgmentBoundary:
                         proposal,
                         capabilities=bounded_capabilities,
                     )
-                    if self._strict_intent_grounding:
+                    if strict_grounding:
                         proposal = grounding.normalize_intents_from_typed_facets(
                             proposal,
                             capabilities=bounded_capabilities,
@@ -298,10 +319,10 @@ class SemanticJudgmentBoundary:
                         proposal,
                         capabilities=bounded_capabilities,
                     )
-                    if self._strict_intent_grounding:
+                    if strict_grounding:
                         proposal = grounding.normalize_exact_resource_identity_ambiguity(proposal)
                     _validate_intent_target_compatibility(proposal)
-                    if self._strict_intent_grounding:
+                    if strict_grounding:
                         grounding.validate_action_target_ambiguity(proposal)
                         grounding.validate_required_target_shape(proposal)
                     _validate_direct_response(
@@ -313,7 +334,7 @@ class SemanticJudgmentBoundary:
                 except (TypeError, ValueError, ValidationError) as exc:
                     recovered_trace = (
                         None
-                        if self._strict_intent_grounding
+                        if strict_grounding
                         else _recover_safe_ontology_trace_proposal(
                             raw,
                             utterance=utterance,
@@ -334,7 +355,7 @@ class SemanticJudgmentBoundary:
                         )
                     recovered_proposal = (
                         None
-                        if self._strict_intent_grounding
+                        if strict_grounding
                         else _recover_bound_subject_proposal(
                             raw,
                             utterance=utterance,
@@ -366,11 +387,42 @@ class SemanticJudgmentBoundary:
                         )
                         continue
                     break
+                if (
+                    binding is self._primary
+                    and self._schema_repair is not None
+                    and _schema_repair_required(proposal)
+                ):
+                    schema_fallback_binding = binding
+                    schema_fallback_proposal = proposal
+                    break
+                if (
+                    binding is self._schema_repair
+                    and schema_fallback_proposal is not None
+                    and not _schema_repair_preserves_family(
+                        schema_fallback_proposal,
+                        proposal,
+                    )
+                ):
+                    final_disposition = SemanticJudgmentDisposition.MALFORMED
+                    final_reason = "schema_repair_family_mismatch"
+                    break
                 if proposal.ambiguous:
                     final_disposition = SemanticJudgmentDisposition.CLARIFICATION
                     final_reason = "clarification_required"
                     if binding is not bindings[-1]:
                         break
+                    if schema_fallback_binding is not None and schema_fallback_proposal is not None:
+                        return self._result(
+                            started=started,
+                            input_digest=input_digest,
+                            context_digest=context_digest,
+                            capability_digest=capability_digest,
+                            disposition=SemanticJudgmentDisposition.ACCEPTED,
+                            reason_code="accepted_schema_repair_fallback",
+                            binding=schema_fallback_binding,
+                            proposal=schema_fallback_proposal,
+                            observations=tuple(observations),
+                        )
                     return self._result(
                         started=started,
                         input_digest=input_digest,
@@ -399,6 +451,18 @@ class SemanticJudgmentBoundary:
                     proposal=proposal,
                     observations=tuple(observations),
                 )
+        if schema_fallback_binding is not None and schema_fallback_proposal is not None:
+            return self._result(
+                started=started,
+                input_digest=input_digest,
+                context_digest=context_digest,
+                capability_digest=capability_digest,
+                disposition=SemanticJudgmentDisposition.ACCEPTED,
+                reason_code="accepted_schema_repair_fallback",
+                binding=schema_fallback_binding,
+                proposal=schema_fallback_proposal,
+                observations=tuple(observations),
+            )
         return self._result(
             started=started,
             input_digest=input_digest,
@@ -699,6 +763,52 @@ def _normalize_schema_identity_ambiguity(
             "unresolved_terms": (),
             "clarification": None,
         }
+    )
+
+
+def _schema_repair_required(proposal: SemanticJudgmentProposal) -> bool:
+    if (
+        proposal.primary_intent not in _SCHEMA_INTENTS
+        or proposal.action_posture != "advise_only"
+        or proposal.secondary_intents
+        or proposal.execution_authority
+    ):
+        return False
+    object_targets = {
+        target.canonical_value
+        for target in proposal.targets
+        if target.kind == "object_type" and target.canonical_value is not None
+    }
+    if proposal.primary_intent != "query.manifest":
+        return len(object_targets) != 1
+    if object_targets - _SCHEMA_METATYPES:
+        return True
+    normalized_facets = {
+        facet.replace("_", "").replace("-", "").casefold() for facet in proposal.requested_facets
+    }
+    has_count = any(
+        facet == "count" or facet == "total" or facet.endswith("count")
+        for facet in normalized_facets
+    )
+    has_kind = bool(object_targets) or any(
+        metatype.casefold() in facet
+        for metatype in _SCHEMA_METATYPES
+        for facet in normalized_facets
+    )
+    return not has_count or not has_kind
+
+
+def _schema_repair_preserves_family(
+    original: SemanticJudgmentProposal,
+    repaired: SemanticJudgmentProposal,
+) -> bool:
+    return bool(
+        original.primary_intent in _SCHEMA_INTENTS
+        and repaired.primary_intent in _SCHEMA_INTENTS
+        and repaired.action_posture == "advise_only"
+        and repaired.action_subject == "none"
+        and not repaired.secondary_intents
+        and repaired.execution_authority is False
     )
 
 

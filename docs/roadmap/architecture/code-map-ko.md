@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8e16a68e52100250eb0a382b47b590fd36ced293
+translation_source_sha: 2a5b59d198a160a33f37da6f3a2737c617ee2563
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -94,6 +94,8 @@ LinkType은 instance link를 만들지 않고 두 방향 view에 모두 표시�
 schema-repair prompt를 연결하고 `wire_semantic_judgment.py`를 binder 크기 상한 안에 유지합니다.
 Primary active judgment가 항상 먼저 실행되며 typed schema 불완전성만 repair 호출을 허용합니다.
 Non-schema turn을 바꾸거나 권한을 부여할 수 없습니다.
+유효하지 않거나 사용할 수 없거나 family를 바꾸는 repair는 성공 형태의 대체 결과를 만들지 않고
+검증된 primary 제안을 유지합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
