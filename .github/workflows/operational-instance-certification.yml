@@ -139,26 +139,34 @@ jobs:
             terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
           )"
           if [[ -z "$inventory_job_name" ]]; then
-            state_snapshot="$RUNNER_TEMP/platform-state.tfstate"
-            umask 077
-            trap 'shred --force --remove -- "$state_snapshot"' EXIT
-            terraform -chdir=infra state pull > "$state_snapshot"
-            [[ -s "$state_snapshot" ]] || {
-              echo "platform state snapshot is empty" >&2
-              exit 1
-            }
             inventory_job_name="$(
-              terraform -chdir=infra show -json "$state_snapshot" |
+              az containerapp job list \
+                --resource-group "$resource_group" \
+                --output json |
                 jq -er '
-                  [.. | objects |
-                    select(.address? ==
-                      "module.compute.azurerm_container_app_job.inventory[0]") |
-                    .values.name |
+                  [.[] |
+                    select(
+                      (.properties.template.containers | length) == 1 and
+                      [.properties.template.containers[]? |
+                        select(
+                          .name == "inventory" and
+                          .command == [
+                            "python",
+                            "-m",
+                            "fdai.delivery.inventory_sync_cli"
+                          ] and
+                          (.args // []) == []
+                        )] |
+                      length == 1
+                    ) |
+                    .name |
                     select(type == "string" and length > 0)] |
                   if length == 1 then
                     .[0]
                   else
-                    error("expected exactly one tracked inventory job")
+                    error(
+                      "expected exactly one inventory job matching the reviewed runtime contract"
+                    )
                   end
                 '
             )"
