@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 986781afa7ef490e090ff402d51268a01f0b8553
+translation_source_sha: 4ed04a99631c767c8b2c0a80d5cc00f881a4d9d7
 translation_revised: 2026-09-10
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -187,6 +187,9 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 
 집중 테스트는 카탈로그 완전성, 프로필 범위, 근거 수락, 프로세스 근거, Rule 기반 부재 주장,
 외부 보조 근거, 절충안, 재현, 온톨로지 권한, Operator 디코딩, 지역화, 변환 결과 격리를 다룹니다.
+실시간 목록 변경은 선택한 워크로드에 연결된 리소스를 대상으로 할 때만 WAF 실행을 무효화합니다.
+관련 없는 구독 변경은 안정적인 워크로드 스냅샷을 무효화하지 않습니다. 다만 더 최신의 실패하거나
+중단된 전체 조정 작업이 있으면 평가는 계속 차단됩니다.
 
 로컬 픽스처는 동작 방식만 증명합니다. 검증된 WAF 또는 CAF 상태에는 정확히 푸시되고 필수 CI를
 통과한 개정에서 생성된 관리형 실제 Azure shadow 증적 하나가 추가로 필요합니다. 유지되는
