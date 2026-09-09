@@ -226,6 +226,24 @@ def test_policy_rejects_weakened_lead_time_or_abstention_bounds(
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+@pytest.mark.parametrize(
+    ("metric", "value"),
+    (("cadence_seconds", 86_400), ("min_shadow_days", 13)),
+)
+def test_policy_rejects_weakened_backtest_observation_period(
+    tmp_path: Path,
+    metric: str,
+    value: int,
+) -> None:
+    raw = _policy()
+    promotion = raw["forecast_promotion"]
+    assert isinstance(promotion, dict)
+    promotion[metric] = value
+
+    with pytest.raises(DetectionGovernancePolicyError, match=metric):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_confidence_levels_the_forecast_band_cannot_evaluate(
     tmp_path: Path,
 ) -> None:

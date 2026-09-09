@@ -317,14 +317,19 @@ def _promotion(value: object) -> ForecastPromotionPolicy:
     maximum_coverage = _ratio(raw["max_interval_coverage"], "max_interval_coverage", maximum=0.95)
     if minimum_coverage > maximum_coverage:
         raise DetectionGovernancePolicyError("forecast interval coverage bounds are reversed")
+    cadence_seconds = _integer(
+        raw["cadence_seconds"], "cadence_seconds", minimum=3_600, maximum=2_592_000
+    )
+    if cadence_seconds != 604_800:
+        raise DetectionGovernancePolicyError("forecast cadence_seconds MUST remain weekly")
     return ForecastPromotionPolicy(
-        cadence_seconds=_integer(
-            raw["cadence_seconds"], "cadence_seconds", minimum=3_600, maximum=2_592_000
-        ),
+        cadence_seconds=cadence_seconds,
         min_scorable_episodes=_integer(
             raw["min_scorable_episodes"], "min_scorable_episodes", minimum=30, maximum=10_000
         ),
-        min_shadow_days=_integer(raw["min_shadow_days"], "min_shadow_days", minimum=1, maximum=365),
+        min_shadow_days=_integer(
+            raw["min_shadow_days"], "min_shadow_days", minimum=14, maximum=365
+        ),
         min_precision=_ratio(raw["min_precision"], "min_precision", minimum=0.8),
         min_recall=_ratio(raw["min_recall"], "min_recall", minimum=0.8),
         min_interval_coverage=minimum_coverage,
