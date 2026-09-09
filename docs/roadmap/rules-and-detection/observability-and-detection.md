@@ -488,11 +488,13 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 - The repository-governed `config/detection-governance-policy.json` pins detector methods,
   cold-start floors, forecast target families and horizons, exact correlation keys and windows,
   backtest promotion thresholds, and change-window treatment. Core loads the policy through
-  `core/detection/governance_policy.py` with exact-field validation. An unknown method, duplicate
-  identity, weakened zero-escape guard, or malformed bound fails startup instead of silently
-  selecting a default. Every `FDAI_FORECAST_TARGETS_JSON` entry names its governed `target_kind`;
-  startup rejects a horizon or confidence level that differs from policy and any sample or fit
-  floor that weakens it.
+  `core/detection/governance_policy.py` with exact-field validation, so an unknown method, duplicate
+  identity, weakened zero-escape guard, or malformed bound fails startup. The current executable
+  binding enforces the forecast-target section: every `FDAI_FORECAST_TARGETS_JSON` entry names its
+  governed `target_kind`, and startup rejects a horizon or confidence level that differs from
+  policy and any sample or fit floor that weakens it. The anomaly, correlation, promotion, and
+  change-window sections are reviewed configuration contracts for their existing fixed evaluators;
+  this slice does not claim separate runtime override bindings for them.
 - Baselines, deviation thresholds, forecast horizons, correlation keys, and model bindings are
   **configuration**; a fork overrides them via the DI seams in
   [project-structure.md](../architecture/project-structure.md), never by editing core.

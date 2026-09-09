@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 3237b821e2e83818b00ebdeb9aaa935ae033fe87
+translation_source_sha: 56bdd553b96596879009f064e83c5c7b6fdfe86e
 translation_revised: 2026-09-10
 ---
 
@@ -467,10 +467,12 @@ telemetry / metrics
 - 저장소가 관리하는 `config/detection-governance-policy.json`은 감지기 방식, 콜드 스타트
   하한, 예측 대상 계열과 기간, 정확한 상관관계 키와 창, 백테스트 승격 임계값, 변경 창 처리
   방식을 고정합니다. Core는 `core/detection/governance_policy.py`를 통해 필드가 정확한지
-  검증하며 정책을 로드합니다. 알 수 없는 방식, 중복 신원, 완화된 정책 이탈 0건 가드 또는
-  잘못된 경계값이 있으면 기본값을 임의로 선택하지 않고 시작을 실패 처리합니다. 각
-  `FDAI_FORECAST_TARGETS_JSON` 항목은 관리되는 `target_kind`를 지정합니다. 시작 과정은 정책과
-  다른 기간 또는 신뢰수준과 정책을 완화하는 샘플 또는 적합도 하한을 거부합니다.
+  검증하며 정책을 로드하므로 알 수 없는 방식, 중복 신원, 완화된 정책 이탈 0건 가드 또는
+  잘못된 경계값이 있으면 시작을 실패 처리합니다. 현재 실행 가능한 연결은 예측 대상 섹션을
+  강제합니다. 각 `FDAI_FORECAST_TARGETS_JSON` 항목은 관리되는 `target_kind`를 지정하며, 시작
+  과정은 정책과 다른 기간 또는 신뢰수준과 정책을 완화하는 샘플 또는 적합도 하한을 거부합니다.
+  이상 감지, 상관관계, 승격, 변경 창 섹션은 기존 고정 evaluator를 위한 검토된 구성
+  계약입니다. 이 범위는 해당 섹션의 별도 런타임 재정의 연결을 구현했다고 주장하지 않습니다.
 - 베이스라인, 편차 임계, 예보 지평, 상관관계 키, 모델 바인딩은 **설정**; 포크는
   [project-structure-ko.md](../architecture/project-structure-ko.md) 의 DI 경계로 오버라이드, 절대 코어를
   편집하지 않음.
