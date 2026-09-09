@@ -29,6 +29,28 @@ Terraform apply.
 
 ## Offline release preparation
 
+On the connected release host, first assemble the prebuilt artifacts into one closed runtime v2
+tree. The descriptor is a mode-`0600` JSON file under a mode-`0700` directory. It names relative
+files below `--source-root` and pins the SHA-256 of every OCI archive, SBOM, provenance record,
+Console archive, and deployment-support archive. It also pins each OCI manifest digest, the exact
+source commit, and `linux-x86_64` or `linux-aarch64`.
+
+```bash
+uv run --project packages/deployment-cli python \
+  scripts/deployment/release/build-runtime-release.py \
+  --source-root /private/release-inputs \
+  --descriptor /private/runtime-release-build.json \
+  --deployment-bundle /private/fdai-deployment-bundle-0.1.0.tar.gz \
+  --output /private/runtime-release
+```
+
+The builder validates all five FDAI service OCI archives and the revision-neutral ClamAV archive
+before publishing `runtime/release.json`. It does not download, build, sign, attest, or publish an
+image. It reports `production_release_eligibility=unverified`; the protected supply-chain gate must
+have produced and approved the descriptor inputs. An interruption at the final publication boundary
+leaves `runtime/.fdai-incomplete`; every runtime loader rejects that tree. Review and remove the
+entire marked output, then rebuild into a new path rather than deleting only the marker.
+
 The connected packaging host can collect all six runtime distributions and their required
 workspace support libraries with locked binary dependencies:
 
@@ -58,6 +80,18 @@ remain a separate release gate.
 Registry references without local payloads do not qualify. Release staging accepts these prebuilt
 inputs through `stage-offline-kit.sh --runtime-release <directory>`. Legacy v1 inventories remain
 readable and stageable, but `offline prepare` rejects them instead of silently omitting ClamAV.
+
+Use the complete drill after staging inputs are available. `--require-runtime` prevents the older
+toolchain-only rehearsal from being mistaken for complete release preparation. The connected stage
+builds and signs the kit; the verification phase installs its CLI, runs `offline prepare`, and
+installs every hash-pinned deployment-support distribution in a network namespace with no route or
+DNS.
+
+```bash
+bash scripts/deployment/release/airgap-drill.sh \
+  --runtime-release /private/runtime-release \
+  --require-runtime
+```
 
 `prepared/preparation.json` uses `fdai.offline-preparation.v2`, binds the checked image digests,
 and reports `state=prepared`, `subscription_ready=false`, and the remaining

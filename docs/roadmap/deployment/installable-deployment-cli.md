@@ -134,6 +134,21 @@ no-follow, 65536-byte regular-file boundary. Private keys must be owned by the c
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 
+Connected release engineering can now assemble a complete runtime v2 input before the outer kit
+is signed. `build-runtime-release.py` accepts a private descriptor whose relative source paths and
+SHA-256 values bind five FDAI OCI archives, revision-neutral ClamAV, each SBOM and provenance file,
+the prebuilt Console archive, and deployment support. It validates all six OCI archives and
+publishes a new exact tree without downloading, executing, signing, attesting, or uploading
+content. Its `production_release_eligibility=unverified` result prevents local assembly from being
+reported as governed release evidence.
+
+`airgap-drill.sh --runtime-release <directory> --require-runtime` stages that tree plus locked
+runtime support wheels. Inside the no-route, no-DNS verification namespace, the drill installs the
+authenticated CLI wheel and requires `offline prepare` to return a v2 preparation receipt with six
+image digests and `subscription_ready=false`. It then installs and reads back every hash-pinned
+runtime support distribution with indexes, downloads, source builds, and caches disabled. Running
+the drill without those options remains a toolchain-only check and is labeled accordingly.
+
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active subscription and tenant identifiers,
 environment, region, remote-runner boundary, and shadow-mode default in a gitignored mode-`0600` file. Human output never prints the account
 identifiers. Profile, plan-input, and journal readers open paths in nonblocking mode before checking for a mode-`0600` regular file, so
