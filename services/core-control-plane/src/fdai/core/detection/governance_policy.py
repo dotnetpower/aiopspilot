@@ -13,6 +13,7 @@ from typing import Any
 
 DETECTION_GOVERNANCE_POLICY_PATH = "config/detection-governance-policy.json"
 DETECTION_GOVERNANCE_SCHEMA_VERSION = "1.0.0"
+DETECTION_GOVERNANCE_POLICY_ID = "detection-governance"
 
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _SEMANTIC_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
@@ -168,8 +169,13 @@ def load_detection_governance_policy(path: Path) -> DetectionGovernancePolicy:
     _unique((item.signal_class for item in signal_classes), label="signal class")
     _unique((item.target_kind for item in forecast_targets), label="forecast target")
     canonical = json.dumps(root, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    policy_id = _identifier(root["policy_id"], "policy_id")
+    if policy_id != DETECTION_GOVERNANCE_POLICY_ID:
+        raise DetectionGovernancePolicyError(
+            f"detection governance policy_id MUST be {DETECTION_GOVERNANCE_POLICY_ID!r}"
+        )
     return DetectionGovernancePolicy(
-        policy_id=_identifier(root["policy_id"], "policy_id"),
+        policy_id=policy_id,
         policy_version=_semantic_version(root["policy_version"], "policy_version"),
         signal_classes=signal_classes,
         forecast_targets=forecast_targets,
@@ -437,6 +443,7 @@ def _unique(values: Any, *, label: str) -> None:
 
 __all__ = [
     "DETECTION_GOVERNANCE_POLICY_PATH",
+    "DETECTION_GOVERNANCE_POLICY_ID",
     "AnomalyMethod",
     "ChangeWindowPolicy",
     "CorrelationPolicy",

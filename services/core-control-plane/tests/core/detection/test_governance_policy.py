@@ -58,6 +58,14 @@ def test_policy_rejects_a_non_semantic_policy_version(tmp_path: Path) -> None:
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_rejects_a_relabelled_policy_identity(tmp_path: Path) -> None:
+    raw = _policy()
+    raw["policy_id"] = "replacement-policy"
+
+    with pytest.raises(DetectionGovernancePolicyError, match="policy_id"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_duplicate_signal_classes(tmp_path: Path) -> None:
     raw = _policy()
     signal_classes = raw["signal_classes"]
