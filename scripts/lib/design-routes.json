@@ -2296,6 +2296,7 @@
         "docs/roadmap-implementation/rules-and-detection/framework-assessment.md",
         "scripts/deployment/local/materialize-authoritative-catalogs.py",
         "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/assessment_projections.py",
         "services/operator-service/src/fdai_operator_service/composition.py",
         "services/operator-service/src/fdai_operator_service/families/workflow/contracts.py",
         "services/operator-service/src/fdai_operator_service/families/workflow/manifest.py",

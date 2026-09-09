@@ -64,8 +64,19 @@ class FrameworkAssessmentRuntime:
             raise ValueError("framework assessment profile does not cover the complete catalog")
         decisions = {item.control_id: item for item in profile.applicability}
         owners = {item.control_id: item for item in profile.owners}
+        requirement_ids = {
+            item.control_id: {requirement.requirement_id for requirement in item.evidence}
+            for item in self._catalog.controls
+        }
         evidence_by_control: dict[str, list[FrameworkEvidenceReceipt]] = {}
         for receipt in request.evidence:
+            if receipt.control_id not in requirement_ids:
+                raise ValueError("framework evidence references an unknown control")
+            if (
+                receipt.evidence_role is FrameworkEvidenceRole.DECISIVE
+                and receipt.requirement_id not in requirement_ids[receipt.control_id]
+            ):
+                raise ValueError("framework evidence references an unknown requirement")
             evidence_by_control.setdefault(receipt.control_id, []).append(receipt)
 
         controls = tuple(
@@ -200,7 +211,7 @@ class FrameworkAssessmentRuntime:
         supporting: list[FrameworkEvidenceReceipt] = []
         supporting_limitations: set[str] = set()
         for item in supporting_candidates:
-            reason = _supporting_inadmissible_reason(request, specification.control_id, item)
+            reason = _supporting_inadmissible_reason(request, item)
             if reason is None:
                 supporting.append(item)
             else:
@@ -323,8 +334,6 @@ def _inadmissible_reason(
     profile = request.profile
     if receipt.framework_id != profile.framework_id:
         return "wrong_framework"
-    if receipt.control_id not in {item.control_id for item in profile.applicability}:
-        return "wrong_control"
     if receipt.scope_digest != profile.scope_digest:
         return "wrong_scope"
     if receipt.recorded_at > request.recorded_at or receipt.observed_at > request.evaluated_at:
@@ -380,14 +389,11 @@ def _inadmissible_reason(
 
 def _supporting_inadmissible_reason(
     request: FrameworkAssessmentRequest,
-    control_id: str,
     receipt: FrameworkEvidenceReceipt,
 ) -> str | None:
     profile = request.profile
     if receipt.framework_id != profile.framework_id:
         return "wrong_framework"
-    if receipt.control_id != control_id:
-        return "wrong_control"
     if receipt.scope_digest != profile.scope_digest:
         return "wrong_scope"
     if receipt.recorded_at > request.recorded_at or receipt.observed_at > request.evaluated_at:

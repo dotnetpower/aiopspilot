@@ -34,14 +34,8 @@ and owning designs. Use it instead of the retired top-level application tree.
   The runtime-call handoff supplies the same exact Operator and Core Container App Resource IDs to both endpoint services; the inventory Job independently joins their platform logs before single-writer projection.
   Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
-- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
-  Operations routes can opt into explicit Sample projections that remain read-only, generic, and
-  visibly separate from operational evidence.
-- **Framework assessment ownership:** `core/framework_assessment/` owns deterministic WAF and CAF
-  evidence admission and replay. Provider contracts remain in `shared/providers/`, Azure
-  observation adapters remain in `delivery/azure/`, and Operator owns only the no-authority event
-  projection. WARA keeps its specialized APRL runtime and shares only the physical multiplexed
-  transport.
+- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and Operations routes can opt into explicit Sample projections that remain read-only, generic, and visibly separate from operational evidence.
+- **Framework assessment ownership:** `core/framework_assessment/` owns deterministic WAF and CAF evidence admission and replay. Provider contracts remain in `shared/providers/`, Azure observation adapters remain in `delivery/azure/`, and Operator owns only the no-authority event projection. WARA keeps its specialized APRL runtime and shares only the physical multiplexed transport.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
