@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 943d1c500e618442e7bb3d16f65906b6a2e9d258
+translation_source_sha: 2f7ec4413097767bbdffa3114c6d56fd7dc2596e
 translation_revised: 2026-09-09
 ---
 # 설치형 배포 CLI
@@ -94,8 +94,8 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
 아티팩트 메타데이터 및 콘텐츠 서술자는 비차단 및 심볼릭 링크 차단 모드로 열고 열린 뒤 파일
 정체성을 검증하므로 검사와 열기 사이의 교체가 검증을 멈추게 할 수 없습니다.
-연결된 준비도 오프라인 키트를 서명하기 전에 커밋된 배포 CLI lock과 정확한 Hatchling 및 pip
-버전을 요구합니다. Terraform과 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이
+연결된 준비는 다이제스트가 고정된 `build-runtime-release.py`의 전체 런타임 v2만 수락하고,
+키트 서명 전에 커밋된 CLI lock과 정확한 Hatchling 및 pip 버전을 요구합니다. Terraform과 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이
 일치할 때만 사용합니다. 출력 루트는 안전한 절대 경로여야 하며, 서술자 기반 guard가 정리
 전에 현재 UID 소유권, mode 0700, mode-0600 일반 준비 sentinel을 검증합니다. 다시 준비할
 때는 소유권 sentinel을 유지하면서 생성된 모든 디렉터리와 단일 파일 출력을 제거합니다.
@@ -114,12 +114,10 @@ UID가 소유하도록 요구합니다. 그룹 또는 전체 쓰기가 가능한
 `0700`을 설정합니다.
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
-합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 하고
-Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 인증 표시를 요구합니다.
-반복 `--skip-stage` 훈련은 sentinel로 소유권을 확인한 작업 디렉터리 안에서 격리된 Azure
-구성을 다시 만듭니다. 새 훈련과 재개 모두 서술자 기반 UID 및 모드 guard를 사용하고 새
-훈련은 존재하지 않는 안전한 절대 경로를 요구합니다. 훈련은 인증된 키트 스냅샷을 사용하므로
-주변 Terraform이 필요하지 않습니다.
+합성 air-gap 훈련은 Azure CLI 구성을 격리하고 인증된 키트 스냅샷만 사용합니다. 전체 모드
+(`--runtime-release <directory> --require-runtime`)는 경로와 DNS 없이 이미지 6개를 준비하고
+지원 배포판을 설치하며, 기본 모드는 도구 전용입니다. 새 훈련과 재개 모두 sentinel 소유
+디렉터리와 서술자 guard를 사용합니다.
 또한 설치된 배포판을 호출하기 전에 Python 가져오기 재정의를 제거해 체크아웃 소스가 제공
 wheel을 가리지 못하게 합니다. 매니페스트, 신뢰 키, SBOM 읽기는 소스 및 설치된 wheel 검증
 모두에서 크기가 제한된 비차단 일반 파일 reader를 사용합니다.
@@ -134,21 +132,6 @@ Low보다 높은 발견 문제가 없을 때만 종료합니다.
 현재 UID가 소유하고 mode `0600`이어야 합니다.
 연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
 제공하고 관련 없는 환경 값은 제외합니다.
-
-연결된 release 엔지니어링은 외부 키트를 서명하기 전에 전체 런타임 v2 입력을 조립할 수
-있습니다. `build-runtime-release.py`는 상대 소스 경로와 SHA-256으로 FDAI OCI 아카이브 5개,
-버전 비종속 ClamAV, 각 SBOM과 출처 파일, 사전 빌드된 Console 아카이브, 배포 지원 자료를
-연결하는 비공개 서술자를 받습니다. 콘텐츠를 다운로드, 실행, 서명, 증명, 업로드하지 않고 OCI
-아카이브 6개를 검증해 새로운 정확한 트리를 게시합니다. 결과에
-`production_release_eligibility=unverified`를 기록하므로 로컬 조립 결과를 통제된 release
-근거로 보고할 수 없습니다.
-
-`airgap-drill.sh --runtime-release <directory> --require-runtime`은 해당 트리와 고정된 런타임
-지원 휠을 구성합니다. 경로와 DNS가 없는 검증 이름 공간에서 인증된 CLI 휠을 설치하고,
-`offline prepare`가 이미지 다이제스트 6개와 `subscription_ready=false`를 포함한 v2 준비
-증적을 반환하도록 요구합니다. 이어서 인덱스, 다운로드, 소스 빌드, 캐시를 비활성화한 상태로
-해시가 고정된 모든 런타임 지원 배포판을 설치하고 재확인합니다. 이 옵션 없이 실행하면 도구
-전용 검사로 유지되며 결과에도 이를 명시합니다.
 
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored mode-`0600`
 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다. 프로필, 계획 입력, 저널 읽기 경로는 mode-`0600` 일반 파일인지 검사하기 전에 비차단 모드로 열기 때문에 이름 있는 파이프가 읽기 전용 명령을 멈추게 할 수 없습니다.
