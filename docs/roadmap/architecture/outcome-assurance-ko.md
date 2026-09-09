@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 1e7339cd398fd97340aa62e0448540301c79edf3
-translation_revised: 2026-09-01
+translation_source_sha: 473de8e941763b21d528dcb2d24b481cc044f0d7
+translation_revised: 2026-09-09
 ---
 # 결과 Assurance
 
@@ -50,6 +50,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 각 필수 코호트 지표를 검토된 95% 구간 계산법에 연결했습니다. 자동 해결률은 Wilson을 사용하고 연속값 및 횟수 평균은 결정론적 부트스트랩을 사용하므로 정책이 MTTR, 변경 리드 타임, 비용 또는 사람 접점을 베르누이 비율로 다시 해석할 수 없습니다. | `current change`; 코호트 정책 로더와 집중 정책 테스트. | 실제 운영 코호트를 보존하고 독립적으로 승인합니다. |
 | 2026-09-01 | implemented | `_action_type_digest`를 공개 `action_type_digest` 함수로 승격하고 `core/measurement/__init__.py`에서 내보냈습니다. 정규 내용 다이제스트는 provenance를 제외하고 승격 평가 시 ActionType 일관성 검증을 외부 호출자가 수행할 수 있게 합니다. | `current change`; `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
 | 2026-08-31 | implemented | 예약 측정 조립에 영속 단계 4 홀드아웃, 모델 교체 및 지연 시간 출처 처리를 추가했습니다. 재시작, 중복, 부분, 오래됨, 미래 시점, 롤백 및 사용 불가 근거는 명시적으로 남고 긍정적 모델 비교에는 별도 승격 검토가 필요합니다. | `current change`; 측정 집약기, 전달 러너, CLI 조립 및 집중 Core, 전달, CLI 검사. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
 | 2026-08-29 | implemented | 예상 절감과 독립적으로 검증된 효과 정산을 분리하고 실패, 검열됨, 점수화 불가 및 롤백 결과를 보존하는 비용 거버넌스 출처를 추가했습니다. | `current change`; 집중 비용 거버넌스 정산, 보존 및 캠페인 테스트. | 아직 열려 있는 `OutcomeAssuranceProjection` 작업을 통해 이 출처를 결합합니다. |
