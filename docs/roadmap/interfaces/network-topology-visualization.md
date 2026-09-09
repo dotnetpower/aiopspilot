@@ -22,6 +22,9 @@ The Console derives a bounded network focus projection only from inventory resou
 relationships. Both surfaces import the same canonical network roles and connection semantics,
 but they use separate contracts. Authored diagrams are `expected`; Console topology is `observed`,
 `stale`, `partial`, or `unknown` according to its inventory receipt.
+Every canonical Kubernetes ResourceType has an explicit runtime layer, AKS color token, and stable
+abbreviation. The Architecture map does not hide a newly cataloged type behind the generic visual
+fallback.
 
 ## Implementation status
 
@@ -39,6 +42,7 @@ but they use separate contracts. Authored diagrams are `expected`; Console topol
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Added explicit layer, color, and abbreviation mappings for PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange. | `current change`; complete canonical ResourceType visual-mapping test and full Console test surface. | Preserve governed exact-source visual evidence before raising the Console scope to `validated`. |
 | 2026-09-04 | implemented | Promoted observed `runtime_calls` relationships from a generic direct edge to a first-class runtime group in the Ontology Instances Inspector and default dense legend. The screen-context projection also preserves these verified links for grounded follow-up without changing relationship direction or authority. | `current change`; focused ontology instance model and view checks, Console typecheck, and production build. | Retain governed exact-source runtime-call and responsive Console evidence before claiming runtime validation. |
 | 2026-08-22 | not-started | Accepted a focused owner boundary for network-topology visualization without changing runtime behavior. | `current change`; this owner document. | Implement and focused-test every scope row before raising its state. |
 | 2026-08-22 | implemented | Added the shared provider-neutral vocabulary, authored network profile and annotations, reviewed official Azure icon mapping, compact network layout and integrity checks, a canonical bilingual hub-spoke reference, and an observed-only Console 2D focus with filters, typed path tracing, keyboard interaction, and sanitized SVG and PNG export. | `current change`; shared package test passed; static compiler passed 107 tests, typecheck, render, and 376-artifact check; canonical output is exactly `1600x900` with zero clipped text; Console focused checks passed 23 tests; synthetic Playwright passed `1440x900`, `993x641`, and `390x844`; catalog parity passed 17 pairs. | Retain governed exact-source desktop and mobile Console evidence before changing the Console scope to `validated`. |

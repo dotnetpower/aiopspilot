@@ -112,6 +112,9 @@ container groups, restart and termination facts, probe kinds, scheduling constra
 requests and limits, capacity, storage binding, replica status, and endpoint health. It never
 records Secret or ConfigMap values, container commands, environment values, image pull secrets,
 raw event messages, endpoint addresses, or raw log bodies.
+The API inventory module owns transport, pagination, and Resource identity. A separate status
+normalizer owns bounded Node, Pod, container, and Deployment status facts so the transport module
+stays below its enforced structural size limit without duplicating parsing rules.
 Collector and Operator bounds are identical. Up to 128 containers can yield 384 probe-kind records
 or 256 current and previous termination records; a larger diagnostic sequence is unavailable
 instead of being silently truncated.

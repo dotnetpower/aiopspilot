@@ -28,6 +28,9 @@ The shared assessment boundary has six deterministic stages:
 
 The runtime shares evidence admission, replay, publication, and projection mechanics. WAF and CAF
 retain different catalogs, scope contracts, provider adapters, and user-facing explanations.
+The shared Operator PostgreSQL reader also serves unrelated operational families. Its scoped AKS
+source-state and content-addressed diagnostic-receipt reads do not enter WAF or CAF scope,
+evidence admission, replay, or results.
 
 ## Design decision and critique
 

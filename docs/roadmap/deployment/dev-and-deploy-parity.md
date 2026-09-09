@@ -15,6 +15,9 @@ profiles. Deployment grants its read identity at those managed-cluster resources
 widen a cluster binding to a subscription, resource group, or child resource.
 Both profiles apply the Core-owned lifecycle coverage migration before collection. The append-only
 segment table therefore preserves the same Event cursor gaps locally and after deployment.
+The provider-schema relationship review is content-addressed to the complete reviewed mapping
+catalog. Adding Kubernetes mappings regenerates that no-authority review artifact in both profiles
+without changing Azure candidate counts or granting semantic promotion.
 Its review list verifies each durable key against the body's exact opaque review identity, and the
 Console renders every usable posture scope while labeling withheld rows as unavailable rather than
 as an empty ledger. These checks are identical in local and deployed profiles.

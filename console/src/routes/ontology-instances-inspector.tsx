@@ -235,15 +235,15 @@ function AksDiagnosticEvidence({
         ))}
       </dl>
       <DiagnosticCodeList
-        title={t("ontology.instances.diagnosticGaps")}
+        heading={t("ontology.instances.diagnosticGaps")}
         values={receipt.evidence_gaps}
       />
       <DiagnosticCodeList
-        title={t("ontology.instances.diagnosticConflicts")}
+        heading={t("ontology.instances.diagnosticConflicts")}
         values={receipt.conflicts}
       />
       <DiagnosticCodeList
-        title={t("ontology.instances.diagnosticEvidenceRefs")}
+        heading={t("ontology.instances.diagnosticEvidenceRefs")}
         values={receipt.evidence_refs}
       />
       <p>{t("ontology.instances.diagnosticNoAuthority")}</p>
@@ -252,15 +252,15 @@ function AksDiagnosticEvidence({
 }
 
 function DiagnosticCodeList({
-  title,
+  heading,
   values,
 }: {
-  readonly title: string;
+  readonly heading: string;
   readonly values: readonly string[];
 }) {
   return (
     <>
-      <h5>{title}</h5>
+      <h5>{heading}</h5>
       {values.length === 0
         ? <p>{t("ontology.instances.diagnosticNone")}</p>
         : <ul>{values.map((value) => <li><code>{value}</code></li>)}</ul>}

@@ -230,8 +230,8 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_api_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_relationships.py services/core-control-plane/tests/delivery/test_kubernetes_lifecycle_collection.py services/core-control-plane/tests/delivery/test_kubernetes_pod_log_evidence.py services/core-control-plane/tests/core/ontology_platform/test_kubernetes_pod_diagnosis_evidence.py",
-        "uv run ruff check services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
-        "uv run mypy --strict services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
+        "uv run ruff check services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_api_status.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
+        "uv run mypy --strict services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_api_status.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
         "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },

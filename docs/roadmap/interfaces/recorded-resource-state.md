@@ -34,6 +34,8 @@ selector data remains unavailable and does not receive the same meaning.
 The persisted AKS assessment receipt is another separate read detail, not a Resource state axis.
 Operator joins it only when its immutable target and source identities match the current generation;
 otherwise Console renders the receipt as unavailable.
+Its gaps, conflicts, and evidence references use visible section headings. They are not hidden in
+native title attributes or interpreted as recorded Resource state.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
