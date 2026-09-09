@@ -64,6 +64,9 @@ canonical `aggregate` operation and preserves its structured count for independe
 verification.
 Canonical metatype subjects such as `FunctionType` normalize only for answer rendering. Declaration
 answers explicitly distinguish schema metadata from current object observations.
+When a model proposes a bounded ontology declaration-count alias, semantic judgment rewrites it to
+the supplied `query.manifest` FunctionType and one typed declaration-kind count facet before
+planning. Without that supplied FunctionType, the proposal is rejected.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 922fe5b362d1ae37e61227e2891bc09c9d8d6aea
+translation_source_sha: 78bf34db4ab8c8f8f3cc61beb5950621ae2f4b89
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 보존된 후단 count-intent 후보를 거부하고 semantic judgment에서 모델 count alias를 제공된 manifest 기능으로 정규화했습니다. | `current change`, 집중 기능 경계 및 planning 테스트 | 만들어 낸 기능을 수락하지 않고 새로운 ActionType 및 FunctionType 질문이 통과하는지 확인합니다. |
 | 2026-09-10 | implemented | Typed facet에서 제공된 선언 또는 관계 subject 하나를 복구하고 표준 메타타입 count label을 정규화했으며 스키마와 인스턴스 답변 경계를 추가하고 독립 reviewer 입력의 JSON-safe URL redaction을 수정했습니다. | `current change`, 집중 Core rendering, schema-frame 및 watchdog redaction 회귀 | 실패한 질문을 재사용하지 말고 새로운 unique-question series를 실행합니다. |
 | 2026-09-10 | implemented | Typed count facet 및 collection-scope 정규화로 모델 변동 간격 2개를 닫고 count oracle이 구조화 출력을 검사할 수 있도록 표준 aggregate presentation을 허용했습니다. | `current change`, 집중 Core, Operator presentation 및 answer-gate 회귀 | 커밋 뒤 새로운 active-profile CQAS series를 실행합니다. |
 | 2026-09-10 | implemented | Collection-wide history 범위를 보존하고 독립적으로 요청한 action advice를 forbidden action에서 제외하도록 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 두 live cohort를 다시 실행합니다. |

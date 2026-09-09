@@ -11373,6 +11373,50 @@ def test_schema_count_fast_path_rejects_non_schema_count_contracts(
     assert result is None
 
 
+def test_schema_count_rejects_conflicting_target_and_typed_count_facet() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.manifest",
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": "FunctionType",
+                    "canonical_value": "FunctionType",
+                    "source_start": 0,
+                    "source_end": 12,
+                }
+            ],
+            "requested_facets": ["action_type_count"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+    function_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="FunctionType",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(
+        function_types=(ontology_manifest_function_type(),),
+        additional_object_types=(function_type,),
+    )
+
+    assert (
+        build_ontology_schema_frame(
+            judgment,
+            utterance="FunctionType",
+            context=(),
+            descriptors=manifest.descriptors,
+        )
+        is None
+    )
+
+
 @pytest.mark.parametrize(
     (
         "judgment_target",
