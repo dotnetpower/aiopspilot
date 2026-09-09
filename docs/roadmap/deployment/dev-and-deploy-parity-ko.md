@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c47ee1268e31b6e6f4a691007ac31853af13a748
+translation_source_sha: ac7ad564ab264a766a5a263e23e4720205736f3e
 translation_revised: 2026-09-10
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -16,6 +16,8 @@ WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬�
 AKS fleet 인벤토리는 로컬과 배포 프로필에서 같은 정확한 managed cluster ARM 신원을 사용합니다.
 배포는 해당 managed cluster 리소스 범위에서만 읽기 신원에 권한을 부여합니다. 클러스터 연결 범위를
 구독, 리소스 그룹 또는 하위 리소스로 넓히지 않습니다.
+두 프로필은 수집 전에 Core 소유 수명 주기 범위 마이그레이션을 적용합니다. 따라서 추가 전용 구간
+테이블은 로컬과 배포 뒤에 동일한 Event 커서 공백을 보존합니다.
 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 콘솔은 사용할 수
 있는 모든 자세 범위를 표시하고 보류된 행을 빈 원장이 아니라 사용 불가로 표시합니다. 이러한
 검사는 로컬과 배포 프로필에서 동일합니다.

@@ -10,17 +10,19 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Exact topology and basic runtime state | validated | Issue #278 and local base commit | One exact cluster generation proved 103 Kubernetes Resources, 208 verified relationships, and one exact Node-to-VMSS VM bridge. |
-| Fleet-safe source bindings | not-started | Issue #578 | Legacy single-cluster configuration remains active. |
-| Diagnostic object facts and relationships | in-progress | Existing Kubernetes inventory, lifecycle, log, diagnosis, recovery, and rollout modules | Node pressure, Pod scheduling details, endpoint target health, storage, policy, and autoscale facts remain incomplete. |
-| Metric, log, and Event evidence | in-progress | Existing provider-neutral metrics, content-free Pod log summary, and durable Event history | Exact operational provider bindings and combined receipts remain incomplete. |
-| Deterministic diagnosis | in-progress | Existing Pod termination, recovery, replacement, and rollout reducers | Scheduling, endpoint, storage, policy, Node, and control-plane families remain open. |
-| Operator and Console projection | not-started | Issue #578 | Exact diagnostic receipts are not yet exposed as a dedicated bounded projection. |
-| Live validation and hardening | not-started | Issue #578 | At least ten rounds and live positive plus unavailable evidence are required. |
+| Fleet-safe source bindings | implemented | Fleet binding, Terraform identity, and focused configuration tests | Live fleet evidence remains pending. |
+| Diagnostic object facts and relationships | implemented | Kubernetes inventory, source-schema, relationship, and projection tests | Live resource counts remain pending. |
+| Metric, log, and Event evidence | implemented | Exact metric/log contracts, durable Event observations, immutable coverage segments, and focused tests | Promotion receipts intentionally retain metric, Pod log, and Azure control-plane gaps until exact operational coverage sources are bound. |
+| Deterministic diagnosis | implemented | Forseti receipt reducer and focused failure-family, conflict, target, time, and networking tests | Live positive and unavailable receipts remain pending. |
+| Operator and Console projection | implemented | Atomic receipt persistence, current-identity Operator join, typed Console decoder and Inspector tests | Authenticated live geometry evidence remains pending. |
+| Live validation and hardening | in-progress | Ten committed hardening rounds and one additional independent wiring review | Live positive plus unavailable evidence and final integrated gates remain pending. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Persisted bounded Forseti receipts atomically after inventory promotion and exposed only current exact-identity receipts through Operator and Console. | `current change`; 115 focused Core/Operator tests, 90 Console tests, typecheck, build, Ruff, and strict mypy; independent review findings fixed. | Run integrated gates and retain authenticated live geometry evidence. |
+| 2026-09-10 | implemented | Added immutable content-addressed lifecycle coverage segments and blocked completeness for every overlapping retained gap. | `current change`; 27 focused lifecycle tests, 64 migration inventory tests, Ruff, and strict mypy; PostgreSQL runtime test remains environment-skipped. | Validate the migration and gap against the live cluster watch. |
 | 2026-09-10 | in-progress | Hardening round 10 preserved empty NetworkPolicy selectors as explicit match-all and projected every same-namespace Pod relationship. | `current change`; focused fact, relationship, catalog-digest, Operator, Console, Ruff, strict mypy, and typecheck gates. | Run integrated validation and retain live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 9 preserved nil EndpointSlice readiness as unknown so it cannot create a complete false unready diagnosis. | `current change`; focused unknown-readiness no-signal and explicit-unready regression tests. | Complete round 10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 8 blocked complete metric coverage when provider cutoff precedes the requested interval end. | `current change`; focused collector limitation, typed-contract rejection, reducer, Ruff, and strict mypy checks. | Complete rounds 9-10, integrated validation, and live AKS evidence. |
@@ -46,9 +48,9 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 ### Remaining work
 
-- [ ] Pass focused tests for fleet-safe bindings and exact resource resolution.
-- [ ] Pass focused tests for diagnostic objects, endpoint health, metrics, logs, and Event coverage.
-- [ ] Pass focused deterministic diagnosis and no-authority projection tests.
-- [ ] Record at least ten hardening rounds with no unresolved finding above Low.
+- [x] Pass focused tests for fleet-safe bindings and exact resource resolution.
+- [x] Pass focused tests for diagnostic objects, endpoint health, metrics, logs, and Event coverage.
+- [x] Pass focused deterministic diagnosis and no-authority projection tests.
+- [x] Record at least ten hardening rounds with no unresolved finding above Low.
 - [ ] Retain one live exact-cluster positive receipt and one explicit unavailable or absence receipt.
 - [ ] Record final validation, local commits, cleanup, and Issue #578 completion evidence.

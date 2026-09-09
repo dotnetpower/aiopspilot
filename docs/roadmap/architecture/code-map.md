@@ -48,6 +48,11 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **AKS policy relationships:** Kubernetes inventory preserves an explicit empty NetworkPolicy
   `podSelector` as a typed match-all marker. Relationship projection applies it only to Pods in the
   same cluster and namespace.
+- **AKS diagnostic receipts:** Inventory promotion invokes the bounded Forseti reducer and uses the
+  existing atomic state-plus-audit store for content-addressed receipts. Operator accepts only the
+  receipt matching the current UID, resourceVersion, generation, release, cutoff, and fleet scope;
+  Console validates and renders that typed receipt. Lifecycle coverage gaps use a separate
+  append-only Core migration and remain query-visible after cursor recovery.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

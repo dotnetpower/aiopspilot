@@ -116,6 +116,19 @@ def _metric(
             AksDiagnosticStatus.NODE_PRESSURE,
         ),
         (
+            _target(
+                "kubernetes.node",
+                diagnostic_conditions=({"type": "NetworkUnavailable", "status": "True"},),
+            ),
+            (),
+            AksDiagnosticStatus.NETWORKING_UNAVAILABLE,
+        ),
+        (
+            _target("kubernetes.pod"),
+            ("FailedCreatePodSandBox",),
+            AksDiagnosticStatus.NETWORKING_UNAVAILABLE,
+        ),
+        (
             _target("kubernetes.endpoint-slice", endpoint_count=2, ready=0),
             (),
             AksDiagnosticStatus.ENDPOINT_UNREADY,

@@ -38,6 +38,9 @@ discard a collected field merely because a downstream decoder omitted its key.
 Selector semantics distinguish an explicit typed match-all marker from missing or empty generic
 data. Match-all relationship projection remains constrained by exact cluster, namespace, source
 type, and reviewed mapping.
+An AKS diagnostic receipt is typed evidence attached to the selected Resource read response. It does
+not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
+or relationship identity.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

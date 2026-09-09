@@ -296,6 +296,83 @@ async def test_runtime_call_enricher_requires_deployed_explicit_activation(
     assert isinstance(available, RuntimeCallInventoryEnricher)
 
 
+async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_store = SimpleNamespace(
+        write_state_with_audit_if_absent=AsyncMock(return_value=True),
+        read_state=AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_: state_store,
+    )
+    observer = _ontology_observer_harness(monkeypatch)[0]
+    await observer(
+        PromotedInventoryObservation(
+            generation="snapshot-diagnostic",
+            resources=(
+                ResourceRecord(
+                    resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                    type="kubernetes.pod",
+                    props={
+                        "cluster_ref": "cluster",
+                        "uid": "uid-api",
+                        "resource_version": "20",
+                    },
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=datetime(2026, 8, 13, tzinfo=UTC),
+        )
+    )
+
+    state_store.write_state_with_audit_if_absent.assert_awaited_once()
+    persisted_key = state_store.write_state_with_audit_if_absent.await_args.args[0]
+    assert persisted_key.startswith("aks-diagnostic-receipt:v1:")
+
+
+async def test_recovery_persists_diagnostics_without_ontology_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_store = SimpleNamespace(
+        write_state_with_audit_if_absent=AsyncMock(return_value=True),
+        read_state=AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_: state_store,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.read_bool_env",
+        lambda *_args, **_kwargs: False,
+    )
+    _, recovery, observation_journal, *_ = _ontology_observer_harness(monkeypatch)
+    observation_journal.load_pending_promoted_snapshot.return_value = PromotedInventoryObservation(
+        generation="snapshot-recovery-diagnostic",
+        resources=(
+            ResourceRecord(
+                resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                type="kubernetes.pod",
+                props={
+                    "cluster_ref": "cluster",
+                    "uid": "uid-api",
+                    "resource_version": "20",
+                },
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 8, 13, tzinfo=UTC),
+    )
+
+    await recovery()
+
+    state_store.write_state_with_audit_if_absent.assert_awaited_once()
+    observation_journal.append_promoted_snapshot.assert_awaited_once()
+
+
 def test_default_inventory_scope_includes_llm_model_deployments() -> None:
     config = InventoryJobConfig.from_env(
         {

@@ -52,6 +52,7 @@ async def test_initial_collection_seeds_only_resume_token_and_current_coverage()
     assert result.coverage_started_at == NOW + timedelta(seconds=5)
     assert result.observations == ()
     assert result.limitation is None
+    assert result.incomplete_coverage_segment is None
 
 
 async def test_watch_retains_typed_fields_without_message_text() -> None:
@@ -125,6 +126,10 @@ async def test_cursor_expiry_resets_coverage_and_preserves_gap() -> None:
     assert result.next_resume_token is None
     assert result.coverage_started_at == NOW + timedelta(minutes=5)
     assert result.limitation == "cursor_expired"
+    assert result.incomplete_coverage_segment is not None
+    assert result.incomplete_coverage_segment.started_at == NOW
+    assert result.incomplete_coverage_segment.ended_at == NOW + timedelta(minutes=5)
+    assert result.incomplete_coverage_segment.limitation == "cursor_expired"
 
 
 async def test_authorization_and_outage_are_explicit() -> None:
@@ -144,6 +149,8 @@ async def test_authorization_and_outage_are_explicit() -> None:
             ).collect(_cursor(token="opaque-seed", limitation=None))
         assert result.limitation == expected
         assert result.next_resume_token == "opaque-seed"
+        assert result.incomplete_coverage_segment is not None
+        assert result.incomplete_coverage_segment.limitation == expected
 
 
 async def test_item_limit_commits_the_processed_prefix_checkpoint() -> None:
@@ -182,6 +189,8 @@ async def test_item_limit_commits_the_processed_prefix_checkpoint() -> None:
     assert len(result.observations) == 256
     assert result.next_resume_token == "opaque-255"
     assert result.limitation == "result_limit"
+    assert result.incomplete_coverage_segment is not None
+    assert result.incomplete_coverage_segment.limitation == "result_limit"
 
 
 @pytest.mark.parametrize(
@@ -190,6 +199,10 @@ async def test_item_limit_commits_the_processed_prefix_checkpoint() -> None:
         ("Killing", "MODIFIED", "terminating"),
         ("Failed", "MODIFIED", "failed"),
         ("BackOff", "MODIFIED", "backoff"),
+        ("DNSConfigForming", "MODIFIED", "networking"),
+        ("FailedCreatePodSandBox", "MODIFIED", "networking"),
+        ("FailedPodNetworkSetup", "MODIFIED", "networking"),
+        ("NetworkNotReady", "MODIFIED", "networking"),
         ("Unhealthy", "MODIFIED", "unhealthy"),
         ("SuccessfulCreate", "ADDED", "created"),
         ("Scheduled", "ADDED", "scheduled"),

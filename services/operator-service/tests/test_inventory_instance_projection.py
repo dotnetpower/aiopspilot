@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from datetime import UTC, datetime
 import pytest
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
+    InventoryAksDiagnosticReceipt,
     InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceActivityPage,
@@ -185,6 +187,281 @@ class _Reader:
             ),
             truncated=False,
         )
+
+
+_AKS_RESOURCE_ID = "cluster/kubernetes/kubernetes.pod/default/api"
+_AKS_CUTOFF = datetime(2026, 8, 22, 1, 0, tzinfo=UTC)
+_AKS_SOURCE_CUTOFF = datetime(2026, 8, 22, 0, 59, tzinfo=UTC)
+_AKS_SCOPE = f"sha256:{'b' * 64}"
+_AKS_RELEASE = f"sha256:{'a' * 64}"
+
+
+def _aks_receipt(**changes: object) -> InventoryAksDiagnosticReceipt:
+    values: dict[str, object] = {
+        "principal_class": "system",
+        "producer_version": "aks-diagnostic-evidence-v1",
+        "method_version": "deterministic-t0-v1",
+        "target_resource_id": _AKS_RESOURCE_ID,
+        "target_uid": "uid-api",
+        "target_resource_version": "20",
+        "ontology_release": _AKS_RELEASE,
+        "cutoff": _AKS_CUTOFF,
+        "source_cutoffs": {
+            "inventory_snapshot": _AKS_CUTOFF,
+            "kubernetes_runtime_inventory": _AKS_SOURCE_CUTOFF,
+        },
+        "source_revisions": {
+            "inventory_snapshot": ("sha256:" + hashlib.sha256(b"generation-1").hexdigest()),
+            "kubernetes_runtime_inventory": _AKS_SCOPE,
+        },
+        "status": "image_pull_failed",
+        "signals": ("image_pull_failed",),
+        "complete": False,
+        "evidence_gaps": ("kubernetes_metric_evidence_unavailable",),
+        "conflicts": (),
+        "evidence_refs": (f"inventory-generation:sha256:{'d' * 64}",),
+        "audit_correlation_id": f"sha256:{'e' * 64}",
+    }
+    values.update(changes)
+    return InventoryAksDiagnosticReceipt(**values)  # type: ignore[arg-type]
+
+
+class _AksReader(_Reader):
+    def __init__(self, receipt: InventoryAksDiagnosticReceipt | None) -> None:
+        self.receipt = receipt
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext:
+        return InventoryImpactContext(
+            snapshot_id="generation-1",
+            observed_at=_AKS_CUTOFF,
+            projection_source_states=(
+                InventoryProjectionSourceState(
+                    source="kubernetes_runtime_inventory",
+                    status="available",
+                    observed_at=_AKS_SOURCE_CUTOFF,
+                    reason=None,
+                    scope_digest=_AKS_SCOPE,
+                ),
+            ),
+        )
+
+    async def read_inventory_instance_neighborhood(
+        self,
+        **_kwargs: object,
+    ) -> InventoryInstanceNeighborhood:
+        return InventoryInstanceNeighborhood(
+            resources=(
+                InventoryInstanceResource(
+                    resource_id=_AKS_RESOURCE_ID,
+                    resource_type="kubernetes.pod",
+                    properties={
+                        "api_version": "v1",
+                        "cluster_ref": "cluster",
+                        "kind": "Pod",
+                        "name": "api",
+                        "namespace": "default",
+                        "resource_version": "20",
+                        "uid": "uid-api",
+                    },
+                    last_seen=_AKS_SOURCE_CUTOFF,
+                ),
+            ),
+            edges=(),
+            truncated=False,
+        )
+
+    async def read_inventory_instance_activity(
+        self,
+        *,
+        resource_id: str,
+        limit: int,
+    ) -> InventoryInstanceActivityPage:
+        assert resource_id == _AKS_RESOURCE_ID
+        assert limit == 20
+        return InventoryInstanceActivityPage(activities=(), truncated=False)
+
+    async def read_latest_aks_diagnostic_receipt(
+        self,
+        *,
+        resource_id: str,
+    ) -> InventoryAksDiagnosticReceipt | None:
+        assert resource_id == _AKS_RESOURCE_ID
+        return self.receipt
+
+
+def _aks_query() -> ProjectionQuery:
+    return ProjectionQuery(
+        operation="ontology.instance.get",
+        principal_id="reader",
+        path={},
+        params={"root": (_AKS_RESOURCE_ID,), "link_types": ("contains",)},
+        limit=25,
+        cursor=None,
+        roles=frozenset({OperatorRole.READER}),
+    )
+
+
+async def test_instance_projection_joins_only_the_current_aks_diagnostic_receipt() -> None:
+    result = await project_inventory_instance(
+        query=_aks_query(),
+        reader=_AksReader(_aks_receipt()),
+        ontology_projection={
+            "ontology_release_digest": _AKS_RELEASE,
+            "link_types": ["contains"],
+        },
+    )
+
+    resources = result["resources"]
+    assert isinstance(resources, list)
+    receipt = resources[0]["aks_diagnostic_receipt"]
+    assert receipt["target_uid"] == "uid-api"
+    assert receipt["source_cutoffs"]["inventory_snapshot"] == _AKS_CUTOFF.isoformat()
+    assert receipt["cause_claim_supported"] is False
+    assert receipt["execution_authority"] is False
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    (
+        _aks_receipt(target_uid="stale-uid"),
+        _aks_receipt(target_resource_version="19"),
+        _aks_receipt(
+            cutoff=datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            source_cutoffs={
+                "inventory_snapshot": datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            },
+            source_revisions={
+                "inventory_snapshot": "sha256:" + hashlib.sha256(b"older").hexdigest(),
+            },
+        ),
+        _aks_receipt(
+            source_cutoffs={
+                "inventory_snapshot": _AKS_CUTOFF,
+                "kubernetes_runtime_inventory": datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            },
+        ),
+    ),
+)
+async def test_instance_projection_withholds_stale_or_mismatched_aks_receipts(
+    receipt: InventoryAksDiagnosticReceipt,
+) -> None:
+    result = await project_inventory_instance(
+        query=_aks_query(),
+        reader=_AksReader(receipt),
+        ontology_projection={
+            "ontology_release_digest": _AKS_RELEASE,
+            "link_types": ["contains"],
+        },
+    )
+
+    resources = result["resources"]
+    assert isinstance(resources, list)
+    assert resources[0]["aks_diagnostic_receipt"] is None
+
+
+def _stored_aks_receipt_row() -> dict[str, object]:
+    receipt: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "owner_agent": "Forseti",
+        "principal_class": "system",
+        "purpose": "operations-review",
+        "producer_version": "aks-diagnostic-evidence-v1",
+        "method_version": "deterministic-t0-v1",
+        "target_resource_id": _AKS_RESOURCE_ID,
+        "target_uid": "uid-api",
+        "target_resource_version": "20",
+        "ontology_release": _AKS_RELEASE,
+        "cutoff": _AKS_CUTOFF.isoformat().replace("+00:00", "Z"),
+        "source_cutoffs": {
+            "inventory_snapshot": _AKS_CUTOFF.isoformat().replace("+00:00", "Z"),
+            "kubernetes_runtime_inventory": _AKS_SOURCE_CUTOFF.isoformat().replace("+00:00", "Z"),
+        },
+        "source_revisions": {
+            "inventory_snapshot": "sha256:" + hashlib.sha256(b"generation-1").hexdigest(),
+            "kubernetes_runtime_inventory": _AKS_SCOPE,
+        },
+        "status": "image_pull_failed",
+        "signals": ["image_pull_failed"],
+        "complete": False,
+        "evidence_gaps": ["kubernetes_metric_evidence_unavailable"],
+        "conflicts": [],
+        "evidence_refs": [f"inventory-generation:sha256:{'d' * 64}"],
+        "synthetic": False,
+        "cause_claim_supported": False,
+        "execution_authority": False,
+        "audit_correlation_id": f"sha256:{'e' * 64}",
+    }
+    resource_digest = hashlib.sha256(_AKS_RESOURCE_ID.encode()).hexdigest()
+    identity = {
+        "target_resource_id": receipt["target_resource_id"],
+        "target_uid": receipt["target_uid"],
+        "target_resource_version": receipt["target_resource_version"],
+        "ontology_release": receipt["ontology_release"],
+        "cutoff": receipt["cutoff"],
+        "source_cutoffs": receipt["source_cutoffs"],
+        "source_revisions": receipt["source_revisions"],
+    }
+    return {
+        "key": (
+            f"aks-diagnostic-receipt:v1:{resource_digest}:"
+            f"20260822T010000000000Z:{content_digest(identity)[7:]}"
+        ),
+        "value": {
+            "record_type": "aks_diagnostic_evidence_receipt",
+            "record_digest": content_digest(receipt),
+            "receipt": receipt,
+        },
+    }
+
+
+async def test_postgres_reader_queries_and_decodes_latest_aks_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        calls.append((statement, parameters))
+        return [_stored_aks_receipt_row()]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    receipt = await store.read_latest_aks_diagnostic_receipt(resource_id=_AKS_RESOURCE_ID)
+
+    assert receipt is not None
+    assert receipt.target_uid == "uid-api"
+    statement, parameters = calls[0]
+    assert "ORDER BY key DESC LIMIT 1" in statement
+    assert parameters["key_prefix"] == (
+        "aks-diagnostic-receipt:v1:" + hashlib.sha256(_AKS_RESOURCE_ID.encode()).hexdigest() + ":%"
+    )
+
+
+async def test_postgres_reader_withholds_a_malformed_aks_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _stored_aks_receipt_row()
+    envelope = row["value"]
+    assert isinstance(envelope, dict)
+    envelope["record_digest"] = f"sha256:{'0' * 64}"
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [row]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    assert await store.read_latest_aks_diagnostic_receipt(resource_id=_AKS_RESOURCE_ID) is None
 
 
 async def test_instance_directory_uses_the_active_detail_generation() -> None:

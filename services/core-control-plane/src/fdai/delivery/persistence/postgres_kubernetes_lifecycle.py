@@ -12,6 +12,8 @@ from psycopg.rows import dict_row
 
 from fdai.core.ontology_platform.kubernetes_lifecycle import (
     KubernetesLifecycleBatch,
+    KubernetesLifecycleCoverageLimitation,
+    KubernetesLifecycleCoverageSegment,
     KubernetesLifecycleCursor,
     KubernetesLifecycleObservation,
 )
@@ -105,6 +107,24 @@ class PostgresKubernetesLifecycleStore:
                     return False
                 if batch.coverage_through_at < row["coverage_through_at"]:
                     return False
+                if batch.incomplete_coverage_segment is not None:
+                    segment = batch.incomplete_coverage_segment
+                    await conn.execute(
+                        """
+                        INSERT INTO kubernetes_lifecycle_coverage_segment (
+                            coverage_segment_id, cluster_ref, started_at, ended_at, limitation
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (coverage_segment_id) DO NOTHING
+                        """,
+                        (
+                            segment.coverage_segment_id,
+                            segment.cluster_ref,
+                            segment.started_at,
+                            segment.ended_at,
+                            segment.limitation,
+                        ),
+                    )
                 if batch.observations:
                     sql_cursor = conn.cursor()
                     await sql_cursor.executemany(
@@ -206,6 +226,39 @@ class PostgresKubernetesLifecycleStore:
             rows: Sequence[dict[str, Any]] = await cursor.fetchall()
         return tuple(_observation(row) for row in rows)
 
+    async def read_incomplete_coverage_segments(
+        self,
+        *,
+        cluster_ref: str,
+        since: datetime,
+        through: datetime,
+        limit: int = 257,
+    ) -> tuple[KubernetesLifecycleCoverageSegment, ...]:
+        """Read time-ordered immutable segments overlapping one cluster window."""
+
+        if not cluster_ref:
+            raise ValueError("Kubernetes lifecycle coverage cluster_ref MUST be non-empty")
+        if since.tzinfo is None or through.tzinfo is None or through < since:
+            raise ValueError("Kubernetes lifecycle coverage query times are invalid")
+        if not 1 <= limit <= 1000:
+            raise ValueError("Kubernetes lifecycle coverage limit MUST be in [1, 1000]")
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            cursor = await conn.execute(
+                """
+                SELECT coverage_segment_id, cluster_ref, started_at, ended_at, limitation
+                  FROM kubernetes_lifecycle_coverage_segment
+                 WHERE cluster_ref = %s
+                   AND started_at <= %s
+                   AND ended_at >= %s
+                 ORDER BY started_at, ended_at, coverage_segment_id
+                 LIMIT %s
+                """,
+                (cluster_ref, through, since, limit),
+            )
+            rows: Sequence[dict[str, Any]] = await cursor.fetchall()
+        return tuple(_coverage_segment(row) for row in rows)
+
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         dsn = _psycopg_dsn(self._config.dsn)
         return await psycopg.AsyncConnection.connect(
@@ -277,6 +330,18 @@ def _observation(row: dict[str, Any]) -> KubernetesLifecycleObservation:
         occurrence_count=cast(int, row["occurrence_count"]),
         evidence_ref=str(row["evidence_ref"]),
     )
+
+
+def _coverage_segment(row: dict[str, Any]) -> KubernetesLifecycleCoverageSegment:
+    segment = KubernetesLifecycleCoverageSegment(
+        cluster_ref=str(row["cluster_ref"]),
+        started_at=cast(datetime, row["started_at"]),
+        ended_at=cast(datetime, row["ended_at"]),
+        limitation=cast(KubernetesLifecycleCoverageLimitation, row["limitation"]),
+    )
+    if segment.coverage_segment_id != str(row["coverage_segment_id"]):
+        raise ValueError("Kubernetes lifecycle coverage segment identity is invalid")
+    return segment
 
 
 __all__ = [

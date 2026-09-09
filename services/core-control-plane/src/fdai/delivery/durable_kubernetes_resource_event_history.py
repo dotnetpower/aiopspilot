@@ -103,6 +103,12 @@ class DurableKubernetesResourceEventHistoryReader:
             since=since,
             limit=_MAX_EVENTS + 1,
         )
+        incomplete_segments = await self._store.read_incomplete_coverage_segments(
+            cluster_ref=self._cluster_ref,
+            since=since,
+            through=now,
+            limit=1,
+        )
         truncated = len(retained) > _MAX_EVENTS
         selected = retained[:_MAX_EVENTS]
         target_id = self._cluster_ref if cluster_scope else resource_ids[0]
@@ -126,6 +132,8 @@ class DurableKubernetesResourceEventHistoryReader:
         limitation = (
             "result_limit"
             if truncated
+            else incomplete_segments[0].limitation
+            if incomplete_segments
             else cursor.limitation
             if cursor.limitation is not None
             else "source_retention_incomplete"

@@ -16,8 +16,15 @@ from datetime import UTC, datetime
 import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
+from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
+    AksDiagnosticReceiptService,
+)
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.aks_diagnostic_receipts import (
+    InventoryPromotionAksDiagnosticObserver,
+    StateStoreAksDiagnosticReceiptWriter,
+)
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
@@ -285,22 +292,33 @@ def _build_ontology_observer(
     evidence_counts: dict[str, int],
 ) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     observation_journal = build_observation_journal(config.dsn, os.environ)
+    catalog_root = _REPO_ROOT / "rule-catalog"
+    catalog = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+    ontology_release_digest = catalog.build_release().digest
+    diagnostic_observer = InventoryPromotionAksDiagnosticObserver(
+        service=AksDiagnosticReceiptService(
+            writer=StateStoreAksDiagnosticReceiptWriter(
+                store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+            )
+        ),
+        ontology_release=ontology_release_digest,
+        scope_by_cluster_ref={
+            binding.cluster_ref: binding.scope_digest for binding in config.kubernetes_bindings
+        },
+    )
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
     topology_publisher: InventoryTopologyHistoryPublisher | None = None
     if read_bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
-        catalog_root = _REPO_ROOT / "rule-catalog"
-        catalog = load_ontology_catalog(
-            catalog_root,
-            schema_registry=PackageResourceSchemaRegistry(),
-            probes_root=catalog_root / "probes",
-        )
         ontology_store = PostgresOntologyInstanceStore(
             config=PostgresOntologyInstanceStoreConfig(dsn=config.dsn),
             object_types=catalog.object_types,
             link_types=catalog.link_types,
         )
-        ontology_release_digest = catalog.build_release().digest
         projector = InventoryOntologyProjector(
             store=ontology_store,
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
@@ -333,6 +351,7 @@ def _build_ontology_observer(
             observation.links
         )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
+        await diagnostic_observer.observe(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return
         failures: list[tuple[str, Exception]] = []
@@ -402,8 +421,6 @@ def _build_ontology_observer(
             raise RuntimeError("inventory ontology projection is incomplete")
 
     async def _recover() -> None:
-        if projector is None or ontology_store is None or topology_publisher is None:
-            return
         pending = await observation_journal.load_pending_promoted_snapshot()
         if pending is not None:
             await _observe(pending)

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 84e18a5fe8997248939c9e669817caee4114db31
+translation_source_sha: 1cd3aacde01b601085a73b22227abde57cbf75d2
 translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
@@ -39,6 +39,8 @@ translation_revised: 2026-09-10
 선택기 의미는 명시적으로 형식이 지정된 전체 일치 표식과 누락되거나 비어 있는 일반 데이터를
 구분합니다. 전체 일치 관계 변환은 정확한 클러스터, 네임스페이스, 출처 형식 및 검토된 매핑으로
 계속 제한됩니다.
+AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 근거입니다. 별도 ObjectType이나
+LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

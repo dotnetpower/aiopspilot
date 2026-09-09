@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 491bb8dd55047348c9cc8c4b664e8d7129c75c99
+translation_source_sha: b21d7b6949be128c2a0313cbae8f8d04b20f714d
 translation_revised: 2026-09-10
 ---
 # 기록된 리소스 상태
@@ -31,6 +31,9 @@ Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상�
 컨테이너 사실을 보존합니다.
 NetworkPolicy의 `selector_matches_all: true`는 명시적으로 비어 있는 `podSelector`를 기록합니다.
 누락된 선택기 데이터는 계속 사용할 수 없으며 같은 의미를 부여받지 않습니다.
+영속 AKS 평가 증적은 Resource 상태 구분이 아닌 또 다른 별도 조회 세부 정보입니다. Operator는
+변경할 수 없는 대상 및 출처 신원이 현재 세대와 일치할 때만 증적을 결합합니다. 일치하지 않으면
+Console은 증적을 사용 불가로 표시합니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

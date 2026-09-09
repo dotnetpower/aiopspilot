@@ -5,6 +5,7 @@ import { RecordedStateFacts } from "../components/recorded-state-facts";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
+  OntologyInstanceAksDiagnosticReceipt,
   OntologyInstanceActivity,
   OntologyInstanceExploration,
   OntologyInstanceLink,
@@ -149,6 +150,9 @@ function InstanceOverview({
         <div><dt>{t("ontology.instances.snapshot")}</dt><dd><code>{data.source_generation}</code></dd></div>
         <div><dt>{t("ontology.instances.cutoff")}</dt><dd>{formatDateTime(data.source_cutoff)}</dd></div>
       </dl>
+      {root.kubernetes_identity ? (
+        <AksDiagnosticEvidence receipt={root.aks_diagnostic_receipt ?? null} />
+      ) : null}
       {root.kubernetes_diagnostics && Object.keys(root.kubernetes_diagnostics).length > 0 ? (
         <details class="ontology-instance-technical">
           <summary>{t("ontology.instances.kubernetesDiagnostics")}</summary>
@@ -168,6 +172,99 @@ function InstanceOverview({
         {t("ontology.instances.openImpact")}
       </a>
     </section>
+  );
+}
+
+function AksDiagnosticEvidence({
+  receipt,
+}: {
+  readonly receipt: OntologyInstanceAksDiagnosticReceipt | null;
+}) {
+  if (receipt === null) {
+    return (
+      <section class="ontology-instance-diagnostic-receipt">
+        <h4>{t("ontology.instances.diagnosticReceiptTitle")}</h4>
+        <StatusPill kind="neutral" label={t("ontology.instances.diagnosticUnavailable")} />
+        <p>{t("ontology.instances.diagnosticUnavailableHint")}</p>
+      </section>
+    );
+  }
+  const sources = Object.keys(receipt.source_cutoffs).sort();
+  const statusTone = receipt.status === "no_failure_signal"
+    ? "success"
+    : receipt.status === "held"
+    ? "warning"
+    : "danger";
+  return (
+    <section class="ontology-instance-diagnostic-receipt">
+      <h4>{t("ontology.instances.diagnosticReceiptTitle")}</h4>
+      <StatusPill
+        kind={statusTone}
+        label={t(`ontology.instances.diagnosticStatus.${receipt.status}`)}
+      />
+      <dl class="ontology-instance-facts">
+        <div>
+          <dt>{t("ontology.instances.diagnosticCompleteness")}</dt>
+          <dd>{t(receipt.complete
+            ? "ontology.instances.diagnosticComplete"
+            : "ontology.instances.diagnosticIncomplete")}</dd>
+        </div>
+        <div>
+          <dt>{t("ontology.instances.diagnosticCutoff")}</dt>
+          <dd>{formatDateTime(receipt.cutoff)}</dd>
+        </div>
+        <div>
+          <dt>{t("ontology.instances.diagnosticSignals")}</dt>
+          <dd>{receipt.signals.length === 0
+            ? t("ontology.instances.diagnosticNone")
+            : receipt.signals.map((signal) =>
+              t(`ontology.instances.diagnosticStatus.${signal}`)).join(", ")}</dd>
+        </div>
+      </dl>
+      <h5>{t("ontology.instances.diagnosticSources")}</h5>
+      <dl class="ontology-instance-facts">
+        {sources.map((source) => (
+          <div>
+            <dt><code>{source}</code></dt>
+            <dd>
+              {formatDateTime(receipt.source_cutoffs[source]!)}
+              {" - "}
+              <code>{receipt.source_revisions[source]}</code>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <DiagnosticCodeList
+        title={t("ontology.instances.diagnosticGaps")}
+        values={receipt.evidence_gaps}
+      />
+      <DiagnosticCodeList
+        title={t("ontology.instances.diagnosticConflicts")}
+        values={receipt.conflicts}
+      />
+      <DiagnosticCodeList
+        title={t("ontology.instances.diagnosticEvidenceRefs")}
+        values={receipt.evidence_refs}
+      />
+      <p>{t("ontology.instances.diagnosticNoAuthority")}</p>
+    </section>
+  );
+}
+
+function DiagnosticCodeList({
+  title,
+  values,
+}: {
+  readonly title: string;
+  readonly values: readonly string[];
+}) {
+  return (
+    <>
+      <h5>{title}</h5>
+      {values.length === 0
+        ? <p>{t("ontology.instances.diagnosticNone")}</p>
+        : <ul>{values.map((value) => <li><code>{value}</code></li>)}</ul>}
+    </>
   );
 }
 

@@ -31,6 +31,9 @@ That separate detail retains the reviewed rollout, storage, policy, and ephemera
 that the inventory collector actually produced.
 For NetworkPolicy, `selector_matches_all: true` records an explicitly empty `podSelector`. Missing
 selector data remains unavailable and does not receive the same meaning.
+The persisted AKS assessment receipt is another separate read detail, not a Resource state axis.
+Operator joins it only when its immutable target and source identities match the current generation;
+otherwise Console renders the receipt as unavailable.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

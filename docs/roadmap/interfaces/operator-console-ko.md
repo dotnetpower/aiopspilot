@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: feec88d20af20317b06da9de8e52fce4192c3d25
+translation_source_sha: 693990cdb8029665c62c3938aed7e35d3c4c8887
 translation_revised: 2026-09-10
 ---
 # FDAI Console 대화
@@ -15,6 +15,10 @@ Kubernetes 상세 정보 해석기는 수집기와 같은 최대 384개 진단 �
 보존합니다.
 NetworkPolicy 상세 정보는 내용이 안전한 `selector_matches_all` 표식을 보존하므로 Console이
 명시적인 전체 일치 선택기를 누락으로 표시하지 않습니다.
+정확한 Kubernetes Resource의 Inspector는 영속 Forseti 상태, 신호, 완전성, 기준 시점, 출처
+revision, 공백, 충돌, 근거 참조 및 권한 없음 경계를 표시합니다. 해석기는 알 수 없는 상태 값과
+일치하지 않는 출처 맵을 차단합니다. Operator가 오래되거나 일치하지 않는 증적을 보류하면 Inspector는
+이전 진단을 재사용하지 않고 명시적인 사용 불가 설명을 표시합니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 저장하고 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. 배포 환경은 전용 Key Vault 시크릿과 버전이 지정된 이 시크릿 하나만 쓸 수 있는 Managed Identity를 사용합니다. 로컬 프로필은 비공개 서비스 DSN에서 도메인을 분리하여 파생한 키로 값을 암호화하고 루프백 Operator 데이터베이스에는 암호문만 저장합니다. FDAI는 저장된 정확한 버전을 다시 읽고 다이제스트를 확인한 후 테스트합니다. Contributor, Approver 및 Owner 역할은 새로고침 후 `no-store` 응답으로 현재 URL을 받고 Reader와 BreakGlass 역할은 `visible: false`만 받습니다. reveal에 성공할 때마다 URL 없이 행위자, 다이제스트, 바인딩 버전 및 타임스탬프를 담은 감사 기록을 남깁니다. 시크릿 저장 또는 reveal은 승인이나 실행 권한을 부여하지 않으며 알림 런타임이 이 바인딩을 참조하는 시점은 배포에서 계속 제어합니다. Teams A1 안내는 보호된 FDAI 준비와 프로바이더가 호스팅하는 테넌트 동의, Teams 앱 설치 및 최종 배포 승인을 구분하며 client secret을 입력받지 않습니다. Owner 전용 작업은 보호된 plan을 위한 revisioned 권한 없는 제안을 영속화하며 프로바이더 또는 배포 성공을 주장하지 않고 영속 요청 상태만 표시합니다.
 Settings > Runtime policies에서는 Owner가 적극적인 T2 답변 복구를 제어할 수 있습니다. 모든 환경에서 기본적으로 비활성화하며, 승격 근거가 있을 때만 감사되는 override로 활성화합니다. 감사되는 리비전을 저장하면 Core를 재시작하지 않고 이후 대화형 읽기 턴에 적용됩니다. 이 컨트롤은 Golden 캠페인, 액션 초안, 범위 또는 권한 부여 차단, 실행 경로에서 T2를 활성화할 수 없으며 온톨로지 또는 근거 검증을 완화하지 않습니다. 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다. Settings > Integrations > Document OCR에서는 Owner가 프로세스로 격리된 로컬 한국어 및 영어 OCR을 선택하거나 Azure Document Intelligence를 요청할 수 있습니다. 저장하면 적용 권한 없이 수정 버전과 다이제스트로 보호되는 정책 및 보호된 계획 요청을 생성합니다. 패널은 배포 후 실제 상태 확인으로 확정한 공급자를 표시하고 계획 요청 재시도를 지원하며, 로컬 OCR 전환과 Azure 리소스의 명시적 제거를 분리합니다.
 컨트롤 보기에서는 카탈로그 존재와 의미 매핑을 범위별 평가, 적용 가능성, 충족 상태와 구분합니다. WAF 체크리스트는 변경 불가능한 워크로드 근거와 함께 고정된 정의 59개를 모두 표시하고, 인접한 CAF 보기는 담당자, 주기, 승인된 예외, 근거 제한 사항과 함께 방법론 및 랜딩 존 영역 15개를 표시합니다. 어떤 보기에서도 브라우저가 규정 준수를 계산하거나 근거를 쓰지 않습니다.

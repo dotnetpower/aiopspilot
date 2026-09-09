@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,6 +25,7 @@ class AksDiagnosticStatus(StrEnum):
     HELD = "held"
     IMAGE_PULL_FAILED = "image_pull_failed"
     NODE_PRESSURE = "node_pressure"
+    NETWORKING_UNAVAILABLE = "networking_unavailable"
     NO_FAILURE_SIGNAL = "no_failure_signal"
     OOM_KILLED = "oom_killed"
     PROBE_FAILURE_EVIDENCE = "probe_failure_evidence"
@@ -35,6 +37,7 @@ class AksDiagnosticStatus(StrEnum):
 
 
 _SIGNAL_PRIORITY = tuple(AksDiagnosticStatus)
+_EVIDENCE_CODE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,127}$")
 
 
 class AksDiagnosticEvidenceReceipt(ContractBase):
@@ -83,6 +86,7 @@ class AksDiagnosticContext:
     ontology_release: str
     principal_class: str
     audit_correlation_id: str
+    evidence_gaps: tuple[str, ...] = ()
 
 
 def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenceReceipt:
@@ -90,18 +94,43 @@ def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenc
 
     if context.cutoff.tzinfo is None:
         raise ValueError("AKS diagnostic cutoff MUST be timezone-aware")
+    if not context.target.resource_id.strip() or len(context.target.resource_id) > 1_024:
+        raise ValueError("AKS diagnostic target Resource id MUST be bounded non-empty text")
+    if not context.principal_class.strip() or len(context.principal_class) > 64:
+        raise ValueError("AKS diagnostic principal class MUST be bounded non-empty text")
+    if not context.audit_correlation_id.strip() or len(context.audit_correlation_id) > 128:
+        raise ValueError("AKS diagnostic audit correlation MUST be bounded non-empty text")
+    if re.fullmatch(r"sha256:[a-f0-9]{64}", context.ontology_release) is None:
+        raise ValueError("AKS diagnostic ontology release MUST be a lowercase SHA-256")
     props = context.target.props
     cluster_ref = _required_text(props, "cluster_ref")
     uid = _required_text(props, "uid")
     resource_version = _required_text(props, "resource_version")
     namespace = _optional_namespace(props.get("namespace"))
     for source, cutoff in context.source_cutoffs.items():
-        if not source.strip() or cutoff.tzinfo is None or cutoff > context.cutoff:
+        if (
+            _EVIDENCE_CODE.fullmatch(source) is None
+            or cutoff.tzinfo is None
+            or cutoff > context.cutoff
+        ):
             raise ValueError("AKS diagnostic source cutoff is invalid")
-    if any(not key.strip() or not value.strip() for key, value in context.source_revisions.items()):
+    if len(context.source_cutoffs) > 16 or len(context.source_revisions) > 16:
+        raise ValueError("AKS diagnostic source evidence exceeds its bound")
+    if any(
+        _EVIDENCE_CODE.fullmatch(key) is None or not value.strip() or len(value) > 256
+        for key, value in context.source_revisions.items()
+    ):
         raise ValueError("AKS diagnostic source revisions MUST be bounded non-empty text")
+    if len(context.evidence_gaps) > 32 or any(
+        _EVIDENCE_CODE.fullmatch(gap) is None for gap in context.evidence_gaps
+    ):
+        raise ValueError("AKS diagnostic evidence gaps MUST be bounded reason codes")
+    if len(context.evidence_refs) > 32 or any(
+        not ref.strip() or len(ref) > 512 for ref in context.evidence_refs
+    ):
+        raise ValueError("AKS diagnostic evidence refs MUST be bounded non-empty text")
 
-    gaps: list[str] = []
+    gaps = list(dict.fromkeys(context.evidence_gaps))
     conflicts: list[str] = []
     if not context.evidence_complete:
         gaps.append("required_evidence_incomplete")
@@ -168,10 +197,16 @@ def _signals(
     if conditions.get("PodScheduled") == "False":
         signals.add(AksDiagnosticStatus.SCHEDULING_BLOCKED)
     if any(
-        conditions.get(name) == "True"
-        for name in ("DiskPressure", "MemoryPressure", "NetworkUnavailable", "PIDPressure")
+        conditions.get(name) == "True" for name in ("DiskPressure", "MemoryPressure", "PIDPressure")
     ):
         signals.add(AksDiagnosticStatus.NODE_PRESSURE)
+    if conditions.get("NetworkUnavailable") == "True" or set(context.event_reasons) & {
+        "DNSConfigForming",
+        "FailedCreatePodSandBox",
+        "FailedPodNetworkSetup",
+        "NetworkNotReady",
+    }:
+        signals.add(AksDiagnosticStatus.NETWORKING_UNAVAILABLE)
     if context.target.type == "kubernetes.endpoint-slice":
         endpoint_count = _count(props, "endpoint_count")
         ready = _count(props, "ready")

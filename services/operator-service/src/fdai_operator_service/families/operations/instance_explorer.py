@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
     UNSELECTABLE_INSTANCE_DIRECTORY_TYPES,
+    InventoryAksDiagnosticReceipt,
     InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceReader,
@@ -242,6 +244,12 @@ async def project_inventory_instance(
     by_id = {resource.resource_id: resource for resource in neighborhood.resources}
     if root_id not in by_id:
         raise ProjectionNotFoundError(root_id)
+    root_resource = by_id[root_id]
+    diagnostic_receipt = (
+        await reader.read_latest_aks_diagnostic_receipt(resource_id=root_id)
+        if root_resource.resource_type.startswith("kubernetes.")
+        else None
+    )
     activity = await reader.read_inventory_instance_activity(
         resource_id=root_id,
         limit=activity_limit,
@@ -267,6 +275,21 @@ async def project_inventory_instance(
                 root_id=root_id,
                 now=evaluated_at,
                 state_observation=_state_observation(resource, context),
+                aks_diagnostic_receipt=(
+                    _current_aks_diagnostic_receipt(
+                        diagnostic_receipt,
+                        resource=root_resource,
+                        context=context,
+                        ontology_release=release_digest,
+                    )
+                    if resource.resource_id == root_id
+                    and root_resource.resource_type.startswith("kubernetes.")
+                    else None
+                ),
+                include_aks_diagnostic_receipt=(
+                    resource.resource_id == root_id
+                    and root_resource.resource_type.startswith("kubernetes.")
+                ),
             )
             for resource in sorted(
                 neighborhood.resources,
@@ -606,6 +629,8 @@ def _resource_projection(
     root_id: str | None,
     now: datetime | None = None,
     state_observation: RecordedStateObservation | None = None,
+    aks_diagnostic_receipt: dict[str, object] | None = None,
+    include_aks_diagnostic_receipt: bool = False,
 ) -> dict[str, object]:
     properties = resource.properties
     if (
@@ -648,7 +673,78 @@ def _resource_projection(
     if kubernetes_identity is not None:
         projection["kubernetes_identity"] = kubernetes_identity
         projection["kubernetes_diagnostics"] = _kubernetes_diagnostic_projection(properties)
+        if include_aks_diagnostic_receipt:
+            projection["aks_diagnostic_receipt"] = aks_diagnostic_receipt
     return projection
+
+
+def _current_aks_diagnostic_receipt(
+    receipt: InventoryAksDiagnosticReceipt | None,
+    *,
+    resource: InventoryInstanceResource,
+    context: InventoryImpactContext,
+    ontology_release: str,
+) -> dict[str, object] | None:
+    if receipt is None:
+        return None
+    uid = resource.properties.get("uid")
+    resource_version = resource.properties.get("resource_version")
+    inventory_revision = "sha256:" + hashlib.sha256(context.snapshot_id.encode()).hexdigest()
+    if (
+        receipt.target_resource_id != resource.resource_id
+        or receipt.target_uid != uid
+        or receipt.target_resource_version != resource_version
+        or receipt.ontology_release != ontology_release
+        or receipt.cutoff != context.observed_at
+        or receipt.source_cutoffs.get("inventory_snapshot") != context.observed_at
+        or receipt.source_revisions.get("inventory_snapshot") != inventory_revision
+        or set(receipt.source_cutoffs)
+        - {
+            "inventory_snapshot",
+            "kubernetes_runtime_inventory",
+        }
+    ):
+        return None
+    kubernetes_cutoff = receipt.source_cutoffs.get("kubernetes_runtime_inventory")
+    kubernetes_revision = receipt.source_revisions.get("kubernetes_runtime_inventory")
+    if kubernetes_cutoff is None or kubernetes_revision is None:
+        if "kubernetes_runtime_inventory_unavailable" not in receipt.evidence_gaps:
+            return None
+    elif not any(
+        state.source == "kubernetes_runtime_inventory"
+        and state.status == "available"
+        and state.observed_at == kubernetes_cutoff
+        and state.scope_digest == kubernetes_revision
+        for state in context.projection_source_states
+    ):
+        return None
+    return {
+        "schema_version": "1.0.0",
+        "owner_agent": "Forseti",
+        "principal_class": receipt.principal_class,
+        "purpose": "operations-review",
+        "producer_version": receipt.producer_version,
+        "method_version": receipt.method_version,
+        "target_resource_id": receipt.target_resource_id,
+        "target_uid": receipt.target_uid,
+        "target_resource_version": receipt.target_resource_version,
+        "ontology_release": receipt.ontology_release,
+        "cutoff": receipt.cutoff.isoformat(),
+        "source_cutoffs": {
+            key: value.isoformat() for key, value in sorted(receipt.source_cutoffs.items())
+        },
+        "source_revisions": dict(sorted(receipt.source_revisions.items())),
+        "status": receipt.status,
+        "signals": list(receipt.signals),
+        "complete": receipt.complete,
+        "evidence_gaps": list(receipt.evidence_gaps),
+        "conflicts": list(receipt.conflicts),
+        "evidence_refs": list(receipt.evidence_refs),
+        "synthetic": False,
+        "cause_claim_supported": False,
+        "execution_authority": False,
+        "audit_correlation_id": receipt.audit_correlation_id,
+    }
 
 
 def _kubernetes_identity_projection(

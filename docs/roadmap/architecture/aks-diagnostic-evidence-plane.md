@@ -133,6 +133,9 @@ as incomplete and starts a new segment after reseeding. Kubernetes cannot recons
 Events, so the retained gap never becomes complete unless another authoritative source covers the
 exact interval. Durable history preserves event UID, involved-object UID, reason, type, count,
 source revision, event time, recorded time, and coverage-segment identity.
+Each incomplete interval is an immutable, content-addressed PostgreSQL coverage segment. Exact-UID
+history queries check overlapping segments before claiming completeness, so later cursor recovery
+cannot erase a retained `cursor_expired`, authorization, source, response, or result-limit gap.
 
 ### Metrics
 
@@ -170,14 +173,17 @@ The plane reuses the exact Node-to-VMSS VM bridge and Azure topology from the op
 graph. AKS Resource Health, API reachability, and configured control-plane diagnostic categories
 are independent observations. Temporal adjacency and topology proximity can support or refute a
 hypothesis but cannot prove causation.
+An accepted exact-cluster inventory source proves API reachability only at that source cutoff.
+Promotion receipts retain `azure_control_plane_evidence_unavailable` until an exact Azure health or
+control-plane source is bound; they do not substitute topology or API success for Azure health.
 
 ## Agent ownership and deterministic diagnosis
 
-Collectors are mechanical read-plane adapters. They publish typed evidence through Huginn ingress.
-Heimdall validates source, scope, schema, cutoff, and completeness. Deterministic reducers produce
-T0 hypothesis evidence, not a final root-cause verdict. Forseti remains the accountable root-cause
-owner and can accept, reject, or hold a hypothesis through the existing trust-tier and evidence
-contract. Saga records every admitted receipt and hypothesis transition.
+Collectors are mechanical read-plane adapters. After a successful inventory promotion, a bounded
+observer validates exact target identity and source state, invokes the deterministic T0 reducer,
+and atomically appends the immutable receipt plus a sanitized audit entry. This local derived
+read-model step is not agent collaboration and grants no authority. Forseti remains the accountable
+root-cause owner named by the receipt.
 
 One reducer classifies one exact target and one cutoff. The initial family set is:
 
@@ -189,7 +195,7 @@ One reducer classifies one exact target and one cutoff. The initial family set i
 - rollout and replacement;
 - PVC, PV, and StorageClass binding;
 - HPA, PDB, and policy constraints;
-- network path and DNS evidence gaps;
+- Node network-unavailable plus reviewed Pod sandbox, CNI, and DNS Event reasons;
 - AKS control-plane or Azure substrate degradation.
 
 Each evidence receipt includes authenticated principal class, purpose, producer and method
@@ -211,6 +217,11 @@ server-owned redaction, and exposes allowlisted identity, status, evidence healt
 receipts. The Console validates the shared schema and renders source, cutoff, gaps, and exact
 resource identity. It does not construct Resources, relationships, metric values, diagnoses, or
 authorization in the browser.
+Receipt identity is content-addressed from the exact target, UID, resourceVersion, ontology
+release, canonical JSON timestamps, source cutoffs, and source revisions. Recovery replays pending
+promotions even when ontology projection is disabled. Operator exposes a receipt only when its
+target identity, inventory generation digest, ontology release, source cutoff, and fleet scope
+digest match the selected current Resource; any mismatch renders the diagnosis unavailable.
 
 ## Ontology and deployment changes
 
