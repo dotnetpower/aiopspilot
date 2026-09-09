@@ -80,7 +80,11 @@ def _item(
     spec: dict[str, object] | None = None,
     status: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    metadata: dict[str, object] = {"name": name, "uid": uid}
+    metadata: dict[str, object] = {
+        "name": name,
+        "resourceVersion": f"rv-{uid}",
+        "uid": uid,
+    }
     if namespace is not None:
         metadata["namespace"] = namespace
     if labels is not None:
@@ -507,6 +511,9 @@ async def test_rollout_status_projection_omits_raw_image_and_message_content() -
         snapshot = await source.collect()
 
     pod = next(resource for resource in snapshot.resources if resource.type == "kubernetes.pod")
+    assert pod.props["api_version"] == "v1"
+    assert pod.props["kind"] == "Pod"
+    assert pod.props["resource_version"] == "rv-uid-pod"
     assert pod.props["container_waiting_reasons"] == ("ErrImagePull",)
     assert pod.props["container_terminations"] == (
         {

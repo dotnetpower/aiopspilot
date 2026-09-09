@@ -34,21 +34,39 @@ _AZURE_VMSS_VM_PROVIDER_PATH: Final[tuple[str, ...]] = (
     "virtualmachinescalesets",
     "virtualmachines",
 )
-_RESOURCE_PATHS: Final[tuple[tuple[str, str, bool], ...]] = (
-    ("/api/v1/namespaces", "kubernetes.namespace", False),
-    ("/api/v1/nodes", "kubernetes.node", False),
-    ("/api/v1/pods", "kubernetes.pod", True),
-    ("/api/v1/services", "kubernetes.service", True),
-    ("/api/v1/endpoints", "kubernetes.endpoints", True),
-    ("/apis/discovery.k8s.io/v1/endpointslices", "kubernetes.endpoint-slice", True),
-    ("/apis/batch/v1/jobs", "kubernetes.job", True),
-    ("/apis/batch/v1/cronjobs", "kubernetes.cron-job", True),
-    ("/apis/apps/v1/deployments", "kubernetes.deployment", True),
-    ("/apis/apps/v1/replicasets", "kubernetes.replica-set", True),
-    ("/apis/apps/v1/daemonsets", "kubernetes.daemon-set", True),
-    ("/apis/apps/v1/statefulsets", "kubernetes.stateful-set", True),
-    ("/apis/networking.k8s.io/v1/ingresses", "kubernetes.ingress", True),
-    ("/apis/networking.k8s.io/v1/ingressclasses", "kubernetes.ingress-class", False),
+_RESOURCE_PATHS: Final[tuple[tuple[str, str, bool, str, str], ...]] = (
+    ("/api/v1/namespaces", "kubernetes.namespace", False, "v1", "Namespace"),
+    ("/api/v1/nodes", "kubernetes.node", False, "v1", "Node"),
+    ("/api/v1/pods", "kubernetes.pod", True, "v1", "Pod"),
+    ("/api/v1/services", "kubernetes.service", True, "v1", "Service"),
+    ("/api/v1/endpoints", "kubernetes.endpoints", True, "v1", "Endpoints"),
+    (
+        "/apis/discovery.k8s.io/v1/endpointslices",
+        "kubernetes.endpoint-slice",
+        True,
+        "discovery.k8s.io/v1",
+        "EndpointSlice",
+    ),
+    ("/apis/batch/v1/jobs", "kubernetes.job", True, "batch/v1", "Job"),
+    ("/apis/batch/v1/cronjobs", "kubernetes.cron-job", True, "batch/v1", "CronJob"),
+    ("/apis/apps/v1/deployments", "kubernetes.deployment", True, "apps/v1", "Deployment"),
+    ("/apis/apps/v1/replicasets", "kubernetes.replica-set", True, "apps/v1", "ReplicaSet"),
+    ("/apis/apps/v1/daemonsets", "kubernetes.daemon-set", True, "apps/v1", "DaemonSet"),
+    ("/apis/apps/v1/statefulsets", "kubernetes.stateful-set", True, "apps/v1", "StatefulSet"),
+    (
+        "/apis/networking.k8s.io/v1/ingresses",
+        "kubernetes.ingress",
+        True,
+        "networking.k8s.io/v1",
+        "Ingress",
+    ),
+    (
+        "/apis/networking.k8s.io/v1/ingressclasses",
+        "kubernetes.ingress-class",
+        False,
+        "networking.k8s.io/v1",
+        "IngressClass",
+    ),
 )
 
 
@@ -167,12 +185,14 @@ class KubernetesApiInventorySource:
         headers = await self._auth.headers()
         resources: dict[str, ResourceRecord] = {}
         observed_at = datetime.now(UTC)
-        for path, resource_type, namespaced in _RESOURCE_PATHS:
+        for path, resource_type, namespaced, api_version, kind in _RESOURCE_PATHS:
             for item in await self._list(path, headers=headers):
                 record = _resource_record(
                     item,
                     resource_type=resource_type,
                     namespaced=namespaced,
+                    api_version=api_version,
+                    kind=kind,
                     cluster_ref=self._config.cluster_ref,
                     observed_at=observed_at,
                 )
@@ -250,6 +270,8 @@ def _resource_record(
     *,
     resource_type: str,
     namespaced: bool,
+    api_version: str,
+    kind: str,
     cluster_ref: str,
     observed_at: datetime,
 ) -> ResourceRecord:
@@ -258,14 +280,18 @@ def _resource_record(
         raise KubernetesApiInventoryError("Kubernetes resource metadata is missing")
     name = _required_text(metadata, "name")
     uid = _required_text(metadata, "uid")
+    resource_version = _required_text(metadata, "resourceVersion")
     created_at = _optional_timestamp(metadata, "creationTimestamp")
     namespace = _required_text(metadata, "namespace") if namespaced else None
     labels = _string_mapping(metadata.get("labels"), limit=_MAX_LABELS)
     owner_uids = _owner_uids(metadata.get("ownerReferences"))
     controller_uid, controller_kind = _verified_controller_owner(metadata.get("ownerReferences"))
     props: dict[str, object] = {
+        "api_version": api_version,
         "cluster_ref": cluster_ref,
+        "kind": kind,
         "name": name,
+        "resource_version": resource_version,
         "uid": uid,
     }
     if created_at is not None:
