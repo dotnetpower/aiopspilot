@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 03ea0b0515f7909b18d53d7e92a5e2dd412bf9f2
+translation_source_sha: 6d5fa82ae294be7dd0eae20ecab1eefc31e52c19
 translation_revised: 2026-09-10
 ---
 # 설치형 배포 CLI
@@ -118,10 +118,10 @@ UID가 소유하도록 요구합니다. 그룹 또는 전체 쓰기가 가능한
 `0700`을 설정합니다.
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
-합성 air-gap 훈련은 Azure CLI 구성을 격리하고 인증된 키트 스냅샷만 사용합니다. 전체 모드
-(`--runtime-release <directory> --require-runtime`)는 경로와 DNS 없이 이미지 6개를 준비하고
-지원 배포판을 설치하며, 기본 모드는 도구 전용입니다. 새 훈련과 재개 모두 sentinel 소유
-디렉터리와 서술자 guard를 사용합니다.
+합성 air-gap 훈련은 Azure CLI 구성을 격리하고 인증된 키트 스냅샷만 사용합니다. 전체 모드(`--runtime-release <directory> --require-runtime`)는 경로와 DNS 없이 이미지 6개와 지원 배포판을 준비하며, 기본 모드는 도구 전용입니다.
+변경 가능한 shell 상태가 아닌 서명된 매니페스트 구성원 여부에 따라 설치된 도구가 `runtime/release.json`을 읽기 전에 검증된 전체 자료를 구체화합니다. 도구 전용 모드는 더 작은 실행 입력 스냅샷을 유지합니다.
+새 훈련과 재개 모두 sentinel 소유 디렉터리와 서술자 guard를 사용합니다. 검증은 비공개 사용자, mount, network namespace에서 실행하며 보호된 작업 디렉터리를 namespace 로컬 최상위 경로에 bind-mount합니다.
+따라서 사용자 namespace에서 매핑되지 않은 host root 상위 경로가 CLI의 root 또는 현재 UID 소유권 검사를 약화하거나 잘못 실패하게 하지 않습니다.
 또한 설치된 배포판을 호출하기 전에 Python 가져오기 재정의를 제거해 체크아웃 소스가 제공
 wheel을 가리지 못하게 합니다. 매니페스트, 신뢰 키, SBOM 읽기는 소스 및 설치된 wheel 검증
 모두에서 크기가 제한된 비차단 일반 파일 reader를 사용합니다.
