@@ -1,7 +1,7 @@
 id: fdai-ontology-context-rag-01
 version: 1
 kind: flowchart
-updated: 2026-08-20
+updated: 2026-09-09
 formats:
   - svg
 locales:
@@ -15,9 +15,9 @@ locales:
   ko:
     title: FDAI가 온톨로지 데이터를 참조하는 방식
     description: FDAI가 온톨로지 데이터를 참조하는 방식에 대한 FDAI 흐름입니다.
-    alt: FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Catalog declarations in Git, Schema and reference validation, Approved inventory
-      and operating model, Instance projection, PostgreSQL objects and links, Event with resource ID and cutoff, Bounded
-      context materializer, OperationalContextSnapshot, Forseti decision, Auto, human approval, hold, or deny입니다.
+    alt: FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Git의 카탈로그 선언, 스키마 및 참조 검증, 승인된 인벤토리 및 운영 모델, 인스턴스 프로젝션,
+      PostgreSQL 객체 및 링크, 리소스 ID와 기준 시각이 포함된 이벤트, 범위가 제한된 컨텍스트 Materializer, OperationalContextSnapshot, Forseti 결정,
+      자동, 사람 승인, 보류 또는 거부입니다.
 canvas:
   width: 1500
   height: 900
@@ -27,63 +27,73 @@ nodes:
   - id: s
     kind: process
     shape: card
+    tone: input
     label:
       en: Catalog declarations in Git
-      ko: Catalog declarations in Git
+      ko: Git의 카탈로그 선언
   - id: v
     kind: process
     shape: card
+    tone: interpretation
     label:
       en: Schema and reference validation
-      ko: Schema and reference validation
+      ko: 스키마 및 참조 검증
   - id: i
     kind: process
     shape: card
+    tone: input
     label:
       en: Approved inventory and operating model
-      ko: Approved inventory and operating model
+      ko: 승인된 인벤토리 및 운영 모델
   - id: p
     kind: process
     shape: card
+    tone: interpretation
     label:
       en: Instance projection
-      ko: Instance projection
+      ko: 인스턴스 프로젝션
   - id: g
     kind: store
     shape: database
+    tone: store
     label:
       en: PostgreSQL objects and links
-      ko: PostgreSQL objects and links
+      ko: PostgreSQL 객체 및 링크
   - id: e
     kind: process
     shape: card
+    tone: input
     label:
       en: Event with resource ID and cutoff
-      ko: Event with resource ID and cutoff
+      ko: 리소스 ID와 기준 시각이 포함된 이벤트
   - id: m
     kind: process
     shape: card
+    tone: execution
     label:
       en: Bounded context materializer
-      ko: Bounded context materializer
+      ko: 범위가 제한된 컨텍스트 Materializer
   - id: c
     kind: process
     shape: card
+    tone: interpretation
     label:
       en: OperationalContextSnapshot
       ko: OperationalContextSnapshot
   - id: f
     kind: process
     shape: card
+    tone: decision
     label:
       en: Forseti decision
-      ko: Forseti decision
+      ko: Forseti 결정
   - id: d
     kind: process
     shape: card
+    tone: policy
     label:
       en: Auto, human approval, hold, or deny
-      ko: Auto, human approval, hold, or deny
+      ko: 자동, 사람 승인, 보류 또는 거부
 edges:
   - id: flow-01
     from: s

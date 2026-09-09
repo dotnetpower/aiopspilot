@@ -47,7 +47,9 @@ conflicts
 autonomy_ceiling
 ```
 
-The current decision path follows these steps:
+Before any single decision runs, the diagram's earlier stages populate that store: catalog
+declarations validate in Git, and approved inventory and operating-model records project into
+PostgreSQL. The current decision path then follows these steps:
 
 1. **Resolve the target:** An event provides the stable resource identity and decision cutoff.
 2. **Traverse a bounded neighborhood:** The materializer follows an allowlist of service, workload, objective, dependency, and ownership links with a maximum depth.
@@ -55,7 +57,7 @@ The current decision path follows these steps:
 4. **Apply the safety consequence:** Missing, stale, or conflicting context can move an automatic decision to human approval or hold. Ontology context cannot grant authority beyond existing policy and action ceilings.
 5. **Preserve replay evidence:** The decision carries a snapshot identity and evidence references instead of an uncontrolled graph dump.
 
-Other read paths use projections suited to their purpose. Reports can traverse a bounded process graph and apply role-based field filtering. The console's `GET /ontology/graph` view exposes catalog declarations and aggregate operating-model status, not deployment instance properties.
+Other read paths use projections suited to their purpose. Reports can traverse a bounded process graph and apply role-based field filtering. The console's `GET /ontology/graph` view exposes a deterministic, declaration-only projection: `ObjectType` and `LinkType` nodes and edges, `ActionType` safety contracts, a Mermaid rendering, and catalog counts, together with the ontology release digest. It carries no `mutation_authority` and no aggregate runtime instance or deployment instance properties.
 
 ## How RAG fits beside the ontology
 

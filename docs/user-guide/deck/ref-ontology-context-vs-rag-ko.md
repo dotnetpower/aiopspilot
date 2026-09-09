@@ -1,8 +1,8 @@
 ---
 title: "덱 참고 자료: 온톨로지 컨텍스트, RAG, OWL/RDF"
 translation_of: ref-ontology-context-vs-rag.md
-translation_source_sha: 77b18aa6df6d2e2b1f7a9d6f49863030993f6061
-translation_revised: 2026-08-20
+translation_source_sha: ba316f9ad859d3c9809694e84c453727684d96a4
+translation_revised: 2026-09-09
 ---
 
 # 덱 참고 자료: 온톨로지 컨텍스트, RAG, OWL/RDF
@@ -33,7 +33,7 @@ RAG와 온톨로지 컨텍스트는 서로 다른 검색 문제를 해결합니�
 
 FDAI는 전체 런타임 그래프를 모든 에이전트에 전달하거나 필터 없이 모델 프롬프트에 넣지 않습니다. 결정 경로는 대상 리소스를 확인하고 허용 목록에 있는 이웃 관계를 순회한 뒤, 결과를 범위가 제한된 운영 컨텍스트로 접습니다.
 
-![FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Catalog declarations in Git, Schema and reference validation, Approved inventory and operating model, Instance projection, PostgreSQL objects and links, Event with resource ID and cutoff, Bounded context materializer, OperationalContextSnapshot, Forseti decision, Auto, human approval, hold, or deny입니다.](../../diagrams/generated/fdai-ontology-context-rag-01.ko.svg)
+![FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Git의 카탈로그 선언, 스키마 및 참조 검증, 승인된 인벤토리 및 운영 모델, 인스턴스 프로젝션, PostgreSQL 객체 및 링크, 리소스 ID와 기준 시각이 포함된 이벤트, 범위가 제한된 컨텍스트 Materializer, OperationalContextSnapshot, Forseti 결정, 자동, 사람 승인, 보류 또는 거부입니다.](../../diagrams/generated/fdai-ontology-context-rag-01.ko.svg)
 
 구체화된 결정 컨텍스트에는 다음과 같은 안정적인 참조와 안전 상태가 포함됩니다.
 
@@ -50,7 +50,9 @@ conflicts
 autonomy_ceiling
 ```
 
-현재 결정 경로는 다음 단계를 따릅니다.
+단일 결정이 실행되기 전에 다이어그램의 이전 단계가 이 저장소를 채웁니다. 카탈로그 선언은
+Git에서 검증되고, 승인된 인벤토리와 운영 모델 레코드는 PostgreSQL 인스턴스 테이블로
+프로젝션됩니다. 현재 결정 경로는 이후 다음 단계를 따릅니다.
 
 1. **대상 확인:** 이벤트가 안정적인 리소스 ID와 결정 기준 시각을 제공합니다.
 2. **범위가 제한된 이웃 순회:** Materializer가 최대 깊이를 지키면서 서비스, 워크로드, 목표, 의존성, 담당 체계 링크의 허용 목록을 따릅니다.
@@ -58,13 +60,13 @@ autonomy_ceiling
 4. **안전 결과 적용:** 컨텍스트가 누락되거나 오래됐거나 충돌하면 자동 결정을 사람 승인 또는 보류로 전환할 수 있습니다. 온톨로지 컨텍스트는 기존 정책 및 작업 상한보다 높은 권한을 부여할 수 없습니다.
 5. **재현 근거 보존:** 결정에는 통제되지 않은 전체 그래프 대신 스냅샷 ID와 근거 참조가 포함됩니다.
 
-다른 읽기 경로는 목적에 맞는 변환 결과를 사용합니다. 보고서는 범위가 제한된 프로세스 그래프를 순회하고 역할 기반 필드 필터링을 적용할 수 있습니다. 콘솔의 `GET /ontology/graph` 화면은 배포 인스턴스 속성이 아니라 카탈로그 선언과 집계된 운영 모델 상태를 제공합니다.
+다른 읽기 경로는 목적에 맞는 변환 결과를 사용합니다. 보고서는 범위가 제한된 프로세스 그래프를 순회하고 역할 기반 필드 필터링을 적용할 수 있습니다. 콘솔의 `GET /ontology/graph` 화면은 결정론적인 선언 전용 변환 결과를 제공합니다. `ObjectType`과 `LinkType` 노드 및 간선, `ActionType` 안전 계약, Mermaid 렌더링, 카탈로그 개수와 함께 온톨로지 릴리스 다이제스트를 반환합니다. 이 화면은 `mutation_authority`를 가지지 않으며 집계된 런타임 인스턴스 개수나 배포 인스턴스 속성도 노출하지 않습니다.
 
 ## 온톨로지와 함께 사용하는 RAG
 
 FDAI는 승인된 문서, 과거 사례, 코드 참조 또는 근거 기반 추론에 검색을 사용하면서 온톨로지를 형식화된 의미 및 안전 계층으로 유지할 수 있습니다.
 
-![온톨로지와 함께 사용하는 RAG. 주요 단계는 Decision or question, Ontology context, RAG evidence, Typed constraints and authority, Relevant excerpts and citations, Grounded decision or explanation입니다.](../../diagrams/generated/fdai-ontology-context-rag-02.ko.svg)
+![온톨로지와 함께 사용하는 RAG. 주요 단계는 결정 또는 질문, 온톨로지 컨텍스트, RAG 근거, 형식화된 제약과 권한, 관련 발췌문과 인용, 근거 기반 결정 또는 설명입니다.](../../diagrams/generated/fdai-ontology-context-rag-02.ko.svg)
 
 - **온톨로지의 역할:** 리소스, 서비스, 목표, 담당자, 제약, 작업의 의미와 허용되는 관계를 정의합니다.
 - **RAG의 역할:** 가설을 설명하거나 지지하거나 반박할 수 있는 비정형 근거를 찾습니다.

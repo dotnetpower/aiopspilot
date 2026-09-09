@@ -1,7 +1,7 @@
 id: fdai-ontology-context-rag-02
 version: 1
 kind: flowchart
-updated: 2026-08-20
+updated: 2026-09-09
 formats:
   - svg
 locales:
@@ -13,8 +13,8 @@ locales:
   ko:
     title: 온톨로지와 함께 사용하는 RAG
     description: 온톨로지와 함께 사용하는 RAG에 대한 FDAI 흐름입니다.
-    alt: 온톨로지와 함께 사용하는 RAG. 주요 단계는 Decision or question, Ontology context, RAG evidence, Typed constraints and authority,
-      Relevant excerpts and citations, Grounded decision or explanation입니다.
+    alt: 온톨로지와 함께 사용하는 RAG. 주요 단계는 결정 또는 질문, 온톨로지 컨텍스트, RAG 근거, 형식화된 제약과 권한, 관련 발췌문과 인용, 근거 기반
+      결정 또는 설명입니다.
 canvas:
   width: 900
   height: 540
@@ -24,39 +24,45 @@ nodes:
   - id: q
     kind: process
     shape: card
+    tone: decision
     label:
       en: Decision or question
-      ko: Decision or question
+      ko: 결정 또는 질문
   - id: o
     kind: process
     shape: card
+    tone: model
     label:
       en: Ontology context
-      ko: Ontology context
+      ko: 온톨로지 컨텍스트
   - id: r
     kind: process
     shape: card
+    tone: input
     label:
       en: RAG evidence
-      ko: RAG evidence
+      ko: RAG 근거
   - id: j
     kind: process
     shape: card
+    tone: policy
     label:
       en: Typed constraints and authority
-      ko: Typed constraints and authority
+      ko: 형식화된 제약과 권한
   - id: k
     kind: process
     shape: card
+    tone: interpretation
     label:
       en: Relevant excerpts and citations
-      ko: Relevant excerpts and citations
+      ko: 관련 발췌문과 인용
   - id: x
     kind: process
     shape: card
+    tone: execution
     label:
       en: Grounded decision or explanation
-      ko: Grounded decision or explanation
+      ko: 근거 기반 결정 또는 설명
 edges:
   - id: flow-01
     from: q
