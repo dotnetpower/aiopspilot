@@ -363,12 +363,47 @@ def _identity_gate(proposal: OntologyChangeProposal, context: VerificationContex
         )
         if declaration is None:
             return _receipt("identity", GateOutcome.DENY, ["link_declaration_missing"])
-        if entities.get(proposal.from_identity or "") != declaration.from_type:
-            reasons.append("from_identity_type_mismatch")
-        if entities.get(proposal.to_identity or "") != declaration.to_type:
-            reasons.append("to_identity_type_mismatch")
-        if reasons:
-            outcome = GateOutcome.DENY
+        if proposal.from_resolution is not None and proposal.to_resolution is not None:
+            endpoint_resolutions = (
+                (
+                    proposal.from_identity or "",
+                    proposal.from_resolution,
+                    declaration.from_type,
+                    "from_identity_type_mismatch",
+                ),
+                (
+                    proposal.to_identity or "",
+                    proposal.to_resolution,
+                    declaration.to_type,
+                    "to_identity_type_mismatch",
+                ),
+            )
+            for identity, resolution, expected_type, mismatch_reason in endpoint_resolutions:
+                if resolution.selected_identity is None:
+                    reasons.append(
+                        "ambiguous_alias"
+                        if resolution.candidates
+                        else "existing_endpoint_not_found"
+                    )
+                    if outcome is GateOutcome.PASS:
+                        outcome = GateOutcome.REVIEW
+                elif resolution.selected_identity != identity:
+                    reasons.append("resolution_target_mismatch")
+                    outcome = GateOutcome.DENY
+                elif entities.get(identity) != expected_type:
+                    reasons.append(mismatch_reason)
+                    outcome = GateOutcome.DENY
+                elif resolution.method not in {"exact", "alias"}:
+                    reasons.append("identity_resolution_unverified")
+                    if outcome is GateOutcome.PASS:
+                        outcome = GateOutcome.REVIEW
+        else:
+            if entities.get(proposal.from_identity or "") != declaration.from_type:
+                reasons.append("from_identity_type_mismatch")
+            if entities.get(proposal.to_identity or "") != declaration.to_type:
+                reasons.append("to_identity_type_mismatch")
+            if reasons:
+                outcome = GateOutcome.DENY
     return _receipt("identity", outcome, reasons)
 
 
@@ -428,7 +463,11 @@ def _conflict_gate(
             ["authoritative_conflict"],
             evidence_refs=tuple(sorted(fact.evidence_ref for fact in conflicts)),
         )
-    return _receipt("conflict", GateOutcome.PASS, evidence_refs=("lower_priority_conflict",))
+    return _receipt(
+        "conflict",
+        GateOutcome.PASS,
+        evidence_refs=tuple(sorted(fact.evidence_ref for fact in conflicts)),
+    )
 
 
 def _external_truth_gate(

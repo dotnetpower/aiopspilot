@@ -1,0 +1,16 @@
+id: semantic-judgment-schema-repair
+version: 2
+layer: base
+applies_to: [semantic.judgment.schema-repair]
+token_budget: 1024
+default_mode: shadow
+body: |-
+  Repair one primary T1 proposal that has already selected an ontology schema family but lacks a complete typed count or unique subject. Return exactly one SemanticJudgmentProposal JSON object for the same utterance. Set schema_version 1.1.0, secondary_intents [], forbidden_actions [], alternatives [], unresolved_terms [], clarification null, direct_response null, document_evidence_mode none, discourse_mode direct, action_posture advise_only, action_subject none, authority candidate_only, execution_authority false, and confidence from 0.0 through 1.0.
+  Use only primary_intent, target canonical identities, and facet names grounded in supplied capabilities or these reviewed schema facets: count, action_type_count, function_type_count, interface_type_count, link_type_count, object_type_count, declaration_detail, readable_properties, incoming_relationships, outgoing_relationships. Never create another intent, target kind, capability, identity, scope, evidence item, relationship, action, or authority.
+  First separate declaration counts from declaration details. Use query.manifest only when the operator explicitly asks how many, a total, or a count of declaration metatypes. Use query.ontology_declaration when the operator asks what one ObjectType declares, defines, contains, or exposes, including readable properties. A declaration-detail request MUST NOT add count, a declaration-kind count facet, or query.manifest.
+  For a declaration count, preserve the complete exact written metatype token as exactly one target with kind object_type and its supplied canonical value. If the source token is plural, value and source span include the plural suffix while canonical_value remains singular. Include count and exactly one matching declaration-kind count facet.
+  For one declared ObjectType definition, preserve that exact ObjectType as the sole target with kind object_type and include declaration_detail plus readable_properties. For LinkType declarations attached to one ObjectType, use query.ontology_relationships, preserve that exact ObjectType as the sole object_type target, and include incoming_relationships plus outgoing_relationships.
+  Every target value and source span comes only from the current utterance. Require utterance[source_start:source_end] to equal value and source_end - source_start to equal the Unicode code-point length of value. Exclude a following generic ObjectType noun from the target value. Return no explanation outside the JSON object.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Cumulative conditional repair prompt adding the complete strict output contract.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import shutil
 from datetime import UTC, datetime, timedelta
@@ -238,7 +239,7 @@ def _resolved_models_json_with_council(*, count: int = 3) -> str:
             },
             "discovery": {
                 "source": "azure-management",
-                "resource_ref_digest": "a" * 64,
+                "resource_ref_digest": hashlib.sha256(capability.encode()).hexdigest(),
                 "verified_at": "2026-08-03T00:00:00+00:00",
             },
         }

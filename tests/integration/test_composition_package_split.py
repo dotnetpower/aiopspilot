@@ -87,6 +87,8 @@ _EXPECTED_FILES = frozenset(
         "wire_t1_routing.py",
         # Binds the no-authority T1/T2 semantic judgment factory.
         "wire_semantic_judgment.py",
+        # Builds semantic judgment model adapters without widening binder ownership.
+        "semantic_judgment_model_binding.py",
         # Resolves the separate T1 and T2 planning request targets so the
         # semantic wire keeps one binding responsibility.
         "semantic_query_model_targets.py",
@@ -239,6 +241,7 @@ _LOC_LIMITS = {
     "_helpers.py": 400,
     "resolved_models.py": 100,
     "resolved_models_revision.py": 100,
+    "semantic_judgment_model_binding.py": 100,
     "wire_azure.py": 400,
     "wire_llm.py": 800,  # holds the ~308-LOC bind_azure_llm_bindings body
     "wire_semantic_query.py": 800,

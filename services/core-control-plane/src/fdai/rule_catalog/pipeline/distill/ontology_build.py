@@ -142,6 +142,8 @@ def _build_one(
     properties = _properties(body.get("properties"))
     from_identity = None
     to_identity = None
+    from_resolution = None
+    to_resolution = None
     if target_kind is OntologyTargetKind.LINK:
         from_identity = _require_string(body, "from_identity")
         to_identity = _require_string(body, "to_identity")
@@ -156,6 +158,43 @@ def _build_one(
             entities=verification_context.entities,
             aliases=verification_context.aliases,
         )
+    elif target_kind is OntologyTargetKind.LINK and verification_context is not None:
+        declaration = next(
+            (item for item in verification_context.links if item.name == target_type),
+            None,
+        )
+        if declaration is None:
+            entity_resolution = EntityResolution(
+                selected_identity=supplied_target_identity,
+                candidates=(supplied_target_identity,),
+                method="unverified",
+            )
+        else:
+            if from_identity is None or to_identity is None:
+                raise ValueError("link candidate MUST provide both endpoint identities")
+            if supplied_target_identity != from_identity:
+                raise ValueError("link target_identity MUST equal from_identity")
+            from_resolution = resolve_entity_identity(
+                EntityResolutionRequest(
+                    supplied_identity=from_identity,
+                    target_type=declaration.from_type,
+                    operation=operation,
+                ),
+                entities=verification_context.entities,
+                aliases=verification_context.aliases,
+            )
+            to_resolution = resolve_entity_identity(
+                EntityResolutionRequest(
+                    supplied_identity=to_identity,
+                    target_type=declaration.to_type,
+                    operation=operation,
+                ),
+                entities=verification_context.entities,
+                aliases=verification_context.aliases,
+            )
+            entity_resolution = from_resolution
+            from_identity = from_resolution.selected_identity or from_identity
+            to_identity = to_resolution.selected_identity or to_identity
     else:
         entity_resolution = EntityResolution(
             selected_identity=supplied_target_identity,
@@ -164,7 +203,7 @@ def _build_one(
         )
     target_identity = entity_resolution.selected_identity or supplied_target_identity
 
-    proposal_material = {
+    proposal_material: dict[str, object] = {
         "source_ref": claim.evidence.source_ref,
         "content_sha256": claim.evidence.content_sha256,
         "claim_id": claim.claim_id,
@@ -184,6 +223,17 @@ def _build_one(
             "method": entity_resolution.method,
         },
     }
+    if from_resolution is not None and to_resolution is not None:
+        proposal_material["from_resolution"] = {
+            "selected_identity": from_resolution.selected_identity,
+            "candidates": list(from_resolution.candidates),
+            "method": from_resolution.method,
+        }
+        proposal_material["to_resolution"] = {
+            "selected_identity": to_resolution.selected_identity,
+            "candidates": list(to_resolution.candidates),
+            "method": to_resolution.method,
+        }
     proposal_id = "odp-" + stable_digest(proposal_material)
     return OntologyChangeProposal(
         proposal_id=proposal_id,
@@ -202,6 +252,8 @@ def _build_one(
         properties=properties,
         from_identity=from_identity,
         to_identity=to_identity,
+        from_resolution=from_resolution,
+        to_resolution=to_resolution,
     )
 
 

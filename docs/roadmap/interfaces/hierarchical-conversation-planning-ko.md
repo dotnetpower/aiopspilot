@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 66e26ddec22343508cbc1f300d8670f73dd223ef
+translation_source_sha: 76606a320f5696c2a53ea14a83ac5d74b20ef56e
 translation_revised: 2026-09-09
 ---
 
@@ -26,6 +26,13 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 거부, 근거 실행 보류에도 T2 용량을 사용하지 않습니다. Golden 캠페인 요청은 별도의
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
+
+Schema repair는 전역 prompt 교체나 T2 escalation이 아닌 별도의 bounded T1 binding입니다. Primary
+T1 제안이 제공된 온톨로지 스키마 intent를 선택했지만 결정론적 frame에 필요한 typed count 또는
+고유 subject가 없을 때만 Core가 최대 한 번 호출합니다. Repair는 읽기 전용을 유지하고 스키마
+family를 보존하며 같은 capability/span 검증을 통과하고 귀속 가능한 model observation 하나를
+추가해야 합니다. 유효하지 않거나 사용할 수 없는 repair는 primary의 fail-closed outcome을
+유지합니다. Utterance phrase나 keyword로 이 binding을 선택하지 않습니다.
 
 Owner는 런타임 정책에서 적극적인 읽기 전용 T2 복구를 활성화할 수 있습니다. 로컬 시연을 위해 개발
 환경에서는 기본적으로 활성화하고, 측정된 보증 근거로 승격하기 전까지 스테이징과 운영 환경에서는
@@ -176,7 +183,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
 | Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v8.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 프롬프트 계약 검사 및 인증된 영어/한국어 비교 턴 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 지식, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 맥락과 독립적인 일반 지식은 one-shot 답변 경로를 선택하고 현재 환경 질문은 검증된 경로나 Adaptive 근거 경로를 유지합니다. 대상이 없는 구독 신원, Service Health 및 최근 Resource 상태 변경 조회를 포함한 검토된 운영 형식은 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. |
-| Semantic frame, 검증된 계획 및 intent graph | implemented | `semantic_judgment.py`, `semantic_judgment_grounding.py`, `semantic-judgment.v17.yaml`, `semantic-query-frame.v41.yaml`, 집중 의미 및 Azure/인시던트 재생 검사 | 전체 턴 제안은 범위가 제한되고 권한 없이 유지됩니다. shadow v17은 v16의 span 및 스키마 grounding을 유지하고 collection-wide Resource Health history와 요청된 action advice를 보존합니다. 승격 근거가 확보될 때까지 v8은 활성 상태를 유지합니다. |
+| Semantic frame, 검증된 계획 및 intent graph | implemented | `semantic_judgment.py`, `semantic_judgment_grounding.py`, `semantic-judgment-schema-repair.v1.yaml`, `semantic-query-frame.v41.yaml`, 집중 의미, composition 및 Azure/인시던트 재생 검사 | 전체 턴 제안은 범위가 제한되고 권한 없이 유지됩니다. Active v8이 항상 먼저 실행됩니다. 별도 schema-repair T1 호출은 불완전한 typed schema family에만 사용할 수 있고 전역 schema-only profile은 shadow로 유지합니다. |
 | Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
 | Principal 범위 관리 문서 RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), 집중 계약, ACL, runtime 및 projection 검사 | 의미 판단은 문서 근거를 `none`, `optional`, `required`, `explicit` 중 하나로 선택합니다. 검색은 인증된 principal의 정확한 그룹, 컬렉션, 개정, 수명 주기, 목적, 접근 정책을 먼저 제한하고 다시 검증합니다. 필수 근거는 안전하게 종료하고, 독립적인 선택 문서 실패는 완료된 운영 근거가 있을 때만 한계를 표시한 부분 답변을 허용합니다. 현재 PostgreSQL 어댑터는 `index_completeness_unverified`를 보고하므로 완전한 프로바이더 세대를 연결하기 전까지 운영 환경의 필수 및 명시적 턴은 보류됩니다. 문서 텍스트는 신뢰할 수 없으며 지시 또는 실행 권한이 없습니다. |
@@ -194,6 +201,13 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | validated | Conditional schema-repair prompt v2가 서로 다른 스키마 cohort 5개에서 50/50을 통과했으며 non-schema turn은 primary model만 사용했습니다. | 로컬 live schema 및 legacy artifact, 집중 boundary 및 운영 wiring 테스트 | 전역 primary profile은 바꾸지 않고 provider/model 변동을 schema repair와 분리해 조사합니다. |
+| 2026-09-10 | implemented | Active primary가 불완전한 typed schema family를 선택한 뒤에만 schema-repair T1 binding 하나를 조건부로 추가했습니다. 유효하지 않은 repair는 primary fail-closed 제안을 유지하고 non-schema turn은 호출하지 않습니다. | `current change`, boundary fallback, no-call, wiring, prompt-profile, Ruff 및 mypy 검사 | 새로운 스키마 답변을 end-to-end로 검증하고 non-schema model call 수가 바뀌지 않았는지 확인합니다. |
+| 2026-09-10 | validated | Clean local treatment snapshot에서 schema-only v2와 typed target grounding이 서로 다른 10-case 스키마 cohort 5개를 각각 100%로 통과했습니다. | 로컬 exact-source live artifact 5개, primary, target, facet, posture 및 ambiguity 계약 50/50 통과 | 승격하지 않습니다. 안전 오탐과 만들어 낸 신원은 0이지만 기존 16-case cohort가 primary 75%, exact target 43.75%, secondary recall 0%, clarification precision 50%로 회귀했습니다. |
+| 2026-09-10 | validated | 서로 다른 schema-only v2 cohort 5개를 실행했습니다. 3개는 10/10을 통과했고 2개는 모델이 올바른 표준 subject target에 일반 `ObjectType` 또는 `LinkType` 문구를 함께 유지하여 9/10이었습니다. | 로컬 exact-source live artifact, round 점수 100%, 100%, 100%, 90%, 90%, 안전한 authority 및 posture 유지 | V2를 shadow로 유지하고 clean committed snapshot에서 typed 메타타입 정규화를 검증합니다. |
+| 2026-09-10 | implemented | V1의 서로 다른 10-case cohort 5개에서 복수 metatype span 손실과 declaration-detail 요청의 count 오분류를 확인한 뒤 schema-only shadow v2를 추가했습니다. | `current change`, 서로 다른 v1 cohort 5개 및 집중 prompt 테스트 | 승격 전에 95% 이상인 서로 다른 v2 cohort 5회를 반복합니다. |
+| 2026-09-10 | implemented | Cumulative v17에서 관련 없는 cohort 변동이 나타난 뒤 active v8 위에 최소 schema-only shadow profile을 추가했습니다. | `current change`, prompt registry 및 명시적 composition 테스트 | 승격 전에 95% 이상인 스키마 cohort 5회 연속과 변경되지 않은 기존 안전 지표를 요구합니다. |
+| 2026-09-10 | implemented | Semantic-judgment 기능 경계에서 범위가 제한된 온톨로지 count alias를 제공된 `query.manifest` intent와 선언 kind facet 하나로 정규화했습니다. | `current change`, 집중 alias, 누락 기능, 충돌 및 planning 회귀 | 새로운 count 질문을 active end-to-end 경로에서 다시 실행합니다. |
 | 2026-09-10 | implemented | Typed count facet에 이미 인코딩된 단일 선언 kind와 완전한 collection-scoped 신원 모호성에 결정론적 정규화를 추가했습니다. | `current change`, 집중 semantic judgment 및 tier-routing 회귀 | Active profile 스키마 질문을 전체 frame-plan-answer 경로에서 다시 실행합니다. |
 | 2026-09-10 | implemented | v16이 collection-wide history 조회에 정확한 Resource를 요구하고 독립적으로 요청한 action advice를 금지 작업으로 처리한 뒤 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, 집중 prompt 검사 및 범위가 제한된 live 진단 | 승격 전에 두 exact-source cohort 통과를 요구합니다. |
 | 2026-09-10 | implemented | 첫 v15 기존 cohort에서 Unicode 종료 offset 오류 1건과 일반 forbidden operation kind 불일치 1건을 확인한 뒤 cumulative shadow semantic-judgment v16을 추가했습니다. | `current change`, 집중 prompt registry 테스트 및 범위가 제한된 2-case live 진단 | 승격 전에 clean-source 16-case 및 스키마 cohort 통과를 요구합니다. |

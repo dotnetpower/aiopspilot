@@ -115,10 +115,10 @@ sets mode `0700` through the newly opened directory descriptor before materializ
 artifacts.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
-The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter target
-evidence and uses only the authenticated kit snapshot. Complete mode (`--runtime-release <directory>
---require-runtime`) prepares six images and installs support without route or DNS; the default remains
-toolchain-only. Fresh and resumed drills use sentinel-owned directories and descriptor guards.
+The synthetic air-gap drill isolates Azure CLI configuration and uses only the authenticated kit snapshot. Complete mode (`--runtime-release <directory> --require-runtime`) prepares six images and installs support without route or DNS; the default remains toolchain-only.
+Signed manifest membership, not mutable shell state, selects complete verified materialization before installed tooling reads `runtime/release.json`; toolchain-only mode retains the smaller executable-input snapshot.
+Fresh and resumed drills use sentinel-owned directories and descriptor guards. Verification runs in private user, mount, and network namespaces and bind-mounts the guarded work directory at a namespace-local top-level path.
+Host-root ancestors that become unmapped in the user namespace therefore cannot weaken or falsely fail the CLI's root-or-current-UID ownership checks.
 It also clears Python import overrides before invoking the installed distribution, so checkout
 source cannot shadow a shipped wheel. Manifest, trust-key, and SBOM reads use bounded nonblocking
 regular-file readers in both source and installed-wheel verification.

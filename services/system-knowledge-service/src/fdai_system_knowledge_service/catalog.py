@@ -18,17 +18,24 @@ from fdai_service_contracts.system_knowledge import (
 from fdai_system_knowledge_service.seeds import REFERENCE_SEEDS, KnowledgeSeed, SeedSource
 
 _GIT = shutil.which("git")
+DEFAULT_PROTECTED_MAIN_REF = "refs/remotes/origin/main"
 
 
 def compile_reference_catalog(
     repo_root: Path,
     *,
     generated_at: datetime | None = None,
+    source_revision: str | None = None,
+    protected_main_ref: str = DEFAULT_PROTECTED_MAIN_REF,
 ) -> SystemKnowledgeCatalog:
-    """Compile reviewed records against the current repository source coordinates."""
+    """Compile current reviewed records against a protected-main lineage anchor."""
 
     root = repo_root.resolve()
-    source_revision = _git_output(root, "rev-parse", "HEAD")
+    resolved_source_revision = (
+        resolve_protected_main_revision(root, protected_main_ref=protected_main_ref)
+        if source_revision is None
+        else _resolve_ancestor_revision(root, source_revision)
+    )
     records = tuple(
         sorted(
             (_compile_seed(root, seed) for seed in REFERENCE_SEEDS),
@@ -37,7 +44,7 @@ def compile_reference_catalog(
     )
     body = {
         "schema_version": "1.0.0",
-        "source_revision": source_revision,
+        "source_revision": resolved_source_revision,
         "generated_at": generated_at or datetime.now(UTC),
         "records": records,
         "execution_authority": False,
@@ -48,6 +55,22 @@ def compile_reference_catalog(
             "catalog_digest": system_knowledge_digest(body),
         }
     )
+
+
+def resolve_protected_main_revision(
+    repo_root: Path,
+    *,
+    protected_main_ref: str = DEFAULT_PROTECTED_MAIN_REF,
+) -> str:
+    """Resolve the checkout's merge-base with protected main."""
+    root = repo_root.resolve()
+    revision = _git_output(
+        root,
+        "merge-base",
+        "HEAD",
+        protected_main_ref,
+    )
+    return revision
 
 
 def load_catalog(
@@ -178,10 +201,36 @@ def _git_output(root: Path, *arguments: str) -> str:
     return value
 
 
+def _resolve_ancestor_revision(root: Path, revision: str) -> str:
+    resolved = _git_output(root, "rev-parse", "--verify", f"{revision}^{{commit}}")
+    if not _is_ancestor(root, resolved, "HEAD"):
+        raise ValueError("system knowledge source revision MUST be an ancestor of HEAD")
+    return resolved
+
+
+def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    git = _require_git()
+    return (
+        subprocess.run(  # noqa: S603 - fixed Git executable and compiler-owned refs
+            [git, "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=root,
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
 def _require_git() -> str:
     if _GIT is None:
         raise RuntimeError("git is required to compile the system knowledge catalog")
     return _GIT
 
 
-__all__ = ["compile_reference_catalog", "load_catalog", "write_catalog"]
+__all__ = [
+    "DEFAULT_PROTECTED_MAIN_REF",
+    "compile_reference_catalog",
+    "load_catalog",
+    "resolve_protected_main_revision",
+    "write_catalog",
+]

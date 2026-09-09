@@ -218,6 +218,8 @@ class OntologyChangeProposal:
     properties: tuple[OntologyProperty, ...] = ()
     from_identity: str | None = None
     to_identity: str | None = None
+    from_resolution: EntityResolution | None = None
+    to_resolution: EntityResolution | None = None
 
     def __post_init__(self) -> None:
         _require_identifier(self.proposal_id, "proposal_id")
@@ -237,10 +239,33 @@ class OntologyChangeProposal:
         if self.target_kind is OntologyTargetKind.LINK:
             if self.from_identity is None or self.to_identity is None:
                 raise ValueError("link proposal MUST name from_identity and to_identity")
-            _require_identifier(self.from_identity, "from_identity")
-            _require_identifier(self.to_identity, "to_identity")
-        elif self.from_identity is not None or self.to_identity is not None:
-            raise ValueError("object proposal MUST NOT name link endpoints")
+            if (self.from_resolution is None) != (self.to_resolution is None):
+                raise ValueError("link endpoint resolutions MUST be provided together")
+            if self.from_resolution is None or self.to_resolution is None:
+                _require_identifier(self.from_identity, "from_identity")
+                _require_identifier(self.to_identity, "to_identity")
+            else:
+                _require_endpoint_resolution(
+                    self.from_identity,
+                    self.from_resolution,
+                    "from_identity",
+                )
+                _require_endpoint_resolution(
+                    self.to_identity,
+                    self.to_resolution,
+                    "to_identity",
+                )
+                if self.entity_resolution != self.from_resolution:
+                    raise ValueError(
+                        "link target entity resolution MUST match from endpoint resolution"
+                    )
+        elif (
+            self.from_identity is not None
+            or self.to_identity is not None
+            or self.from_resolution is not None
+            or self.to_resolution is not None
+        ):
+            raise ValueError("object proposal MUST NOT name link endpoints or resolutions")
 
     @property
     def digest(self) -> str:
@@ -313,7 +338,7 @@ def stable_digest(value: object) -> str:
 
 
 def _proposal_payload(proposal: OntologyChangeProposal) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "proposal_id": proposal.proposal_id,
         "extraction_run_id": proposal.extraction_run_id,
         "candidate_id": proposal.candidate_id,
@@ -349,6 +374,10 @@ def _proposal_payload(proposal: OntologyChangeProposal) -> dict[str, object]:
         "from_identity": proposal.from_identity,
         "to_identity": proposal.to_identity,
     }
+    if proposal.from_resolution is not None and proposal.to_resolution is not None:
+        payload["from_resolution"] = _resolution_payload(proposal.from_resolution)
+        payload["to_resolution"] = _resolution_payload(proposal.to_resolution)
+    return payload
 
 
 def _require_digest(value: str, field_name: str) -> None:
@@ -368,6 +397,27 @@ def _require_unresolved_reference(value: str, field_name: str) -> None:
         or any(ord(character) < 32 or ord(character) == 127 for character in value)
     ):
         raise ValueError(f"invalid unresolved {field_name}")
+
+
+def _require_endpoint_resolution(
+    identity: str,
+    resolution: EntityResolution,
+    field_name: str,
+) -> None:
+    if resolution.selected_identity is None:
+        _require_unresolved_reference(identity, field_name)
+    elif identity != resolution.selected_identity:
+        raise ValueError(f"{field_name} MUST match its selected endpoint identity")
+    else:
+        _require_identifier(identity, field_name)
+
+
+def _resolution_payload(resolution: EntityResolution) -> dict[str, object]:
+    return {
+        "selected_identity": resolution.selected_identity,
+        "candidates": list(resolution.candidates),
+        "method": resolution.method,
+    }
 
 
 __all__ = [

@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 0b672580172b582c96f99d319d50e8cd083fdd8e
-translation_revised: 2026-08-27
+translation_source_sha: b530f844fccdad6f8de0e0123905debf46f409e1
+translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
 
@@ -88,6 +88,15 @@ projected -> superseded | rolled_back
 점유를 참조하는 후보는 검증에 실패합니다. 결정론적 원장은 어떤 단어가 규칙, 절차, 관측 또는
 권한 등급을 의미하는지 추측하지 않고 완전성을 계산합니다.
 
+추출 결과에 후보가 없으면 검토 패키지는 점유가 0개라고 보고하지 않고 전체 문서를
+인벤토리에 기록합니다. 협의체 기반 결과는 인벤토리의 각 점유마다 내용이 없는 증적을 정확히
+하나씩 포함해야 하므로 지원되지 않음, 이견 있음, 미해결 점유가 `needs_review` 상태로
+계속 표시됩니다.
+
+점유 조정은 후보가 인벤토리에 기록된 문서의 정확한 내용 다이제스트도 고정한 경우에만 줄
+범위 커버리지를 허용합니다. 오래된 개정 번호의 후보는 소스 참조와 줄 번호가 계속 일치해도
+`needs_review` 상태로 남습니다.
+
 ## 권한 등급
 
 출처 권한이 조건을 충족한 제안 연산을 결정합니다.
@@ -124,6 +133,11 @@ Exact stable-id 일치는 우선 적용되며 자동으로 해석합니다. 구�
 갱신, remove 및 대체 연산에는 exact 또는 unique-alias 신원 하나가 필요합니다. Fuzzy
 matching은 신원을 자동 해석하지 않으며 향후 review-only 후보 발견으로 남습니다.
 해석 메서드와 후보는 내용 기반 주소를 가진 제안 신원에 포함됩니다.
+
+링크 제안에서는 출발 신원과 도착 신원을 선언된 끝점 유형에 맞춰 각각 해석합니다. canonical
+링크 `target_identity`는 해석된 출발 신원이므로 구성된 고유 별칭을 잘못된 식별자로 오인하지
+않습니다. 모호한 끝점 별칭은 정렬되고 범위가 제한된 후보 집합을 비활성 제안에 유지하며
+`review_required`로 보냅니다.
 
 ## 묶음 출처 이력 브리지
 
@@ -163,7 +177,8 @@ library 오류는 문서 내용을 포함하지 않도록 normalize합니다.
 
 고정된 synthetic 말뭉치는 같은 operational 점유를 Markdown, DOCX, PPTX, native 텍스트 PDF 및 scanned
 PDF로 표현합니다. Conformance는 source-format과 위치 지정자 필드만 다를 수 있도록 허용하고 정규화된
-점유, 제안 및 그래프 연산을 비교합니다. release에는 critical 점유 accounting 100%, 의미
+점유, 제안 및 그래프 연산을 비교합니다. 모든 형식의 링크 고정본은 해석된 정본 출발 신원을
+`target_identity`로 사용합니다. release에는 critical 점유 accounting 100%, 의미
 또는 인용 오류 0건, 정규화된 그래프 difference 0건, critical-claim 재현율과 개체/링크 정밀도
 각 0.98 이상 및 모든 format의 replay-stable 다이제스트가 필요합니다.
 
@@ -274,7 +289,8 @@ mixed-publisher quality 게이트를 충족하거나 완화하지 않습니다. 
 필요합니다. 각 엔드포인트 연결은 null이 아닌 exact 모델 버전, 배포, Entra authentication,
 경로, API style 및 검증된 resource-reference 다이제스트를 고정합니다. 이 다이제스트가 모델 신원의 fault
 도메인이 됩니다. 다이제스트가 같으면 계정 또는 게이트웨이 fault 도메인을 공유하므로 infrastructure risk가
-correlated되었음을 나타냅니다. Council 기록이 하나도 없으면 backward 호환성을 위해 기본
+correlated되었음을 나타냅니다. 세 fault 도메인이 모두 다르지 않으면 협의체 연결을 거부합니다.
+Council 기록이 하나도 없으면 backward 호환성을 위해 기본
 abstaining distiller를 유지합니다. 부분, `hil-only`, mismatched, unversioned, non-Entra 또는 그 밖의
 잘못된 council 구성은 온톨로지 추출을 사용 불가로 만들고 시작 연결을
 실패시킵니다. 실행 T2 풀을 빌려 쓰거나 기존 실행 quality 게이트를 degrade하지 않습니다.
@@ -346,6 +362,13 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 | 안전성 | 룰, 작업 흐름 및 액션이 완전한 안전성 계약을 충족함 | `denied` |
 | 커버리지 | 모든 점유에 처리 결과가 있고 critical 재현율이 release 게이트를 통과함 | `review_required` |
 
+출처 우선순위가 낮은 순위의 충돌을 해소해도 통과 증적은 덮어쓴 각 사실의 변경할 수 없는
+근거 참조를 유지합니다. 결정론적 우선순위는 감사 계보를 지우지 않습니다.
+
+링크의 두 끝점이 서로 다른 게이트 결과를 만들면 신원 게이트는 `denied`,
+`review_required`, 통과 순서로 가장 강한 결과를 유지합니다. 모호한 끝점은 다른 끝점의 유형
+불일치나 다른 거절을 낮출 수 없습니다.
+
 모델 self-reported 확신도는 권한 신호가 아닙니다. Computed 확신도는 grounding,
 독립적인 agreement, 신원 해석, 최신성 및 historical performance를 요약할 수 있지만
 충족 여부를 낮출 수만 있습니다. 정규화된 critical 필드에 대한 독립적인 모델 disagreement는
@@ -365,11 +388,13 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 - **Supersession:** Approved 의도는 historical 결정 맥락을 변경하지 않고 이전 effective
   간격을 교체합니다.
 - **Rollback:** 변환 결과 실패 또는 later 거절은 exact 이전 그래프 개정 번호를 복원하고 실패한
-  제안 다이제스트를 기록합니다.
+  제안 다이제스트를 기록합니다. 롤백 전환은 변환 결과가 시작될 때 기록한 이전 개정 번호만
+  허용하며 호출자가 다른 그래프 개정 번호로 바꿀 수 없습니다.
 
 변환 결과와 조정은 별개입니다. Declared 의도를 수락하면 통제된 의도 변환 결과를
 갱신할 수 있습니다. Provider-observed 구문은 fresh 외부 관측과 일치한 뒤에만 현재
-truth가 됩니다.
+truth가 됩니다. 수명 주기는 예상, 다음, 정확한 롤백 그래프 개정 번호를 고정하는 검증된
+`ProjectionPlan`을 통해서만 `projected` 상태로 전환할 수 있습니다.
 
 ## 에이전트 소유권
 

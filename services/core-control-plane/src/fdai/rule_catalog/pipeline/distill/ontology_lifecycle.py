@@ -160,14 +160,22 @@ def advance_lifecycle(
         raise ValueError("proposal lifecycle transition_ref MUST be non-empty")
     if target not in _TRANSITIONS.get(record.state, frozenset()):
         raise ValueError(f"invalid proposal lifecycle transition: {record.state} -> {target}")
+    if target is ProposalState.PROJECTED:
+        raise ValueError("projection MUST be recorded from a validated ProjectionPlan")
     if (
-        target not in {ProposalState.PROJECTED, ProposalState.ROLLED_BACK}
+        target is not ProposalState.ROLLED_BACK
         and graph_revision is not None
         and graph_revision != record.current_graph_revision
     ):
         raise ValueError("graph revision can change only during projection or rollback")
-    if target is not ProposalState.PROJECTED and rollback_graph_revision is not None:
-        raise ValueError("rollback graph revision can be set only during projection")
+    if target is ProposalState.ROLLED_BACK and (
+        record.rollback_graph_revision is None or graph_revision != record.rollback_graph_revision
+    ):
+        raise ValueError("rollback MUST restore the recorded prior graph revision")
+    if rollback_graph_revision is not None:
+        raise ValueError(
+            "rollback graph revision can be set only during projection from a ProjectionPlan"
+        )
     return ProposalLifecycleRecord(
         proposal_digest=record.proposal_digest,
         state=target,
@@ -208,16 +216,25 @@ def record_projection(
     lifecycle: ProposalLifecycleRecord,
     plan: ProjectionPlan,
 ) -> ProposalLifecycleRecord:
+    if lifecycle.state is not ProposalState.APPROVED:
+        raise ValueError("only an approved proposal can record a projection")
     if lifecycle.proposal_digest != plan.proposal_digest:
         raise ValueError("projection plan MUST match lifecycle proposal")
     if lifecycle.current_graph_revision != plan.expected_graph_revision:
         raise ValueError("projection plan expected graph revision is stale")
-    return advance_lifecycle(
-        lifecycle,
-        target=ProposalState.PROJECTED,
-        transition_ref=plan.transition_ref,
-        graph_revision=plan.next_graph_revision,
+    if plan.rollback_graph_revision != lifecycle.current_graph_revision:
+        raise ValueError("projection plan MUST preserve the exact rollback graph revision")
+    if not plan.next_graph_revision or plan.next_graph_revision == lifecycle.current_graph_revision:
+        raise ValueError("projection plan next graph revision MUST be new and non-empty")
+    if not plan.transition_ref:
+        raise ValueError("projection plan transition_ref MUST be non-empty")
+    return ProposalLifecycleRecord(
+        proposal_digest=lifecycle.proposal_digest,
+        state=ProposalState.PROJECTED,
+        revision=lifecycle.revision + 1,
+        current_graph_revision=plan.next_graph_revision,
         rollback_graph_revision=plan.rollback_graph_revision,
+        transition_refs=lifecycle.transition_refs + (plan.transition_ref,),
     )
 
 

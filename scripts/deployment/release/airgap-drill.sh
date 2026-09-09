@@ -123,7 +123,7 @@ else
   fi
 fi
 
-for tool in az curl git openssl unshare uv; do
+for tool in az curl git mount openssl unshare uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "airgap-drill: BLOCKED - $tool is required." >&2
     exit 2
@@ -243,10 +243,13 @@ EOF
 EOF
 
 echo "== verify (network namespace, no route, no DNS) =="
-REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
+REPO_ROOT="$repo_root" HOST_WORKDIR="$WORKDIR" PYTHON="$PYTHON" UV="$(command -v uv)" \
   CLI_VERSION="$CLI_VERSION" PLATFORM_TAG="$PLATFORM_TAG" BUNDLE_VERSION="$BUNDLE_VERSION" \
   HAS_RUNTIME="$HAS_RUNTIME" \
-  unshare -rn -- bash -euo pipefail -c '
+  unshare -rmn --propagation private -- bash -euo pipefail -c '
+mount --bind "$HOST_WORKDIR" /mnt
+WORKDIR=/mnt
+KIT="$WORKDIR/kit"
 ip link set lo up 2>/dev/null || true
 export TF_IN_AUTOMATION=1
 export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"
@@ -280,7 +283,12 @@ result = verify_offline_kit(
     cli_version=sys.argv[3],
     platform_tag=sys.argv[4],
 )
-artifacts = materialize_verified_artifacts(Path(sys.argv[1]), result, Path(sys.argv[5]))
+artifacts = materialize_verified_artifacts(
+  Path(sys.argv[1]),
+  result,
+  Path(sys.argv[5]),
+  include_all=\"runtime/release.json\" in dict(result.file_digests),
+)
 bundle_root = extract_bundle_archive(artifacts.deployment_bundle, Path(sys.argv[6]))
 verify_bundle(
     bundle_root,

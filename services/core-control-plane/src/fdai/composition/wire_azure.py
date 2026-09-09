@@ -310,6 +310,10 @@ async def wire_azure_container(
         rca_prompt_manifest=prompts.rca_manifest,
         semantic_judgment_system_prompt=prompts.semantic_judgment,
         semantic_judgment_prompt_manifest=prompts.semantic_judgment_manifest,
+        semantic_judgment_schema_repair_system_prompt=(prompts.semantic_judgment_schema_repair),
+        semantic_judgment_schema_repair_prompt_manifest=(
+            prompts.semantic_judgment_schema_repair_manifest
+        ),
         conversation_preflight_system_prompt=prompts.conversation_preflight,
         conversation_preflight_prompt_manifest=prompts.conversation_preflight_manifest,
         conversation_social_narrator_system_prompts=prompts.social_narrators,

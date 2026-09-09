@@ -193,6 +193,42 @@ def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
     )
 
 
+def test_sharded_coverage_invocation_disables_the_per_shard_floor(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    recorded = tmp_path / "arguments.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" > "$RECORDED_ARGUMENTS"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script, test-controlled env
+        [bash, str(_PYTHON_TESTS)],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FDAI_PYTEST_MODE": "coverage",
+            "FDAI_PYTEST_SHARD_COUNT": "2",
+            "FDAI_PYTEST_SHARD_INDEX": "1",
+            "FDAI_PYTEST_XDIST": "0",
+            "RECORDED_ARGUMENTS": str(recorded),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    arguments = recorded.read_text(encoding="utf-8").split()
+    assert "--cov-report=" in arguments
+    assert "--cov-fail-under=0" in arguments
+
+
 def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -228,7 +264,7 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     assert str(_ROOT / "packages" / "service-contracts" / "src") in entries[:-1]
 
 
-def test_sharded_coverage_defers_the_floor_to_the_aggregate_job() -> None:
+def test_sharded_coverage_contract_retains_the_aggregate_floor() -> None:
     runner = _PYTHON_TESTS.read_text(encoding="utf-8")
     workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 

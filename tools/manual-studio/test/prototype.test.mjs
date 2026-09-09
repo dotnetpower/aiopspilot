@@ -65,7 +65,7 @@ test("completed manuals provide the catalog slide count and source evidence", as
     assert.equal(slides.length, expected);
     assert.equal(new Set(slides.map((slide) => slide.title)).size, expected);
     assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/") ||
-      /class="(?:ontology-evidence-source|rm-source)" title="docs\/roadmap\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
+      /class="(?:ontology-evidence-source|rm-source|vp-source|ta-source)" title="(?:docs|\.github|config)\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
   }
 });
 
@@ -206,8 +206,8 @@ test("non-ontology manuals use briefing layouts and preserve architecture bounda
     .map((slide) => `${slide.title}\n${slide.lead}\n${slide.content}`)
     .join("\n");
   assert.match(contentFor("readiness-maturity"), /각 기준선과 처리군의 최소 표본/);
-  assert.match(contentFor("value-prioritization"), /근거 준비도는 가중치가 아니라 적격성 기준/);
-  assert.match(contentFor("target-architecture"), /문서 처리 Worker/);
+  assert.match(contentFor("value-prioritization"), /근거 준비도는 가중치가 아니라 포트폴리오의 입장 조건/);
+  assert.match(contentFor("target-architecture"), /Document Processing Worker/);
   assert.match(contentFor("responsible-ai-security"), /snapshot_restore/);
   assert.match(contentFor("responsible-ai-security"), /프롬프트 주입/);
   assert.match(contentFor("pilot-production"), /A3-E 적용 여부/);

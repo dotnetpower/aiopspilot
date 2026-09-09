@@ -20,6 +20,7 @@ const CONTROL = {
   requirement_mode: "all",
   requirement_count: 2,
   owner: "resilience-owner",
+  cadence_days: 30,
   catalog_status: "present",
   mapping_status: "mapped",
   evaluation_status: "not_evaluated",
@@ -30,6 +31,14 @@ const CONTROL = {
   status: "unknown",
   satisfied_requirement_count: 0,
   evaluation_source: "not_connected",
+  profile_id: null,
+  profile_digest: null,
+  approved_exception: null,
+  evidence_refs: [],
+  evidence_digests: [],
+  limitations: ["not_evaluated"],
+  tradeoffs: [],
+  execution_authority: false,
 } as const;
 
 function response(controls: readonly unknown[] = [CONTROL]): unknown {
@@ -69,6 +78,12 @@ describe("best practice controls contract", () => {
     expect(() => decodeBestPracticeResponse(response([
       { ...CONTROL, satisfied_requirement_count: 3 },
     ]))).toThrow(/exceeds requirement_count/);
+  });
+
+  test("rejects authority-bearing assessment payloads", () => {
+    expect(() => decodeBestPracticeResponse(response([
+      { ...CONTROL, execution_authority: true },
+    ]))).toThrow(/cannot grant execution authority/);
   });
 
   test("reconciles detail requirements with the declared count", () => {

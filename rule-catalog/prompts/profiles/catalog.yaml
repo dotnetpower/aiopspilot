@@ -126,6 +126,45 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-schema-v1
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+      - {id: semantic-ontology-schema, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-schema-v2
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+      - {id: semantic-ontology-schema, version: 2, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.semantic-judgment-schema-repair
+    version: 2
+    capability_id: semantic.judgment.schema-repair
+    mode: active
+    root: {id: semantic-judgment-schema-repair, version: 2, layer: base}
+    packs: []
+    system_token_budget: 4096
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-compact
     version: 1
     capability_id: semantic.judgment

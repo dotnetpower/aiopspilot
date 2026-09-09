@@ -53,6 +53,9 @@ timeout 60s gh attestation verify \
   --repo "$GITHUB_REPOSITORY" >/dev/null
 
 login_server="$(terraform -chdir="$terraform_dir" output -raw container_registry_login_server)"
+if [[ -z "$login_server" && -n "${FDAI_ACR_LOGIN_SERVER:-}" ]]; then
+  login_server="$FDAI_ACR_LOGIN_SERVER"
+fi
 login_server="${login_server#https://}"
 login_server="${login_server%/}"
 login_server="${login_server,,}"

@@ -90,7 +90,7 @@ class _GoldenDistiller:
             {
                 "operation": "add",
                 "target_type": "service_depends_on",
-                "target_identity": "link:checkout-billing",
+                "target_identity": "service:checkout",
                 "authority": "declared_intent",
                 "source_assertion": self._claims[1],
                 "properties": {},
@@ -108,7 +108,7 @@ class _GoldenDistiller:
             {
                 "operation": "remove",
                 "target_type": "service_depends_on",
-                "target_identity": "link:checkout-legacy",
+                "target_identity": "service:checkout",
                 "authority": "declared_intent",
                 "source_assertion": self._claims[3],
                 "properties": {"constraint": "not"},

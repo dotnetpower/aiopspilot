@@ -1,0 +1,195 @@
+name: framework-assessment-shadow
+run-name: framework-assessment-${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact pushed required-CI-green main revision to assess."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+concurrency:
+  group: framework-assessment-shadow
+  cancel-in-progress: false
+
+jobs:
+  assess:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: plan-only
+    timeout-minutes: 30
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      POSTGRES_ADMIN_LOGIN: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
+      POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      FDAI_FRAMEWORK_ASSESSMENT_REVIEWER: ${{ github.actor }}
+      FDAI_SOURCE_REVISION: ${{ inputs.commit_sha }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/framework-assessment-shadow.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+      - name: Prepare isolated Azure CLI state
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          azure_config_dir="$RUNNER_TEMP/framework-assessment-azure"
+          install -d -m 0700 "$azure_config_dir"
+          echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
+      - name: Checkout exact assessment revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+      - name: Verify required CI for exact revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]] || {
+            echo "checked out revision does not match the requested commit." >&2
+            exit 1
+          }
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check." >&2
+            exit 1
+          }
+      - name: Verify exact read-only Azure context
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+      - name: Read current private platform context
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          cp backend.azurerm.tf.example backend.tf
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-dev.tfstate"
+          postgres_host="$(terraform output -raw postgres_fqdn)"
+          postgres_database="$(terraform output -raw postgres_database)"
+          hierarchy="$RUNNER_TEMP/framework-assessment-hierarchy.json"
+          hierarchy_query="$RUNNER_TEMP/framework-assessment-hierarchy-query.json"
+          HIERARCHY_QUERY_PATH="$hierarchy_query" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          value = {
+              "subscriptions": [os.environ["ARM_SUBSCRIPTION_ID"]],
+              "query": (
+                  "ResourceContainers "
+                  "| where type =~ 'microsoft.resources/subscriptions' "
+                  "| project subscription_id=subscriptionId, "
+                  "tenant_id=tenantId, "
+                  "management_groups=properties.managementGroupAncestorsChain"
+              ),
+              "options": {"resultFormat": "objectArray", "$top": 2},
+          }
+          Path(os.environ["HIERARCHY_QUERY_PATH"]).write_text(
+              json.dumps(value, separators=(",", ":"), sort_keys=True),
+              encoding="utf-8",
+          )
+          PY
+          az rest \
+            --method post \
+            --url "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01" \
+            --body "@$hierarchy_query" \
+            --only-show-errors > "$hierarchy"
+          POSTGRES_HOST="$postgres_host" POSTGRES_DATABASE="$postgres_database" \
+            python3 - <<'PY'
+          import os
+          from urllib.parse import quote
+
+          login = quote(os.environ["POSTGRES_ADMIN_LOGIN"], safe="")
+          password = quote(os.environ["POSTGRES_ADMIN_PASSWORD"], safe="")
+          host = os.environ["POSTGRES_HOST"]
+          database = quote(os.environ["POSTGRES_DATABASE"], safe="")
+          dsn = f"postgresql://{login}:{password}@{host}:5432/{database}?sslmode=require"
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"FDAI_FRAMEWORK_ASSESSMENT_DSN={dsn}\n")
+              stream.write(
+                  "FDAI_CAF_HIERARCHY_EVIDENCE_PATH="
+                  f"{os.environ['RUNNER_TEMP']}/framework-assessment-hierarchy.json\n"
+              )
+          PY
+          chmod 0600 "$hierarchy_query" "$hierarchy"
+      - name: Discover exact WAF workload scope
+        run: |
+          set -euo pipefail
+          uv run --frozen --package fdai-core-control-plane \
+            python scripts/deployment/azure/export_wara_database_context.py \
+            --github-env "$GITHUB_ENV"
+      - name: Run governed WAF and CAF shadow assessments
+        run: |
+          set -euo pipefail
+          receipt="$RUNNER_TEMP/framework-assessment-receipt.json"
+          PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
+            uv run --frozen --package fdai-core-control-plane \
+            python -m fdai.delivery.framework_assessment_cli > "$receipt"
+          python3 - "$receipt" <<'PY'
+          import json
+          import re
+          import sys
+
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          if value.get("execution_authority") is not False:
+              raise SystemExit("framework receipt cannot grant execution authority")
+          encoded = json.dumps(value, sort_keys=True)
+          if re.search(
+              r"/subscriptions/|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
+              r"[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+              encoded,
+          ):
+              raise SystemExit("framework receipt contains an unsanitized Azure identifier")
+          PY
+      - name: Retain sanitized framework assessment receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: framework-assessment-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/framework-assessment-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove live context files
+        if: always()
+        run: |
+          rm -f -- \
+            "$RUNNER_TEMP/framework-assessment-hierarchy-query.json" \
+            "$RUNNER_TEMP/framework-assessment-hierarchy.json"

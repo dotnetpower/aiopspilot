@@ -136,8 +136,10 @@ def _scan_line(line: str, lineno: int) -> list[SensitivityFinding]:
         if pattern.search(line):
             findings.append(SensitivityFinding(SensitivityKind.SECRET, label, lineno))
 
-    cred = _CREDENTIAL_ASSIGN_RE.search(line)
-    if cred and not _looks_like_placeholder(cred.group("value")):
+    if any(
+        not _looks_like_placeholder(match.group("value"))
+        for match in _CREDENTIAL_ASSIGN_RE.finditer(line)
+    ):
         findings.append(SensitivityFinding(SensitivityKind.SECRET, "credential-assignment", lineno))
 
     if _EMAIL_RE.search(line):

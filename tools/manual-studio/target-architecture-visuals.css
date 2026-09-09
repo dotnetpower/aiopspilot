@@ -1,0 +1,268 @@
+/* Slides 2-15: system, runtime, data, semantic, and decision architecture views. */
+
+/* Slide 2: L0 reference architecture. */
+.ta-reference-architecture {
+  display: grid;
+  grid-template-columns: 238px 40px minmax(0, 1fr) 40px 238px;
+  grid-template-rows: minmax(0, 1fr) 24px 112px 18px;
+  align-items: stretch;
+}
+.ta-ref-inputs { grid-column: 1; grid-row: 1; }
+.ta-ref-input-link { grid-column: 2; grid-row: 1; }
+.ta-ref-control { grid-column: 3; grid-row: 1; }
+.ta-ref-out-link { grid-column: 4; grid-row: 1; }
+.ta-ref-outcomes { grid-column: 5; grid-row: 1; }
+.ta-ref-dependency-link { grid-column: 3; grid-row: 2; }
+.ta-ref-dependencies { grid-column: 3; grid-row: 3; }
+.ta-reference-architecture > .ta-arch-legend { grid-column: 1 / -1; grid-row: 4; }
+.ta-ref-inputs > div,
+.ta-ref-outcomes > div { display: grid; grid-template-rows: repeat(3, 1fr); gap: 6px; padding: 7px; }
+.ta-ref-inputs .ta-arch-node,
+.ta-ref-outcomes .ta-arch-node { padding: 7px 9px; }
+.ta-ref-inputs .ta-arch-node > strong,
+.ta-ref-outcomes .ta-arch-node > strong { font-size: 16px; }
+.ta-ref-inputs .ta-arch-node > span,
+.ta-ref-outcomes .ta-arch-node > span { font-size: 11px; }
+.ta-ref-inputs .ta-arch-node > small,
+.ta-ref-outcomes .ta-arch-node > small { font-size: 10px; }
+.ta-ref-control > div { padding: 7px; }
+.ta-ref-control-flow { display: grid; grid-template-rows: 53px 18px minmax(0, 1fr); height: 100%; }
+.ta-ref-bus { grid-row: 1; text-align: center; }
+.ta-ref-bus-link { grid-row: 2; }
+.ta-ref-pipeline { grid-row: 3; display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 22px 1fr; min-height: 0; }
+.ta-ref-pipeline .ta-arch-node { padding: 7px 8px; text-align: center; }
+.ta-ref-pipeline .ta-arch-node > span { font-size: 12px; }
+.ta-ref-dependencies > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 7px; }
+.ta-ref-dependencies .ta-arch-node { padding: 6px 8px; }
+.ta-ref-dependencies .ta-arch-node > span { display: none; }
+
+/* Slide 3: C4-like system context and trust boundary. */
+.ta-system-context {
+  display: grid;
+  grid-template-columns: 210px 36px minmax(0, 1fr) 48px 256px;
+  grid-template-rows: minmax(0, 1fr) 18px;
+  align-items: stretch;
+}
+.ta-context-actors { grid-column: 1; grid-row: 1; }
+.ta-system-context > .ta-arch-link { grid-column: 2; grid-row: 1; }
+.ta-context-fdai { grid-column: 3; grid-row: 1; }
+.ta-context-managed-links { grid-column: 4; grid-row: 1; display: grid; grid-template-rows: 1fr 1fr; gap: 24px; align-items: center; }
+.ta-context-managed { grid-column: 5; grid-row: 1; }
+.ta-system-context > .ta-arch-legend { grid-column: 1 / -1; grid-row: 2; }
+.ta-context-actors > div { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; padding: 10px; }
+.ta-context-fdai > div { padding: 9px; }
+.ta-context-fdai-grid { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 22px 1fr; height: 100%; }
+.ta-context-fdai-grid .ta-arch-node { padding: 8px; text-align: center; }
+.ta-context-fdai-grid .ta-arch-node > span { font-size: 12px; }
+.ta-context-managed > div { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; padding: 9px; }
+.ta-context-managed .ta-arch-node { padding: 7px 9px; }
+
+/* Slide 4: five architectural layers. */
+.ta-layer-architecture { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; }
+.ta-layer-stack { display: grid; grid-template-rows: 1fr 12px 1fr 12px 1.12fr 12px 1fr 12px 1fr; min-height: 0; }
+.ta-layer-stack .ta-arch-node { grid-template-columns: 235px 1fr; align-items: center; gap: 4px 16px; padding: 8px 16px; }
+.ta-layer-stack .ta-arch-node > small { grid-column: 1; }
+.ta-layer-stack .ta-arch-node > strong { grid-column: 1; }
+.ta-layer-stack .ta-arch-node > span { grid-column: 2; grid-row: 1 / 3; font-size: 16px; }
+.ta-layer-rails { display: grid; grid-template-rows: repeat(3, 1fr) 1.25fr; gap: 10px; }
+.ta-layer-rails > div { display: grid; align-content: center; gap: 6px; padding: 14px 17px; border: 1px solid var(--ta-line); border-radius: 11px; background: #fff; }
+.ta-layer-rails b { color: var(--ta-blue-dark); font-size: 17px; }
+.ta-layer-rails span { color: var(--ta-slate); font-size: 15px; line-height: 1.28; }
+.ta-layer-rails .ta-layer-rule { border-color: #a9c3d4; background: #253f52; color: #fff; }
+.ta-layer-rule strong { color: #fff; font-size: 19px; }
+.ta-layer-rule span { color: #e6eff4; }
+
+/* Slide 5: closed control loop. */
+.ta-closed-control-loop { display: grid; grid-template-rows: 138px 80px 108px 18px; gap: 8px; }
+.ta-loop-main { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1.1fr 22px 1.15fr 22px 1fr 22px 1fr; min-height: 0; }
+.ta-loop-main .ta-arch-node { padding: 8px 10px; }
+.ta-loop-main .ta-arch-node > span { font-size: 12px; }
+.ta-loop-branches { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1.25fr 1.2fr; gap: 10px; padding: 0 14%; }
+.ta-loop-branches .ta-arch-node { padding: 6px 9px; }
+.ta-loop-branches .ta-arch-node > span { font-size: 12px; }
+.ta-loop-close { position: relative; display: grid; grid-template-columns: 1fr 28px 1.25fr 28px 1fr; padding: 0 14%; }
+.ta-loop-close .ta-link-feedback { position: absolute; right: 14%; bottom: -6px; left: 14%; height: 2px; }
+.ta-closed-control-loop > .ta-arch-legend { align-self: end; }
+
+/* Slide 6: five deployable services. */
+.ta-service-topology { display: grid; grid-template-rows: 58px 18px minmax(0, 1fr) 18px 62px 38px; }
+.ta-service-external { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.ta-service-external > :first-child { grid-column: 1; }
+.ta-service-external > :last-child { grid-column: 2; }
+.ta-service-external-links,
+.ta-service-bus-links { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.ta-service-external-links > :first-child { grid-column: 1; }
+.ta-service-external-links > :last-child { grid-column: 2; }
+.ta-service-apps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.ta-service-apps .ta-arch-node { padding: 9px 11px; }
+.ta-service-apps .ta-arch-node > span { font-size: 13px; }
+.ta-service-bus > div { display: grid; align-items: center; padding: 7px 10px; }
+.ta-service-bus-topics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+.ta-service-bus-topics span { padding: 6px 8px; border-radius: 6px; background: #fff; color: #315f63; font-size: 12px; font-weight: 700; text-align: center; }
+.ta-service-topology > footer { display: grid; grid-template-columns: auto 1fr auto 1fr; align-items: center; gap: 12px; padding: 8px 13px; border-radius: 8px; background: #edf2f5; }
+.ta-service-topology > footer span { color: var(--ta-blue-dark); font-size: 13px; font-weight: 800; }
+.ta-service-topology > footer b { font-size: 14px; }
+
+/* Slide 7: inter-service event topology. */
+.ta-service-event-topology { display: grid; grid-template-rows: 62px 18px 76px 18px 72px 18px 72px 18px; }
+.ta-service-flow-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 10%; }
+.ta-service-flow-row .ta-arch-node { padding: 7px 10px; }
+.ta-service-flow-links,
+.ta-flow-store-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 10%; }
+.ta-flow-bus > div { display: grid; align-items: center; padding: 6px 10px; }
+.ta-topic-rail { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ta-topic-rail span { padding: 5px; border-radius: 5px; background: #fff; color: #315f63; font-size: 12px; font-weight: 700; text-align: center; }
+.ta-flow-projection > div { display: grid; place-items: center; padding: 5px 10px; }
+.ta-flow-projection span { color: var(--ta-slate); font-size: 15px; }
+.ta-service-event-topology > .ta-arch-legend { align-self: end; }
+
+/* Slide 8: Core components and dependency direction. */
+.ta-core-component { display: grid; grid-template-rows: minmax(0, 1fr) 18px 76px 18px 76px; }
+.ta-core-boundary > div { display: grid; grid-template-rows: 1fr 66px; gap: 9px; padding: 9px; }
+.ta-core-pipeline { display: grid; grid-template-columns: 1fr 20px 1fr 20px 1fr 20px 1fr 20px 1fr; }
+.ta-core-pipeline .ta-arch-node { padding: 7px 9px; }
+.ta-core-pipeline .ta-arch-node > span { font-size: 12px; }
+.ta-core-support { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ta-core-support .ta-arch-node { padding: 6px 10px; }
+.ta-core-support .ta-arch-node > span { font-size: 12px; }
+.ta-core-port-links,
+.ta-core-adapter-links { display: grid; place-items: stretch center; }
+.ta-core-ports > div,
+.ta-core-adapters > div { display: grid; align-items: center; padding: 6px 10px; }
+.ta-port-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ta-port-strip span,
+.ta-core-adapters > div > span { color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
+.ta-port-strip span { padding: 5px; border-radius: 5px; background: #fff; }
+
+/* Slide 9: all 15 agent roles and event flow. */
+.ta-agent-runtime { position: relative; display: grid; grid-template-columns: .8fr .82fr .9fr .92fr 1.25fr; grid-template-rows: minmax(0, 1fr) 34px; gap: 8px 10px; }
+.ta-agent-lane { position: relative; z-index: 1; display: grid; min-height: 0; gap: 6px; padding: 8px; border: 1px solid var(--ta-line); border-radius: 12px; background: rgba(255, 255, 255, .83); }
+.ta-agent-lane::after { position: absolute; bottom: -9px; left: 50%; width: 2px; height: 9px; background: var(--ta-cyan); content: ""; }
+.ta-agent-lane > small { color: var(--ta-blue-dark); font-size: 12px; font-weight: 850; letter-spacing: .06em; }
+.ta-agent-lane .ta-arch-node { padding: 6px 8px; }
+.ta-agent-lane .ta-arch-node > span { font-size: 11px; }
+.ta-agent-sense { grid-template-rows: auto 1fr 14px 1fr; gap: 0; }
+.ta-agent-domain { grid-template-rows: auto repeat(3, 1fr); }
+.ta-agent-judge { grid-template-rows: auto 1fr 14px 1fr; gap: 0; }
+.ta-agent-judge > [data-ta-node="agent-odin"] { grid-row: 2; }
+.ta-agent-judge > .ta-arch-link { grid-row: 3; }
+.ta-agent-judge > [data-ta-node="agent-forseti"] { grid-row: 4; }
+.ta-agent-operate { grid-template-rows: auto repeat(3, 1fr); }
+.ta-agent-govern { grid-template-columns: 1fr 1fr; grid-template-rows: auto repeat(3, 1fr); }
+.ta-agent-govern > small { grid-column: 1 / -1; }
+.ta-agent-govern > [data-ta-node="agent-bragi"] { grid-column: 1 / -1; }
+.ta-agent-cross-links { position: absolute; inset: 32px 7% 48px; z-index: 0; pointer-events: none; }
+.ta-agent-cross-links .ta-arch-link { position: absolute; opacity: .65; }
+.ta-agent-cross-links .ta-arch-link:nth-child(1) { top: 60%; left: 12%; width: 29%; }
+.ta-agent-cross-links .ta-arch-link:nth-child(2) { top: 34%; left: 24%; width: 18%; transform: rotate(-12deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(3) { top: 50%; left: 24%; width: 18%; }
+.ta-agent-cross-links .ta-arch-link:nth-child(4) { top: 66%; left: 24%; width: 18%; transform: rotate(12deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(5) { top: 66%; left: 53%; width: 14%; }
+.ta-agent-cross-links .ta-arch-link:nth-child(6) { top: 43%; left: 62%; width: 8%; transform: rotate(24deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(7) { top: 70%; left: 68%; width: 8%; transform: rotate(90deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(8) { top: 72%; left: 72%; width: 17%; transform: rotate(18deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(9) { top: 55%; left: 82%; width: 10%; transform: rotate(90deg); }
+.ta-agent-cross-links .ta-arch-link:nth-child(10) { top: 39%; left: 84%; width: 8%; }
+.ta-agent-cross-links .ta-arch-link:nth-child(11) { top: 18%; left: 7%; width: 82%; }
+.ta-agent-event-rail { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px; padding: 7px 13px; border: 1px solid #6c9693; border-radius: 8px; background: var(--ta-cyan-soft); }
+.ta-agent-event-rail b { color: #245e66; font-size: 13px; letter-spacing: .05em; }
+.ta-agent-event-rail span { color: #3e5d63; font-size: 13px; font-weight: 700; text-align: center; }
+
+/* Slide 10: service-owned data and read models. */
+.ta-data-ownership { display: grid; grid-template-rows: 66px 18px 66px 18px 1fr 34px; }
+.ta-data-writers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.ta-data-writers .ta-arch-node { padding: 7px 9px; }
+.ta-data-write-links { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.ta-data-postgres > div { display: grid; align-items: center; padding: 6px 10px; }
+.ta-data-schemas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+.ta-data-schemas span { padding: 6px; border-radius: 5px; background: #fff; color: #4f5f6d; font-size: 12px; font-weight: 700; text-align: center; }
+.ta-data-read-links { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 6%; }
+.ta-data-read-models { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 6%; }
+.ta-data-read-models .ta-arch-node { padding: 8px 10px; }
+.ta-data-ownership > footer { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; padding: 7px 12px; border-radius: 7px; background: #edf2f5; }
+.ta-data-ownership > footer b { color: var(--ta-blue-dark); font-size: 14px; }
+.ta-data-ownership > footer span { font-size: 14px; }
+
+/* Slide 11: decision evidence admission. */
+.ta-evidence-admission { display: grid; grid-template-columns: 245px 34px 300px 34px 250px 34px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 42px; }
+.ta-evidence-sources { grid-column: 1; grid-row: 1; }
+.ta-evidence-admission > .ta-arch-link:nth-of-type(1) { grid-column: 2; grid-row: 1; }
+.ta-evidence-receipt { grid-column: 3; grid-row: 1; }
+.ta-evidence-admission > .ta-arch-link:nth-of-type(2) { grid-column: 4; grid-row: 1; }
+.ta-evidence-gate { grid-column: 5; grid-row: 1; }
+.ta-evidence-admission > .ta-arch-link:nth-of-type(3) { grid-column: 6; grid-row: 1; }
+.ta-evidence-admission > [data-ta-node="evidence-case"] { grid-column: 7; grid-row: 1; }
+.ta-evidence-sources > div { display: grid; grid-template-rows: repeat(4, 1fr); gap: 6px; padding: 7px; }
+.ta-evidence-sources .ta-arch-node { padding: 5px 8px; }
+.ta-evidence-sources .ta-arch-node > span { font-size: 11px; }
+.ta-evidence-receipt > div,
+.ta-evidence-gate > div { padding: 9px; }
+.ta-evidence-admission .ta-arch-boundary > header { grid-template-columns: 1fr; align-content: center; gap: 2px; }
+.ta-evidence-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.ta-evidence-fields span,
+.ta-evidence-checks span { display: grid; place-items: center; padding: 8px; border-radius: 6px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
+.ta-evidence-checks { display: grid; grid-template-rows: repeat(5, 1fr); gap: 7px; }
+.ta-evidence-case > div { display: grid; grid-template-rows: 1fr auto; gap: 10px; padding: 10px; }
+.ta-decision-case-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ta-decision-case-fields span { display: grid; place-items: center; padding: 10px 7px; border-radius: 7px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
+.ta-evidence-case > div > b { padding: 8px 10px; border-radius: 7px; background: #253f52; color: #fff; font-size: 13px; text-align: center; }
+.ta-evidence-safe-outcomes { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: auto repeat(5, 1fr); align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; background: #f7ece9; }
+.ta-evidence-safe-outcomes b { color: var(--ta-red); font-size: 13px; }
+.ta-evidence-safe-outcomes span { color: #653c36; font-size: 12px; text-align: center; }
+
+/* Slide 12: operational semantic graph. */
+.ta-semantic-architecture { position: relative; display: grid; grid-template-rows: 122px 20px 144px 34px; gap: 7px; }
+.ta-semantic-spine { grid-row: 1; display: grid; grid-template-columns: 1fr 50px 1fr 50px 1fr 50px 1.15fr; }
+.ta-semantic-decision { grid-row: 3; display: grid; grid-template-columns: .92fr 40px 1fr 40px .95fr 40px .95fr 40px 1.2fr; }
+.ta-semantic-spine .ta-arch-node,
+.ta-semantic-decision .ta-arch-node { padding: 8px 10px; }
+.ta-semantic-context-link { position: absolute; top: 122px; right: 23%; left: 72%; height: 28px; }
+.ta-semantic-context-link .ta-arch-link { height: 28px; }
+.ta-semantic-architecture > footer { grid-row: 4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ta-semantic-architecture > footer span { padding: 7px 12px; border-radius: 7px; background: #edf2f5; color: var(--ta-slate); font-size: 13px; }
+.ta-semantic-architecture > footer b { color: var(--ta-blue-dark); }
+
+/* Slide 13: decision time and immutable revisions. */
+.ta-temporal-architecture { display: grid; grid-template-rows: 34px 135px 1fr; gap: 12px; }
+.ta-temporal-architecture > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 7px 12px; border-radius: 8px; background: #edf2f5; }
+.ta-temporal-architecture > header span,
+.ta-temporal-architecture > header em { color: var(--ta-muted); font-size: 12px; font-style: normal; font-weight: 750; }
+.ta-temporal-architecture > header b { font-size: 15px; }
+.ta-temporal-line { display: grid; grid-template-columns: 1fr 44px 1fr 44px 1fr 44px 1fr; }
+.ta-temporal-line .ta-arch-node { text-align: center; }
+.ta-temporal-revisions { display: grid; grid-template-columns: 1fr 70px 1fr 1.2fr; }
+.ta-temporal-revisions > aside { display: grid; grid-template-columns: auto 1fr; align-content: center; gap: 8px 10px; margin-left: 12px; padding: 12px 15px; border-radius: 10px; background: #253f52; color: #fff; }
+.ta-temporal-revisions > aside b { color: #dcebf3; font-size: 13px; }
+.ta-temporal-revisions > aside span { color: #fff; font-size: 13px; }
+
+/* Slide 14: trust routing. */
+.ta-tier-routing-architecture { display: grid; grid-template-columns: 170px 30px 200px 30px minmax(0, 1fr) 30px 210px 30px 185px; grid-template-rows: minmax(0, 1fr) 32px; }
+.ta-tier-routing-architecture > footer { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.5fr; align-items: center; gap: 12px; padding: 7px 12px; border-radius: 7px; background: #edf2f5; }
+.ta-tier-routing-architecture > footer span { color: var(--ta-muted); font-size: 13px; }
+.ta-tier-routing-architecture > footer b { font-size: 13px; }
+.ta-tier-lanes > div { padding: 8px; }
+.ta-tier-route-lanes { display: grid; grid-template-rows: repeat(3, 1fr); gap: 6px; }
+.ta-tier-route-lanes > div { display: grid; grid-template-columns: 1fr 92px; gap: 6px; }
+.ta-tier-route-lanes .ta-arch-node { padding: 5px 8px; }
+.ta-tier-route-lanes .ta-arch-node > span { font-size: 11px; }
+.ta-tier-route-lanes > div > span { display: grid; place-items: center; border-radius: 6px; background: rgba(255, 255, 255, .8); color: var(--ta-slate); font-size: 11px; font-weight: 700; text-align: center; }
+.ta-tier-quality > div { display: grid; place-items: center; padding: 10px; }
+.ta-quality-checks { display: grid; align-self: stretch; width: 100%; grid-template-rows: repeat(6, 1fr); gap: 6px; }
+.ta-quality-checks span { display: grid; place-items: center; padding: 6px 7px; border-radius: 6px; background: #fff; color: var(--ta-slate); font-size: 12px; font-weight: 700; line-height: 1.2; text-align: center; }
+
+/* Slide 15: unified RiskGate. */
+.ta-risk-gate-architecture { display: grid; grid-template-rows: 112px 18px 74px 18px 1fr; }
+.ta-risk-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ta-risk-inputs .ta-arch-boundary > div { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 7px; }
+.ta-risk-inputs .ta-arch-boundary > div > span { display: grid; place-items: center; padding: 4px; border-radius: 4px; background: #fff; color: var(--ta-slate); font-size: 11px; font-weight: 700; text-align: center; }
+.ta-risk-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ta-risk-gate-architecture > [data-ta-node="risk-min"] { width: 100%; justify-self: center; text-align: center; }
+.ta-risk-gate-architecture > .ta-arch-link { justify-self: center; }
+.ta-risk-result > div { display: grid; grid-template-rows: 1fr auto; gap: 7px; padding: 9px; }
+.ta-risk-results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ta-risk-results span { display: grid; place-items: center; padding: 8px; border: 1px solid #a8b7c1; border-radius: 7px; background: #fff; color: #263846; font-size: 14px; font-weight: 800; text-align: center; }
+.ta-risk-result > div > b { color: var(--ta-slate); font-size: 13px; text-align: center; }
+
+@media print {
+  .manual-slide.deck-target-architecture { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

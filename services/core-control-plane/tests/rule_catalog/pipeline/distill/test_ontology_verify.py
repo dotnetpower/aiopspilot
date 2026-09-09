@@ -193,6 +193,31 @@ def test_equal_or_higher_priority_conflict_requires_review() -> None:
     assert _receipt(result, "conflict").evidence_refs == ("evidence:existing-owner",)
 
 
+def test_lower_priority_conflict_preserves_existing_evidence_reference() -> None:
+    claim, text = _claim()
+    proposal = _proposal(claim)
+    context = _context(
+        claim,
+        text,
+        existing_facts=(
+            ExistingFact(
+                fact_key=proposal_fact_key(proposal),
+                value_digest="b" * 64,
+                source_priority=9,
+                source_ref="catalog:service-map",
+                authority=AuthorityClass.DECLARED_INTENT,
+                evidence_ref="evidence:lower-priority-owner",
+            ),
+        ),
+    )
+
+    result = verify_ontology_proposal(proposal, claim, context)
+
+    receipt = _receipt(result, "conflict")
+    assert receipt.outcome is GateOutcome.PASS
+    assert receipt.evidence_refs == ("evidence:lower-priority-owner",)
+
+
 def test_authority_property_is_denied() -> None:
     claim, text = _claim()
     proposal = _proposal(claim, properties=(OntologyProperty("autonomy", "auto"),))
@@ -215,6 +240,46 @@ def test_link_endpoint_type_mismatch_is_denied() -> None:
     result = verify_ontology_proposal(proposal, claim, _context(claim, text))
     assert result.state is ProposalState.DENIED
     assert _receipt(result, "identity").outcome is GateOutcome.DENY
+
+
+def test_link_review_condition_cannot_downgrade_endpoint_denial() -> None:
+    claim, text = _claim()
+    from_resolution = EntityResolution(
+        selected_identity="owner:platform",
+        candidates=("owner:platform",),
+        method="exact",
+    )
+    proposal = _proposal(
+        claim,
+        target_kind=OntologyTargetKind.LINK,
+        target_type="owned_by",
+        target_identity="owner:platform",
+        entity_resolution=from_resolution,
+        from_identity="owner:platform",
+        to_identity="Platform Owner",
+        from_resolution=from_resolution,
+        to_resolution=EntityResolution(
+            candidates=("owner:primary", "owner:secondary"),
+            method="ambiguous_alias",
+        ),
+        properties=(),
+    )
+    context = _context(
+        claim,
+        text,
+        entities=(
+            EntityRecord("owner:platform", "Ownership"),
+            EntityRecord("owner:primary", "Ownership"),
+            EntityRecord("owner:secondary", "Ownership"),
+        ),
+    )
+
+    result = verify_ontology_proposal(proposal, claim, context)
+
+    identity = _receipt(result, "identity")
+    assert identity.outcome is GateOutcome.DENY
+    assert identity.reason_codes == ("from_identity_type_mismatch", "ambiguous_alias")
+    assert result.state is ProposalState.DENIED
 
 
 def test_unknown_link_returns_denied_receipts_instead_of_crashing() -> None:

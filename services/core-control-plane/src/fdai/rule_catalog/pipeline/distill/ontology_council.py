@@ -136,6 +136,8 @@ class OntologyCouncilDistiller:
             raise ValueError("ontology council requires a single publisher")
         if len({item.binding for item in identities}) != 3:
             raise ValueError("ontology council requires three unique model bindings")
+        if len({item.fault_domain for item in identities}) != 3:
+            raise ValueError("ontology council requires three distinct model fault domains")
         self._models = cast(
             tuple[OntologyCouncilModel, OntologyCouncilModel, OntologyCouncilModel],
             ordered,

@@ -151,6 +151,7 @@ def test_non_ontology_candidate_can_account_for_claim_without_graph_proposal() -
         source_ref="doc:service-map",
         source_section="Ownership",
         source_lines=(1, 1),
+        content_sha=hashlib.sha256(b"Checkout service is owned by Platform team.").hexdigest(),
     )
     package = build_ontology_review_package(
         document=_document(),
@@ -230,6 +231,22 @@ def test_empty_claim_document_preserves_exact_content_digest() -> None:
         extraction_run_id="run-1",
     )
     assert package.content_sha256 == hashlib.sha256(document.text.encode()).hexdigest()
+
+
+def test_zero_candidate_result_keeps_document_claims_visible_for_review() -> None:
+    document = _document("Checkout has an owner.\nOperators follow the runbook.")
+
+    package = build_ontology_review_package(
+        document=document,
+        result=DistillationResult(),
+        context=_context(),
+        extraction_run_id="run-1",
+    )
+
+    assert package.summary.total_claims == 2
+    assert package.summary.mapped_claims == 0
+    assert package.summary.unresolved_claims == 2
+    assert {issue.reason_code for issue in package.issues} == {"unmapped_claim"}
 
 
 def test_review_package_rejects_inconsistent_summary() -> None:

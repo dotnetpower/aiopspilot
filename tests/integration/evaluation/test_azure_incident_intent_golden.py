@@ -156,7 +156,29 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
     assert "forbidden_actions" in shadow_prompt.system_text
     assert "use only the supplied query.manifest FunctionType" in shadow_prompt.system_text
     assert "source_end - source_start MUST equal" in shadow_prompt.system_text
+
+    schema_prompt = await DefaultPromptComposer(registry=prompts).compose(
+        capability_id="semantic.judgment",
+        profile_id="shadow.semantic-judgment-schema-v1",
+    )
+    assert "use only the supplied query.manifest FunctionType" in schema_prompt.system_text
+    assert "forbidden_actions" not in schema_prompt.system_text
+    schema_v2_prompt = await DefaultPromptComposer(registry=prompts).compose(
+        capability_id="semantic.judgment",
+        profile_id="shadow.semantic-judgment-schema-v2",
+    )
+    assert (
+        "First separate declaration counts from declaration details" in schema_v2_prompt.system_text
+    )
+    assert "value and source span include the plural suffix" in schema_v2_prompt.system_text
     assert "collection-wide query.resource_event_history" in shadow_prompt.system_text
+    schema_repair_prompt = await DefaultPromptComposer(registry=prompts).compose(
+        capability_id="semantic.judgment.schema-repair"
+    )
+    assert schema_repair_prompt.profile_id == "active.semantic-judgment-schema-repair"
+    assert "Repair one primary T1 proposal" in schema_repair_prompt.system_text
+    assert schema_repair_prompt.layer_manifest[0].version == 2
+    assert "Set schema_version 1.1.0" in schema_repair_prompt.system_text
 
 
 def test_judgment_capability_projection_preserves_only_reviewed_semantics() -> None:

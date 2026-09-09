@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 922fe5b362d1ae37e61227e2891bc09c9d8d6aea
+translation_source_sha: 168347079848446b699a964f6e0a5d43f4328860
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -107,8 +107,8 @@ CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니�
 결정론적 표현 플래너가 검증된 근거 형태에서 렌더러 중립 블록을 선택하고, 브라우저
 시나리오가 실제 표현 결과를 평가합니다.
 
-로컬 SRE 보증 catalog는 매니페스트에 근거한 ActionType 및 FunctionType 개수, Resource 및
-Incident 선언 상세 정보, Resource 관계 질문도 정의합니다. Ephemeral runtime이
+로컬 SRE 보증 catalog는 매니페스트에 근거한 선언 kind 개수 5개, ObjectType 선언 상세 질문 13개,
+ObjectType 관계 질문 11개도 정의합니다. Ephemeral runtime이
 `query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`를
 `server_ontology_manifest` 권한의 evidence-ready 상태로 증명할 때만 해당 challenge를
 선택합니다. Service Health를 보완하되 사용할 수 없는 Resource 상태 또는 Resource Health
@@ -166,6 +166,19 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
+| 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |
+| 2026-09-10 | validated | Conditional schema-repair v2가 서로 다른 10문항 스키마 cohort 5개를 각각 100%로 통과했습니다. Trigger는 non-schema family에서 실행되지 않습니다. 반복한 v14 legacy primary accuracy는 81.25%~93.75%로 변동하여 전역 primary를 승격하지 않았습니다. | 로컬 live 스키마 artifact 50/50 5개, legacy artifact 5개, 모든 legacy 실행에서 read/action 오탐과 만들어 낸 신원 0 | 불변 generator에 새로운 non-duplicate 공간이 생기면 새 질문으로 전체 답변 rendering을 검증하고 primary-model 변동은 별도로 처리합니다. |
+| 2026-09-10 | implemented | 승격한 schema-repair prompt를 active v8 뒤의 typed-triggered T1 재시도 한 번으로 연결했습니다. 완전한 schema 및 모든 non-schema 제안은 model call 하나를 사용하며 유효하지 않은 repair는 primary 제안을 유지합니다. | `current change`, boundary, 운영 factory, prompt composition, package-layout, Ruff 및 mypy 검사 | 새로운 end-to-end 답변 cohort를 실행하고 turn별 repair observation을 보존합니다. |
+| 2026-09-10 | implemented | 50/50 스키마 근거를 바탕으로 별도 `semantic.judgment.schema-repair` prompt capability를 승격했습니다. 전역 semantic-judgment profile이 아니며 실행 권한을 포함하지 않습니다. | `current change`, 완전 통과 스키마 cohort 5개, active prompt-profile 검증 및 composition 테스트 | 조건부로 연결한 repair를 새로운 end-to-end 답변 cohort에서 검증하고 전역 schema-only profile은 shadow로 유지합니다. |
+| 2026-09-10 | validated | Clean local treatment snapshot에서 schema-only v2와 typed target grounding이 서로 다른 10문항 스키마 cohort 5회를 연속 100%로 통과했습니다. | 로컬 exact-source live artifact 5개, 계약 50/50 통과 | 기존 16-case 안전 cohort가 primary, target, secondary 및 clarification 지표에서 회귀했으므로 shadow를 유지합니다. |
+| 2026-09-10 | validated | 서로 다른 10문항 cohort 5개에서 schema-only v2가 100%, 100%, 100%, 90%, 90%를 기록했습니다. 미달 2건은 target shape 결함이며 authority, action posture 또는 만들어 낸 capability 결함이 아닙니다. | 로컬 exact-source live artifact | Shadow mode를 유지하고 typed target 정규화를 커밋한 뒤 다시 실행합니다. |
+| 2026-09-10 | implemented | Count cue와 declaration detail을 분리하고 복수 metatype의 전체 span을 보존하도록 schema-only shadow v2를 추가했습니다. | `current change`, v1 live cohort 5개 및 집중 prompt 테스트 | 승격 전에 서로 다른 v2 cohort 5개를 실행합니다. |
+| 2026-09-10 | implemented | 관련 없는 cumulative-prompt 변동에서 온톨로지 treatment를 분리하도록 active v8 위에 schema-only semantic-judgment shadow profile을 추가했습니다. | `current change`, prompt registry 및 composition 테스트 | 승격 전에 서로 다른 10문항 스키마 cohort 5회를 연속 측정합니다. |
+| 2026-09-10 | implemented | 단일 subject 온톨로지 관계 답변을 명시적인 incoming 및 outgoing section으로 분리하고 self-link를 두 view에 모두 포함했습니다. | `current change`, 집중 이중 언어 renderer 회귀 및 전체 Core semantic-turn 테스트 | 새로운 관계 질문만 다시 측정합니다. |
+| 2026-09-10 | implemented | Typed target 또는 facet이 제공 ObjectType 하나를 인코딩한 경우에만 불필요한 스키마 subject 모호성을 닫습니다. 함수 readiness가 principal manifest의 target 가시성을 입증하지 못했으므로 Agent 스키마 challenge는 backlog로 되돌렸습니다. | `current change`, 집중 positive, 다중 subject negative 및 watchdog 선택 테스트 | Principal-visible 스키마 subject로 계속 진행하고 Agent를 다시 활성화하기 전에 target-level readiness 증명을 추가합니다. |
+| 2026-09-10 | implemented | 소진된 SRE 스키마 질문 공간을 선언 kind 개수 3개, 선언된 ObjectType 6개, 관계 subject 5개로 확장했습니다. 모두 같은 evidence-ready 함수와 서버 권한으로 gate하며 count 계약은 제공된 `query.manifest` intent를 사용합니다. | `current change`, 불변 question-contract, runtime challenge, Ruff 및 안전 테스트 | 이전 ledger 질문을 삭제하거나 재사용하지 않고 새로운 child campaign을 실행합니다. |
+| 2026-09-10 | implemented | 보존된 후단 count-intent 후보를 거부하고 semantic judgment에서 모델 count alias를 제공된 manifest 기능으로 정규화했습니다. | `current change`, 집중 기능 경계 및 planning 테스트 | 만들어 낸 기능을 수락하지 않고 새로운 ActionType 및 FunctionType 질문이 통과하는지 확인합니다. |
 | 2026-09-10 | implemented | Typed facet에서 제공된 선언 또는 관계 subject 하나를 복구하고 표준 메타타입 count label을 정규화했으며 스키마와 인스턴스 답변 경계를 추가하고 독립 reviewer 입력의 JSON-safe URL redaction을 수정했습니다. | `current change`, 집중 Core rendering, schema-frame 및 watchdog redaction 회귀 | 실패한 질문을 재사용하지 말고 새로운 unique-question series를 실행합니다. |
 | 2026-09-10 | implemented | Typed count facet 및 collection-scope 정규화로 모델 변동 간격 2개를 닫고 count oracle이 구조화 출력을 검사할 수 있도록 표준 aggregate presentation을 허용했습니다. | `current change`, 집중 Core, Operator presentation 및 answer-gate 회귀 | 커밋 뒤 새로운 active-profile CQAS series를 실행합니다. |
 | 2026-09-10 | implemented | Collection-wide history 범위를 보존하고 독립적으로 요청한 action advice를 forbidden action에서 제외하도록 cumulative shadow semantic-judgment v17을 추가했습니다. | `current change`, prompt 테스트 및 범위가 제한된 live 진단 | 승격 전에 두 live cohort를 다시 실행합니다. |

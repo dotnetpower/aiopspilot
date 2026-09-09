@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b43bac63442ca298421d3deb8138c76c228f10c2
+translation_source_sha: 34461e9cdbfee1e70ee08dd71dfa75dd64ed5a34
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -25,8 +25,8 @@ translation_revised: 2026-09-10
   승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
-- **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
-- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
+- **서비스 소유 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다. 추적된 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.
+- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정하고, 루트 pytest 수집을 위해 모든 서비스 `src` 루트와 독립 배포 CLI를 열거합니다. 실행 장소 기능 게이트도 같은 패키지를 검사합니다. `pytest-timeout` 기본값은 테스트당 120초 상한이며, 중단된 테스트 하나가 xdist 샤드를 무기한 차단하지 못하게 합니다. 전체 카탈로그를 두 번 조립하는 결정성 증명만 범위가 제한된 240초 예외를 사용합니다. `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프해 진단 근거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및 저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
@@ -36,9 +36,8 @@ translation_revised: 2026-09-10
   런타임 호출 인계는 같은 정확한 Operator 및 Core Container App Resource ID를 두 엔드포인트 서비스에 전달하고, 인벤토리 Job은 단일 기록기 변환 전에 두 플랫폼 로그를 독립적으로 결합합니다.
   비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
-- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
-  및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
-  결과를 명시적으로 선택할 수 있습니다.
+- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview 및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환 결과를 명시적으로 선택할 수 있습니다.
+- **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과 재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`, 비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고 물리적 다중화 전송만 공유합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
@@ -80,6 +79,27 @@ kind 하나만 복구할 수 있습니다. 선언 및 관계 조회도 typed fac
 oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` 같은 표준 메타타입 subject는
 답변 rendering에서만 정규화합니다. 선언 답변은 스키마 메타데이터와 현재 객체 관측값을 명시적으로
 구분합니다.
+모델이 범위가 제한된 온톨로지 선언 개수 별칭을 제안하면
+`semantic_judgment_capabilities.py`가 이를 제공된 `query.manifest` FunctionType과 형식화된 선언 종류
+개수 facet 하나로 다시 작성한 후 계획을 시작합니다. 해당 FunctionType이 없으면 제안을 거부합니다.
+스키마 선언 및 관계 조회에서는 exact target 또는 typed facet에 인코딩된 제공 ObjectType 하나만
+불필요한 subject 모호성을 닫습니다. Subject가 여러 개이면 명확화를 유지합니다.
+단일 subject 관계 답변은 incoming 및 outgoing section을 분리해 표시합니다. Self-reference
+LinkType은 instance link를 만들지 않고 두 방향 view에 모두 표시합니다.
+스키마 target 정규화는 제공된 구체적 ObjectType이 따로 남는 경우에만 generic 후행
+`ObjectType` 구문 또는 추가 `LinkType`/`ObjectType` 메타타입을 제거합니다.
+스키마 intent가 이미 typed된 뒤에는 메타타입이 아닌 ObjectType capability 하나가 현재 turn에
+범위가 명확한 신원으로 정확히 한 번 나타날 때만 누락 subject를 grounding할 수 있습니다.
+운영 composition은 `semantic_judgment_model_binding.py`를 사용해 같은 T1 candidate에 별도
+schema-repair prompt를 연결하고 `wire_semantic_judgment.py`를 binder 크기 상한 안에 유지합니다.
+Primary active judgment가 항상 먼저 실행되며 typed schema 불완전성만 repair 호출을 허용합니다.
+Non-schema turn을 바꾸거나 권한을 부여할 수 없습니다.
+유효하지 않거나 사용할 수 없거나 family를 바꾸는 repair는 성공 형태의 대체 결과를 만들지 않고
+검증된 primary 제안을 유지합니다.
+Primary schema 제안에 표준 target과 완전한 count, declaration-detail 또는 양방향 관계 facet
+집합이 이미 있을 때만 repair를 생략합니다.
+Live fallback 근거에서 synonym-only facet이 repair를 우회함을 확인한 뒤 prompt v2가 이 완결성
+검사를 exact contract로 고정했습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
@@ -378,7 +398,7 @@ lifecycle Incident 하나를 매칭하고 모든 세대가 일치할 때만 배�
 | 지속형 운영 인스턴스 그래프 | 검증된 source policy, adaptive collection, event/delta/snapshot convergence, 로컬/배포 analyzer 일정 관리 동등성, 모호한 전송을 조정 대기로 유지하는 한 번만 게시되는 analyzer 발견 사항, 명시적 근거 원본에서 바인딩되는 타입 지정 Kubernetes Pod 수명 주기 발견 사항, 현재 상태, 실패 이력, 복구, 근거 공백을 분리해 유지하고 최신성 예산을 넘긴 상태를 철회하는 한정된 Pod 수명 주기 프로젝션, principal-safe health, typed semantic rollup, content-addressed archive lifecycle, 5개 결과를 갖는 graph refresh 결정, 관계를 진술할 수 있는 스냅샷만 게이팅하는 관계 커버리지, 안전한 부분 live-evidence write-through, action authority가 없는 typed 대표 competency | [소유 설계](continuous-operational-instance-graph-ko.md), [감사 계약](../../../config/continuous-operational-instance-graph-audit.json), [analyzer CLI](../../../services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py), [analyzer 실행기](../../../services/core-control-plane/src/fdai/delivery/analyzer_tick.py), [게시 계약](../../../services/core-control-plane/src/fdai/shared/providers/event_bus.py), [게시 원장](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_analyzer_publication.py), [Pod 수명 주기 analyzer](../../../services/core-control-plane/src/fdai/core/investigation/kubernetes_pod.py), [Pod 근거 바인딩](../../../services/core-control-plane/src/fdai/delivery/pod_evidence_binding.py), [Pod 수명 주기 프로젝션 축약기](../../../services/core-control-plane/src/fdai/core/readiness/detection_lifecycle.py), [Pod 수명 주기 프로젝션 상태](../../../services/core-control-plane/src/fdai/delivery/detection_lifecycle_state.py), [Operator 수명 주기 프로젝션](../../../services/operator-service/src/fdai_operator_service/detection_lifecycle_projection.py), [로컬 analyzer 작업](../../../scripts/deployment/local/run-analyzer-loop.sh), [rollup core](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup.py), [archive core](../../../services/core-control-plane/src/fdai/core/ontology_platform/archive_manifest.py), [graph refresh](../../../services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py), [투영 커버리지](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [competency](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_competency.py), [inventory adapter](../../../services/core-control-plane/src/fdai/delivery/inventory_rollup.py), [live evidence](../../../services/core-control-plane/src/fdai/delivery/inventory_live_evidence.py), [archive persistence](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_archive.py), [Core migration](../../../service-migrations/branches/core-control-plane/versions/20260822_core_operational_archive.py) | [analyzer 테스트](../../../services/core-control-plane/tests/delivery/test_analyzer_tick.py), [게시 원장 테스트](../../../services/core-control-plane/tests/delivery/test_analyzer_publication_ledger.py), [Pod 시나리오 테스트](../../../services/core-control-plane/tests/delivery/test_analyzer_tick_pod_scenario.py), [Pod 수명 주기 축약기 테스트](../../../services/core-control-plane/tests/core/readiness/test_detection_lifecycle.py), [Pod 수명 주기 프로젝션 테스트](../../../services/operator-service/tests/test_detection_lifecycle_projection.py), [Pod 수명 주기 종단 간 테스트](../../../tests/integration/test_pod_lifecycle_detection_e2e.py), [감사 테스트](../../../tests/integration/scripts/test_continuous_operational_instance_graph_audit.py), [refresh 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py), [competency 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py), [live-evidence 테스트](../../../services/core-control-plane/tests/delivery/test_inventory_live_evidence.py), [rollup 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_rollup.py), [archive 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_archive_manifest.py), [purge 테스트](../../../services/core-control-plane/tests/delivery/test_operational_archive_purge.py), [cross-lane 테스트](../../../tests/integration/test_operational_instance_retention.py) |
 | 온톨로지 선언 워크벤치 변환 결과 | Exact-release 선언 상세, 토폴로지 기반 종속 항목, 정제된 ObjectType 근거 상태, 보존 release 호환성, 역할/용도 redaction 및 변경 권한이 없는 결정론적 개정 번호 | [ontology_declaration_projection.py](../../../services/core-control-plane/src/fdai/delivery/ontology_declaration_projection.py), [ontology_dependents_projection.py](../../../services/core-control-plane/src/fdai/delivery/ontology_dependents_projection.py), [ontology_evidence_health_projection.py](../../../services/core-control-plane/src/fdai/delivery/ontology_evidence_health_projection.py), [ontology_release_diff_projection.py](../../../services/core-control-plane/src/fdai/delivery/ontology_release_diff_projection.py) | [delivery 변환 결과 테스트](../../../services/core-control-plane/tests/delivery/), [catalog materializer 테스트](../../../tests/integration/scripts/test_materialize_authoritative_catalogs.py) |
 | OI-12 운영 인증 | Exact-release 7축 집계 snapshot, 읽기 전용 PostgreSQL 수집, signed storage growth, 명시적인 unavailable 근거, 범위가 제한된 로컬 rollup/archive/restore exercise 및 권한이 없는 증적 발행 | [인증 계약](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_certification.py), [인증 reducer](../../../services/core-control-plane/src/fdai/delivery/operational_instance_certification.py), [PostgreSQL source](../../../services/core-control-plane/src/fdai/delivery/operational_instance_certification_postgres.py), [archive exercise](../../../services/core-control-plane/src/fdai/delivery/operational_instance_certification_archive.py), [인증 CLI](../../../services/core-control-plane/src/fdai/delivery/operational_instance_certification_cli.py) | [계약 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_operational_instance_certification.py), [delivery 테스트](../../../services/core-control-plane/tests/delivery/test_operational_instance_certification.py), [archive exercise 테스트](../../../services/core-control-plane/tests/delivery/test_operational_instance_certification_archive.py) |
-| 의미 대화 계획 수립 | 매니페스트 로드 전 compact T1 social/operation preflight, 모든 비직접 결과를 위한 Whole-turn 기능 인식 스키마 제안, 후속 프레임 제안보다 먼저 적용하는 canonical typed judgment, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 근거가 필요 없는 타입 지정 직접 응답, 내용이 없는 계층/구성/신뢰도/지연 시간/결과 및 판단 보류 텔레메트리, 전체 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환, 선언 기반의 범위가 제한된 질문 집합 생성, 인식 상태 완결성 release 증적, 정확한 서비스-Resource 범위와 실패 시 차단되는 Resource 상태 근거를 사용하는 타입 기반 네트워크 대 애플리케이션 지연 조사, 발화가 이미 지목한 대상을 되묻지 않도록 출력 계열과 무관하게 동작하는 정확한 Resource 신원 해소 및 실행 권한이 없는 연속 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/), [의미 판단 텔레메트리](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment_telemetry.py), [S3 프레임 정규화](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_normalization.py), [대상 후보 계획](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [조사 플래너](../../../services/core-control-plane/src/fdai/core/conversation/semantic_investigation_planning.py) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
+| 의미 대화 계획 수립 | 매니페스트 로드 전 compact T1 social/operation preflight, 모든 비직접 결과를 위한 Whole-turn 기능 인식 스키마 제안, 범위가 제한된 스키마 계열 보정 검증, 후속 프레임 제안보다 먼저 적용하는 canonical typed judgment, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 근거가 필요 없는 타입 지정 직접 응답, 내용이 없는 계층/구성/신뢰도/지연 시간/결과 및 판단 보류 텔레메트리, 전체 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환, 선언 기반의 범위가 제한된 질문 집합 생성, 인식 상태 완결성 release 증적, 정확한 서비스-Resource 범위와 실패 시 차단되는 Resource 상태 근거를 사용하는 타입 기반 네트워크 대 애플리케이션 지연 조사, 발화가 이미 지목한 대상을 되묻지 않도록 출력 계열과 무관하게 동작하는 정확한 Resource 신원 해소 및 실행 권한이 없는 연속 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/), [스키마 보정 검증](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment_schema_repair.py), [의미 판단 텔레메트리](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment_telemetry.py), [S3 프레임 정규화](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_normalization.py), [대상 후보 계획](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [조사 플래너](../../../services/core-control-plane/src/fdai/core/conversation/semantic_investigation_planning.py) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
 | 영속 백그라운드 작업 인계 | 프로덕션 실행기 연결 없이 임차 기간으로 보호되는 분리 읽기 레코드, 원자적 최종 발신함, progress-before-terminal 전달을 보장하는 트랜잭션형 Core-to-Operator snapshot 및 progress outbox 점유, Operator 소유 변환 결과 수집, 단일 기록 완료 감사 표시 | [background_task](../../../services/core-control-plane/src/fdai/core/background_task/), [projection 게시자](../../../services/core-control-plane/src/fdai_core_service/background_task_projection.py), [projection feed](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_projection_feed.py), [완료 감사 어댑터](../../../services/core-control-plane/src/fdai/delivery/persistence/background_task_completion_audit.py) | [백그라운드 작업 테스트](../../../services/core-control-plane/tests/core/background_task/), [runtime 테스트](../../../services/core-control-plane/tests/runtime/test_read_investigation_runtime.py), [완료 감사 테스트](../../../services/core-control-plane/tests/persistence/test_background_task_completion_audit.py) |
 | Rule 의미 세대 종결 | 타입 기반 활성화 명령 및 최종 결과, 정확한 대상 증적과 예상 이전 세대 compare-and-swap, 프로바이더 접근 전 replay 차단, 원자적 StateStore 결과/outbox 영속성, lease 차단, 재시도 예약, 손상 거부 및 정책 또는 실행 권한이 없는 broker 확인 기반 발행 상태 | [rule_semantic_generation](../../../services/core-control-plane/src/fdai/core/rule_semantic_generation/) | [Rule 의미 세대 테스트](../../../services/core-control-plane/tests/core/rule_semantic_generation/) |
 | 온톨로지 의미 세대 | 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트, 자체 검증 가능한 세대 ID, 후보 전용 구체적인 인덱스, 영속 PostgreSQL 저장, 예상 이전 세대 활성화 compare-and-swap, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, stale detection 및 롤백 | [catalog_search 프로바이더](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py) 및 [catalog_search 전달](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
@@ -454,8 +474,8 @@ collection을 소유합니다. Console instance presentation은 role assignment�
 non-scope root의 immediate Resource Group 하나만 유지하며 provider relationship을 추가하지 않고
 evidence-backed AKS managed group, VMSS, VM, NIC hierarchy를 렌더링합니다.
 
-Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다. 해당
-테스트는 Core 소유 테스트 트리에 유지합니다.
+Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다.
+테스트는 Core 소유 트리에 유지하며, 개별 CI 샤드는 자체 하한 없이 기록하고 집계 job이 모든 샤드를 결합해 90% 하한을 적용합니다.
 
 온톨로지 조회 실행은 런타임에서 exact release, 매니페스트, 역할 및 용도를 다시 검사합니다.
 범위가 제한된 의존성 wave는 노드 기한에 큐 wait를 포함하고 in-flight 취소를 전파하며
@@ -582,7 +602,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
-| 시스템 지식 서비스 | Release 고정 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
+| 시스템 지식 서비스 | 조상 커밋에 고정된 release 카탈로그를 사용하는 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
 이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.
 로컬 조립은 서비스 소유 클라이언트 수명 주기와 loopback 어댑터를 연결합니다. 따라서 Operator 의미
 브리지, 인제스트 게시자, 문서 워커 consumer 및 Isolated 실행기는 배포된 어댑터와 동일한 logical
@@ -613,8 +633,8 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
-함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다.
-`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
+함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다. `semantic_judgment.py`는 범위가 제한된 제안 검증과 스키마 복구 피드백을 소유하고 거부 어휘, 기능 정규화 및 근거 확인은 목적별 형제 모듈에 유지합니다.
+Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.

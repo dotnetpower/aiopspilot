@@ -972,6 +972,7 @@ def test_legacy_platform_imports_the_service_specific_core_image() -> None:
     assert '"registryUri": "https://ghcr.io"' not in _IMAGE_BINDER
     assert 'login_server="${login_server#https://}"' in _IMAGE_BINDER
     assert 'login_server="${login_server%/}"' in _IMAGE_BINDER
+    assert 'login_server="$FDAI_ACR_LOGIN_SERVER"' in _IMAGE_BINDER
     assert "^[a-z0-9]+[.]azurecr[.]io$" in _IMAGE_BINDER
 
 

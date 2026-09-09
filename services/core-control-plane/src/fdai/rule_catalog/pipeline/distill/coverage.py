@@ -56,7 +56,9 @@ def analyze_coverage(
     An *obligation* is a section heading or a line carrying a normative term.
     An obligation at line ``L`` is *covered* when some candidate's
     ``source_lines`` range includes ``L``. Lines inside fenced code blocks are
-    skipped so example code is not mistaken for an obligation.
+    skipped so example code is not mistaken for an obligation. An unterminated
+    fence adds a malformed-input gap so uncertain trailing content cannot appear
+    fully covered.
 
     Returns a :class:`CoverageReport` whose ``gaps`` list the uncovered
     obligations (1-based line, text, kind) for human review. An empty manual (no
@@ -66,11 +68,13 @@ def analyze_coverage(
     covered = 0
     gaps: list[CoverageGap] = []
     in_fence = False
+    fence_start: int | None = None
 
     for idx, raw in enumerate(text.splitlines(), start=1):
         stripped = raw.strip()
         if stripped.startswith(_FENCE):
             in_fence = not in_fence
+            fence_start = idx if in_fence else None
             continue
         if in_fence:
             continue
@@ -90,6 +94,16 @@ def analyze_coverage(
             covered += 1
         else:
             gaps.append(CoverageGap(line=idx, text=obligation_text, kind=kind))
+
+    if fence_start is not None:
+        total += 1
+        gaps.append(
+            CoverageGap(
+                line=fence_start,
+                text="Unterminated fenced code block",
+                kind="malformed",
+            )
+        )
 
     return CoverageReport(total=total, covered=covered, gaps=tuple(gaps))
 

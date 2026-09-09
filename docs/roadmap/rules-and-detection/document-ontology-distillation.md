@@ -88,6 +88,15 @@ and candidate references to unknown claims fail validation. The deterministic le
 completeness accounting without guessing which words imply a rule, procedure, observation, or
 authority class.
 
+When extraction returns no candidates, the review package inventories the complete document instead
+of reporting zero claims. A council-backed result must carry exactly one content-free receipt for
+every inventoried claim, so unsupported, contested, and unresolved claims remain visible as
+`needs_review`.
+
+Claim reconciliation accepts line-range coverage only when the candidate also pins the inventoried
+document's exact content digest. A candidate from a stale revision remains `needs_review` even when
+its source reference and line numbers still match.
+
 ## Authority classes
 
 The source authority controls which proposal operations are eligible.
@@ -124,6 +133,11 @@ bounded candidate set and produces `review_required`. An unknown add also remain
 Update, remove, and supersede operations require one exact or unique-alias identity. Fuzzy matching
 never auto-resolves an identity and remains future review-only candidate discovery. Resolution
 method and candidates participate in the content-addressed proposal identity.
+
+For a link proposal, the source and destination identities resolve independently against the
+declared endpoint types. The canonical link `target_identity` is the resolved source identity, so a
+configured unique alias cannot be mistaken for a malformed identifier. Ambiguous endpoint aliases
+retain their sorted, bounded candidate sets on the inert proposal and route to `review_required`.
 
 ## Envelope provenance bridge
 
@@ -162,7 +176,8 @@ are normalized without including document content.
 
 The frozen synthetic corpus expresses the same operational claims as Markdown, DOCX, PPTX, native
 text PDF, and scanned PDF. Conformance compares normalized claims, proposals, and graph operations
-while allowing only source-format and locator fields to differ. Release requires 100% critical
+while allowing only source-format and locator fields to differ. Link fixtures use the canonical
+resolved source identity as `target_identity` in every format. Release requires 100% critical
 claim accounting, zero semantic or citation errors, zero normalized graph differences, at least
 0.98 critical-claim recall and entity/link precision, and replay-stable digests for every format.
 
@@ -275,7 +290,8 @@ Runtime binding requires all three resolved capabilities and all three structure
 bindings together. Each endpoint binding pins an exact non-null model version, deployment, Entra
 authentication, route, API style, and verified resource-reference digest. That digest becomes the
 model identity's fault domain; equal digests reveal a shared account or gateway fault domain and
-therefore correlated infrastructure risk. Zero council records preserve the default abstaining
+therefore correlated infrastructure risk. Binding rejects a council unless all three fault domains
+are distinct. Zero council records preserve the default abstaining
 distiller for backward compatibility. Any partial, `hil-only`, mismatched, unversioned, non-Entra,
 or otherwise invalid council configuration makes ontology extraction unavailable and fails startup
 binding. It never borrows the execution T2 pool or degrades the existing execution quality gate.
@@ -347,6 +363,14 @@ The verifier evaluates one proposal without calling an executor or mutating a so
 | Safety | rules, workflows, and actions satisfy their complete safety contracts | `denied` |
 | Coverage | every claim has a disposition and critical recall meets the release gate | `review_required` |
 
+When source precedence resolves a lower-priority conflict, the passing receipt still retains every
+overridden fact's immutable evidence reference. Deterministic precedence does not erase audit
+lineage.
+
+When the two link endpoints produce different gate outcomes, the identity gate keeps the strongest
+result in the order `denied`, `review_required`, then pass. An ambiguous endpoint cannot downgrade a
+type mismatch or another denial on its peer endpoint.
+
 Model self-reported confidence is never an authority signal. A computed confidence may summarize
 grounding, independent agreement, identity resolution, freshness, and historical performance, but
 it can only lower eligibility. Independent model disagreement on normalized critical fields routes
@@ -366,11 +390,13 @@ Document and graph lifecycles stay linked by immutable digests:
 - **Supersession:** Approved intent replaces a prior effective interval without changing historical
   decision context.
 - **Rollback:** Projection failure or later rejection restores the exact prior graph revision and
-  records the failed proposal digest.
+  records the failed proposal digest. A rollback transition accepts only the prior revision recorded
+  when projection began; a caller cannot substitute another graph revision.
 
 Projection and reconciliation are separate. Accepting declared intent can update the governed
 intent projection. A provider-observed statement becomes current truth only after fresh external
-observation matches it.
+observation matches it. A lifecycle can enter `projected` only through a validated `ProjectionPlan`
+that pins the expected, next, and exact rollback graph revisions.
 
 ## Agent ownership
 

@@ -155,6 +155,9 @@ def _require_classified_covers(
             "ManualClassifier.classify MUST return exactly one verdict per input "
             f"candidate (got {len(out_refs)} for {len(input_refs)} inputs)"
         )
+    inputs_by_ref = {candidate.source_ref: candidate for candidate in inputs}
+    if any(inputs_by_ref[item.candidate.source_ref] != item.candidate for item in classified):
+        raise ValueError("ManualClassifier.classify MUST preserve each input candidate unchanged")
 
 
 async def build_distillation_plan(
@@ -200,11 +203,18 @@ async def build_distillation_plan(
     unique, dup_drops = dedupe_exact(triage.kept)
     filtered = triage.dropped + dup_drops
 
-    classified = await classifier.classify(unique)
-    _require_classified_covers(unique, classified)
+    held: list[HeldManual] = [
+        HeldManual(candidate=candidate, reason="source:oversize")
+        for candidate in unique
+        if candidate.metadata.get("source_status") == "oversize"
+    ]
+    classifiable = tuple(
+        candidate for candidate in unique if candidate.metadata.get("source_status") != "oversize"
+    )
+    classified = await classifier.classify(classifiable)
+    _require_classified_covers(classifiable, classified)
     procedures: list[ManualCandidate] = []
     rejected: list[ManualCandidate] = []
-    held: list[HeldManual] = []
     for item in classified:
         if item.verdict is ProcedureVerdict.PROCEDURE:
             procedures.append(item.candidate)
@@ -214,10 +224,12 @@ async def build_distillation_plan(
             held.append(HeldManual(candidate=item.candidate, reason="classifier:uncertain"))
 
     distilled: list[DistilledManual] = []
+    unfetched: set[str] = set()
     for candidate in prioritize(procedures, incident_refs=incident_refs):
         document = await source.fetch(candidate.doc_id)
         if document is None:
-            # Vanished between list and fetch - nothing to compile, no error.
+            # Do not mark a transient list/fetch race as processed.
+            unfetched.add(candidate.source_ref)
             continue
         report = scan_sensitivity(document)
         if not report.is_clear:
@@ -249,20 +261,17 @@ async def build_distillation_plan(
             )
         )
 
-    # Do not record sensitivity-held docs in the snapshot: they carry an
-    # unresolved secret and were not distilled, so marking them "seen" would
-    # drop them from the HIL queue on the next unchanged run. Excluding them
-    # re-surfaces the secret every run until the content changes or a human
-    # resolves it. Uncertain / rejected / distilled outcomes are content- or
+    # Do not record sensitivity-held or unfetched docs in the snapshot. Both
+    # outcomes are non-terminal and must re-enter processing on the next run.
+    # Uncertain / rejected / distilled outcomes are content- or
     # decision-terminal and stay recorded so deletion tracking still works.
-    sensitivity_held = {
+    retry_held = {
         held_item.candidate.source_ref
         for held_item in held
-        if held_item.reason.startswith("sensitivity:")
+        if held_item.reason.startswith(("sensitivity:", "source:"))
     }
-    snapshot = {
-        ref: sha for ref, sha in snapshot_of(current).items() if ref not in sensitivity_held
-    }
+    retry_refs = retry_held | unfetched
+    snapshot = {ref: sha for ref, sha in snapshot_of(current).items() if ref not in retry_refs}
 
     return DistillationPlan(
         distilled=tuple(distilled),

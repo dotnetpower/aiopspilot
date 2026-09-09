@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 45d0080beb808cf886684da1adefb01534b5fafb
-translation_revised: 2026-09-09
+translation_source_sha: 0b9b5562a488f08f2013455ac2814851ee440db4
+translation_revised: 2026-09-10
 ---
 # 시스템 지식 서비스
 
@@ -109,6 +109,10 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.
+`source_revision`은 현재 checkout과 보호된 `origin/main`의 merge-base이며 rebase 또는 squash
+통합 후에도 보호된 main의 조상으로 유지합니다. 각 소스의 `blob_sha`는 현재 검토된 checkout을
+별도로 고정하므로 카탈로그 내용이 갱신되어도 side branch 계보를 release 기준점으로 지정하지
+않습니다.
 
 ## Teams 신뢰 경계
 

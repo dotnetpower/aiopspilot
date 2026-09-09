@@ -1,0 +1,152 @@
+/* Slides 16-25: execution, trust, Azure deployment, delivery, and review architecture. */
+
+/* Slide 16: execution dispatch. */
+.ta-execution-dispatch { display: grid; grid-template-columns: 175px 32px 230px 32px minmax(0, 1fr) 32px 205px; grid-template-rows: minmax(0, 1fr) 38px; }
+.ta-dispatch-gates > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 10px; }
+.ta-dispatch-gates > div > span { display: grid; place-items: center; padding: 8px; border-radius: 6px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
+.ta-dispatch-paths > div { padding: 9px; }
+.ta-dispatch-path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; height: 100%; }
+.ta-dispatch-path-grid .ta-arch-node { padding: 7px 9px; }
+.ta-dispatch-path-grid .ta-arch-node > span { font-size: 12px; }
+.ta-execution-dispatch > footer { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: #edf2f5; }
+.ta-execution-dispatch > footer b { color: var(--ta-blue-dark); font-size: 13px; }
+.ta-execution-dispatch > footer span { font-size: 14px; }
+
+/* Slide 17: isolated Executor internals. */
+.ta-isolated-executor { display: grid; grid-template-columns: 215px 30px minmax(0, 1fr) 30px 215px; grid-template-rows: minmax(0, 1fr) 76px 18px; gap: 8px 0; }
+.ta-executor-boundary > div { display: grid; grid-template-rows: 1fr 28px; gap: 7px; padding: 9px; }
+.ta-executor-pipeline { display: grid; grid-template-columns: 1fr 20px 1.15fr 20px 1fr 20px 1.05fr; min-height: 0; }
+.ta-executor-pipeline .ta-arch-node { padding: 7px 8px; }
+.ta-executor-pipeline .ta-arch-node > span { font-size: 11px; }
+.ta-executor-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ta-executor-status span { width: auto; display: grid; place-items: center; text-align: center; }
+.ta-executor-return { grid-column: 3 / 6; grid-row: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ta-executor-return .ta-arch-node { padding: 6px 10px; }
+.ta-isolated-executor > .ta-arch-legend { grid-column: 1 / -1; grid-row: 3; }
+
+/* Slide 18: identity and trust zones. */
+.ta-trust-zone-architecture { display: grid; grid-template-columns: repeat(4, 1fr 28px) 1fr; grid-template-rows: minmax(0, 1fr) 42px; }
+.ta-trust-zone > div { display: grid; align-items: stretch; padding: 9px; }
+.ta-trust-zone .ta-arch-node { height: 100%; }
+.ta-trust-zone-architecture > footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 13px; padding: 8px 12px; border-radius: 8px; background: #253f52; color: #fff; }
+.ta-trust-zone-architecture > footer span { color: #e6f0f5; font-size: 14px; font-weight: 800; }
+.ta-trust-zone-architecture > footer b { color: #fff; font-size: 13px; }
+
+/* Slide 19: independent effect verification. */
+.ta-effect-verification { position: relative; display: grid; grid-template-rows: 1fr 1fr 38px; gap: 12px; }
+.ta-effect-plan { display: grid; grid-template-columns: 1fr 38px 1fr 38px 1fr; padding: 0 9%; }
+.ta-effect-observation { display: grid; grid-template-columns: 1.2fr 32px 1fr 32px 1fr 32px .8fr; }
+.ta-effect-plan .ta-arch-node,
+.ta-effect-observation .ta-arch-node { padding: 8px 11px; }
+.ta-effect-cross-link { position: absolute; top: 120px; left: 75%; width: 2px; height: 20px; }
+.ta-effect-cross-link .ta-arch-link { height: 20px; }
+.ta-effect-verification > footer { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.ta-effect-verification > footer span { width: auto; display: grid; place-items: center; text-align: center; }
+
+/* Slide 20: safe degradation and recovery. */
+.ta-degradation-architecture { display: grid; grid-template-rows: 84px 20px 65px 20px 1fr; }
+.ta-dependency-row,
+.ta-dependency-links { display: grid; grid-template-columns: repeat(6, 1fr); gap: 9px; }
+.ta-dependency-row .ta-arch-node { padding: 6px 8px; }
+.ta-dependency-row .ta-arch-node > span { font-size: 11px; }
+.ta-dependency-eligibility { width: 100%; justify-self: center; }
+.ta-dependency-eligibility > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 7px 10px; }
+.ta-dependency-eligibility > div > span { display: grid; place-items: center; padding: 6px; border-radius: 5px; background: #fff; color: var(--ta-slate); font-size: 12px; font-weight: 700; text-align: center; }
+.ta-degradation-architecture > .ta-arch-link { justify-self: center; }
+.ta-dependency-outcomes > div { padding: 8px; }
+.ta-degradation-outcomes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.ta-degradation-outcomes { height: 100%; }
+.ta-degradation-outcomes span { display: grid; align-content: center; gap: 8px; padding: 12px; border: 1px solid #ddb4ad; border-radius: 7px; background: #fff; color: #5f4540; font-size: 13px; line-height: 1.3; }
+.ta-degradation-outcomes b { color: var(--ta-red); font-size: 12px; }
+
+/* Slide 21: ports and adapters. */
+.ta-ports-adapters { display: grid; grid-template-rows: 1fr 18px 1.35fr 18px 1.15fr 18px 1.05fr; }
+.ta-ports-core > div,
+.ta-ports-azure-adapters > div,
+.ta-ports-services > div { display: grid; align-items: center; gap: 8px; padding: 8px 12px; }
+.ta-ports-core > div { grid-template-columns: repeat(5, 1fr); }
+.ta-ports-azure-adapters > div,
+.ta-ports-services > div { grid-template-columns: repeat(6, 1fr); }
+.ta-ports-core > div > span,
+.ta-ports-azure-adapters > div > span,
+.ta-ports-services > div > span { display: grid; place-items: center; height: 100%; padding: 6px; border-radius: 5px; background: #fff; color: var(--ta-slate); font-size: 12px; font-weight: 700; text-align: center; }
+.ta-ports-contracts > div { display: grid; align-items: center; padding: 7px 10px; }
+.ta-contract-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.ta-contract-grid span { display: grid; place-items: center; padding: 7px 4px; border: 1px solid #acc1cf; border-radius: 6px; background: #fff; color: #415663; font-size: 12px; line-height: 1.2; text-align: center; }
+.ta-contract-grid b { color: var(--ta-blue-dark); font-size: 12px; }
+.ta-ports-adapters > .ta-arch-link { justify-self: center; }
+
+/* Slide 22: nested Azure deployment topology. */
+.ta-azure-deployment { position: relative; display: grid; grid-template-rows: 58px 14px minmax(0, 1fr) 18px; }
+.ta-azure-outside,
+.ta-azure-outside-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 12%; }
+.ta-azure-outside .ta-arch-node { padding: 5px 9px; }
+.ta-azure-region > div { padding: 8px; }
+.ta-azure-region-grid { display: grid; grid-template-columns: 1fr 1.25fr 1.05fr; grid-template-rows: minmax(0, 1fr) 52px; gap: 8px; height: 100%; }
+.ta-azure-edge { grid-column: 1; grid-row: 1; }
+.ta-azure-apps { grid-column: 2; grid-row: 1; }
+.ta-azure-data { grid-column: 3; grid-row: 1; }
+.ta-azure-observability { grid-column: 1 / -1; grid-row: 2; }
+.ta-azure-edge > div { display: grid; grid-template-rows: 1.25fr .75fr; gap: 6px; padding: 6px; }
+.ta-azure-apps > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
+.ta-azure-data > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
+.ta-azure-region-grid .ta-arch-node { gap: 2px; padding: 4px 7px; }
+.ta-azure-region-grid .ta-arch-node > span { font-size: 9.5px; }
+.ta-azure-region-grid .ta-arch-node > strong { font-size: 15px; }
+.ta-azure-observability { grid-template-columns: auto 1fr 1.6fr; align-items: center; gap: 10px; }
+.ta-azure-observability > small,
+.ta-azure-observability > strong,
+.ta-azure-observability > span { grid-row: 1; }
+.ta-azure-internal-links { position: absolute; top: 92px; right: 13%; bottom: 40px; left: 15%; pointer-events: none; }
+.ta-azure-internal-links .ta-arch-link { position: absolute; opacity: .68; }
+.ta-azure-internal-links .ta-arch-link:nth-child(1) { top: 30%; left: 25%; width: 16%; transform: rotate(8deg); }
+.ta-azure-internal-links .ta-arch-link:nth-child(2) { top: 54%; left: 54%; width: 20%; transform: rotate(5deg); }
+.ta-azure-internal-links .ta-arch-link:nth-child(3) { top: 76%; left: 50%; width: 2px; height: 34px; }
+.ta-azure-deployment > .ta-arch-legend { align-self: end; }
+
+/* Slide 23: numbered Azure network and data flow. */
+.ta-azure-network-flow { position: relative; display: grid; grid-template-rows: 142px 105px 42px; gap: 12px; }
+.ta-network-main { display: grid; grid-template-columns: repeat(6, 1fr 22px) 1fr; }
+.ta-network-main .ta-arch-node { padding: 7px 8px; }
+.ta-network-main .ta-arch-node > span { font-size: 11px; }
+.ta-network-support { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 4%; }
+.ta-network-support .ta-arch-node { padding: 7px 9px; }
+.ta-network-support .ta-arch-node > span { font-size: 11px; }
+.ta-network-support-links { position: absolute; inset: 130px 6% 44px; pointer-events: none; }
+.ta-network-support-links .ta-arch-link { position: absolute; opacity: .7; }
+.ta-network-support-links .ta-arch-link:nth-child(1) { top: 8%; left: 90%; width: 2px; height: 45px; }
+.ta-network-support-links .ta-arch-link:nth-child(2) { top: 8%; left: 70%; width: 2px; height: 45px; }
+.ta-azure-network-flow > footer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ta-azure-network-flow > footer span { width: auto; display: grid; place-items: center; text-align: center; }
+
+/* Slide 24: artifact delivery and authority promotion. */
+.ta-release-promotion { display: grid; grid-template-rows: 1fr 1fr 42px; gap: 10px; }
+.ta-release-artifact > div,
+.ta-release-authority > div { padding: 7px; }
+.ta-release-track { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 22px 1fr; height: 100%; }
+.ta-release-track .ta-arch-node { padding: 6px 8px; }
+.ta-release-track .ta-arch-node > span { font-size: 11px; }
+.ta-release-promotion > footer { display: grid; grid-template-columns: 1fr 1fr 1.1fr; align-items: center; gap: 10px; }
+.ta-release-promotion > footer span { width: auto; display: grid; place-items: center; text-align: center; }
+.ta-release-promotion > footer b { padding: 8px 12px; border-radius: 7px; background: #253f52; color: #fff; font-size: 14px; text-align: center; }
+
+/* Slide 25: architecture review decision. */
+.ta-architecture-decision-map { display: grid; grid-template-columns: 1fr 36px 1.05fr 36px 1.25fr; grid-template-rows: minmax(0, 1fr) 44px; }
+.ta-decision-baseline-boundary > div,
+.ta-decision-production > div { padding: 10px; }
+.ta-decision-baseline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ta-decision-baseline { height: 100%; grid-template-rows: repeat(3, 1fr); }
+.ta-decision-baseline span { display: grid; place-items: center; padding: 10px 7px; border-radius: 7px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
+.ta-decision-options-boundary > div { padding: 8px; }
+.ta-decision-options-map { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; }
+.ta-decision-options-map .ta-arch-node { padding: 7px 10px; }
+.ta-decision-options-map .ta-arch-node > span { font-size: 12px; }
+.ta-decision-blockers { display: grid; height: 100%; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 7px; }
+.ta-decision-blockers span { padding: 8px 7px; border: 1px solid #d6aaa2; border-radius: 6px; background: #fff; color: #6d3d35; font-size: 12px; font-weight: 700; }
+.ta-architecture-decision-map > footer { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto 1.6fr; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: #253f52; color: #fff; }
+.ta-architecture-decision-map > footer span { color: #d9e7ee; font-size: 12px; font-weight: 800; }
+.ta-architecture-decision-map > footer b { color: #fff; font-size: 14px; }
+
+@media print {
+  .manual-slide.deck-target-architecture { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

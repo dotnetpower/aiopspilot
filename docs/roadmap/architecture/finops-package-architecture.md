@@ -55,7 +55,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes still rebuild all service images for supply-chain evidence, while the parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes still rebuild all service images for supply-chain evidence, while the parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |
@@ -107,6 +107,8 @@ cannot resolve the case or when policy requires approval.
 The target distribution is `fdai-cost-governance`, with import namespace
 `fdai_cost_governance` and workspace path `extensions/cost-governance/`. It is built as its own
 wheel and source distribution, like `fdai-code-assurance`.
+Its image target retains `service="core-control-plane"`: this adds a distribution profile, not an
+independent runtime service, regardless of which other service candidates are registered.
 
 The wheel is included through a reviewed image build or downstream composition. Runtime activation
 does not download or import arbitrary code from an uploaded archive. The trusted-artifact record

@@ -304,8 +304,21 @@ def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
 
 
 def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
-    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    workflow_path = _REPO_ROOT / ".github/workflows/ci.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    jobs = yaml.safe_load(workflow)["jobs"]
+    freeze_steps = jobs["freeze-scenarios"]["steps"]
+    checkout = next(step for step in freeze_steps if step["name"] == "Checkout")
+    detection = next(
+        step
+        for step in freeze_steps
+        if step["name"] == "Detect modifications / deletions in frozen versions"
+    )
 
+    assert checkout["with"]["fetch-depth"] == 0
+    assert all(step["name"] != "Fetch base ref" for step in freeze_steps)
+    assert detection["env"] == {"PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}"}
+    assert 'base_sha="$PR_BASE_SHA"' in detection["run"]
     assert "'services/core-control-plane/tests/scenarios/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/manifests/v*.json'" in workflow
@@ -435,6 +448,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "devbox-smoke.yml",
         "destroy-env.yml",
         "infra-drift.yml",
+        "framework-assessment-shadow.yml",
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",
         "model-settings-projection.yml",
@@ -649,8 +663,13 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     root = Path(__file__).resolve().parents[3]
     assert not (root / "Dockerfile").exists()
     assert not (root / "services" / "Dockerfile").exists()
-    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
-    assert len(dockerfiles) == 6
+    dockerfiles = set((root / "services").glob("*/docker/Dockerfile"))
+    expected = {
+        root / target.dockerfile
+        for target in IMAGE_TARGETS
+        if target.dockerfile.startswith("services/")
+    }
+    assert dockerfiles == expected
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "--no-install-package fdai-service-contracts" in text
@@ -669,10 +688,12 @@ def test_azd_is_infrastructure_only_without_a_stale_service_target() -> None:
 
 def test_shipped_runtime_images_pin_fixed_runtime_packages() -> None:
     root = Path(__file__).resolve().parents[3]
-    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
-    dockerfiles.append(root / "extensions" / "cost-governance" / "docker" / "Dockerfile")
+    dockerfiles = {root / target.dockerfile for target in IMAGE_TARGETS}
 
-    assert len(dockerfiles) == 7
+    assert dockerfiles == {
+        *set((root / "services").glob("*/docker/Dockerfile")),
+        root / "extensions" / "cost-governance" / "docker" / "Dockerfile",
+    }
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text

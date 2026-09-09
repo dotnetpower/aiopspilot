@@ -3,7 +3,7 @@ title: Project Structure
 ---
 # Project Structure
 
-The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
+The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 
 ## Design at a glance
 
@@ -410,9 +410,9 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   adapter classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
-- **Config-driven binding**: configuration selects each implementation. `composition/wire_distiller.py`
-  atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical
-  prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
+- **Config-driven binding**: configuration selects each implementation.
+  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records preserve abstention without validating unused endpoint values. Partial records fail startup without changing execution T2.
+  The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
 - **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles, independent review, shared provider budgets, and the verified evidence reader remain required. Verified semantic planning binds a cancellation-only model-call scope across its synchronous planner thread and asynchronous Azure provider tasks, so request cancellation stops and drains provider work without changing ordinary candidate failover; `semantic_runtime_cancellation.py` owns that thread-cancellation bridge and `semantic_planning_preflight_router.py` owns one `plan()` call's preflight direct-response routing, both kept below the enforced LOC ceiling without changing public imports or read-only authority. Full semantic judgment preserves selector order inside a 32 KiB candidate-only capability projection. Verified preflight Resource collection filters bind against reviewed value groups before descriptor narrowing or summary planning, so an unknown type with an optional state filter can only produce typed clarification. An unaccepted Resource event-history proposal may narrow only the next frame model's context; proposal acceptance, frame-plan verification, evidence admission, and read-only authority remain unchanged. Operational intent-map comparisons return explicit booleans at this boundary. Collection Resource-state planning and state-fact decoding remain deterministic Core ontology-platform responsibilities; presentation only consumes their verified rows.

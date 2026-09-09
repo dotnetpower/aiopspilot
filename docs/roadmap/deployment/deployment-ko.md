@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d95e79c2174b363d565c8391251c82cef3b4ee7f
+translation_source_sha: 0a45e86f445559f2440e126b574782dbda487a63
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,11 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | ARM으로 관측하는 인벤토리 Job 조회가 실행기 CLI 확장의 잘못된 기본 버전 대신 지원되는 안정 Container Apps `2024-03-01` API를 사용하도록 고정했습니다. 정확한 리소스 그룹과 런타임 계약 카디널리티 검사는 그대로 유지합니다. | `current change`; 실패한 보호 인증 `34406488996`; 안정 API 실제 조회에서 검토된 계약 일치 항목 1개 확인; 집중 작업 흐름 계약 검사. | API 고정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
+| 2026-09-09 | implemented | 사용할 수 없는 Terraform 상태 스냅샷 fallback을 정확한 플랫폼 리소스 그룹 안에서 ARM으로 관측한 인벤토리 Job 조회로 교체했습니다. fallback은 검토된 이름, 명령, 빈 인자를 가진 컨테이너가 정확히 하나여야 하며 Job 이름에서 신원을 유추하지 않습니다. | `current change`; 실패한 보호 인증 `34403565287`; 범위가 제한된 실제 ARM 카디널리티 진단; 집중 작업 흐름 계약 검사. | ARM fallback을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
+| 2026-09-09 | implemented | 역할과 범위가 바뀌지 않고, `principal_id`만 유일한 교체 경로이며 apply 전까지 알 수 없는 상태이고, 같은 계획에서 새 Operator API UAMI를 생성할 때만 정확한 Operator API OpenAI User 역할 교체를 보호된 계획으로 보존하도록 허용했습니다. 이는 apply를 승인하지 않습니다. | 실패한 보호 계획 `34404837936`; 정제한 계획 검토; 집중 positive 및 negative guard 테스트. | Plan-only를 다시 실행하고 보존된 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
+| 2026-09-09 | implemented | 암시적 상태 렌더링에서 일치하는 리소스를 찾지 못한 뒤 OI-12 기존 인벤토리 Job 조회를 mode 0600의 특정 시점 Terraform 상태 스냅샷에 결속했습니다. 실행기는 단계가 끝날 때 스냅샷을 삭제하며 추적된 주소가 정확히 하나여야 한다는 조건을 유지합니다. | `current change`; 실패한 보호 인증 `34400981555`; 실제 비공개 상태 주소 진단; 집중 작업 흐름 계약 검사. | 스냅샷 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
+| 2026-09-09 | implemented | 보호된 OI-12 인벤토리 새로 고침이 최상위 인벤토리 Job 출력보다 먼저 배포된 플랫폼 상태와 호환되도록 수정했습니다. 작업 흐름은 최상위 출력을 우선 사용하고, 이름에서 신원을 유추하지 않은 채 상태에 추적된 인벤토리 Job 리소스 하나만 정확히 확인합니다. | `current change`; 실패한 보호 인증 `34389423964`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 호환성 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기존 out-of-band Job과 rule-watcher Job을 개발 운영 게이트웨이 대상 의존성 집합에 추가했습니다. 이제 Terraform은 선언되지 않은 의존성 대상을 요구하지 않고 이미 선택한 게이트웨이 및 측정 리소스의 계획을 만들 수 있습니다. | `current change`; 실패한 보호 계획 `34316856951`; `.github/workflows/deploy-dev.yml`; 집중 workflow 대상 검사. | workflow 수정 사항을 게시하고 적용 전에 정확한 런타임 이미지 승격 계획을 다시 실행합니다. |
 | 2026-09-09 | implemented | 라이선스 필수 Trial 동작, 암호학적으로 검증된 로컬 발급자 예외, 소비자가 강제하는 30일 토큰, 다이제스트 이름의 Key Vault 시크릿을 통한 격리된 갱신 및 보호된 공개 Core 경로의 재시작 가능한 tfvars 구체화를 추가했습니다. | `current change`; 결합된 집중 회귀 검사 228개, 검토 후 기여자 검사 9개와 air-gap 제품화 검사 6개 통과, 두 Core Terraform 계층 검증 완료, 빌드한 Core wheel에 공개 키 포함 확인. | 키 없는 새 Azure 배포의 Trial, 활성 토큰이 있는 발급자 배포, 만료 차단 및 동일 이미지 갱신 증적을 보존합니다. |
 | 2026-09-09 | implemented | 공개 `dev` 플랫폼과 독립 Core 루트를 정확한 ACR 빌드, 스키마 및 카탈로그 부트스트랩, 예약 Job 활성화, 범위가 제한된 상태 검사를 포함하는 하나의 보호된 fresh-clone 경로로 조합했습니다. | `current change`; 집중 배포 workflow 테스트 86개, 집중 native Terraform 계획 46개 통과, Terraform 구성 검증 통과. | 경로를 validated로 분류하기 전에 통제된 새 구독 적용, 정리, 두 번째 실행 no-change, Core 상태, canary 및 인벤토리 증적을 보존합니다. |
@@ -270,9 +275,14 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   `signed-image-provenance`로 연결합니다. ACR용 두 번째 빌드는 다른 대상을 만들기 때문에
   수락하지 않습니다. Private-runner 실행기 계획은 하나의 출처 개정 번호를 attested GHCR
   다이제스트로 해석하고 명시적 승격 입력이 있을 때만 해당 exact 대상을 가져오기하며 ACR
-  Terraform 출력을 정확한 Azure login host로 정규화합니다. 이후 ACR 다이제스트가 동일한지
-  검증하고 Terraform에 연결합니다. Exact 적용은 protected 계획에 기록된 이미지를 promote하거나
-  교체할 수 없습니다.
+  Terraform 출력 또는 검증된 배포 Job 이미지를 정확한 Azure login host로 정규화합니다. 이후
+  ACR 다이제스트가 동일한지 검증하고 Terraform에 연결합니다. Exact 적용은 protected 계획에
+  기록된 이미지를 promote하거나 교체할 수 없습니다.
+  보호된 OI-12 인벤토리 새로 고침은 인벤토리 Job의 플랫폼 최상위 출력을 우선 사용합니다.
+  배포된 상태가 해당 출력보다 오래된 경우에는 정확한 플랫폼 리소스 그룹 안에서만 ARM을
+  안정 Container Apps `2024-03-01` API로 조회하고 검토된 인벤토리 이름, 명령, 빈 인자를 가진
+  컨테이너 하나를 요구합니다. 이름 패턴으로 Job 신원을 유추하거나 프로바이더 출력을 저장하지
+  않습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + 의존성 + 시크릿 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.

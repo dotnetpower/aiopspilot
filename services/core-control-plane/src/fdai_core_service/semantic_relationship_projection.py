@@ -153,15 +153,39 @@ def render_ontology_relationship_answer(
     title = "## 온톨로지 관계" if korean else "## Ontology relationships"
     lines = [title, ""]
     if relationships:
-        for item in relationships:
-            if not isinstance(item, Mapping):  # pragma: no cover - projection invariant
-                raise RuntimeError("ontology relationship row is invalid")
-            link = str(item["link_type"])
-            source = str(item["from_type"])
-            target = str(item["to_type"])
-            cardinality = str(item["cardinality"])
-            description = str(item["description"])
-            lines.append(f"- `{source}` --`{link}`--> `{target}` (`{cardinality}`): {description}")
+        if len(object_types) == 1 and isinstance(object_types[0], str):
+            subject = object_types[0]
+            incoming = tuple(
+                item
+                for item in relationships
+                if isinstance(item, Mapping) and item.get("to_type") == subject
+            )
+            outgoing = tuple(
+                item
+                for item in relationships
+                if isinstance(item, Mapping) and item.get("from_type") == subject
+            )
+            lines.extend(
+                _directional_relationship_lines(
+                    incoming,
+                    heading="### 수신 관계" if korean else "### Incoming relationships",
+                    empty="선언된 수신 관계가 없습니다."
+                    if korean
+                    else "No incoming relationship is declared.",
+                )
+            )
+            lines.append("")
+            lines.extend(
+                _directional_relationship_lines(
+                    outgoing,
+                    heading="### 발신 관계" if korean else "### Outgoing relationships",
+                    empty="선언된 발신 관계가 없습니다."
+                    if korean
+                    else "No outgoing relationship is declared.",
+                )
+            )
+        else:
+            lines.extend(_relationship_line(item) for item in relationships)
     else:
         names = ", ".join(f"`{item}`" for item in object_types)
         lines.append(
@@ -195,6 +219,33 @@ def render_ontology_relationship_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _directional_relationship_lines(
+    relationships: tuple[Mapping[str, object], ...],
+    *,
+    heading: str,
+    empty: str,
+) -> list[str]:
+    return [
+        heading,
+        *(
+            [_relationship_line(item) for item in relationships]
+            if relationships
+            else [f"- {empty}"]
+        ),
+    ]
+
+
+def _relationship_line(item: object) -> str:
+    if not isinstance(item, Mapping):  # pragma: no cover - projection invariant
+        raise RuntimeError("ontology relationship row is invalid")
+    link = str(item["link_type"])
+    source = str(item["from_type"])
+    target = str(item["to_type"])
+    cardinality = str(item["cardinality"])
+    description = str(item["description"])
+    return f"- `{source}` --`{link}`--> `{target}` (`{cardinality}`): {description}"
 
 
 __all__ = ["project_ontology_relationships", "render_ontology_relationship_answer"]

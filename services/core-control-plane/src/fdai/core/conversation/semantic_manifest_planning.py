@@ -151,21 +151,20 @@ def schema_subjects_from_judgment(
 def _declaration_kinds_from_judgment(
     judgment: SemanticJudgmentProposal,
 ) -> set[OntologyDeclarationKind]:
-    declaration_kinds = {
+    target_kinds = {
         declaration_kind
         for target in judgment.targets
         if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
     }
-    if declaration_kinds:
-        return declaration_kinds
     normalized_facets = {
         facet.replace("_", "").replace("-", "") for facet in judgment.requested_facets
     }
-    return {
+    facet_kinds = {
         declaration_kind
         for declaration_kind in OntologyDeclarationKind
         if any(f"{declaration_kind.value}type" in facet for facet in normalized_facets)
     }
+    return target_kinds | facet_kinds
 
 
 def _is_schema_read_intent(primary_intent: str) -> bool:

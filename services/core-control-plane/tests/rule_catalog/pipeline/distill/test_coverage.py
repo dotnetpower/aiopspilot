@@ -80,6 +80,19 @@ def test_fenced_code_is_not_an_obligation() -> None:
     assert all("count-this" not in t for t in texts)
 
 
+def test_unterminated_fence_adds_review_gap() -> None:
+    text = "# Setup\n```\nunterminated\n## Configure\nThe value must be encrypted.\n"
+
+    report = analyze_coverage(text, [])
+
+    assert report.total == 2
+    assert report.covered == 0
+    assert report.coverage_ratio == 0.0
+    assert report.gaps[-1].line == 2
+    assert report.gaps[-1].text == "Unterminated fenced code block"
+    assert report.gaps[-1].kind == "malformed"
+
+
 def test_normative_terms_are_word_bounded() -> None:
     # "mustard" and "shallow" must not trigger a false obligation.
     text = "The mustard is in a shallow dish.\n"

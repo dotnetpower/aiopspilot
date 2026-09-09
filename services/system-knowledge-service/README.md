@@ -38,6 +38,7 @@ Run the compiler from the repository root after a cited source changes:
 ```bash
 uv run fdai-system-knowledge-build-catalog \
   --repo-root . \
+  --protected-main-ref refs/remotes/origin/main \
   --output services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json
 ```
 

@@ -28,6 +28,8 @@ class WorkflowOperation(StrEnum):
     RULE_DETAIL = "rule.detail"
     BEST_PRACTICE_LIST = "best-practice.list"
     BEST_PRACTICE_DETAIL = "best-practice.detail"
+    CAF_LIST = "caf.list"
+    CAF_DETAIL = "caf.detail"
     WARA_LIST = "wara.list"
     WARA_DETAIL = "wara.detail"
     MCSB_LIST = "mcsb.list"

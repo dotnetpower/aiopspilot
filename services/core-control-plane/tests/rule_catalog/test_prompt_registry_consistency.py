@@ -29,7 +29,8 @@ _CATALOG = _REPO / "rule-catalog"
 # narrator reuses t1.judge, t2.proposer selects the reasoner pair, and the
 # Norns review prompt selects t2.reasoner.primary/secondary off-path. Semantic
 # frame/plan prompts use the same resolved reasoner candidates as two strict
-# calls. Semantic judgment reuses resolved T1 and optional T2 targets. Conversation
+# calls. Semantic judgment and its typed schema repair reuse resolved T1 targets.
+# Conversation
 # preflight and social narration reuse the narrator deployment through distinct,
 # deterministic composition keys. Adaptive plan/answer and review/verify reuse
 # independent configured T1 narrators; optional refine uses t2.reasoner.primary.
@@ -51,6 +52,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.social-narrator.thanks",
         "norns.post-turn-review",
         "semantic.judgment",
+        "semantic.judgment.schema-repair",
         "semantic.query.frame",
         "semantic.query.frame.operational",
         "semantic.query.frame.recovery",
@@ -263,6 +265,15 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "use only the supplied query.manifest FunctionType" in judgment_shadow.body
     assert "A generic prohibited operation uses kind action" in judgment_shadow.body
     assert "Put only explicitly negated or prohibited operations" in judgment_shadow.body
+    schema_shadow = next(
+        artifact
+        for artifact in prompts.get_packs("semantic.judgment")
+        if artifact.id == "semantic-ontology-schema"
+    )
+    assert schema_shadow.version == 2
+    assert schema_shadow.default_mode.value == "shadow"
+    assert "never invent a count capability" in schema_shadow.body
+    assert "A declaration-detail request MUST NOT add count" in schema_shadow.body
     assert "Never convert advise_only into action_draft" in frame_shadow.body
     assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
     assert "gateway status, backend status, and model status" in operational_frame.body

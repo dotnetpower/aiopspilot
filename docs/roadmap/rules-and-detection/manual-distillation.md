@@ -147,6 +147,10 @@ expensively, and only on a small subset.
    pages, ask for one label (`fdai`) or run a batch "is this a manual? [yes / no]" HIL
    triage. Humans confirm O(dozens), never O(thousands).
 
+At the classifier provider boundary, every verdict remains bound to the exact
+input candidate. Matching only the result count or source-reference set is not
+sufficient because a substituted identity would corrupt downstream provenance.
+
 Reuse the source's own curation instead of inventing one: Notion's **verified-page**
 property (a workspace owner marks a wiki page verified, optionally with an expiry) and
 Confluence labels / spaces are ready-made authority signals.
@@ -179,6 +183,14 @@ is treated as a suspected source outage and fails closed - no retirements are
 planned and the prior snapshot is preserved, so a transient outage never
 tombstones the whole distilled catalog (a blast-radius limit on the deletion
 path).
+
+A candidate that appears in the listing but cannot be fetched is also excluded
+from the new snapshot. The next run retries the unchanged candidate instead of
+silently treating an incomplete fetch as processed.
+
+The drop-directory adapter keeps an oversize file visible as a metadata-only
+candidate and routes it to human review without reading its content. Crossing a
+read limit therefore cannot impersonate a deletion or trigger rule retirement.
 
 ## The distillation pipeline
 
@@ -262,7 +274,9 @@ eliminated:
 
 - **Structural coverage diff.** Count the manual's section headings and imperative
   statements ("must", "must not", "shall"), compare against the extracted-fragment
-  count and topics, and flag uncovered sections for human review.
+  count and topics, and flag uncovered sections for human review. An unterminated
+  fenced code block produces an explicit malformed-input gap instead of silently
+  hiding the uncertain trailing content.
 - **Operational feedback.** When shadow runs a stretch with no rule firing yet a real
   incident occurs, that gap is a missing-rule signal the discovery loop turns into a
   candidate (see [observability-and-detection.md](observability-and-detection.md) and

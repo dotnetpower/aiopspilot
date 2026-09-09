@@ -144,12 +144,14 @@ def _boundary(
     primary: _Model | None,
     escalation: _Model | None = None,
     *,
+    schema_repair: _Model | None = None,
     strict_intent_grounding: bool = False,
 ) -> SemanticJudgmentBoundary:
     return SemanticJudgmentBoundary(
         profile_id="conversation.routing",
         profile_version="1.0.0",
         primary=_binding(SemanticJudgmentTier.T1, primary) if primary else None,
+        schema_repair=(_binding(SemanticJudgmentTier.T1, schema_repair) if schema_repair else None),
         escalation=_binding(SemanticJudgmentTier.T2, escalation) if escalation else None,
         strict_intent_grounding=strict_intent_grounding,
     )
@@ -171,6 +173,117 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.input_digest == content_digest({"utterance": utterance})
     assert utterance not in result.receipt.model_dump_json()
     assert result.receipt.execution_authority is False
+
+
+def test_schema_repair_runs_once_after_incomplete_typed_schema_family() -> None:
+    utterance = "Show the Resource declaration and readable properties."
+    primary = _Model(
+        _proposal(
+            primary_intent="query.manifest",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["count", "readable_properties"],
+        )
+    )
+    repair = _Model(
+        _proposal(
+            primary_intent="query.ontology_declaration",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["declaration_detail", "readable_properties"],
+        )
+    )
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.manifest"},
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.ontology_declaration"
+    assert result.proposal.requested_facets == (
+        "declaration_detail",
+        "readable_properties",
+    )
+    assert primary.calls == repair.calls == 1
+
+
+def test_complete_schema_proposal_does_not_spend_repair_call() -> None:
+    utterance = "Show the Resource declaration."
+    primary = _Model(
+        _proposal(
+            primary_intent="query.ontology_declaration",
+            targets=[
+                {
+                    "kind": "object_type",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 9,
+                    "source_end": 17,
+                }
+            ],
+            requested_facets=["declaration_detail", "readable_properties"],
+        )
+    )
+    repair = _Model(_proposal(primary_intent="query.ontology_declaration"))
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert repair.calls == 0
+
+
+def test_invalid_schema_repair_retains_primary_fail_closed_proposal() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.manifest",
+            targets=[],
+            requested_facets=[],
+        )
+    )
+    repair = _Model(_proposal(primary_intent="cost_breakdown"))
+
+    result = _boundary(primary, schema_repair=repair).judge(
+        utterance="Inspect the active ontology schema.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.manifest"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.manifest"
+    assert result.receipt.reason_code == "accepted_schema_repair_fallback"
+    assert repair.calls == 3
 
 
 def test_accepts_locale_bound_model_authored_direct_response() -> None:
@@ -314,6 +427,60 @@ def test_does_not_normalize_kubernetes_event_history_without_the_function() -> N
     assert result.accepted is True
     assert result.proposal is not None
     assert result.proposal.primary_intent == "query.kubernetes_event_history"
+
+
+@pytest.mark.parametrize(
+    ("proposed_intent", "expected_facet"),
+    (
+        ("query.ontology_action_type_count", "action_type_count"),
+        ("query.ontology_function_type_count", "function_type_count"),
+        ("query.ontology_interface_type_count", "interface_type_count"),
+        ("query.ontology_link_type_count", "link_type_count"),
+        ("query.ontology_object_type_count", "object_type_count"),
+    ),
+)
+def test_normalizes_ontology_count_alias_to_the_supplied_manifest_function(
+    proposed_intent: str,
+    expected_facet: str,
+) -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=proposed_intent,
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Count the declarations in the active ontology release.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.manifest"},),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.manifest"
+    assert result.proposal.requested_facets == (expected_facet,)
+
+
+def test_rejects_ontology_count_alias_without_the_manifest_function() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_action_type_count",
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Count ActionTypes.",
+        context=(),
+        capabilities=(),
+    )
+
+    assert result.accepted is False
+    assert result.proposal is None
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
 
 
 def test_preserves_measured_provider_observation_without_changing_proposal_validation() -> None:
@@ -1463,6 +1630,249 @@ def test_complete_collection_scope_drops_redundant_resource_identity_clarificati
     assert result.proposal.ambiguous is False
     assert result.proposal.unresolved_terms == ()
     assert result.proposal.clarification is None
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "targets", "requested_facets"),
+    (
+        (
+            "query.ontology_declaration",
+            [],
+            ["agent_declaration", "read_only_properties"],
+        ),
+        (
+            "query.ontology_relationships",
+            [
+                {
+                    "kind": "object_type",
+                    "value": "BusinessService",
+                    "canonical_value": "BusinessService",
+                    "source_start": 0,
+                    "source_end": 15,
+                }
+            ],
+            ["declared_relationships", "incoming_relationships", "outgoing_relationships"],
+        ),
+    ),
+)
+def test_complete_schema_subject_drops_redundant_identity_clarification(
+    primary_intent: str,
+    targets: list[dict[str, object]],
+    requested_facets: list[str],
+) -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=targets,
+                requested_facets=requested_facets,
+                ambiguous=True,
+                alternatives=["resource_identity"],
+                unresolved_terms=["Resource"],
+                clarification="Which exact schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance="BusinessService schema" if targets else "Agent schema",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Agent"},
+            {"kind": "object_type", "name": "BusinessService"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert result.proposal.unresolved_terms == ()
+    assert result.proposal.clarification is None
+
+
+def test_schema_identity_ambiguity_preserves_multiple_typed_subjects() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_declaration",
+                targets=[],
+                requested_facets=["agent_declaration", "workload_declaration"],
+                ambiguous=True,
+                alternatives=["Agent", "Workload"],
+                unresolved_terms=["schema_subject"],
+                clarification="Which schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance="Show the Agent or Workload schema.",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Agent"},
+            {"kind": "object_type", "name": "Workload"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.CLARIFICATION
+
+
+@pytest.mark.parametrize(
+    "primary_intent",
+    ("query.ontology_declaration", "query.ontology_relationships"),
+)
+def test_schema_target_drops_only_the_generic_object_type_suffix(
+    primary_intent: str,
+) -> None:
+    utterance = "Show the Resource ObjectType declaration."
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "Resource ObjectType",
+                        "canonical_value": "Resource",
+                        "source_start": 9,
+                        "source_end": 28,
+                    }
+                ],
+                requested_facets=(
+                    ["declaration_detail"]
+                    if primary_intent == "query.ontology_declaration"
+                    else ["incoming_relationships", "outgoing_relationships"]
+                ),
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Resource"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert len(result.proposal.targets) == 1
+    assert result.proposal.targets[0].value == "Resource"
+    assert result.proposal.targets[0].source_start == 9
+    assert result.proposal.targets[0].source_end == 17
+
+
+def test_relationship_target_drops_a_generic_link_type_metatype() -> None:
+    utterance = "Which LinkTypes enter and leave BusinessService?"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_relationships",
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "LinkTypes",
+                        "canonical_value": "LinkType",
+                        "source_start": 6,
+                        "source_end": 15,
+                    },
+                    {
+                        "kind": "object_type",
+                        "value": "BusinessService",
+                        "canonical_value": "BusinessService",
+                        "source_start": 32,
+                        "source_end": 47,
+                    },
+                ],
+                requested_facets=["incoming_relationships", "outgoing_relationships"],
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_relationships"},
+            {"kind": "object_type", "name": "LinkType"},
+            {"kind": "object_type", "name": "BusinessService"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert [target.canonical_value for target in result.proposal.targets] == ["BusinessService"]
+
+
+@pytest.mark.parametrize(
+    "primary_intent",
+    ("query.ontology_declaration", "query.ontology_relationships"),
+)
+def test_schema_intent_recovers_one_exact_supplied_subject(
+    primary_intent: str,
+) -> None:
+    utterance = "Show the Finding ObjectType schema."
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "ObjectType",
+                        "canonical_value": "ObjectType",
+                        "source_start": 17,
+                        "source_end": 27,
+                    }
+                ],
+                requested_facets=[],
+                ambiguous=True,
+                alternatives=["schema_subject"],
+                unresolved_terms=["schema_subject"],
+                clarification="Which schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Finding"},
+            {"kind": "object_type", "name": "ObjectType"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert [target.canonical_value for target in result.proposal.targets] == ["Finding"]
+
+
+def test_schema_intent_does_not_choose_between_two_supplied_subjects() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_declaration",
+                targets=[],
+                requested_facets=[],
+            )
+        )
+    ).judge(
+        utterance="Compare the Finding and Incident schemas.",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Finding"},
+            {"kind": "object_type", "name": "Incident"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.targets == ()
 
 
 @pytest.mark.parametrize(
