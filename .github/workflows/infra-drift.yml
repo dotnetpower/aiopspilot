@@ -259,16 +259,10 @@ jobs:
             runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
           else
             app_resource_group_name="$(terraform output -raw app_resource_group_name)"
-            runner_vm_name="$(terraform output -raw runner_vm_name)"
-            runner_ssh_public_key="$(az vm show \
-              --subscription "$ARM_SUBSCRIPTION_ID" \
-              --resource-group "$TF_VAR_ops_resource_group_name" \
-              --name "$runner_vm_name" \
-              --query 'osProfile.linuxConfiguration.ssh.publicKeys[0].keyData' \
-              --output tsv \
-              --only-show-errors)"
+            runner_ssh_public_key="$(awk 'NF >= 2 && $1 ~ /^ssh-/ {print; exit}' \
+              "$HOME/.ssh/authorized_keys")"
             [[ -n "$app_resource_group_name" && -n "$runner_ssh_public_key" ]]
-            echo "Recovered promoted runner plan inputs from authoritative readback."
+            echo "Recovered promoted runner plan inputs from authoritative host readback."
           fi
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
