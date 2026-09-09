@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from fdai.core.conversation_assurance.pantheon_scorecard import PantheonTurnDiagnostic
+    from fdai.core.prompts.types import PromptProfileEvidence
 
 _MAX_TEXT_CHARS = 16_384
 _MAX_RATIONALE_CHARS = 1_000
@@ -156,6 +157,7 @@ class EvaluatorOutput:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost_microusd: int = 0
+    prompt_profile_evidence: PromptProfileEvidence | None = None
 
     def __post_init__(self) -> None:
         if not self.model_identity.strip() or not self.model_family.strip():
@@ -183,6 +185,7 @@ class AssuranceDecision:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost_microusd: int = 0
+    prompt_profile_evidence: tuple[PromptProfileEvidence, ...] = ()
     pantheon_diagnostic: PantheonTurnDiagnostic | None = None
 
     def __post_init__(self) -> None:
@@ -192,6 +195,8 @@ class AssuranceDecision:
             raise ValueError("AssuranceDecision.confidence MUST be in [0, 1]")
         if not 0 <= self.model_calls <= 3:
             raise ValueError("AssuranceDecision.model_calls MUST be in [0, 3]")
+        if len(self.prompt_profile_evidence) > self.model_calls:
+            raise ValueError("AssuranceDecision prompt profile evidence exceeds model calls")
 
 
 @dataclass(frozen=True, slots=True)

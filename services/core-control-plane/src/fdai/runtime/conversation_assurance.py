@@ -140,6 +140,8 @@ def build_azure_conversation_assurance_evaluators(
                 model_identity=f"{item.publisher}:{item.family}:{item.name}",
                 model_family=item.family or "",
                 system_prompt=prompt.system_text,
+                prompt_manifest=prompt.replay_manifest(),
+                max_tokens=prompt.reserved_output_tokens or 1_024,
             ),
             metering=MeteringEmitter(
                 sink=metering_sink,

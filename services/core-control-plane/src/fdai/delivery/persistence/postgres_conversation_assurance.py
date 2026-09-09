@@ -21,6 +21,7 @@ from fdai.core.conversation_assurance import (
     PantheonTurnDiagnostic,
 )
 from fdai.core.conversation_assurance.ledger import same_dispute_request
+from fdai.core.prompts import PromptProfileEvidence
 
 _ASSESSMENT_COLUMNS: Final = (
     "assessment_id, turn_id, conversation_id, principal_scope, question_digest, "
@@ -235,6 +236,7 @@ def _decision_mapping(decision: AssuranceDecision) -> dict[str, object]:
         "prompt_tokens": decision.prompt_tokens,
         "completion_tokens": decision.completion_tokens,
         "cost_microusd": decision.cost_microusd,
+        "prompt_profile_evidence": [item.to_dict() for item in decision.prompt_profile_evidence],
     }
     if decision.pantheon_diagnostic is not None:
         result["pantheon_diagnostic"] = decision.pantheon_diagnostic.to_dict()
@@ -264,6 +266,11 @@ def _assessment(row: dict[str, Any]) -> AssessmentRecord:
         prompt_tokens=int(raw["prompt_tokens"]),
         completion_tokens=int(raw["completion_tokens"]),
         cost_microusd=int(raw["cost_microusd"]),
+        prompt_profile_evidence=tuple(
+            PromptProfileEvidence.from_mapping(item)
+            for item in raw.get("prompt_profile_evidence", ())
+            if isinstance(item, dict)
+        ),
         pantheon_diagnostic=(
             PantheonTurnDiagnostic.from_mapping(raw["pantheon_diagnostic"])
             if isinstance(raw.get("pantheon_diagnostic"), dict)

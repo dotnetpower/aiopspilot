@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -19,6 +20,11 @@ from fdai.core.conversation_assurance import (
 )
 from fdai.core.metering import MeteringEmitter, TokenUsage
 from fdai.core.metering.pricing import PricingTable
+from fdai.core.prompts import (
+    PromptProfileEvidence,
+    PromptReplayManifest,
+    estimate_serialized_request_tokens,
+)
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
@@ -38,6 +44,7 @@ class AzureConversationAssuranceEvaluatorConfig:
     model_identity: str
     model_family: str
     system_prompt: str
+    prompt_manifest: PromptReplayManifest | None = None
     api_version: str = "2024-06-01"
     max_tokens: int = 1_024
     timeout_seconds: float = 30.0
@@ -51,6 +58,17 @@ class AzureConversationAssuranceEvaluatorConfig:
             raise ValueError("assurance model identity and family MUST be non-empty")
         if not self.system_prompt.strip():
             raise ValueError("assurance system_prompt MUST be non-empty")
+        if self.prompt_manifest is not None:
+            if (
+                self.prompt_manifest.system_text_sha256
+                != hashlib.sha256(self.system_prompt.encode()).hexdigest()
+            ):
+                raise ValueError("assurance prompt manifest does not match its system prompt")
+            if (
+                self.prompt_manifest.reserved_output_tokens is not None
+                and self.prompt_manifest.reserved_output_tokens < self.max_tokens
+            ):
+                raise ValueError("assurance max_tokens exceeds the prompt output reserve")
         if not 256 <= self.max_tokens <= 4_096:
             raise ValueError("assurance max_tokens MUST be in [256, 4096]")
         if self.timeout_seconds <= 0.0:
@@ -99,10 +117,13 @@ class AzureConversationAssuranceEvaluator:
         price = self._pricing.pricing_for(self.model_family)
         if price is None:
             return 50_000
-        usage = TokenUsage(
-            prompt_tokens=_MAX_FORWARD_CHARS // 4,
-            completion_tokens=self._config.max_tokens,
+        manifest = self._config.prompt_manifest
+        prompt_tokens = (
+            manifest.request_token_budget - self._config.max_tokens
+            if manifest is not None and manifest.request_token_budget is not None
+            else _MAX_FORWARD_CHARS
         )
+        usage = TokenUsage(prompt_tokens=prompt_tokens, completion_tokens=self._config.max_tokens)
         return _cost_microusd(price.cost_of(usage))
 
     async def evaluate(
@@ -111,7 +132,6 @@ class AzureConversationAssuranceEvaluator:
         *,
         debate: DebateContext | None = None,
     ) -> EvaluatorOutput:
-        token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
         body: dict[str, Any] = {
             "messages": [
@@ -125,6 +145,18 @@ class AzureConversationAssuranceEvaluator:
         body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
+        manifest = self._config.prompt_manifest
+        request_tokens = estimate_serialized_request_tokens(
+            body,
+            reserved_output_tokens=self._config.max_tokens,
+        )
+        if (
+            manifest is not None
+            and manifest.request_token_budget is not None
+            and request_tokens > manifest.request_token_budget
+        ):
+            raise RuntimeError("conversation assurance request exceeds its prompt profile budget")
+        token = await self._identity.get_token(self._target.auth_audience)
         usage: TokenUsage | None = None
         try:
             response = await self._http.post(
@@ -152,6 +184,9 @@ class AzureConversationAssuranceEvaluator:
                 prompt_tokens=measured_usage.prompt_tokens,
                 completion_tokens=measured_usage.completion_tokens,
                 cost_microusd=self._actual_cost_microusd(measured_usage),
+                prompt_profile_evidence=(
+                    PromptProfileEvidence.from_manifest(manifest) if manifest is not None else None
+                ),
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(

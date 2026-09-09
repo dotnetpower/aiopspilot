@@ -390,6 +390,82 @@ class PromptReplayManifest:
 
 
 @dataclass(frozen=True, slots=True)
+class PromptProfileEvidence:
+    """Bounded exact-profile evidence safe for durable decision records."""
+
+    profile_id: str
+    profile_version: int
+    profile_digest: str
+    system_text_sha256: str
+    system_token_budget: int
+    request_token_budget: int
+    reserved_output_tokens: int
+
+    def __post_init__(self) -> None:
+        if re.fullmatch(r"[a-f0-9]{64}", self.system_text_sha256) is None:
+            raise ValueError("prompt profile system_text_sha256 MUST be a SHA-256 hex digest")
+        _validate_profile_replay_fields(
+            profile_id=self.profile_id,
+            profile_version=self.profile_version,
+            profile_digest=self.profile_digest,
+            system_token_budget=self.system_token_budget,
+            request_token_budget=self.request_token_budget,
+            reserved_output_tokens=self.reserved_output_tokens,
+        )
+
+    @classmethod
+    def from_manifest(cls, manifest: PromptReplayManifest) -> PromptProfileEvidence:
+        """Project a complete replay manifest to durable profile evidence."""
+
+        values = (
+            manifest.profile_id,
+            manifest.profile_version,
+            manifest.profile_digest,
+            manifest.system_token_budget,
+            manifest.request_token_budget,
+            manifest.reserved_output_tokens,
+        )
+        if any(value is None for value in values):
+            raise ValueError("prompt profile evidence requires a complete replay profile")
+        return cls(
+            profile_id=cast(str, manifest.profile_id),
+            profile_version=cast(int, manifest.profile_version),
+            profile_digest=cast(str, manifest.profile_digest),
+            system_text_sha256=manifest.system_text_sha256,
+            system_token_budget=cast(int, manifest.system_token_budget),
+            request_token_budget=cast(int, manifest.request_token_budget),
+            reserved_output_tokens=cast(int, manifest.reserved_output_tokens),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a stable persistence mapping."""
+
+        return {
+            "profile_id": self.profile_id,
+            "profile_version": self.profile_version,
+            "profile_digest": self.profile_digest,
+            "system_text_sha256": self.system_text_sha256,
+            "system_token_budget": self.system_token_budget,
+            "request_token_budget": self.request_token_budget,
+            "reserved_output_tokens": self.reserved_output_tokens,
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> PromptProfileEvidence:
+        """Validate persisted profile evidence."""
+
+        return cls(
+            profile_id=str(value["profile_id"]),
+            profile_version=int(value["profile_version"]),  # type: ignore[call-overload]
+            profile_digest=str(value["profile_digest"]),
+            system_text_sha256=str(value["system_text_sha256"]),
+            system_token_budget=int(value["system_token_budget"]),  # type: ignore[call-overload]
+            request_token_budget=int(value["request_token_budget"]),  # type: ignore[call-overload]
+            reserved_output_tokens=int(value["reserved_output_tokens"]),  # type: ignore[call-overload]
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ComposedPrompt:
     """Resolved prompt handed to the delivery adapter.
 
@@ -508,6 +584,7 @@ __all__ = [
     "AblatedLayerRef",
     "ComposedPrompt",
     "LayerRef",
+    "PromptProfileEvidence",
     "PromptReplayManifest",
     "PromptArtifact",
     "PromptAblationProfile",

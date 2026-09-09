@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -9,6 +11,7 @@ import pytest
 from fdai.core.conversation_assurance import AssuranceCriterion, TurnAssessmentInput
 from fdai.core.metering import InMemoryMeteringSink, MeteringEmitter
 from fdai.core.metering.pricing import PricingTable
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.conversation_assurance import (
     AzureConversationAssuranceEvaluator,
     AzureConversationAssuranceEvaluatorConfig,
@@ -84,6 +87,20 @@ def _config() -> AzureConversationAssuranceEvaluatorConfig:
     )
 
 
+def _manifest(prompt: str, *, request_budget: int = 16_384) -> PromptReplayManifest:
+    return PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt.encode()),
+        profile_id="active.conversation-assurance",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=1024,
+        request_token_budget=request_budget,
+        reserved_output_tokens=1024,
+    )
+
+
 def _pricing() -> PricingTable:
     return PricingTable.from_mapping(
         {
@@ -99,10 +116,11 @@ async def test_evaluator_parses_scores_and_usage() -> None:
     captured: list[httpx.Request] = []
     sink = InMemoryMeteringSink()
     async with httpx.AsyncClient(transport=_transport(_response_payload(), captured)) as client:
+        config = _config()
         evaluator = AzureConversationAssuranceEvaluator(
             identity=_Identity(),
             http_client=client,
-            config=_config(),
+            config=replace(config, prompt_manifest=_manifest(config.system_prompt)),
             metering=MeteringEmitter(
                 sink=sink,
                 capability_id="conversation.assurance",
@@ -120,6 +138,8 @@ async def test_evaluator_parses_scores_and_usage() -> None:
     assert output.prompt_tokens == 7
     assert output.completion_tokens == 3
     assert output.cost_microusd == 13
+    assert output.prompt_profile_evidence is not None
+    assert output.prompt_profile_evidence.profile_id == "active.conversation-assurance"
     assert evaluator.prospective_cost_microusd > 0
     (invocation,) = await sink.invocations()
     assert invocation.cost == Decimal("0.000013")
@@ -146,4 +166,27 @@ async def test_evaluator_rejects_malformed_output(content: str, message: str) ->
         )
 
         with pytest.raises(RuntimeError, match=message):
+            await evaluator.evaluate(_turn())
+
+
+async def test_profile_budget_blocks_before_identity_or_provider_io() -> None:
+    config = _config()
+
+    class NoIdentity:
+        async def get_token(self, audience: str) -> IdentityToken:
+            raise AssertionError(f"unexpected identity request for {audience}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        evaluator = AzureConversationAssuranceEvaluator(
+            identity=NoIdentity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=replace(
+                config,
+                prompt_manifest=_manifest(config.system_prompt, request_budget=1025),
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="profile budget"):
             await evaluator.evaluate(_turn())

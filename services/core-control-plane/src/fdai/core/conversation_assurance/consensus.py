@@ -232,6 +232,11 @@ def _decision_from_outputs(
         prompt_tokens=sum(output.prompt_tokens for output in outputs),
         completion_tokens=sum(output.completion_tokens for output in outputs),
         cost_microusd=sum(output.cost_microusd for output in outputs),
+        prompt_profile_evidence=tuple(
+            output.prompt_profile_evidence
+            for output in outputs
+            if output.prompt_profile_evidence is not None
+        ),
     )
 
 
@@ -257,6 +262,11 @@ def _inconclusive(
         prompt_tokens=sum(output.prompt_tokens for output in outputs),
         completion_tokens=sum(output.completion_tokens for output in outputs),
         cost_microusd=sum(output.cost_microusd for output in outputs),
+        prompt_profile_evidence=tuple(
+            output.prompt_profile_evidence
+            for output in outputs
+            if output.prompt_profile_evidence is not None
+        ),
     )
 
 
