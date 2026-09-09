@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: be1d8b4c9abe461ef37fafa0326c687ecde7fc4a
+translation_source_sha: bda8bfa55e2cab822154bfcf27643834f790ce78
 translation_revised: 2026-09-10
 ---
 # 지속형 운영 인스턴스 그래프
@@ -64,6 +64,10 @@ translation_revised: 2026-09-10
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
+
+Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
+고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의
+검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다.
 
 런타임 호출 근거에는 해시된 요청 식별자와 정확한 호출자 및 대상 Container App Resource ID가
 같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자

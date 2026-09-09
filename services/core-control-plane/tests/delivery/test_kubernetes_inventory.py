@@ -134,6 +134,19 @@ async def test_adds_runtime_resources_and_verified_relationships() -> None:
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.AVAILABLE
 
 
+async def test_scopes_source_state_without_exposing_cluster_identity() -> None:
+    scope_digest = "sha256:" + "a" * 64
+    result = await KubernetesInventoryEnricher(
+        source=_Source(_snapshot()),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        scope_digest=scope_digest,
+    ).enrich(_observation())
+
+    assert result.source_states[-1].scope_digest == scope_digest
+    assert result.source_states[-1].to_metadata()["scope_digest"] == scope_digest
+    assert CLUSTER_ID not in str(result.source_states[-1].to_metadata())
+
+
 async def test_advances_generation_cutoff_to_accepted_kubernetes_observation() -> None:
     provider_observation = replace(
         _observation(),

@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added the fleet binding and per-cluster source-state implementation. | `current change`; focused configuration, composition, enrichment, and metadata tests. | Complete the remaining diagnostic evidence families and live validation. |
 | 2026-09-10 | in-progress | Adopted the implementation ledger and bounded design after Issue #278 topology completion. Earlier diagnostic provenance was not reconstructed. | Current source paths listed in the scope table and Issue #578. | Implement every open scope row, complete ten hardening rounds, and retain live evidence. |
 
 ### Remaining work

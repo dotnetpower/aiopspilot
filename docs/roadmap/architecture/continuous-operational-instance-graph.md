@@ -62,6 +62,10 @@ A collected property becomes a relationship only through a reviewed provider map
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 
+Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
+uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
+erasing another cluster's verified positive evidence or exposing its ARM identity.
+
 Runtime-call evidence requires two typed endpoint witnesses with the same hashed request identity
 and exact caller and target Container App Resource IDs. Operator emits the caller witness only after
 authenticated broker acceptance, and Core emits the target witness as soon as that broker delivery

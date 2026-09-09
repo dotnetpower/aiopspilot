@@ -50,7 +50,10 @@ from fdai.delivery.inventory_sync_cli import (
     run,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventoryConfig
-from fdai.delivery.kubernetes_inventory import UnavailableKubernetesInventoryEnricher
+from fdai.delivery.kubernetes_inventory import (
+    SequentialInventoryPromotionEnricher,
+    UnavailableKubernetesInventoryEnricher,
+)
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -70,6 +73,10 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+_CLUSTER_REF = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/"
+    "providers/Microsoft.ContainerService/managedClusters/aks-example"
+)
 
 
 def _vocabulary() -> ResourceTypeRegistry:
@@ -370,14 +377,14 @@ def test_job_config_requires_complete_kubernetes_binding() -> None:
             "FDAI_INVENTORY_DSN": "postgresql://example",
             "AZURE_SUBSCRIPTION_ID": "sub-1",
             "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
-            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_CLUSTER_REF": _CLUSTER_REF,
             "FDAI_KUBERNETES_TOKEN_PATH": "/var/run/secrets/kubernetes/token",
             "FDAI_KUBERNETES_CA_PATH": "/var/run/secrets/kubernetes/ca.crt",
         }
     )
 
     assert config.kubernetes_api_server == "https://kubernetes.example"
-    assert config.kubernetes_cluster_ref == "cluster-ref-example"
+    assert config.kubernetes_cluster_ref == _CLUSTER_REF
     assert config.kubernetes_token_path == Path("/var/run/secrets/kubernetes/token")
     assert config.kubernetes_ca_path == Path("/var/run/secrets/kubernetes/ca.crt")
     assert config.kubernetes_auth_mode == "service-account"
@@ -412,7 +419,7 @@ async def test_configured_kubernetes_composition_binds_exact_source(
             "FDAI_INVENTORY_DSN": "postgresql://example",
             "AZURE_SUBSCRIPTION_ID": "sub-1",
             "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
-            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_CLUSTER_REF": _CLUSTER_REF,
             "FDAI_KUBERNETES_TOKEN_PATH": "/var/run/secrets/kubernetes/token",
             "FDAI_KUBERNETES_CA_PATH": "/var/run/secrets/kubernetes/ca.crt",
         }
@@ -455,13 +462,14 @@ async def test_configured_kubernetes_composition_binds_exact_source(
     source_kwargs = source_factory.call_args.kwargs
     assert source_kwargs["config"] == KubernetesApiInventoryConfig(
         api_server="https://kubernetes.example",
-        cluster_ref="cluster-ref-example",
+        cluster_ref=_CLUSTER_REF,
     )
     assert source_kwargs["auth"].token_path == Path("/var/run/secrets/kubernetes/token")
     assert source_kwargs["http_client"] is fake_http_client
     enricher_factory.assert_called_once_with(
         source=source_factory.return_value,
         relationship_mapping_catalog=catalog,
+        scope_digest=config.kubernetes_bindings[0].scope_digest,
     )
 
 
@@ -471,7 +479,7 @@ def test_job_config_accepts_workload_identity_kubernetes_binding() -> None:
             "FDAI_INVENTORY_DSN": "postgresql://example",
             "AZURE_SUBSCRIPTION_ID": "sub-1",
             "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
-            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_CLUSTER_REF": _CLUSTER_REF,
             "FDAI_KUBERNETES_AUTH_MODE": "workload-identity",
             "FDAI_KUBERNETES_CA_PEM": "-----BEGIN CERTIFICATE-----\nfixture\n",
             "FDAI_KUBERNETES_AUDIENCE": "api://aks-reader/.default",
@@ -483,6 +491,119 @@ def test_job_config_accepts_workload_identity_kubernetes_binding() -> None:
     assert config.kubernetes_ca_pem == "-----BEGIN CERTIFICATE-----\nfixture"
     assert config.kubernetes_auth_mode == "workload-identity"
     assert config.kubernetes_audience == "api://aks-reader/.default"
+
+
+def test_job_config_accepts_fleet_bindings_and_rejects_legacy_overlap() -> None:
+    fleet = json.dumps(
+        [
+            {
+                "api_server": "https://one.example",
+                "cluster_ref": _CLUSTER_REF,
+                "auth_mode": "workload-identity",
+                "ca_path": "/var/run/fdai/one-ca.crt",
+                "audience": "api://aks-reader/.default",
+            },
+            {
+                "api_server": "https://two.example",
+                "cluster_ref": _CLUSTER_REF.replace("aks-example", "aks-two"),
+                "auth_mode": "service-account",
+                "ca_path": "/var/run/fdai/two-ca.crt",
+                "token_path": "/var/run/fdai/two-token",
+            },
+        ]
+    )
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": fleet,
+        }
+    )
+
+    assert len(config.kubernetes_bindings) == 2
+    assert config.kubernetes_api_server is None
+    with pytest.raises(ValueError, match="MUST NOT be combined"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": fleet,
+                "FDAI_KUBERNETES_API_SERVER": "https://legacy.example",
+            }
+        )
+
+
+async def test_fleet_composition_builds_one_scoped_source_per_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fleet = json.dumps(
+        [
+            {
+                "api_server": "https://one.example",
+                "cluster_ref": _CLUSTER_REF,
+                "auth_mode": "service-account",
+                "ca_path": "/var/run/fdai/one-ca.crt",
+                "token_path": "/var/run/fdai/one-token",
+            },
+            {
+                "api_server": "https://two.example",
+                "cluster_ref": _CLUSTER_REF.replace("aks-example", "aks-two"),
+                "auth_mode": "service-account",
+                "ca_path": "/var/run/fdai/two-ca.crt",
+                "token_path": "/var/run/fdai/two-token",
+            },
+        ]
+    )
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": fleet,
+        }
+    )
+
+    @asynccontextmanager
+    async def _client_context() -> AsyncIterator[object]:
+        yield object()
+
+    source_factory = Mock(side_effect=(object(), object()))
+    enricher_factory = Mock(
+        side_effect=(
+            UnavailableKubernetesInventoryEnricher(),
+            UnavailableKubernetesInventoryEnricher(),
+        )
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.ssl.create_default_context",
+        Mock(return_value=object()),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.httpx.AsyncClient",
+        Mock(side_effect=(_client_context(), _client_context())),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesApiInventorySource",
+        source_factory,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesInventoryEnricher",
+        enricher_factory,
+    )
+
+    async with AsyncExitStack() as stack:
+        enricher = await _build_kubernetes_enricher(
+            config=config,
+            relationship_catalog=_load_relationship_mapping_catalog(),
+            stack=stack,
+        )
+
+    assert isinstance(enricher, SequentialInventoryPromotionEnricher)
+    assert [call.kwargs["config"].cluster_ref for call in source_factory.call_args_list] == [
+        binding.cluster_ref for binding in config.kubernetes_bindings
+    ]
+    assert [call.kwargs["scope_digest"] for call in enricher_factory.call_args_list] == [
+        binding.scope_digest for binding in config.kubernetes_bindings
+    ]
 
 
 def test_job_config_prefers_durable_freshness_setting() -> None:
