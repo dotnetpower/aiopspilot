@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: a4de287352ad51ea6b830ff16ae6f5e3061987b6
-translation_revised: 2026-09-05
+translation_source_sha: 80f6a2ceecb5af2edf40a6d97cd2a03daf024534
+translation_revised: 2026-09-09
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -27,6 +27,7 @@ translation_revised: 2026-09-05
 | 통제된 사용자 접근 변경 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 허용 목록 기반 계획, 적용, 검증, 롤백 기능이 관찰 모드로 있습니다. Console, 요청자, 대상 principal에는 어떤 공급자 권한도 부여하지 않습니다. |
 | 사람 무응답 감독 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 워커는 shadow-only입니다. 디스패치 승격과 실제 단계별 역할 근거는 남아 있습니다. |
 | 인수인계 목표와 피로도 통제 | implemented | `goals.py`; Operator `handover_runtime.py`; Console `handover-i18n.ts`; `handover_knowledge_lifecycle.py`; 집중 Core, Operator, Console 검사 | 영속 목표, 현지화된 초대 렌더링, 피로도 통제, 에이전트 소유 지식 공백 이벤트가 연결되어 있습니다. |
+| Teams 승인 준비 요청 | implemented | Operator IAM runtime-settings route 및 PostgreSQL 제안, Console Teams A1 온보딩 패널, 집중 Operator 및 Console 검사 | Owner는 Settings에서 보호된 Teams A1 plan을 요청할 수 있습니다. 제안은 환경에 결합되며 프로바이더, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 지식 근거와 후보 수명 주기 | implemented | `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; 문서 청크 계보; 집중 수명 주기 및 검색 테스트 | 목표에 결합된 검색은 principal 또는 원본 ACL이 일치하지 않으면 명시적으로 차단됩니다. Muninn 근거, Mimir와 Norns의 검토 전용 후보, Forseti 충돌 이벤트, stale 철회는 참조와 다이제스트만 전달하며 자동 승격하지 않습니다. |
 | 운영 승격과 운영 증명 | not-started | 이 문서에서 보존된 승격 증적, Azure 권한 검사, 운영 훈련 근거로 연결되는 항목이 없습니다. | IAM 적용, 무응답 디스패치, 선제적 인수인계는 각각 독립 검사를 통과할 때까지 사용할 수 없습니다. |
 
@@ -34,6 +35,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 브라우저에 프로바이더 자격 증명이나 적용 권한을 부여하지 않고 통합 인수인계 Settings 흐름에 Owner 전용 Teams A1 protected-plan 제안을 추가했습니다. | `current change`, 집중 Operator 영속화 및 route 검사, Console 테스트, typecheck, build, Ruff 및 strict mypy | 제안을 보호된 프로바이더 자동화에 연결하고 테넌트 동의, 앱 설치, plan 및 apply 증적을 보존합니다. |
 | 2026-09-04 | implemented | 추가 방식의 서버 소유 현재 담당 체계 변환 결과를 추가하고 에이전트 중심 현재 담당자 보기를 완성했습니다. 자리표시자 연결, 스키마 이행, ID 가용성, 담당 공백, 할당 대기 케이스를 서로 다른 상태로 유지합니다. | `current change`; `test_ownership_projection.py`, `test_entra_directory.py`, `test_operator_iam_family.py`, `test_operator_service_postgres.py`, `handover.test.ts` 및 집중 형식·카탈로그 검사 통과. | 실제 schema v2 주 담당 및 백업 연결이 포함된 관리형 배포 증적을 보존하고, 별도로 추적되는 담당 체계-IAM 결과 조정을 완료합니다. |
 | 2026-09-01 | in-progress | 다이제스트에 결합되고 안전하게 다시 시도할 수 있는 소유권 초안 조정과 일치하는 병합 검증을 추가했습니다. 정확히 검토된 내용이 수렴한 뒤에만 형식이 지정된 shadow IAM 요청을 게시합니다. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; 집중 소유권 및 액세스 적용 테스트 통과. | 조정기를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립한 뒤 전달 및 재시작 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 구현된 케이스, IAM, 감독, 목표 기능을 누락된 소유권-IAM 조정과 분리했습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 제안 및 병합 조정, 지식 전달, 독립 승격, 운영 근거를 완료합니다. |

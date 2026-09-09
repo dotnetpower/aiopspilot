@@ -152,7 +152,13 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                 integrations={runtime.integrations.filter((integration) =>
                   APPROVAL_INTEGRATION_KEYS.has(integration.key)
                 )}
-                children={<TeamsA1OnboardingGuide />}
+                children={(
+                  <TeamsA1OnboardingGuide
+                    auth={auth}
+                    operatorApiBaseUrl={client.operatorApiBaseUrl}
+                    onboarding={runtime.teamsA1Onboarding}
+                  />
+                )}
               />
               <IntegrationGroup
                 headingId="settings-a2-a4-notifications"

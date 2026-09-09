@@ -45,6 +45,7 @@ from fdai_operator_service.families.iam.contracts import (
     ModelCatalogReader,
     ModelPreferenceCommand,
     RuntimeSettingsCommand,
+    TeamsA1OnboardingPlanCommand,
     WebSearchSettingsCommand,
 )
 from fdai_operator_service.families.iam.errors import (
@@ -84,6 +85,7 @@ _MODEL_BINDING_POLICY_KEY = "operator-model-binding-policy:current"
 _DOCUMENT_OCR_POLICY_KEY = "operator-document-ocr-policy:current"
 _DOCUMENT_OCR_PLAN_KEY = "operator-document-ocr-plan:current"
 _RUNTIME_SETTINGS_POLICY_KEY = "runtime-settings:policy"
+_TEAMS_A1_ONBOARDING_PLAN_KEY = "operator-teams-a1-onboarding-plan:current"
 
 
 @dataclass(frozen=True, slots=True)
@@ -496,9 +498,16 @@ class PostgresIamAdapters:
                 ),
             }
         runtime_policy = await self._state(_RUNTIME_SETTINGS_POLICY_KEY)
+        teams_a1_plan = await self._state(_TEAMS_A1_ONBOARDING_PLAN_KEY)
+        runtime_projection = _runtime_settings_projection(payload, runtime_policy)
         return {
-            **_runtime_settings_projection(payload, runtime_policy),
+            **runtime_projection,
             "can_manage": can_manage,
+            "teams_a1_onboarding": _teams_a1_onboarding_projection(
+                runtime_projection,
+                teams_a1_plan,
+                can_manage=can_manage,
+            ),
         }
 
     async def set_preference(self, command: ModelPreferenceCommand) -> None:
@@ -706,6 +715,50 @@ class PostgresIamAdapters:
             raise IamUnavailableError(str(exc)) from exc
         except ValueError as exc:
             raise IamFamilyError(str(exc)) from exc
+
+    async def request_teams_a1_plan(
+        self,
+        command: TeamsA1OnboardingPlanCommand,
+    ) -> JsonMapping:
+        """Persist one exact protected-plan request without applying provider changes."""
+
+        projection = await self._projection("runtime-settings")
+        runtime = projection.get("runtime")
+        environment = runtime.get("environment") if isinstance(runtime, Mapping) else None
+        if command.environment not in {"dev", "staging", "prod"}:
+            raise IamFamilyError("Teams A1 onboarding environment is invalid")
+        if environment != command.environment:
+            raise IamConflictError("Teams A1 onboarding environment does not match this deployment")
+        current = await self._state(_TEAMS_A1_ONBOARDING_PLAN_KEY)
+        revision = _state_revision(current, label="Teams A1 onboarding plan")
+        state: dict[str, object] = {
+            "revision": revision + 1,
+            "state": "plan-requested",
+            "environment": command.environment,
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+        try:
+            stored = await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="runtime-settings.teams-a1.plan",
+                principal_id=command.actor_id,
+                idempotency_key=command.idempotency_key,
+                payload=_command_payload(command),
+                state_key=_TEAMS_A1_ONBOARDING_PLAN_KEY,
+                state_value=state,
+                expected_revision=revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        return {
+            "proposal_id": stored.proposal_id,
+            "accepted_at": stored.accepted_at,
+            "duplicate": stored.duplicate,
+            **state,
+        }
 
     async def run(self, command: ConfigurationReviewCommand) -> JsonMapping:
         """Queue a configuration-review evidence campaign request."""
@@ -1290,6 +1343,43 @@ def _runtime_settings_projection(
         }
     )
     return projection
+
+
+def _teams_a1_onboarding_projection(
+    runtime_projection: Mapping[str, object],
+    state: Mapping[str, object] | None,
+    *,
+    can_manage: bool,
+) -> dict[str, object]:
+    runtime = runtime_projection.get("runtime")
+    environment = runtime.get("environment") if isinstance(runtime, Mapping) else "unspecified"
+    if state is None:
+        return {
+            "revision": 0,
+            "state": "not-configured",
+            "environment": environment,
+            "can_manage": can_manage,
+            "execution_authority": False,
+        }
+    revision = state.get("revision")
+    requested_environment = state.get("environment")
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or revision < 1
+        or state.get("state") != "plan-requested"
+        or requested_environment != environment
+        or state.get("execution_authority") is not False
+        or state.get("activation_boundary") != "protected-plan-only"
+    ):
+        raise IamUnavailableError("stored Teams A1 onboarding plan is malformed")
+    return {
+        "revision": revision,
+        "state": "plan-requested",
+        "environment": requested_environment,
+        "can_manage": can_manage,
+        "execution_authority": False,
+    }
 
 
 def _validate_runtime_setting_value(

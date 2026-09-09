@@ -19,6 +19,7 @@ from fdai_operator_service.families.iam.contracts import (
     RuntimeSettingsOutbox,
     SlackWebhookTestCommand,
     SlackWebhookTester,
+    TeamsA1OnboardingPlanCommand,
     TeamsWorkflowTestCommand,
     TeamsWorkflowTester,
     WebSearchSettingsCommand,
@@ -402,6 +403,29 @@ def make_runtime_settings_routes(
             return family_error(exc)
         return JSONResponse(dict(projection))
 
+    async def request_teams_a1_plan(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_RUNTIME_SETTINGS):
+            return error_response(403, "Owner role is required")
+        if outbox is None:
+            return error_response(503, "runtime settings outbox is not configured")
+        body = await read_json_object(request, maximum=4 * 1024)
+        _require_exact_fields(body, {"environment", "idempotency_key"})
+        environment = require_string(body, "environment")
+        if _ENVIRONMENT.fullmatch(environment) is None:
+            return error_response(400, "environment is invalid")
+        try:
+            receipt = await outbox.request_teams_a1_plan(
+                TeamsA1OnboardingPlanCommand(
+                    actor_id=principal.oid,
+                    environment=environment,
+                    idempotency_key=_idempotency_key(body),
+                )
+            )
+        except IamFamilyError as exc:
+            return family_error(exc)
+        return JSONResponse(dict(receipt), headers=_NO_STORE_HEADERS)
+
     async def test_teams_workflow(request: Request) -> Response:
         principal = await authorize(request)
         if not has_capability(principal.roles, IamCapability.MANAGE_RUNTIME_SETTINGS):
@@ -510,6 +534,12 @@ def make_runtime_settings_routes(
     return (
         Route("/runtime/settings", get_settings, methods=["GET"]),
         Route("/runtime/settings", put_settings, methods=["PUT"]),
+        Route(
+            "/runtime/integrations/teams-a1/plan",
+            request_teams_a1_plan,
+            methods=["POST"],
+            name="request_teams_a1_plan",
+        ),
         Route(
             "/runtime/integrations/teams-workflow/binding",
             get_teams_workflow_binding,

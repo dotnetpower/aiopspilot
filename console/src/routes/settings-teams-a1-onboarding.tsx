@@ -1,5 +1,9 @@
+import type { AuthContext } from "../auth";
 import { ExternalLink } from "../components/ui";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
+import { requestTeamsA1Plan } from "./settings-runtime.command";
+import type { TeamsA1OnboardingView } from "./settings-runtime.model";
+import { useRef, useState } from "preact/hooks";
 
 const AZURE_PORTAL_URL = "https://portal.azure.com/";
 const TEAMS_ADMIN_URL = "https://admin.teams.microsoft.com/policies/manage-apps";
@@ -8,7 +12,36 @@ const TEAMS_ADMIN_URL = "https://admin.teams.microsoft.com/policies/manage-apps"
  * Explains the split between protected FDAI automation and provider-hosted
  * human approval without collecting credentials in the Console.
  */
-export function TeamsA1OnboardingGuide() {
+export function TeamsA1OnboardingGuide({
+  auth,
+  operatorApiBaseUrl,
+  onboarding,
+}: {
+  readonly auth: AuthContext;
+  readonly operatorApiBaseUrl: string;
+  readonly onboarding: TeamsA1OnboardingView;
+}) {
+  const [state, setState] = useState(onboarding.state);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestKey = useRef(`teams-a1-plan-${globalThis.crypto.randomUUID()}`);
+  const environment = onboarding.environment;
+  const canRequest = onboarding.canManage
+    && state !== "plan-requested"
+    && !submitting;
+  const requestPlan = async () => {
+    if (!canRequest || !isDeployEnvironment(environment)) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await requestTeamsA1Plan(auth, operatorApiBaseUrl, environment, requestKey.current);
+      setState("plan-requested");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <section
       class="settings-teams-a1-onboarding"
@@ -41,6 +74,24 @@ export function TeamsA1OnboardingGuide() {
       <p class="settings-teams-a1-onboarding-note">
         {settingsIntegrationsText("a1SecretBoundary")}
       </p>
+      <div class="settings-teams-a1-onboarding-request">
+        <button
+          type="button"
+          class="btn primary"
+          disabled={!canRequest}
+          onClick={() => { void requestPlan(); }}
+        >
+          {submitting
+            ? settingsIntegrationsText("a1Requesting")
+            : state === "plan-requested"
+              ? settingsIntegrationsText("a1Requested")
+              : settingsIntegrationsText("a1Request")}
+        </button>
+        <span>{settingsIntegrationsText(
+          state === "plan-requested" ? "a1RequestedHint" : "a1RequestHint",
+        )}</span>
+      </div>
+      {error ? <div class="error" role="alert">{error}</div> : null}
       <div class="settings-teams-a1-onboarding-actions">
         <ExternalLink href={AZURE_PORTAL_URL}>
           {settingsIntegrationsText("a1OpenAzure")}
@@ -51,4 +102,10 @@ export function TeamsA1OnboardingGuide() {
       </div>
     </section>
   );
+}
+
+function isDeployEnvironment(
+  value: TeamsA1OnboardingView["environment"],
+): value is "dev" | "staging" | "prod" {
+  return value !== "unspecified";
 }

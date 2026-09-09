@@ -36,6 +36,13 @@ const payload = {
     auxiliary_transport_configured: true,
     case_history_configured: false,
   },
+  teams_a1_onboarding: {
+    revision: 1,
+    state: "plan-requested",
+    environment: "prod",
+    can_manage: true,
+    execution_authority: false,
+  },
   settings: [
     {
       key: "irp.enabled",
@@ -123,6 +130,13 @@ describe("runtime settings model", () => {
     expect(view.integrations[1]?.observed).toBe(false);
     expect(view.integrations[1]?.source).toBe("operator-service");
     expect(view.runtime.autonomyDefault).toBe("shadow");
+    expect(view.teamsA1Onboarding).toEqual({
+      revision: 1,
+      state: "plan-requested",
+      environment: "prod",
+      canManage: true,
+      executionAuthority: false,
+    });
     expect(initialRuntimeDraft(view)).toEqual({
       "irp.enabled": true,
       "analyzer.budget_seconds": 60,
@@ -142,6 +156,19 @@ describe("runtime settings model", () => {
 
     expect(view.integrations[0]?.source).toBe("unspecified");
     expect(view.integrations[0]?.observed).toBe(true);
+  });
+
+  test("defaults missing legacy Teams onboarding state without granting authority", () => {
+    const { teams_a1_onboarding: _ignored, ...legacy } = payload;
+    const view = decodeRuntimeSettings(legacy);
+
+    expect(view.teamsA1Onboarding).toEqual({
+      revision: 0,
+      state: "not-configured",
+      environment: "prod",
+      canManage: false,
+      executionAuthority: false,
+    });
   });
 
   test("rejects an unknown integration source", () => {

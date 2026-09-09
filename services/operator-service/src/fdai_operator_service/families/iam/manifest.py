@@ -47,6 +47,11 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("GET", "/runtime/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/runtime/settings", "put_settings"),
     IamRouteManifestEntry(
+        "POST",
+        "/runtime/integrations/teams-a1/plan",
+        "request_teams_a1_plan",
+    ),
+    IamRouteManifestEntry(
         "GET",
         "/runtime/integrations/teams-workflow/binding",
         "get_teams_workflow_binding",

@@ -24,6 +24,15 @@ export interface RuntimeSettingsView {
   readonly integrations: readonly RuntimeIntegrationView[];
   readonly runtime: RuntimeDiagnosticsView;
   readonly settings: readonly RuntimeSettingView[];
+  readonly teamsA1Onboarding: TeamsA1OnboardingView;
+}
+
+export interface TeamsA1OnboardingView {
+  readonly revision: number;
+  readonly state: "not-configured" | "plan-requested";
+  readonly environment: "dev" | "staging" | "prod" | "unspecified";
+  readonly canManage: boolean;
+  readonly executionAuthority: false;
 }
 
 export interface RuntimeIntegrationView {
@@ -66,14 +75,55 @@ export function decodeRuntimeSettings(value: unknown): RuntimeSettingsView {
   if (new Set(integrations.map((integration) => integration.key)).size !== integrations.length) {
     throw new Error("runtime integration keys MUST be unique");
   }
+  const runtime = decodeRuntimeDiagnostics(root["runtime"]);
   return {
     revision,
     canManage: boolean(root["can_manage"], "runtime settings.can_manage"),
     updatedAt: nullableString(root["updated_at"], "runtime settings.updated_at"),
     updatedBy: nullableString(root["updated_by"], "runtime settings.updated_by"),
     integrations,
-    runtime: decodeRuntimeDiagnostics(root["runtime"]),
+    runtime,
     settings,
+    teamsA1Onboarding: decodeTeamsA1Onboarding(root["teams_a1_onboarding"], runtime.environment),
+  };
+}
+
+function decodeTeamsA1Onboarding(
+  value: unknown,
+  fallbackEnvironment: RuntimeDiagnosticsView["environment"],
+): TeamsA1OnboardingView {
+  if (value === undefined) {
+    return {
+      revision: 0,
+      state: "not-configured",
+      environment: fallbackEnvironment,
+      canManage: false,
+      executionAuthority: false,
+    };
+  }
+  const item = record(value, "runtime settings.teams_a1_onboarding");
+  const state = item["state"];
+  if (state !== "not-configured" && state !== "plan-requested") {
+    throw new Error("runtime settings.teams_a1_onboarding.state is invalid");
+  }
+  const environment = item["environment"];
+  if (
+    environment !== "dev"
+    && environment !== "staging"
+    && environment !== "prod"
+    && environment !== "unspecified"
+  ) {
+    throw new Error("runtime settings.teams_a1_onboarding.environment is invalid");
+  }
+  if (item["execution_authority"] !== false) {
+    throw new Error("runtime settings.teams_a1_onboarding MUST NOT grant execution authority");
+  }
+  return {
+    revision: integer(item["revision"], "runtime settings.teams_a1_onboarding.revision", 0),
+    state,
+    environment,
+    canManage: boolean(item["can_manage"], "runtime settings.teams_a1_onboarding.can_manage"),
+    executionAuthority: false,
   };
 }
 

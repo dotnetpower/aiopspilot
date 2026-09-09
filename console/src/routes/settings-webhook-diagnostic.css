@@ -122,6 +122,20 @@
   font-weight: 650;
 }
 
+.settings-teams-a1-onboarding-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.settings-teams-a1-onboarding-request span {
+  max-width: 64ch;
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .settings-teams-workflow-steps {
   display: grid;
   gap: 0;

@@ -50,6 +50,7 @@ from fdai_operator_service.families.iam.contracts import (
     RuntimeSettingsCommand,
     SlackWebhookTestCommand,
     SlackWebhookTestResult,
+    TeamsA1OnboardingPlanCommand,
     TeamsWorkflowTestCommand,
     TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
@@ -97,7 +98,7 @@ class _RuntimeSettingsStore:
             "updated_at": None,
             "updated_by": None,
             "integrations": [],
-            "runtime": {},
+            "runtime": {"environment": "dev"},
             "settings": [
                 {
                     "key": "conversation.answer_continuity.enabled",
@@ -265,6 +266,31 @@ async def test_postgres_runtime_settings_rejects_unreviewed_ablation_profile() -
                 expected_revision=0,
             )
         )
+
+
+async def test_postgres_teams_a1_onboarding_plan_persists_no_authority_request() -> None:
+    store = _RuntimeSettingsStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+
+    receipt = await adapter.request_teams_a1_plan(
+        TeamsA1OnboardingPlanCommand(
+            actor_id="owner-1",
+            environment="dev",
+            idempotency_key="teams-a1-plan-1",
+        )
+    )
+    projection = await adapter.projection(can_manage=True)
+
+    assert receipt["state"] == "plan-requested"
+    assert receipt["execution_authority"] is False
+    assert store.proposals[-1]["operation"] == "runtime-settings.teams-a1.plan"
+    assert projection["teams_a1_onboarding"] == {
+        "revision": 1,
+        "state": "plan-requested",
+        "environment": "dev",
+        "can_manage": True,
+        "execution_authority": False,
+    }
 
 
 async def test_postgres_document_ocr_plan_persists_request_state() -> None:
@@ -601,6 +627,7 @@ class RecordingModelSettings:
 class RecordingRuntimeSettings:
     def __init__(self) -> None:
         self.command: RuntimeSettingsCommand | None = None
+        self.teams_a1_command: TeamsA1OnboardingPlanCommand | None = None
 
     async def projection(self, *, can_manage: bool) -> Mapping[str, Any]:
         return {
@@ -611,6 +638,22 @@ class RecordingRuntimeSettings:
 
     async def update(self, command: RuntimeSettingsCommand) -> None:
         self.command = command
+
+    async def request_teams_a1_plan(
+        self,
+        command: TeamsA1OnboardingPlanCommand,
+    ) -> Mapping[str, Any]:
+        self.teams_a1_command = command
+        return {
+            "proposal_id": "teams-a1-plan-1",
+            "accepted_at": NOW.isoformat(),
+            "duplicate": False,
+            "revision": 1,
+            "state": "plan-requested",
+            "environment": command.environment,
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
 
 
 class RecordingTeamsWorkflowTester:
@@ -799,7 +842,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 39
+    assert len(snapshot) == 40
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -978,6 +1021,15 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
         configuration_review=review,
     )
     owner = {"x-test-role": "Owner", "x-test-oid": "owner-1"}
+    teams_plan = client.post(
+        "/runtime/integrations/teams-a1/plan",
+        headers=owner,
+        json={"environment": "dev", "idempotency_key": "teams-a1-plan-1"},
+    )
+    assert teams_plan.status_code == 200
+    assert teams_plan.json()["execution_authority"] is False
+    assert runtime.teams_a1_command is not None
+    assert runtime.teams_a1_command.actor_id == "owner-1"
     assert (
         client.put(
             "/models/web-search-settings",

@@ -433,12 +433,25 @@ class RuntimeSettingsCommand:
     expected_revision: int
 
 
+@dataclass(frozen=True, slots=True)
+class TeamsA1OnboardingPlanCommand:
+    """Request protected Teams A1 preparation without deployment authority."""
+
+    actor_id: str
+    environment: str
+    idempotency_key: str
+
+
 class RuntimeSettingsOutbox(Protocol):
     """Project runtime settings and persist revisioned overrides only."""
 
     async def projection(self, *, can_manage: bool) -> JsonMapping: ...
 
     async def update(self, command: RuntimeSettingsCommand) -> None: ...
+    async def request_teams_a1_plan(
+        self,
+        command: TeamsA1OnboardingPlanCommand,
+    ) -> JsonMapping: ...
 
 
 @dataclass(frozen=True, slots=True)

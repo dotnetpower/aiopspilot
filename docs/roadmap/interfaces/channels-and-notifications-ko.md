@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: b7125db03e8dbd8646a204bf505089e5c5ba8a79
+translation_source_sha: c4ff168838c16f2f03f7db10be8351a37df17623
 translation_revised: 2026-09-09
 ---
 
@@ -69,6 +69,7 @@ Teams Workflows 웹훅 바인딩은
 | 2026-08-27 | 구현됨 | A1 또는 A3 권한 경계를 바꾸지 않고 A2/A4의 이름이 있는 fan-out 바인딩, 채널별 영속 dispatch, Teams Workflows 전송 및 독립 게시 접수 검증을 추가했습니다. | `current change`, [다중 채널 알림 전달 구현 원장](../../roadmap-implementation/interfaces/multi-channel-notification-delivery.md), 알림, 인시던트 체크포인트 및 런타임 설정 집중 검사 162개와 작업 소유 범위 Ruff 및 strict mypy 통과 | 검증됨을 주장하기 전에 통제된 Teams 및 PostgreSQL 런타임 증적을 수집합니다. |
 | 2026-09-09 | 구현됨 | `NotificationChannel`, `NotificationRouter`, fan-out 전달, 단일 감사 항목 불변식을 바꾸지 않고 [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유하는 A2/A4 capability-state, presentation, shadow-delivery 계약을 추가했습니다. 같은 날 진행한 비평 단계에서 대소문자를 구분하지 않는 interactive 키 매칭, 값뿐 아니라 key도 범위를 제한하고 스캔하는 metadata 검사, executable 링크를 거부하는 https 전용 링크 scheme, `channel_id + correlation_id + audit_id + category`에서 결정론적으로 유도한 멱등 shadow `record_id`("어댑터는 멱등 send를 구현해야 함" 기존 계약을 충족), timezone-aware shadow clock 검사, `ChannelCapabilityState`의 비어 있지 않은 `channel_id` 검사, 그리고 불변(`MappingProxyType`) presentation envelope metadata mapping을 추가로 강화했습니다. | `current change`, [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) 31건, 전체 `services/core-control-plane/tests/notifications` 스위트 178건 통과, 작업 소유 Ruff format/lint 통과, 변경된 알림 소스 파일 5개에 대한 strict mypy 통과 | 이 기반 범위에는 남은 작업이 없습니다. 구체적인 vendor 어댑터의 shadow-to-enforce 승격은 해당 어댑터 자체 행에서 추적합니다. |
 | 2026-09-09 | 구현됨 | 보호된 FDAI Teams A1 준비와 프로바이더가 호스팅하는 테넌트 동의, 앱 설치 및 최종 배포 승인을 구분하는 이중 언어 Settings 안내를 추가했습니다. Console은 client secret을 수집하지 않습니다. | `current change`, 집중 Console 테스트, typecheck, build, catalog parity 및 3개 viewport 시각 검사 | 보호된 프로비저닝 workflow가 읽기 전용 상태 계약을 제공한 후 안내를 실제 온보딩 진행 상태에 연결합니다. |
+| 2026-09-09 | 구현됨 | Teams A1 안내를 Owner 전용 revisioned protected-plan 요청에 연결했습니다. Console이 준비 요청 상태를 표시하기 전에 Operator가 제안과 권한 없는 상태를 영속화합니다. | `current change`, 집중 Operator 영속화 및 route 검사, Console decoder 테스트, typecheck, build 및 strict mypy | 제안을 보호된 프로비저닝 workflow에 연결하고 프로바이더 및 배포 증적을 보존합니다. |
 | 2026-09-09 | 구현됨 | Teams A1 Bot 전달을 Core 실행 신원과 분리하고 Bot activity endpoint만으로도 공유 HTTP client를 준비하도록 수정했습니다. 서비스 Terraform은 선언된 Bot 관리 ID를 연결하며, 최초 담당 체계 도입 guard는 완전한 Teams 목적지를 요구합니다. | `current change`, 집중 bootstrap, HIL 배선, 서비스 plan guard, Terraform 계약, Ruff, mypy 및 Core 서비스 Terraform 검증 | 검증됨을 주장하기 전에 보호된 배포와 인증된 Teams 승인 왕복 1건을 보존합니다. |
 
 ### 남은 작업
