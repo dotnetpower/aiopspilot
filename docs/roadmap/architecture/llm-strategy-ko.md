@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: c7f426a65f9eab7fa6b24997b34dd4feecc11f71
+translation_source_sha: 6e4c197df315af59f6947155beb669305dd6855f
 translation_revised: 2026-09-09
 ---
 # LLM 전략(LLM Strategy)
@@ -395,9 +395,9 @@ T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시�
 
 ### 조정기 작업
 
-계획된 주간 작업은 더 선호되는 새 계열, 60일 이내의 사용 중단, 측정된 용량 또는 품질 표류를 감시합니다. 범위가 제한된 이슈나 초안 PR 및 A2 경고만 열며 실제 매핑은 바꾸지 않습니다.
-제안 스키마 v2는 모델 계열, 발행자, 상태뿐 아니라 SKU와 유효 용량 단위 및 값을 비교하므로 제자리 확장이나 교체를 변경 없음으로 잘못 분류하지 않습니다.
-병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고 승인된 레지스트리 변경도 Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
+[모델 기능 수명 주기 조정기](model-capability-lifecycle-ko.md#조정기-작업)는 정확한 계열, 버전, 발행자,
+SKU, 용량, 상태를 비교하고 60일 안의 사용 중단을 정규화한 뒤 멱등 초안 PR만 엽니다.
+실제 매핑은 바꾸지 않으며 수락하려면 Owner 검토와 shadow 재현을 통과해야 합니다.
 
 ### Mixed-Model 계열 전략
 

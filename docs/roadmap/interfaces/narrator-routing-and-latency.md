@@ -259,6 +259,8 @@ evidence.
   state, and a total deadline without exposing the value. Focused lifecycle composition constructs
   that source, and the application lifespan invokes one asynchronous owner to publish an immutable
   source revision to capability binding and lifecycle-hold evaluation before later services start.
+  The local Azure narrator defers target construction until that owner publishes the revision;
+  synchronous composition does not reread the file or inline source.
 - **Local model fixture**: an Ollama or LM Studio fixture is not currently included. Any such
   fixture would be an explicit model binding and would not redefine the interactive local profile.
 - **Reconciler delivery**: the weekly workflow retains sanitized evidence and opens an idempotent

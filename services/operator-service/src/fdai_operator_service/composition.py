@@ -21,9 +21,9 @@ from fdai_operator_service.action_confirmation_runtime import ActionConfirmation
 from fdai_operator_service.adapters import (
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
-    LocalAzureNarratorAdapters,
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
+    StartupOwnedLocalAzureNarratorAdapters,
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
@@ -326,6 +326,7 @@ class ProductionOperatorComposition:
         teams_http_client = build_teams_hil_http_client(environment)
         route_families, local_narrator = _build_route_families(
             environment=environment,
+            model_revision_owner=model_revision_owner,
             authenticator=authenticator,
             store=family_store,
             semantic_bridge=semantic_bridge,
@@ -391,6 +392,7 @@ class ProductionOperatorComposition:
             local_cli_session_token=local_cli_session_token,
             lifecycle=_application_lifecycle(
                 model_revision_owner,
+                local_narrator,
                 semantic_bridge,
                 read_investigation_bridge,
                 background_task_projection_bridge,
@@ -437,6 +439,7 @@ def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel 
 def _build_route_families(
     *,
     environment: OperatorEnvironment,
+    model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
     authenticator: OperatorAuthenticator,
     store: PostgresFamilyStore | None,
     semantic_bridge: SemanticTurnBridge | None,
@@ -445,7 +448,10 @@ def _build_route_families(
     webhook_enabled: bool,
     context_selection_registry: ContextSelectionRegistry,
     teams_http_client: httpx.AsyncClient | None = None,
-) -> tuple[OperatorRouteFamilies, LocalAzureNarratorAdapters | None]:
+) -> tuple[
+    OperatorRouteFamilies,
+    StartupOwnedLocalAzureNarratorAdapters | None,
+]:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
@@ -495,15 +501,15 @@ def _build_route_families(
         ),
         fallback=postgres_adapters,
     )
-    local_narrator = (
-        LocalAzureNarratorAdapters.from_environment(
-            environment.values,
+    local_narrator = None
+    if environment.local_azure_narrator:
+        if model_revision_owner is None:
+            raise RuntimeError("local Azure narrator requires a resolved-model revision owner")
+        local_narrator = StartupOwnedLocalAzureNarratorAdapters(
+            revision_owner=model_revision_owner,
             fallback_projections=postgres_conversation,
             fallback_streams=postgres_conversation,
         )
-        if environment.local_azure_narrator
-        else None
-    )
     conversation = local_narrator or postgres_conversation
     semantic_adapters = (
         SemanticTurnConversationAdapters(
@@ -746,6 +752,7 @@ class _CompositeLifecycle:
 
 def _application_lifecycle(
     model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
+    local_narrator: StartupOwnedLocalAzureNarratorAdapters | None,
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
@@ -763,6 +770,7 @@ def _application_lifecycle(
         service
         for service in (
             model_revision_owner,
+            local_narrator,
             bus,
             bridge,
             read_investigation_bridge,
