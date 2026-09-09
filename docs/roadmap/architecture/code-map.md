@@ -58,8 +58,12 @@ Accepted manifest-count, exact declaration-detail, and single-ObjectType schema-
 judgments likewise compile deterministic frames and closed FunctionType arguments. They do not
 introduce a lexical route or grant authority.
 When a manifest-count judgment omits its metatype target, Core can recover only one declaration
-kind from its already typed count facets. Operator presentation accepts the canonical `aggregate`
-operation and preserves its structured count for independent oracle verification.
+kind from its already typed count facets. Declaration and relationship reads can likewise recover
+only one supplied schema object encoded in typed facets. Operator presentation accepts the
+canonical `aggregate` operation and preserves its structured count for independent oracle
+verification.
+Canonical metatype subjects such as `FunctionType` normalize only for answer rendering. Declaration
+answers explicitly distinguish schema metadata from current object observations.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
