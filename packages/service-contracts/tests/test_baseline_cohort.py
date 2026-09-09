@@ -629,6 +629,39 @@ def test_the_cohort_cutoff_cannot_move_past_its_arm_evidence() -> None:
         BaselineTreatmentCohortReceipt.model_validate(payload)
 
 
+def test_a_non_95_percent_interval_is_not_claim_eligible() -> None:
+    baseline = _arm(
+        CohortArm.BASELINE,
+        report_digest=BASELINE_REPORT_DIGEST,
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    baseline["metrics"] = (
+        {
+            **baseline["metrics"][0],
+            "confidence_level_basis_points": 9_000,
+        },
+        baseline["metrics"][1],
+    )
+    facts = {key: value for key, value in baseline.items() if key != "evidence_receipt"}
+    baseline["evidence_receipt"] = _evidence_receipt(
+        evidence_digest=cohort_arm_fact_digest_values(**facts),
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    receipt = _receipt(baseline=baseline)
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
+    )
+
+    assert assessment.claim_eligible is False
+    assert CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE in assessment.rejection_reasons
+
+
 def test_the_producer_helper_reproduces_the_evaluated_arm_fact_digest() -> None:
     arm = _arm(
         CohortArm.BASELINE,

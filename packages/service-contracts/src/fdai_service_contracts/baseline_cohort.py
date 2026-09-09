@@ -405,6 +405,8 @@ def _assess_arm(
     ]
     if any(metric.sample_size < report.sample_count for metric in required_metrics):
         reasons.add(CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE)
+    if any(metric.confidence_level_basis_points != 9_500 for metric in required_metrics):
+        reasons.add(CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE)
 
     guards = {guard.guard_id: guard for guard in report.guards}
     if not set(requirement.required_guard_ids) <= set(guards):
