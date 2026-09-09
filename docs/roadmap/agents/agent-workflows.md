@@ -59,7 +59,7 @@ Every workflow declaration follows the same structure:
 - **Purpose** - what business capability the workflow delivers.
 - **Trigger** - the event or schedule that starts the flow.
 - **Agents** - primary and supporting, with role labels.
-- **Sequence** - a mermaid diagram showing typed-port messages.
+- **Sequence** - a static SVG diagram showing typed-port messages.
 - **Exit criteria** - measurable conditions for shadow trace success.
 - **Promotion gate** - the KPI thresholds required for enforce mode.
 - **Anti-scope** - what the workflow deliberately does not do.
@@ -69,7 +69,7 @@ existing catalog under `rule-catalog/action-types/` and the object types
 under `rule-catalog/vocabulary/object-types/`. A workflow that needs new
 types is a signal to open an upstream doc PR first.
 
-## 1. Cost-aware fix
+## 1. Cost-aware remediation
 
 **Purpose.** Every SRE remediation carries an attached cost impact so the
 verdict reflects both reliability and finance. Prevents automation from
@@ -81,14 +81,15 @@ mismatch) or `object.anomaly` on a resource with an existing rule match.
 **Agents.** Heimdall (initiator), Njord (cost advisor), Forseti (judge),
 Thor (executor), Saga (auditor).
 
-![1. Cost-aware fix. The main stages are object.drift {resource, delta}, typed query {proposed_action, target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual (post-execute)}, attribution event (async).](../../diagrams/generated/fdai-agent-workflows-01.en.svg)
+![1. Cost-aware remediation. The main stages are object.drift {resource, delta}, typed query {proposed_action, target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {outcome, execution_audit_receipt}, attribution event (async).](../../diagrams/generated/fdai-agent-workflows-01.en.svg)
 
 **Exit criteria.**
 
 - Verdict emits with `cost_annotation.monthly_delta_usd` and
   `cost_annotation.confidence`.
-- Post-execute audit records `cost_actual` when settlement data available
-  (T+24h).
+- Post-execute audit records `outcome` and `execution_audit_receipt` on
+  `object.action-run`; settlement-based actual-cost reconciliation is not
+  yet implemented (see Implementation status).
 - No auto verdict issued when `cost_annotation.monthly_delta_usd >
   fork_config.cost_ceiling` without HIL.
 
@@ -168,7 +169,7 @@ from Forseti's proposed verdict (approve on deny, reject on auto, etc.).
 **Agents.** Var (initiator), Saga (aggregator), Norns (learner), Mimir
 (rule steward).
 
-![4. Override -> Discovery. The main stages are object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on override cases.](../../diagrams/generated/fdai-agent-workflows-04.en.svg)
+![4. Override -> Discovery. The main stages are object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, pattern, proposed_revision}, shadow evaluation on override cases.](../../diagrams/generated/fdai-agent-workflows-04.en.svg)
 
 **Exit criteria.**
 
@@ -202,7 +203,8 @@ severity path), Var (admin notification delivery via ChatOps), Saga.
 
 - Every RBAC-deny produces exactly one `SecurityEvent`.
 - Severity classification is deterministic (counter + table only).
-- Alert dedup: same-user same-action within 1h collapse to one card.
+- Alert dedup: same-user same-action alerts collapse to one card with an
+  incrementing counter (no time-based reset).
 - Per-user rate limit: >5 cards/hour digest.
 
 **Promotion gate.** 30 days shadow; zero false negatives on injected
@@ -416,7 +418,51 @@ escapes; explicit Owner review before `FDAI_VM_TASK_ENFORCE=1`.
 **Anti-scope.** Does not provision VMs, install packages or drivers, accept shell
 commands, pass source through the event bus, or bypass the risk gate.
 
-## 13. Workflow catalog summary
+## 13. Detection readiness assurance
+
+**Purpose.** Reduce per-target detection-pipeline signals across six dimensions
+(discovery, collector configuration, telemetry, detector binding, pipeline
+coverage, and action governance) into one authoritative readiness decision, so
+that incomplete, malformed, or stale detection coverage never lets an
+auto-execution verdict rise above `shadow` for that target.
+
+**Trigger.** `detection.readiness.observed` events arriving on the raw ingress
+topic, one per readiness dimension per target and pass.
+
+**Agents.** Huginn ingests and deduplicates raw observations by idempotency
+key. Heimdall reduces a completed pass's six dimension observations for a
+resource into a decision (`ready`, `partial`, `blocked`, `stale`,
+`unauthorized`, or `unknown`) and publishes `object.drift`; a still-in-progress
+pass is never replaced by an overlapping or later pass until it completes, and
+a completed drift is never re-emitted for a new pass at the same resource.
+Muninn persists exactly one durable snapshot per resource, rejecting
+duplicate or out-of-order deliveries by `generated_at`, and Saga audits the
+resulting state-snapshot transition. Forseti records the decision on its own
+drift stream without creating a verdict, then demotes any subsequent
+auto-execution verdict for that resource to `hil` while its readiness ceiling
+remains below the required level. Bragi is registered as a participant but
+the current runtime does not yet route detection-readiness traffic through it.
+
+**Exit criteria.** A malformed raw observation (missing required attributes)
+never publishes a readiness decision; Huginn drops replayed raw observations
+with an already-seen idempotency key; an incomplete new pass never replaces
+an already-completed drift snapshot, and an overlapping new pass never
+discards an earlier pass's still-partial dimension collection; Muninn stores
+exactly one snapshot per resource and rejects a stale snapshot delivered
+after a newer one; Forseti demotes any auto-triggered verdict for the same
+resource to `hil` while the recorded readiness decision remains below the
+required ceiling.
+
+**Promotion gate.** 30 days shadow per target; zero false-ready snapshots;
+stale-detection p99 < 15 minutes.
+
+**Anti-scope.** Does not execute or verify any action itself, does not create
+a risk verdict directly (only demotes verdicts raised by the normal event
+path), does not treat a partial or malformed observation set as ready, and
+does not bypass Muninn's ordering/dedup checks for late or duplicate
+snapshots.
+
+## 14. Workflow catalog summary
 
 | # | Name | Trigger | Primary agent | Enforce prerequisite |
 |---|------|---------|---------------|----------------------|

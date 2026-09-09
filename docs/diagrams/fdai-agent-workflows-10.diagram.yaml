@@ -12,9 +12,9 @@ locales:
       audit slice, fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary,
       report.
   ko:
-    title: 10. Retrospective what-if
-    description: 10. Retrospective what-if에 대한 순서가 있는 FDAI 상호 작용입니다.
-    alt: 10. Retrospective what-if. 주요 단계는 if rule X existed on 2026-07-01, what would have happened?, fetch audit slice,
+    title: 10. 회고적 가정 분석
+    description: 10. 회고적 가정 분석에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 10. 회고적 가정 분석. 주요 단계는 if rule X existed on 2026-07-01, what would have happened?, fetch audit slice,
       fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary, report입니다.
 canvas:
   width: 1100
