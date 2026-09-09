@@ -9,7 +9,7 @@ from datetime import datetime
 
 from fdai_service_contracts.system_knowledge import SystemKnowledgeQueryRequest
 
-from fdai_system_knowledge_service.ledger import MessageLedger
+from fdai_system_knowledge_service.ledger import DeliveryLedger
 from fdai_system_knowledge_service.render import teams_payload
 from fdai_system_knowledge_service.search import SystemKnowledgeIndex
 from fdai_system_knowledge_service.teams import (
@@ -35,7 +35,7 @@ class SystemKnowledgeRuntime:
         *,
         ingress: TeamsMentionVerifier,
         index: SystemKnowledgeIndex,
-        ledger: MessageLedger,
+        ledger: DeliveryLedger,
         publisher: TeamsPublisher,
     ) -> None:
         self._ingress = ingress
@@ -61,7 +61,18 @@ class SystemKnowledgeRuntime:
         """Close the outbound identity exactly once."""
 
         self._ready = False
-        await self._publisher.aclose()
+        first_error: BaseException | None = None
+        try:
+            await self._publisher.aclose()
+        except BaseException as exc:
+            first_error = exc
+        try:
+            await self._ledger.aclose()
+        except BaseException as exc:
+            if first_error is None:
+                first_error = exc
+        if first_error is not None:
+            raise first_error
 
     async def handle(
         self,

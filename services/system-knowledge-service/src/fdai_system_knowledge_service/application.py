@@ -10,15 +10,20 @@ from typing import Protocol
 
 import httpx
 from azure.identity.aio import ClientSecretCredential, ManagedIdentityCredential
+from azure.storage.blob.aio import ContainerClient
 from fdai_service_contracts.venue import ExecutionVenue
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from fdai_system_knowledge_service.blob_ledger import (
+    AzureBlobContainerAdapter,
+    AzureBlobMessageLedger,
+)
 from fdai_system_knowledge_service.catalog import load_catalog
 from fdai_system_knowledge_service.config import SystemKnowledgeSettings
-from fdai_system_knowledge_service.ledger import MessageLedger
+from fdai_system_knowledge_service.ledger import DeliveryLedger, MessageLedger
 from fdai_system_knowledge_service.runtime import SystemKnowledgeRuntime
 from fdai_system_knowledge_service.search import SystemKnowledgeIndex
 from fdai_system_knowledge_service.teams import (
@@ -108,7 +113,7 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
         limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
     )
     jwks = RemoteJwksProvider(url=settings.teams.jwks_url, http_client=http_client)
-    credential = (
+    teams_credential = (
         ClientSecretCredential(
             tenant_id=settings.teams.tenant_id,
             client_id=settings.teams.application_id,
@@ -117,8 +122,23 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
         if settings.execution_venue is ExecutionVenue.LOCAL
         else ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
     )
-    token_provider = AzureChannelTokenProvider(credential)
+    token_provider = AzureChannelTokenProvider(teams_credential)
     publisher = TeamsPublisher(http_client=http_client, tokens=token_provider)
+    if settings.execution_venue is ExecutionVenue.LOCAL:
+        ledger: DeliveryLedger = MessageLedger(settings.ledger_path)
+    else:
+        if settings.claim_container_url is None:
+            raise RuntimeError("validated deployed claim container is unavailable")
+        blob_credential = ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
+        ledger = AzureBlobMessageLedger(
+            container=AzureBlobContainerAdapter(
+                ContainerClient.from_container_url(
+                    settings.claim_container_url,
+                    credential=blob_credential,
+                )
+            ),
+            credential=blob_credential,
+        )
     runtime = SystemKnowledgeRuntime(
         ingress=TeamsMentionVerifier(
             settings=settings.teams,
@@ -128,7 +148,7 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
             ),
         ),
         index=SystemKnowledgeIndex(catalog),
-        ledger=MessageLedger(settings.ledger_path),
+        ledger=ledger,
         publisher=publisher,
     )
     return _ComposedRuntime(runtime=runtime, http_client=http_client)

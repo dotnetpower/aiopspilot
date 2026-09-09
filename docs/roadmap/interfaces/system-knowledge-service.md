@@ -142,18 +142,28 @@ so deployments must exclude them from the configured team and channel allowlists
 | No relevant record | State that no verified system-knowledge record matched |
 | Provider rejection before acknowledgement | Release the retryable claim |
 | Interrupted acknowledgement | Preserve an ambiguous terminal claim and do not resend |
-| Process restart | Reuse the durable claim store before any provider send |
+| Process restart | Reuse the venue-specific durable claim store before any provider send |
 
-The reference implementation uses a service-owned SQLite claim store and supports one replica. A
-production scale-out or Container Apps deployment remains blocked until persistent-volume,
-concurrency, cost, and rollback evidence closes the service-graduation scorecard.
+The local implementation uses a service-owned SQLite claim store. The deployed implementation uses
+a Managed Identity Blob compare-and-swap (CAS) ledger in a private existing storage account. It
+creates no storage key, connection string, or file share. Startup probes the container, removes
+interrupted `processing` claims, and converts interrupted `sending` claims to terminal `ambiguous`.
+The first deployment retains one replica; higher replica counts remain blocked until concurrency,
+cost, and rollback evidence closes the service-graduation scorecard.
+
+The standalone Terraform root owns one dedicated user-assigned managed identity (UAMI), one private
+claim container, `AcrPull`, `Storage Blob Data Contributor`, and `Key Vault Secrets User`, one
+single-replica Container App, one F0 Azure Bot, and one Teams channel. A protected workflow creates
+plan-only output by default and requires exact CI, image attestations, plan and context digests, and
+an explicit `enable` or `disable` transition before apply.
 
 ## Rollout
 
 1. Build and test the catalog, deterministic search, mention verification, and reply renderer.
 2. Package the service and image without repository source.
 3. Run a local Activity Protocol canary against synthetic signed activities.
-4. Provision a downstream Teams application and persistent claim volume.
+4. Apply the guarded Terraform plan, build the deterministic Teams package, and install it through
+   a tenant administrator with the required Microsoft Graph app-catalog permission.
 5. Validate mention-only receipt, same-conversation reply, restart deduplication, disable, and
    rollback before declaring the service production-ready.
 
@@ -162,6 +172,7 @@ concurrency, cost, and rollback evidence closes the service-graduation scorecard
 | To learn about | Read |
 |----------------|------|
 | Current implementation state | [System Knowledge Service implementation ledger](../../roadmap-implementation/interfaces/system-knowledge-service.md) |
+| Deploy and install the dedicated Teams bot | [System Knowledge Teams onboarding](../../runbooks/system-knowledge-teams-onboarding.md) |
 | General operational Teams conversations | [Production A3 channel runtime](production-a3-channel-runtime.md) |
 | Human identity and role boundaries | [User RBAC and Entra identity](user-rbac-and-identity.md) |
 | Service split acceptance gates | [Service graduation and data ownership](../architecture/service-graduation-and-ownership.md) |

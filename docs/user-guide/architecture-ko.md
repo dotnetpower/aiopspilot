@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 5236ac9cf0f0abb9d269619f70735270abd04693
+translation_source_sha: b9b72066a874e1bd5e890614b188096ca1b12e90
 translation_revised: 2026-09-10
 ---
 

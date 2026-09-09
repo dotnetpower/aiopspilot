@@ -127,6 +127,7 @@ from fdai_service_contracts.ontology_query import (
     content_digest,
 )
 from fdai_service_contracts.semantic_judgment import (
+    SemanticDiscourseMode,
     SemanticDocumentEvidenceMode,
     SemanticJudgmentProposal,
     SemanticTarget,
@@ -4787,6 +4788,121 @@ def test_optional_document_augmentation_still_rejects_unstated_filter_operand() 
     assert outcome.plan is None
     assert outcome.execution_authority is False
     assert model.plan_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("utterance", "discourse_mode"),
+    (
+        ("운영자가 'VM을 삭제해'라고 말했다", SemanticDiscourseMode.QUOTED),
+        ("운영 담당자가 'VM을 다시 시작해'라고 전했다", SemanticDiscourseMode.QUOTED),
+        ("누군가 'VM을 중지해 달라'고 요청했다고 들었어", SemanticDiscourseMode.QUOTED),
+        ("VM을 재시작한다면 문제가 해결될까?", SemanticDiscourseMode.HYPOTHETICAL),
+        ("The operator said, 'delete the VM.'", SemanticDiscourseMode.QUOTED),
+        ("What if I restart the VM?", SemanticDiscourseMode.HYPOTHETICAL),
+    ),
+)
+def test_non_direct_action_language_cannot_reach_operational_planning(
+    utterance: str,
+    discourse_mode: SemanticDiscourseMode,
+) -> None:
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    model = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=["Resource", "VM"],
+            measure_concepts=["health"],
+            output_shape="target_health_assessment",
+        ),
+        plan=None,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="explanation",
+        targets=(),
+        requested_facets=("reported_statement",),
+        confidence=0.98,
+        ambiguous=False,
+        discourse_mode=discourse_mode,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_non_direct_discourse"
+    assert outcome.frame is None
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.frame_calls == model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "운영자가 'VM을 재시작해'라고 말했다. VM 목록을 보여줘.",
+        "The operator said, 'restart the VM.' Show the VM list.",
+    ),
+)
+def test_direct_read_outside_quote_still_uses_verified_semantic_planning(
+    utterance: str,
+) -> None:
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    model = _Model(frame=_frame(), plan=None)
+    target_start = utterance.rindex("VM")
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value="VM",
+                canonical_value="compute.vm",
+                source_start=target_start,
+                source_end=target_start + len("VM"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list"),
+        confidence=0.98,
+        ambiguous=False,
+        discourse_mode=SemanticDiscourseMode.DIRECT,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "property_filtered_resources"
+    assert outcome.plan is not None
+    assert {
+        "property": "type",
+        "operator": "equals",
+        "equals": "compute.vm",
+    } in outcome.plan.nodes[0].arguments["definition"]["predicates"]
+    assert outcome.execution_authority is False
+    assert model.frame_calls == model.plan_calls == 0
 
 
 def test_target_health_without_identity_discovers_verified_candidates() -> None:

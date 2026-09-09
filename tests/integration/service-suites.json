@@ -259,7 +259,9 @@
       ],
       "test_groups": {
         "unit": [
+          "services/system-knowledge-service/tests/test_blob_ledger.py",
           "services/system-knowledge-service/tests/test_catalog_search.py",
+          "services/system-knowledge-service/tests/test_config.py",
           "services/system-knowledge-service/tests/test_ledger_runtime.py"
         ],
         "contract": [

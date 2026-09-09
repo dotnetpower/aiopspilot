@@ -5,7 +5,9 @@ description = "FDAI release-bound system knowledge Teams service"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "azure-core>=1.35,<2",
     "azure-identity>=1.23,<2",
+    "azure-storage-blob>=12.25,<13",
     "fdai-service-contracts==0.1.0",
     "httpx>=0.28,<1",
     "pyjwt[crypto]>=2.10,<3",

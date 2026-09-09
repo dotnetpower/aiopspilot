@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 05d3fc48c16e77859f53a2b6a4e98beb377de0c1
-translation_revised: 2026-09-09
+translation_source_sha: 62339700a12b7fa2b81639dafe3fa72d1fec1236
+translation_revised: 2026-09-10
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -57,6 +57,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 지식 봇의 전용 Azure Bot, Teams app package, Managed Identity Blob claim 경계 및 보호된 plan/apply workflow를 추가했습니다. | `current change`, 서비스 Terraform, 배포 workflow, package builder 및 집중 검사입니다. | 실제 Teams, 비용, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
 | 2026-09-09 | 진행 중 | 운영 A3 edge 또는 A1-A4 준비 상태를 바꾸지 않고 mention-only 전용 시스템 지식 Teams 봇을 별도 distribution으로 추가했습니다. | `current change`, 시스템 지식 서비스 설계, 패키지, 계약, 카탈로그, Teams 경계, 원장 및 집중 검사입니다. | 운영 프로바이더, persistent volume, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
 | 2026-08-31 | implemented | 브라우저 알림을 클릭하면 동일 출처 인시던트 화면으로 이동할 때 반환된 창을 활성화하고, 정확한 창의 활성화 또는 화면 이동이 실패하면 대상을 새 창으로 열도록 수정했습니다. | `current change`; 집중 서비스 워커 및 브라우저 알림 테스트, Console 타입 검사와 빌드. | 실제 데스크톱 검증을 주장하기 전에 사람이 확인한 Windows 알림 클릭 증적을 보존합니다. |
 | 2026-08-29 | implemented | 공유 라우팅 권한을 바꾸지 않고 활성화 및 공개 정책으로 제한되는 비용 거버넌스 알림 생성을 추가했습니다. | `current change`; 패키지 알림, 공개 정책 및 비활성 전송 테스트. | 실제 비용 거버넌스 검증 중에 통제된 전달 증적을 보존합니다. |

@@ -44,7 +44,7 @@ subscribers inside their owning runtime service.
 | SD-00 through SD-09 service decomposition | validated | `config/service-decomposition.json`; [Evidence log](#evidence-log), including the SD-09 centralized validation receipt | All ten work packages are complete, and the authority cutover, exact topology, rollback, and structural closure have retained evidence. |
 | IS-00 through IS-09 independent service extraction | validated | `config/independent-services.json`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl`; [IS evidence log](#evidence-log) | Five independently releasable distributions, service roots, migration branches, protected transitions, and remote N/N-1/N proof are retained. |
 | Five-service ownership and isolated execution authority | validated | SD-08 and IS-09 evidence rows; `services/`; `packages/service-contracts/`; `service-migrations/branches/` | Core, Operator, Ingestion API, Processing Worker, and Isolated Executor have distinct process, identity, transport, health, and data ownership boundaries. |
-| SD-10 System Knowledge Service candidate | in-progress | `services/system-knowledge-service/`; [System Knowledge Service](../interfaces/system-knowledge-service.md); focused service checks in the current change | The package, catalog, mention boundary, claim ledger, and image exist. Production identity, persistent volume, cost, canary, and rollback evidence remain open. |
+| SD-10 System Knowledge Service candidate | in-progress | `services/system-knowledge-service/`; `infra/services/system-knowledge-service/`; protected workflow; [System Knowledge Service](../interfaces/system-knowledge-service.md) | The package, catalog, mention boundary, local SQLite and deployed Blob CAS ledgers, image, Terraform, Bot, Teams package, and workflow exist. Live cost, canary, and rollback evidence remain open. |
 
 ### Implementation history
 
@@ -56,7 +56,7 @@ subscribers inside their owning runtime service.
 ### Remaining work
 
 - [x] No work remains for SD-00 through SD-09 or IS-00 through IS-09; the machine manifests, evidence log, remote attestation, and focused program checks record completion.
-- [ ] Complete SD-10 only after a production Teams canary, restart-safe persistent claim receipt,
+- [ ] Complete SD-10 only after a production Teams canary, restart-safe Blob claim receipt,
   cost evidence, protected disable, and rollback within 15 minutes are recorded for one exact image.
 
 ## Status summary

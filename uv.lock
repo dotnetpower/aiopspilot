@@ -1249,7 +1249,9 @@ name = "fdai-system-knowledge-service"
 version = "0.1.0"
 source = { editable = "services/system-knowledge-service" }
 dependencies = [
+    { name = "azure-core" },
     { name = "azure-identity" },
+    { name = "azure-storage-blob" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -1259,7 +1261,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
+    { name = "azure-storage-blob", specifier = ">=12.25,<13" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 74d8b09312ccb9bf0fd6ede9b0d8e005f5704f4c
+translation_source_sha: 5360a48c1764211194056046bd7ec31fbfb0095f
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -92,7 +92,7 @@ GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으�
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 교체 경로이며 같은 계획에서 정확한 새 Operator UAMI를 생성할 때만 Operator API OpenAI User 역할 교체를 허용합니다. 이 허용은 검토 메타데이터만 저장하며 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
+구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 계산되는 신원 필드는 apply 전까지 알 수 없는 상태이며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
 검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 권한 있는 workflow는 먼저
 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
@@ -322,8 +322,9 @@ Event Hubs Kafka를 계속 요구합니다.
   `aw-owners`에 compliant-device, `aw-break-glass`에 전용 하드웨어 토큰 + 사인인 알림.
   Entra ID P1에서 이용 가능
   ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
-- **Azure Bot (Free 계층, 미프로비저닝)** - Teams Adaptive 카드 채널을 선택한 다운스트림
-  배포가 제공합니다. 서비스 Terraform은 전용 ID와 endpoint를 받지만 Bot은 만들지 않습니다.
+- **Azure Bot:** 승인 봇은 배포 소유로 유지합니다. 독립 시스템 지식 서비스 Terraform root는
+  보호된 서비스 workflow를 통해서만 자체 F0 Bot, Teams channel, 전용 UAMI, 비공개 Blob claim
+  container 및 정확한 HTTPS endpoint를 만듭니다.
 - **서명된 HIL 웹훅** - 운영은 CI 시크릿으로 URL과 32자 이상의 HMAC 시크릿을
   제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
   콜백 시크릿만 전달합니다. 그룹 연결 승인 팀과 채널은 Core와 Operator가 공유하는 별도 배포 슬롯이며 RBAC 그룹 id는 역할 배정에만 사용합니다.

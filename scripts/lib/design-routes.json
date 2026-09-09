@@ -1826,9 +1826,16 @@
     {
       "id": "system-knowledge-service",
       "paths": [
+        ".github/workflows/system-knowledge-deploy.yml",
+        "infra/services/system-knowledge-service/**",
+        "scripts/deployment/azure/materialize_system_knowledge_secret.py",
+        "scripts/deployment/system_knowledge/**",
         "services/system-knowledge-service/**",
         "packages/service-contracts/src/fdai_service_contracts/system_knowledge.py",
         "packages/service-contracts/tests/test_system_knowledge.py",
+        "tests/integration/service-suites.json",
+        "tests/integration/scripts/*system_knowledge*.py",
+        "docs/runbooks/system-knowledge-teams-onboarding*.md",
         "docs/roadmap/interfaces/system-knowledge-service*.md",
         "docs/roadmap-implementation/interfaces/system-knowledge-service.md"
       ],
@@ -1838,16 +1845,21 @@
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/interfaces/system-knowledge-service.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/interfaces/channels-and-notifications.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/system-knowledge-service.md",
+        "docs/runbooks/system-knowledge-teams-onboarding.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/system-knowledge-service/tests packages/service-contracts/tests/test_system_knowledge.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_system_knowledge_deployment.py tests/integration/scripts/test_system_knowledge_deploy_workflow.py tests/integration/scripts/test_build_system_knowledge_teams_app.py tests/integration/scripts/test_bootstrap_system_knowledge_installer.py tests/integration/scripts/test_install_system_knowledge_teams_app.py",
+        "terraform -chdir=infra/services/system-knowledge-service validate",
+        "python3 scripts/quality/ci/check-ci-contracts.py",
         "uv run mypy --strict services/system-knowledge-service/src packages/service-contracts/src/fdai_service_contracts/system_knowledge.py",
         "uv run ruff check services/system-knowledge-service packages/service-contracts/src/fdai_service_contracts/system_knowledge.py packages/service-contracts/tests/test_system_knowledge.py"
       ]
@@ -2361,7 +2373,6 @@
         "services/operator-service/src/fdai_operator_service/family_adapters.py",
         "services/operator-service/src/fdai_operator_service/postgres_family_store.py",
         "services/operator-service/tests/test_operator_workflow_family.py",
-        "tests/integration/service-suites.json",
         "console/src/routes/best-practice-controls*",
         "console/src/routes/controls-catalog.tsx",
         "console/src/routes/i18n/governance.*.json"

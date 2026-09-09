@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 74d8b09312ccb9bf0fd6ede9b0d8e005f5704f4c }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5360a48c1764211194056046bd7ec31fbfb0095f }]
 ---
 
 # Deploy Quickstart
@@ -88,12 +88,13 @@ key, Core starts in observation-only Trial and denies acting paths.
   `run_live_preflight.py` checks Azure Policy, Compute quota, executor RBAC, and
   value-blind Key Vault secret metadata. An incomplete check stops before the
   plan artifact is stored.
-- Retaining a protected plan that creates a new Operator API UAMI may include its exact OpenAI User
-  role replacement only when the scope and role are unchanged. Retention permits review, not apply;
-  applying the exact plan remains a separate approved operation.
-- Deploy the five service roots independently from the VNet-connected runner.
-  Each service owns its image, Terraform state, migration branch, health
-  probes, and workload identity. The Isolated Executor is the only service that
+- Retaining a protected plan that renames the Operator API UAMI may include its exact OpenAI User
+  role replacement only when the role scope and all non-name UAMI settings are unchanged. Retention
+  permits review, not apply; applying the exact plan remains a separate approved operation.
+- Deploy the validated five service roots independently from the VNet-connected runner. The
+  deployment-gated System Knowledge Service uses its separate
+  `system-knowledge-deploy.yml` plan/apply workflow, Blob claim state, Azure Bot, and
+  deployment-only Graph installer identity. The Isolated Executor remains the only service that
   may receive an action-specific effect role.
 - In a repository with one FDAI maintainer, set the repository variable
   `DEV_DEPLOY_REQUIRED_APPROVALS=0` to run direct `dev` applies without a reviewer.

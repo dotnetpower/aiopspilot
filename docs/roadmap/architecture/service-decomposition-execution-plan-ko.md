@@ -1,7 +1,7 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 02210af8bfc7dde81f2e1d527e6bd94cf300003b
-translation_revised: 2026-09-09
+translation_source_sha: 2f7a36669eb3e6daaf729d9889621390a2f28a4c
+translation_revised: 2026-09-10
 ---
 # 서비스 분해 실행 계획
 
@@ -44,7 +44,7 @@ Teams 봇이 Core 또는 Operator의 장애, 신원, release 경계를 공유하
 | SD-00부터 SD-09까지의 서비스 분해 | validated | `config/service-decomposition.json`; SD-09 중앙 검증 증적을 포함한 [근거 로그](#근거-로그) | 작업 패키지 10개가 모두 완료됐으며 권한 전환, 정확한 토폴로지, 롤백 및 구조적 종료 근거를 보존합니다. |
 | IS-00부터 IS-09까지의 독립 서비스 추출 | validated | `config/independent-services.json`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl`; [IS 근거 로그](#근거-로그) | 독립 릴리스 가능한 분포, 서비스 루트, migration 가지, 보호된 전이 및 원격 N/N-1/N 증명 5개를 보존합니다. |
 | 5개 서비스 소유권과 격리된 실행 권한 | validated | SD-08 및 IS-09 근거 행; `services/`; `packages/service-contracts/`; `service-migrations/branches/` | Core, Operator, 인제스트 API, 처리 워커 및 Isolated 실행기는 서로 다른 프로세스, 신원, 전송 계층, 상태 및 데이터 소유권 경계를 가집니다. |
-| SD-10 시스템 지식 서비스 후보 | in-progress | `services/system-knowledge-service/`; [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md); 현재 변경의 집중 서비스 검사 | 패키지, 카탈로그, 멘션 경계, claim 원장 및 이미지가 있습니다. 운영 신원, persistent volume, 비용, canary 및 롤백 근거는 남아 있습니다. |
+| SD-10 시스템 지식 서비스 후보 | in-progress | `services/system-knowledge-service/`, `infra/services/system-knowledge-service/`, 보호된 workflow, [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md) | 패키지, 카탈로그, 멘션 경계, 로컬 SQLite와 배포 Blob CAS 원장, 이미지, Terraform, Bot, Teams package 및 workflow가 있습니다. 실제 비용, canary 및 롤백 근거는 남아 있습니다. |
 
 ### 구현 이력
 
@@ -56,7 +56,7 @@ Teams 봇이 Core 또는 Operator의 장애, 신원, release 경계를 공유하
 ### 남은 작업
 
 - [x] SD-00부터 SD-09 또는 IS-00부터 IS-09에 남은 작업이 없습니다. 머신 매니페스트, 근거 로그, 원격 증명 및 집중 프로그램 검사가 완료를 기록합니다.
-- [ ] 정확한 이미지 하나에 대해 운영 Teams canary, 재시작에 안전한 persistent claim 증적,
+- [ ] 정확한 이미지 하나에 대해 운영 Teams canary, 재시작에 안전한 Blob claim 증적,
   비용 근거, 보호된 비활성화 및 15분 이내 롤백을 기록한 후에만 SD-10을 완료합니다.
 
 ## 상태 요약

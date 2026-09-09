@@ -120,7 +120,9 @@ EXPECTED_DEPENDENCIES = {
         "pydantic",
     },
     "system-knowledge-service": {
+        "azure-core",
         "azure-identity",
+        "azure-storage-blob",
         "fdai-service-contracts",
         "httpx",
         "pyjwt",
@@ -150,6 +152,7 @@ IMPORT_DISTRIBUTIONS = {
     "anyio": "anyio",
     "azure.core": "azure-core",
     "azure.identity": "azure-identity",
+    "azure.storage.blob": "azure-storage-blob",
     "azure.storage.filedatalake": "azure-storage-file-datalake",
     "cryptography": "cryptography",
     "fdai_github_app_auth": "fdai-github-app-auth",

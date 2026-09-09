@@ -9,7 +9,7 @@ It uses a release-bound catalog and has no operational provider or execution aut
 - Verify a dedicated Teams bot activity before reading the question.
 - Search reviewed English and Korean aliases deterministically.
 - Present designed behavior, implemented evidence, limitations, and source citations.
-- Preserve retry and ambiguous-send state in a service-owned message ledger.
+- Preserve retry and ambiguous-send state in SQLite locally and Blob CAS when deployed.
 - Expose independent liveness and readiness.
 
 ## Service Boundary
@@ -25,10 +25,11 @@ compiled catalog but no repository source or Git credential.
 | `src/fdai_system_knowledge_service/catalog.py` | Release catalog compilation and loading |
 | `src/fdai_system_knowledge_service/search.py` | Deterministic bilingual retrieval |
 | `src/fdai_system_knowledge_service/teams_{auth,ingress,publisher}.py` | Teams authentication, mention parsing, and publishing |
-| `src/fdai_system_knowledge_service/ledger.py` | Durable single-replica delivery claims |
+| `src/fdai_system_knowledge_service/ledger.py`, `blob_ledger.py` | Local SQLite and deployed Managed Identity Blob CAS claims |
 | `src/fdai_system_knowledge_service/runtime.py` | Query, rendering, delivery, and failure coordination |
 | `src/fdai_system_knowledge_service/application.py` | Health and Teams HTTP routes |
 | `tests/` | Service-owned contract and behavior tests |
+| `teams-app/manifest.template.json` | Mention-only Teams application package template |
 | `docker/Dockerfile` | Non-root service image |
 
 ## Build the catalog

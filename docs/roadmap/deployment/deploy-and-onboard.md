@@ -88,7 +88,7 @@ The additional label selects the validated 8-vCPU local-SSD pool; conjunctive Gi
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
-floor. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole replacement path, and the exact new Operator UAMI is created in the same plan; this stores review metadata and never authorizes apply. The protected deploy workflow keeps repeated request validation and plan-scope logic in
+floor. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole role replacement path, and the paired Operator UAMI changes only its name while preserving location, resource group, and tags; computed identity fields remain unknown until apply, and retention never authorizes apply. The protected deploy workflow keeps repeated request validation and plan-scope logic in
 reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
@@ -319,8 +319,9 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   compliant-device on `aw-owners`, dedicated hardware token + sign-in alert on
   `aw-break-glass`. Available on Entra ID P1
   ([user-rbac-and-identity.md#43-conditional-access](../interfaces/user-rbac-and-identity.md#43-conditional-access)).
-- **Azure Bot (Free tier, not provisioned)** - a downstream deployment that selects Teams Adaptive
-  Cards supplies it. Service Terraform accepts its identity and endpoint but does not create the Bot.
+- **Azure Bots** - the approval bot remains deployment-owned. The independent System Knowledge
+  Service Terraform root creates its own F0 Bot, Teams channel, dedicated UAMI, private Blob claim
+  container, and exact HTTPS endpoint only through the protected service workflow.
 - **Signed HIL webhook** - production supplies the URL and a 32+ character HMAC secret through
   CI secrets. Terraform stores both in Key Vault; the core reads URL + secret and the Operator API
   receives only the callback secret. A group-connected approval team and channel are separate deployment slots shared by Core and Operator; RBAC group ids remain role assignments only.

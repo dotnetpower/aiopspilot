@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 66a47eeee45a1d9bfb677cc378e196d711e7832a
-translation_revised: 2026-09-09
+translation_source_sha: 90f311f905ec5d2b1319995f1c7114a3880c5264
+translation_revised: 2026-09-10
 ---
 # 폐쇄망 배포
 
@@ -33,7 +33,7 @@ translation_revised: 2026-09-09
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
 | 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 라이브러리를 포함한 현재 배포판 7개를 해시와 설치 결과 재확인으로 설치합니다. 런타임 서비스는 시작하지 않습니다. |
-| 배포 루트별 고정 공급자 수집 | implemented | `mirror-locked-providers.sh`; 가짜 Terraform을 사용한 오프라인 테스트 25개, Ruff 및 셸 구문 검사 | 서로 다른 AzureRM 버전과 Genesis의 AzAPI를 포함해 번들의 9개 루트가 각 잠금 파일을 유지합니다. 호출별 제한은 300/600초, 전체 제한은 3600초입니다. 실제 다운로드, 미러 인덱스, 전체 서명 구성은 아직 검증하지 않았습니다. |
+| 배포 루트별 고정 공급자 수집 | implemented | `mirror-locked-providers.sh`, 가짜 Terraform을 사용한 오프라인 테스트, Ruff 및 셸 구문 검사 | 시스템 지식 서비스, 서로 다른 AzureRM 버전, Genesis의 AzAPI를 포함한 번들 root 10개가 각 lock file을 유지합니다. 호출별 제한은 300/600초, 전체 제한은 3600초입니다. 실제 다운로드, mirror index 및 전체 서명 구성은 아직 검증하지 않았습니다. |
 | 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
@@ -42,6 +42,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 런타임 release 적격성을 바꾸지 않고 시스템 지식 서비스 Terraform root를 고정 오프라인 provider mirror에 추가했습니다. | `current change`, root lock, mirror helper 및 집중 가짜 Terraform 검사입니다. | 서비스의 폐쇄망 배포 지원을 주장하기 전에 전체 서명 오프라인 훈련을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 배포 CLI 패키지가 제거된 뒤에도 남아 있던 종단 간 지원 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 인프라, release 스크립트, 패키지 메타데이터 및 집중 작업 흐름 근거 | 전용 offline 검증기와 CLI를 복원하고 trust 루트를 확립한 뒤 air-gap 훈련을 통과해야 합니다. |
 | 2026-09-06 | implemented | CLI가 없다는 오래된 설명을 바로잡고 런타임 목록 구성, 비공개 오프라인 준비, 공개 산출물 작업 흐름 차단을 추가했습니다. | `current change`; 집중 테스트 251개, 엄격한 타입 검사, 네트워크 및 파일시스템 이름 공간에서 합성 서명 페이로드를 사용한 설치 휠 준비 훈련; 이슈 #461 | 배포 가능한 전체 서명 배포판과 승인된 새 구독의 Console 및 인벤토리 증적을 보존합니다. |
 | 2026-09-06 | implemented | 사전 준비된 이미지로 초기 구성하고 설치 시 공개 설정을 넣는 테넌트 독립 Console 빌드를 추가했습니다. | `current change`; 모의 초기 구성 계획, Python·Console 설정 테스트, Console 타입 검사 및 오프라인 빌드; 이슈 #461 | 실제 최초 설치 실행기, 비공개 이미지 게시, 초기 리소스 검색, 독립적인 Console 재확인을 연결합니다. |

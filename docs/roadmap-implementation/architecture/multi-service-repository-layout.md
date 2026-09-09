@@ -31,4 +31,4 @@ remains focused on the normative repository layout.
 ### Remaining work
 - [x] Keep the validated five service distributions, shared contract SDK, root workspace-only manifest, and cross-service implementation-import prohibition pinned by `check-independent-services.py`.
 - [ ] Add the System Knowledge Service to the validated independent-service manifest only after its
-  identity, persistent volume, provider canary, cost, disable, and rollback receipts exist.
+  identity, Blob claim, provider canary, cost, disable, and rollback receipts exist.

@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: aad888df649673fda9da8b3850d01267ea8e360c
-translation_revised: 2026-09-09
+translation_source_sha: 8a32b4753651ff63e73e777cda932c9e5b146ac8
+translation_revised: 2026-09-10
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -74,7 +74,7 @@ translation_revised: 2026-09-09
 | 2026-09-05 | implemented | 새로운 handover, document 및 protection suite의 정확한 service-test 소유권을 복원하고 5개 서비스 토폴로지를 변경하지 않은 채 Operator aggregate manifest를 등록된 경로 188개와 일치시켰습니다. | `current change`, service-suite 소유권 및 Operator full-composition 검사 통과 | 각 소유 capability에서 이미 추적하는 통제된 runtime 근거를 보존합니다. |
 ### 남은 작업
 
-- [ ] 정확한 이미지의 Teams, persistent claim, 신원, 비용, 비활성화 및 롤백 근거가 적용 가능한
+- [ ] 정확한 이미지의 Teams, Blob claim, 신원, 비용, 비활성화 및 롤백 근거가 적용 가능한
   모든 scorecard 행을 충족한 후에만 시스템 지식 서비스를 승격합니다.
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
 - [ ] Operator 애플리케이션, 읽기 변환 결과 및 SSE 후보 중 하나가 고정된 개정 번호에서 점수표 강제 트리거와 모든 binary 게이트 근거를 기록한 뒤에만 다시 평가합니다.
@@ -128,7 +128,7 @@ channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비�
 | 문서 인제스트 API | 승인 | 권한과 scaling 격리, 타입이 지정된 전송 계층, role-scoped 데이터베이스 접근, 탐색, co-host 롤백이 구현됐습니다. |
 | 문서 인제스트 워커 | 승인 | 영속 임차 기간/CAS 점유, 재시작/reorder/DLQ 테스트, 내부 상태, dedicated 신원, 규모 게이트가 구현됐습니다. |
 | 대화 채널 런타임 | 여섯 번째 distribution이 아닌 edge adapter workload로 승인 | 공개 프로바이더 인증 유입과 channel-secret 격리가 forcing trigger입니다. Operator distribution, conversation writer, migration branch 및 semantic EventBus bridge를 사용하고 executor 권한이 없는 전용 신원을 받으며 [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md)의 gate를 통과해야 합니다. |
-| 시스템 지식 서비스 | 독립 구현 승인, 운영 승격 보류 | 전용 봇은 저장소 기반 release 산출물, Teams 신원 및 검색 장애를 Core, Operator Service 및 운영 A3 edge 밖에 둡니다. 패키지와 이미지는 구현할 수 있지만 운영 활성화에는 [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md)의 persistent claim storage, 정확한 이미지 canary, 비용, 신원 및 15분 이내 롤백 근거가 필요합니다. |
+| 시스템 지식 서비스 | 독립 구현 승인, 운영 승격 보류 | 전용 봇은 저장소 기반 release 산출물, Teams 신원 및 검색 장애를 Core, Operator Service 및 운영 A3 edge 밖에 둡니다. 패키지, Managed Identity Blob CAS 및 Terraform을 구현했지만 운영 활성화에는 [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md)의 정확한 이미지 canary, 비용, 신원 및 15분 이내 롤백 근거가 필요합니다. |
 | Background read-task 실행기 | 별도 서비스로는 보류 | 영속 시도는 있습니다. 첫 운영 바인딩은 버전 지정 전송을 사용하는 선택적 Core 조정기로 실행합니다. 독립 서비스 승격에는 측정된 비용/실패 트리거와 완전한 점수표가 계속 필요합니다. |
 | 스케줄러, 인벤토리, 측정, canary 작업 | 작업으로 승인 | 범위가 제한된 run-to-completion 계약과 dedicated 신원이 out-of-band Container Apps 작업을 이미 정당화합니다. |
 | 권위 있는 control-loop 단계 | Ad hoc 서비스로 거절 | 에이전트 single-writer 소유권, 필수 의존성, 타입이 지정된 pub/sub, 완전한 실행 safeguard를 보존하지 않으면 단계를 분리할 수 없습니다. |
