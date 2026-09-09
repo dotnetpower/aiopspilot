@@ -89,6 +89,14 @@ def test_placeholder_substring_does_not_suppress_real_secret() -> None:
         assert any(f.label == "credential-assignment" for f in report.findings)
 
 
+def test_real_credential_after_placeholder_is_not_missed() -> None:
+    secret = "live-" + "A1b2C3d4E5f6"
+    report = scan_sensitivity(_doc(f"password: changeme api_key: {secret}\n"))
+
+    assert report.disposition is SensitivityDisposition.HOLD
+    assert any(f.label == "credential-assignment" for f in report.findings)
+
+
 def test_detects_email_pii() -> None:
     report = scan_sensitivity(_doc("Escalate to jane.doe@contoso.example for approval.\n"))
     assert any(f.kind is SensitivityKind.PII and f.label == "email" for f in report.findings)
