@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import yaml
+
 _ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -51,11 +53,23 @@ def test_pre_push_ruff_uses_locked_development_dependencies() -> None:
 
 def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    jobs = yaml.safe_load(ci)["jobs"]
     action = (_ROOT / ".github" / "actions" / "setup-opa" / "action.yml").read_text(
         encoding="utf-8"
     )
 
-    assert ci.count("uses: ./.github/actions/setup-opa") == 4
+    assert {
+        job_id
+        for job_id, job in jobs.items()
+        if any(step.get("uses") == "./.github/actions/setup-opa" for step in job.get("steps", ()))
+    } == {
+        "python-regression",
+        "python-tests",
+        "governance-runtime-contracts",
+        "db-integration",
+        "db-migrations",
+    }
+    assert "openpolicyagent.org/downloads" not in ci
     assert action.count("openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static") == 1
     assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 1
     assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 1
