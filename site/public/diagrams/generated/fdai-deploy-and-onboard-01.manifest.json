@@ -12,7 +12,7 @@
     "ko": {
       "title": "부트스트랩 순서",
       "description": "부트스트랩 순서에 대한 FDAI 흐름입니다.",
-      "alt": "부트스트랩 순서. 주요 단계는 Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive입니다."
+      "alt": "부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 서명된 이미지를 Container Apps에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다."
     }
   },
   "assets": {
@@ -30,11 +30,11 @@
       "shape": "card",
       "label": {
         "en": "Prerequisites resolved",
-        "ko": "Prerequisites resolved"
+        "ko": "전제조건 해결됨"
       },
       "description": {
         "en": "Prerequisites resolved",
-        "ko": "Prerequisites resolved"
+        "ko": "전제조건 해결됨"
       }
     },
     {
@@ -43,11 +43,11 @@
       "shape": "card",
       "label": {
         "en": "IaC provision core resources",
-        "ko": "IaC provision core resources"
+        "ko": "IaC로 핵심 리소스 프로비저닝"
       },
       "description": {
         "en": "IaC provision core resources",
-        "ko": "IaC provision core resources"
+        "ko": "IaC로 핵심 리소스 프로비저닝"
       }
     },
     {
@@ -56,11 +56,11 @@
       "shape": "card",
       "label": {
         "en": "Create executor MI plus scoped role assignments",
-        "ko": "Create executor MI plus scoped role assignments"
+        "ko": "실행기 관리 ID 생성 및 범위 지정 역할 할당"
       },
       "description": {
         "en": "Create executor MI plus scoped role assignments",
-        "ko": "Create executor MI plus scoped role assignments"
+        "ko": "실행기 관리 ID 생성 및 범위 지정 역할 할당"
       }
     },
     {
@@ -69,11 +69,11 @@
       "shape": "card",
       "label": {
         "en": "Deploy signed image to Container Apps in shadow-only",
-        "ko": "Deploy signed image to Container Apps in shadow-only"
+        "ko": "서명된 이미지를 Container Apps에 shadow-only로 배포"
       },
       "description": {
         "en": "Deploy signed image to Container Apps in shadow-only",
-        "ko": "Deploy signed image to Container Apps in shadow-only"
+        "ko": "서명된 이미지를 Container Apps에 shadow-only로 배포"
       }
     },
     {
@@ -82,11 +82,11 @@
       "shape": "card",
       "label": {
         "en": "Run alembic upgrade head against the provisioned Postgres",
-        "ko": "Run alembic upgrade head against the provisioned Postgres"
+        "ko": "프로비저닝된 Postgres에 alembic upgrade head 실행"
       },
       "description": {
         "en": "Run alembic upgrade head against the provisioned Postgres",
-        "ko": "Run alembic upgrade head against the provisioned Postgres"
+        "ko": "프로비저닝된 Postgres에 alembic upgrade head 실행"
       }
     },
     {
@@ -95,11 +95,11 @@
       "shape": "card",
       "label": {
         "en": "Attach Diagnostic Settings and Kafka topic forwarders",
-        "ko": "Attach Diagnostic Settings and Kafka topic forwarders"
+        "ko": "Diagnostic Settings 및 Kafka 토픽 전달기 연결"
       },
       "description": {
         "en": "Attach Diagnostic Settings and Kafka topic forwarders",
-        "ko": "Attach Diagnostic Settings and Kafka topic forwarders"
+        "ko": "Diagnostic Settings 및 Kafka 토픽 전달기 연결"
       }
     },
     {
@@ -108,11 +108,11 @@
       "shape": "card",
       "label": {
         "en": "Seed rule catalog with day-zero rule set",
-        "ko": "Seed rule catalog with day-zero rule set"
+        "ko": "day-zero 규칙 세트로 규칙 카탈로그 시드"
       },
       "description": {
         "en": "Seed rule catalog with day-zero rule set",
-        "ko": "Seed rule catalog with day-zero rule set"
+        "ko": "day-zero 규칙 세트로 규칙 카탈로그 시드"
       }
     },
     {
@@ -121,11 +121,11 @@
       "shape": "card",
       "label": {
         "en": "Register HIL approvers and ChatOps channel",
-        "ko": "Register HIL approvers and ChatOps channel"
+        "ko": "HIL 승인자 및 ChatOps 채널 등록"
       },
       "description": {
         "en": "Register HIL approvers and ChatOps channel",
-        "ko": "Register HIL approvers and ChatOps channel"
+        "ko": "HIL 승인자 및 ChatOps 채널 등록"
       }
     },
     {
@@ -134,11 +134,11 @@
       "shape": "card",
       "label": {
         "en": "Run post-deploy smoke tests",
-        "ko": "Run post-deploy smoke tests"
+        "ko": "배포 후 스모크 테스트 실행"
       },
       "description": {
         "en": "Run post-deploy smoke tests",
-        "ko": "Run post-deploy smoke tests"
+        "ko": "배포 후 스모크 테스트 실행"
       }
     },
     {
@@ -147,11 +147,11 @@
       "shape": "card",
       "label": {
         "en": "System is warm; first real event may arrive",
-        "ko": "System is warm; first real event may arrive"
+        "ko": "시스템이 준비됨; 첫 실제 이벤트 도착 가능"
       },
       "description": {
         "en": "System is warm; first real event may arrive",
-        "ko": "System is warm; first real event may arrive"
+        "ko": "시스템이 준비됨; 첫 실제 이벤트 도착 가능"
       }
     }
   ],

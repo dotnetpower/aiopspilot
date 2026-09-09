@@ -1,14 +1,14 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5e7239b3b826537b38db7eb5be7388426558244f
+translation_source_sha: d705817d95a1a7de8b43735cbd7395606edc3c38
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
 Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
 > Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다. 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를 확인합니다.
-> **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 출처 of truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
+> **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 정본(source of truth)으로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
 > [설치형 배포 CLI](installable-deployment-cli-ko.md)와 [배포 아티팩트](#배포-아티팩트)를 참조하세요.
 ## 전제조건(Prerequisites)
 
@@ -30,7 +30,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   서버를 유지하며, `enable_private_postgres = true`는 별도 delegated-subnet 모드로 남습니다.
   배포는 Container App 환경도 위임 infra 서브넷에 연결하고 금고를 비공개 접근으로
   잠급니다. Private-only 금고는
-  운영자 laptop 에서 도달 불가능하므로, `terraform apply` 는 엔드포인트 에 VNet 시야가
+  운영자 laptop에서 도달 불가능하므로, `terraform apply`는 엔드포인트에 VNet 시야가
   확보된 호스트 - VNet 내 CI 러너 또는 점프박스 - 에서 실행해야 합니다(실행기가 거기서
   DSN 시크릿을 쓰기). `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
   네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
@@ -60,9 +60,9 @@ Upstream은 공급자 없이 실행되는 참조 계획으로 토글 계약을 �
 
 #### ops/허브 러너 (private-everything 테난트)
 
-일부 테난트는 **모든** 데이터 서비스를 비공개 로 강제한다(Key Vault 와 저장소 둘 다).
-그래서 terraform remote-state 백엔드조차 laptop 에서 도달 불가능하다. `infra/bootstrap`
-레이어가 배포를 가능케 하는 지속적 허브 를 세우며, 이는 앱 재빌드에도 살아남는다:
+일부 테난트는 **모든** 데이터 서비스를 비공개로 강제합니다(Key Vault와 저장소 둘 다).
+그래서 terraform remote-state 백엔드조차 laptop에서 도달 불가능합니다. `infra/bootstrap`
+레이어가 배포를 가능케 하는 지속적 허브를 세우며, 이는 앱 재빌드에도 살아남습니다:
 
 Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결되는 아웃바운드 경로 하나를
 만듭니다. 승인된 경로가 있는 폐쇄망은 `enable_public_egress = false`로 설정합니다. 또한
@@ -71,8 +71,8 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 
 - 앱 RG 와 분리된 **ops 리소스 그룹 + 허브 VNet**(`rg-fdai-ops-<region_short>` /
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
-- 비공개 로 잠긴 **terraform remote-state 저장소 계정**, ops VNet 에 링크된
-  `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
+- 비공개로 잠긴 **terraform remote-state 저장소 계정**, ops VNet에 링크된
+  `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트로 프론트;
 - 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
   VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
@@ -84,19 +84,19 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 `RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다. 배포 작업의
 기본 경로가 `infra/`이므로 이 pre-checkout 단계도 `RUNNER_TEMP`에서 실행합니다. Fresh slot에는
 아직 저장소 디렉터리가 없으며 이전 checkout residue에 의존하지 않습니다.
-앱 구성 는 spoke VNet 을 ops 허브 에 (양방향) 피어링 하고 비공개 DNS 영역 을
-`extra_vnet_links` 경계 으로 ops VNet 에 링크해, 러너가 앱 Key Vault 를 비공개 로 해석하게
-한다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고 의
-`Key Vault Secrets Officer` 로 만든다 - 적용 중 DSN 시크릿을 쓰기 한다. 배포는 `[self-hosted, fdai-deploy, fdai-deploy-candidate]`와 일치하는 실행기에서
+앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
+`extra_vnet_links` 경계로 ops VNet에 링크해, 러너가 앱 Key Vault를 비공개로 해석하게
+합니다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고의
+`Key Vault Secrets Officer`로 만듭니다 - 적용 중 DSN 시크릿을 씁니다. 배포는 `[self-hosted, fdai-deploy, fdai-deploy-candidate]`와 일치하는 실행기에서
 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)로 실행합니다(기본 plan-only; `apply` 입력이 강제 적용). 추가 라벨은 검증된 8 vCPU 로컬 SSD 풀을 선택합니다.
 GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으면 작업이 느린 관리형 디스크 실행기로 자동 전환되지 않고 큐에서 대기합니다.
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. 보호된 배포 workflow는 검토 가능한 2,300줄 예산을 유지합니다. 반복되는 요청
-검증과 계획 범위 로직은 inline shell 블록 대신 검토된 helper에 둡니다. 권한 있는 workflow는 먼저
+구문만 사용합니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
+검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 권한 있는 workflow는 먼저
 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
-대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하고 실행기는 버전 2.327.1 이상을 유지합니다. 비공개 networking이 활성화된이면 PostgreSQL 공개 접근과 broad Azure-services firewall을
+대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
 비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.
 Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-parse HEAD`와 비교합니다.
 따라서 전달과 실행 사이에 release 커밋이 `main`을 이동해도 계획 또는 적용 코드가
@@ -193,15 +193,15 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
   CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 대화형 Azure CLI 대상을 읽고 `koreacentral` 리전을 확인하거나 교체한 뒤 하나의 명령으로 공개 `dev` 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 미리 보고 배포합니다. 빈 입력은 배포를 승인하지 않습니다. 고정된 소유자 전용 라이선스 키가 있고 패키지 공개 키와 일치하면 최대 30일 토큰도 발급하고 Key Vault 파일 입력 경계를 통해 토큰별 다이제스트 기반 이름으로 업로드한 뒤 해당 비밀이 아닌 다이제스트로 새 Core 개정 번호를 만듭니다. 키가 없으면 같은 이미지를 관찰 전용 Trial로 배포합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
-- [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
-  KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
-  사전에 알려준다.
-- [`onboard.sh`](../../../infra/bootstrap/onboard.sh) 는 create-state-account -> 초기화
+- [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh)는 throwaway
+  KV + 저장소를 프로브해 테난트가 private-everything를 강제하는지(러너 경로 필수 여부)
+  사전에 알려줍니다.
+- [`onboard.sh`](../../../infra/bootstrap/onboard.sh)는 create-state-account -> 초기화
   적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
-- [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) 는 초기화 출력 에서
-  repo Variables + Secrets 를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) 는 러너 토큰을 발급하고
-  `run-command` 로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
+- [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 초기화 출력에서
+  repo Variables + Secrets를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 러너 토큰을 발급하고
+  `run-command`로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
   뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
   설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
@@ -421,7 +421,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 프로비저닝은 IaC 주도이지만 첫 라이브 이벤트까지의 **논리적 부트스트랩 순서**는 지켜야 함.
 앞의 단계가 실패하면 halt하고 unwind; 배포는 깨진 앞 단계로 뒤 단계에 진행하지 않음.
 
-![부트스트랩 순서. 주요 단계는 Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
+![부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 서명된 이미지를 Container Apps에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
 
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
   별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
