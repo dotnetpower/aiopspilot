@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.ontology_platform.kubernetes_diagnostic_assessment import (
@@ -11,6 +11,11 @@ from fdai.core.ontology_platform.kubernetes_diagnostic_assessment import (
     assess_aks_diagnostic,
 )
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.kubernetes_metric import (
+    KubernetesMetricTarget,
+    KubernetesMetricWindowEvidence,
+)
+from fdai.shared.providers.metric import MetricPoint
 
 CUTOFF = datetime(2026, 9, 10, 0, 5, tzinfo=UTC)
 
@@ -48,6 +53,37 @@ def _context(target: ResourceRecord, **changes: object) -> AksDiagnosticContext:
     }
     values.update(changes)
     return AksDiagnosticContext(**values)  # type: ignore[arg-type]
+
+
+def _metric(
+    target: KubernetesMetricTarget,
+    *,
+    end: datetime = CUTOFF,
+) -> KubernetesMetricWindowEvidence:
+    start = end - timedelta(minutes=5)
+    labels = {"cluster_ref": target.cluster_ref, "uid": target.uid}
+    if target.namespace is not None:
+        labels["namespace"] = target.namespace
+    return KubernetesMetricWindowEvidence(
+        metric_name="kubernetes.container.oom_events",
+        target=target,
+        start=start,
+        end=end,
+        points=(
+            MetricPoint(
+                metric_name="kubernetes.container.oom_events",
+                at=end,
+                value=1,
+                labels=labels,
+            ),
+        ),
+        source_identity="metrics",
+        source_revision="revision-1",
+        provider_cutoff=end,
+        coverage_receipt_ref="metric-coverage:example",
+        complete=True,
+        limitation=None,
+    )
 
 
 @pytest.mark.parametrize(
@@ -136,3 +172,76 @@ def test_conflicting_source_identity_holds_even_with_positive_signal() -> None:
 
     assert result.status is AksDiagnosticStatus.HELD
     assert result.conflicts == ("source_identity_mismatch",)
+
+
+def test_exact_target_metric_can_add_a_diagnostic_signal() -> None:
+    target = _target("kubernetes.pod", namespace="default")
+    result = assess_aks_diagnostic(
+        _context(
+            target,
+            metrics=(
+                _metric(
+                    KubernetesMetricTarget(
+                        cluster_ref="cluster",
+                        uid="uid-target",
+                        namespace="default",
+                    )
+                ),
+            ),
+            source_cutoffs={"kubernetes-api": CUTOFF, "metrics": CUTOFF},
+            source_revisions={"kubernetes-api": "rv-20", "metrics": "revision-1"},
+        )
+    )
+
+    assert result.status is AksDiagnosticStatus.OOM_KILLED
+    assert result.conflicts == ()
+
+
+@pytest.mark.parametrize(
+    "target",
+    (
+        KubernetesMetricTarget(cluster_ref="other-cluster", uid="uid-target", namespace="default"),
+        KubernetesMetricTarget(cluster_ref="cluster", uid="other-uid", namespace="default"),
+        KubernetesMetricTarget(cluster_ref="cluster", uid="uid-target", namespace="other"),
+    ),
+)
+def test_foreign_metric_target_holds_without_importing_its_signal(
+    target: KubernetesMetricTarget,
+) -> None:
+    result = assess_aks_diagnostic(
+        _context(
+            _target("kubernetes.pod", namespace="default"),
+            metrics=(_metric(target),),
+            source_cutoffs={"kubernetes-api": CUTOFF, "metrics": CUTOFF},
+            source_revisions={"kubernetes-api": "rv-20", "metrics": "revision-1"},
+        )
+    )
+
+    assert result.status is AksDiagnosticStatus.HELD
+    assert result.signals == ()
+    assert result.conflicts == ("metric_target_mismatch",)
+
+
+def test_future_metric_window_holds_without_importing_its_signal() -> None:
+    future = CUTOFF + timedelta(minutes=1)
+    result = assess_aks_diagnostic(
+        _context(
+            _target("kubernetes.pod", namespace="default"),
+            metrics=(
+                _metric(
+                    KubernetesMetricTarget(
+                        cluster_ref="cluster",
+                        uid="uid-target",
+                        namespace="default",
+                    ),
+                    end=future,
+                ),
+            ),
+            source_cutoffs={"kubernetes-api": CUTOFF, "metrics": CUTOFF},
+            source_revisions={"kubernetes-api": "rv-20", "metrics": "revision-1"},
+        )
+    )
+
+    assert result.status is AksDiagnosticStatus.HELD
+    assert result.signals == ()
+    assert result.conflicts == ("metric_window_mismatch",)

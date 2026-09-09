@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Hardening round 7 revalidated metric cluster, UID, namespace, point labels, source revision, and time window before Forseti signal reduction. | `current change`; focused exact-target positive, foreign cluster/UID/namespace, and future-window hold tests. | Complete rounds 8-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 6 synchronized Operator and Console allowlists with collected rollout, storage, policy, and ephemeral-container diagnostics. | `current change`; focused projection parity, Console decode, and unsupported-key rejection tests. | Complete rounds 7-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 5 aligned Operator diagnostic arrays with the collector's bounded 384 probe and 256 termination records while rejecting larger input. | `current change`; focused valid producer maxima and 385-record rejection tests. | Complete rounds 6-10, integrated validation, and live AKS evidence. |
 | 2026-09-10 | in-progress | Hardening round 4 kept pre-versioned Kubernetes snapshot rows queryable while withholding exact identity and diagnostic details until the full versioned identity exists. | `current change`; focused legacy, exact, and malformed identity projection tests. | Complete rounds 5-10, integrated validation, and live AKS evidence. |

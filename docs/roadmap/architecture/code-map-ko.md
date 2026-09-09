@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1fd4ac514f6a3691cb48c82659796ef7bf43cf40
+translation_source_sha: 62602d3650d47be534b1eeb351c9778ed8be2772
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -41,6 +41,9 @@ translation_revised: 2026-09-10
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
 - **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview 및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환 결과를 명시적으로 선택할 수 있습니다.
 - **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과 재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`, 비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고 물리적 다중화 전송만 공유합니다.
+- **AKS 메트릭 수락:** `core/ontology_platform`의 Forseti 소유 결정론적 축약기는 클러스터, UID,
+  네임스페이스, 지점 레이블, 출처 revision 및 시간 구간이 정확한 진단 맥락과 일치할 때만 메트릭
+  신호를 수락합니다. 불일치는 보류된 충돌을 만듭니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

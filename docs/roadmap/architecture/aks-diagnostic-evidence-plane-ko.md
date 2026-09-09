@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 8699327cdeb577e7f1710e1a658efe5de8efd525
+translation_source_sha: 4cecc683de738e25373f784bca6cda7793aa1aee
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -142,6 +142,9 @@ Operator와 Console 허용 목록은 수집된 내용 안전 롤아웃, 스토�
 반환합니다. 기존 점 전용 `MetricProvider`는 후보를 제공할 수 있지만 그 자체로 완전한 진단
 구간을 주장할 수 없습니다. 이름만 있는 시계열, 혼합 신원, 미래 표본, 점 전용 출처 및 잘린
 구간은 사용할 수 없음으로 유지합니다. 빈 메트릭 조회는 0을 입증하지 않습니다.
+Forseti는 신호를 축약하기 전에 메트릭 대상 튜플, 지점 레이블, 메트릭 구간, 프로바이더 기준 시점 및
+출처 revision을 정확한 진단 맥락과 다시 대조합니다. 불일치는 충돌로 보존되며 해당 메트릭은 진단
+신호를 만들 수 없습니다.
 
 ### 로그
 

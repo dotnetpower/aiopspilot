@@ -38,6 +38,9 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
 - **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and Operations routes can opt into explicit Sample projections that remain read-only, generic, and visibly separate from operational evidence.
 - **Framework assessment ownership:** `core/framework_assessment/` owns deterministic WAF and CAF evidence admission and replay. Provider contracts remain in `shared/providers/`, Azure observation adapters remain in `delivery/azure/`, and Operator owns only the no-authority event projection. WARA keeps its specialized APRL runtime and shares only the physical multiplexed transport.
+- **AKS metric admission:** The Forseti-owned deterministic reducer under `core/ontology_platform`
+  accepts a metric signal only after its cluster, UID, namespace, point labels, source revision,
+  and time window match the exact diagnostic context. A mismatch produces a held conflict.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

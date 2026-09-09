@@ -91,8 +91,10 @@ def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenc
     if context.cutoff.tzinfo is None:
         raise ValueError("AKS diagnostic cutoff MUST be timezone-aware")
     props = context.target.props
+    cluster_ref = _required_text(props, "cluster_ref")
     uid = _required_text(props, "uid")
     resource_version = _required_text(props, "resource_version")
+    namespace = _optional_namespace(props.get("namespace"))
     for source, cutoff in context.source_cutoffs.items():
         if not source.strip() or cutoff.tzinfo is None or cutoff > context.cutoff:
             raise ValueError("AKS diagnostic source cutoff is invalid")
@@ -105,7 +107,14 @@ def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenc
         gaps.append("required_evidence_incomplete")
     if set(context.source_cutoffs) != set(context.source_revisions):
         conflicts.append("source_identity_mismatch")
-    signals = _signals(context)
+    qualified_metrics, metric_conflicts = _qualified_metrics(
+        context,
+        cluster_ref=cluster_ref,
+        uid=uid,
+        namespace=namespace,
+    )
+    conflicts.extend(metric_conflicts)
+    signals = _signals(context, metrics=qualified_metrics)
     if conflicts or (not signals and gaps):
         status = AksDiagnosticStatus.HELD
     elif signals:
@@ -133,7 +142,11 @@ def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenc
     )
 
 
-def _signals(context: AksDiagnosticContext) -> set[AksDiagnosticStatus]:
+def _signals(
+    context: AksDiagnosticContext,
+    *,
+    metrics: tuple[KubernetesMetricWindowEvidence, ...],
+) -> set[AksDiagnosticStatus]:
     props = context.target.props
     signals: set[AksDiagnosticStatus] = set()
     waiting = _string_set(props.get("container_waiting_reasons"))
@@ -190,9 +203,7 @@ def _signals(context: AksDiagnosticContext) -> set[AksDiagnosticStatus]:
         "Unavailable",
     }:
         signals.add(AksDiagnosticStatus.CONTROL_PLANE_UNAVAILABLE)
-    for metric in context.metrics:
-        if not metric.complete:
-            continue
+    for metric in metrics:
         if metric.metric_name == "kubernetes.container.oom_events" and any(
             point.value > 0 for point in metric.points
         ):
@@ -203,6 +214,58 @@ def _signals(context: AksDiagnosticContext) -> set[AksDiagnosticStatus]:
         } and any(point.value > 0 for point in metric.points):
             signals.add(AksDiagnosticStatus.RESOURCE_PRESSURE)
     return signals
+
+
+def _qualified_metrics(
+    context: AksDiagnosticContext,
+    *,
+    cluster_ref: str,
+    uid: str,
+    namespace: str | None,
+) -> tuple[tuple[KubernetesMetricWindowEvidence, ...], tuple[str, ...]]:
+    qualified: list[KubernetesMetricWindowEvidence] = []
+    conflicts: list[str] = []
+    for metric in context.metrics:
+        if (
+            metric.target.cluster_ref != cluster_ref
+            or metric.target.uid != uid
+            or metric.target.namespace != namespace
+        ):
+            if "metric_target_mismatch" not in conflicts:
+                conflicts.append("metric_target_mismatch")
+            continue
+        if not metric.complete:
+            continue
+        if (
+            metric.provider_cutoff is None
+            or metric.end > metric.provider_cutoff
+            or metric.provider_cutoff > context.cutoff
+        ):
+            if "metric_window_mismatch" not in conflicts:
+                conflicts.append("metric_window_mismatch")
+            continue
+        if (
+            context.source_cutoffs.get(metric.source_identity) != metric.provider_cutoff
+            or context.source_revisions.get(metric.source_identity) != metric.source_revision
+        ):
+            if "metric_source_mismatch" not in conflicts:
+                conflicts.append("metric_source_mismatch")
+            continue
+        expected_labels = {"cluster_ref": cluster_ref, "uid": uid}
+        if namespace is not None:
+            expected_labels["namespace"] = namespace
+        if any(
+            point.metric_name != metric.metric_name
+            or point.at.tzinfo is None
+            or not metric.start <= point.at <= metric.end
+            or any(point.labels.get(key) != value for key, value in expected_labels.items())
+            for point in metric.points
+        ):
+            if "metric_point_mismatch" not in conflicts:
+                conflicts.append("metric_point_mismatch")
+            continue
+        qualified.append(metric)
+    return tuple(qualified), tuple(conflicts)
 
 
 def _conditions(props: Mapping[str, object]) -> dict[str, str]:
@@ -252,6 +315,14 @@ def _required_text(props: Mapping[str, object], key: str) -> str:
     value = props.get(key)
     if not isinstance(value, str) or not value.strip() or len(value) > 512:
         raise ValueError(f"AKS diagnostic target {key} MUST be bounded non-empty text")
+    return value.strip()
+
+
+def _optional_namespace(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or len(value) > 253:
+        raise ValueError("AKS diagnostic target namespace MUST be bounded non-empty text or null")
     return value.strip()
 
 

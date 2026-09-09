@@ -143,6 +143,9 @@ window coverage. The existing point-only `MetricProvider` can supply candidates 
 complete diagnostic window by itself. Name-only series, mixed identities, future samples,
 point-only sources, and truncated windows remain unavailable. An empty metric query does not prove
 zero.
+Before signal reduction, Forseti rechecks the metric target tuple, point labels, metric interval,
+provider cutoff, and source revision against the exact diagnostic context. A mismatch is retained
+as a conflict and its metric cannot contribute a diagnostic signal.
 
 ### Logs
 
