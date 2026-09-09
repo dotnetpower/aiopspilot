@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ad29632f079d598ca68385506806afbe1cbb607b
+translation_source_sha: bc808741fc1bcfbe1684dd2bccca13320b982e9c
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -53,7 +53,7 @@ translation_revised: 2026-09-09
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
-  검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다. Core는 실행기 신원이 아니라 별도로 연결한 Bot 관리 ID로 Teams A1 전달을 처리합니다.
+  검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다. Core composition root는 별도로 연결한 Bot 관리 ID를 Teams A1 전달에 넘기며 실행기 신원을 재사용하지 않습니다.
 - **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 서비스 계약 SDK는 배포 권한이 없는 수정
   버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
   어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집

@@ -587,8 +587,7 @@ def _build_control_loop(
     # IncidentMemberSource plus a reviewed resource-dependency graph through
     # the immutable Container; absent either source, the side path abstains.
 
-    # HIL approval round-trip (Notify-on-decision step B). Opt-in: only
-    # when a HIL channel is configured
+    # HIL approval round-trip is opt-in only when a HIL channel is configured.
     # does the loop park a HIL-routed action and push an A1 approval
     # card. Absent -> ``None`` so the loop records the HIL verdict and
     # stops at the persisted queue (backward-compatible). Parking never
