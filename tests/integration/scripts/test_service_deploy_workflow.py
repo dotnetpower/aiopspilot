@@ -537,6 +537,8 @@ def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
         "azurerm_role_assignment.command_api_eventhubs_receiver",
         "azurerm_role_assignment.command_api_eventhubs_sender",
         "azurerm_role_assignment.executor_eventhubs_data_owner",
+        "module.compute.azurerm_container_app_job.oob",
+        "module.compute.azurerm_container_app_job.rule_watcher",
         "module.measurement_runners.azurerm_container_app_job.baseline_regression",
         "module.measurement_runners.azurerm_container_app_job.pattern_growth",
     ):

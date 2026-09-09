@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 76cadd7acad645c6b1bbe9c47b800d9627a21b28
+translation_source_sha: 7d121b438c98235b6da1b0a8396f80e265baa8d9
 translation_revised: 2026-09-09
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 기존 out-of-band Job과 rule-watcher Job을 개발 운영 게이트웨이 대상 의존성 집합에 추가했습니다. 이제 Terraform은 선언되지 않은 의존성 대상을 요구하지 않고 이미 선택한 게이트웨이 및 측정 리소스의 계획을 만들 수 있습니다. | `current change`; 실패한 보호 계획 `34316856951`; `.github/workflows/deploy-dev.yml`; 집중 workflow 대상 검사. | workflow 수정 사항을 게시하고 적용 전에 정확한 런타임 이미지 승격 계획을 다시 실행합니다. |
 | 2026-09-09 | implemented | 라이선스 필수 Trial 동작, 암호학적으로 검증된 로컬 발급자 예외, 소비자가 강제하는 30일 토큰, 다이제스트 이름의 Key Vault 시크릿을 통한 격리된 갱신 및 보호된 공개 Core 경로의 재시작 가능한 tfvars 구체화를 추가했습니다. | `current change`; 결합된 집중 회귀 검사 228개, 검토 후 기여자 검사 9개와 air-gap 제품화 검사 6개 통과, 두 Core Terraform 계층 검증 완료, 빌드한 Core wheel에 공개 키 포함 확인. | 키 없는 새 Azure 배포의 Trial, 활성 토큰이 있는 발급자 배포, 만료 차단 및 동일 이미지 갱신 증적을 보존합니다. |
 | 2026-09-09 | implemented | 공개 `dev` 플랫폼과 독립 Core 루트를 정확한 ACR 빌드, 스키마 및 카탈로그 부트스트랩, 예약 Job 활성화, 범위가 제한된 상태 검사를 포함하는 하나의 보호된 fresh-clone 경로로 조합했습니다. | `current change`; 집중 배포 workflow 테스트 86개, 집중 native Terraform 계획 46개 통과, Terraform 구성 검증 통과. | 경로를 validated로 분류하기 전에 통제된 새 구독 적용, 정리, 두 번째 실행 no-change, Core 상태, canary 및 인벤토리 증적을 보존합니다. |
 | 2026-09-07 | implemented | 예약된 외부 변경 감지와 원하는 상태의 배포 계획을 분리했습니다. 이제 모든 표류 검사 루트가 새로 고침 전용 계획을 사용하므로, 전달 시점에만 사용하는 기능 입력이 누락되어도 활성 리소스가 삭제 대상으로 표시되지 않습니다. | `current change`, `.github/workflows/infra-drift.yml` 및 집중 표류 workflow 계약 테스트 | 삭제가 없는 새로 고침 계획을 보여 주는 정확한 보호 실행을 하나 보존합니다. 적용되지 않은 코드와 구성 변경은 보호된 배포 계획에서 확인합니다. |
