@@ -248,7 +248,9 @@ jobs:
         run: |
           set -euo pipefail
           state_json="$RUNNER_TEMP/bootstrap-pre-refresh-state.json"
-          trap 'rm -f "$state_json"' EXIT
+          refresh_plan="$RUNNER_TEMP/bootstrap-refresh.tfplan"
+          refresh_plan_json="$RUNNER_TEMP/bootstrap-refresh-plan.json"
+          trap 'rm -f "$state_json" "$refresh_plan" "$refresh_plan_json"' EXIT
           terraform show -json >"$state_json"
           stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
             bootstrap-inputs --state-json "$state_json")"
@@ -256,7 +258,26 @@ jobs:
           runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
-          terraform plan -refresh-only -input=false -lock-timeout=300s -detailed-exitcode
+          set +e
+          terraform plan \
+            -refresh-only \
+            -input=false \
+            -lock-timeout=300s \
+            -detailed-exitcode \
+            -out="$refresh_plan"
+          plan_status=$?
+          set -e
+          [[ "$plan_status" -eq 0 || "$plan_status" -eq 2 ]] || exit "$plan_status"
+          terraform show -json "$refresh_plan" >"$refresh_plan_json"
+          drift_count="$(jq '
+            . as $plan
+            | ([($plan.resource_drift // [])[] | select(.change.actions != ["no-op"])] | length)
+            + ([($plan.output_changes // {}) | to_entries[] | select(.value.actions != ["no-op"])] | length)
+          ' "$refresh_plan_json")"
+          [[ "$drift_count" -eq 0 ]] || {
+            echo "Bootstrap Terraform drift was detected." >&2
+            exit 1
+          }
 
       - name: Enforce complete drift evidence
         if: always()
