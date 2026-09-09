@@ -170,6 +170,21 @@ class FileSystemPromptRegistry(PromptRegistry):
                 continue
             loaded.append(_coerce(raw, provenance_default=str(yaml_path)))
 
+        identities: dict[tuple[str, int, PromptLayer], int] = {}
+        for artifact in loaded:
+            identity = (artifact.id, artifact.version, artifact.layer)
+            identities[identity] = identities.get(identity, 0) + 1
+        for (artifact_id, version, layer), count in sorted(identities.items()):
+            if count > 1:
+                issues.append(
+                    PromptRegistryIssue(
+                        path=str(prompts_dir),
+                        message=(
+                            "prompt artifact identity MUST be unique: "
+                            f"{artifact_id}.v{version} ({layer.value})"
+                        ),
+                    )
+                )
         if issues:
             raise PromptRegistryError(issues)
 

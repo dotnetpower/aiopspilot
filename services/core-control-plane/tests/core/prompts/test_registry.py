@@ -172,6 +172,26 @@ def test_registry_rejects_filename_mismatch(tmp_path: Path) -> None:
     assert any("file name MUST be" in issue.message for issue in excinfo.value.issues)
 
 
+def test_registry_rejects_duplicate_artifact_identity(tmp_path: Path) -> None:
+    _write_schema(tmp_path)
+    prompt = dedent(
+        """
+        id: duplicate
+        version: 1
+        layer: base
+        body: "x"
+        provenance: {source: test}
+        """
+    )
+    _write_prompt(tmp_path, "base/first", "duplicate.v1.yaml", prompt)
+    _write_prompt(tmp_path, "base/second", "duplicate.v1.yaml", prompt)
+
+    with pytest.raises(PromptRegistryError) as excinfo:
+        FileSystemPromptRegistry(tmp_path)
+
+    assert any("identity MUST be unique" in issue.message for issue in excinfo.value.issues)
+
+
 def test_registry_aggregates_schema_violations(tmp_path: Path) -> None:
     _write_schema(tmp_path)
     _write_prompt(
