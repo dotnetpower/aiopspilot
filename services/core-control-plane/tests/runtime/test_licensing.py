@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
@@ -18,8 +20,10 @@ from fdai.core.capability_catalog import (
     CapabilityCategory,
     SideEffectClass,
 )
+from fdai.core.executor import ThorExecutionPort
 from fdai.core.licensing import LicenseStatus
 from fdai.runtime import licensing
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 9, 9, 12, 0, tzinfo=UTC)
 
@@ -164,3 +168,22 @@ def test_deployed_runtime_never_opens_the_local_private_key(
     )
 
     assert authority.resolve(now=_NOW).status is LicenseStatus.ABSENT
+
+
+def test_runtime_execution_gate_is_optional_and_wraps_all_thor_paths(tmp_path: Path) -> None:
+    _private_pem, public_pem = _key_pair()
+    authority = licensing.build_runtime_license_authority(
+        catalog=_catalog(),
+        environment={"FDAI_EXECUTION_VENUE": "deployed"},
+        root=tmp_path,
+        public_key_pem=public_pem,
+        evaluated_at=_NOW,
+    )
+    delegate = cast(
+        ThorExecutionPort,
+        SimpleNamespace(pr_native=object(), direct_api=None, tool_call=None),
+    )
+    store = InMemoryStateStore()
+
+    assert licensing.gate_execution(delegate, None, store) is delegate
+    assert licensing.gate_execution(delegate, authority, store) is not delegate

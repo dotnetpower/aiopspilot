@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai.core.capability_catalog import CapabilityCatalog
+from fdai.core.executor import LicenseGatedThorExecutionPort, ThorExecutionPort
 from fdai.core.licensing import (
     DeploymentBinding,
     LicenseEntitlementAuthority,
@@ -20,6 +21,7 @@ from fdai.delivery.trust import (
     private_key_matches_public_key,
 )
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
 _ISSUER_PRIVATE_KEY = Path("secrets/license-signing-key.pem")
@@ -117,6 +119,22 @@ def build_runtime_license_authority(
     return authority
 
 
+def gate_execution(
+    delegate: ThorExecutionPort,
+    authority: LicenseEntitlementAuthority | None,
+    audit_store: StateStore,
+) -> ThorExecutionPort:
+    """Apply dynamic license checks to every Thor execution path when configured."""
+
+    if authority is None:
+        return delegate
+    return LicenseGatedThorExecutionPort(
+        delegate=delegate,
+        authority=authority,
+        audit_store=audit_store,
+    )
+
+
 def _optional_value(value: str | None) -> str | None:
     if value is None:
         return None
@@ -124,4 +142,4 @@ def _optional_value(value: str | None) -> str | None:
     return normalized or None
 
 
-__all__ = ["build_runtime_license_authority"]
+__all__ = ["build_runtime_license_authority", "gate_execution"]
