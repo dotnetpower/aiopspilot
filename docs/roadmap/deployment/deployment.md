@@ -144,8 +144,9 @@ prod topology so shadow evaluation is representative.
   absent `FDAI_EXECUTION_VENUE` binding can be adopted only as the exact `deployed` value. Core may add
   the canonical `fdai.notifications.delivery-receipts` topic once; the guard requires that exact
   non-secret value and rejects every accompanying command, identity, or environment change. All
-  primary-container environment comparisons use exact name-to-binding maps, so Terraform list order
-  alone does not create a false drift finding. A rejection reports changed binding names without
+  primary-container comparisons normalize equivalent numeric CPU encodings and use exact
+  environment name-to-binding maps, so provider number formatting or Terraform list order does not
+  create a false drift finding. A rejection reports changed binding names without
   logging their values.
 - **Degraded Operator recovery baseline**: `degraded_recovery` can accompany only an Operator
   `database_host_binding` plan. It does not expand the accepted Terraform changes. When Azure has
