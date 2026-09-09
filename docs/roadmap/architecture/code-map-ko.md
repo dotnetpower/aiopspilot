@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 341d3319a50b302f20ac33dac2215e99392e4a88
+translation_source_sha: 1fd4ac514f6a3691cb48c82659796ef7bf43cf40
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -32,6 +32,9 @@ translation_revised: 2026-09-10
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
   시작합니다. 이 경계는 매핑, 평가, 실행 권한을 부여하지 않으며 시작 실패 시 획득한 서비스를 정리합니다.
 - **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 대상과 Key Vault 참조를 내보내며, 보호된 배포와 봇 소유 래퍼는 정확한 서비스 계획만 수락합니다.
+  AKS 인벤토리는 managed cluster의 정확한 ARM 리소스 ID 범위에서만
+  `Azure Kubernetes Service RBAC Reader`를 부여합니다. 더 넓은 구독 및 리소스 그룹 할당은
+  유효한 연결이 아닙니다.
   공개 개발에서 `azd-up.sh`는 이미지 없는 플랫폼 단계, 배포 소유 ACR 다이제스트, 마이그레이션, 카탈로그, 민감한 Core 인계, 정확한 Core 계획 및 범위가 제한된 검증을 조립합니다.
   런타임 호출 인계는 같은 정확한 Operator 및 Core Container App Resource ID를 두 엔드포인트 서비스에 전달하고, 인벤토리 Job은 단일 기록기 변환 전에 두 플랫폼 로그를 독립적으로 결합합니다.
   비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.

@@ -646,9 +646,12 @@ variable "inventory_kubernetes_cluster_ref" {
   validation {
     condition = (
       var.inventory_kubernetes_cluster_ref == "" ||
-      startswith(lower(var.inventory_kubernetes_cluster_ref), "/subscriptions/")
+      can(regex(
+        "^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.containerservice/managedclusters/[^/]+$",
+        lower(var.inventory_kubernetes_cluster_ref),
+      ))
     )
-    error_message = "inventory_kubernetes_cluster_ref must be empty or an ARM resource id."
+    error_message = "inventory_kubernetes_cluster_ref must be empty or an exact AKS managed-cluster ARM resource id."
   }
 }
 
@@ -694,7 +697,10 @@ variable "inventory_kubernetes_cluster_bindings_json" {
         length(jsondecode(var.inventory_kubernetes_cluster_bindings_json)) <= 32 &&
         alltrue([
           for binding in jsondecode(var.inventory_kubernetes_cluster_bindings_json) :
-          startswith(lower(binding.cluster_ref), "/subscriptions/") &&
+          can(regex(
+            "^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.containerservice/managedclusters/[^/]+$",
+            lower(binding.cluster_ref),
+          )) &&
           startswith(binding.api_server, "https://") &&
           binding.auth_mode == "workload-identity" &&
           binding.ca_pem != "" &&

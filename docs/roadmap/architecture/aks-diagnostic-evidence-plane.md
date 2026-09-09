@@ -55,6 +55,8 @@ The runtime accepts a bounded collection of cluster bindings. Each binding conta
 Bindings are unique by cluster ARM id and API origin. A duplicate, partial, malformed, or
 credential-bearing endpoint fails configuration before network I/O. Legacy single-cluster
 variables adapt to one binding and cannot be combined with the fleet binding record.
+Deployment assigns `Azure Kubernetes Service RBAC Reader` only at each exact managed-cluster ARM
+id. Subscription, resource-group, and managed-cluster child scopes are not accepted.
 
 Collection isolates failures by cluster. One unavailable cluster does not erase verified positive
 evidence from another cluster, but fleet completeness remains false until every required binding

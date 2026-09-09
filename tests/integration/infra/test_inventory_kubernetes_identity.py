@@ -23,6 +23,7 @@ def test_inventory_job_uses_short_lived_workload_identity_without_token_secret()
 
 def test_inventory_identity_gets_only_aks_rbac_reader_for_configured_cluster() -> None:
     main = _MAIN.read_text(encoding="utf-8")
+    variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
 
     assert 'resource "azurerm_role_assignment" "inventory_kubernetes_reader"' in main
     assert 'role_definition_name = "Azure Kubernetes Service RBAC Reader"' in main
@@ -30,6 +31,13 @@ def test_inventory_identity_gets_only_aks_rbac_reader_for_configured_cluster() -
     assert 'role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"' not in main
     assert "for_each             = nonsensitive(local.inventory_kubernetes_cluster_refs)" in main
     assert "scope                = each.value" in main
+    assert (
+        variables.count(
+            "^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/"
+            "microsoft\\\\.containerservice/managedclusters/[^/]+$"
+        )
+        == 2
+    )
 
 
 def test_inventory_job_accepts_fleet_json_without_bearer_tokens() -> None:

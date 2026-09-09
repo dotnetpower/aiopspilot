@@ -30,6 +30,8 @@ and owning designs. Use it instead of the retired top-level application tree.
   revision before Cost Governance or other lifecycle bridges start. The fence grants no mapping,
   assessment, or execution authority; startup failure cleans up every acquired service.
 - **Platform-to-service bindings:** Root Terraform exports reviewed targets and Key Vault references. Protected deployment validates them, and its bot wrapper accepts only exact service plans.
+  AKS inventory grants `Azure Kubernetes Service RBAC Reader` only at exact managed-cluster ARM
+  resource ids. Broader subscription and resource-group assignments are not valid bindings.
   For public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest, migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification.
   The runtime-call handoff supplies the same exact Operator and Core Container App Resource IDs to both endpoint services; the inventory Job independently joins their platform logs before single-writer projection.
   Private, shared, staging, and production paths retain their protected runner and sealed approval controls.

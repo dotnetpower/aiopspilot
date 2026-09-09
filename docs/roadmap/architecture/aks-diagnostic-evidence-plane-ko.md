@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 2fef3aaba3afcfe84c8100292325d0e505a2ffa9
+translation_source_sha: 44005b240290a7da6fdbb85b09ec17dc32815d18
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -56,6 +56,8 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 클러스터 ARM ID와 API origin은 각각 고유해야 합니다. 중복, 일부 구성, 잘못된 형식 또는 자격
 증명이 포함된 엔드포인트는 네트워크 I/O 전에 구성을 실패시킵니다. 기존 단일 클러스터 변수는 연결
 하나로 변환되며 fleet 연결 레코드와 함께 사용할 수 없습니다.
+배포는 각 managed cluster의 정확한 ARM ID 범위에서만 `Azure Kubernetes Service RBAC Reader`를
+할당합니다. 구독, 리소스 그룹 및 managed cluster 하위 리소스 범위는 허용되지 않습니다.
 
 수집 실패는 클러스터별로 격리합니다. 사용할 수 없는 클러스터 하나가 다른 클러스터에서 검증된
 양성 근거를 지우지는 않지만, 필요한 모든 연결이 최신이고 완전하기 전까지 fleet 완전성은
