@@ -2,7 +2,7 @@
 title: 변경 안전성
 description: FDAI가 제안된 모든 변경을 안전하게 유지하는 방법 - 정책 게이트, 리스크 분류, 감사 가능한 pull request 전달.
 translation_of: change-safety.md
-translation_source_sha: 30b019a76d03b273798807cb25e6e2c344908102
+translation_source_sha: d576e2f61426672b70abad8443fc264069ef03fe
 translation_revised: 2026-09-09
 ---
 
@@ -49,8 +49,8 @@ Thor만 실행하며 Heimdall은 관찰된 효과를 검증하고 Vidar는 복�
 
 ## 약속이 아니라 증거
 
-변경 안전성은 단언하지 않고 측정합니다. FDAI는 고정된 시나리오 세트에서 측정된
-베이스라인을 기준으로 다음 지표를 보고합니다. 자세한 내용은
+변경 안전성은 단언하지 않고 측정합니다. FDAI는 실제 기준군과 처리군 운영이 사전에 커밋한
+하나의 측정 프로토콜을 따를 때만 다음 지표를 보고합니다. 자세한 내용은
 [목표와 메트릭](../../roadmap/architecture/goals-and-metrics-ko.md)을 참조하세요.
 
 - **변경 리드 타임**은 변경 요청에서 병합까지 걸리는 시간입니다. 단축을 목표로 삼되

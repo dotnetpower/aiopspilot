@@ -278,7 +278,7 @@ def test_committed_baseline_artifact_matches_a_fresh_run() -> None:
 
 def _cohort_bundle(
     *,
-    scenario_set_version: str = "v2026.07",
+    measurement_protocol_version: str = "1.0.0",
     synthetic: bool = False,
     revision: str = COHORT_REVISION,
 ) -> dict[str, object]:
@@ -290,7 +290,7 @@ def _cohort_bundle(
     governed producer has to do for a trusted admission to line up at all.
     """
     policy = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
-    scope = policy.scenario_set_digest
+    scope = policy.measurement_protocol_digest
     static = "sha256:" + "6" * 64
     # Compute timestamps dynamically so the fixture never goes stale.
     # Contract enforces: fresh_until - evidence_cutoff == freshness_ceiling_seconds,
@@ -306,8 +306,9 @@ def _cohort_bundle(
     def _arm(arm: str, report: str, provenance: str) -> dict[str, object]:
         facts: dict[str, object] = {
             "arm": arm,
-            "scenario_set_version": scenario_set_version,
-            "scenario_set_digest": scope,
+            "measurement_basis_kind": policy.measurement_basis_kind,
+            "measurement_protocol_version": measurement_protocol_version,
+            "measurement_protocol_digest": scope,
             "fdai_revision": revision,
             "report_digest": report,
             "provenance_digest": provenance,
@@ -373,8 +374,9 @@ def _cohort_bundle(
     receipt: dict[str, object] = {
         "schema_version": "1.0.0",
         "cohort_id": "sre-v2026.07-cohort",
-        "scenario_set_version": scenario_set_version,
-        "scenario_set_digest": scope,
+        "measurement_basis_kind": policy.measurement_basis_kind,
+        "measurement_protocol_version": measurement_protocol_version,
+        "measurement_protocol_digest": scope,
         "fdai_revision": revision,
         "baseline": _arm("baseline", "sha256:" + "2" * 64, "sha256:" + "3" * 64),
         "treatment": _arm("treatment", "sha256:" + "4" * 64, "sha256:" + "5" * 64),
@@ -409,7 +411,7 @@ class _TrustedAdmissions:
             receipt_digest=receipt.receipt_digest,
             verification_bundle_digest="sha256:" + "7" * 64,
             evidence_digest=self.cohort_digest or receipt.receipt_digest,
-            scope_digest=receipt.scenario_set_digest,
+            scope_digest=receipt.measurement_protocol_digest,
             purpose_id=receipt.baseline.evidence_receipt.purpose_id,
             source_revision=receipt.fdai_revision,
             verified_at=datetime.now(tz=UTC) - timedelta(minutes=5),
@@ -422,7 +424,7 @@ class _TrustedAdmissions:
                     receipt_digest=arm.evidence_receipt.receipt_digest,
                     verification_bundle_digest="sha256:" + "7" * 64,
                     evidence_digest=self.evidence_digest or cohort_arm_fact_digest(arm),
-                    scope_digest=arm.scenario_set_digest,
+                    scope_digest=arm.measurement_protocol_digest,
                     purpose_id=arm.evidence_receipt.purpose_id,
                     source_revision=arm.fdai_revision,
                     verified_at=datetime.now(tz=UTC) - timedelta(minutes=5),
@@ -683,8 +685,8 @@ def test_a_governed_receipt_without_a_caller_revision_is_refused(tmp_path: Path)
         _run(SCENARIOS, None, _written(tmp_path, _cohort_bundle()))
 
 
-def test_a_cohort_receipt_for_another_frozen_set_fails_closed(tmp_path: Path) -> None:
-    bundle = _written(tmp_path, _cohort_bundle(scenario_set_version="v2026.08"))
+def test_a_cohort_receipt_for_another_protocol_fails_closed(tmp_path: Path) -> None:
+    bundle = _written(tmp_path, _cohort_bundle(measurement_protocol_version="2.0.0"))
 
     _, summary = _run(
         SCENARIOS,
@@ -696,7 +698,7 @@ def test_a_cohort_receipt_for_another_frozen_set_fails_closed(tmp_path: Path) ->
     )
 
     assert summary["cohort_claim"]["claim_eligible"] is False
-    assert "scenario_set_mismatch" in summary["cohort_claim"]["rejection_reasons"]
+    assert "measurement_basis_mismatch" in summary["cohort_claim"]["rejection_reasons"]
 
 
 def test_an_unreadable_cohort_receipt_is_refused(tmp_path: Path) -> None:

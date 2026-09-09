@@ -2,7 +2,7 @@
 title: 비용 거버넌스
 description: FDAI가 지출 이상을 감지하고, 라이트사이징을 권장하고, 저위험 정리를 스스로 실행하는 방법입니다. 위험한 비용 변경은 승인을 기다립니다.
 translation_of: cost-governance.md
-translation_source_sha: cc54a46072268fc4ea92e40551d6664402ccff31
+translation_source_sha: 3167e3ccdd04e292ad7a78e07d2ef1d4827e1a17
 translation_revised: 2026-09-09
 ---
 
@@ -55,7 +55,7 @@ Njord는 비용 anomaly와 권고를 소유하지만 참고용으로 유지됩�
 [비용 모델](../../roadmap/interfaces/cost-model-ko.md)을 참조하세요.
 
 - **단위당 비용**은 비용 작업에서 `$/optimization` 단위로 보고합니다. 낮추는 것을
-  목표로 삼되, 기준선과 적용군을 같은 시나리오 세트에서 측정한 뒤에만 수치를
+  목표로 삼되, 기준군과 처리군을 사전에 커밋한 동일한 운영 프로토콜로 측정한 뒤에만 수치를
   밝힙니다.
 - **롤백률**은 보호 지표이며 기준선보다 올라가면 안 됩니다.
 - FDAI는 베이스라인과 처리군을 동일 조건에서 함께 측정하지 않고는 비용 배수를 주장하지

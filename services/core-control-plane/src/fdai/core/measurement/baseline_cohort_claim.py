@@ -67,7 +67,7 @@ def admitted_cohort_receipt_digests(
         rejections = assess_decision_evidence_admission(
             admission,
             expected_evidence_digest=cohort_arm_fact_digest(arm),
-            expected_scope_digest=arm.scenario_set_digest,
+            expected_scope_digest=arm.measurement_protocol_digest,
             expected_purpose_id=arm.evidence_receipt.purpose_id,
             expected_source_revision=arm.fdai_revision,
             evaluated_at=normalized_at,
@@ -100,7 +100,7 @@ def admitted_cohort_claim_digest(
         rejections = assess_decision_evidence_admission(
             admission,
             expected_evidence_digest=receipt.receipt_digest,
-            expected_scope_digest=requirement.scenario_set_digest,
+            expected_scope_digest=requirement.measurement_protocol_digest,
             expected_purpose_id=requirement.claim_purpose_id,
             expected_source_revision=requirement.fdai_revision,
             evaluated_at=normalized_at,
@@ -123,7 +123,7 @@ async def provider_cohort_admissions(
     admissions: list[DecisionEvidenceAdmission] = []
     cohort_admission = await provider.admit(
         evidence_digest=receipt.receipt_digest,
-        scope_digest=requirement.scenario_set_digest,
+        scope_digest=requirement.measurement_protocol_digest,
         purpose_id=requirement.claim_purpose_id,
         source_revision=requirement.fdai_revision,
     )
@@ -132,7 +132,7 @@ async def provider_cohort_admissions(
     for arm in cohort_arm_reports(receipt):
         admission = await provider.admit(
             evidence_digest=cohort_arm_fact_digest(arm),
-            scope_digest=arm.scenario_set_digest,
+            scope_digest=arm.measurement_protocol_digest,
             purpose_id=arm.evidence_receipt.purpose_id,
             source_revision=arm.fdai_revision,
         )

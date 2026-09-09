@@ -27,7 +27,6 @@ from fdai_service_contracts.ontology_query import content_digest
 
 MetricId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 GuardId = MetricId
-ScenarioSetVersion = Annotated[str, Field(min_length=8, max_length=32, pattern=r"^v\d{4}\.\d{2}$")]
 #: A cohort revision MUST be the same immutable full commit digest operational
 #: promotion already requires, so a movable branch or tag name such as ``main``
 #: can never identify the code a published claim was measured on.
@@ -48,6 +47,12 @@ class CohortArm(StrEnum):
 
     BASELINE = "baseline"
     TREATMENT = "treatment"
+
+
+class CohortMeasurementBasisKind(StrEnum):
+    """The evidence basis allowed to support an operational cohort claim."""
+
+    PROSPECTIVE_OPERATIONAL = "prospective_operational"
 
 
 class CohortArtifactOrigin(StrEnum):
@@ -96,12 +101,13 @@ class CohortGuardOutcome(ContractBase):
         return self
 
 
-class _CohortArmFacts(ContractBase):
+class CohortArmFacts(ContractBase):
     """Every evaluated fact of one arm, without its evidence receipt."""
 
     arm: CohortArm
-    scenario_set_version: ScenarioSetVersion
-    scenario_set_digest: Digest
+    measurement_basis_kind: CohortMeasurementBasisKind
+    measurement_protocol_version: SemVer
+    measurement_protocol_digest: Digest
     fdai_revision: CommitRevision
     report_digest: Digest
     provenance_digest: Digest
@@ -119,7 +125,7 @@ class _CohortArmFacts(ContractBase):
     ]
 
     @model_validator(mode="after")
-    def _validate_arm(self) -> _CohortArmFacts:
+    def _validate_arm(self) -> CohortArmFacts:
         metric_ids = tuple(metric.metric_id for metric in self.metrics)
         guard_ids = tuple(guard.guard_id for guard in self.guards)
         for label, values in (("metric", metric_ids), ("guard", guard_ids)):
@@ -128,7 +134,7 @@ class _CohortArmFacts(ContractBase):
         return self
 
 
-class CohortArmReport(_CohortArmFacts):
+class CohortArmReport(CohortArmFacts):
     """One arm's retained report, bound to its decision-critical evidence receipt."""
 
     evidence_receipt: DecisionCriticalEvidenceReceipt
@@ -158,15 +164,16 @@ def cohort_arm_fact_digest_values(**values: object) -> str:
 
     body = dict(values)
     body.pop("evidence_receipt", None)
-    candidate = _CohortArmFacts.model_validate(body)
+    candidate = CohortArmFacts.model_validate(body)
     return content_digest(candidate.model_dump(mode="json"))
 
 
 class _BaselineTreatmentCohortReceiptBody(ContractBase):
     schema_version: Literal["1.0.0"] = "1.0.0"
     cohort_id: EvidenceId
-    scenario_set_version: ScenarioSetVersion
-    scenario_set_digest: Digest
+    measurement_basis_kind: CohortMeasurementBasisKind
+    measurement_protocol_version: SemVer
+    measurement_protocol_digest: Digest
     fdai_revision: CommitRevision
     baseline: CohortArmReport
     treatment: CohortArmReport
@@ -210,13 +217,15 @@ class CohortClaimRequirement(ContractBase):
     This contract is never deserialized from a cohort artifact. It is built
     only from the trusted versioned repository policy plus an expected revision
     supplied by the trusted caller, so an evidence bundle cannot weaken the
-    metrics, guards, frozen set, or minimum sample size it is measured against.
+    metrics, guards, frozen operational protocol, or minimum sample size it is
+    measured against.
     """
 
     policy_id: EvidenceId
     policy_version: SemVer
-    scenario_set_version: ScenarioSetVersion
-    scenario_set_digest: Digest
+    measurement_basis_kind: CohortMeasurementBasisKind
+    measurement_protocol_version: SemVer
+    measurement_protocol_digest: Digest
     fdai_revision: CommitRevision
     minimum_sample_size: Annotated[
         int,
@@ -247,8 +256,8 @@ class CohortClaimRequirement(ContractBase):
         ):
             if evidence.source_revision != self.fdai_revision:
                 raise ValueError(f"{label} evidence requirement MUST pin the cohort revision")
-            if evidence.scope_digest != self.scenario_set_digest:
-                raise ValueError(f"{label} evidence requirement MUST pin the frozen scenario set")
+            if evidence.scope_digest != self.measurement_protocol_digest:
+                raise ValueError(f"{label} evidence requirement MUST pin the operational protocol")
         if self.baseline_evidence.purpose_id != self.treatment_evidence.purpose_id:
             raise ValueError("both cohort evidence requirements MUST pin one claim purpose")
         return self
@@ -266,9 +275,11 @@ class CohortClaimRejectionReason(StrEnum):
     ARM_FACT_MISMATCH = "arm_fact_mismatch"
     ARMS_NOT_DISTINCT = "arms_not_distinct"
     ARTIFACT_UNGOVERNED = "artifact_ungoverned"
+    BENCHMARK_SET_MISMATCH = "benchmark_set_mismatch"
     COHORT_NOT_ADMITTED = "cohort_not_admitted"
     CONFIDENCE_INTERVAL_INCOMPLETE = "confidence_interval_incomplete"
     COHORT_UNDERSIZED = "cohort_undersized"
+    EFFECTIVE_SAMPLE_SIZE_MISMATCH = "effective_sample_size_mismatch"
     EVIDENCE_NOT_ADMITTED = "evidence_not_admitted"
     EVIDENCE_PREFLIGHT_REJECTED = "evidence_preflight_rejected"
     GUARD_BREACHED = "guard_breached"
@@ -278,7 +289,7 @@ class CohortClaimRejectionReason(StrEnum):
     RECEIPT_MISSING = "receipt_missing"
     REPORT_DIGEST_MISMATCH = "report_digest_mismatch"
     REVISION_MISMATCH = "revision_mismatch"
-    SCENARIO_SET_MISMATCH = "scenario_set_mismatch"
+    MEASUREMENT_BASIS_MISMATCH = "measurement_basis_mismatch"
     SYNTHETIC = "synthetic"
 
 
@@ -357,16 +368,18 @@ def _assess_arm(
     reasons: set[CohortClaimRejectionReason] = set()
     if report.synthetic or report.evidence_receipt.synthetic:
         reasons.add(CohortClaimRejectionReason.SYNTHETIC)
-    if report.scenario_set_version != requirement.scenario_set_version or (
-        report.scenario_set_digest != requirement.scenario_set_digest
+    if (
+        report.measurement_basis_kind != requirement.measurement_basis_kind
+        or report.measurement_protocol_version != requirement.measurement_protocol_version
+        or report.measurement_protocol_digest != requirement.measurement_protocol_digest
     ):
-        reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
+        reasons.add(CohortClaimRejectionReason.MEASUREMENT_BASIS_MISMATCH)
     if report.fdai_revision != requirement.fdai_revision:
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
     if report.evidence_receipt.source_revision != report.fdai_revision:
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
-    if report.evidence_receipt.scope_digest != report.scenario_set_digest:
-        reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
+    if report.evidence_receipt.scope_digest != report.measurement_protocol_digest:
+        reasons.add(CohortClaimRejectionReason.MEASUREMENT_BASIS_MISMATCH)
     if report.evidence_receipt.evidence_digest != cohort_arm_fact_digest(report):
         reasons.add(CohortClaimRejectionReason.ARM_FACT_MISMATCH)
     if report.evidence_receipt.provenance_digest != report.provenance_digest:
@@ -381,14 +394,26 @@ def _assess_arm(
     metric_ids = {metric.metric_id for metric in report.metrics}
     if not set(requirement.required_metric_ids) <= metric_ids:
         reasons.add(CohortClaimRejectionReason.METRICS_INCOMPLETE)
-    if any(metric.sample_size != report.sample_count for metric in report.metrics):
+    required_metrics = [
+        metric for metric in report.metrics if metric.metric_id in requirement.required_metric_ids
+    ]
+    if any(metric.sample_size < report.sample_count for metric in required_metrics):
         reasons.add(CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE)
 
     guards = {guard.guard_id: guard for guard in report.guards}
     if not set(requirement.required_guard_ids) <= set(guards):
         reasons.add(CohortClaimRejectionReason.GUARD_INCOMPLETE)
-    if any(guard.sample_size != report.sample_count for guard in report.guards):
+    required_guards = [
+        guard for guard in report.guards if guard.guard_id in requirement.required_guard_ids
+    ]
+    if any(guard.sample_size < report.sample_count for guard in required_guards):
         reasons.add(CohortClaimRejectionReason.GUARD_INCOMPLETE)
+    effective_sizes = [
+        *(metric.sample_size for metric in required_metrics),
+        *(guard.sample_size for guard in required_guards),
+    ]
+    if effective_sizes and report.sample_count != min(effective_sizes):
+        reasons.add(CohortClaimRejectionReason.EFFECTIVE_SAMPLE_SIZE_MISMATCH)
     if any(guard.breached for guard in report.guards):
         reasons.add(CohortClaimRejectionReason.GUARD_BREACHED)
 
@@ -468,16 +493,22 @@ def evaluate_cohort_claim(
         or admitted_cohort_receipt_digest != receipt.receipt_digest
     ):
         reasons.add(CohortClaimRejectionReason.COHORT_NOT_ADMITTED)
-    if receipt.scenario_set_version != requirement.scenario_set_version or (
-        receipt.scenario_set_digest != requirement.scenario_set_digest
+    if (
+        receipt.measurement_basis_kind != requirement.measurement_basis_kind
+        or receipt.measurement_protocol_version != requirement.measurement_protocol_version
+        or receipt.measurement_protocol_digest != requirement.measurement_protocol_digest
     ):
-        reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
+        reasons.add(CohortClaimRejectionReason.MEASUREMENT_BASIS_MISMATCH)
     if receipt.fdai_revision != requirement.fdai_revision:
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
-    if receipt.baseline.scenario_set_version != receipt.treatment.scenario_set_version or (
-        receipt.baseline.scenario_set_digest != receipt.treatment.scenario_set_digest
+    if (
+        receipt.baseline.measurement_basis_kind != receipt.treatment.measurement_basis_kind
+        or receipt.baseline.measurement_protocol_version
+        != receipt.treatment.measurement_protocol_version
+        or receipt.baseline.measurement_protocol_digest
+        != receipt.treatment.measurement_protocol_digest
     ):
-        reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
+        reasons.add(CohortClaimRejectionReason.MEASUREMENT_BASIS_MISMATCH)
     if receipt.baseline.fdai_revision != receipt.treatment.fdai_revision:
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
     if _arms_share_evidence(receipt):
@@ -517,12 +548,14 @@ __all__ = [
     "BaselineTreatmentCohortReceipt",
     "CohortArm",
     "CohortArmAssessment",
+    "CohortArmFacts",
     "CohortArmReport",
     "CohortArtifactOrigin",
     "CohortClaimAssessment",
     "CohortClaimRejectionReason",
     "CohortClaimRequirement",
     "CohortGuardOutcome",
+    "CohortMeasurementBasisKind",
     "CohortMetricEstimate",
     "baseline_treatment_cohort_receipt_digest",
     "cohort_arm_fact_digest",

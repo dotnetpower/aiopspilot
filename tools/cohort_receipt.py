@@ -97,7 +97,7 @@ def evaluate_cohort_claim_bundle(
     evaluated_at: datetime,
     admission_provider: CohortAdmissionProvider | None = None,
     import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
-    expected_scenario_set_version: str | None = None,
+    expected_measurement_protocol_version: str | None = None,
 ) -> CohortClaimAssessment:
     """Return the deterministic eligibility of an artifact, or of its absence.
 
@@ -115,7 +115,7 @@ def evaluate_cohort_claim_bundle(
         evaluated_at=evaluated_at,
         admission_provider=admission_provider,
         import_origin=import_origin,
-        expected_scenario_set_version=expected_scenario_set_version,
+        expected_measurement_protocol_version=expected_measurement_protocol_version,
     )
 
 
@@ -126,16 +126,16 @@ def evaluate_cohort_claim_receipt(
     evaluated_at: datetime,
     admission_provider: CohortAdmissionProvider | None = None,
     import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
-    expected_scenario_set_version: str | None = None,
+    expected_measurement_protocol_version: str | None = None,
 ) -> CohortClaimAssessment:
     """Evaluate one already parsed receipt against trusted caller inputs."""
 
     if (
-        expected_scenario_set_version is not None
-        and requirement.scenario_set_version != expected_scenario_set_version
+        expected_measurement_protocol_version is not None
+        and requirement.measurement_protocol_version != expected_measurement_protocol_version
     ):
         raise CohortClaimBundleError(
-            "cohort claim policy does not describe the replayed frozen scenario set"
+            "cohort claim policy does not describe the expected operational protocol"
         )
     admissions = () if admission_provider is None else admission_provider.admissions_for(receipt)
     return evaluate_admitted_cohort_claim(

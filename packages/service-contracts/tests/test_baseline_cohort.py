@@ -27,7 +27,7 @@ from fdai_service_contracts.decision_evidence import (
 )
 from pydantic import ValidationError
 
-SCENARIO_SET_DIGEST = "sha256:" + "1" * 64
+PROTOCOL_DIGEST = "sha256:" + "1" * 64
 BASELINE_REPORT_DIGEST = "sha256:" + "2" * 64
 BASELINE_PROVENANCE_DIGEST = "sha256:" + "3" * 64
 TREATMENT_REPORT_DIGEST = "sha256:" + "4" * 64
@@ -37,7 +37,7 @@ POLICY_DIGEST = "sha256:" + "7" * 64
 COMPLETENESS_DIGEST = "sha256:" + "8" * 64
 CONFLICT_DIGEST = "sha256:" + "9" * 64
 REVISION = "0123456789abcdef0123456789abcdef01234567"
-SCENARIO_SET = "v2026.07"
+PROTOCOL_VERSION = "1.0.0"
 NOW = datetime(2026, 9, 1, tzinfo=UTC)
 FRESHNESS_SECONDS = 86_400
 
@@ -48,8 +48,8 @@ def _evidence_receipt(
     provenance_digest: str,
     synthetic: bool = False,
     source_revision: str = REVISION,
-    scope_digest: str = SCENARIO_SET_DIGEST,
-    method_id: str = "frozen-scenario-replay",
+    scope_digest: str = PROTOCOL_DIGEST,
+    method_id: str = "prospective-operational-cohort",
 ) -> DecisionCriticalEvidenceReceipt:
     values: dict[str, Any] = {
         "schema_version": "1.0.0",
@@ -95,7 +95,7 @@ def _arm(
     metrics_complete: bool = True,
     provenance_complete: bool = True,
     guard_basis_points: int = 0,
-    scenario_set_version: str = SCENARIO_SET,
+    measurement_protocol_version: str = PROTOCOL_VERSION,
     fdai_revision: str = REVISION,
     evidence: DecisionCriticalEvidenceReceipt | None = None,
     metric_sample_count: int | None = None,
@@ -103,8 +103,9 @@ def _arm(
     metric_samples = sample_count if metric_sample_count is None else metric_sample_count
     facts: dict[str, Any] = {
         "arm": arm,
-        "scenario_set_version": scenario_set_version,
-        "scenario_set_digest": SCENARIO_SET_DIGEST,
+        "measurement_basis_kind": "prospective_operational",
+        "measurement_protocol_version": measurement_protocol_version,
+        "measurement_protocol_digest": PROTOCOL_DIGEST,
         "fdai_revision": fdai_revision,
         "report_digest": report_digest,
         "provenance_digest": provenance_digest,
@@ -159,14 +160,15 @@ def _receipt(
     *,
     baseline: dict[str, Any] | None = None,
     treatment: dict[str, Any] | None = None,
-    scenario_set_version: str = SCENARIO_SET,
+    measurement_protocol_version: str = PROTOCOL_VERSION,
     fdai_revision: str = REVISION,
 ) -> BaselineTreatmentCohortReceipt:
     values: dict[str, Any] = {
         "schema_version": "1.0.0",
         "cohort_id": "sre-v2026.07-cohort",
-        "scenario_set_version": scenario_set_version,
-        "scenario_set_digest": SCENARIO_SET_DIGEST,
+        "measurement_basis_kind": "prospective_operational",
+        "measurement_protocol_version": measurement_protocol_version,
+        "measurement_protocol_digest": PROTOCOL_DIGEST,
         "fdai_revision": fdai_revision,
         "baseline": baseline
         or _arm(
@@ -191,11 +193,11 @@ def _requirement(**overrides: Any) -> CohortClaimRequirement:
     evidence = {
         "allowed_authority_classes": ("deployment_observation",),
         "allowed_source_identities": ("principal:sre-cohort-runner",),
-        "scope_digest": SCENARIO_SET_DIGEST,
+        "scope_digest": PROTOCOL_DIGEST,
         "purpose_id": "sre-claim-cohort",
         "producer_id": "cohort-runner",
         "producer_version": "1.0.0",
-        "method_id": "frozen-scenario-replay",
+        "method_id": "prospective-operational-cohort",
         "method_version": "1.0.0",
         "source_revision": REVISION,
         "freshness_policy_digest": POLICY_DIGEST,
@@ -204,8 +206,9 @@ def _requirement(**overrides: Any) -> CohortClaimRequirement:
     values: dict[str, Any] = {
         "policy_id": "sre-cohort-claim",
         "policy_version": "1.0.0",
-        "scenario_set_version": SCENARIO_SET,
-        "scenario_set_digest": SCENARIO_SET_DIGEST,
+        "measurement_basis_kind": "prospective_operational",
+        "measurement_protocol_version": PROTOCOL_VERSION,
+        "measurement_protocol_digest": PROTOCOL_DIGEST,
         "fdai_revision": REVISION,
         "required_metric_ids": ("auto_resolution_rate", "human_touchpoints_per_100_events"),
         "required_guard_ids": ("policy_violation_escape_rate", "rollback_rate"),
@@ -258,9 +261,9 @@ def test_the_arm_fact_digest_covers_every_evaluated_fact() -> None:
         {"provenance_complete": False},
         {"report_digest": "sha256:" + "a" * 64},
         {"provenance_digest": "sha256:" + "b" * 64},
-        {"scenario_set_digest": "sha256:" + "c" * 64},
+        {"measurement_protocol_digest": "sha256:" + "c" * 64},
         {"fdai_revision": "fedcba9876543210fedcba9876543210fedcba98"},
-        {"scenario_set_version": "v2026.08"},
+        {"measurement_protocol_version": "2.0.0"},
         {"arm": CohortArm.TREATMENT},
         {
             "metrics": (
@@ -547,12 +550,12 @@ def test_a_mixed_revision_cohort_fails_closed() -> None:
     assert CohortClaimRejectionReason.REVISION_MISMATCH in assessment.rejection_reasons
 
 
-def test_a_different_frozen_set_fails_closed() -> None:
+def test_a_different_operational_protocol_fails_closed() -> None:
     receipt = _receipt()
 
     assessment = evaluate_cohort_claim(
         receipt,
-        _requirement(scenario_set_version="v2026.08"),
+        _requirement(measurement_protocol_version="2.0.0"),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
         import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
@@ -560,7 +563,7 @@ def test_a_different_frozen_set_fails_closed() -> None:
     )
 
     assert assessment.claim_eligible is False
-    assert CohortClaimRejectionReason.SCENARIO_SET_MISMATCH in assessment.rejection_reasons
+    assert CohortClaimRejectionReason.MEASUREMENT_BASIS_MISMATCH in assessment.rejection_reasons
 
 
 def test_stale_evidence_is_rejected_by_the_shared_preflight() -> None:
@@ -619,7 +622,7 @@ def test_an_eligible_verdict_cannot_cite_a_repository_artifact() -> None:
                 "claim_eligible": True,
                 "rejection_reasons": (),
                 "arms": (),
-                "receipt_digest": SCENARIO_SET_DIGEST,
+                "receipt_digest": PROTOCOL_DIGEST,
                 "artifact_origin": CohortArtifactOrigin.REPOSITORY,
             }
         )
