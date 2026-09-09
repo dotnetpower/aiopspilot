@@ -34,9 +34,8 @@ and owning designs. Use it instead of the retired top-level application tree.
   The runtime-call handoff supplies the same exact Operator and Core Container App Resource IDs to both endpoint services; the inventory Job independently joins their platform logs before single-writer projection.
   Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
-- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
-  Operations routes can opt into explicit Sample projections that remain read-only, generic, and
-  visibly separate from operational evidence.
+- **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and Operations routes can opt into explicit Sample projections that remain read-only, generic, and visibly separate from operational evidence.
+- **Framework assessment ownership:** `core/framework_assessment/` owns deterministic WAF and CAF evidence admission and replay. Provider contracts remain in `shared/providers/`, Azure observation adapters remain in `delivery/azure/`, and Operator owns only the no-authority event projection. WARA keeps its specialized APRL runtime and shares only the physical multiplexed transport.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
@@ -599,7 +598,7 @@ an agent into the framework.
 | Document Ingestion API | Upload intake, API-owned transitions, governed preview authorization, and fenced connector state | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing, process-isolated Korean and English OCR, and restart-safe protection revocation cleanup | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/), [local OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), and [provider policy contract](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated Executor | Thor-owned command handling, provider effects, receipts, and executor adapters | [package](../../../services/isolated-executor/src/fdai_executor_service/) |
-| System Knowledge Service | Release-bound FDAI design and implementation retrieval plus a dedicated mention-only Teams bot, with no operational authority | [package](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [design](../interfaces/system-knowledge-service.md), and [tests](../../../services/system-knowledge-service/tests/) |
+| System Knowledge Service | Ancestor-bound release catalog for FDAI design and implementation retrieval plus a dedicated mention-only Teams bot, with no operational authority | [package](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [design](../interfaces/system-knowledge-service.md), and [tests](../../../services/system-knowledge-service/tests/) |
 These packages depend only on `fdai-service-contracts`, never another service implementation.
 Local composition binds service-owned client lifecycles and loopback adapters, so the Operator
 semantic bridge, ingestion publisher, document worker consumer, and isolated Executor preserve the

@@ -2,6 +2,7 @@ import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 import {
   panelArray,
+  panelBoolean,
   panelNonEmptyString,
   panelNonNegativeInteger,
   panelNullableString,
@@ -35,6 +36,7 @@ export interface BestPracticeControl {
   readonly requirement_mode: string;
   readonly requirement_count: number;
   readonly owner: string | null;
+  readonly cadence_days: number;
   readonly catalog_status: CatalogStatus;
   readonly mapping_status: MappingStatus;
   readonly evaluation_status: EvaluationStatus;
@@ -45,6 +47,21 @@ export interface BestPracticeControl {
   readonly status: ControlStatus;
   readonly satisfied_requirement_count: number;
   readonly evaluation_source: string;
+  readonly profile_id: string | null;
+  readonly profile_digest: string | null;
+  readonly approved_exception: ApprovedException | null;
+  readonly evidence_refs: readonly string[];
+  readonly evidence_digests: readonly string[];
+  readonly limitations: readonly string[];
+  readonly tradeoffs: readonly Readonly<Record<string, unknown>>[];
+  readonly execution_authority: false;
+}
+
+export interface ApprovedException {
+  readonly justification: string;
+  readonly approved_by: string;
+  readonly approved_at: string;
+  readonly expires_at: string;
 }
 
 export interface BestPracticeRequirementView {
@@ -112,6 +129,22 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
   const row = panelRecord(value, label);
   const requirementCount = panelNonNegativeInteger(row, "requirement_count", label);
   const satisfiedCount = panelNonNegativeInteger(row, "satisfied_requirement_count", label);
+  const executionAuthority = panelBoolean(row, "execution_authority", label);
+  if (executionAuthority) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} cannot grant execution authority`);
+  }
+  const exceptionValue = row["approved_exception"];
+  const approvedException = exceptionValue === null
+    ? null
+    : (() => {
+        const item = panelRecord(exceptionValue, `${label}.approved_exception`);
+        return {
+          justification: panelNonEmptyString(item, "justification", `${label}.approved_exception`),
+          approved_by: panelNonEmptyString(item, "approved_by", `${label}.approved_exception`),
+          approved_at: panelNonEmptyString(item, "approved_at", `${label}.approved_exception`),
+          expires_at: panelNonEmptyString(item, "expires_at", `${label}.approved_exception`),
+        };
+      })();
   if (satisfiedCount > requirementCount) {
     throw new OperatorApiError(
       502,
@@ -131,6 +164,7 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
     requirement_mode: panelNonEmptyString(row, "requirement_mode", label),
     requirement_count: requirementCount,
     owner: panelNullableString(row, "owner", label),
+    cadence_days: panelNonNegativeInteger(row, "cadence_days", label),
     catalog_status: decodeEnum(
       panelNonEmptyString(row, "catalog_status", label),
       ["present"] as const,
@@ -159,6 +193,16 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
     status: decodeStatus(panelNonEmptyString(row, "status", label), label),
     satisfied_requirement_count: satisfiedCount,
     evaluation_source: panelNonEmptyString(row, "evaluation_source", label),
+    profile_id: panelNullableString(row, "profile_id", label),
+    profile_digest: panelNullableString(row, "profile_digest", label),
+    approved_exception: approvedException,
+    evidence_refs: panelStringArray(row["evidence_refs"], `${label}.evidence_refs`),
+    evidence_digests: panelStringArray(row["evidence_digests"], `${label}.evidence_digests`),
+    limitations: panelStringArray(row["limitations"], `${label}.limitations`),
+    tradeoffs: panelArray(row["tradeoffs"], `${label}.tradeoffs`).map((item, tradeoffIndex) =>
+      panelRecord(item, `${label}.tradeoffs[${tradeoffIndex}]`)
+    ),
+    execution_authority: false,
   };
 }
 

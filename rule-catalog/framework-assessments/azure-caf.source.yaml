@@ -1,0 +1,271 @@
+schema_version: 1.0.0
+framework_id: azure-caf
+reviewer: fdai-maintainers
+review_state: reviewed
+defaults:
+  failure_behavior: unknown
+  scope_contract: exact-estate
+  generation_contract: hierarchy
+  authoritative_producer: governed-framework-evidence
+  approval_roles:
+    - framework-assessment-approver
+controls:
+  strategy:
+    owner_slot: strategy-owner
+    cadence_days: 90
+    evidence:
+      - source_ref: cloud-strategy-procedure
+        kind: artifact
+        process_phase: procedure
+      - source_ref: measurable-outcome-execution
+        kind: artifact
+        process_phase: execution
+      - source_ref: executive-sponsorship
+        kind: approval
+    crosswalk:
+      - target_kind: manual_evidence
+        target_ref: cloud-strategy-procedure
+        relationship: full
+      - target_kind: waf
+        target_ref: CO:01
+        relationship: supporting_only
+  plan:
+    owner_slot: adoption-plan-owner
+    cadence_days: 90
+    evidence:
+      - source_ref: organization-readiness-procedure
+        kind: artifact
+        process_phase: procedure
+      - source_ref: adoption-backlog-execution
+        kind: artifact
+        process_phase: execution
+      - source_ref: skills-readiness-review
+        kind: approval
+    crosswalk:
+      - target_kind: manual_evidence
+        target_ref: organization-readiness-procedure
+        relationship: full
+      - target_kind: waf
+        target_ref: OE:01
+        relationship: supporting_only
+  ready:
+    owner_slot: platform-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: landing-zone-architecture
+        kind: artifact
+      - source_ref: estate-hierarchy-observation
+        kind: observation
+      - source_ref: platform-readiness-approval
+        kind: approval
+    crosswalk:
+      - target_kind: observation
+        target_ref: estate-hierarchy-observation
+        relationship: partial
+      - target_kind: waf
+        target_ref: RE:05
+        relationship: supporting_only
+  adopt:
+    owner_slot: adoption-delivery-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: adoption-delivery-procedure
+        kind: artifact
+        process_phase: procedure
+      - source_ref: adoption-delivery-execution
+        kind: artifact
+        process_phase: execution
+      - source_ref: adoption-release-approval
+        kind: approval
+    crosswalk:
+      - target_kind: manual_evidence
+        target_ref: adoption-delivery-procedure
+        relationship: full
+      - target_kind: waf
+        target_ref: OE:04
+        relationship: supporting_only
+  govern:
+    owner_slot: governance-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: governance-raci
+        kind: artifact
+      - source_ref: policy-lifecycle-execution
+        kind: artifact
+      - source_ref: policy-assignment-observation
+        kind: observation
+      - source_ref: governance-review-approval
+        kind: approval
+    crosswalk:
+      - target_kind: azure_policy
+        target_ref: compliance.security-center.microsoft-cloud-security-benchmark
+        relationship: partial
+      - target_kind: mcsb
+        target_ref: GS-1
+        relationship: supporting_only
+  secure:
+    owner_slot: security-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: security-operating-model
+        kind: artifact
+      - source_ref: incident-readiness-execution
+        kind: drill
+      - source_ref: defender-posture-observation
+        kind: observation
+      - source_ref: security-review-approval
+        kind: approval
+    crosswalk:
+      - target_kind: mcsb
+        target_ref: NS-1
+        relationship: partial
+      - target_kind: waf
+        target_ref: SE:01
+        relationship: supporting_only
+  manage:
+    owner_slot: operations-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: cloud-operations-model
+        kind: artifact
+      - source_ref: incident-management-execution
+        kind: drill
+      - source_ref: monitoring-coverage-observation
+        kind: observation
+      - source_ref: operations-review-approval
+        kind: approval
+    crosswalk:
+      - target_kind: waf
+        target_ref: OE:09
+        relationship: partial
+      - target_kind: observation
+        target_ref: monitoring-coverage-observation
+        relationship: partial
+  landing-zone.billing-tenant:
+    owner_slot: cost-owner
+    cadence_days: 90
+    evidence:
+      - source_ref: billing-scope-observation
+        kind: observation
+      - source_ref: billing-accountability-approval
+        kind: approval
+    crosswalk:
+      - target_kind: waf
+        target_ref: CO:01
+        relationship: partial
+      - target_kind: manual_evidence
+        target_ref: billing-accountability-approval
+        relationship: partial
+  landing-zone.identity-access:
+    owner_slot: identity-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: privileged-access-observation
+        kind: observation
+      - source_ref: identity-governance-approval
+        kind: approval
+    crosswalk:
+      - target_kind: mcsb
+        target_ref: IM-1
+        relationship: partial
+      - target_kind: waf
+        target_ref: SE:05
+        relationship: partial
+  landing-zone.resource-organization:
+    owner_slot: platform-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: estate-hierarchy-observation
+        kind: observation
+      - source_ref: resource-organization-approval
+        kind: approval
+    crosswalk:
+      - target_kind: observation
+        target_ref: estate-hierarchy-observation
+        relationship: partial
+      - target_kind: manual_evidence
+        target_ref: resource-organization-approval
+        relationship: partial
+  landing-zone.network-connectivity:
+    owner_slot: network-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: network-topology-observation
+        kind: observation
+      - source_ref: private-connectivity-observation
+        kind: observation
+      - source_ref: network-design-approval
+        kind: approval
+    crosswalk:
+      - target_kind: mcsb
+        target_ref: NS-1
+        relationship: partial
+      - target_kind: waf
+        target_ref: SE:06
+        relationship: partial
+  landing-zone.security:
+    owner_slot: security-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: defender-posture-observation
+        kind: observation
+      - source_ref: security-baseline-approval
+        kind: approval
+    crosswalk:
+      - target_kind: mcsb
+        target_ref: PV-1
+        relationship: partial
+      - target_kind: azure_policy
+        target_ref: compliance.security-center.microsoft-cloud-security-benchmark
+        relationship: supporting_only
+  landing-zone.management:
+    owner_slot: operations-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: logging-monitoring-observation
+        kind: observation
+      - source_ref: backup-dr-observation
+        kind: observation
+      - source_ref: management-design-approval
+        kind: approval
+    crosswalk:
+      - target_kind: waf
+        target_ref: RE:09
+        relationship: partial
+      - target_kind: waf
+        target_ref: RE:10
+        relationship: partial
+  landing-zone.governance:
+    owner_slot: governance-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: policy-assignment-observation
+        kind: observation
+      - source_ref: cost-governance-observation
+        kind: observation
+      - source_ref: governance-design-approval
+        kind: approval
+    crosswalk:
+      - target_kind: mcsb
+        target_ref: GS-1
+        relationship: partial
+      - target_kind: waf
+        target_ref: CO:04
+        relationship: partial
+  landing-zone.platform-automation-devops:
+    owner_slot: platform-owner
+    cadence_days: 30
+    evidence:
+      - source_ref: platform-pipeline-observation
+        kind: observation
+      - source_ref: supply-chain-observation
+        kind: observation
+      - source_ref: platform-automation-approval
+        kind: approval
+    crosswalk:
+      - target_kind: waf
+        target_ref: OE:05
+        relationship: partial
+      - target_kind: waf
+        target_ref: SE:02
+        relationship: supporting_only

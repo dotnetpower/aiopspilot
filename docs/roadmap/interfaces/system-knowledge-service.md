@@ -109,7 +109,8 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of
-the runtime response.
+the runtime response. Its `source_revision` must remain an ancestor of the packaged build after
+rebase or squash integration.
 
 ## Teams trust boundary
 

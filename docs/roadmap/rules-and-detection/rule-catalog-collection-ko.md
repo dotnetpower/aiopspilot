@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: d89d18c97abf1bc6403a77f2867c9cfe850926a7
-translation_revised: 2026-09-01
+translation_source_sha: f588c40ff4e7d880cbb7427c7ed7e640eca9bae9
+translation_revised: 2026-09-10
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -48,6 +48,11 @@ WARA는 별도의 비공개 질문 카탈로그가 아니라 Azure Proactive Res
 사용합니다. 활성 및 비활성 수명 주기 레코드를 구분해서 집계하고 외부 쿼리 본문을 프레임워크
 메타데이터와 별도로 저장하며 보수적인 적용 가능성, 근거, 매핑 검토를 추가합니다. 수집 성공은
 여전히 워크로드 충족을 증명하지 않습니다.
+
+공유 [WAF 및 CAF 평가 카탈로그](framework-assessment-ko.md)도 정의, 적용 가능성, 매핑, 평가,
+충족 상태를 서로 분리합니다. 고정된 Best Practice 컨트롤에서 WAF 근거 명세 59개를 파생하고
+검토된 CAF 클라우드 자산 명세 15개를 추가하지만 어떤 프레임워크도 규정 준수 표준으로 바꾸지
+않습니다.
 
 처음 셋은 결정론 엔진에 공급. 넷째는
 [phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md) 의 **성능 베이스라인** -

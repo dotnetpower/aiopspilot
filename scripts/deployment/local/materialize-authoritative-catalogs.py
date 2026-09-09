@@ -44,7 +44,13 @@ from fdai.delivery.ontology_evidence_health_projection import (
 from fdai.delivery.ontology_release_diff_projection import build_release_diff_registry
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.rule_catalog.schema.best_practice_catalog import load_best_practice_catalog
-from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
+from fdai.rule_catalog.schema.framework_assessment import (
+    FrameworkAssessmentCatalog,
+    FrameworkControlSpecification,
+    FrameworkRelationshipState,
+    load_framework_assessment_catalog,
+)
+from fdai.rule_catalog.schema.framework_catalog import FrameworkDefinition, load_framework_catalog
 from fdai.rule_catalog.schema.mcsb_catalog import McsbCatalog, load_mcsb_catalogs
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.probe import load_probe_catalog, probe_ids
@@ -72,6 +78,7 @@ from psycopg.rows import dict_row
 
 RULE_LIST_KEY = "operator-projection:workflow:rule.list"
 BEST_PRACTICE_LIST_KEY = "operator-projection:workflow:best-practice.list"
+CAF_LIST_KEY = "operator-projection:workflow:caf.list"
 WARA_LIST_KEY = "operator-projection:workflow:wara.list"
 MCSB_LIST_KEY = "operator-projection:workflow:mcsb.list"
 PROMOTION_GATE_LIST_KEY = "operator-projection:workflow:promotion-gate.list"
@@ -139,6 +146,13 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         objective_refs=frozenset({"reliability.node-pool.zone-failure-tolerance@1.0.0"}),
         additional_roots=(catalog_root / "collected/wara-aprl",),
     )
+    framework_assessments = {
+        framework_id: load_framework_assessment_catalog(
+            catalog_root / f"framework-assessments/generated/{framework_id}.json"
+        )
+        for framework_id in ("azure-waf", "azure-caf")
+    }
+    caf_framework = next(item for item in frameworks if item.id == "azure-caf")
     wara_framework = next(item for item in frameworks if item.id == "azure-wara")
     wara_assessment, wara_queries = load_wara_assessment_catalog(
         catalog_root / "collected/wara-aprl/assessment/crosswalk.json",
@@ -199,7 +213,18 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
                 remediation_root=catalog_root / "remediation",
             )
         ),
-        BEST_PRACTICE_LIST_KEY: _revisioned(_best_practice_snapshot(best_practices)),
+        BEST_PRACTICE_LIST_KEY: _revisioned(
+            _best_practice_snapshot(
+                best_practices,
+                framework_assessments["azure-waf"],
+            )
+        ),
+        CAF_LIST_KEY: _revisioned(
+            _caf_snapshot(
+                caf_framework,
+                framework_assessments["azure-caf"],
+            )
+        ),
         WARA_LIST_KEY: _revisioned(
             _wara_snapshot(wara_framework, wara_assessment, wara_evaluators)
         ),
@@ -357,17 +382,30 @@ def _validate_mcsb_projection_references(
                 )
 
 
-def _best_practice_snapshot(controls: Sequence[BestPractice]) -> dict[str, object]:
+def _best_practice_snapshot(
+    controls: Sequence[BestPractice],
+    assessment: FrameworkAssessmentCatalog,
+) -> dict[str, object]:
+    specifications = {item.control_id: item for item in assessment.controls}
     entries = [
-        _best_practice_entry(control) for control in sorted(controls, key=lambda item: item.id)
+        _best_practice_entry(control, specifications[control.control_id])
+        for control in sorted(controls, key=lambda item: item.id)
     ]
     return {
         "controls": entries,
         "evaluation_source": "repository-catalog",
+        "framework_id": assessment.framework_id,
+        "framework_version": assessment.framework_version,
+        "catalog_digest": assessment.catalog_digest,
+        "source_revision_digest": assessment.source_revision_digest,
+        "framework_definition_digest": assessment.framework_definition_digest,
     }
 
 
-def _best_practice_entry(control: BestPractice) -> dict[str, object]:
+def _best_practice_entry(
+    control: BestPractice,
+    specification: FrameworkControlSpecification,
+) -> dict[str, object]:
     pillar = (
         control.id.split(".", 2)[1].replace("-", "_")
         if "." in control.id
@@ -395,7 +433,8 @@ def _best_practice_entry(control: BestPractice) -> dict[str, object]:
         "pillar": pillar,
         "requirement_mode": control.requirement_mode.value,
         "requirement_count": len(requirements),
-        "owner": None,
+        "owner": specification.owner_slot,
+        "cadence_days": specification.cadence_days,
         "catalog_status": "present",
         "mapping_status": "mapped",
         "evaluation_status": "not_evaluated",
@@ -406,8 +445,79 @@ def _best_practice_entry(control: BestPractice) -> dict[str, object]:
         "status": "unknown",
         "satisfied_requirement_count": 0,
         "evaluation_source": "not_connected",
+        "profile_id": None,
+        "profile_digest": None,
+        "approved_exception": None,
+        "evidence_refs": [],
+        "evidence_digests": [],
+        "limitations": ["not_evaluated"],
+        "tradeoffs": [],
+        "execution_authority": False,
+        "evidence_specifications": [
+            item.model_dump(mode="json") for item in specification.evidence
+        ],
         "requirements": requirements,
         "provenance": control.provenance.model_dump(mode="json"),
+    }
+
+
+def _caf_snapshot(
+    framework: FrameworkDefinition,
+    assessment: FrameworkAssessmentCatalog,
+) -> dict[str, object]:
+    specifications = {item.control_id: item for item in assessment.controls}
+    controls: list[dict[str, object]] = []
+    for resolved in framework.resolved_controls():
+        control = resolved.control
+        specification = specifications[control.id]
+        relationships = {item.relationship for item in specification.crosswalk}
+        mapping_state = (
+            "full"
+            if FrameworkRelationshipState.FULL in relationships
+            else "partial"
+            if relationships - {FrameworkRelationshipState.UNMAPPED}
+            else "unmapped"
+        )
+        controls.append(
+            {
+                "control_id": control.id,
+                "title": control.title,
+                "description": control.description,
+                "area": specification.area,
+                "reference_state": "present",
+                "mapping_state": mapping_state,
+                "applicability": "unknown",
+                "evaluation_status": "not_evaluated",
+                "satisfaction": "unknown",
+                "owner_slot": specification.owner_slot,
+                "cadence_days": specification.cadence_days,
+                "evaluation_scope": None,
+                "evaluated_at": None,
+                "profile_id": None,
+                "profile_digest": None,
+                "approved_exception": None,
+                "evidence_complete": False,
+                "evidence_refs": [],
+                "evidence_digests": [],
+                "limitations": ["not_evaluated"],
+                "evidence_specifications": [
+                    item.model_dump(mode="json") for item in specification.evidence
+                ],
+                "crosswalk": [item.model_dump(mode="json") for item in specification.crosswalk],
+                "source_url": resolved.source_url,
+                "source_version": resolved.source_version,
+                "source_revision": resolved.resolved_ref,
+                "execution_authority": False,
+            }
+        )
+    return {
+        "framework_id": assessment.framework_id,
+        "framework_version": assessment.framework_version,
+        "catalog_digest": assessment.catalog_digest,
+        "source_revision_digest": assessment.source_revision_digest,
+        "framework_definition_digest": assessment.framework_definition_digest,
+        "evaluation_source": "not_connected",
+        "controls": sorted(controls, key=lambda item: str(item["control_id"])),
     }
 
 

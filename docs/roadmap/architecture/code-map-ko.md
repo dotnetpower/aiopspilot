@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: cb79e30dfa879c9376d99a4a2326da5a4873c2b2
+translation_source_sha: 37f25226dc7314ab847131b7d62c35aae94e02a3
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -36,9 +36,8 @@ translation_revised: 2026-09-10
   런타임 호출 인계는 같은 정확한 Operator 및 Core Container App Resource ID를 두 엔드포인트 서비스에 전달하고, 인벤토리 Job은 단일 기록기 변환 전에 두 플랫폼 로그를 독립적으로 결합합니다.
   비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
-- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
-  및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
-  결과를 명시적으로 선택할 수 있습니다.
+- **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview 및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환 결과를 명시적으로 선택할 수 있습니다.
+- **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과 재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`, 비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고 물리적 다중화 전송만 공유합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
@@ -585,7 +584,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
-| 시스템 지식 서비스 | Release 고정 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
+| 시스템 지식 서비스 | 조상 커밋에 고정된 release 카탈로그를 사용하는 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
 이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.
 로컬 조립은 서비스 소유 클라이언트 수명 주기와 loopback 어댑터를 연결합니다. 따라서 Operator 의미
 브리지, 인제스트 게시자, 문서 워커 consumer 및 Isolated 실행기는 배포된 어댑터와 동일한 logical

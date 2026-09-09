@@ -301,6 +301,7 @@
       "framework": {
         "aria": "Control framework",
         "waf": "Azure WAF",
+        "caf": "Azure CAF",
         "wara": "Azure WARA",
         "mcsbV1": "MCSB v1",
         "mcsbV2": "MCSB v2 preview"
@@ -353,7 +354,72 @@
         "mode": "Requirement mode",
         "scope": "Evaluation scope",
         "evaluatedAt": "Evaluated at",
-        "requirements": "Evidence requirements"
+        "requirements": "Evidence requirements",
+        "cadence": "Review cadence",
+        "profile": "Assessment profile",
+        "profileDigest": "Profile digest",
+        "approvedException": "Approved exception",
+        "justification": "Justification",
+        "approvedBy": "Approved by",
+        "expiresAt": "Expires at",
+        "evidence": "Assessment evidence",
+        "evidenceRefs": "Evidence references",
+        "evidenceDigests": "Evidence digests",
+        "limitations": "Limitations"
+      }
+    },
+    "caf": {
+      "routeUnavailable": "CAF controls are not available in this deployment.",
+      "loadFailed": "Failed to load CAF controls: {message}",
+      "loading": "Loading CAF controls...",
+      "openRow": "Open {title}",
+      "banner": {
+        "title": "Advisory estate guidance with explicit applicability.",
+        "body": "All seven methodologies and eight landing-zone areas retain separate reference, mapping, applicability, evaluation, and satisfaction states. This is not a regulatory compliance score."
+      },
+      "kpi": {
+        "total": "CAF areas",
+        "applicable": "Applicable",
+        "unknown": "Unknown satisfaction",
+        "evidenceReady": "Evidence complete"
+      },
+      "column": {
+        "control": "Methodology or design area",
+        "area": "Area",
+        "owner": "Accountable owner",
+        "state": "Assessment state"
+      },
+      "filter": {
+        "area": "Area",
+        "applicability": "Applicability",
+        "satisfaction": "Satisfaction",
+        "searchAria": "Search CAF areas",
+        "searchPlaceholder": "Methodology, design area, or owner"
+      },
+      "result": {
+        "empty": "No CAF areas match the current filters.",
+        "showing": "Showing {filtered} of {total} CAF areas"
+      },
+      "detail": {
+        "aria": "CAF area detail",
+        "title": "CAF area detail",
+        "loading": "Loading CAF area...",
+        "loadFailed": "Failed to load CAF area: {message}",
+        "reference": "Reference state",
+        "owner": "Accountable owner",
+        "cadence": "Review cadence",
+        "scope": "Estate scope",
+        "evaluatedAt": "Evaluated at",
+        "profile": "Applicability profile",
+        "exception": "Approved exception",
+        "justification": "Justification",
+        "expiresAt": "Expires at",
+        "evidence": "Assessment evidence",
+        "evidenceRefs": "Evidence references",
+        "evidenceDigests": "Evidence digests",
+        "limitations": "Limitations",
+        "specifications": "Evidence specifications",
+        "crosswalk": "Reviewed crosswalk"
       }
     },
     "mcsb": {
