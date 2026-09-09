@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: bd5d4eae8da631d6ec19c3de1ec4d07b72835504
+translation_source_sha: 720f06fd96d5e3b19356c57fbfd3c6b5490914cd
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -87,6 +87,11 @@ projected -> superseded | rolled_back
 처리 결과로 끝납니다. 중복 점유 id, 처리 결과 누락, 서로 모순되는 처리 결과 겹침, 알 수 없는
 점유를 참조하는 후보는 검증에 실패합니다. 결정론적 원장은 어떤 단어가 규칙, 절차, 관측 또는
 권한 등급을 의미하는지 추측하지 않고 완전성을 계산합니다.
+
+추출 결과에 후보가 없으면 검토 패키지는 점유가 0개라고 보고하지 않고 전체 문서를
+인벤토리에 기록합니다. 협의체 기반 결과는 인벤토리의 각 점유마다 내용이 없는 증적을 정확히
+하나씩 포함해야 하므로 지원되지 않음, 이견 있음, 미해결 점유가 `needs_review` 상태로
+계속 표시됩니다.
 
 ## 권한 등급
 

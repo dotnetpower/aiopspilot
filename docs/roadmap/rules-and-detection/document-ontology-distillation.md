@@ -88,6 +88,11 @@ and candidate references to unknown claims fail validation. The deterministic le
 completeness accounting without guessing which words imply a rule, procedure, observation, or
 authority class.
 
+When extraction returns no candidates, the review package inventories the complete document instead
+of reporting zero claims. A council-backed result must carry exactly one content-free receipt for
+every inventoried claim, so unsupported, contested, and unresolved claims remain visible as
+`needs_review`.
+
 ## Authority classes
 
 The source authority controls which proposal operations are eligible.

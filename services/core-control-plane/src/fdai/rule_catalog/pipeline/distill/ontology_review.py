@@ -162,12 +162,27 @@ def build_ontology_review_package(
         raise ValueError("ontology review requires a source access_policy_ref")
     if len(result.candidates) > _MAX_CANDIDATES:
         raise ValueError("ontology review candidate count exceeds the bounded limit")
+    source_ranges = (
+        None
+        if result.council_receipts or not result.candidates
+        else tuple(candidate.source_lines for candidate in result.candidates)
+    )
     claims = inventory_claims(
         document,
-        source_ranges=tuple(candidate.source_lines for candidate in result.candidates),
+        source_ranges=source_ranges,
     )
     if len(claims) > _MAX_CLAIMS:
         raise ValueError("ontology review claim count exceeds the bounded limit")
+    if result.council_receipts:
+        receipt_claims = [receipt.claim_digest for receipt in result.council_receipts]
+        expected_claims = {stable_digest(claim.claim_id) for claim in claims}
+        if (
+            len(receipt_claims) != len(set(receipt_claims))
+            or set(receipt_claims) != expected_claims
+        ):
+            raise ValueError(
+                "ontology council receipts MUST cover every inventoried claim exactly once"
+            )
     enriched_context = replace(context, claim_text=claim_text_records(document, claims))
     built = build_ontology_proposals(
         candidates=result.candidates,
