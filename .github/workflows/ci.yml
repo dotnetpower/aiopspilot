@@ -614,13 +614,17 @@ jobs:
           # Full history so we can diff against the base ref.
           fetch-depth: 0
 
-      - name: Fetch base ref
-        run: git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
-
       - name: Detect modifications / deletions in frozen versions
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          base_sha=$(git rev-parse origin/${{ github.base_ref }})
+          if [[ ! "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || \
+             ! git cat-file -e "${PR_BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "The immutable pull-request base commit is unavailable."
+            exit 1
+          fi
+          base_sha="$PR_BASE_SHA"
           frozen_patterns=(
             'services/core-control-plane/tests/scenarios/v*/*.json'
             'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'
