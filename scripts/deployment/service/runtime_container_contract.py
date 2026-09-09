@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from typing import Any
 
 _PLANNED_PROBES = {
@@ -179,14 +180,21 @@ def _resources(container: Mapping[str, Any], *, observed: bool) -> dict[str, Any
         memory = container.get("memory")
         if cpu is None and memory is None:
             return None
+    if not isinstance(cpu, (int, float)) or isinstance(cpu, bool):
+        raise RuntimeContainerContractError("primary container resources are invalid")
+    canonical_cpu = Decimal(str(cpu))
     if (
-        not isinstance(cpu, (int, float))
-        or isinstance(cpu, bool)
+        not canonical_cpu.is_finite()
+        or canonical_cpu <= 0
         or not isinstance(memory, str)
         or not memory
     ):
         raise RuntimeContainerContractError("primary container resources are invalid")
-    return {"cpu": cpu, "memory": memory}
+    normalized_cpu = canonical_cpu.normalize()
+    return {
+        "cpu": format(normalized_cpu, "f") if normalized_cpu else "0",
+        "memory": memory,
+    }
 
 
 def _planned_probes(container: Mapping[str, Any]) -> dict[str, dict[str, Any]]:

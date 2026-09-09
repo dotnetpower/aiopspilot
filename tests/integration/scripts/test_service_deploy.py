@@ -835,7 +835,7 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
                 "binding": "db.example.com",
             }
         ],
-        "resources": {"cpu": 0.5, "memory": "1Gi"},
+        "resources": {"cpu": "0.5", "memory": "1Gi"},
         "probes": {
             "readiness": {
                 "transport": "HTTP",
@@ -935,7 +935,7 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
                         "binding": "db.example.com",
                     }
                 ],
-                "resources": {"cpu": 0.5, "memory": "1Gi"},
+                "resources": {"cpu": "0.5", "memory": "1Gi"},
                 "probes": {
                     "liveness": {
                         "transport": "HTTP",
@@ -2476,6 +2476,27 @@ def test_runtime_contract_rejects_two_nonempty_environment_bindings(
                 ],
             }
         )
+
+
+def test_runtime_contract_normalizes_equivalent_cpu_encodings(
+    runtime_contract: ModuleType,
+) -> None:
+    planned = runtime_contract.planned_primary_configuration(
+        {"name": "service", "cpu": 1, "memory": "1Gi"}
+    )
+    observed = runtime_contract.observed_primary_configuration(
+        {
+            "name": "service",
+            "image": _image("service"),
+            "probes": [],
+            "resources": {"cpu": 1.0, "memory": "1Gi", "ephemeralStorage": "1Gi"},
+        }
+    )
+
+    assert planned == observed
+    assert runtime_contract.configuration_digest(planned) == (
+        runtime_contract.configuration_digest(observed)
+    )
 
 
 @pytest.mark.parametrize(

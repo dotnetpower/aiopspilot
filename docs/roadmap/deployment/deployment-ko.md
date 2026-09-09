@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 47000c6b6e3989ebbff55c6578105a288d6b4c69
+translation_source_sha: 14fb703697cae6942f689f528c920ef780f6c0f0
 translation_revised: 2026-09-09
 ---
 
@@ -143,8 +143,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   보존합니다. 이전에 없던 `FDAI_EXECUTION_VENUE` 연결은 정확한 `deployed` 값으로만 채택할 수
   있습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
   Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을
-  모두 차단합니다. 모든 primary container 환경 비교는 정확한 이름과 binding map을 사용하므로
-  Terraform 목록 순서만 바뀌어도 잘못된 drift 결과가 생기지 않습니다. 차단 결과는 변경된
+  모두 차단합니다. 모든 primary container 비교는 동등한 숫자 CPU 표현을 정규화하고 정확한 환경
+  이름과 binding map을 사용합니다. 따라서 공급자 숫자 형식이나 Terraform 목록 순서만 바뀌어도
+  잘못된 drift 결과가 생기지 않습니다. 차단 결과는 변경된
   binding 이름만 보고하고 값은 기록하지 않습니다.
 - **성능 저하 상태의 Operator 복구 기준**: `degraded_recovery`는 Operator
   `database_host_binding` 계획에만 함께 사용할 수 있습니다. 이 모드는 허용되는 Terraform
