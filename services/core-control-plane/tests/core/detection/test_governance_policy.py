@@ -68,6 +68,19 @@ def test_policy_rejects_duplicate_signal_classes(tmp_path: Path) -> None:
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_bounds_signal_class_count_before_loading_entries(tmp_path: Path) -> None:
+    raw = _policy()
+    signal_classes = raw["signal_classes"]
+    assert isinstance(signal_classes, list)
+    template = dict(signal_classes[-1])
+    raw["signal_classes"] = [
+        {**template, "signal_class": f"reliability.class-{index}"} for index in range(65)
+    ]
+
+    with pytest.raises(DetectionGovernancePolicyError, match="at most 64"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_seasonal_method_without_phase(tmp_path: Path) -> None:
     raw = _policy()
     signal_classes = raw["signal_classes"]

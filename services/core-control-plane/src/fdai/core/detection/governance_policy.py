@@ -347,9 +347,11 @@ def _mapping(value: object, label: str) -> Mapping[str, Any]:
     return value
 
 
-def _array(value: object, label: str) -> list[object]:
+def _array(value: object, label: str, *, maximum: int = 64) -> list[object]:
     if not isinstance(value, list) or not value:
         raise DetectionGovernancePolicyError(f"{label} MUST be a non-empty array")
+    if len(value) > maximum:
+        raise DetectionGovernancePolicyError(f"{label} MUST contain at most {maximum} items")
     return value
 
 
