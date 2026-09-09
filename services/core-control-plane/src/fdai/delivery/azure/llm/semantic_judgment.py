@@ -415,11 +415,16 @@ class AzureOpenAISemanticJudgmentModel:
         allow_candidate_failover: bool,
     ) -> SemanticJudgmentModelResponse | None:
         response_format = _strict_response_format(proposal_schema, name=call_kind)
+        messages = list(
+            prepare_model_messages(
+                (
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                )
+            ).messages
+        )
         request_token_estimate = estimate_chat_request_tokens(
-            messages=(
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content},
-            ),
+            messages=messages,
             response_format=response_format,
             reserved_output_tokens=max_tokens,
         )
@@ -448,10 +453,7 @@ class AzureOpenAISemanticJudgmentModel:
                     token = await self._identity.get_token(target.auth_audience)
                     request = target.operation("chat/completions")
                     body: dict[str, Any] = {
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_content},
-                        ],
+                        "messages": messages,
                         "response_format": response_format,
                         **completion_body_params(
                             target.deployment,
@@ -466,8 +468,6 @@ class AzureOpenAISemanticJudgmentModel:
                         body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
-                    messages = list(prepare_model_messages(body["messages"]).messages)
-                    body["messages"] = messages
                     trace_start = start_model_trace(messages)
                     response, reservation = await call_scoped_provider(
                         partial(

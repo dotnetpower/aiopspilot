@@ -101,10 +101,14 @@ class AzureOpenAIPostTurnModel:
         self,
         review_input: PostTurnReviewInput,
     ) -> PostTurnProposal | NoImprovement:
-        messages = [
-            {"role": "system", "content": self._config.system_prompt},
-            {"role": "user", "content": _review_prompt(review_input)},
-        ]
+        messages = list(
+            prepare_model_messages(
+                (
+                    {"role": "system", "content": self._config.system_prompt},
+                    {"role": "user", "content": _review_prompt(review_input)},
+                )
+            ).messages
+        )
         request_tokens = estimate_chat_request_tokens(
             messages=messages,
             response_format={"type": "json_object"},
@@ -125,7 +129,6 @@ class AzureOpenAIPostTurnModel:
             "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
         }
-        body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
         try:

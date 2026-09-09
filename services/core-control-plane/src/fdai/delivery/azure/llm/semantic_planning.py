@@ -365,10 +365,29 @@ class AzureOpenAISemanticPlanningModel:
             sort_keys=True,
         )
         system_content = f"{prompt}\nRequired JSON Schema:\n{schema}"
+        messages = list(
+            prepare_model_messages(
+                (
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content},
+                )
+            ).messages
+        )
+        transmitted_system = messages[0]["content"]
+        transmitted_user = messages[1]["content"]
+        if not isinstance(transmitted_system, str) or not isinstance(transmitted_user, str):
+            return None
         prompt_profile = (
             "operational" if prompt == self._config.operational_frame_system_prompt else "general"
         )
-        request_bytes = len(system_content.encode()) + len(user_content.encode())
+        request_bytes = len(
+            json.dumps(
+                {"messages": messages, "response_format": {"type": "json_object"}},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        )
         if prompt_profile == "operational" and request_bytes > _MAX_OPERATIONAL_REQUEST_BYTES:
             _LOGGER.warning(
                 "semantic_planning_operational_request_over_budget",
@@ -377,14 +396,11 @@ class AzureOpenAISemanticPlanningModel:
             return None
         prompt_manifest = _transmitted_prompt_manifest(
             self._prompt_manifest(prompt),
-            system_content=system_content,
+            system_content=transmitted_system,
             schema=schema,
         )
         request_token_estimate = estimate_chat_request_tokens(
-            messages=(
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content},
-            ),
+            messages=messages,
             response_format={"type": "json_object"},
             reserved_output_tokens=self._config.max_tokens,
         )
@@ -408,8 +424,8 @@ class AzureOpenAISemanticPlanningModel:
             extra={
                 "operation": operation,
                 "prompt_profile": prompt_profile,
-                "system_chars": len(system_content),
-                "user_chars": len(user_content),
+                "system_chars": len(transmitted_system),
+                "user_chars": len(transmitted_user),
                 "request_bytes": request_bytes,
                 "candidate_count": len(self._config.candidates),
             },
@@ -421,10 +437,7 @@ class AzureOpenAISemanticPlanningModel:
                     token = await self._identity.get_token(target.auth_audience)
                     request = target.operation("chat/completions")
                     body: dict[str, Any] = {
-                        "messages": [
-                            {"role": "system", "content": system_content},
-                            {"role": "user", "content": user_content},
-                        ],
+                        "messages": messages,
                         "response_format": {"type": "json_object"},
                         **completion_body_params(
                             target.deployment,
@@ -432,7 +445,6 @@ class AzureOpenAISemanticPlanningModel:
                             max_tokens=self._config.max_tokens,
                         ),
                     }
-                    body["messages"] = list(prepare_model_messages(body["messages"]).messages)
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):

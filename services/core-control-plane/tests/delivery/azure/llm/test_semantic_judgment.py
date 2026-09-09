@@ -11,7 +11,8 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from fdai.core.conversation.conversation_preflight import ConversationPreflightProposal
-from fdai.core.prompts import PromptReplayManifest
+from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import (
     AzureOpenAISemanticJudgmentModel,
@@ -141,6 +142,77 @@ async def test_profile_request_budget_blocks_judgment_provider_call() -> None:
         )
         result = await model._complete_attempts(
             '{"utterance":"현재 상태를 알려줘"}',
+            input_digest="sha256:" + ("a" * 64),
+            proposal_schema=SemanticJudgmentProposal.model_json_schema(),
+            system_prompt=prompt,
+            prompt_manifest=manifest,
+            call_kind="semantic-judgment",
+            max_tokens=512,
+            temperature=0.0,
+            timeout_seconds=10,
+            allow_candidate_failover=False,
+        )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_request_budget_uses_final_sanitized_messages() -> None:
+    prompt = "Judge."
+    user_content = json.dumps({"value": " ".join(["a@b.co"] * 100)})
+    raw_messages = (
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": user_content},
+    )
+    prepared_messages = prepare_model_messages(raw_messages).messages
+    response_format = _strict_response_format(
+        SemanticJudgmentProposal.model_json_schema(),
+        name="semantic-judgment",
+    )
+    raw_estimate = estimate_chat_request_tokens(
+        messages=raw_messages,
+        response_format=response_format,
+        reserved_output_tokens=512,
+    )
+    prepared_estimate = estimate_chat_request_tokens(
+        messages=prepared_messages,
+        response_format=response_format,
+        reserved_output_tokens=512,
+    )
+    assert prepared_estimate > raw_estimate
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        request_token_budget=raw_estimate,
+        reserved_output_tokens=512,
+    )
+    candidate = ModelRequestTarget(
+        endpoint="https://candidate.example",
+        deployment="candidate",
+        api_version="2024-06-01",
+    )
+
+    class NoIdentity:
+        async def get_token(self, audience: str) -> IdentityToken:
+            raise AssertionError(f"unexpected identity request for {audience}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        model = AzureOpenAISemanticJudgmentModel(
+            identity=NoIdentity(),
+            http_client=client,
+            config=AzureOpenAISemanticJudgmentModelConfig(
+                candidates=(candidate,),
+                system_prompt=prompt,
+                system_prompt_manifest=manifest,
+                max_tokens=512,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await model._complete_attempts(
+            user_content,
             input_digest="sha256:" + ("a" * 64),
             proposal_schema=SemanticJudgmentProposal.model_json_schema(),
             system_prompt=prompt,
