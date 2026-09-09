@@ -38,6 +38,9 @@ artifacts to canonical text. Schema v1 and v2 stack artifacts remain replay-comp
 A `direct_response` projection compiles validated model-authored text without evidence,
 verification, or artifact claims, so Slack and Teams preserve the same authority-free response as
 the Console instead of substituting a channel template.
+For verified semantic counts, the artifact compiler accepts the canonical `aggregate` operation and
+preserves structured operation and value fields. Channel renderers therefore carry the same
+oracle-verifiable count as the Console instead of falling back to prose-only output.
 Operator-owned durable delivery persists that artifact before a pure provider publisher sends it.
 Startup resolves every required dependency and reconciles uncertain sends before Starlette accepts
 traffic.
@@ -94,6 +97,7 @@ inventory-document producer.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Admitted canonical semantic `aggregate` presentation and preserved structured count fields across Console and A3 channel artifacts. | `current change`; focused presentation and objective-oracle regressions. | Retain provider rendering compatibility in the next channel release evidence. |
 | 2026-09-09 | validated | Corrected the existing Slack app from Socket Mode to HTTP Events API and retained one governed production A3 turn through a revision restart. | Protected plan run `34229586152`; protected apply run `34229833026` at commit `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); three signed HTTP requests returned 2xx; the durable projection remained one delivered record, attempt, and acknowledgement before and after restart; the Slack thread retained one Block Kit reply with fallback text; the dedicated identity retained no executor-like role. | Slack runtime evidence is complete. Teams provider validation remains optional and does not block Issue #235. |
 | 2026-09-08 | implemented | Made empty model-endpoint input default to an empty JSON object so the Operator rollback preflight can materialize disabled channel-edge tfvars without invoking the Core-only model binding. | Failed apply preflight `34228191755`; `current change`; focused materializer CLI regression test. | Recreate and apply the exact protected plan, then retain the runtime receipts. |
 | 2026-09-08 | implemented | Converted each validated fixed-name Azure secret resource identifier into the same vault's versionless Key Vault HTTPS secret reference required by Container Apps. The materializer constructs the hostname only from a validated vault-name segment and never accepts an arbitrary provider endpoint. | Failed service plan `34226726167`; `current change`; focused service materializer tests. | Rerun the guarded create-only plan, then apply and retain the runtime receipts. |

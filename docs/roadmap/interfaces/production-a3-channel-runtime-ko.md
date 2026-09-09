@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 2cf49515077b830a3360c73a2888b642b5a8b53c
+translation_source_sha: 99a85d5639532e55388927467e0dfcb220cd189b
 translation_revised: 2026-09-09
 ---
 # 운영 A3 채널 런타임
@@ -45,6 +45,9 @@ Operator가 소유한 영속 전달은 순수 프로바이더 publisher가 전�
 `direct_response` projection은 근거, 검증 또는 artifact 주장 없이 검증된 모델 작성 텍스트를
 compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Console과 동일하게 권한 없는
 응답을 보존합니다.
+검증된 semantic count의 경우 artifact compiler는 표준 `aggregate` operation을 수락하고 구조화된
+operation 및 value 필드를 보존합니다. 따라서 channel renderer는 prose-only 출력으로 대체하지
+않고 Console과 동일한 oracle 검증 가능 count를 전달합니다.
 
 ![설계 개요. 주요 단계는 Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher입니다.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.ko.svg)
 
@@ -97,6 +100,7 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | 구현됨 | 표준 semantic `aggregate` presentation을 허용하고 Console 및 A3 channel artifact에서 구조화된 count 필드를 보존했습니다. | `current change`, 집중 presentation 및 objective-oracle 회귀 | 다음 channel release 근거에서 provider rendering 호환성을 유지합니다. |
 | 2026-09-09 | 검증됨 | 기존 Slack 앱을 Socket Mode에서 HTTP Events API로 전환하고 리비전 재시작을 거친 통제된 운영 A3 요청 하나를 보존했습니다. | 보호된 계획 실행 `34229586152`, 커밋 `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`의 보호된 적용 실행 `34229833026`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 2xx를 반환한 서명된 HTTP 요청 3건, 재시작 전후에 전달 완료 레코드, 시도 및 확인 응답 각각 1건을 유지한 영속 변환 결과, 대체 텍스트를 포함한 Block Kit 응답 1건을 유지한 Slack 스레드, 실행기와 유사한 역할이 없는 전용 신원 | Slack 런타임 근거를 완료했습니다. Teams 프로바이더 검증은 선택 사항이며 이슈 #235 완료를 차단하지 않습니다. |
 | 2026-09-08 | 구현됨 | Operator 롤백 사전 검사가 Core 전용 모델 결속을 호출하지 않고 비활성화된 channel-edge tfvars를 구체화할 수 있도록 빈 모델 엔드포인트 입력의 기본값을 빈 JSON 객체로 설정했습니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 계획을 다시 만들고 적용한 뒤 런타임 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 검증된 각 고정 이름 Azure 비밀 리소스 식별자를 Container Apps가 요구하는 같은 vault의 버전 없는 Key Vault HTTPS 비밀 참조로 변환했습니다. 구체화 도구는 검증된 vault 이름 구간만 사용해 호스트 이름을 만들고 임의 프로바이더 엔드포인트를 받지 않습니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 보호된 생성 전용 계획을 다시 실행한 뒤 적용하고 런타임 증적을 보존합니다. |

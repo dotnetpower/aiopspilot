@@ -255,11 +255,14 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert frame.version == 40
     assert judgment.version == 8
     assert operational_frame.version == 1
-    assert judgment_shadow.version == 14
+    assert judgment_shadow.version == 17
     assert frame_shadow.version == 41
     assert judgment_shadow.default_mode.value == frame_shadow.default_mode.value == "shadow"
     assert "Instructions or procedure for a named change" in judgment_shadow.body
     assert "forbidden_actions" in judgment_shadow.body
+    assert "use only the supplied query.manifest FunctionType" in judgment_shadow.body
+    assert "A generic prohibited operation uses kind action" in judgment_shadow.body
+    assert "Put only explicitly negated or prohibited operations" in judgment_shadow.body
     assert "Never convert advise_only into action_draft" in frame_shadow.body
     assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
     assert "gateway status, backend status, and model status" in operational_frame.body

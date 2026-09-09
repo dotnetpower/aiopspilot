@@ -11234,6 +11234,45 @@ def test_typed_declaration_count_repairs_adjacent_schema_intents_without_frame_m
 
 
 @pytest.mark.parametrize(
+    ("facets", "expected_kind"),
+    (
+        (("actiontype_count", "active_ontology_release"), "action"),
+        (("count", "function_type", "active_release"), "function"),
+    ),
+)
+def test_manifest_count_uses_typed_facets_when_the_model_omits_a_metatype_target(
+    facets: tuple[str, ...],
+    expected_kind: str,
+) -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.manifest",
+            "targets": [],
+            "requested_facets": facets,
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+    manifest, _definition = _fixture(function_types=(ontology_manifest_function_type(),))
+
+    result = build_ontology_schema_frame(
+        judgment,
+        utterance="Count the active declaration type.",
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.subject_constraints == (expected_kind,)
+    assert proposal.measure_concepts == ("count",)
+    assert frame.output_shape == "aggregation_table"
+
+
+@pytest.mark.parametrize(
     ("primary_intent", "target", "facets"),
     (
         ("query.resource_state_inventory", "FunctionType", ("count",)),
@@ -11291,7 +11330,7 @@ def test_schema_count_fast_path_rejects_non_schema_count_contracts(
         (None, False, ("ActionType", "Ontology"), "query.ontology_declaration", "count", 1),
         ("ActionTypes", False, ("LinkType",), "query.ontology_declaration", "count", 0),
         ("ActionTypes", True, ("LinkType",), "query.ontology_declaration", "count", 0),
-        (None, False, ("ActionType",), "query.ontology_declaration", "action_type_count", 1),
+        (None, False, ("ActionType",), "query.ontology_declaration", "action_type_count", 0),
         (None, False, ("ActionType",), "query.ontology_relationships", "actiontype", 1),
     ),
 )

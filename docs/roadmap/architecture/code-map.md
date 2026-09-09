@@ -57,6 +57,9 @@ Accepted subscription identity and Service Health judgments build deterministic 
 Accepted manifest-count, exact declaration-detail, and single-ObjectType schema-relationship
 judgments likewise compile deterministic frames and closed FunctionType arguments. They do not
 introduce a lexical route or grant authority.
+When a manifest-count judgment omits its metatype target, Core can recover only one declaration
+kind from its already typed count facets. Operator presentation accepts the canonical `aggregate`
+operation and preserves its structured count for independent oracle verification.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

@@ -134,7 +134,7 @@ def test_shadow_prompts_encode_the_measured_failure_boundaries() -> None:
         if artifact.id == "semantic-query-frame"
     )
 
-    assert (judgment.version, frame.version) == (14, 41)
+    assert (judgment.version, frame.version) == (17, 41)
     assert judgment.default_mode.value == frame.default_mode.value == "shadow"
     assert "Instructions or procedure for a named change" in judgment.body
     assert "Never convert advise_only into action_draft" in frame.body
@@ -149,11 +149,14 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
     )
     shadow_prompt = await DefaultPromptComposer(registry=prompts).compose(
         capability_id="semantic.judgment",
-        profile_id="shadow.semantic-judgment-v14",
+        profile_id="shadow.semantic-judgment-v17",
     )
 
     assert "forbidden_actions" not in default_prompt.system_text
     assert "forbidden_actions" in shadow_prompt.system_text
+    assert "use only the supplied query.manifest FunctionType" in shadow_prompt.system_text
+    assert "source_end - source_start MUST equal" in shadow_prompt.system_text
+    assert "collection-wide query.resource_event_history" in shadow_prompt.system_text
 
 
 def test_judgment_capability_projection_preserves_only_reviewed_semantics() -> None:
