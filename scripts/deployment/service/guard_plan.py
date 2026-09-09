@@ -135,6 +135,32 @@ _APP_GITHUB_AUTH_ENVIRONMENT = frozenset(
     }
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
+_CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
+        "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON",
+        "FDAI_OPERATING_INTENT_SOURCE_GENERATION",
+        "FDAI_OPERATING_INTENT_SOURCE_PATH",
+        "FDAI_OPERATING_INTENT_SOURCE_REVISION",
+        "FDAI_OPERATING_INTENT_SOURCE_SHA256",
+    }
+)
+_CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT = frozenset(
+    {"FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS"}
+)
+_CORE_EVIDENCE_BINDING_ENVIRONMENT = (
+    _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT | _CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT
+)
+_OPERATING_INTENT_EXPECTED_TYPES = frozenset(
+    {
+        "ArchitectureConstraint",
+        "ChangeWindow",
+        "CostObjective",
+        "Ownership",
+        "RecoveryObjective",
+        "ServiceObjective",
+    }
+)
 _CORE_HANDOVER_CADENCE_MINIMUMS = {
     "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": 60,
     "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS": 10,
@@ -1133,6 +1159,104 @@ def _guard_initial_cutover(
     return violations
 
 
+def _valid_https_container_url(value: str) -> bool:
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError:
+        return False
+    segments = tuple(segment for segment in parsed.path.split("/") if segment)
+    return (
+        value == value.strip().rstrip("/")
+        and len(value) <= 2_048
+        and parsed.scheme == "https"
+        and parsed.hostname is not None
+        and parsed.hostname.endswith(".blob.core.windows.net")
+        and parsed.username is None
+        and parsed.password is None
+        and len(segments) == 1
+        and parsed.query == ""
+        and parsed.fragment == ""
+        and port != 0
+        and "\\" not in value
+        and not any(character.isspace() for character in value)
+    )
+
+
+def _only_core_evidence_binding_adoption(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    if contract.service != "core-control-plane":
+        return False
+    changed_names = {
+        name.removeprefix("env:") for name in runtime_drift_names if name.startswith("env:")
+    }
+    if (
+        not changed_names
+        or not changed_names <= _CORE_EVIDENCE_BINDING_ENVIRONMENT
+        or set(runtime_drift_names) != {f"env:{name}" for name in changed_names}
+        or any(
+            _environment_binding(before_environment.get(name)) is not None
+            for name in _CORE_EVIDENCE_BINDING_ENVIRONMENT
+        )
+    ):
+        return False
+
+    values: dict[str, str] = {}
+    for name in _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT:
+        binding = _environment_binding(after_environment.get(name))
+        if binding is None or binding[1] is not None or not isinstance(binding[0], str):
+            return False
+        values[name] = binding[0]
+    revalidate = _environment_binding(
+        after_environment.get("FDAI_OPERATING_INTENT_SOURCE_REVALIDATE_SECONDS")
+    )
+    if revalidate is not None and (
+        revalidate[1] is not None
+        or not isinstance(revalidate[0], str)
+        or re.fullmatch(r"[1-9][0-9]*", revalidate[0]) is None
+        or int(revalidate[0]) > 28_800
+    ):
+        return False
+
+    source_path = values["FDAI_OPERATING_INTENT_SOURCE_PATH"]
+    revision = values["FDAI_OPERATING_INTENT_SOURCE_REVISION"]
+    expected_counts_raw = values["FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON"]
+    if len(expected_counts_raw) > 4_096:
+        return False
+    try:
+        expected_counts = json.loads(expected_counts_raw)
+    except json.JSONDecodeError:
+        return False
+    return (
+        _valid_https_container_url(values["FDAI_DECISION_EVIDENCE_CONTAINER_URL"])
+        and source_path.startswith("/app/config/")
+        and source_path == source_path.strip()
+        and len(source_path) <= 512
+        and ".." not in Path(source_path).parts
+        and "\\" not in source_path
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:@/-]{0,511}", revision) is not None
+        and re.fullmatch(
+            r"sha256:[0-9a-f]{64}",
+            values["FDAI_OPERATING_INTENT_SOURCE_SHA256"],
+        )
+        is not None
+        and re.fullmatch(
+            r"[1-9][0-9]*",
+            values["FDAI_OPERATING_INTENT_SOURCE_GENERATION"],
+        )
+        is not None
+        and int(values["FDAI_OPERATING_INTENT_SOURCE_GENERATION"]) <= 2_147_483_647
+        and isinstance(expected_counts, dict)
+        and set(expected_counts) == _OPERATING_INTENT_EXPECTED_TYPES
+        and all(type(count) is int and count > 0 for count in expected_counts.values())
+    )
+
+
 def _guard_update(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -1141,6 +1265,7 @@ def _guard_update(
     contract: ServiceContract,
     initial_cutover: bool,
     database_host_binding: bool = False,
+    core_evidence_bindings_transition: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     sharepoint_connector_transition: str = "none",
@@ -1283,6 +1408,14 @@ def _guard_update(
         after_environment=after_environment,
         runtime_drift_names=runtime_drift_names,
     )
+    allowed_core_evidence_bindings = _only_core_evidence_binding_adoption(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=runtime_drift_names,
+    )
+    if core_evidence_bindings_transition and not allowed_core_evidence_bindings:
+        violations.append(f"core evidence binding transition is invalid at {address}")
     stewardship_secret_ids = _stewardship_auth_adoption(
         before=before,
         after=after,
@@ -1296,6 +1429,7 @@ def _guard_update(
     if (
         not initial_cutover
         and not database_host_binding
+        and not core_evidence_bindings_transition
         and not model_binding_transition
         and sharepoint_connector_transition == "none"
         and not (
@@ -1359,6 +1493,7 @@ def _guard_update(
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
     if (
         database_host_binding
+        or core_evidence_bindings_transition
         or model_binding_transition
         or allowed_rca_reader
         or allowed_notification_topic
@@ -1756,6 +1891,7 @@ def validate_plan(
     image_ref: str,
     initial_cutover: bool = False,
     database_host_binding: bool = False,
+    core_evidence_bindings_transition: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     operator_channel_edge_transition: str = "none",
@@ -1775,6 +1911,7 @@ def validate_plan(
     if sharepoint_connector_transition != "none" and (
         initial_cutover
         or database_host_binding
+        or core_evidence_bindings_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
     ):
@@ -1791,6 +1928,17 @@ def validate_plan(
         raise PlanGuardError(
             "model binding transition is Core-only and exclusive with "
             "initial cutover and channel-edge transition"
+        )
+    if core_evidence_bindings_transition and (
+        service != "core-control-plane"
+        or initial_cutover
+        or database_host_binding
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+        or sharepoint_connector_transition != "none"
+    ):
+        raise PlanGuardError(
+            "core evidence binding transition is Core-only and must be applied independently"
         )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
@@ -1914,6 +2062,7 @@ def validate_plan(
                 contract=contract,
                 initial_cutover=initial_cutover,
                 database_host_binding=database_host_binding,
+                core_evidence_bindings_transition=core_evidence_bindings_transition,
                 model_binding_transition=model_binding_transition,
                 resolved_models_digest=resolved_models_digest,
                 sharepoint_connector_transition=sharepoint_connector_transition,
@@ -1952,6 +2101,7 @@ def validate_plan(
         (
             initial_cutover
             or database_host_binding
+            or core_evidence_bindings_transition
             or model_binding_transition
             or sharepoint_connector_transition != "none"
         )
@@ -2005,6 +2155,7 @@ def main() -> int:
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
+    parser.add_argument("--core-evidence-bindings-transition", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument(
@@ -2029,6 +2180,7 @@ def main() -> int:
             image_ref=args.image_ref,
             initial_cutover=args.initial_cutover,
             database_host_binding=args.database_host_binding,
+            core_evidence_bindings_transition=args.core_evidence_bindings_transition,
             model_binding_transition=args.model_binding_transition,
             resolved_models_digest=args.resolved_models_digest,
             operator_channel_edge_transition=args.operator_channel_edge_transition,

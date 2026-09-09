@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 7583cb1b9e83149837a7297d65ce82770da9e125
+translation_source_sha: 2f9a64d1c4a3ceae275ce754dfe7094a18fdaae3
 translation_revised: 2026-09-09
 ---
 
@@ -159,6 +159,14 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   배포 모드는 정확한 조합을 기록합니다. 검증된 endpoint map을 처음 추가하는 model binding이면
   증명된 model digest가 그대로일 수 있습니다. 신원, 권한, 시크릿, 명령 또는 관련 없는 환경
   변경은 허용되지 않습니다.
+- **범위가 제한된 Core 근거 연결 도입**: Core 전용
+  `core_evidence_bindings_transition` 모드는 이전에 없던 의사 결정 근거 저장소와 운영 의도
+  원본 연결만 추가할 수 있습니다. 최초 전환, 데이터베이스, 모델, 채널 edge 및 SharePoint
+  전환과는 별도로 실행합니다. 가드는 HTTPS Blob 컨테이너 URL 하나, `/app/config/` 아래의
+  경로, 정확한 개정, SHA-256 콘텐츠 다이제스트, 양의 rollout 세대 및 운영 의도 유형 6개의
+  정확한 양의 개수를 요구합니다. 선택적 재검증 간격은 8시간 이하로 제한합니다. 봉인된 배포
+  모드와 이전의 정상 개정은 롤백을 보존하며, 명령, 신원, 시크릿, 권한, 재연결, 제거 및 관련
+  없는 환경 변경은 계속 차단합니다.
 - **측정 원장 소유권**: Core는 `SELECT, INSERT` 권한만 사용해 `llm_invocation` 레코드를
   소유하고 추가합니다. Operator는 같은 테이블을 `SELECT` 권한으로만 사용합니다. 서비스
   migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가

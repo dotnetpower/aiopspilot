@@ -31,6 +31,7 @@ _SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf
 )
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
+_PLAN_BUNDLE = (_ROOT / "scripts/deployment/service/plan_bundle.py").read_text(encoding="utf-8")
 _OCR_RESOLVER = (
     _ROOT / "scripts/deployment/azure/resolve-document-ocr-desired-state.sh"
 ).read_text(encoding="utf-8")
@@ -1087,6 +1088,21 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert 'name = "FDAI_MODEL_ENDPOINTS_JSON"' in _CORE_TERRAFORM
     assert "var.llm.resolved_models_digest" in _CORE_TERRAFORM
     assert "output -json llm_model_endpoints" in _WORKFLOW
+
+
+def test_service_workflow_seals_core_evidence_binding_transition() -> None:
+    assert "core_evidence_bindings_transition:" in _WORKFLOW
+    assert "Core evidence binding transition is valid only for core-control-plane." in _WORKFLOW
+    assert "Core evidence binding transition must be applied independently." in _WORKFLOW
+    assert (
+        _WORKFLOW.count(
+            "CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}"
+        )
+        == 4
+    )
+    assert _WORKFLOW.count("evidence_args+=(--core-evidence-bindings-transition)") == 3
+    assert _WORKFLOW.count('"${evidence_args[@]}"') == 4
+    assert "core-evidence-bindings" in _PLAN_BUNDLE
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
