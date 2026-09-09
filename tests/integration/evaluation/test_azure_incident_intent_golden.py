@@ -177,6 +177,8 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
     )
     assert schema_repair_prompt.profile_id == "active.semantic-judgment-schema-repair"
     assert "Repair one primary T1 proposal" in schema_repair_prompt.system_text
+    assert schema_repair_prompt.layer_manifest[0].version == 2
+    assert "Set schema_version 1.1.0" in schema_repair_prompt.system_text
 
 
 def test_judgment_capability_projection_preserves_only_reviewed_semantics() -> None:
