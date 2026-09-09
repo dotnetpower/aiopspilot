@@ -157,6 +157,16 @@ def test_a_weakened_operational_protocol_is_refused(
         load_cohort_claim_policy(_written(tmp_path, body))
 
 
+def test_a_continuous_metric_cannot_switch_to_a_rate_interval(
+    tmp_path: Path,
+) -> None:
+    body = _body()
+    body["measurement_basis"]["interval_methods"]["mttr_seconds"] = "wilson_95"
+
+    with pytest.raises(CohortClaimPolicyError, match="mttr_seconds"):
+        load_cohort_claim_policy(_written(tmp_path, body))
+
+
 def test_an_incomplete_evidence_floor_is_refused(tmp_path: Path) -> None:
     body = _body()
     body["evidence"]["minimum_completeness_basis_points"] = 9_999

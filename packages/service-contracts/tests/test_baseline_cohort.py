@@ -14,6 +14,7 @@ from fdai_service_contracts.baseline_cohort import (
     CohortClaimAssessment,
     CohortClaimRejectionReason,
     CohortClaimRequirement,
+    CohortMetricEstimate,
     baseline_treatment_cohort_receipt_digest,
     cohort_arm_fact_digest,
     cohort_arm_fact_digest_values,
@@ -246,6 +247,21 @@ def test_a_governed_admitted_cohort_is_claim_eligible() -> None:
     assert assessment.artifact_origin is CohortArtifactOrigin.GOVERNED_EXTERNAL
     assert assessment.execution_authority is False
     assert tuple(arm.arm for arm in assessment.arms) == (CohortArm.BASELINE, CohortArm.TREATMENT)
+
+
+@pytest.mark.parametrize("field", ["absolute_value", "lower_bound", "upper_bound"])
+def test_a_nonfinite_metric_value_is_rejected(field: str) -> None:
+    values = {
+        "metric_id": "auto_resolution_rate",
+        "absolute_value": 0.5,
+        "sample_size": 30,
+        "lower_bound": 0.3,
+        "upper_bound": 0.7,
+    }
+    values[field] = float("inf")
+
+    with pytest.raises(ValidationError):
+        CohortMetricEstimate.model_validate(values)
 
 
 def test_the_arm_fact_digest_covers_every_evaluated_fact() -> None:
@@ -602,6 +618,48 @@ def test_a_tampered_cohort_receipt_digest_is_rejected() -> None:
 
     with pytest.raises(ValidationError, match="digest does not match"):
         BaselineTreatmentCohortReceipt.model_validate(payload)
+
+
+def test_the_cohort_cutoff_cannot_move_past_its_arm_evidence() -> None:
+    payload = _receipt().model_dump(mode="json")
+    payload["evidence_cutoff"] = (NOW + timedelta(hours=1)).isoformat()
+    payload["receipt_digest"] = baseline_treatment_cohort_receipt_digest(**payload)
+
+    with pytest.raises(ValidationError, match="latest arm cutoff"):
+        BaselineTreatmentCohortReceipt.model_validate(payload)
+
+
+def test_a_non_95_percent_interval_is_not_claim_eligible() -> None:
+    baseline = _arm(
+        CohortArm.BASELINE,
+        report_digest=BASELINE_REPORT_DIGEST,
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    baseline["metrics"] = (
+        {
+            **baseline["metrics"][0],
+            "confidence_level_basis_points": 9_000,
+        },
+        baseline["metrics"][1],
+    )
+    facts = {key: value for key, value in baseline.items() if key != "evidence_receipt"}
+    baseline["evidence_receipt"] = _evidence_receipt(
+        evidence_digest=cohort_arm_fact_digest_values(**facts),
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    receipt = _receipt(baseline=baseline)
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
+    )
+
+    assert assessment.claim_eligible is False
+    assert CohortClaimRejectionReason.CONFIDENCE_INTERVAL_INCOMPLETE in assessment.rejection_reasons
 
 
 def test_the_producer_helper_reproduces_the_evaluated_arm_fact_digest() -> None:
