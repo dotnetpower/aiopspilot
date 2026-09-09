@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 97fdf2306386570466e6312a014a3a9c60eccec3
+translation_source_sha: df01266fc7cd63bf8f1daa13ef3d9bec991c3d84
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -148,8 +148,7 @@ Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경�
 또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다.
 모델 삭제 전용 변경, 값이 달라진 교체, 누락되거나 생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
-Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및
-`ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
+Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
 `forecast_targets_json`은 예측 작업을 명시적 선택하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
 예측 작업은 raw 틱만 publish하며 Huginn이 이를 Heimdall 평가 및 종결용으로 정규화합니다.
 각 대상 항목은 `target_kind`를 지정하고 저장소가 관리하는 기간, 신뢰수준, 샘플 하한, 적합도 하한과 일치합니다. Core는 예측 대상을 사용하지 않을 때도 이 정책을 로드하므로 정책이 없거나 형식이 잘못되면 관리되지 않는 대상 경로를 남기지 않고 시작을 차단합니다.
