@@ -124,6 +124,27 @@ class PromptSelection:
     packs: tuple[PromptArtifact, ...]
     profile: PromptProfile | None = None
 
+    @property
+    def digest(self) -> str | None:
+        """Bind profile metadata to the exact selected artifact bodies."""
+
+        if self.profile is None:
+            return None
+        payload = {
+            "artifacts": [
+                {
+                    "body_sha256": hashlib.sha256(artifact.body.encode()).hexdigest(),
+                    "id": artifact.id,
+                    "layer": artifact.layer.value,
+                    "version": artifact.version,
+                }
+                for artifact in (self.root, *self.packs)
+            ],
+            "profile_digest": self.profile.digest,
+        }
+        encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+        return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
+
 
 class PromptBudgetExceededError(ValueError):
     """The selected prompt exceeded its reviewed profile budget."""
@@ -164,7 +185,7 @@ def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
         token_estimate=token_estimate,
         profile_id=profile.id if profile is not None else None,
         profile_version=profile.version if profile is not None else None,
-        profile_digest=profile.digest if profile is not None else None,
+        profile_digest=selection.digest,
         system_token_budget=profile.system_token_budget if profile is not None else None,
         request_token_budget=profile.request_token_budget if profile is not None else None,
         reserved_output_tokens=profile.reserved_output_tokens if profile is not None else None,

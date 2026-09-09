@@ -43,12 +43,14 @@ def compare_prompt_profiles(
         raise ValueError("prompt profile treatment MUST be an exact shadow profile")
     active_prompt = compose_static_selection(active)
     treatment_prompt = compose_static_selection(treatment)
+    if active_prompt.profile_digest is None or treatment_prompt.profile_digest is None:
+        raise ValueError("prompt profile comparison requires content-bound profile digests")
     return PromptProfileComparison(
         capability_id=capability_id,
         active_profile_id=active.profile.id,
-        active_profile_digest=active.profile.digest,
+        active_profile_digest=active_prompt.profile_digest,
         treatment_profile_id=treatment.profile.id,
-        treatment_profile_digest=treatment.profile.digest,
+        treatment_profile_digest=treatment_prompt.profile_digest,
         active_tokens=active_prompt.token_estimate,
         treatment_tokens=treatment_prompt.token_estimate,
     )

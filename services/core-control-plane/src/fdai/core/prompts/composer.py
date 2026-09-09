@@ -318,7 +318,7 @@ class DefaultPromptComposer(PromptComposer):
             token_estimate=token_estimate,
             profile_id=profile.id if profile is not None else None,
             profile_version=profile.version if profile is not None else None,
-            profile_digest=profile.digest if profile is not None else None,
+            profile_digest=selection.digest,
             system_token_budget=profile.system_token_budget if profile is not None else None,
             request_token_budget=profile.request_token_budget if profile is not None else None,
             reserved_output_tokens=profile.reserved_output_tokens if profile is not None else None,

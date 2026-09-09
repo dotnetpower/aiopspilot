@@ -14,8 +14,10 @@ from fdai.core.prompts import (
     PromptProfile,
     PromptProfileMode,
     PromptRegistryError,
+    PromptSelection,
     compose_static_selection,
 )
+from fdai.core.prompts.types import PromptArtifact, PromptMode
 
 _ROOT = Path(__file__).resolve().parents[5]
 _CATALOG = _ROOT / "rule-catalog"
@@ -69,6 +71,40 @@ def test_prompt_profile_rejects_invalid_direct_values(
 
     with pytest.raises(ValueError, match=message):
         PromptProfile(**values)  # type: ignore[arg-type]
+
+
+def test_selection_digest_changes_when_artifact_body_changes() -> None:
+    profile = PromptProfile(
+        id="test.profile",
+        version=1,
+        capability_id="test.capability",
+        mode=PromptProfileMode.ACTIVE,
+        root=PromptArtifactRef("root", 1, PromptLayer.BASE),
+        packs=(),
+        system_token_budget=128,
+        request_token_budget=4096,
+        reserved_output_tokens=512,
+        promotion_evidence=("test",),
+        provenance_source="test",
+    )
+
+    def selection(body: str) -> PromptSelection:
+        return PromptSelection(
+            root=PromptArtifact(
+                id="root",
+                version=1,
+                layer=PromptLayer.BASE,
+                body=body,
+                applies_to=("test.capability",),
+                token_budget=128,
+                default_mode=PromptMode.SHADOW,
+                provenance_source="test",
+            ),
+            packs=(),
+            profile=profile,
+        )
+
+    assert selection("first").digest != selection("second").digest
 
 
 def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:
