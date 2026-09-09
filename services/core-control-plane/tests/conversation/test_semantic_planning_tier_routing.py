@@ -84,6 +84,9 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
     SemanticPlanningDisposition,
 )
+from fdai.core.conversation.semantic_relationship_planning import (
+    build_ontology_relationship_frame,
+)
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     _current_relationship_mapping_unavailable,
@@ -11270,6 +11273,59 @@ def test_manifest_count_uses_typed_facets_when_the_model_omits_a_metatype_target
     assert proposal.subject_constraints == (expected_kind,)
     assert proposal.measure_concepts == ("count",)
     assert frame.output_shape == "aggregation_table"
+
+
+def test_schema_read_uses_one_supplied_object_encoded_in_typed_facets() -> None:
+    object_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="ObjectType",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(
+        function_types=(
+            ontology_declaration_function_type(),
+            ontology_relationships_function_type(),
+        ),
+        additional_object_types=(object_type,),
+    )
+    declaration = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_declaration",
+            "targets": [],
+            "requested_facets": ["resource", "object_type_declaration"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+    relationships = declaration.model_copy(
+        update={
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": ("resource_relationships",),
+        }
+    )
+
+    declaration_result = build_ontology_schema_frame(
+        declaration,
+        utterance="Show the declared Resource schema.",
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+    relationship_result = build_ontology_relationship_frame(
+        relationships,
+        utterance="Show the declared Resource relationships.",
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+
+    assert declaration_result is not None
+    assert declaration_result[0].subject_constraints == ("Resource",)
+    assert relationship_result is not None
+    assert relationship_result[0].subject_constraints == ("Resource",)
 
 
 @pytest.mark.parametrize(
