@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 7955b467130863ea5e79ce0e11c7a0babee6fce7
+translation_source_sha: 37edc732a6d7aebdc977ea5a03d444ad59c206b0
 translation_revised: 2026-09-09
 ---
 # FDAI 로드맵
@@ -25,7 +25,7 @@ FDAI의 엔지니어링 계획입니다. [FDAI 헌법](architecture/fdai-constit
 > **구현 초점:** 현재 구현 대상은 Azure뿐입니다. 비-Azure 공급자와 P4의 멀티 클라우드
 > 확장은 추후 검토 대상입니다. 이 문서의 CSP 중립 추상화는 향후 어댑터를 추가할 수 있도록
 > 보존한 확장 지점이며, 제공 시점을 약속하는 것은 아닙니다
-> ([구현 Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
+> ([구현 Focus](../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## 한눈에 보는 설계
 
@@ -144,20 +144,20 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19d | [durable-conversation-delivery-ko.md](interfaces/durable-conversation-delivery-ko.md) | 검증된 cross-channel 연결, 영속 회신 원장, process-loss 복구, 어댑터 컨트롤 및 읽기 전용 reliability 메트릭 |
 | 19e | [governed-trajectory-datasets-ko.md](interfaces/governed-trajectory-datasets-ko.md) | Authorization-first observable trajectory, 결정론적 JSONL/체크섬, 격리 구역, offline 재생 검증, 보존/legal 보류, reviewed-only Norns intake |
 | 19i | [benchmark-adapters-ko.md](interfaces/benchmark-adapters-ko.md) | 브랜드 중립 외부 실행 장치 계약, installed-plugin 주입, 프로바이더 연결, 범위가 제한된 수명 주기 및 벤치마크 권한 경계 |
-| 20 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (교정 + ops + 거버넌스), 트리거 축, 계층 / 역할 / prod / live-probe 상한, 포크 재정의 경계 |
-| 21 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis 권한 매트릭스, 3개 실행기 경로 (PR-native / direct API / PR-manual), live-blast 탐색 combinator, resolved_ceiling 감사 블록 |
-| 21a | [recovery-and-chaos-enforcement-ko.md](decisioning/recovery-and-chaos-enforcement-ko.md) | 타입이 지정된 계획, 영향 묶음, pre-authorized 롤백, continuous chaos 가드로 제한되는 agent-executed 복구 |
+| 29 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (교정 + ops + 거버넌스), 트리거 축, 계층 / 역할 / prod / live-probe 상한, 포크 재정의 경계 |
+| 30 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis 권한 매트릭스, 3개 실행기 경로 (PR-native / direct API / PR-manual), live-blast 탐색 combinator, resolved_ceiling 감사 블록 |
+| 30a | [recovery-and-chaos-enforcement-ko.md](decisioning/recovery-and-chaos-enforcement-ko.md) | 타입이 지정된 계획, 영향 묶음, pre-authorized 롤백, continuous chaos 가드로 제한되는 agent-executed 복구 |
 
 ### 에이전트 조직
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 22 | [agent-pantheon-ko.md](agents/agent-pantheon-ko.md) | 고정된 15-agent control-plane 조직: closed-loop 소유권, ontology-constrained accuracy, single-writer 토픽, 타입이 지정된 pub/sub, conversational 포트, ActionType 역할, 범위가 제한된 human 에스컬레이션 |
-| 22a | [bounded-task-workers-ko.md](agents/bounded-task-workers-ko.md) | 고정 Pantheon 밖의 격리된 depth-one 읽기 전용 조사: 기능 축소, 제한된 수명 주기, 영구 가지 기록, 신뢰되지 않은 상위 종합, GET-only 변환 결과 |
-| 22b | [background-task-sessions-ko.md](interfaces/background-task-sessions-ko.md) | 영구 detached 운영자 조사: 즉시 생성, 임차 기간/CAS 소유권, 제한된 진행 상황, process-loss 조정, 대화 인계, 전달 경계 |
-| 22c | [busy-input-modes-ko.md](interfaces/busy-input-modes-ko.md) | 활성 web, Slack, Teams 대화를 위한 채널 중립적인 영구 큐, interrupt, safe-boundary steer 모드 |
-| 22d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact 리소스 해석, 타입이 지정된 Azure 읽기 근거, 측정 기반 direct/streamed/detached 실행, dedicated 읽기 담당 신원, 할당량, 영속 완료 전달 |
-| 22e | [azure-resource-discovery-commands-ko.md](interfaces/azure-resource-discovery-commands-ko.md) | Ontology-aligned Azure 리소스 검색, ARG 및 CLI 대체 경로 커버리지, 정제된 reproduction 명령, 계획 비평 및 측정 기반 롤아웃 |
+| 31 | [agent-pantheon-ko.md](agents/agent-pantheon-ko.md) | 고정된 15-agent control-plane 조직: closed-loop 소유권, ontology-constrained accuracy, single-writer 토픽, 타입이 지정된 pub/sub, conversational 포트, ActionType 역할, 범위가 제한된 human 에스컬레이션 |
+| 31a | [bounded-task-workers-ko.md](agents/bounded-task-workers-ko.md) | 고정 Pantheon 밖의 격리된 depth-one 읽기 전용 조사: 기능 축소, 제한된 수명 주기, 영구 가지 기록, 신뢰되지 않은 상위 종합, GET-only 변환 결과 |
+| 31b | [background-task-sessions-ko.md](interfaces/background-task-sessions-ko.md) | 영구 detached 운영자 조사: 즉시 생성, 임차 기간/CAS 소유권, 제한된 진행 상황, process-loss 조정, 대화 인계, 전달 경계 |
+| 31c | [busy-input-modes-ko.md](interfaces/busy-input-modes-ko.md) | 활성 web, Slack, Teams 대화를 위한 채널 중립적인 영구 큐, interrupt, safe-boundary steer 모드 |
+| 31d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact 리소스 해석, 타입이 지정된 Azure 읽기 근거, 측정 기반 direct/streamed/detached 실행, dedicated 읽기 담당 신원, 할당량, 영속 완료 전달 |
+| 31e | [azure-resource-discovery-commands-ko.md](interfaces/azure-resource-discovery-commands-ko.md) | Ontology-aligned Azure 리소스 검색, ARG 및 CLI 대체 경로 커버리지, 정제된 reproduction 명령, 계획 비평 및 측정 기반 롤아웃 |
 | 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 기능으로 조합하는 13개 cross-agent 작업 흐름입니다. Cost-aware 교정, predictive 규모, operational 준비 상태 인계, scheduled 통제된 Python 작업, detection 준비 상태 assurance 등을 포함하며 각 작업 흐름은 트리거, 순서 diagram, exit criteria, 승격 게이트를 가집니다. |
 | 23f | [agent-workflow-rollout-ko.md](agents/agent-workflow-rollout-ko.md) | 독립 shadow 롤아웃 순서, 작업 흐름별 exit 게이트, 의존성 및 no-enforcement 경계 |
 | 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: 작업 흐름 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 전달 하는 `ActionType` 스텝의 순서 리스트다 |
@@ -177,7 +177,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 24b | [reporting-subsystem-ko.md](interfaces/reporting-subsystem-ko.md) | 선언적 시각화 파이프라인: YAML 리포트 카탈로그, 데이터 원본 / 위젯 / format 레지스트리, 기존 경계 위에 등록되는 위젯 빌더와 데이터 원본 어댑터, 확장 가능한 encoder, 읽기 전용 `GET /reports/*` 경로, 포크 확장 recipe. 레지스트리가 늘어나도 backend-only 계약은 안정적으로 유지. |
+| 32 | [reporting-subsystem-ko.md](interfaces/reporting-subsystem-ko.md) | 선언적 시각화 파이프라인: YAML 리포트 카탈로그, 데이터 원본 / 위젯 / format 레지스트리, 기존 경계 위에 등록되는 위젯 빌더와 데이터 원본 어댑터, 확장 가능한 encoder, 읽기 전용 `GET /reports/*` 경로, 포크 확장 recipe. 레지스트리가 늘어나도 backend-only 계약은 안정적으로 유지. |
 
 ### 순서 확정 (문서 통합 플랜)
 
@@ -196,7 +196,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 선행 조건을 명시합니다. 지원 영역은 점진적으로 확장됩니다. P1에서 변경 안전성을,
 P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우드는 P4의 추후 검토
 항목으로 남습니다 (Azure-only 구현,
-[구현 Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
+[구현 Focus](../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## 단계 요약
 

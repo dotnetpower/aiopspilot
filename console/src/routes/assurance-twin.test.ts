@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
@@ -12,6 +13,9 @@ import {
   type AssuranceTwinPostureReport,
   type AssuranceTwinReviewSummary,
 } from "./assurance-twin";
+
+const consoleStyles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+const routeSource = readFileSync(new URL("./assurance-twin.tsx", import.meta.url), "utf8");
 
 const provenance = {
   activity_id: "assurance-twin.change-review:Review_Key-1:completed",
@@ -338,5 +342,41 @@ describe("assurance twin review identity", () => {
     if (state.status !== "ready") throw new Error("expected ready state");
     expect(state.data.review?.review_key).toBe(key);
     expect(handler).toHaveBeenCalledOnce();
+  });
+});
+
+describe("assurance twin responsive evidence", () => {
+  it("wraps opaque provenance without expanding the primary content viewport", () => {
+    expect(consoleStyles).toMatch(
+      /\.assurance-twin-provenance\s*\{[^}]*min-width:\s*0;[^}]*\}/,
+    );
+    expect(consoleStyles).toMatch(
+      /\.assurance-twin-provenance dd\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;[^}]*\}/,
+    );
+  });
+
+  it("keeps primary mobile navigation links at touch-target height", () => {
+    expect(routeSource.match(
+      /<a class="assurance-twin-back-link" href=\{routeHref\("assurance-twin"\)\}>/g,
+    )).toHaveLength(2);
+    expect(routeSource).toContain(
+      '<a class="mono assurance-twin-review-link" href={assuranceTwinReviewHref(row.review_key)}>',
+    );
+
+    const mobileTouchRule = [
+      "@media (max-width: 640px) {",
+      "  .assurance-twin-back-link,",
+      "  .assurance-twin-review-link {",
+      "    display: inline-flex;",
+      "    min-height: 44px;",
+      "    width: fit-content;",
+      "    align-items: center;",
+      "  }",
+      "}",
+    ].join("\n");
+    expect(consoleStyles).toContain(mobileTouchRule);
+    expect(consoleStyles.replace(mobileTouchRule, "")).not.toMatch(
+      /\.assurance-twin-back-link\s*,\s*\.assurance-twin-review-link\s*\{[^}]*min-height:\s*44px;/,
+    );
   });
 });

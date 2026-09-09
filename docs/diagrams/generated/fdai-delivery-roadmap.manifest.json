@@ -2,7 +2,7 @@
   "id": "fdai-delivery-roadmap",
   "kind": "gantt",
   "version": 1,
-  "updated": "2026-08-08",
+  "updated": "2026-09-09",
   "locales": {
     "en": {
       "title": "FDAI governed delivery roadmap",
@@ -39,8 +39,8 @@
         "ko": "온톨로지 계약"
       },
       "description": {
-        "en": "Ontology contracts",
-        "ko": "온톨로지 계약"
+        "en": "Ontology contracts are complete, at 100 percent progress.",
+        "ko": "온톨로지 계약은 완료되어 진행률 100퍼센트입니다."
       }
     },
     {
@@ -53,11 +53,11 @@
       "progress": 65,
       "label": {
         "en": "Context projection",
-        "ko": "컨텍스트 projection"
+        "ko": "컨텍스트 변환 결과"
       },
       "description": {
-        "en": "Context projection",
-        "ko": "컨텍스트 projection"
+        "en": "Context projection is active, at 65 percent progress.",
+        "ko": "컨텍스트 변환 결과는 진행 중이며 진행률은 65퍼센트입니다."
       }
     },
     {
@@ -73,8 +73,8 @@
         "ko": "의미 모델 릴리스"
       },
       "description": {
-        "en": "Semantic release",
-        "ko": "의미 모델 릴리스"
+        "en": "Semantic release is a milestone gated on context projection.",
+        "ko": "의미 모델 릴리스는 컨텍스트 변환 결과에 의존하는 마일스톤입니다."
       }
     },
     {
@@ -90,8 +90,8 @@
         "ko": "정책 카탈로그"
       },
       "description": {
-        "en": "Policy catalog",
-        "ko": "정책 카탈로그"
+        "en": "Policy catalog is complete, at 100 percent progress.",
+        "ko": "정책 카탈로그는 완료되어 진행률 100퍼센트입니다."
       }
     },
     {
@@ -107,8 +107,8 @@
         "ko": "시나리오 회귀 검증"
       },
       "description": {
-        "en": "Scenario regression",
-        "ko": "시나리오 회귀 검증"
+        "en": "Scenario regression is active, at 40 percent progress.",
+        "ko": "시나리오 회귀 검증은 진행 중이며 진행률은 40퍼센트입니다."
       }
     },
     {
@@ -124,8 +124,8 @@
         "ko": "승격 근거"
       },
       "description": {
-        "en": "Promotion evidence",
-        "ko": "승격 근거"
+        "en": "Promotion evidence is critical-path, at 15 percent progress.",
+        "ko": "승격 근거는 critical 경로이며 진행률은 15퍼센트입니다."
       }
     },
     {
@@ -138,11 +138,11 @@
       "progress": 100,
       "label": {
         "en": "Console projection",
-        "ko": "콘솔 projection"
+        "ko": "콘솔 변환 결과"
       },
       "description": {
-        "en": "Console projection",
-        "ko": "콘솔 projection"
+        "en": "Console projection is complete, at 100 percent progress.",
+        "ko": "콘솔 변환 결과는 완료되어 진행률 100퍼센트입니다."
       }
     },
     {
@@ -158,8 +158,8 @@
         "ko": "운영자 검증"
       },
       "description": {
-        "en": "Operator validation",
-        "ko": "운영자 검증"
+        "en": "Operator validation is active, at 55 percent progress.",
+        "ko": "운영자 검증은 진행 중이며 진행률은 55퍼센트입니다."
       }
     },
     {
@@ -175,8 +175,8 @@
         "ko": "릴리스 준비"
       },
       "description": {
-        "en": "Release readiness",
-        "ko": "릴리스 준비"
+        "en": "Release readiness is planned, at 0 percent progress.",
+        "ko": "릴리스 준비는 계획 단계이며 진행률은 0퍼센트입니다."
       }
     }
   ],
