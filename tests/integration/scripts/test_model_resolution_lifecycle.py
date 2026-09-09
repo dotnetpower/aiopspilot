@@ -12,7 +12,12 @@ from pathlib import Path
 import pytest
 import yaml
 from scripts.deployment.azure.model_lifecycle_provider import extract_provider_deprecations
-from scripts.deployment.azure.model_lifecycle_receipt import build_model_lifecycle_receipt
+from scripts.deployment.azure.model_lifecycle_receipt import (
+    build_model_lifecycle_receipt,
+)
+from scripts.deployment.azure.model_lifecycle_receipt import (
+    main as lifecycle_receipt_main,
+)
 from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_lifecycle
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -727,8 +732,16 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert "--horizon-days 60" in workflow
     assert "--provider-error unsupported_response" in workflow
     assert "--provider-error" in workflow
-    assert "gh pr create --draft" in workflow
-    assert "gh pr list --head" in workflow
+    assert "gh pr " not in workflow
+    assert 'git ls-remote --heads origin "refs/heads/$branch"' in workflow
+    assert 'source_commit="$(git rev-parse "$remote_head^")"' in workflow
+    assert 'git merge-base --is-ancestor "$source_commit" HEAD' in workflow
+    assert "actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71" in workflow
+    assert "github.rest.pulls.list" in workflow
+    assert "github.rest.pulls.create" in workflow
+    assert "github.rest.repos.getContent" in workflow
+    assert "github.rest.git.getCommit" in workflow
+    assert "--verify-proposal-only" in workflow
     assert "proposal_digest" in workflow
     assert "activation_authority" in workflow
     assert "terraform apply" not in workflow
@@ -737,14 +750,25 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert "model_lifecycle_receipt.py" in workflow
     assert "Upload governed draft receipt" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
-    assert '"/repos/${GITHUB_REPOSITORY}/contents/${proposal}?ref=${head_sha}"' in workflow
     assert '--proposal "$pr_proposal"' in workflow
     assert 'source_commit="$(git rev-parse HEAD)"' in workflow
     assert workflow.index('source_commit="$(git rev-parse HEAD)"') < workflow.index(
         'git switch -c "$branch"'
     )
-    assert '--source-commit "$source_commit"' in workflow
+    assert '--source-commit "$SOURCE_COMMIT"' in workflow
     assert '--source-commit "${GITHUB_SHA}"' not in workflow
+
+
+def test_proposal_verification_uses_python_canonical_json_for_non_ascii(tmp_path: Path) -> None:
+    proposal = reconcile_model_lifecycle(
+        current=_resolved(),
+        candidate=_resolved("모델-family"),
+        deprecations=(),
+    )
+    path = tmp_path / "proposal.json"
+    path.write_text(json.dumps(proposal, ensure_ascii=False), encoding="utf-8")
+
+    assert lifecycle_receipt_main(["--proposal", str(path), "--verify-proposal-only"]) == 0
 
 
 def test_reconciliation_receipt_binds_draft_without_authority() -> None:
