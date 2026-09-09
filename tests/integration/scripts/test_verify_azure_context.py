@@ -195,10 +195,17 @@ fi
     binary.chmod(0o755)
 
 
+def _fake_terraform(tmp_path: Path) -> None:
+    binary = tmp_path / "terraform"
+    binary.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="ascii")
+    binary.chmod(0o755)
+
+
 def test_azd_wrapper_rejects_mismatched_selected_environment(tmp_path: Path) -> None:
     _binary, az_calls = _fake_az(tmp_path)
     azd_calls = _fake_azd(tmp_path)
     _fake_uv(tmp_path)
+    _fake_terraform(tmp_path)
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
@@ -230,6 +237,7 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
     _binary, az_calls = _fake_az(tmp_path)
     azd_calls = _fake_azd(tmp_path)
     _fake_uv(tmp_path)
+    _fake_terraform(tmp_path)
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
@@ -270,6 +278,7 @@ def test_azd_wrapper_reports_provider_registration_without_mutating(
     _binary, az_calls = _fake_az(tmp_path)
     azd_calls = _fake_azd(tmp_path)
     _fake_uv(tmp_path)
+    _fake_terraform(tmp_path)
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",

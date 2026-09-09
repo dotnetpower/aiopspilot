@@ -1,28 +1,17 @@
 name: deploy-dev
 run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, github.run_number) }}
-# Prerequisites (see infra/bootstrap/README.md):
-#   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
-#     with labels [self-hosted, fdai-deploy, fdai-deploy-candidate] and the stable
-#     deploy UAMI holding the bootstrap-owned constrained role manifest.
-#   - Repo variables (Settings > Secrets and variables > Actions > Variables):
 #       ARM_SUBSCRIPTION_ID, AZURE_REGION, AZURE_REGION_SHORT, AZURE_TENANT_ID,
 #       DEPLOY_RUNNER_CLIENT_ID, DEPLOY_RUNNER_PRINCIPAL_ID,
 #       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID,
 #       OPS_VNET_NAME, STATE_RESOURCE_GROUP, STATE_STORAGE_ACCOUNT, STATE_CONTAINER,
 #       CORE_IMAGE, DEV_DEPLOY_REQUIRED_APPROVALS,
-#       optional FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE,
 #       ENABLE_STEWARDSHIP_GOVERNANCE, GITOPS_OWNER, GITOPS_REPO,
 #       GITHUB_APP_CLIENT_ID, GITHUB_APP_INSTALLATION_ID,
-#       PRODUCTION_BUDGET_ALERT_EMAILS_JSON (required when deploy_console=true),
-#       Feature-specific variables are documented by their workflow inputs and
-#       docs/roadmap/deployment/deploy-and-onboard.md.
-#   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD,
 #       CHATOPS_WEBHOOK_URL, CHATOPS_WEBHOOK_SECRET,
 #       GITOPS_TOKEN, GITHUB_APP_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET
-# Default run is plan-only (shadow). Set the `apply` input to true to enforce.
 on:
   workflow_dispatch:
     inputs:

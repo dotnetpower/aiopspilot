@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: b9a834ff5d4c93e027c34ab2be33c227e2eb31f4
+translation_source_sha: 9384630575bd50f621a3e44608fd59386aed3e6e
 translation_revised: 2026-09-09
 ---
 # 배포 리소스 규약
@@ -77,6 +77,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 동작을 바꾸지 않고 배포 workflow 검토 예산을 복원하고 직접 azd 테스트 harness가 필요한 모든 실행 파일 전제 조건을 제공하도록 수정했습니다. | `current change`, 정확한 deploy-workflow diet 및 Azure context 테스트 23건 통과 | 보호된 배포를 재개하기 전에 새 exact-green main 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기본적으로 비공개인 Foundry network 입력을 추가하고 local 인증을 활성화하지 않은 채 공개 기여자 profile을 명시적인 공개 선택 항목에 연결했습니다. | `current change`; 집중 Foundry 비공개 및 공개 Terraform 계획 통과. | Runtime 사용을 validated로 분류하기 전에 새 구독 endpoint와 managed identity 추론 재확인을 보존합니다. |
 | 2026-09-08 | implemented | Core 이외 서비스의 롤백 tfvars 구체화가 Core 모델 결속 계약과 독립적으로 유지되도록 모델 엔드포인트 입력이 없을 때 빈 JSON 객체를 기본값으로 사용합니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 Operator 계획을 다시 만들고 적용합니다. |
 | 2026-09-08 | implemented | 검증된 고정 이름 Azure 비밀 리소스 식별자 4개를 Container Apps에 전달하기 전에 버전 없는 Key Vault HTTPS 참조로 변환했습니다. 다른 엔드포인트 입력을 받는 대신 검증된 리소스 식별자에서 Azure vault 호스트 이름을 파생합니다. | 실패한 서비스 계획 `34226726167`, `current change`, 집중 서비스 구체화 도구 테스트 | 생성 전용 Operator 계획을 다시 실행하고 적용 전에 정확한 보호 좌표를 보존합니다. |
