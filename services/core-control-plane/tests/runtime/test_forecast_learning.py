@@ -79,3 +79,19 @@ def test_startup_loads_policy_even_when_forecast_targets_are_disabled(tmp_path: 
             metric_provider=StaticMetricProvider([]),
             governance_policy_path=tmp_path / "missing.json",
         )
+
+
+def test_default_policy_path_is_independent_of_working_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        build_forecast_learning_runtime(
+            dsn=None,
+            targets_json=None,
+            metric_provider=StaticMetricProvider([]),
+        )
+        is None
+    )

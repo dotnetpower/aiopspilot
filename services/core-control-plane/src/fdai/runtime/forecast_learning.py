@@ -20,6 +20,7 @@ from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
     PostgresForecastEpisodeStoreConfig,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.shared.providers.metric import MetricProvider
 
 
@@ -35,9 +36,10 @@ def build_forecast_learning_runtime(
     dsn: str | None,
     targets_json: str | None,
     metric_provider: MetricProvider,
-    governance_policy_path: Path = Path(DETECTION_GOVERNANCE_POLICY_PATH),
+    governance_policy_path: Path | None = None,
 ) -> ForecastLearningRuntime | None:
-    governance_policy = load_detection_governance_policy(governance_policy_path)
+    policy_path = governance_policy_path or repo_asset_root() / DETECTION_GOVERNANCE_POLICY_PATH
+    governance_policy = load_detection_governance_policy(policy_path)
     targets = parse_forecast_targets(targets_json, governance_policy=governance_policy)
     if not targets:
         return None
