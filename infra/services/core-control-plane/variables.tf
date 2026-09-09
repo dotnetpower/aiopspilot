@@ -53,6 +53,29 @@ variable "identity" {
   })
 }
 
+variable "runtime_call_evidence" {
+  description = "Exact deployed caller and target Container App Resource IDs for runtime-call evidence."
+  type = object({
+    caller_resource_id = optional(string, "")
+    target_resource_id = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = (
+      (trimspace(var.runtime_call_evidence.caller_resource_id) == "" && trimspace(var.runtime_call_evidence.target_resource_id) == "") ||
+      (
+        startswith(var.runtime_call_evidence.caller_resource_id, "/subscriptions/") &&
+        strcontains(lower(var.runtime_call_evidence.caller_resource_id), "/providers/microsoft.app/containerapps/") &&
+        startswith(var.runtime_call_evidence.target_resource_id, "/subscriptions/") &&
+        strcontains(lower(var.runtime_call_evidence.target_resource_id), "/providers/microsoft.app/containerapps/") &&
+        lower(var.runtime_call_evidence.caller_resource_id) != lower(var.runtime_call_evidence.target_resource_id)
+      )
+    )
+    error_message = "runtime_call_evidence must be empty or contain distinct exact Container App Resource IDs."
+  }
+}
+
 variable "rca_reader_identity" {
   description = "Optional read-only Azure identity for Activity Log-backed T1 RCA."
   type = object({

@@ -104,6 +104,9 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], trimspace(var.runtime_call_evidence.caller_resource_id) == "" ? [] : [
+    { name = "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", value = var.runtime_call_evidence.caller_resource_id },
+    { name = "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", value = var.runtime_call_evidence.target_resource_id },
     ], !local.license_enabled ? [] : [
     { name = "FDAI_LICENSE_TOKEN", secret_name = "capability-license-token" },
     { name = "FDAI_LICENSE_IMAGE_DIGEST", value = var.license.image_digest },

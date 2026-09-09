@@ -23,6 +23,13 @@ _HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.
 _CORE_TERRAFORM = (
     _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
 ).read_text(encoding="utf-8")
+_CORE_VARIABLES = (_ROOT / "infra/services/core-control-plane/variables.tf").read_text(
+    encoding="utf-8"
+)
+_OPERATOR_TERRAFORM = (
+    _ROOT / "infra/services/operator-service/modules/operator-service/main.tf"
+).read_text(encoding="utf-8")
+_PLATFORM_OUTPUTS = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
 _OPERATOR_VARIABLES = (_ROOT / "infra/services/operator-service/variables.tf").read_text(
     encoding="utf-8"
 )
@@ -347,6 +354,41 @@ def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
     assert "webhook_secret_id" in materialize
     assert 'STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding"' in materialize
     assert 'with_entries(select(.value | type == "string" and length > 0))' in materialize
+
+
+def test_operator_runtime_call_evidence_uses_exact_platform_resource_ids() -> None:
+    materialize = _WORKFLOW.split("- name: Materialize selected service inputs", maxsplit=1)[
+        1
+    ].split("- name: Create and guard service plan", maxsplit=1)[0]
+
+    assert 'output "runtime_call_evidence_binding"' in _PLATFORM_OUTPUTS
+    assert "providers/Microsoft.App/containerApps/${module.operator_api[0].name}" in (
+        _PLATFORM_OUTPUTS
+    )
+    assert "providers/Microsoft.App/containerApps/${module.compute.core_app_name}" in (
+        _PLATFORM_OUTPUTS
+    )
+    assert 'variable "runtime_call_evidence"' in _OPERATOR_VARIABLES
+    assert 'variable "runtime_call_evidence"' in _CORE_VARIABLES
+    assert "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID" in _OPERATOR_TERRAFORM
+    assert "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID" in _OPERATOR_TERRAFORM
+    assert "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID" in _CORE_TERRAFORM
+    assert "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID" in _CORE_TERRAFORM
+    assert "output -json runtime_call_evidence_binding" in materialize
+    assert "output -raw operator_api_name" in materialize
+    assert "Operator deployment requires a runtime-call evidence binding." in materialize
+    assert "runtime_call_evidence_transition:" in _WORKFLOW
+    assert _WORKFLOW.count("RUNTIME_CALL_EVIDENCE_TRANSITION:") == 4
+    assert _WORKFLOW.count("--runtime-call-evidence-transition") == 3
+    assert (
+        'if [[ "$SERVICE" == "core-control-plane" || "$SERVICE" == "operator-service" ]]; '
+        "then\n            operator_api_name="
+    ) in materialize
+    assert (
+        'if [[ "$SERVICE" == "operator-service" ]]; then\n'
+        '            console_hostname="$CONSOLE_DEFAULT_HOSTNAME"'
+    ) in materialize
+    assert ". == null or (" in materialize
 
 
 def test_console_release_publishes_static_content_without_catalog_mutation() -> None:

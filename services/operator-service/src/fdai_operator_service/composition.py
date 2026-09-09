@@ -56,11 +56,13 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
     SEMANTIC_RESULT_TOPIC,
     DialogueRelationshipResolver,
+    RuntimeCallEndpointObserver,
     SemanticTurnBridge,
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
     T1ModelHealthReader,
+    runtime_call_endpoint_observer_from_config,
 )
 from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
 from fdai_operator_service.families.operations import PanelRoute
@@ -227,6 +229,7 @@ class ProductionOperatorComposition:
             result_group=environment.semantic_consumer_group_id,
             context_selection_registry=context_selection_registry,
             relationship_resolver=self.adaptive_relationship_resolver,
+            runtime_call_observer=runtime_call_endpoint_observer_from_config(environment.values),
         )
         read_investigation_bridge = (
             ReadInvestigationBridge(
@@ -630,6 +633,7 @@ def _semantic_bridge(
     result_group: str,
     context_selection_registry: ContextSelectionRegistry,
     relationship_resolver: DialogueRelationshipResolver | None = None,
+    runtime_call_observer: RuntimeCallEndpointObserver | None = None,
 ) -> SemanticTurnBridge | None:
     if publisher is None and result_source is None:
         return None
@@ -648,6 +652,7 @@ def _semantic_bridge(
             selection_registry=context_selection_registry,
         ),
         relationship_resolver=relationship_resolver,
+        runtime_call_observer=runtime_call_observer,
     )
 
 

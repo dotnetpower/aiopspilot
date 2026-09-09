@@ -16,6 +16,9 @@ from fdai.core.conversation.semantic_runtime import SemanticTurnResult as Runtim
 from fdai.core.conversation.session import Principal, Turn
 from fdai.core.ontology_platform import QueryNodeResult, QueryPlanExecution
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
+from fdai_core_service.semantic_turn_consumer import (
+    RuntimeCallEndpointObserver as CoreRuntimeCallEndpointObserver,
+)
 from fdai_core_service.semantic_turn_processor import SemanticTurnProcessor
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
@@ -27,6 +30,9 @@ from fdai_operator_service.families.conversation.semantic_turn import SemanticTu
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     _receipt_authority,
     semantic_done_event_data,
+)
+from fdai_operator_service.families.conversation.semantic_turn_runtime import (
+    RuntimeCallEndpointObserver as OperatorRuntimeCallEndpointObserver,
 )
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnBridge,
@@ -57,7 +63,6 @@ def test_direct_response_intent_has_no_lexical_runtime_owner() -> None:
         REPO_ROOT / "services/core-control-plane/src/fdai/core/conversation/direct_response.py"
     )
     assert not classifier_path.exists()
-
     contract_tree = ast.parse(
         (
             REPO_ROOT / "packages/service-contracts/src/fdai_service_contracts/semantic_turn.py"
@@ -85,6 +90,41 @@ def test_direct_response_intent_has_no_lexical_runtime_owner() -> None:
         not (isinstance(node, ast.Attribute) and node.attr == "utterance")
         for node in ast.walk(operator_tree)
     )
+
+
+def test_runtime_call_endpoint_witnesses_share_one_observation_identity() -> None:
+    caller_resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target_resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+    request = {"request_id": "00000000-0000-0000-0000-000000000001"}
+    target_records: list[str] = []
+    caller = OperatorRuntimeCallEndpointObserver(
+        caller_resource_id=caller_resource_id,
+        target_resource_id=target_resource_id,
+        clock=lambda: NOW,
+    )
+    target = CoreRuntimeCallEndpointObserver(
+        caller_resource_id=caller_resource_id,
+        target_resource_id=target_resource_id,
+        clock=lambda: NOW,
+        emit=target_records.append,
+    )
+
+    caller_record = json.loads(caller.record(request))
+    target.observe(request)
+    target_record = json.loads(target_records[0])
+
+    assert caller_record["endpoint_role"] == "caller"
+    assert target_record["endpoint_role"] == "target"
+    assert caller_record["observation_id"] == target_record["observation_id"]
+    assert caller_record["caller_resource_id"] == target_record["caller_resource_id"]
+    assert caller_record["target_resource_id"] == target_record["target_resource_id"]
 
 
 class _OperatorStore:
