@@ -78,3 +78,15 @@ def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
 
     with pytest.raises(DetectionGovernancePolicyError, match="reversed"):
         load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
+def test_policy_rejects_confidence_levels_the_forecast_band_cannot_evaluate(
+    tmp_path: Path,
+) -> None:
+    raw = _policy()
+    targets = raw["forecast_targets"]
+    assert isinstance(targets, list)
+    targets[0]["confidence_level"] = "0.85"
+
+    with pytest.raises(DetectionGovernancePolicyError, match="confidence_level"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))

@@ -35,7 +35,7 @@
       "horizon_seconds": 86400,
       "min_samples": 5,
       "min_r_squared": 0.5,
-      "confidence_level": 0.9
+      "confidence_level": "0.90"
     },
     {
       "target_kind": "cost",
@@ -43,7 +43,7 @@
       "horizon_seconds": 604800,
       "min_samples": 5,
       "min_r_squared": 0.5,
-      "confidence_level": 0.9
+      "confidence_level": "0.90"
     },
     {
       "target_kind": "expiry",
@@ -51,7 +51,7 @@
       "horizon_seconds": 2592000,
       "min_samples": 5,
       "min_r_squared": 0.5,
-      "confidence_level": 0.9
+      "confidence_level": "0.90"
     },
     {
       "target_kind": "replication_lag",
@@ -59,7 +59,7 @@
       "horizon_seconds": 3600,
       "min_samples": 5,
       "min_r_squared": 0.5,
-      "confidence_level": 0.9
+      "confidence_level": "0.90"
     }
   ],
   "correlation": {

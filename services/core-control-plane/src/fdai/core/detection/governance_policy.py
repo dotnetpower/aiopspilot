@@ -17,6 +17,7 @@ DETECTION_GOVERNANCE_SCHEMA_VERSION = "1.0.0"
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _PHASES = frozenset({"hour_of_day", "day_of_week", "hour_of_week"})
 _CORRELATION_KEYS = frozenset({"correlation_id", "resource_ref"})
+_FORECAST_CONFIDENCE_LEVELS = frozenset({"0.80", "0.90", "0.95", "0.99"})
 
 
 class DetectionGovernancePolicyError(ValueError):
@@ -55,7 +56,7 @@ class ForecastTargetPolicy:
     horizon_seconds: int
     min_samples: int
     min_r_squared: float
-    confidence_level: float
+    confidence_level: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,7 +231,11 @@ def _forecast_target(value: object, *, index: int) -> ForecastTargetPolicy:
         ),
         min_samples=_integer(raw["min_samples"], "min_samples", minimum=2, maximum=10_000),
         min_r_squared=_ratio(raw["min_r_squared"], "min_r_squared"),
-        confidence_level=_ratio(raw["confidence_level"], "confidence_level"),
+        confidence_level=_member(
+            raw["confidence_level"],
+            "confidence_level",
+            allowed=_FORECAST_CONFIDENCE_LEVELS,
+        ),
     )
 
 
@@ -376,6 +381,13 @@ def _ratio(value: object, label: str) -> float:
     if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
         raise DetectionGovernancePolicyError(f"{label} MUST be in [0, 1]")
     return float(value)
+
+
+def _member(value: object, label: str, *, allowed: frozenset[str]) -> str:
+    text = _text(value, label)
+    if text not in allowed:
+        raise DetectionGovernancePolicyError(f"{label} is unsupported")
+    return text
 
 
 def _boolean(value: object, label: str) -> bool:
