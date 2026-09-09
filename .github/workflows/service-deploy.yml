@@ -552,6 +552,19 @@ jobs:
           case "$OPERATOR_CHANNEL_EDGE_TRANSITION" in
             enable) channel_edge_args+=(--operator-channel-edge-enabled true) ;;
             disable) channel_edge_args+=(--operator-channel-edge-enabled false) ;;
+            none)
+              if [[ "$SERVICE" == "operator-service" ]]; then
+                current_service="$(
+                  terraform -chdir="$TERRAFORM_ROOT" output -json service
+                )"
+                current_channel_edge_id="$(
+                  jq -er '.channel_edge.id // ""' <<<"$current_service"
+                )"
+                if [[ -n "$current_channel_edge_id" ]]; then
+                  channel_edge_args+=(--operator-channel-edge-enabled true)
+                fi
+              fi
+              ;;
           esac
           model_endpoints_json="{}"
           if [[ "$SERVICE" == "core-control-plane" ]]; then

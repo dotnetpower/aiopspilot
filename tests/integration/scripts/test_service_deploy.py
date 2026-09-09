@@ -81,6 +81,11 @@ def recovery() -> ModuleType:
 
 
 @pytest.fixture(scope="module")
+def runtime_contract() -> ModuleType:
+    return _load("runtime_container_contract")
+
+
+@pytest.fixture(scope="module")
 def live_observation() -> ModuleType:
     return _load("live_observation")
 
@@ -2376,6 +2381,100 @@ def test_plan_guard_rejects_unrelated_database_host_environment_drift(
             environment="dev",
             image_ref="image",
             database_host_binding=True,
+        )
+
+
+def test_plan_guard_allows_exact_deployed_venue_adoption(
+    guard: ModuleType,
+) -> None:
+    address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
+    before = _resource(image="old-image")
+    after = _resource(image="image")
+    before_environment = before["template"][0]["container"][0]["env"]  # type: ignore[index]
+    before_environment[:] = [
+        item for item in before_environment if item["name"] != "FDAI_EXECUTION_VENUE"
+    ]
+
+    assert (
+        guard._guard_database_host_binding(
+            before,
+            after,
+            address=address,
+            contract=guard.resolve_service("isolated-executor", "dev"),
+        )
+        == []
+    )
+
+
+def test_plan_guard_rejects_non_deployed_venue_adoption(
+    guard: ModuleType,
+) -> None:
+    address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
+    before = _resource(image="old-image")
+    after = _resource(image="image")
+    before_environment = before["template"][0]["container"][0]["env"]  # type: ignore[index]
+    before_environment[:] = [
+        item for item in before_environment if item["name"] != "FDAI_EXECUTION_VENUE"
+    ]
+    next(
+        item
+        for item in after["template"][0]["container"][0]["env"]  # type: ignore[index]
+        if item["name"] == "FDAI_EXECUTION_VENUE"
+    )["value"] = "local"
+
+    assert guard._guard_database_host_binding(
+        before,
+        after,
+        address=address,
+        contract=guard.resolve_service("isolated-executor", "dev"),
+    ) == [
+        (
+            "database host binding changes unapproved environment at "
+            f"{address}: unexpected=['FDAI_EXECUTION_VENUE']"
+        )
+    ]
+
+
+def test_runtime_contract_normalizes_provider_empty_secret_value(
+    runtime_contract: ModuleType,
+) -> None:
+    configuration = runtime_contract.planned_primary_configuration(
+        {
+            "name": "service",
+            "env": [
+                {
+                    "name": "FDAI_DATABASE_URL",
+                    "value": "",
+                    "secret_name": "database-dsn",
+                }
+            ],
+        }
+    )
+
+    assert configuration["env"] == [
+        {
+            "name": "FDAI_DATABASE_URL",
+            "kind": "secret_ref",
+            "binding": "database-dsn",
+        }
+    ]
+
+
+def test_runtime_contract_rejects_two_nonempty_environment_bindings(
+    runtime_contract: ModuleType,
+) -> None:
+    with pytest.raises(runtime_contract.RuntimeContainerContractError, match="environment"):
+        runtime_contract.planned_primary_configuration(
+            {
+                "name": "service",
+                "env": [
+                    {
+                        "name": "FDAI_DATABASE_URL",
+                        "value": "plain",
+                        "secret_name": "database-dsn",
+                    }
+                ],
+            }
         )
 
 
