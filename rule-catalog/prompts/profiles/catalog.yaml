@@ -65,7 +65,7 @@ profiles:
     packs:
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
-    system_token_budget: 8192
+    system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
@@ -79,7 +79,7 @@ profiles:
       - {id: semantic-judgment, version: 14, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
-    system_token_budget: 8192
+    system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
     promotion_evidence: [a5d3627b3]
@@ -93,7 +93,7 @@ profiles:
       - {id: semantic-judgment, version: 14, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 8192
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: []
@@ -104,7 +104,7 @@ profiles:
     mode: active
     root: {id: conversation-preflight, version: 8, layer: base}
     packs: []
-    system_token_budget: 2048
+    system_token_budget: 8192
     request_token_budget: 16384
     reserved_output_tokens: 768
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -115,7 +115,7 @@ profiles:
     mode: active
     root: {id: conversation-social-narrator, version: 1, layer: base}
     packs: []
-    system_token_budget: 512
+    system_token_budget: 2048
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -127,7 +127,7 @@ profiles:
     root: {id: conversation-social-narrator, version: 1, layer: base}
     packs:
       - {id: conversation-social-greeting, version: 1, layer: pack}
-    system_token_budget: 512
+    system_token_budget: 2048
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -139,7 +139,7 @@ profiles:
     root: {id: conversation-social-narrator, version: 1, layer: base}
     packs:
       - {id: conversation-social-thanks, version: 1, layer: pack}
-    system_token_budget: 512
+    system_token_budget: 2048
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -151,7 +151,7 @@ profiles:
     root: {id: conversation-social-narrator, version: 1, layer: base}
     packs:
       - {id: conversation-social-farewell, version: 1, layer: pack}
-    system_token_budget: 512
+    system_token_budget: 2048
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -163,7 +163,7 @@ profiles:
     root: {id: conversation-social-narrator, version: 1, layer: base}
     packs:
       - {id: conversation-social-self-introduction, version: 1, layer: pack}
-    system_token_budget: 512
+    system_token_budget: 2048
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -174,7 +174,7 @@ profiles:
     mode: active
     root: {id: semantic-query-frame, version: 40, layer: base}
     packs: []
-    system_token_budget: 12288
+    system_token_budget: 65536
     request_token_budget: 196608
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
@@ -186,7 +186,7 @@ profiles:
     root: {id: semantic-query-frame, version: 40, layer: base}
     packs:
       - {id: semantic-query-frame, version: 41, layer: pack}
-    system_token_budget: 12288
+    system_token_budget: 65536
     request_token_budget: 196608
     reserved_output_tokens: 2048
     promotion_evidence: []
@@ -198,7 +198,7 @@ profiles:
     root: {id: semantic-query-frame-common, version: 1, layer: base}
     packs:
       - {id: semantic-query-frame, version: 41, layer: pack}
-    system_token_budget: 1024
+    system_token_budget: 2048
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: []
@@ -220,7 +220,7 @@ profiles:
     mode: active
     root: {id: semantic-query-frame-recovery, version: 1, layer: base}
     packs: []
-    system_token_budget: 512
+    system_token_budget: 1024
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
@@ -231,7 +231,7 @@ profiles:
     mode: active
     root: {id: semantic-query-plan, version: 18, layer: base}
     packs: []
-    system_token_budget: 4096
+    system_token_budget: 16384
     request_token_budget: 65536
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
@@ -242,7 +242,7 @@ profiles:
     mode: shadow
     root: {id: semantic-query-plan-common, version: 1, layer: base}
     packs: []
-    system_token_budget: 512
+    system_token_budget: 1024
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: []
@@ -254,7 +254,7 @@ profiles:
     root: {id: adaptive-common, version: 1, layer: base}
     packs:
       - {id: adaptive-plan, version: 4, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 8192
     request_token_budget: 32768
     reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
@@ -266,7 +266,7 @@ profiles:
     root: {id: adaptive-common, version: 1, layer: base}
     packs:
       - {id: adaptive-answer, version: 2, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
@@ -278,7 +278,7 @@ profiles:
     root: {id: adaptive-common, version: 1, layer: base}
     packs:
       - {id: adaptive-review, version: 2, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
@@ -290,7 +290,7 @@ profiles:
     root: {id: adaptive-common, version: 1, layer: base}
     packs:
       - {id: adaptive-refine, version: 1, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
@@ -302,7 +302,7 @@ profiles:
     root: {id: adaptive-common, version: 1, layer: base}
     packs:
       - {id: adaptive-verify, version: 1, layer: pack}
-    system_token_budget: 2048
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
@@ -335,7 +335,7 @@ profiles:
     mode: active
     root: {id: t2-rca, version: 2, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 2048
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/architecture/observability-and-detection.md]
@@ -346,7 +346,7 @@ profiles:
     mode: active
     root: {id: post-turn-review, version: 1, layer: base}
     packs: []
-    system_token_budget: 512
+    system_token_budget: 1024
     request_token_budget: 8192
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/agents/conversational-deliberation.md]
@@ -368,7 +368,7 @@ profiles:
     mode: active
     root: {id: t2-ontology-council, version: 1, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]
@@ -379,7 +379,7 @@ profiles:
     mode: active
     root: {id: t2-ontology-council, version: 1, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]
@@ -390,7 +390,7 @@ profiles:
     mode: active
     root: {id: t2-ontology-council, version: 1, layer: base}
     packs: []
-    system_token_budget: 1024
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/rules-and-detection/rule-catalog-collection.md]

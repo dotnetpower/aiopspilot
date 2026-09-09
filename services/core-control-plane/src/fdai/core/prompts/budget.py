@@ -5,16 +5,13 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-_UNITS_PER_TOKEN = 4
-
 
 def estimate_prompt_tokens(text: str) -> int:
-    """Estimate tokens without undercounting multibyte UTF-8 text."""
+    """Return a tokenizer-free upper bound of one token per UTF-8 byte."""
 
     if not text:
         return 0
-    units = max(len(text), len(text.encode("utf-8")))
-    return max(1, (units + _UNITS_PER_TOKEN - 1) // _UNITS_PER_TOKEN)
+    return len(text.encode("utf-8"))
 
 
 def estimate_chat_request_tokens(

@@ -218,7 +218,7 @@ def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> No
     profile_path = catalog / "prompts" / "profiles" / "catalog.yaml"
     profile_path.write_text(
         profile_path.read_text().replace(
-            "system_token_budget: 12288\n    request_token_budget: 196608",
+            "system_token_budget: 65536\n    request_token_budget: 196608",
             "system_token_budget: 1\n    request_token_budget: 196608",
             1,
         )

@@ -320,14 +320,14 @@ async def test_compose_raises_when_no_base(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_compose_token_estimate_matches_body_length(tmp_path: Path) -> None:
     _write_schema(tmp_path)
-    body = "a" * 40  # 40 chars / 4 chars-per-token = 10 tokens
+    body = "a" * 40  # Tokenizer-free fallback uses one token per UTF-8 byte.
     _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", body))
     registry = FileSystemPromptRegistry(tmp_path)
     composer = DefaultPromptComposer(registry=registry)
 
     out = await composer.compose(capability_id="t2.reasoner.primary")
 
-    assert out.token_estimate == 10
+    assert out.token_estimate == 40
 
 
 @pytest.mark.asyncio
@@ -346,7 +346,7 @@ async def test_compose_token_estimate_counts_multibyte_utf8_conservatively(
         capability_id="t2.reasoner.primary"
     )
 
-    assert out.token_estimate == 3
+    assert out.token_estimate == 12
 
 
 @pytest.mark.asyncio
@@ -416,7 +416,8 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
 
     assert base.version == 8
     assert out.system_text == base.body
-    assert out.token_estimate <= base.token_budget
+    assert out.system_token_budget is not None
+    assert out.token_estimate <= out.system_token_budget
     assert "candidate data only except for bounded general_answer" in out.system_text
     assert "Include no approval, capability, evidence, or execution authority" in out.system_text
     assert "operational_family" in out.system_text
@@ -447,7 +448,8 @@ async def test_social_narrator_prompt_owns_persona_without_operational_context()
 
     assert base.version == 1
     assert out.system_text == base.body
-    assert out.token_estimate <= 352
+    assert out.system_token_budget is not None
+    assert out.token_estimate <= out.system_token_budget
     assert "calm, precise, respectful, evidence-first" in out.system_text
     assert "without repeating one fixed sentence pattern" in out.system_text
     assert "Preserve canonical product and identity strings exactly" in out.system_text
@@ -1258,11 +1260,8 @@ async def test_compose_updates_layer_manifest_token_estimate_after_canary(tmp_pa
 
     out = await composer.compose(capability_id="t2.reasoner.primary")
 
-    # Body is exactly "[canary:hello=CN_X]\nB" = 21 chars, so at 4
-    # chars per token (rounded up) the estimate is 6. The bare body
-    # "B" was 1 char, so the pre-canary estimate would have been 1
-    # token.
-    assert out.layer_manifest[0].token_estimate == 6
+    # Tokenizer-free accounting uses the 21 UTF-8 bytes as a hard upper bound.
+    assert out.layer_manifest[0].token_estimate == 21
 
 
 @pytest.mark.asyncio
