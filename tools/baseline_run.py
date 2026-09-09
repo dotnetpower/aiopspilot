@@ -67,6 +67,11 @@ from fdai_service_contracts.baseline_cohort import (  # noqa: E402
     missing_cohort_claim,
 )
 
+from tools.cohort_publication import (  # noqa: E402
+    cohort_claim_record,
+    publish_governed_baseline,
+    render_cohort_claim,
+)
 from tools.reference_agent import ReferenceAgent  # noqa: E402
 
 #: What still has to happen outside this repository before a published SRE
@@ -255,9 +260,7 @@ def _run(
         cohort_origin=cohort_origin,
     )
     summary["release_gate"] = _release_gate(summary)
-    summary["evidence"]["claim_eligible"] = (
-        summary["release_gate"]["release_eligible"] and summary["cohort_claim"]["claim_eligible"]
-    )
+    publish_governed_baseline(summary)
     return outcomes, summary
 
 
@@ -281,7 +284,11 @@ def _cohort_claim(
     to stay byte-reproducible from the frozen scenario set.
     """
 
-    from tools.cohort_receipt import CohortClaimBundleError, evaluate_cohort_claim_bundle
+    from tools.cohort_receipt import (
+        CohortClaimBundleError,
+        evaluate_cohort_claim_receipt,
+        load_cohort_claim_receipt,
+    )
 
     evaluated_at = datetime.now(tz=UTC)
     policy = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
@@ -302,34 +309,32 @@ def _cohort_claim(
             "a governed cohort receipt MUST be evaluated against a caller-supplied revision"
         )
     requirement = policy.requirement(expected_revision=cohort_revision)
-    assessment: CohortClaimAssessment = evaluate_cohort_claim_bundle(
-        path,
+    receipt = load_cohort_claim_receipt(path)
+    assessment: CohortClaimAssessment = evaluate_cohort_claim_receipt(
+        receipt,
         requirement,
         evaluated_at=evaluated_at,
         admission_provider=admission_provider,
         import_origin=cohort_origin,
         expected_scenario_set_version=scenario_set_version,
     )
-    return _cohort_claim_record(policy, assessment)
+    return cohort_claim_record(
+        policy,
+        assessment,
+        external_residual=EXTERNAL_RESIDUAL,
+        receipt=receipt,
+    )
 
 
 def _cohort_claim_record(
     policy: CohortClaimPolicy,
     assessment: CohortClaimAssessment,
 ) -> dict[str, Any]:
-    return {
-        "claim_eligible": assessment.claim_eligible,
-        "rejection_reasons": [reason.value for reason in assessment.rejection_reasons],
-        "receipt_digest": assessment.receipt_digest,
-        "minimum_sample_size": policy.minimum_sample_size,
-        "artifact_origin": assessment.artifact_origin.value,
-        "policy_id": policy.policy_id,
-        "policy_version": policy.policy_version,
-        "scenario_set_digest": policy.scenario_set_digest,
-        "required_metric_ids": list(policy.required_metric_ids),
-        "required_guard_ids": list(policy.required_guard_ids),
-        "external_residual": EXTERNAL_RESIDUAL,
-    }
+    return cohort_claim_record(
+        policy,
+        assessment,
+        external_residual=EXTERNAL_RESIDUAL,
+    )
 
 
 def _tier_economics(outcomes: list[ScenarioOutcome]) -> dict[str, dict[str, Any]]:
@@ -595,9 +600,13 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
             f"{interval['lower']:.3f} - {interval['upper']:.3f} |"
         )
 
+    guard_source = summary["guard_metric_source"]
+    replay_label = (
+        "Frozen Scenario Replay " if summary["evidence"]["kind"] == "governed-cohort" else ""
+    )
     lines += [
         "",
-        "## Guard Baseline (observed reference outcomes)",
+        f"## Guard Baseline ({guard_source})",
         "",
         "| Guard | Rate |",
         "|-------|------|",
@@ -607,7 +616,7 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
 
     lines += [
         "",
-        "## Tier Economics",
+        f"## {replay_label}Tier Economics",
         "",
         "| Tier | Count | Share | Calls | Latency samples | P50 ms | P95 ms | "
         "Cost USD | Unpriced calls |",
@@ -620,7 +629,7 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
     model = summary["model_economics"]
     lines += [
         "",
-        "## Model and Quality Evidence",
+        f"## {replay_label}Model and Quality Evidence",
         "",
         f"- **Model calls**: {model['model_calls']}",
         f"- **Tokens**: {model['input_tokens']} input, {model['output_tokens']} output",
@@ -631,7 +640,7 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
         f"- **Correct routing**: {quality['routed_correctly_count']} of "
         f"{summary['scenario_count']} ({quality['routed_correctly_rate']:.3f})",
         "",
-        "## Release Gate",
+        f"## {replay_label}Release Gate",
         "",
         f"- **Release eligible**: `{str(summary['release_gate']['release_eligible']).lower()}`",
         "",
@@ -642,24 +651,10 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
         lines.append(f"| `{check}` | `{str(passed).lower()}` |")
 
     cohort = summary["cohort_claim"]
+    lines += render_cohort_claim(cohort, korean=False)
     lines += [
         "",
-        "## Governed Cohort Claim",
-        "",
-        f"- **Claim eligible**: `{str(cohort['claim_eligible']).lower()}`",
-        f"- **Artifact origin**: `{cohort['artifact_origin']}`",
-        f"- **Trusted policy**: `{cohort['policy_id']}@{cohort['policy_version']}`",
-        f"- **Frozen scenario-set digest**: `{cohort['scenario_set_digest']}`",
-        f"- **Minimum sample size**: {cohort['minimum_sample_size']}",
-        "- **Required success metrics**: "
-        + ", ".join(f"`{metric}`" for metric in cohort["required_metric_ids"]),
-        "- **Required zero-threshold guards**: "
-        + ", ".join(f"`{guard}`" for guard in cohort["required_guard_ids"]),
-        "- **Rejection reasons**: "
-        + (", ".join(f"`{reason}`" for reason in cohort["rejection_reasons"]) or "none"),
-        f"- **External residual**: {cohort['external_residual']}.",
-        "",
-        "## Per-Domain Breakdown",
+        f"## {replay_label}Per-Domain Breakdown",
         "",
         "| Domain | Count | Auto | Human approval | Correctly Routed |",
         "|--------|-------|------|-----|------------------|",
@@ -717,13 +712,16 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
             f"{interval['lower']:.3f} - {interval['upper']:.3f} |"
         )
 
-    lines += ["", "## 가드 베이스라인 (관측된 참조 결과)", "", "| 가드 | 비율 |", "|------|------|"]
+    governed = summary["evidence"]["kind"] == "governed-cohort"
+    guard_source = "통제된 기준선 코호트" if governed else "관측된 참조 결과"
+    replay_label = "고정 시나리오 재생 " if governed else ""
+    lines += ["", f"## 가드 기준선 ({guard_source})", "", "| 가드 | 비율 |", "|------|------|"]
     for metric, value in summary["guard_metrics_baseline"].items():
         lines.append(f"| `{metric}` | {value:.3f} |")
 
     lines += [
         "",
-        "## Tier 경제성",
+        f"## {replay_label}Tier 경제성",
         "",
         "| Tier | 개수 | 비율 | 호출 | Latency 표본 | P50 ms | P95 ms | 비용 USD | "
         "가격 미확인 호출 |",
@@ -736,7 +734,7 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
     model = summary["model_economics"]
     lines += [
         "",
-        "## 모델과 품질 증거",
+        f"## {replay_label}모델과 품질 근거",
         "",
         f"- **Model 호출**: {model['model_calls']}",
         f"- **Token**: input {model['input_tokens']}, output {model['output_tokens']}",
@@ -747,7 +745,7 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
         f"- **올바른 routing**: {quality['routed_correctly_count']} / "
         f"{summary['scenario_count']} ({quality['routed_correctly_rate']:.3f})",
         "",
-        "## Release gate",
+        f"## {replay_label}Release gate",
         "",
         f"- **Release 가능**: `{str(summary['release_gate']['release_eligible']).lower()}`",
         "",
@@ -758,24 +756,10 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
         lines.append(f"| `{check}` | `{str(passed).lower()}` |")
 
     cohort = summary["cohort_claim"]
+    lines += render_cohort_claim(cohort, korean=True)
     lines += [
         "",
-        "## 통제된 코호트 주장",
-        "",
-        f"- **주장 사용 가능**: `{str(cohort['claim_eligible']).lower()}`",
-        f"- **산출물 출처**: `{cohort['artifact_origin']}`",
-        f"- **신뢰 정책**: `{cohort['policy_id']}@{cohort['policy_version']}`",
-        f"- **고정 시나리오 집합 다이제스트**: `{cohort['scenario_set_digest']}`",
-        f"- **최소 표본 수**: {cohort['minimum_sample_size']}",
-        "- **필수 성공 지표**: "
-        + ", ".join(f"`{metric}`" for metric in cohort["required_metric_ids"]),
-        "- **필수 영(0) 임계 가드**: "
-        + ", ".join(f"`{guard}`" for guard in cohort["required_guard_ids"]),
-        "- **거부 사유**: "
-        + (", ".join(f"`{reason}`" for reason in cohort["rejection_reasons"]) or "none"),
-        f"- **외부 잔여 조건**: {cohort['external_residual']}.",
-        "",
-        "## 도메인별 분해",
+        f"## {replay_label}도메인별 분석",
         "",
         "| 도메인 | 개수 | Auto | 사람 승인 | 올바르게 라우팅 |",
         "|--------|------|------|-----|------------------|",
