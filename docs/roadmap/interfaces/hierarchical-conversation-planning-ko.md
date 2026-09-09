@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: d06a4eaa537c16c4ca7e109c2c008c67b75f9446
+translation_source_sha: d5a485b2d8ba39646dd09f94ba2000bc7cf50733
 translation_revised: 2026-09-09
 ---
 
@@ -203,6 +203,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 | 2026-09-09 | implemented | 동기화된 실제 근거가 남은 대상 및 명확화 실패 세 건을 분리한 뒤 타입 기반 대상 완결과 누적 v14 지시를 추가했습니다. | `current change`, 탐색용 16-case v14 처리에서 요청한 세 지표, 보조 의도 재현율 및 모든 hard-zero 계수가 100% 또는 0을 달성했습니다. | 검증을 보고하기 전에 커밋하고 같은 집단을 clean source에서 다시 실행합니다. |
 | 2026-09-09 | implemented | clean-source v14가 완전한 Resource 및 시간 대상을 유지하면서 신원을 다시 물은 마지막 오탐을 typed 완결성으로 닫았습니다. | `current change`, 집중 typed 완결성 회귀 | 커밋하고 exact-source 집단을 반복합니다. |
 | 2026-09-09 | implemented | 하위 유형만 있는 exact-target 모호성을 결정론적인 locale 결속 명확화 하나로 안정화하면서 모델이 제안한 ResourceType 대상을 보존했습니다. | `current change`, 집중 명확화 회귀 및 요청 지표가 모두 100%인 탐색용 v14 집단 | 최종 clean SHA에서 커밋, 동기화 및 반복합니다. |
+| 2026-09-09 | validated | clean rebase source `a5d3627b3`에서 16-case 의미 판단 집단을 반복했으며 v14는 shadow 전용을 유지했습니다. | 주 의도, 정확한 대상 추출, 범위 유효성, 명확화 정밀도 및 보조 의도 재현율은 100%이고 모든 안전 계수는 0이었습니다. | 더 넓은 이중 언어 및 frame-plan 승격 근거가 승인될 때까지 shadow 모드를 보존합니다. |
 | 2026-09-08 | implemented | 의미 판단 이후 제안된 모든 운영 요약이 수락된 타입 기반 판단과 일치하도록 하고, 영어 명사 순서에서 범위가 제한된 Unicode 구독 이름을 감지하도록 확장했습니다. | `current change`, 수락되지 않은 판단, 구독 범위, 혼합 언어, 정확한 Resource 및 Resource 계획 집중 검사 통과 | 인증된 표준 Console 근거는 별도로 보존합니다. 이번 로컬 하드닝은 기존 런타임 검증 상태를 변경하지 않습니다. |
 | 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight 유형을 추가하고, 객체 전용 완전성을 관련 없는 관계 및 `scope-test` journal 공백과 분리했으며, 로컬 authoritative refresh의 구성 범위와 journal watermark를 정렬했습니다. | `current change`; 집중 preflight, 계획, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `answered`와 `semantic_answer_verified`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | Compact preflight에 출처가 결속된 F1-F4 후보 의미를 추가해 정확하고 명시적이며 맥락과 독립적인 요청이 직렬 전체 의미 판단 호출 하나를 생략할 수 있게 했습니다. 확신도, 원문 범위, 한 시간, 유형별 형식 및 Resource 신원 검사를 추가했고 다른 모든 요청은 전체 의미 판단을 유지합니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 F1-F4의 답변 token TTFT와 완전한 근거 결과를 보존합니다. |
@@ -378,9 +379,8 @@ evidence_requirements:
 
 이 예시는 문구 규칙이 아니라 논리적 형식입니다. "왜"를 포함해 그 어떤 단어도 단독으로
 `explain_change`를 선택하지 않습니다. 모델은 전체 턴, 선택된 화면 객체, 앞서 검증된 맥락,
-로케일, 시간 기준을 종합해 연산을 제안합니다. "요청"이 HTTP 요청인지, 지원 요청인지,
-배포 요청인지 모호하거나 달력 경계가 확정되지 않으면, 검증기는 운영 데이터를 읽기 전에
-명확화를 요청합니다.
+로케일, 시간 기준을 종합해 연산을 제안합니다. 요청 종류나 달력 경계가 모호하면 검증기는 운영
+데이터를 읽기 전에 명확화를 요청합니다.
 
 스키마 대응을 마치면 의도 그래프는 메트릭 변화, 영향받은 Service, Workload와 Pod 탐색, 인접
 Change 및 정렬된 구간을 연결합니다. 독립 읽기는 함께 실행할 수 있지만 인과 관계 결합은 증적을

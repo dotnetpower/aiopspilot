@@ -187,6 +187,7 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 | 2026-09-09 | implemented | Added typed target closure and cumulative v14 instructions after synchronized live evidence isolated three remaining target and clarification failures. | `current change`; exploratory 16-case v14 treatment measured all three requested metrics at 100%, secondary recall 100%, and every hard-zero counter at zero. | Commit and rerun the same cohort on the clean source before validation. |
 | 2026-09-09 | implemented | Treated exact Resource and time targets as complete for read-only error correlation, removing the final clean-source clarification false positive without lexical routing. | `current change`; focused typed-completeness regression. | Commit and repeat the exact-source cohort. |
 | 2026-09-09 | implemented | Stabilized subtype-only exact-target ambiguity with one deterministic locale-bound clarification while preserving the model-proposed ResourceType target. | `current change`; focused clarification regression and exploratory v14 cohort with all requested metrics at 100%. | Commit, synchronize, and repeat on the final clean SHA. |
+| 2026-09-09 | validated | Repeated the 16-case semantic judgment cohort on clean rebased source `a5d3627b3`; v14 remained shadow-only. | Primary intent, exact target extraction, span validity, clarification precision, and secondary recall were 100%; all safety counters were 0. | Preserve shadow mode until broader bilingual and frame-plan promotion evidence is approved. |
 | 2026-09-08 | implemented | Required every operational summary proposed after semantic judgment to match an accepted typed judgment, and extended named-subscription detection to bounded Unicode names in English noun order. | `current change`; focused rejected-judgment, subscription-scope, mixed-language, exact-Resource, and Resource-planning checks passed. | Retain authenticated standard-Console evidence separately; this local hardening does not change the existing runtime validation state. |
 | 2026-09-07 | implemented | Added an exact Resource current-state preflight family, isolated its object-only completeness from unrelated relationship and scope-test journal gaps, and aligned the local authoritative refresh with configured scope and journal watermarks. | `current change`; focused preflight, planning, query-gateway, inventory-refresh, source-coverage, Ruff, and strict mypy checks; isolated production-Operator E2E returned `answered` and `semantic_answer_verified`. | Retain the same result through the authenticated standard Console browser. |
 | 2026-09-07 | implemented | Added provenance-bound F1-F4 candidate meaning to compact preflight so an exact, explicit, context-independent request can skip one serial full semantic-judgment call. Added confidence, source-span, one-hour, family-shape, and Resource identity checks; all other requests retain full judgment. | `current change`; 177 focused conversation, prompt-registry, and adapter tests, targeted Ruff, and strict mypy passed. | Retain standard-stack answer-token TTFT and complete evidence outcomes for F1-F4. |
@@ -372,9 +373,8 @@ evidence_requirements:
 
 This example is a logical form, not a phrase rule. No individual word, including "why", selects
 `explain_change`. The model proposes the operation from the whole turn, selected screen objects,
-prior verified context, locale, and time reference. If "requests" could mean HTTP requests,
-support requests, or deployment requests, or if the calendar boundary is unresolved, the verifier
-returns a clarification before any operational read.
+prior verified context, locale, and time reference. Ambiguous request kinds or calendar boundaries
+return a clarification before any operational read.
 
 After schema grounding, the graph binds metrics, Services, topology, and Changes; `forbidden_actions` create no goal or draft.
 
