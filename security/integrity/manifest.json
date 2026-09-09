@@ -806,7 +806,7 @@
     "services/core-control-plane/src/fdai/core/prompts/composer.py": "9a4aac0e18420398ab7bb4d5ee816391564ae21dcdfd102d5aff8ca2f3bb59dc",
     "services/core-control-plane/src/fdai/core/prompts/profile_evaluation.py": "7c54960b86520046f171efc04497833f3b6277924904694eaae9c1bab8a9aaff",
     "services/core-control-plane/src/fdai/core/prompts/profile_loader.py": "c6e51b94ed8b2def388a60bab6f97f87e7f2250b03f4e3fdb4d9ab75368e89bd",
-    "services/core-control-plane/src/fdai/core/prompts/profiles.py": "42959da16a45075d038faba8846fb6a677ba400df449378fae7d78b6b213e5ad",
+    "services/core-control-plane/src/fdai/core/prompts/profiles.py": "3ce24f97629218ad7bb2d43911c1a1012e4b2e1f9819fc54b3e217b8304ad12f",
     "services/core-control-plane/src/fdai/core/prompts/registry.py": "3abf3dc94f46079edabca5571ddee1735234c60c6805cb77e1a370a5a9ba1c26",
     "services/core-control-plane/src/fdai/core/prompts/skill_disclosure.py": "698b29b2fa5e691bccde96423fa08f059c273a078b27d8a793d8b6bb2d126b5b",
     "services/core-control-plane/src/fdai/core/prompts/testing.py": "486e6df037647decbb0e96f11e444fb66c3c1040fa1b3e032ecee6330a9b7713",
@@ -1375,7 +1375,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-09T02:52:30Z",
+  "generated_at": "2026-09-09T02:53:21Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

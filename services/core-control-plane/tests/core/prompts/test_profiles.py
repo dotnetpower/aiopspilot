@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 from fdai.core.prompts import (
     FileSystemPromptRegistry,
+    PromptArtifactRef,
     PromptBudgetExceededError,
+    PromptLayer,
+    PromptProfile,
     PromptProfileMode,
     PromptRegistryError,
     compose_static_selection,
@@ -30,6 +33,42 @@ def test_shipped_active_profiles_pin_exact_versions() -> None:
     assert (judgment.root.id, judgment.root.version) == ("semantic-judgment", 8)
     assert (frame.root.id, frame.root.version) == ("semantic-query-frame", 40)
     assert (plan.root.id, plan.root.version) == ("semantic-query-plan", 18)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    (
+        ({"id": "Bad ID"}, "profile id"),
+        ({"version": True}, "profile version"),
+        ({"capability_id": ""}, "capability_id"),
+        ({"system_token_budget": 0}, "system_token_budget"),
+        ({"request_token_budget": 1}, "request budget"),
+        ({"reserved_output_tokens": 20_000}, "reserved output"),
+        ({"promotion_evidence": ("",)}, "promotion evidence"),
+        ({"provenance_source": ""}, "provenance source"),
+    ),
+)
+def test_prompt_profile_rejects_invalid_direct_values(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    values: dict[str, object] = {
+        "id": "test.profile",
+        "version": 1,
+        "capability_id": "test.capability",
+        "mode": PromptProfileMode.ACTIVE,
+        "root": PromptArtifactRef("root", 1, PromptLayer.BASE),
+        "packs": (),
+        "system_token_budget": 128,
+        "request_token_budget": 4096,
+        "reserved_output_tokens": 512,
+        "promotion_evidence": ("test",),
+        "provenance_source": "test",
+    }
+    values.update(overrides)
+
+    with pytest.raises(ValueError, match=message):
+        PromptProfile(**values)  # type: ignore[arg-type]
 
 
 def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:

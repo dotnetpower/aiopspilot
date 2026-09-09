@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 
 from fdai.core.prompts.types import ComposedPrompt, LayerRef, PromptArtifact, PromptLayer
 
 _CHARS_PER_TOKEN = 4
+_COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-]{0,127}$")
+_MAX_CAPABILITY_CHARS = 128
 
 
 class PromptProfileMode(StrEnum):
@@ -26,6 +29,14 @@ class PromptArtifactRef:
     id: str
     version: int
     layer: PromptLayer
+
+    def __post_init__(self) -> None:
+        if _COMPONENT_ID.fullmatch(self.id) is None:
+            raise ValueError("prompt artifact ref id MUST be a bounded canonical id")
+        if not isinstance(self.version, int) or isinstance(self.version, bool) or self.version < 1:
+            raise ValueError("prompt artifact ref version MUST be a positive integer")
+        if not isinstance(self.layer, PromptLayer):
+            raise ValueError("prompt artifact ref layer MUST be a PromptLayer")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,12 +56,37 @@ class PromptProfile:
     provenance_source: str
 
     def __post_init__(self) -> None:
+        if _COMPONENT_ID.fullmatch(self.id) is None:
+            raise ValueError("prompt profile id MUST be a bounded canonical id")
+        if not isinstance(self.version, int) or isinstance(self.version, bool) or self.version < 1:
+            raise ValueError("prompt profile version MUST be a positive integer")
+        if (
+            not isinstance(self.capability_id, str)
+            or not self.capability_id
+            or len(self.capability_id) > _MAX_CAPABILITY_CHARS
+        ):
+            raise ValueError("prompt profile capability_id MUST be non-empty and bounded")
+        if not isinstance(self.mode, PromptProfileMode):
+            raise ValueError("prompt profile mode MUST be a PromptProfileMode")
+        for name, value in (
+            ("system_token_budget", self.system_token_budget),
+            ("request_token_budget", self.request_token_budget),
+            ("reserved_output_tokens", self.reserved_output_tokens),
+        ):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ValueError(f"prompt profile {name} MUST be a positive integer")
         if self.request_token_budget <= self.system_token_budget:
             raise ValueError("prompt profile request budget MUST exceed its system budget")
         if self.reserved_output_tokens >= self.request_token_budget:
             raise ValueError("prompt profile reserved output MUST be below its request budget")
         if len({(ref.id, ref.version, ref.layer) for ref in self.packs}) != len(self.packs):
             raise ValueError("prompt profile pack refs MUST be unique")
+        if any(not item for item in self.promotion_evidence):
+            raise ValueError("prompt profile promotion evidence MUST be non-empty")
+        if len(set(self.promotion_evidence)) != len(self.promotion_evidence):
+            raise ValueError("prompt profile promotion evidence MUST be unique")
+        if not self.provenance_source:
+            raise ValueError("prompt profile provenance source MUST be non-empty")
 
     @property
     def digest(self) -> str:
