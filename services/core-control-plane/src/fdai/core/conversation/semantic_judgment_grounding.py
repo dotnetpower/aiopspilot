@@ -194,6 +194,43 @@ def normalize_intents_from_typed_facets(
     )
 
 
+def normalize_required_identity_clarification(
+    proposal: SemanticJudgmentProposal,
+    *,
+    locale: str,
+) -> SemanticJudgmentProposal:
+    """Complete fail-closed identity clarification from a typed subtype-only request."""
+
+    kinds = {target.kind for target in proposal.targets}
+    subtype_only_current_state = (
+        proposal.primary_intent == "query.resource_current_state"
+        and "resource_type" in kinds
+        and "resource" not in kinds
+    )
+    subtype_only_action = (
+        proposal.primary_intent == "action_request"
+        and proposal.action_posture == "draft_only"
+        and proposal.action_subject == "ActionType"
+        and "resource_type" in kinds
+        and not {"action_type", "resource"}.intersection(kinds)
+    )
+    if proposal.ambiguous or not (subtype_only_current_state or subtype_only_action):
+        return proposal
+    clarification = (
+        "어떤 리소스의 정확한 이름이나 ID를 사용할까요?"
+        if locale == "ko"
+        else "Which exact resource name or ID should I use?"
+    )
+    return proposal.model_copy(
+        update={
+            "ambiguous": True,
+            "alternatives": (),
+            "unresolved_terms": ("resource_identity",),
+            "clarification": clarification,
+        }
+    )
+
+
 def normalize_overlapping_target_fragments(
     proposal: SemanticJudgmentProposal,
 ) -> SemanticJudgmentProposal:
@@ -500,6 +537,7 @@ __all__ = [
     "normalize_exact_resource_identity_ambiguity",
     "normalize_intents_from_typed_facets",
     "normalize_overlapping_target_fragments",
+    "normalize_required_identity_clarification",
     "normalize_target_shape",
     "normalize_unsupplied_time_canonical_values",
     "validate_action_target_ambiguity",

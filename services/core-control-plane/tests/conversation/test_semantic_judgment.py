@@ -876,7 +876,10 @@ def test_strict_action_subtype_requires_identity_clarification() -> None:
     )
 
     assert result.accepted is False
-    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+    assert result.receipt.disposition is SemanticJudgmentDisposition.CLARIFICATION
+    assert result.proposal is not None
+    assert result.proposal.unresolved_terms == ("resource_identity",)
+    assert result.proposal.clarification == "Which exact resource name or ID should I use?"
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 30d62f9b0b948acbbb4e193ae0a1897b373eaf80
+translation_source_sha: 4add6c001cb77da76f3419ed7b380cc6fedd9fd7
 translation_revised: 2026-09-09
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -222,6 +222,7 @@ translation_revised: 2026-09-09
 | 2026-09-09 | implemented | 수정된 지표, 엄격한 `1.1.0` 스키마, 안전한 대상 정규화, 닫힌 작업 및 담화 불변식과 범위가 제한된 서술자 변환을 적용해 집단과 후보를 v13까지 강화했습니다. | `current change`, 비평 관점 20개, 내용 없는 실제 비교 반복, 연결 회귀 및 정적 게이트 | v13을 shadow로 유지합니다. 승격 전에는 반복된 이중 언어 exact-source 개선과 모든 hard-zero 계수 0이 필요합니다. |
 | 2026-09-09 | implemented | Service Health와 Resource 상태 복합 요청, 작업 절차, 인시던트 생성 및 principal 범위 Resource Health 이력을 위해 타입 기반 대상 완결과 누적 v14 프롬프트 지시를 추가했습니다. | `current change`, 동기화 소스의 탐색 집단에서 주 의도, 정확한 대상 추출, 정확한 범위, 명확화 정밀도 및 보조 의도 재현율이 100%이고 안전 발견은 0이었습니다. | 검증 또는 승격 전에 커밋한 clean exact source에서 다시 실행합니다. |
 | 2026-09-09 | implemented | 정확한 Resource 및 시간 대상을 모두 가진 typed 읽기 전용 오류 상관관계 제안의 중복 명확화를 닫았습니다. | `current change`, 집중 판단 및 Golden 계약 검사 | 커밋한 exact source에서 반복합니다. |
+| 2026-09-09 | implemented | 모델이 제안한 ResourceType 대상을 보존하는 결정론적 지역화 명확화로 하위 유형만 있는 exact-target 모호성을 안정화했습니다. | `current change`, 집중 판단 검사 및 요청 지표가 모두 100%인 탐색용 v14 집단 | 동기화 후 최종 clean source에서 반복합니다. |
 | 2026-09-09 | implemented | 의미 Kafka record를 불투명한 session partition key에 결속하고 요청 UUID는 멱등성과 상관관계에만 사용하도록 유지했습니다. | `current change`, 집중 Operator 의미 전송 테스트 | 이슈 #151에 필요한 통제된 인증 구독 증적을 보존합니다. |
 | 2026-09-08 | implemented | `semantic_planning.py`(813 LOC)와 `semantic_runtime.py`(913 LOC, 871 기준선 초과)에 대한 `check-file-loc` 및 strict-mypy CI 게이트를 복구했습니다. `PreflightDirectResponseRouter`를 `semantic_planning_preflight_router.py`로, 스레드 취소 브리지를 `semantic_runtime_cancellation.py`로 추출했으며, 선택적인 취소 이벤트와 선택적인 `SemanticPlanningService` planner 호출에서 발생한 strict-mypy `union-attr` 오류 두 건을 로컬 변수 좁히기와 명시적 `is not None` 가드로 수정했습니다. 동작 변경은 없습니다. | `current change`, `semantic_planning.py`(734 LOC), `semantic_runtime.py`(805 LOC), Ruff, 네 개 수정 모듈 전체의 대상 strict mypy, `check-file-loc.sh`(enforce 모드, 실패 0건), `tests/conversation/` 집중 테스트 1703건 통과 | 없음. 두 파일 모두 각자의 상한 아래로 복귀했습니다. |
 | 2026-09-08 | implemented | 스트리밍된 의미 답변 구획을 검증된 증적 및 근거 집합에 결속하고 구획별 재생을 추가했으며, Console이 충돌하는 확인 또는 최종 답변을 차단하도록 했습니다. | `current change`, `semantic_turn_runtime.py`, `backend-stream.ts`, 집중 Operator, Console 및 서비스 간 스트림 테스트 | 인증된 런타임 근거는 별도로 보존합니다. 로컬 스트림 검사는 운영 준비 상태를 입증하지 않습니다. |

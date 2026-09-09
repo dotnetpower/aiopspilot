@@ -279,6 +279,10 @@ class SemanticJudgmentBoundary:
                         )
                         proposal = grounding.normalize_overlapping_target_fragments(proposal)
                         proposal = grounding.normalize_target_shape(proposal)
+                        proposal = grounding.normalize_required_identity_clarification(
+                            proposal,
+                            locale=response_locale,
+                        )
                         proposal = grounding.normalize_complete_target_ambiguity(proposal)
                         proposal = grounding.normalize_action_advice_identity_ambiguity(proposal)
                         proposal = grounding.normalize_unsupplied_time_canonical_values(

@@ -114,10 +114,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   circular digest. The exact primary-store fence guard is shadow-only and unwired. A later
   enforcement design needs a reviewed lease that remains held through the side-effect commit.
 - **semantic target resolution is deterministic**: Core removes resource-identity clarification only
-  for one exact identifier or a complete read-only Resource and time correlation. The shadow schema
-  also requires supplied intent and canonical identity, corrects only a unique exact span, and preserves
-  candidate-only `forbidden_actions`. Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O,
-  decision, approval, mutation, or execution authority.
+  for one exact identifier or a complete read-only Resource and time correlation, and creates one
+  bounded clarification for subtype-only exact-target operations. The shadow schema requires supplied
+  intent and canonical identity, corrects only a unique span, and preserves `forbidden_actions`.
+  Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O, decision, approval, mutation, or execution authority.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
