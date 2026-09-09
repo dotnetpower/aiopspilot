@@ -102,8 +102,10 @@ single-file output while preserving the ownership sentinel. Sentinel verificatio
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
-Future protected executors may publish one verified OCI archive or reconcile tenant-bound Entra
-objects. Both require readback and no public mutation command; validation covers package/root collection and Python 3.13 archive parsing.
+Future protected executors may publish one verified OCI Image Layout archive or reconcile
+tenant-bound Entra objects. The image layout retains the registry manifest digest and accepts only
+a coherent OCI media family or protected-publisher Docker schema 2 family; schema 1, mixed, and
+foreign-layer forms remain blocked. Both operations require readback and no public mutation command.
 Before creating or resuming a release workdir, the guard also requires every ancestor to be owned by
 root or the current UID. A group- or world-writable ancestor must have the sticky bit, which prevents
 another UID from swapping the validated workdir before cleanup.

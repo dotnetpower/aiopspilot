@@ -1,6 +1,7 @@
-"""Validate one OCI image without extracting layers or granting provenance trust.
+"""Validate one OCI-layout image without extracting layers or granting provenance trust.
 
-Only uncompressed, regular USTAR-compatible OCI layout archives are supported.
+The layout may retain one family-consistent OCI image or Docker schema 2 image
+manifest. Only uncompressed, regular USTAR-compatible archives are supported.
 The bounded archive is retained as immutable private process memory; streaming
 never reopens its original path. No snapshot, layer, or credential is written.
 """
@@ -21,10 +22,17 @@ from fdai_deployment_cli import offline_kit
 OCI_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_CONFIG = "application/vnd.oci.image.config.v1+json"
 OCI_INDEX = "application/vnd.oci.image.index.v1+json"
-_LAYERS = {
+DOCKER_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
+DOCKER_CONFIG = "application/vnd.docker.container.image.v1+json"
+_OCI_LAYERS = {
     "application/vnd.oci.image.layer.v1.tar",
     "application/vnd.oci.image.layer.v1.tar+gzip",
     "application/vnd.oci.image.layer.v1.tar+zstd",
+}
+_DOCKER_LAYERS = {"application/vnd.docker.image.rootfs.diff.tar.gzip"}
+_IMAGE_FAMILIES = {
+    OCI_MANIFEST: ({OCI_CONFIG}, _OCI_LAYERS),
+    DOCKER_MANIFEST: ({DOCKER_CONFIG}, _DOCKER_LAYERS),
 }
 _PLATFORMS = {"linux-x86_64": "amd64", "linux-aarch64": "arm64"}
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
@@ -88,8 +96,9 @@ def validate_oci_archive(
     Archive, member, count, and total limits inherit offline-kit ceilings. The
     archive itself is at most the offline-kit per-file limit (512 MiB today).
     Every blob is SHA-256 checked; compressed layer contents and rootfs diff_ids
-    are not interpreted. Nested indexes, multiple images, foreign layers, links,
-    extensions, duplicate paths/JSON keys, and extra blobs fail closed.
+    are not interpreted. One coherent OCI or Docker schema 2 media family is
+    accepted. Nested indexes, multiple images, mixed media families, foreign
+    layers, links, extensions, duplicate paths/JSON keys, and extra blobs fail closed.
     Source labels are content assertions, not independently trusted provenance.
     Raises OciArchiveError without including paths or untrusted payloads.
     """
@@ -156,15 +165,16 @@ def _validate_archive[Revision: (str, None)](
         manifests = index.get("manifests")
         _require(isinstance(manifests, list) and len(manifests) == 1, "index", "unsupported")
         selected = _object(cast(list[object], manifests)[0])
-        manifest = _descriptor(selected, entries, {OCI_MANIFEST}, "manifest")
+        manifest = _descriptor(selected, entries, set(_IMAGE_FAMILIES), "manifest")
         _require(manifest.digest == expected_manifest_digest, "manifest", "digest-mismatch")
+        config_media_types, layer_media_types = _IMAGE_FAMILIES[manifest.media_type]
         image = _json(snapshot, (manifest.offset, manifest.size))
-        _schema(image, OCI_MANIFEST, "manifest")
-        config = _descriptor(image.get("config"), entries, {OCI_CONFIG}, "config")
+        _schema(image, manifest.media_type, "manifest")
+        config = _descriptor(image.get("config"), entries, config_media_types, "config")
         layer_values = image.get("layers")
         _require(isinstance(layer_values, list), "layers")
         layers = tuple(
-            _descriptor(value, entries, _LAYERS, "layer")
+            _descriptor(value, entries, layer_media_types, "layer")
             for value in cast(list[object], layer_values)
         )
         configuration = _json(snapshot, (config.offset, config.size))
