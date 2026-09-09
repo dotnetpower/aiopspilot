@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 1b37ffb2b87212fc92a086e8120e367926911ab7
-translation_revised: 2026-09-05
+translation_source_sha: cf5a92a27be6b5e0650a0f28bad8961ce0d68dda
+translation_revised: 2026-09-09
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -217,6 +217,10 @@ capacity: { unit: ptu, value: 30 }
 - **용량 단위:** Standard SKU는 TPM, 프로비저닝된 SKU는 변환 없는 PTU를 사용합니다.
 - **T2 쌍 원자성:** 보류 상태가 아니면 primary와 secondary는 서로 다른 발행기여야 합니다.
 - **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다. 보호된 모델 계획은 하나의 요청 ID로 정확한 Operator 제안과 정책 다이제스트를 식별합니다. Runner는 PostgreSQL을 변경하지 않고 읽으며 오래되었거나 권한을 포함한 상태를 차단합니다.
+- **Settings 초기화:** 보호된 모델 Settings producer는 다이제스트에 결속된 모델 projection을
+  새로 고치고 런타임 Settings 기준 행이 없을 때만 해당 행을 생성합니다. 모델 새로 고침은 기존
+  런타임 Settings 근거를 덮어쓰지 않습니다. Producer는 성공을 보고하기 전에 두 행을 다시 읽고
+  배포 환경이 일치하는지 확인합니다.
 - **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
 
 ### 부트스트랩 Provisioner

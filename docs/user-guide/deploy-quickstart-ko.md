@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 202325dcd6ed1393786d8ee60d5a2d438f822fbc
+translation_source_sha: 08bc250fe942670891012e3552cf9a13cde6c8be
 translation_revised: 2026-09-09
 ---
 
@@ -78,6 +78,10 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
   갱신을 사용해 schema migration을 실행하고 정확히 검증된 Core 이미지에서 구체화한 뒤,
   리포지토리의 모든 예상 Rule 및 Ontology 프로젝션을 PostgreSQL과 비교합니다. 사전
   바인딩하거나 사전 실행한 catalog Job은 이미지와 실행 성공을 readback한 뒤에만 허용합니다.
+- Core 및 Operator 서비스가 정상 상태가 되면 정확히 green인 커밋으로 보호된
+  `model-settings-projection` workflow를 실행하세요. 이 workflow는 모델 Settings projection을
+  새로 고치고 런타임 Settings 기준 행이 없을 때만 생성한 뒤, 두 행이 대상 환경과 일치하는지
+  확인합니다. 기존 런타임 projection은 보존합니다.
 - 독립 Slack 또는 Teams channel edge를 활성화하려면 프로바이더 credential과 principal mapping을
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
