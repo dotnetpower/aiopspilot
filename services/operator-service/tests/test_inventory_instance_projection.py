@@ -920,6 +920,62 @@ def test_kubernetes_projection_rejects_a_partial_versioned_identity() -> None:
         )
 
 
+def test_kubernetes_projection_accepts_the_producer_sequence_bounds() -> None:
+    probe_kinds = [
+        {"container_name": f"container-{index // 3}", "probe_kind": f"probe-{index % 3}"}
+        for index in range(384)
+    ]
+    terminations = [
+        {
+            "container_name": f"container-{index // 2}",
+            "observation_kind": f"state-{index % 2}",
+        }
+        for index in range(256)
+    ]
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+            resource_type="kubernetes.pod",
+            properties={
+                "api_version": "v1",
+                "kind": "Pod",
+                "name": "api",
+                "resource_version": "20",
+                "uid": "uid-api",
+                "probe_kinds": probe_kinds,
+                "container_terminations": terminations,
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    diagnostics = projected["kubernetes_diagnostics"]
+    assert isinstance(diagnostics, dict)
+    assert len(diagnostics["probe_kinds"]) == 384
+    assert len(diagnostics["container_terminations"]) == 256
+
+
+def test_kubernetes_projection_rejects_a_sequence_above_the_producer_bound() -> None:
+    with pytest.raises(ProjectionUnavailableError, match="array exceeds its bound"):
+        _resource_projection(
+            InventoryInstanceResource(
+                resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                resource_type="kubernetes.pod",
+                properties={
+                    "api_version": "v1",
+                    "kind": "Pod",
+                    "name": "api",
+                    "resource_version": "20",
+                    "uid": "uid-api",
+                    "probe_kinds": ["readiness"] * 385,
+                },
+                last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+            ),
+            root_id=None,
+        )
+
+
 @pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])
 def test_model_deployment_projection_rejects_invalid_tpm(capacity_tpm: object) -> None:
     assert _model_deployment_projection(

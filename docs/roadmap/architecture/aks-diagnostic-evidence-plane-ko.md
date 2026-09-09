@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 30c6b7367c2d3233f4385028ac6c851791b56ac2
+translation_source_sha: a01ff0b6949b6b6c475d0c18854b5222d0759cd3
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -112,6 +112,9 @@ Pod 교체는 두 UID를 모두 보존합니다. 확인자는 이전 UID를 같�
 사실, 프로브 종류, 스케줄링 제약, 리소스 요청량 및 제한, 용량, 스토리지 연결, replica 상태 및
 엔드포인트 상태를 기록합니다. Secret 또는 ConfigMap 값, 컨테이너 명령, 환경 값, image pull
 Secret, 원시 Event 메시지, 엔드포인트 주소 또는 원시 로그 본문은 기록하지 않습니다.
+수집기와 Operator 상한은 같습니다. 컨테이너를 최대 128개 수집하면 프로브 종류 레코드는 최대
+384개, 현재 및 이전 종료 레코드는 최대 256개가 될 수 있습니다. 이보다 큰 진단 배열은 조용히
+잘리지 않고 사용할 수 없는 상태가 됩니다.
 
 ### 수명 주기 이력
 

@@ -25,6 +25,8 @@ several same-name sources only when distinct opaque `scope_digest` values qualif
 During schema rollout, a legacy Kubernetes record without every versioned identity field remains a
 Resource row. Exact Kubernetes identity and diagnostics stay withheld until a complete versioned
 observation replaces it.
+Diagnostic arrays retain the collector's maximum sequence of 384 records. This bound applies to the
+separate Kubernetes detail and does not widen any recorded-state fact.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

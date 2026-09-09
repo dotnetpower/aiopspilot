@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 63b4c7d096408be2f01eb0b2aa3127b90cf593b1
+translation_source_sha: d35dace0c5fdbd14450679cd11a721aefe15e595
 translation_revised: 2026-09-10
 ---
 # 기록된 리소스 상태
@@ -25,6 +25,8 @@ Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상�
 `scope_digest` 값으로 한정된 경우에만 이름이 같은 출처 여러 개를 보존합니다.
 스키마 이행 중에 버전이 지정된 신원 필드를 모두 갖추지 못한 기존 Kubernetes 레코드도 Resource
 행으로 유지합니다. 완전한 버전 관측으로 교체될 때까지 정확한 Kubernetes 신원과 진단은 보류합니다.
+진단 배열은 수집기와 같은 최대 384개 레코드 상한을 유지합니다. 이 상한은 별도 Kubernetes 상세
+정보에 적용되며 기록 상태 사실의 범위를 넓히지 않습니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

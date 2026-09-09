@@ -38,6 +38,7 @@ MAX_INSTANCE_RESOURCES = 200
 MAX_INSTANCE_ACTIVITIES = 100
 MAX_INSTANCE_SEARCH_CHARS = 256
 MAX_MODEL_DEPLOYMENT_TPM = 2_147_483_647
+MAX_KUBERNETES_DIAGNOSTIC_SEQUENCE = 384
 MODEL_DEPLOYMENT_RESOURCE_TYPE = "llm-model-deployment"
 _DEFAULT_LINK_TYPES = (
     "contains",
@@ -684,7 +685,7 @@ def _bounded_diagnostic_value(value: object, *, depth: int) -> object:
             for key, item in sorted(value.items())
         }
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        if len(value) > 128:
+        if len(value) > MAX_KUBERNETES_DIAGNOSTIC_SEQUENCE:
             raise ProjectionUnavailableError("Kubernetes diagnostic array exceeds its bound")
         return [_bounded_diagnostic_value(item, depth=depth + 1) for item in value]
     raise ProjectionUnavailableError("Kubernetes diagnostic fact has an unsupported value")
