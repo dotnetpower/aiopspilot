@@ -361,6 +361,10 @@ The verifier evaluates one proposal without calling an executor or mutating a so
 | Safety | rules, workflows, and actions satisfy their complete safety contracts | `denied` |
 | Coverage | every claim has a disposition and critical recall meets the release gate | `review_required` |
 
+When source precedence resolves a lower-priority conflict, the passing receipt still retains every
+overridden fact's immutable evidence reference. Deterministic precedence does not erase audit
+lineage.
+
 Model self-reported confidence is never an authority signal. A computed confidence may summarize
 grounding, independent agreement, identity resolution, freshness, and historical performance, but
 it can only lower eligibility. Independent model disagreement on normalized critical fields routes

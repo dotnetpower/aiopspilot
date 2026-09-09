@@ -428,7 +428,11 @@ def _conflict_gate(
             ["authoritative_conflict"],
             evidence_refs=tuple(sorted(fact.evidence_ref for fact in conflicts)),
         )
-    return _receipt("conflict", GateOutcome.PASS, evidence_refs=("lower_priority_conflict",))
+    return _receipt(
+        "conflict",
+        GateOutcome.PASS,
+        evidence_refs=tuple(sorted(fact.evidence_ref for fact in conflicts)),
+    )
 
 
 def _external_truth_gate(

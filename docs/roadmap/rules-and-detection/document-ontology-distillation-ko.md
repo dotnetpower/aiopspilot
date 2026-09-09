@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 57bd0e6a28e81fe145719478e6eea44084abaa1b
+translation_source_sha: 9e30c03b8c0d5468a3e3cb0d87a90ae6bc6b6d73
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -359,6 +359,9 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 | 외부 truth | 프로바이더 또는 텔레메트리 구문에 fresh 권위 있는 근거가 있음 | `review_required` |
 | 안전성 | 룰, 작업 흐름 및 액션이 완전한 안전성 계약을 충족함 | `denied` |
 | 커버리지 | 모든 점유에 처리 결과가 있고 critical 재현율이 release 게이트를 통과함 | `review_required` |
+
+출처 우선순위가 낮은 순위의 충돌을 해소해도 통과 증적은 덮어쓴 각 사실의 변경할 수 없는
+근거 참조를 유지합니다. 결정론적 우선순위는 감사 계보를 지우지 않습니다.
 
 모델 self-reported 확신도는 권한 신호가 아닙니다. Computed 확신도는 grounding,
 독립적인 agreement, 신원 해석, 최신성 및 historical performance를 요약할 수 있지만

@@ -193,6 +193,31 @@ def test_equal_or_higher_priority_conflict_requires_review() -> None:
     assert _receipt(result, "conflict").evidence_refs == ("evidence:existing-owner",)
 
 
+def test_lower_priority_conflict_preserves_existing_evidence_reference() -> None:
+    claim, text = _claim()
+    proposal = _proposal(claim)
+    context = _context(
+        claim,
+        text,
+        existing_facts=(
+            ExistingFact(
+                fact_key=proposal_fact_key(proposal),
+                value_digest="b" * 64,
+                source_priority=9,
+                source_ref="catalog:service-map",
+                authority=AuthorityClass.DECLARED_INTENT,
+                evidence_ref="evidence:lower-priority-owner",
+            ),
+        ),
+    )
+
+    result = verify_ontology_proposal(proposal, claim, context)
+
+    receipt = _receipt(result, "conflict")
+    assert receipt.outcome is GateOutcome.PASS
+    assert receipt.evidence_refs == ("evidence:lower-priority-owner",)
+
+
 def test_authority_property_is_denied() -> None:
     claim, text = _claim()
     proposal = _proposal(claim, properties=(OntologyProperty("autonomy", "auto"),))
