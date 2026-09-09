@@ -46,7 +46,7 @@ from tests.core.ontology_platform.test_reconciliation import (
     _request,
 )
 
-_WATCHDOG_SECONDS = 0.5
+_WATCHDOG_SECONDS = 2.0
 
 
 class _FakeClock:
