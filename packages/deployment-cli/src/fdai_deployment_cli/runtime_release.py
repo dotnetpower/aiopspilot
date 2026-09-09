@@ -34,14 +34,16 @@ _COMMIT = re.compile(r"[0-9a-fA-F]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PATH = re.compile(r"runtime/[A-Za-z0-9._+/-]+")
 _PLATFORMS = {"linux-x86_64", "linux-aarch64"}
-_SERVICES = {
-    "core-control-plane",
-    "operator-service",
-    "document-ingestion-api",
-    "document-processing-worker",
-    "isolated-executor",
-}
-_SIDECARS = {"clamav"}
+RUNTIME_SERVICES = frozenset(
+    {
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    }
+)
+RUNTIME_SIDECARS = frozenset({"clamav"})
 _ARCHIVE_KEYS = {"archive", "archive_sha256", "sbom", "sbom_sha256"}
 _SERVICE_KEYS = _ARCHIVE_KEYS | {"image_digest", "provenance", "provenance_sha256"}
 _CATALOG_KEYS = {
@@ -114,13 +116,13 @@ def load_runtime_release(
         bundle_digest = catalog["deployment_bundle_sha256"]
         if not isinstance(bundle_digest, str) or _SHA256.fullmatch(bundle_digest) is None:
             raise RuntimeReleaseError("runtime release deployment bundle digest is invalid")
-        services = _object(catalog["services"], _SERVICES)
+        services = _object(catalog["services"], set(RUNTIME_SERVICES))
         declared: dict[str, str] = {}
-        for service in sorted(_SERVICES):
+        for service in sorted(RUNTIME_SERVICES):
             _declare_record(services[service], service=True, declared=declared)
         if schema == _SCHEMA:
-            sidecars = _object(catalog["sidecars"], _SIDECARS)
-            for sidecar in sorted(_SIDECARS):
+            sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
+            for sidecar in sorted(RUNTIME_SIDECARS):
                 _declare_record(sidecars[sidecar], service=True, declared=declared)
         for section in ("console", "deployment_support"):
             _declare_record(catalog[section], service=False, declared=declared)
@@ -154,8 +156,8 @@ def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, st
     catalog = release.to_mapping()
     digests: dict[str, str] = {}
     image: VerifiedOciImage[str] | VerifiedOciImage[None]
-    for section, names in (("services", _SERVICES), ("sidecars", _SIDECARS)):
-        records = _object(catalog[section], names)
+    for section, names in (("services", RUNTIME_SERVICES), ("sidecars", RUNTIME_SIDECARS)):
+        records = _object(catalog[section], set(names))
         for name in sorted(names):
             record = _string_record(records[name], _SERVICE_KEYS)
             path = root / record["archive"]

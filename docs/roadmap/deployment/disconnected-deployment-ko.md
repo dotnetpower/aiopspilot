@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 3856394336d1bb97ff209a46c8401f528d78f933
-translation_revised: 2026-09-06
+translation_source_sha: 6beb02066e9fe9105801b4b6ab2527a39c309446
+translation_revised: 2026-09-09
 ---
 # 폐쇄망 배포
 
@@ -28,6 +28,7 @@ translation_revised: 2026-09-06
 | 폐쇄망 번들 검증 및 계획 명령 | implemented | `packages/deployment-cli`; 산출물 및 패키징 테스트 | 패키지가 `fdaictl`을 등록하고 서명된 로컬 입력을 검증합니다. 계획 수립만으로 새 구독 구성이 완료되지는 않습니다. |
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
 | 전체 런타임 이미지 검증 | implemented | 런타임 목록 v2와 범위가 제한된 OCI 검증기; 집중 테스트 355개; 빈 환경에 설치한 CPython 3.12 검토용 휠 | 구성과 준비 과정에서 서비스 이미지 5개와 ClamAV를 검증합니다. 기존 v1은 점검할 수 있지만 전체 준비에는 사용할 수 없습니다. 합성 서명 이미지는 패키징과 내용 검사를 입증하며 출처나 Azure 준비 완료를 뜻하지 않습니다. |
+| 전체 런타임 release 조립 | implemented | `runtime_build.py`, `build-runtime-release.py`, 집중 조립 테스트 | 비공개 다이제스트 고정 서술자를 사용해 네트워크 접근이나 산출물 실행 없이 OCI 이미지 6개, Console, 배포 지원 자료를 런타임 v2로 조립합니다. 사전 빌드된 근거를 소비하며 운영 release 적격성은 검증되지 않은 상태로 명시합니다. |
 | 의존성 이미지 게시 어댑터 | implemented | `publish_dependency_oci_archive`; 집중 ACR 테스트 80개 | 서비스 게시와 동일하게 자격 증명 획득 전 검증, 시간 제한, 재시도 없는 전송, 매니페스트 GET 재확인을 적용합니다. 의존성 증적은 FDAI 소스 버전을 주장하지 않습니다. 보호된 호출자 연결은 아직 필요하며 테스트는 Azure 대신 기록용 전송기를 사용합니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
@@ -51,12 +52,13 @@ translation_revised: 2026-09-06
 | 2026-09-06 | in-progress | 여러 루트의 공급자를 제한된 시간 안에 수집하고 빈 환경에 설치한 CLI 휠로 지원 환경 설치를 확인했습니다. 확장된 키트 구성에는 과거 검증 상태를 이어 쓰지 않고 새 전체 훈련이 필요합니다. | `current change`; 오프라인 미러 테스트 25개; 네트워크와 캐시 없는 CPython 3.12 격리 설치; 실제 배포판 7개와 설치 환경 내 경로를 확인한 서비스 진입 모듈 5개 | 키트 묶음과 도구는 합성 테스트 입력이었고 서비스를 시작하지 않았습니다. Azure·Console 준비 완료를 뜻하지 않으며 실제 서명 배포판과 보호된 런타임 증적을 확보해야 합니다. |
 | 2026-09-06 | implemented | ClamAV만 허용하는 사이드카 목록을 추가하고 v2 구성·준비 과정에 OCI 내용 검증을 연결했습니다. OPA는 추가 이미지가 아니라 Core 내장 바이너리와 키트 도구로 유지합니다. | `current change`; 목록, 이미지, 준비, ACR, 지원 환경 테스트 355개와 Ruff·엄격한 mypy 검사 통과; 네트워크·인덱스·캐시 없이 CPython 3.12 휠을 설치하여 합성 OCI 이미지 6개를 검증하고, 다시 서명된 잘못된 ClamAV 아카이브를 차단했습니다. | 실제 출처 검증 이미지의 보호된 비공개 호스트 게시, 최신 악성코드 서명 공급, 안전한 최초 서비스 생성, 마이그레이션·인증된 Console·전체 인벤토리 증적을 완료해야 합니다. 서비스를 시작하지 않았습니다. |
 | 2026-09-06 | implemented | FDAI 버전을 요구하지 않는 의존성 게시를 기존의 시간 제한 ACR 업로드와 독립 매니페스트 재확인 경로에 연결했습니다. 서비스 소스 버전 검증은 유지합니다. | `current change`; 의존성 사례 15개를 포함한 ACR 테스트 80개, Ruff 및 엄격한 mypy 검사 통과 | 보호된 승인, 현재 대상·실행자 신원, 잠금, 감사, 복구에 어댑터를 연결해야 합니다. 공개 변경 CLI를 추가하거나 Azure에 이미지를 게시하지 않았습니다. |
+| 2026-09-09 | implemented | 결정론적 런타임 v2 조립과 명시적인 전체 air-gap 훈련 모드를 추가했습니다. 조립기는 모든 입력 다이제스트를 고정하고, 버전이 연결된 서비스 이미지 5개와 버전 비종속 ClamAV를 검증한 뒤 게시합니다. 훈련은 구성된 CLI를 설치하고 경로와 DNS 없이 전체 준비를 실행합니다. | `current change`; `runtime_build.py`, `build-runtime-release.py`, `airgap-drill.sh`, 집중 런타임·오프라인 준비·제품화·Ruff·엄격한 mypy 검사 | 깨끗한 정확한 버전에서 적격 release 산출물로 전체 모드를 실행해야 합니다. 운영 서명, 보호된 Azure 적용, 상태 이전, 준비 완료 증적은 아직 필요합니다. |
 
 ### 남은 작업
 
 - [x] [배포 CLI 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md)에 기록된 전용 CLI 검증기와 도구 훈련을 복원합니다.
 - [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
-- [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 캐시·경로·DNS 없이 설치된 휠의 준비 훈련을 통과합니다.
+- [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 패키지 캐시·경로·DNS 없이 `airgap-drill.sh --runtime-release <directory> --require-runtime`을 통과합니다.
 - [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.
 
 ## 한눈에 보는 설계
@@ -84,6 +86,24 @@ translation_revised: 2026-09-06
 독립적으로 신뢰가 확립된 `fdaictl` 설치와 승인된 신뢰 절차로 전달된 검증 키를 사용합니다.
 신뢰할 수 없는 키트에 함께 담긴 키만으로 해당 키트의 신뢰를 확립할 수 없습니다.
 운영용 신뢰 루트 확립과 배포 적격성은 별도의 사전 조건입니다.
+
+연결된 release 호스트에서 외부 키트를 서명하기 전에 사전 빌드된 OCI 아카이브와 공급망
+근거를 하나의 런타임 v2 디렉터리로 조립합니다. 비공개 빌드 서술자는 소스 루트 아래의 상대
+경로를 사용하고 모든 아카이브, SBOM, 출처, OCI 매니페스트 다이제스트를 고정합니다.
+
+```bash
+uv run --project packages/deployment-cli python \
+  scripts/deployment/release/build-runtime-release.py \
+  --source-root /private/release-inputs \
+  --descriptor /private/runtime-release-build.json \
+  --deployment-bundle /private/fdai-deployment-bundle-0.1.0.tar.gz \
+  --output /private/runtime-release
+```
+
+조립기는 다운로드, 이미지 빌드, 서명, 증명, 레지스트리 호출, Azure 작업을 수행하지 않습니다.
+사전 빌드된 입력만 받아 OCI 아카이브 6개를 검증하고
+`production_release_eligibility=unverified`인 닫힌 트리를 게시합니다. Release 정책은 이
+트리를 구성하고 서명하기 전에 소스와 근거의 적격성을 독립적으로 확립해야 합니다.
 
 ```bash
 fdaictl offline prepare \
@@ -333,9 +353,16 @@ Stage 단계는 실제 `stage-offline-kit.sh`를
 일회용 키로 실행하므로, 드릴 통과는 release 경로 자체를 실증합니다. Verify 단계는 경로도
 이름 해석도 없는 네트워크 이름 공간 안에서 모든 폐쇄망 단계를 다시 실행합니다.
 
+런타임 v2 디렉터리가 준비되면 명시적인 전체 모드를 실행합니다.
+
 ```bash
-bash scripts/deployment/release/airgap-drill.sh
+bash scripts/deployment/release/airgap-drill.sh \
+  --runtime-release /private/runtime-release \
+  --require-runtime
 ```
+
+이 옵션이 없으면 스크립트는 기존 도구 전용 예행연습을 유지하고 런타임 준비를 실행하지 않았다고
+명시합니다. 해당 결과는 전체 release 근거가 아닙니다.
 
 Verify 단계가 순서대로 단정하는 것: 이름 공간에 정말로 egress와 DNS가 없다, 서명된 키트가 검증된다,
 서명된 번들이 검증된다, `terraform init`이 키트 mirror만으로 모든 프로바이더를 해석한다,
@@ -368,6 +395,12 @@ Verify 단계가 순서대로 단정하는 것: 이름 공간에 정말로 egres
 되고, 검증기는 잘린 트리를 완전한 것으로 수락하게 됩니다.
 
 두 검증기는 의도적으로 대칭입니다. 같은 인계를 지키므로, 한쪽의 빈틈은 곧 양쪽의 빈틈입니다.
+
+전체 모드는 인증된 휠 스냅샷에서 `fdaictl`을 설치하고 서비스 이미지 5개, ClamAV, Console,
+배포 지원 자료를 대상으로 `offline prepare`도 실행합니다. 확인된 이미지 다이제스트 6개와
+`subscription_ready=false`를 담은 `fdai.offline-preparation.v2` 증적이 필요합니다. 이어서
+인덱스, 다운로드, 소스 빌드, 캐시를 비활성화한 상태로 해시가 고정된 모든 런타임 지원 배포판을
+설치하고 재확인합니다.
 
 드릴은 의도적으로 계획 평가에서 멈춥니다. 실제 `terraform apply`는 여전히 테난트의 승인된 비공개
 관리 평면 경로가 필요하며, 그것을 로컬에서 시뮬레이션했다고 주장하는 것은 이 설계가 피하려는 종류의
