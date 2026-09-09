@@ -156,6 +156,28 @@ def test_posture_projection_reports_a_gap_for_incomplete_severity_counts() -> No
     assert gaps[0]["reason_code"] == GAP_MALFORMED
 
 
+def test_posture_projection_rejects_boolean_counts() -> None:
+    for field in ("resource_count", "rule_count"):
+        malformed = {**_POSTURE_BODY, field: True}
+        projection = assurance_twin_posture_projection((_row(malformed),))
+
+        assert projection["available"] is False, field
+        gaps = projection["gaps"]
+        assert isinstance(gaps, list)
+        assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
+def test_posture_projection_rejects_a_whitespace_only_scope() -> None:
+    malformed = {**_POSTURE_BODY, "scope": "   "}
+
+    projection = assurance_twin_posture_projection((_row(malformed),))
+
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_MALFORMED
+
+
 def test_posture_projection_never_renders_stale_evidence_as_usable() -> None:
     stale = {
         **_POSTURE_BODY,
