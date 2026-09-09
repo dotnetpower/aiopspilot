@@ -14,10 +14,16 @@ from fdai_service_contracts.ontology_query import (
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
+from fdai.core.ontology_platform.declaration_queries import (
+    ONTOLOGY_DECLARATION_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.manifest_queries import ONTOLOGY_MANIFEST_FUNCTION_NAME
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
-from .semantic_planning_alignment import verify_frame_plan_alignment
+from .semantic_planning_alignment import (
+    DECLARATION_SECTIONS_BY_MEASURE,
+    verify_frame_plan_alignment,
+)
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import (
     QueryNodeProposal,
@@ -27,6 +33,92 @@ from .semantic_planning_models import (
 )
 from .semantic_planning_support import _build_plan
 from .session import Principal
+
+
+def build_ontology_schema_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build an exact schema frame from one accepted no-authority judgment."""
+
+    if (
+        judgment is None
+        or judgment.ambiguous
+        or judgment.action_posture != "advise_only"
+        or judgment.execution_authority
+        or judgment.secondary_intents
+    ):
+        return None
+    available_functions = {
+        descriptor.get("name") for descriptor in descriptors if descriptor.get("kind") == "function"
+    }
+    if judgment.primary_intent == ONTOLOGY_MANIFEST_FUNCTION_NAME:
+        if not any(
+            facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
+        ):
+            return None
+        declaration_kinds = {
+            declaration_kind
+            for target in judgment.targets
+            if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
+        }
+        if (
+            ONTOLOGY_MANIFEST_FUNCTION_NAME not in available_functions
+            or len(declaration_kinds) != 1
+        ):
+            return None
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.AGGREGATE,
+            subject_constraints=(next(iter(declaration_kinds)).value,),
+            measure_concepts=("count",),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.AGGREGATION_TABLE,
+            evidence_requirements=(),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    if judgment.primary_intent != ONTOLOGY_DECLARATION_FUNCTION_NAME:
+        return None
+    declared_subjects = {
+        target.canonical_value
+        for target in judgment.targets
+        if target.canonical_value is not None
+        and any(
+            descriptor.get("kind") in {"action", "link", "object"}
+            and descriptor.get("name") == target.canonical_value
+            for descriptor in descriptors
+        )
+    }
+    if ONTOLOGY_DECLARATION_FUNCTION_NAME not in available_functions or len(declared_subjects) != 1:
+        return None
+    measures = tuple(
+        measure
+        for measure in DECLARATION_SECTIONS_BY_MEASURE
+        if measure in judgment.requested_facets
+    )
+    if not measures:
+        measures = ("declaration_detail",)
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=(next(iter(declared_subjects)),),
+        measure_concepts=measures,
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ONTOLOGY_DECLARATION,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def normalize_ontology_manifest_count_frame(
@@ -163,9 +255,79 @@ def compile_ontology_manifest_count_plan(
     return verified
 
 
+def compile_ontology_declaration_plan(
+    *,
+    frame: SemanticProblemFrame,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    principal: Principal,
+    purpose: str,
+    evaluation_time: datetime,
+) -> OntologyQueryPlan | None:
+    """Build exact declaration reads without delegating closed arguments to a model."""
+
+    if (
+        frame.operation is not SemanticOperation.SELECT
+        or frame.output_shape != SemanticOutputShape.ONTOLOGY_DECLARATION
+        or len(frame.subject_constraints) != 1
+        or not frame.measure_concepts
+        or not _has_function(manifest, ONTOLOGY_DECLARATION_FUNCTION_NAME)
+    ):
+        return None
+    subject = frame.subject_constraints[0]
+    declaration_kinds = {
+        descriptor.get("kind")
+        for descriptor in manifest.descriptors
+        if descriptor.get("name") == subject
+        and descriptor.get("kind") in {"action", "link", "object"}
+    }
+    if len(declaration_kinds) != 1:
+        return None
+    sections = {DECLARATION_SECTIONS_BY_MEASURE.get(measure) for measure in frame.measure_concepts}
+    if None in sections or not sections:
+        return None
+    declaration_kind = next(iter(declaration_kinds))
+    nodes = tuple(
+        QueryNodeProposal(
+            node_id=f"ontology-declaration-{section}",
+            kind=QueryNodeKind.FUNCTION,
+            arguments={
+                "function_name": ONTOLOGY_DECLARATION_FUNCTION_NAME,
+                "arguments": {
+                    "kind": declaration_kind,
+                    "name": subject,
+                    "section": section,
+                    "limit": 100,
+                },
+                "dependency_arguments": {},
+            },
+            output_kind="query.table",
+        )
+        for section in sorted(value for value in sections if value is not None)
+    )
+    proposal = QueryPlanProposal(
+        nodes=nodes,
+        output_node_ids=tuple(node.node_id for node in nodes),
+    )
+    plan = _build_plan(
+        proposal,
+        frame=frame,
+        manifest=manifest,
+        principal=principal,
+        purpose=purpose,
+        evaluation_time=evaluation_time,
+    )
+    verified = verifier.verify(plan, manifest=manifest)
+    verify_frame_plan_alignment(frame, verified, descriptors=manifest.descriptors)
+    return verified
+
+
 def _has_manifest_function(manifest: QueryManifest) -> bool:
+    return _has_function(manifest, ONTOLOGY_MANIFEST_FUNCTION_NAME)
+
+
+def _has_function(manifest: QueryManifest, function_name: str) -> bool:
     return any(
-        descriptor.get("kind") == "function"
-        and descriptor.get("name") == ONTOLOGY_MANIFEST_FUNCTION_NAME
+        descriptor.get("kind") == "function" and descriptor.get("name") == function_name
         for descriptor in manifest.descriptors
     )

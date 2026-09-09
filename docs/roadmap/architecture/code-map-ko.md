@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 70b1bfdd1775c815df4e1fe5c3a0e5253528a0c3
+translation_source_sha: 631646fb34e8ad8b728c2221ee3bed36f4683eac
 translation_revised: 2026-09-09
 ---
 # 코드 맵
@@ -72,6 +72,9 @@ catalog 값 필터를 추가하지 않습니다.
 있습니다. ObjectSet 실패는 기존 예외와 범위가 제한된 단계 진단을 유지합니다. 불완전한 읽기 전용 Resource 및 상태 전이 결과는 검증된 범위의 행과 제한 사항 및 재시도 안내를 제시합니다.
 신원, 권한, 충돌 또는 안전한 부분 집합이 없는 결과는 계속 판단을 보류합니다.
 수락된 구독 신원 및 Service Health 판단은 정확한 입력 없는 FunctionType에서 결정론적 프레임과 서버 계획을 구성하므로 전체 온톨로지 스키마가 프레임 모델 경계를 통과하지 않습니다.
+수락된 매니페스트 개수, 정확한 선언 상세 정보, 단일 ObjectType 스키마 관계 judgment도
+결정론적 frame과 닫힌 FunctionType 인자로 compile됩니다. 이 경로는 lexical route를 추가하거나
+권한을 부여하지 않습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 242bab1909428458c909f3130fd1f41df46c934a
+translation_source_sha: 72008d823d871be74e9ff53136ffffa4a5db0b11
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -114,6 +114,11 @@ Incident 선언 상세 정보, Resource 관계 질문도 정의합니다. Epheme
 선택합니다. Service Health를 보완하되 사용할 수 없는 Resource 상태 또는 Resource Health
 근거를 ready로 표시하지 않습니다.
 
+이러한 스키마 질문에서는 승인된 candidate-only semantic judgment만 언어 경계로 사용합니다.
+Core는 정확한 매니페스트 개수, 선언 상세 정보 또는 단일 ObjectType 관계 frame을 결정론적으로
+구성하고 닫힌 FunctionType 인자를 compile합니다. 따라서 phrase 또는 keyword 경로를 추가하지
+않으면서 두 번째 모델 의존 frame 또는 plan 판정을 피합니다.
+
 지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지 않습니다. 승격하려면 필요한
 모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세, 표현 시나리오에 채점 사례가 있어야 합니다.
 안전 위반, 근거 없는 주장, 만들어 낸 값, 모델 회귀는 계속 hard-zero 지표입니다.
@@ -161,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 승인된 typed 매니페스트 개수, 선언 상세 정보, 단일 ObjectType 관계 judgment를 결정론적 frame 및 닫힌 query plan에 연결하고 로컬 hardening worktree의 측정 의존성을 복구했습니다. | `current change`, 집중 스키마 planning 회귀, 전체 tier-routing 테스트, Ruff, mypy, watchdog 안전 gate | 보류된 76문항 series를 재시도하지 말고 새로운 bounded series를 실행합니다. |
 | 2026-09-09 | implemented | Evidence-ready manifest, declaration, relationship 함수만 사용하도록 타입이 지정된 SRE 온톨로지 challenge 계약 4개를 추가하고 기존 ActionType 개수 계약을 SRE focus에도 노출했습니다. | `current change`, 집중 불변 계약, challenge readiness, watchdog 인증, Ruff, selectable runtime 검사 | 다음 명시적 10문항 child를 실행하고 요청된 95%를 넘는 batch 5개 연속 근거를 보존합니다. |
 | 2026-09-09 | withdrawn | 정확한 baseline 검사에서 검증된 preflight와 결정론적 명확화를 우회하는 것으로 확인된 성급한 collection-type catalog gate를 제거했습니다. | `current change`, PR #542의 정확한 회귀 2개와 집중 preflight 검사 | 재사용 뒤의 기존 value-group binding을 권위 있는 경계로 유지합니다. |
 | 2026-09-09 | implemented | 동작 변경 없이 운영 의도 map과 기본 의도 비교의 strict typing을 완료했습니다. | `current change`, strict mypy 및 집중 의미 의도 검사 | 이 타입 수정에는 남은 동작 또는 권한 작업이 없습니다. |
