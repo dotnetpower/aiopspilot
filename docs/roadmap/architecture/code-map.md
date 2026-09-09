@@ -27,14 +27,19 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
 - **Operator startup revision fence:** Production Operator composition delegates resolved-model
-  source construction to a focused lifecycle module and verifies the immutable digest before Cost
-  Governance projections or any other lifecycle bridge starts.
+  source construction to a focused lifecycle module, verifies the immutable digest, and validates
+  local Azure narrator targets from that same revision before Cost Governance projections or any
+  other lifecycle bridge starts.
   The fence grants no mapping, assessment, or execution authority. If startup fails, composition
   attempts every acquired service cleanup and reports cleanup errors with the original failure.
 - **Platform-to-service bindings:** Root Terraform exports reviewed targets and Key Vault references.
   Protected deployment validates them, and its bot wrapper accepts only exact service plans. For
   public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest,
-  migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
+  migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. The
+  runtime-call handoff carries exact Operator and Core Container App Resource IDs into Core only;
+  the inventory Job independently reads the resulting platform log before the single writer can
+  project a relationship. Private, shared, staging, and production paths retain their protected
+  runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
 - **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
   Operations routes can opt into explicit Sample projections that remain read-only, generic, and

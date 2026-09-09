@@ -396,8 +396,11 @@ corresponding protocols. Otherwise the existing single-route behavior remains un
 
 The weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity
 or quality drift. It opens only an idempotent draft PR and never changes the live mapping. Proposal
-schema v3 compares SKU and effective capacity unit/value in addition to family, publisher, and
-status, so an in-place scale or replacement cannot be misclassified as no change.
+schema v4 compares exact model version, SKU, and effective capacity unit/value in addition to
+family, publisher, and status. Provider deprecation evidence is normalized to the matching model
+version and SKU before the 60-day window is applied. Core can still evaluate trusted schema v3
+proposals that were already open, while new version-only or SKU-scoped drift cannot be
+misclassified as no change.
 
 After draft readback, the workflow emits
 `fdai.model-lifecycle-reconciliation-receipt.v1`. The receipt binds the workflow run and attempt,

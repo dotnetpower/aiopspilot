@@ -6,10 +6,12 @@ import os
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
 import yaml
+from scripts.deployment.azure.model_lifecycle_provider import extract_provider_deprecations
 from scripts.deployment.azure.model_lifecycle_receipt import build_model_lifecycle_receipt
 from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_lifecycle
 
@@ -276,6 +278,7 @@ def test_model_replacement_allows_only_the_exact_sealed_cross_family_target(
 def _resolved(
     family: str = "gpt-4o",
     *,
+    version: str = "2024-11-20",
     status: str = "resolved",
     sku: str = "GlobalStandard",
     capacity_tpm: int = 1_000,
@@ -286,6 +289,7 @@ def _resolved(
             {
                 "name": "t2.reasoner.primary",
                 "family": family,
+                "version": version,
                 "publisher": "OpenAI",
                 "sku": sku,
                 "capacity_tpm": capacity_tpm,
@@ -320,6 +324,33 @@ def test_lifecycle_reconciler_is_idempotent_when_mapping_is_current() -> None:
     assert first["activation_authority"] is False
 
 
+def test_lifecycle_reconciler_proposes_from_empty_hil_only_source() -> None:
+    current = {
+        "schema_version": "1.0.0",
+        "capabilities": [],
+        "mixed_model_mode": "hil-only",
+    }
+
+    result = reconcile_model_lifecycle(
+        current=current,
+        candidate=_resolved(),
+        deprecations=(),
+    )
+
+    assert result["status"] == "proposal"
+    assert result["affected_capabilities"] == ["t2.reasoner.primary"]
+    assert result["source_models_digest"] == _digest(current)
+
+
+def test_lifecycle_reconciler_rejects_empty_non_hil_source() -> None:
+    with pytest.raises(ValueError, match="require hil-only"):
+        reconcile_model_lifecycle(
+            current={"schema_version": "1.0.0", "capabilities": []},
+            candidate=_resolved(),
+            deprecations=(),
+        )
+
+
 def test_lifecycle_reconciler_proposes_sanitized_family_change() -> None:
     result = reconcile_model_lifecycle(
         current=_resolved(),
@@ -337,6 +368,8 @@ def test_lifecycle_reconciler_proposes_sanitized_family_change() -> None:
             "current_capacity_unit": "tpm",
             "current_capacity_value": 1_000,
             "proposed_family": "gpt-5",
+            "current_version": "2024-11-20",
+            "proposed_version": "2024-11-20",
             "proposed_publisher": "OpenAI",
             "proposed_sku": "GlobalStandard",
             "proposed_capacity_unit": "tpm",
@@ -368,6 +401,8 @@ def test_lifecycle_reconciler_proposes_sku_and_capacity_change() -> None:
             "current_capacity_unit": "tpm",
             "current_capacity_value": 1_000,
             "proposed_family": "gpt-4o",
+            "current_version": "2024-11-20",
+            "proposed_version": "2024-11-20",
             "proposed_publisher": "OpenAI",
             "proposed_sku": "Standard",
             "proposed_capacity_unit": "tpm",
@@ -384,13 +419,183 @@ def test_lifecycle_reconciler_proposes_review_for_current_family_deprecation() -
     result = reconcile_model_lifecycle(
         current=_resolved(),
         candidate=_resolved(),
-        deprecations=({"family": "gpt-4o", "retirement_date": "2027-01-01"},),
+        deprecations=(
+            {
+                "family": "gpt-4o",
+                "version": "2024-11-20",
+                "sku": "GlobalStandard",
+                "retirement_date": "2027-01-01",
+            },
+        ),
     )
 
     assert result["status"] == "proposal"
-    assert result["deprecations"] == [{"family": "gpt-4o", "retirement_date": "2027-01-01"}]
+    assert result["deprecations"] == [
+        {
+            "family": "gpt-4o",
+            "version": "2024-11-20",
+            "sku": "GlobalStandard",
+            "retirement_date": "2027-01-01",
+        }
+    ]
     assert "current_family_deprecated" in result["compatibility_impact"]
     assert result["affected_capabilities"] == ["t2.reasoner.primary"]
+
+
+def test_lifecycle_reconciler_ignores_other_version_deprecation() -> None:
+    result = reconcile_model_lifecycle(
+        current=_resolved(version="2024-11-20"),
+        candidate=_resolved(version="2024-11-20"),
+        deprecations=(
+            {
+                "family": "gpt-4o",
+                "version": "2024-05-13",
+                "retirement_date": "2026-10-01",
+            },
+        ),
+    )
+
+    assert result["status"] == "no-change"
+    assert result["deprecations"] == []
+    assert result["affected_capabilities"] == []
+
+
+def test_lifecycle_reconciler_ignores_other_sku_deprecation() -> None:
+    result = reconcile_model_lifecycle(
+        current=_resolved(sku="GlobalStandard"),
+        candidate=_resolved(sku="GlobalStandard"),
+        deprecations=(
+            {
+                "family": "gpt-4o",
+                "version": "2024-11-20",
+                "sku": "GlobalBatch",
+                "retirement_date": "2026-10-01",
+            },
+        ),
+    )
+
+    assert result["status"] == "no-change"
+    assert result["deprecations"] == []
+    assert result["affected_capabilities"] == []
+
+
+def test_lifecycle_reconciler_proposes_same_family_version_change() -> None:
+    result = reconcile_model_lifecycle(
+        current=_resolved(version="2024-08-06"),
+        candidate=_resolved(version="2024-11-20"),
+        deprecations=(),
+    )
+
+    assert result["schema_version"] == "fdai.model-lifecycle-proposal.v4"
+    assert result["status"] == "proposal"
+    assert result["compatibility_impact"] == ["model_version_change"]
+    assert result["changes"][0]["current_version"] == "2024-08-06"  # type: ignore[index]
+    assert result["changes"][0]["proposed_version"] == "2024-11-20"  # type: ignore[index]
+
+
+def test_provider_deprecations_follow_azure_inference_schema_and_horizon() -> None:
+    result = extract_provider_deprecations(
+        [
+            {
+                "name": "gpt-4o",
+                "version": "2024-05-13",
+                "lifecycleStatus": "Deprecating",
+                "deprecation": {"inference": "2026-10-01T00:00:00Z"},
+            },
+            {
+                "name": "gpt-4o",
+                "version": "2024-11-20",
+                "lifecycleStatus": "Legacy",
+                "deprecation": {"inference": "2027-04-14T00:00:00Z"},
+            },
+        ],
+        as_of=date(2026, 9, 9),
+    )
+
+    assert result == [
+        {
+            "family": "gpt-4o",
+            "version": "2024-05-13",
+            "retirement_date": "2026-10-01",
+        }
+    ]
+
+
+def test_provider_deprecations_prefer_earlier_sku_date() -> None:
+    result = extract_provider_deprecations(
+        [
+            {
+                "name": "gpt-4o",
+                "version": "2024-11-20",
+                "lifecycleStatus": "Deprecating",
+                "deprecation": {"inference": "2027-04-14T00:00:00Z"},
+                "skus": [
+                    {
+                        "name": "GlobalStandard",
+                        "deprecationDate": "2026-10-01T00:00:00Z",
+                    },
+                    {
+                        "name": "GlobalBatch",
+                        "deprecationDate": "2027-04-14T00:00:00Z",
+                    },
+                ],
+            }
+        ],
+        as_of=date(2026, 9, 9),
+    )
+
+    assert result == [
+        {
+            "family": "gpt-4o",
+            "version": "2024-11-20",
+            "sku": "GlobalStandard",
+            "retirement_date": "2026-10-01",
+        }
+    ]
+
+
+def test_provider_deprecations_prefer_earlier_model_date() -> None:
+    result = extract_provider_deprecations(
+        [
+            {
+                "name": "gpt-4o",
+                "version": "2024-11-20",
+                "lifecycleStatus": "Deprecating",
+                "deprecation": {"inference": "2026-10-01T00:00:00Z"},
+                "skus": [
+                    {
+                        "name": "GlobalStandard",
+                        "deprecationDate": "2027-04-14T00:00:00Z",
+                    }
+                ],
+            }
+        ],
+        as_of=date(2026, 9, 9),
+    )
+
+    assert result == [
+        {
+            "family": "gpt-4o",
+            "version": "2024-11-20",
+            "sku": "GlobalStandard",
+            "retirement_date": "2026-10-01",
+        }
+    ]
+
+
+def test_provider_deprecations_reject_missing_date_for_deprecating_model() -> None:
+    with pytest.raises(ValueError, match="missing an inference date"):
+        extract_provider_deprecations(
+            [
+                {
+                    "name": "gpt-4o",
+                    "version": "2024-05-13",
+                    "lifecycleStatus": "Deprecating",
+                    "deprecation": {"inference": None},
+                }
+            ],
+            as_of=date(2026, 9, 9),
+        )
 
 
 def test_lifecycle_reconciler_rejects_malformed_retirement_date() -> None:
@@ -489,7 +694,7 @@ def test_lifecycle_reconciler_abstains_on_provider_failure() -> None:
     )
 
     assert result == {
-        "schema_version": "fdai.model-lifecycle-proposal.v3",
+        "schema_version": "fdai.model-lifecycle-proposal.v4",
         "status": "abstained",
         "reason": "rate_limited",
         "activation_authority": False,
@@ -517,6 +722,10 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert '--current "$current"' in workflow
     assert "--current resolved-models.json" not in workflow
     assert "model_lifecycle_reconciler" in workflow
+    assert "model_lifecycle_provider.py" in workflow
+    assert '--as-of "$(date -u +%F)"' in workflow
+    assert "--horizon-days 60" in workflow
+    assert "--provider-error unsupported_response" in workflow
     assert "--provider-error" in workflow
     assert "gh pr create --draft" in workflow
     assert "gh pr list --head" in workflow
