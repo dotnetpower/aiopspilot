@@ -209,6 +209,10 @@ class DefaultPromptComposer(PromptComposer):
     ) -> ComposedPrompt:
         started = time.perf_counter()
         selection = self._registry.resolve(capability_id, profile_id=profile_id)
+        if selection.profile is not None and (
+            self._include_shadow_packs or self._enabled_shadow_pack_ids
+        ):
+            raise ValueError("legacy shadow-pack controls cannot modify an exact prompt profile")
         base = selection.root
         self._ablation.disables(base.layer, base.id)
         packs = selection.packs

@@ -19,7 +19,6 @@ from fdai.composition.wire_adaptive_conversation import (
     build_adaptive_conversation_service,
 )
 from fdai.core.conversation.adaptive_prompt import (
-    ADAPTIVE_STAGE_PACK_IDS,
     ADAPTIVE_STAGES,
     compose_adaptive_prompt,
 )
@@ -86,11 +85,8 @@ def _resolved() -> ResolvedModels:
     )
 
 
-def _composer(*, enabled: bool = True) -> DefaultPromptComposer:
-    return DefaultPromptComposer(
-        registry=FileSystemPromptRegistry(CATALOG),
-        enabled_shadow_pack_ids=ADAPTIVE_STAGE_PACK_IDS if enabled else frozenset(),
-    )
+def _composer() -> DefaultPromptComposer:
+    return DefaultPromptComposer(registry=FileSystemPromptRegistry(CATALOG))
 
 
 async def _build(**overrides: Any) -> Any:
@@ -411,8 +407,8 @@ async def test_unknown_model_provenance_fails_closed(field: str) -> None:
     assert await _build(resolved=replace(resolved, capabilities=capabilities)) is None
 
 
-async def test_missing_explicit_stage_pack_activation_fails_closed() -> None:
-    assert await _build(prompt_composer=_composer(enabled=False)) is None
+async def test_exact_stage_profiles_need_no_legacy_shadow_toggle() -> None:
+    assert await _build(prompt_composer=_composer()) is not None
 
 
 @pytest.mark.parametrize("layer", [PromptLayer.TOOL, PromptLayer.OPERATOR_MEMORY])

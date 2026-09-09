@@ -535,6 +535,16 @@ async def test_shipped_shadow_pack_requires_exact_treatment_profile() -> None:
     assert "t2-cross-check-output-contract" in treatment_ids
 
 
+@pytest.mark.asyncio
+async def test_exact_profile_rejects_legacy_shadow_pack_controls() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
+    composer = DefaultPromptComposer(registry=registry, include_shadow_packs=True)
+
+    with pytest.raises(ValueError, match="legacy shadow-pack controls"):
+        await composer.compose(capability_id="t2.reasoner.primary")
+
+
 # ---------------------------------------------------------------------------
 # Tool manifest layer (Wave 2.5-B step 1)
 # ---------------------------------------------------------------------------
@@ -734,7 +744,6 @@ async def test_shipped_tools_appear_in_dev_composer_only() -> None:
     dev = DefaultPromptComposer(
         registry=prompt_registry,
         tool_registry=tool_registry,
-        include_shadow_packs=True,
         include_shadow_tools=True,
     )
 
