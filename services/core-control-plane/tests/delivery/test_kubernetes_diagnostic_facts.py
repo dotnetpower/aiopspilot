@@ -203,3 +203,34 @@ def test_collects_policy_autoscale_quota_and_limit_summaries() -> None:
     assert policy["egress_rule_count"] == 2
     assert quota["quota_used"] == {"requests.cpu": "3"}
     assert limits["limit_summaries"] == ({"type": "Container", "default": {"cpu": "1"}},)
+
+
+def test_collects_endpoint_slice_health_without_addresses() -> None:
+    props = diagnostic_properties(
+        resource_type="kubernetes.endpoint-slice",
+        spec=None,
+        status=None,
+        body={
+            "addressType": "IPv4",
+            "ports": [{"name": "http", "port": 80}],
+            "endpoints": [
+                {
+                    "addresses": ["10.0.0.4"],
+                    "conditions": {"ready": True, "serving": True, "terminating": False},
+                    "targetRef": {"kind": "Pod", "uid": "uid-ready"},
+                },
+                {
+                    "addresses": ["10.0.0.5"],
+                    "conditions": {"ready": False},
+                    "targetRef": {"kind": "Pod", "uid": "uid-unready"},
+                },
+            ],
+        },
+    )
+
+    assert props["endpoint_count"] == 2
+    assert props["ready"] == 1
+    assert props["serving"] == 1
+    assert props["serving_unknown"] == 1
+    assert props["target_uids"] == ("uid-ready", "uid-unready")
+    assert "10.0.0" not in str(props)

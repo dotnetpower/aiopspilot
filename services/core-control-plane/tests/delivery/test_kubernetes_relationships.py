@@ -69,6 +69,7 @@ def _resources() -> tuple[ResourceRecord, ...]:
             "kubernetes.pod",
             name="api-0",
             labels={"app": "api"},
+            extra={"uid": "uid-pod"},
         ),
         _resource(ENDPOINTS_ID, "kubernetes.endpoints", name="api"),
     )
@@ -164,7 +165,11 @@ def test_complete_snapshot_projects_ingress_and_endpoint_slice_relationships() -
             endpoint_slice_id,
             "kubernetes.endpoint-slice",
             name="api-abcd",
-            extra={"uid": "uid-endpoint-slice", "service_name": "api"},
+            extra={
+                "uid": "uid-endpoint-slice",
+                "service_name": "api",
+                "target_uids": ("uid-pod",),
+            },
         ),
     )
 
@@ -182,6 +187,7 @@ def test_complete_snapshot_projects_ingress_and_endpoint_slice_relationships() -
     assert (ingress_id, "routes_to", SERVICE_ID) in edges
     assert (ingress_id, "attached_to", ingress_class_id) in edges
     assert (SERVICE_ID, "kubernetes_exposes_endpoint_slice", endpoint_slice_id) in edges
+    assert (endpoint_slice_id, "routes_to", POD_ID) in edges
 
 
 def test_complete_snapshot_projects_storage_policy_and_autoscale_relationships() -> None:

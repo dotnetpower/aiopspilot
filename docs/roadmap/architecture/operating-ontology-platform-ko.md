@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: e70294a01d30c21a3a544d040c783ca3d7d7bf08
+translation_source_sha: f04652c8b9e8dc7d169e196f396f91496332cc66
 translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -138,6 +138,9 @@ AKS 진단 근거 플레인은 정식 ResourceType 레지스트리에 PVC, PV, S
 NetworkPolicy, ResourceQuota 및 LimitRange 신원을 추가합니다. 출처 스키마 v2는 검토된
 클러스터, 네임스페이스, 스토리지, 선택기 및 종류로 한정된 자동 확장 관계를 추가합니다. 이러한
 객체와 링크는 관측된 인벤토리 사실로 유지되며 진단, 정책, 승인 또는 실행 권한을 만들지 않습니다.
+EndpointSlice 변환 결과는 backend 수, 조건 및 정확한 대상 Pod UID만 보존합니다. 엔드포인트
+주소는 저장하지 않으며 검토된 `routes_to` 링크는 트래픽 도착 증명이 아니라 구성 근거로
+유지됩니다.
 
 Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
 사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된

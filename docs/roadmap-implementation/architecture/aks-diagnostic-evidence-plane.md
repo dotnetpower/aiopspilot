@@ -21,6 +21,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added content-safe EndpointSlice health and exact target Pod UID relationships. | `current change`; focused EndpointSlice fact, source-schema, and relationship tests. | Add bounded metric evidence and deterministic endpoint diagnosis. |
 | 2026-09-10 | in-progress | Added exact storage, policy, autoscale, quota, and limit ResourceTypes with bounded facts and reviewed relationships. | `current change`; focused catalog, collection, and relationship tests. | Add EndpointSlice target health and metric evidence. |
 | 2026-09-10 | in-progress | Added content-safe Node, Pod, init-container, ephemeral-container, scheduling, probe, resource, and workload diagnostic facts. | `current change`; focused diagnostic fact and API inventory tests. | Add storage, policy, autoscale, endpoint, and metric evidence. |
 | 2026-09-10 | in-progress | Separated stable UID identity from versioned Kubernetes observation metadata and added a fail-closed exact resolver. | `current change`; focused API inventory and resolver tests. | Bind the resolver to persistence and operator projection after diagnostic facts land. |

@@ -140,6 +140,9 @@ StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange identities.
 adds reviewed cluster, namespace, storage, selector, and kind-qualified autoscale relationships.
 These objects and links remain observed inventory facts; they do not create diagnosis, policy,
 approval, or execution authority.
+EndpointSlice projection keeps only backend counts, conditions, and exact target Pod UIDs. It
+stores no endpoint address, and the reviewed `routes_to` link remains configuration evidence rather
+than proof that traffic arrived.
 
 Focused production-composition checks use an exact-release Interface that spans Resource and
 Observation evidence, then invoke the issued Pod function through its secured dependency digest.

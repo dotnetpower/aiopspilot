@@ -32,7 +32,7 @@ _KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA = (
     "kubernetes.service,kubernetes.stateful-set,kubernetes.storage-class;"
     "relationship_properties=backend_service_names,cluster_ref,ingress_class_name,name,"
     "namespace,node_name,node_pool,owner_uids,provider_resource_ref,pvc_claim_names,"
-    "scale_target_name,selector,service_name,storage_class_name,volume_name;"
+    "scale_target_name,selector,service_name,storage_class_name,target_uids,volume_name;"
     "provider_ref=kubernetes-uid:{uid};"
     "resource_id={cluster_ref}/kubernetes/{resource_type}/{namespace_or_cluster}/"
     "{sha256_uid_24}"

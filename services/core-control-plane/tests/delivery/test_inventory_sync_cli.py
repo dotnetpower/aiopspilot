@@ -352,6 +352,7 @@ def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:
         "kubernetes.cluster-contains-diagnostic-resource",
         "kubernetes.cluster-contains-namespace",
         "kubernetes.endpoint-slice-exposed-by-service",
+        "kubernetes.endpoint-slice-routes-to-pod",
         "kubernetes.ingress-attached-to-class",
         "kubernetes.ingress-routes-to-service",
         "kubernetes.hpa-attached-to-daemon-set",

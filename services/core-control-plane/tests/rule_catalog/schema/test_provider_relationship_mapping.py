@@ -108,7 +108,7 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 107
+    assert len(loaded.mappings) == 108
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -232,7 +232,10 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         for mapping in loaded.mappings
         if mapping.reference_format is ProviderReferenceFormat.RESOLVED_UID
     }
-    assert resolved_uids == {"kubernetes.resource-owned-by-controller"}
+    assert resolved_uids == {
+        "kubernetes.endpoint-slice-routes-to-pod",
+        "kubernetes.resource-owned-by-controller",
+    }
 
     mappings = {mapping.mapping_id: mapping for mapping in loaded.mappings}
     agent_pool = mappings["azure.aks-contains-agent-pool"]

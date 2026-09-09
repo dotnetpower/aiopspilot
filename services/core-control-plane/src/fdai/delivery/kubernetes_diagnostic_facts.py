@@ -94,6 +94,64 @@ def diagnostic_properties(
         props.update(_resource_quota_properties(status))
     elif resource_type == "kubernetes.limit-range" and spec is not None:
         props.update(_limit_range_properties(spec))
+    elif resource_type == "kubernetes.endpoint-slice" and body is not None:
+        props.update(_endpoint_slice_properties(body))
+    return props
+
+
+def _endpoint_slice_properties(body: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    address_type = _optional_text(body.get("addressType"))
+    if address_type is not None:
+        props["address_type"] = address_type
+    ports = _mapping_sequence(
+        body.get("ports"),
+        field="EndpointSlice ports",
+        limit=_MAX_SCHEDULING_ITEMS,
+        allow_none=True,
+    )
+    props["port_count"] = len(ports)
+    endpoints = _mapping_sequence(
+        body.get("endpoints"),
+        field="EndpointSlice endpoints",
+        limit=_MAX_SCHEDULING_ITEMS,
+        allow_none=True,
+    )
+    target_uids: set[str] = set()
+    condition_counts = {
+        "ready": 0,
+        "ready_unknown": 0,
+        "serving": 0,
+        "serving_unknown": 0,
+        "terminating": 0,
+        "terminating_unknown": 0,
+    }
+    for endpoint in endpoints:
+        target = endpoint.get("targetRef")
+        if target is not None:
+            if not isinstance(target, Mapping):
+                raise ValueError("Kubernetes EndpointSlice targetRef MUST be an object")
+            if target.get("kind") == "Pod":
+                uid = _optional_text(target.get("uid"))
+                if uid is not None:
+                    target_uids.add(uid)
+        conditions = endpoint.get("conditions")
+        if conditions is None:
+            conditions = {}
+        if not isinstance(conditions, Mapping):
+            raise ValueError("Kubernetes EndpointSlice conditions MUST be an object")
+        for name in ("ready", "serving", "terminating"):
+            value = conditions.get(name)
+            if value is None:
+                condition_counts[f"{name}_unknown"] += 1
+            elif isinstance(value, bool):
+                condition_counts[name] += int(value)
+            else:
+                raise ValueError(f"Kubernetes EndpointSlice {name} MUST be boolean or null")
+    props["endpoint_count"] = len(endpoints)
+    props.update(condition_counts)
+    if target_uids:
+        props["target_uids"] = tuple(sorted(target_uids))
     return props
 
 
