@@ -195,8 +195,8 @@ class AssuranceDecision:
             raise ValueError("AssuranceDecision.confidence MUST be in [0, 1]")
         if not 0 <= self.model_calls <= 3:
             raise ValueError("AssuranceDecision.model_calls MUST be in [0, 3]")
-        if len(self.prompt_profile_evidence) > self.model_calls:
-            raise ValueError("AssuranceDecision prompt profile evidence exceeds model calls")
+        if len(self.prompt_profile_evidence) > 3:
+            raise ValueError("AssuranceDecision prompt profile evidence exceeds evaluator bound")
 
 
 @dataclass(frozen=True, slots=True)

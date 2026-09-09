@@ -18,6 +18,8 @@ from fdai.core.conversation_assurance.models import (
     TurnAssessmentInput,
 )
 from fdai.core.metering.budget import BudgetLedger
+from fdai.core.prompts.profiles import PromptRequestBudgetExceededError
+from fdai.core.prompts.types import PromptProfileEvidence
 
 _PASS_THRESHOLD = 3
 _MINIMUM_CONFIDENCE = 0.85
@@ -108,6 +110,7 @@ class MixedFamilyAssuranceReviewer:
                 _inconclusive(
                     f"evaluator_error:{type(exc).__name__}",
                     outputs=completed,
+                    failure_profile_evidence=_failure_profile_evidence(results),
                 ),
                 completed,
             )
@@ -145,6 +148,7 @@ class MixedFamilyAssuranceReviewer:
                 _inconclusive(
                     f"tie_breaker_error:{type(exc).__name__}",
                     outputs=primary_outputs,
+                    failure_profile_evidence=_failure_profile_evidence((exc,)),
                 ),
                 primary_outputs,
             )
@@ -262,6 +266,7 @@ def _inconclusive(
     reason: str,
     *,
     outputs: tuple[EvaluatorOutput, ...] = (),
+    failure_profile_evidence: tuple[PromptProfileEvidence, ...] = (),
 ) -> AssuranceDecision:
     return AssuranceDecision(
         verdict=AssuranceVerdict.INCONCLUSIVE,
@@ -278,7 +283,18 @@ def _inconclusive(
             output.prompt_profile_evidence
             for output in outputs
             if output.prompt_profile_evidence is not None
-        ),
+        )
+        + failure_profile_evidence,
+    )
+
+
+def _failure_profile_evidence(
+    results: Iterable[object],
+) -> tuple[PromptProfileEvidence, ...]:
+    return tuple(
+        result.prompt_profile_evidence
+        for result in results
+        if isinstance(result, PromptRequestBudgetExceededError)
     )
 
 

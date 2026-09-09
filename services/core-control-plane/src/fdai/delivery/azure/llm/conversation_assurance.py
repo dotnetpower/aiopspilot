@@ -23,6 +23,7 @@ from fdai.core.metering.pricing import PricingTable
 from fdai.core.prompts import (
     PromptProfileEvidence,
     PromptReplayManifest,
+    PromptRequestBudgetExceededError,
     estimate_serialized_request_tokens,
 )
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
@@ -155,7 +156,12 @@ class AzureConversationAssuranceEvaluator:
             and manifest.request_token_budget is not None
             and request_tokens > manifest.request_token_budget
         ):
-            raise RuntimeError("conversation assurance request exceeds its prompt profile budget")
+            raise PromptRequestBudgetExceededError(
+                evidence=PromptProfileEvidence.from_manifest(manifest),
+                estimate=request_tokens,
+                budget=manifest.request_token_budget,
+                surface="conversation assurance",
+            )
         token = await self._identity.get_token(self._target.auth_audience)
         usage: TokenUsage | None = None
         try:

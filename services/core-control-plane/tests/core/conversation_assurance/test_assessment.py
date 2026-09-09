@@ -25,7 +25,7 @@ from fdai.core.conversation_assurance.quality_latency import (
     latency_sample_from_stage_receipt,
 )
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
-from fdai.core.prompts import PromptProfileEvidence
+from fdai.core.prompts import PromptProfileEvidence, PromptRequestBudgetExceededError
 
 
 def _turn(**overrides: object) -> TurnAssessmentInput:
@@ -278,6 +278,61 @@ async def test_evaluator_failure_cancels_and_awaits_sibling() -> None:
     assert decision.reasons == ("evaluator_error:RuntimeError",)
     assert outputs == ()
     assert sibling_cancelled.is_set()
+
+
+async def test_evaluator_budget_failure_preserves_profile_evidence() -> None:
+    profile = PromptProfileEvidence(
+        profile_id="active.conversation-assurance",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_text_sha256="b" * 64,
+        system_token_budget=2048,
+        request_token_budget=16_384,
+        reserved_output_tokens=1024,
+    )
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+
+    async def reject_oversized_request(
+        _turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
+        del debate
+        raise PromptRequestBudgetExceededError(
+            evidence=profile,
+            estimate=16_385,
+            budget=16_384,
+            surface="conversation assurance",
+        )
+
+    async def wait_for_cancellation(
+        _turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
+        del debate
+        await asyncio.sleep(60)
+        raise AssertionError("slow evaluator was not cancelled")
+
+    first.evaluate = reject_oversized_request  # type: ignore[method-assign]
+    second.evaluate = wait_for_cancellation  # type: ignore[method-assign]
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+    turn = _turn()
+
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.reasons == ("evaluator_error:PromptRequestBudgetExceededError",)
+    assert review.decision.model_calls == 0
+    assert review.decision.prompt_profile_evidence == (profile,)
+    assert review.evaluator_outputs == ()
+    assert record.state is AssessmentState.DEFERRED
+    assert record.decision.prompt_profile_evidence == (profile,)
 
 
 async def test_missing_mixed_family_reviewer_defers_diagnostic() -> None:

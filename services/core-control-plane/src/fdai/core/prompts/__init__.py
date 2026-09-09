@@ -39,6 +39,7 @@ from fdai.core.prompts.profiles import (
     PromptBudgetExceededError,
     PromptProfile,
     PromptProfileMode,
+    PromptRequestBudgetExceededError,
     PromptSelection,
     compose_static_selection,
 )
@@ -88,6 +89,7 @@ __all__ = [
     "PromptMode",
     "PromptProfile",
     "PromptProfileMode",
+    "PromptRequestBudgetExceededError",
     "PromptProfileEvidence",
     "PromptRegistry",
     "PromptRegistryError",

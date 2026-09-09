@@ -9,7 +9,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from fdai.core.prompts.budget import estimate_prompt_tokens
-from fdai.core.prompts.types import ComposedPrompt, LayerRef, PromptArtifact, PromptLayer
+from fdai.core.prompts.types import (
+    ComposedPrompt,
+    LayerRef,
+    PromptArtifact,
+    PromptLayer,
+    PromptProfileEvidence,
+)
 
 _COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-]{0,127}$")
 _MAX_CAPABILITY_CHARS = 128
@@ -158,6 +164,24 @@ class PromptBudgetExceededError(ValueError):
         )
 
 
+class PromptRequestBudgetExceededError(RuntimeError):
+    """A finalized model request exceeded its exact profile budget."""
+
+    def __init__(
+        self,
+        *,
+        evidence: PromptProfileEvidence,
+        estimate: int,
+        budget: int,
+        surface: str,
+    ) -> None:
+        self.prompt_profile_evidence = evidence
+        self.estimate = estimate
+        self.budget = budget
+        self.surface = surface
+        super().__init__(f"{surface} request exceeds prompt profile budget ({estimate} > {budget})")
+
+
 def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
     """Compose catalog-only layers without runtime memory, tools, or skills."""
 
@@ -198,5 +222,6 @@ __all__ = [
     "PromptBudgetExceededError",
     "PromptProfile",
     "PromptProfileMode",
+    "PromptRequestBudgetExceededError",
     "PromptSelection",
 ]
