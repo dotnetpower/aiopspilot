@@ -382,7 +382,7 @@
     "locale": "ko",
     "source_path": "docs/user-guide/architecture-ko.md",
     "source_kind": "user-guide",
-    "navigation_section": "Operate",
+    "navigation_section": "Get started",
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
@@ -596,7 +596,7 @@
     "locale": "ko",
     "source_path": "docs/user-guide/deploy-quickstart-ko.md",
     "source_kind": "user-guide",
-    "navigation_section": "Operate",
+    "navigation_section": "Get started",
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
@@ -607,7 +607,7 @@
     "locale": "ko",
     "source_path": "docs/user-guide/diagram-gallery-ko.md",
     "source_kind": "user-guide",
-    "navigation_section": "Operate",
+    "navigation_section": "Reference",
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
@@ -626,7 +626,7 @@
     "locale": "ko",
     "source_path": "docs/user-guide/get-started-ko.md",
     "source_kind": "user-guide",
-    "navigation_section": "Operate",
+    "navigation_section": "Get started",
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
@@ -695,6 +695,17 @@
     "source_path": "docs/user-guide/guides/use-operator-conversations-ko.md",
     "source_kind": "user-guide",
     "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/local-development-quickstart/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/local-development-quickstart-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Get started",
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
@@ -1234,6 +1245,17 @@
     "diagram_ids": [
       "fdai-sre-investigation-rca-01"
     ]
+  },
+  {
+    "route": "/local-development-quickstart/",
+    "locale": "en",
+    "source_path": "docs/user-guide/local-development-quickstart.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
   },
   {
     "route": "/reference/roadmap/",

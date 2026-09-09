@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 860c404fd87ea72f2f1c43ebca2bad87b096d40d
+translation_source_sha: 5e7239b3b826537b38db7eb5be7388426558244f
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -185,14 +185,14 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 #### 온보딩 자동화
 
 두 배포 경로를 반복 가능하게 만드는 customer-agnostic 파라미터형 헬퍼는 다음과 같습니다.
-보조 로직 실행 전 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 승인된 배포 대상으로
-설정합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
-두 축을 보호된 workflow의 명시적 입력으로 요구합니다. 테넌트를 증명한 뒤에만 예상 구독을
-선택하며, 신원이 exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
+보호된 호출자와 비대화형 호출자는 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 명시합니다.
+대화형 `azd-up.sh`는 활성 `az login` 쌍을 읽고 `y` 또는 검증된 다른 리전을 입력한 경우에만
+배포합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
+두 축을 계속 증명하며 신원이 정확한 쌍에 접근할 수 없으면 변경 전에 중단합니다.
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
   CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Azure를 변경하지 않고 공개 `dev` 플랫폼을 미리 봅니다. 확인하면 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 배포하고 검증합니다. 고정된 소유자 전용 라이선스 키가 있고 패키지 공개 키와 일치하면 최대 30일 토큰도 발급하고 Key Vault 파일 입력 경계를 통해 토큰별 다이제스트 기반 이름으로 업로드한 뒤 해당 비밀이 아닌 다이제스트로 새 Core 개정 번호를 만듭니다. 키가 없으면 같은 이미지를 관찰 전용 Trial로 배포합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 대화형 Azure CLI 대상을 읽고 `koreacentral` 리전을 확인하거나 교체한 뒤 하나의 명령으로 공개 `dev` 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 미리 보고 배포합니다. 빈 입력은 배포를 승인하지 않습니다. 고정된 소유자 전용 라이선스 키가 있고 패키지 공개 키와 일치하면 최대 30일 토큰도 발급하고 Key Vault 파일 입력 경계를 통해 토큰별 다이제스트 기반 이름으로 업로드한 뒤 해당 비밀이 아닌 다이제스트로 새 Core 개정 번호를 만듭니다. 키가 없으면 같은 이미지를 관찰 전용 Trial로 배포합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
   KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
   사전에 알려준다.

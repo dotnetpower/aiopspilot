@@ -1,7 +1,7 @@
 ---
 translation_of: README.md
-translation_source_sha: a188a1243392a673660c25c354d239adade4c901
-translation_revised: 2026-08-01
+translation_source_sha: 584128fb9b6c5b3ae336a90fe4ccc516985bbc51
+translation_revised: 2026-09-09
 ---
 
 # FDAI
@@ -116,6 +116,8 @@ FDAI를 오래 운영할수록 T2 비중은 작아지고 자동 해결 비율은
 ## 시작하기
 
 - **사용자 가이드**: [docs/user-guide/get-started-ko.md](docs/user-guide/get-started-ko.md)
+- **로컬 개발**: [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md)
+- **Azure 배포**: [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md)
 - **상세 로드맵**: [docs/roadmap/README-ko.md](docs/roadmap/README-ko.md)
 - **컨트리뷰터 규칙**: [.github/copilot-instructions.md](.github/copilot-instructions.md)
 
@@ -127,6 +129,8 @@ FDAI를 오래 운영할수록 T2 비중은 작아지고 자동 해결 비율은
 
 | 학습 대상 | 문서 |
 |-----------|------|
+| Docker 및 전체 로컬 스택 | [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md) |
+| Azure 구독 배포 | [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md) |
 | 컨트롤 루프와 3-tier 라우팅 | [architecture.instructions.md](.github/instructions/architecture.instructions.md) |
 | 배포 토폴로지 (headless core + PR delivery + thin console + ChatOps) | [app-shape.instructions.md](.github/instructions/app-shape.instructions.md) |
 | 모든 자율 액션의 안전 규칙 | [coding-conventions.instructions.md](.github/instructions/coding-conventions.instructions.md) |

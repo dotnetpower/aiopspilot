@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 860c404fd87ea72f2f1c43ebca2bad87b096d40d }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5e7239b3b826537b38db7eb5be7388426558244f }]
 ---
 
 # Deploy Quickstart
@@ -16,7 +16,7 @@ and one independently owned Core service to a public-network development subscri
 
 | Your environment | Use | Result |
 |------------------|-----|--------|
-| Personal Azure public-cloud subscription for development | `make azd-up`, then `FDAI_AZD_CONFIRM=1 make azd-up` | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
+| Personal Azure public-cloud subscription for development | Run `az login`, then `make azd-up` and approve the displayed region | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
 | Private-network, shared, staging, or production environment | Protected `fdaictl` plan and exact apply | Private state, VNet runner, approval policy, all selected independent services, and protected evidence |
 | Existing custom Terraform automation | Direct Terraform | Expert integration with deployment-owned state, image, migration, and verification orchestration |
 
@@ -45,10 +45,10 @@ key, Core starts in observation-only Trial and denies acting paths.
   collects quota, permission, connectivity, and rollback blockers before the
   control loop starts.
 - Per-environment values in a `*.tfvars` file. For a fresh PostgreSQL server, either provide the administrator password through the protected input or enable Terraform generation without a supplied password. Never commit that file.
-- The approved target exported as `AZURE_SUBSCRIPTION_ID` and
-  `AZURE_TENANT_ID`. Bootstrap and turnkey helpers stop before making any change
-  if the active identity or the selected `azd` environment does not match that
-  exact pair. Protected workflows pass both values explicitly to the verifier.
+- For the interactive direct path, select the intended subscription with Azure CLI. The wrapper
+  reads its subscription and tenant from the active `az login` session and displays both before
+  continuing. Bootstrap, protected, and non-interactive helpers still use explicit
+  `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` values and stop before any change on a mismatch.
 - Apply `infra/bootstrap` to create the stable deploy UAMI, then publish its
   client and principal IDs as `DEPLOY_RUNNER_CLIENT_ID` and
   `DEPLOY_RUNNER_PRINCIPAL_ID`. Protected workflows select that client ID and
@@ -216,18 +216,18 @@ blocked.
 #### azd (direct public development Core)
 
 ```bash
-az login --tenant "<expected-tenant-id>"
-azd auth login
-export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
-export AZURE_TENANT_ID="<expected-tenant-id>"
-# Optional when you don't use the koreacentral / krc defaults.
-export FDAI_AZURE_REGION="westeurope"
-export FDAI_AZURE_REGION_SHORT="weu"
-# Safe preview. Missing provider registrations are reported without mutation.
-scripts/deployment/azure/azd-up.sh
-# Apply the staged platform, image, database, Core, and verification flow.
-FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
+az login
+# Optional when the login can access more than one subscription.
+az account set --subscription "<subscription-id>"
+# One command reads the active account, asks for the region, previews, and deploys.
+make azd-up
 ```
+
+The wrapper displays the active subscription and tenant, then asks whether to deploy in
+`koreacentral`. Type `y` to use that region, enter another Azure region such as `westeurope`, or
+press Enter or type `n` to cancel without an Azure mutation. It verifies an alternate region
+against the selected subscription. If the Azure Developer CLI has no local session, the same
+command starts its tenant-bound sign-in instead of asking you to run another command.
 
 The wrapper creates or selects the `fdai-dev` azd environment, rejects a target mismatch, derives a
 stable six-character suffix from the verified subscription for globally scoped Azure names, and
@@ -239,11 +239,17 @@ need an existing Core image. After ACR is ready, the wrapper builds the deployme
 uses its immutable digest for Core and the enabled Jobs.
 
 The preview performs no Azure mutation. If a resource provider is not registered, it stops and
-lists the missing namespaces; only the confirmed run registers them. The confirmed run previews
-each platform change before applying it, disables scheduled jobs until migrations and Core rollout
-complete, removes temporary access on failure, and retains local state for safe reruns. A model
-that is unavailable or lacks quota remains `hil-only`, which keeps dependent decisions at human
-review instead of silently selecting another model.
+lists the missing namespaces in preview-only mode; only an explicitly confirmed run registers
+them. The interactive answer confirms the region, provider registration, and staged deployment in
+one command. Terraform still previews each platform change before applying it, disables scheduled
+jobs until migrations and Core rollout complete, removes temporary access on failure, and retains
+local state for safe reruns. A model that is unavailable or lacks quota remains `hil-only`, which
+keeps dependent decisions at human review instead of silently selecting another model.
+
+For non-interactive automation, set both target axes and choose the mode explicitly:
+`FDAI_AZD_CONFIRM=0` previews and `FDAI_AZD_CONFIRM=1` deploys. You can set `FDAI_AZURE_REGION` and
+`FDAI_AZURE_REGION_SHORT` when the automation does not use the `koreacentral` defaults. A
+non-interactive process never infers a deployment target from ambient Azure CLI state.
 
 Bare `azd provision` still manages only the platform root. Use the wrapper when you need a runnable
 Core. Use the protected `fdaictl` path when local state, public data-service endpoints, or a
@@ -373,5 +379,6 @@ the full deployment reference.
 
 - [Preflight](../roadmap/deployment/deployment-preflight.md) - Resolve blockers before you provision.
 - [Deploy and onboard](../roadmap/deployment/deploy-and-onboard.md) - The full deployment reference and Azure inventory.
+- [Local Development Quickstart](local-development-quickstart.md) - Configure Docker and the local Console stack.
 - [Get started](get-started.md) - Orientation and your first safe rollout.
 - [Operator console](../roadmap/interfaces/operator-console.md) - Run and query FDAI once it is live.

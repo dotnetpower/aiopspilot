@@ -8,7 +8,9 @@
 # protected VNet runner.
 #
 # Behavior:
-#   - Default: perform read-only discovery and preview the bootstrap platform.
+#   - Interactive default: read the active `az login` context and ask one
+#     fail-closed region/deployment question before running the confirmed flow.
+#   - FDAI_AZD_CONFIRM=0: perform read-only discovery and preview the platform.
 #   - FDAI_AZD_CONFIRM=1: register prerequisites, preview and provision the
 #     platform, build an exact Core image in deployment-owned ACR, migrate the
 #     database and catalogs, apply an exact Core plan, enable scheduled jobs,
@@ -17,6 +19,7 @@
 # Generated state and inputs stay under the gitignored, mode-0700 .fdai tree.
 # The script never accepts a password: Terraform creates the initial password
 # in private local state and stores the application DSN in Key Vault.
+# Non-interactive callers supply both target axes and a confirmation mode.
 
 set -euo pipefail
 umask 077
@@ -25,10 +28,22 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 PLATFORM_ROOT="$REPO_ROOT/infra"
 CORE_ROOT="$PLATFORM_ROOT/services/core-control-plane"
-EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
-EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
+log() { printf 'azd-up: %s\n' "$*" >&2; }
+fail() { log "ERROR: $*"; exit 1; }
+
+# shellcheck source=scripts/deployment/azure/contributor-target.sh
+source "$HERE/contributor-target.sh"
+TARGET_HAS_TERMINAL=0
+if [[ -t 0 && -t 2 ]]; then
+  TARGET_HAS_TERMINAL=1
+fi
+resolve_contributor_target "$TARGET_HAS_TERMINAL"
+if [[ "$TARGET_STATUS" == "cancel" ]]; then
+  log "deployment cancelled before any Azure mutation"
+  exit 0
+fi
+
 AZD_ENVIRONMENT="${FDAI_AZD_ENVIRONMENT:-fdai-dev}"
-REGION="${FDAI_AZURE_REGION:-${AZURE_LOCATION:-koreacentral}}"
 REGION_SHORT="${FDAI_AZURE_REGION_SHORT:-}"
 if [[ -z "$REGION_SHORT" ]]; then
   case "$REGION" in
@@ -43,7 +58,6 @@ if [[ -z "$REGION_SHORT" ]]; then
     *) REGION_SHORT="${REGION:0:5}" ;;
   esac
 fi
-CONFIRM="${FDAI_AZD_CONFIRM:-0}"
 SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 RESOURCE_NAME_SUFFIX="$(printf '%s' "${EXPECTED_SUBSCRIPTION,,}" | sha256sum | cut -c1-6)"
 WORK_DIR="${FDAI_AZD_WORK_DIR:-$REPO_ROOT/.fdai/deploy/public-dev-$RESOURCE_NAME_SUFFIX}"
@@ -70,9 +84,6 @@ CORE_OVERRIDE_CREATED=0
 FIREWALL_RESOURCE_GROUP=""
 FIREWALL_SERVER=""
 FIREWALL_RULE=""
-
-log() { printf 'azd-up: %s\n' "$*" >&2; }
-fail() { log "ERROR: $*"; exit 1; }
 
 cleanup() {
   local status=$?
@@ -657,7 +668,7 @@ fi
 [[ "$(az cloud show --query name --output tsv --only-show-errors)" == "AzureCloud" ]] || {
   fail "the direct path currently supports Azure public cloud only"
 }
-azd auth login --check-status >/dev/null 2>&1 || fail "not logged in to azd; run 'azd auth login'"
+ensure_contributor_azd_login "$TARGET_HAS_TERMINAL" "$EXPECTED_TENANT"
 
 if azd env select "$AZD_ENVIRONMENT" --no-prompt >/dev/null 2>&1; then
   AZD_SUBSCRIPTION="$(azd env get-value AZURE_SUBSCRIPTION_ID --environment "$AZD_ENVIRONMENT" --no-prompt 2>/dev/null || true)"

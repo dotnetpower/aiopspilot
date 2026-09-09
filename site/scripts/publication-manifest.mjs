@@ -17,12 +17,22 @@ export function publicationRoute(prefix, relPath) {
 
 function navigationSection(sourceKind, relPath) {
   const normalized = relPath.replaceAll("\\", "/");
+  const canonical = normalized.endsWith("-ko.md")
+    ? `${normalized.slice(0, -"-ko.md".length)}.md`
+    : normalized;
   if (sourceKind === "roadmap") return "Reference";
   if (sourceKind === "runbook") return "Operate";
-  if (normalized.startsWith("deck/") || normalized === "diagram-gallery.md") return "Reference";
-  if (normalized.startsWith("sre/")) return "SRE";
-  if (normalized.startsWith("concepts/")) return "Understand";
-  if (["get-started.md", "architecture.md", "deploy-quickstart.md"].includes(normalized)) {
+  if (canonical.startsWith("deck/") || canonical === "diagram-gallery.md") return "Reference";
+  if (canonical.startsWith("sre/")) return "SRE";
+  if (canonical.startsWith("concepts/")) return "Understand";
+  if (
+    [
+      "get-started.md",
+      "architecture.md",
+      "local-development-quickstart.md",
+      "deploy-quickstart.md",
+    ].includes(canonical)
+  ) {
     return "Get started";
   }
   return "Operate";

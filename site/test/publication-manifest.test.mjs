@@ -34,6 +34,32 @@ derives_from:
   assert.deepEqual(record.diagram_ids, ["fdai-system-overview"]);
 });
 
+test("local development quickstart is classified as get started", () => {
+  const record = publicationRecord({
+    sourcePath: "docs/user-guide/local-development-quickstart.md",
+    sourceKind: "user-guide",
+    enPrefix: [],
+    koPrefix: ["ko"],
+    relPath: "local-development-quickstart.md",
+    content: "# Local Development Quickstart",
+  });
+
+  assert.equal(record.route, "/local-development-quickstart/");
+  assert.equal(record.navigation_section, "Get started");
+  assert.equal(record.publication_state, "navigated");
+
+  const korean = publicationRecord({
+    sourcePath: "docs/user-guide/local-development-quickstart-ko.md",
+    sourceKind: "user-guide",
+    enPrefix: [],
+    koPrefix: ["ko"],
+    relPath: "local-development-quickstart-ko.md",
+    content: "# 로컬 개발 빠른 시작",
+  });
+  assert.equal(korean.route, "/ko/local-development-quickstart/");
+  assert.equal(korean.navigation_section, "Get started");
+});
+
 test("deck details are explicitly search-only and site fallbacks are classified", () => {
   const record = publicationRecord({
     sourcePath: "docs/user-guide/deck/reference.md",

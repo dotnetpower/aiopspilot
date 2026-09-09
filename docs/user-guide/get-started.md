@@ -223,9 +223,13 @@ is not enough on its own.
   [Site Reliability Engineering](sre/README.md), then
   [FDAI SRE foundations](concepts/sre-foundations.md) and
   [deterministic-first decisioning](concepts/deterministic-first.md).
-- **Prepare an environment**: Follow
+- **Prepare a local workstation**: Follow the
+  [Local Development Quickstart](local-development-quickstart.md) to configure Docker,
+  authentication, local state, and the complete Console stack.
+- **Deploy an Azure environment**: Follow
   [deployment preflight](../roadmap/deployment/deployment-preflight.md), then
-  [deploy and onboard](../roadmap/deployment/deploy-and-onboard.md).
+  [Deploy Quickstart](deploy-quickstart.md) and the detailed
+  [deploy and onboard](../roadmap/deployment/deploy-and-onboard.md) reference.
 - **Operate the human review path**: Walk through
   [approving a change](guides/approve-change.md) and
   [reading the audit log](guides/read-audit-log.md).

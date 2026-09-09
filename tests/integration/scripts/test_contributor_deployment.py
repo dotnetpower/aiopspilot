@@ -139,6 +139,8 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert 'run_job "$canary_job" "canary" 180' in source
     assert 'run_job "$inventory_job" "inventory" 1800' in source
     assert "azd up" not in main
+    assert 'source "$HERE/contributor-target.sh"' in source
+    assert 'ensure_contributor_azd_login "$TARGET_HAS_TERMINAL" "$EXPECTED_TENANT"' in source
 
     assert main.index("ensure_resource_providers") < main.index("resolve_models")
     assert main.index("resolve_models") < main.index("platform_preview")

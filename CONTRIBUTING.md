@@ -17,7 +17,8 @@ private-network VPN, environment variables, and starting the local stack - see
 - [`uv`](https://docs.astral.sh/uv/) - the project's package manager.
 - A POSIX shell (`bash`), `git`, and `make` are enough for the
   Python + docs workflow. `docker compose` is only needed for the
-  optional local dev stack (`make dev-up`).
+  optional local dev stack (`make dev-up`); it requires a reachable daemon and Compose v2 as
+  described in the [Local Development Quickstart](docs/user-guide/local-development-quickstart.md).
 
 ## One-time setup
 

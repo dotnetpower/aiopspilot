@@ -10,8 +10,9 @@ identity) into Azure resources. Entry command: `terraform apply` per
 
 For a public-network development environment, [`azure.yaml`](../azure.yaml) drives this Terraform
 through the Azure Developer CLI. [`scripts/deployment/azure/azd-up.sh`](../scripts/deployment/azure/azd-up.sh)
-(or `make azd-up`) runs read-only model discovery and `azd provision --preview` by default. Set
-`FDAI_AZD_CONFIRM=1` only after reviewing that output. The confirmed run:
+(or `make azd-up`) reads the active `az login` context in a terminal, displays its subscription and
+tenant, and asks whether to deploy in `koreacentral` or another available region. Empty input and
+`n` cancel without mutation. An explicit `y` or alternate region runs the confirmed flow:
 
 1. registers the required Azure resource providers and temporarily grants the signed-in deployer
   the model-provisioning role;
@@ -29,6 +30,11 @@ and generated inputs under the gitignored mode-`0700` `.fdai/deploy/` directory.
 clean checkout so the image tag and source archive refer to the same commit.
 The first stage therefore has no dependency on a previously published Core image. The second
 platform apply creates the selected Jobs only after the deployment-owned ACR digest exists.
+
+Non-interactive callers continue to supply `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` together.
+They set `FDAI_AZD_CONFIRM=0` for preview or `FDAI_AZD_CONFIRM=1` for deployment; the script never
+infers a non-interactive target from ambient Azure CLI state. If the interactive Azure Developer
+CLI session is absent, the wrapper starts its tenant-bound sign-in within the same command.
 
 This path is not the private subscription-genesis product. A private deployment first needs the
 ops network, state backend, deployment identity, and attested runner described in

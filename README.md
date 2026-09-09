@@ -114,6 +114,8 @@ rate. All targets require a measured baseline before they can be claimed
 ## Get started
 
 - **User guide**: [docs/user-guide/get-started.md](docs/user-guide/get-started.md)
+- **Develop locally**: [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md)
+- **Deploy to Azure**: [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md)
 - **Detailed roadmap**: [docs/roadmap/README.md](docs/roadmap/README.md)
 - **Contributor rules**: [.github/copilot-instructions.md](.github/copilot-instructions.md)
 
@@ -125,6 +127,8 @@ lives in a separate fork, wired through the composition root
 
 | To learn about | Read |
 |----------------|------|
+| Docker and the complete local stack | [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md) |
+| Azure subscription deployment | [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md) |
 | The control loop and 3-tier routing | [architecture.instructions.md](.github/instructions/architecture.instructions.md) |
 | Deployment topology (headless core + PR delivery + thin console + ChatOps) | [app-shape.instructions.md](.github/instructions/app-shape.instructions.md) |
 | Safety rules on every autonomous action | [coding-conventions.instructions.md](.github/instructions/coding-conventions.instructions.md) |

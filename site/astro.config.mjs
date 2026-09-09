@@ -154,6 +154,11 @@ export default defineConfig({
           link: "/get-started/",
         },
         {
+          label: "Develop locally",
+          translations: { ko: "로컬 개발" },
+          link: "/local-development-quickstart/",
+        },
+        {
           label: "Architecture",
           translations: { ko: "아키텍처" },
           link: "/architecture/",

@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 3f9a8ff5246231fd89ca12ab07c302640b77dfa3
+translation_source_sha: 2c37b6bbdf01790644b4891bdb0938864fca6abe
 translation_revised: 2026-09-09
 ---
 
@@ -196,9 +196,13 @@ event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
   [사이트 신뢰성 엔지니어링](sre/README-ko.md)을 읽은 다음
   [FDAI SRE 기초](concepts/sre-foundations-ko.md)와
   [결정론 우선 의사 결정](concepts/deterministic-first-ko.md)을 살펴보세요.
-- **환경 준비**:
+- **로컬 워크스테이션 준비**:
+  [로컬 개발 빠른 시작](local-development-quickstart-ko.md)을 따라 Docker, 인증, 로컬 상태 및
+  전체 Console 스택을 구성하세요.
+- **Azure 환경 배포**:
   [배포 사전 검사](../roadmap/deployment/deployment-preflight-ko.md)를 수행한 다음
-  [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)을 진행하세요.
+  [배포 빠른 시작](deploy-quickstart-ko.md)과 상세
+  [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) 참고 자료를 사용하세요.
 - **사람 검토 경로 운영**:
   [변경 승인](guides/approve-change-ko.md)과
   [감사 로그 읽기](guides/read-audit-log-ko.md)를 따라 해보세요.

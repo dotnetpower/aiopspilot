@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: d9729f522487fececf27c83435c36efd692269d2
+translation_source_sha: 2cbdc9d77bea0a3c81fb9ede94e47eacabf00de4
 translation_revised: 2026-09-09
 ---
 
@@ -17,7 +17,7 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 
 | 환경 | 사용할 경로 | 결과 |
 |------|-------------|------|
-| 개인 Azure 퍼블릭 클라우드 개발 구독 | `make azd-up` 실행 후 `FDAI_AZD_CONFIRM=1 make azd-up` 실행 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
+| 개인 Azure 퍼블릭 클라우드 개발 구독 | `az login` 실행 후 `make azd-up`을 실행하고 표시된 리전을 승인 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
 | 비공개 네트워크, 공유, 스테이징 또는 운영 환경 | 보호된 `fdaictl` 계획 및 exact 적용 | 비공개 상태, VNet runner, 승인 정책, 선택한 모든 독립 서비스 및 보호된 증거 |
 | 기존 사용자 지정 Terraform 자동화 | Terraform 직접 실행 | 배포 소유 상태, 이미지, 마이그레이션 및 검증 오케스트레이션을 사용하는 전문가 통합 |
 
@@ -42,9 +42,10 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 - [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
   이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
 - 환경별 값을 `*.tfvars` 파일에 입력합니다. 새 PostgreSQL 서버는 보호된 입력으로 관리자 암호를 제공하거나 암호를 제공하지 않고 Terraform 생성을 활성화합니다. 이 파일은 커밋하지 마세요.
-- 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 내보내기합니다. 현재 자격
-  증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
-  전에 중단합니다. 보호된 workflow는 두 값을 검증기에 명시적으로 전달합니다.
+- 대화형 직접 경로에서는 Azure CLI로 대상 구독을 선택합니다. 래퍼는 활성 `az login`
+  세션에서 구독과 테넌트를 읽고 계속하기 전에 두 값을 표시합니다. 부트스트랩, 보호된 경로 및
+  비대화형 헬퍼는 계속 명시적인 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 사용하며,
+  대상이 일치하지 않으면 변경 전에 중단합니다.
 - `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
   `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
@@ -197,18 +198,18 @@ fdaictl deploy apply \
 #### azd (직접 공개 개발 Core)
 
 ```bash
-az login --tenant "<expected-tenant-id>"
-azd auth login
-export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
-export AZURE_TENANT_ID="<expected-tenant-id>"
-# koreacentral 및 krc 기본값을 사용하지 않을 때 선택 사항입니다.
-export FDAI_AZURE_REGION="westeurope"
-export FDAI_AZURE_REGION_SHORT="weu"
-# 안전한 미리보기입니다. 누락된 리소스 공급자를 변경 없이 보고합니다.
-scripts/deployment/azure/azd-up.sh
-# 단계별 플랫폼, 이미지, 데이터베이스, Core 및 검증 흐름을 적용합니다.
-FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
+az login
+# 로그인으로 둘 이상의 구독에 접근할 수 있을 때 선택 사항입니다.
+az account set --subscription "<subscription-id>"
+# 하나의 명령으로 활성 계정을 읽고 리전을 확인한 뒤 미리보기와 배포를 진행합니다.
+make azd-up
 ```
+
+래퍼는 활성 구독과 테넌트를 표시한 뒤 `koreacentral`에 배포할지 묻습니다. 해당 리전을
+사용하려면 `y`를 입력하고, `westeurope` 같은 다른 Azure 리전을 사용하려면 리전 이름을 직접
+입력합니다. Enter 키를 누르거나 `n`을 입력하면 Azure를 변경하지 않고 취소합니다. 다른 리전은
+선택된 구독에서 사용할 수 있는지 확인합니다. Azure Developer CLI 로컬 세션이 없으면 같은
+명령이 테넌트에 연결된 로그인을 시작하므로 별도 명령을 실행할 필요가 없습니다.
 
 래퍼는 필요할 때 `fdai-dev` azd 환경을 만들거나 선택하고 대상 불일치를 차단합니다. 전역 범위
 Azure 이름에는 검증한 구독에서 파생한 안정적인 6자 접미사를 사용하며, 정확한 clean commit을
@@ -219,11 +220,17 @@ Azure 이름에는 검증한 구독에서 파생한 안정적인 6자 접미사�
 필요하지 않습니다. ACR이 준비되면 래퍼가 배포 소유 image를 빌드하고 변경 불가능한 digest를
 Core와 활성화된 Job에 사용합니다.
 
-미리보기는 Azure를 변경하지 않습니다. 리소스 공급자가 등록되지 않았다면 누락된 namespace를
-나열하고 중단하며, 확인된 실행에서만 등록합니다. 확인된 실행은 각 플랫폼 변경을 적용 전에
-미리 보고, 마이그레이션과 Core 배포가 끝날 때까지 예약 Job을 비활성화하며, 실패 시 임시 접근을
+미리보기는 Azure를 변경하지 않습니다. 미리보기 전용 모드에서 리소스 공급자가 등록되지 않았다면
+누락된 namespace를 나열하며, 명시적으로 확인한 실행에서만 등록합니다. 대화형 답변은 하나의
+명령에서 리전, 공급자 등록 및 단계별 배포를 확인합니다. Terraform은 각 플랫폼 변경을 적용 전에
+계속 미리 보고, 마이그레이션과 Core 배포가 끝날 때까지 예약 Job을 비활성화하며, 실패 시 임시 접근을
 제거하고 안전한 재실행을 위해 로컬 상태를 보존합니다. 사용할 수 없거나 쿼터가 부족한 모델은
 `hil-only`로 유지하므로 다른 모델을 암묵적으로 선택하지 않고 관련 결정을 사람 검토로 보냅니다.
+
+비대화형 자동화에서는 두 대상 축을 모두 설정하고 모드를 명시적으로 선택합니다.
+`FDAI_AZD_CONFIRM=0`은 미리보기만 수행하고 `FDAI_AZD_CONFIRM=1`은 배포합니다. 자동화에서
+`koreacentral` 기본값을 사용하지 않으면 `FDAI_AZURE_REGION`과 `FDAI_AZURE_REGION_SHORT`를
+설정할 수 있습니다. 비대화형 프로세스는 주변 Azure CLI 상태에서 배포 대상을 추론하지 않습니다.
 
 `azd provision`을 직접 실행하면 여전히 플랫폼 루트만 관리합니다. 실행 가능한 Core가 필요하면
 래퍼를 사용하세요. 로컬 상태, 공개 데이터 서비스 endpoint 또는 단일 사용자 배포 호스트를
@@ -342,5 +349,6 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 - [사전 점검](../roadmap/deployment/deployment-preflight-ko.md) - 프로비저닝 전에 차단 요소를 해소합니다.
 - [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) - 전체 배포 참고 자료와 Azure 인벤토리.
+- [로컬 개발 빠른 시작](local-development-quickstart-ko.md) - Docker와 로컬 Console 스택을 구성합니다.
 - [시작하기](get-started-ko.md) - 오리엔테이션과 첫 번째 안전한 롤아웃.
 - [운영자 콘솔](../roadmap/interfaces/operator-console-ko.md) - FDAI가 실행된 후 상태를 조회하는 방법.
