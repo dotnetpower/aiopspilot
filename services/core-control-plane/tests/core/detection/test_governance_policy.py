@@ -170,6 +170,24 @@ def test_policy_rejects_weakened_forecast_accuracy_floors(tmp_path: Path, metric
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+@pytest.mark.parametrize(
+    ("metric", "value"),
+    (("min_median_lead_seconds", 299), ("max_abstention_rate", 0.21)),
+)
+def test_policy_rejects_weakened_lead_time_or_abstention_bounds(
+    tmp_path: Path,
+    metric: str,
+    value: float,
+) -> None:
+    raw = _policy()
+    promotion = raw["forecast_promotion"]
+    assert isinstance(promotion, dict)
+    promotion[metric] = value
+
+    with pytest.raises(DetectionGovernancePolicyError, match=metric):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_confidence_levels_the_forecast_band_cannot_evaluate(
     tmp_path: Path,
 ) -> None:

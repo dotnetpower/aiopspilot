@@ -322,10 +322,10 @@ def _promotion(value: object) -> ForecastPromotionPolicy:
         min_median_lead_seconds=_integer(
             raw["min_median_lead_seconds"],
             "min_median_lead_seconds",
-            minimum=1,
+            minimum=300,
             maximum=31_536_000,
         ),
-        max_abstention_rate=_ratio(raw["max_abstention_rate"], "max_abstention_rate"),
+        max_abstention_rate=_ratio(raw["max_abstention_rate"], "max_abstention_rate", maximum=0.2),
         max_policy_escapes=_integer(
             raw["max_policy_escapes"], "max_policy_escapes", minimum=0, maximum=0
         ),
