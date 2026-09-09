@@ -14,6 +14,7 @@ from typing import Any, Literal
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
@@ -55,6 +56,7 @@ class OperatorSemanticKafkaConfig:
     read_investigation_completion_topic: str | None = None
     background_task_projection_topic: str | None = None
     wara_assessment_topic: str = WARA_ASSESSMENT_TOPIC
+    framework_assessment_topic: str = FRAMEWORK_ASSESSMENT_TOPIC
     event_topic: str | None = None
     hil_decision_topic: str | None = None
     notification_receipt_topic: str | None = None
@@ -103,6 +105,11 @@ class OperatorSemanticKafkaConfig:
             self.wara_assessment_topic,
             occupied=configured_topics,
             error_message="WARA assessment topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.framework_assessment_topic,
+            occupied=configured_topics,
+            error_message="framework assessment topic MUST be distinct and valid",
         )
         _require_distinct_topic(
             self.hil_decision_topic,
@@ -256,6 +263,7 @@ class OperatorSemanticKafkaBus:
             self._config.read_investigation_completion_topic,
             self._config.background_task_projection_topic,
             self._config.wara_assessment_topic,
+            self._config.framework_assessment_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic

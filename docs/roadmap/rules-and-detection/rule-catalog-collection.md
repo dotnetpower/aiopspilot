@@ -44,6 +44,11 @@ rewriting it. It accounts for active and disabled lifecycle records separately, 
 query bodies apart from framework metadata, and adds conservative applicability, evidence, and
 mapping reviews. Collection success still does not prove workload satisfaction.
 
+The shared [WAF and CAF assessment catalog](framework-assessment.md) similarly keeps definition,
+applicability, mapping, evaluation, and satisfaction separate. It derives 59 WAF evidence
+specifications from the pinned Best Practice controls and adds 15 reviewed CAF estate
+specifications without turning either framework into a compliance standard.
+
 The first three feed the deterministic engine. The fourth is the **performance baseline** from
 [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md) - a different concept that shares
 this document only because both are "baselines"; keep them separate in storage and schema.
