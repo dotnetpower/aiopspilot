@@ -1219,6 +1219,39 @@ def test_declaration_count_answer_reports_the_aggregate_value_and_source(
     )
 
 
+def test_declaration_count_answer_accepts_a_canonical_function_type_subject() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "declaration-count",
+                "rows": [
+                    {
+                        "row_id": "aggregate:function",
+                        "values": {
+                            "group": {"kind": "function"},
+                            "operation": "count",
+                            "value": 36,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="aggregation_table",
+        subject_constraints=("FunctionType",),
+    )
+
+    assert "- FunctionTypes: 36" in answer
+
+
 def test_ontology_declaration_answer_preserves_exact_manifest_detail() -> None:
     request = _request(locale="ko")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1292,6 +1325,9 @@ def test_ontology_declaration_answer_preserves_exact_manifest_detail() -> None:
     assert '"name": "Incident"' in answer
     assert '"purpose_binding": [' in answer
     assert "`query.ontology_declaration`" in answer
+    assert "온톨로지 선언 메타데이터" in answer
+    declaration_json = answer.split("```json\n", maxsplit=1)[1].split("\n```", maxsplit=1)[0]
+    assert json.loads(declaration_json) == declaration
     assert "실행 또는 변경 권한을 부여하지 않습니다" in answer
     assert technical_details is not None
     output = cast(list[dict[str, object]], technical_details["outputs"])[0]

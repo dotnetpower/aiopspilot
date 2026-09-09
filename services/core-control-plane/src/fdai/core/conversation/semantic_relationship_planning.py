@@ -16,6 +16,7 @@ from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
+from .semantic_manifest_planning import schema_subjects_from_judgment
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import (
     QueryNodeProposal,
@@ -64,12 +65,10 @@ def build_ontology_relationship_frame(
     ):
         return None
     subjects = {
-        target.canonical_value
-        for target in judgment.targets
-        if target.kind == "object_type"
-        and target.canonical_value is not None
-        and any(
-            descriptor.get("kind") == "object" and descriptor.get("name") == target.canonical_value
+        subject
+        for subject in schema_subjects_from_judgment(judgment, descriptors=descriptors)
+        if any(
+            descriptor.get("kind") == "object" and descriptor.get("name") == subject
             for descriptor in descriptors
         )
     }
