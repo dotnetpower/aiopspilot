@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 7202b21413d459891dec6915132b2096be584ccc
+translation_source_sha: b7beb7a66d43a94000ba1f7837dcc0fbd3b86aa4
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -65,6 +65,9 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 불가 사유를 덮어쓸 수 없습니다.
 각 관계 변환은 프로바이더 리소스와 클러스터 하나의 API 객체만 결합합니다. 앞선 fleet 연결에서
 수락한 객체나 관계를 다시 변환하지 않습니다.
+영속 저장소와 운영자 변환 결과는 `(source, scope_digest)`별로 개수가 제한된 fleet 상태를
+보존합니다. Console은 불투명한 범위 다이제스트를 표시하며 여러 클러스터 상태를 처음 일치한 출처
+이름 하나로 축약하지 않습니다.
 
 ## 정확한 리소스 신원
 

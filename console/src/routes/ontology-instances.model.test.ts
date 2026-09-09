@@ -105,6 +105,44 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.resources[0]?.model_deployment).toBeNull();
   });
 
+  it("accepts fleet source states with the same source and distinct scope digests", () => {
+    const value = payload();
+    const sources = value.sources as Record<string, unknown>[];
+    const kubernetes = sources.find(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    )!;
+    kubernetes.scope_digest = `sha256:${"a".repeat(64)}`;
+    sources.push({
+      ...kubernetes,
+      status: "available",
+      observed_at: "2026-08-22T00:01:00+00:00",
+      reason: null,
+      scope_digest: `sha256:${"b".repeat(64)}`,
+    });
+
+    const decoded = decodeOntologyInstanceExploration(value);
+    expect(decoded.sources.filter(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    ).map((source) => source.scope_digest)).toEqual([
+      `sha256:${"a".repeat(64)}`,
+      `sha256:${"b".repeat(64)}`,
+    ]);
+  });
+
+  it("rejects an exact duplicate fleet source state", () => {
+    const value = payload();
+    const sources = value.sources as Record<string, unknown>[];
+    const kubernetes = sources.find(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    )!;
+    kubernetes.scope_digest = `sha256:${"a".repeat(64)}`;
+    sources.push({ ...kubernetes });
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "instance sources MUST be unique",
+    );
+  });
+
   it("accepts bounded model deployment details", () => {
     const value = payload();
     const resources = value.resources as Record<string, unknown>[];

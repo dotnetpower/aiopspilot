@@ -80,6 +80,7 @@ _INVENTORY_INVALIDATION_SCHEMA_VERSION: Final = "1.0.0"
 _LOGGER = logging.getLogger(__name__)
 _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
+_MAX_PROJECTION_SOURCE_STATES: Final = 40
 # A realtime event reports fresher state, not a whole Resource, so it enriches the snapshot
 # record rather than replacing it. Replacing it dropped the name, location, and resource group.
 _EFFECTIVE_RESOURCES_CTE: Final = (
@@ -3639,7 +3640,7 @@ def _relationship_drop_classifications(
 def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceState, ...]:
     """Decode only reviewed no-authority source availability records."""
 
-    if not isinstance(value, list) or len(value) > 8:
+    if not isinstance(value, list) or len(value) > _MAX_PROJECTION_SOURCE_STATES:
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
     allowed_sources = {
         "azure_activity_log",
@@ -3656,10 +3657,18 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         status = item.get("status")
         observed_at = item.get("observed_at")
         reason = item.get("reason")
+        scope_digest = item.get("scope_digest")
         if (
             not isinstance(source, str)
             or source not in allowed_sources
             or status not in {"available", "unavailable"}
+            or (
+                scope_digest is not None
+                and (
+                    not isinstance(scope_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", scope_digest) is None
+                )
+            )
         ):
             raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
         if status == "available":
@@ -3692,11 +3701,12 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
                 status=status,
                 observed_at=parsed_at,
                 reason=parsed_reason,
+                scope_digest=scope_digest,
             )
         )
-    if len({state.source for state in states}) != len(states):
+    if len({(state.source, state.scope_digest) for state in states}) != len(states):
         raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
-    return tuple(sorted(states, key=lambda state: state.source))
+    return tuple(sorted(states, key=lambda state: (state.source, state.scope_digest or "")))
 
 
 def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | None:

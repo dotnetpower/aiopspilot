@@ -20,6 +20,8 @@ Resource properties into three independent axes that both Console screens consum
 Kubernetes identity and diagnostic facts remain a separate allowlisted detail object. They do not
 become an operational, availability, or provisioning state axis, and missing diagnostic facts do
 not become a state value.
+Fleet source availability is also separate from Resource state. The instance detail retains
+several same-name sources only when distinct opaque `scope_digest` values qualify them.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

@@ -291,6 +291,7 @@ export interface OntologyInstanceActivity {
 
 export interface OntologyInstanceSource {
   readonly source: string;
+  readonly scope_digest: string | null;
   readonly status: "available" | "unavailable";
   readonly observed_at: string | null;
   readonly reason: string | null;
@@ -889,8 +890,11 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
   if (timelineComplete === (timelineReason !== null)) {
     throw new Error("instance timeline completeness contradicts truncation");
   }
-  const sources = array(record.sources, "sources", 8).map(decodeSource);
-  if (new Set(sources.map((source) => source.source)).size !== sources.length) {
+  const sources = array(record.sources, "sources", 43).map(decodeSource);
+  if (
+    new Set(sources.map((source) => `${source.source}\u0000${source.scope_digest ?? ""}`)).size
+    !== sources.length
+  ) {
     throw new Error("instance sources MUST be unique");
   }
   const sourceNames = new Set(sources.map((source) => source.source));
@@ -1374,11 +1378,16 @@ function decodeSource(value: unknown): OntologyInstanceSource {
   }
   const observedAt = nullableTimestamp(record.observed_at, "source observation");
   const reason = nullableString(record.reason, "source reason", 128);
+  const scopeDigest = nullableString(record.scope_digest ?? null, "source scope digest", 71);
+  if (scopeDigest !== null && !/^sha256:[a-f0-9]{64}$/.test(scopeDigest)) {
+    throw new Error("instance source scope digest is invalid");
+  }
   if (status === "available" ? reason !== null : reason === null) {
     throw new Error("instance source reason contradicts availability");
   }
   return {
     source: requiredString(record.source, "source name", 128),
+    scope_digest: scopeDigest,
     status,
     observed_at: observedAt,
     reason,

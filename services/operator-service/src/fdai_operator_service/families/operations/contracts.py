@@ -65,6 +65,7 @@ class InventoryProjectionSourceState:
     status: str
     observed_at: datetime | None
     reason: str | None
+    scope_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

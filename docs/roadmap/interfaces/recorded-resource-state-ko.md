@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: b75403996189905eead51db85b4dd8199698847a
+translation_source_sha: 572819de2fa81b266d3fd985f8c064f2f7219cdc
 translation_revised: 2026-09-10
 ---
 # 기록된 리소스 상태
@@ -21,6 +21,8 @@ translation_revised: 2026-09-10
 
 Kubernetes 신원과 진단 사실은 별도의 허용 목록 세부 객체로 유지됩니다. 운영, 가용성 또는
 프로비저닝 상태 축이 되지 않으며 누락된 진단 사실을 상태 값으로 바꾸지 않습니다.
+Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상세 정보는 서로 다른 불투명
+`scope_digest` 값으로 한정된 경우에만 이름이 같은 출처 여러 개를 보존합니다.
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|

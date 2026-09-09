@@ -26,6 +26,8 @@ or a second source of provider truth.
 The model separates exact identity, aggregation, behavior, language, topology hints, query
 execution, and presentation. Each concern has one canonical representation and one bounded
 consumer contract.
+Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
+metadata for one collection scope and does not replace Resource or link identity.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

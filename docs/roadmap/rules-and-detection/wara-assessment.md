@@ -27,6 +27,9 @@ The assessment has five deterministic stages:
 5. Materialize a read-only Operator projection and an audit event. No remediation is dispatched.
 
 Disabled APRL recommendations remain searchable catalog history and never enter the evaluated set.
+The shared Operator PostgreSQL reader can decode bounded scoped source states for other read
+families. WARA does not consume AKS fleet states, and this shared capability does not change WARA
+scope, evidence admission, or assessment results.
 
 ## Crosswalk and applicability
 

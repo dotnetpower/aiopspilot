@@ -38,6 +38,8 @@ from fdai_operator_service.families.operations.recorded_state import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    PostgresFamilyStoreUnavailable,
+    _projection_source_states,
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorRole
@@ -512,6 +514,93 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "reason": "projection_not_bound",
         },
     ]
+
+
+async def test_instance_projection_preserves_scoped_fleet_source_states() -> None:
+    class _FleetReader(_Reader):
+        async def read_inventory_impact_context(self) -> InventoryImpactContext:
+            context = await super().read_inventory_impact_context()
+            return replace(
+                context,
+                projection_source_states=(
+                    InventoryProjectionSourceState(
+                        source="kubernetes_runtime_inventory",
+                        status="available",
+                        observed_at=datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+                        reason=None,
+                        scope_digest="sha256:" + "a" * 64,
+                    ),
+                    InventoryProjectionSourceState(
+                        source="kubernetes_runtime_inventory",
+                        status="unavailable",
+                        observed_at=None,
+                        reason="kubernetes_source_unavailable",
+                        scope_digest="sha256:" + "b" * 64,
+                    ),
+                    *(
+                        state
+                        for state in context.projection_source_states
+                        if state.source != "kubernetes_runtime_inventory"
+                    ),
+                ),
+            )
+
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_FleetReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains", "attached_to", "depends_on"],
+        },
+    )
+
+    sources = [
+        source for source in result["sources"] if source["source"] == "kubernetes_runtime_inventory"
+    ]
+    assert [source["scope_digest"] for source in sources] == [
+        "sha256:" + "a" * 64,
+        "sha256:" + "b" * 64,
+    ]
+    assert [source["status"] for source in sources] == ["available", "unavailable"]
+
+
+def test_projection_source_states_accepts_a_bounded_aks_fleet() -> None:
+    states = _projection_source_states(
+        [
+            {
+                "source": "kubernetes_runtime_inventory",
+                "status": "available",
+                "observed_at": "2026-08-22T00:58:00+00:00",
+                "reason": None,
+                "scope_digest": f"sha256:{index:064x}",
+            }
+            for index in range(32)
+        ]
+    )
+
+    assert len(states) == 32
+    assert len({state.scope_digest for state in states}) == 32
+
+
+def test_projection_source_states_rejects_an_exact_duplicate_scope() -> None:
+    state = {
+        "source": "kubernetes_runtime_inventory",
+        "status": "unavailable",
+        "observed_at": None,
+        "reason": "kubernetes_source_unavailable",
+        "scope_digest": "sha256:" + "a" * 64,
+    }
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="duplicated"):
+        _projection_source_states([state, state])
 
 
 class _FullCoverageReader(_Reader):

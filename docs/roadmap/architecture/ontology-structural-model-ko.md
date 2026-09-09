@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: a28ff53c403491669e65f8986fb6f19bec8821cb
+translation_source_sha: e97024eb0dd7edfedd34e4679defe1794751f4b4
 translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
@@ -27,6 +27,8 @@ translation_revised: 2026-09-10
 
 이 모델은 정확한 아이덴티티, 집계, 동작, 언어, 토폴로지 힌트, 쿼리 실행, 표현을 분리합니다.
 각 관심사는 하나의 표준 표현과 범위가 제한된 소비자 계약을 가집니다.
+변환 출처 가용성은 `(source, scope_digest)`로 한정됩니다. 이 튜플은 수집 범위 하나의 근거
+메타데이터이며 Resource 또는 링크 신원을 대체하지 않습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

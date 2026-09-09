@@ -64,6 +64,9 @@ is current and complete. Source-state keys are `(source, scope_digest)`, so one 
 overwrite another cluster's unavailable reason.
 Each relationship projection combines provider resources with one cluster's API objects. It does
 not re-project objects or links accepted from an earlier fleet binding.
+Persistence and operator projections retain the bounded fleet states by `(source, scope_digest)`.
+The Console exposes the opaque scope digest and never collapses several cluster states into the
+first matching source name.
 
 ## Exact resource identity
 

@@ -310,27 +310,27 @@ async def project_inventory_instance(
                 "observed_at": _latest_activity_time(activity.activities),
                 "reason": None,
             },
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="runtime_call_graph",
                 unavailable_reason="endpoint_identity_projection_unavailable",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="kubernetes_runtime_inventory",
                 unavailable_reason="kubernetes_source_unconfigured",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="postgres_role_evidence",
                 unavailable_reason="projection_not_bound",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="azure_resource_health",
                 unavailable_reason="projection_not_bound",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="azure_activity_log",
                 unavailable_reason="projection_not_bound",
@@ -365,29 +365,36 @@ async def project_inventory_instance(
     }
 
 
-def _projection_source(
+def _projection_sources(
     context: InventoryImpactContext,
     *,
     source: str,
     unavailable_reason: str,
-) -> dict[str, str | None]:
-    state = next(
-        (item for item in context.projection_source_states if item.source == source),
-        None,
-    )
-    if state is None:
-        return {
-            "source": source,
-            "status": "unavailable",
-            "observed_at": None,
-            "reason": unavailable_reason,
+) -> list[dict[str, str | None]]:
+    states = [item for item in context.projection_source_states if item.source == source]
+    if not states:
+        return [
+            {
+                "source": source,
+                "status": "unavailable",
+                "observed_at": None,
+                "reason": unavailable_reason,
+            }
+        ]
+    projected: list[dict[str, str | None]] = []
+    for state in states:
+        item = {
+            "source": state.source,
+            "status": state.status,
+            "observed_at": (
+                state.observed_at.isoformat() if state.observed_at is not None else None
+            ),
+            "reason": state.reason,
         }
-    return {
-        "source": state.source,
-        "status": state.status,
-        "observed_at": state.observed_at.isoformat() if state.observed_at is not None else None,
-        "reason": state.reason,
-    }
+        if state.scope_digest is not None:
+            item["scope_digest"] = state.scope_digest
+        projected.append(item)
+    return projected
 
 
 def _relationship_coverage_projection(

@@ -482,9 +482,10 @@ function InstanceSources({ data }: { readonly data: OntologyInstanceExploration 
       )}
       <ul class="ontology-instance-source-list">
         {data.sources.map((source) => (
-          <li key={source.source}>
+          <li key={`${source.source}\u0000${source.scope_digest ?? ""}`}>
             <div><strong>{sourceLabel(source.source)}</strong><span>{source.status === "available" ? t("ontology.instances.available") : t("ontology.instances.unavailable")}</span></div>
             <p>
+              {source.scope_digest ? <><code>{source.scope_digest}</code>{" - "}</> : null}
               {source.observed_at ? formatDateTime(source.observed_at) : t("ontology.instances.notObserved")}
               {source.reason ? ` - ${source.reason}` : null}
             </p>
