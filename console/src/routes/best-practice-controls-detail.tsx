@@ -75,7 +75,9 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         <h4 class="rule-overview-title">{data.title}</h4>
         <p class="rule-overview-desc">{data.rationale}</p>
       </section>
-      <UnavailableState evidenceState="not-connected" message={t("governance.rules.controls.detail.notConnected")} />
+      {data.evaluation_status === "not_evaluated" ? (
+        <UnavailableState evidenceState="not-connected" message={t("governance.rules.controls.detail.notConnected")} />
+      ) : null}
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.controls.detail.framework")} value={data.framework} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
@@ -88,7 +90,19 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         <DetailRow label={t("governance.rules.controls.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.column.owner")} value={data.owner ?? "-"} mono />
+        <DetailRow label={t("governance.rules.controls.detail.cadence")} value={`${data.cadence_days} days`} />
+        <DetailRow label={t("governance.rules.controls.detail.profile")} value={data.profile_id ?? "-"} mono />
+        <DetailRow label={t("governance.rules.controls.detail.profileDigest")} value={data.profile_digest ?? "-"} mono />
       </dl>
+      {data.approved_exception ? (
+        <DetailSection title={t("governance.rules.controls.detail.approvedException")}>
+          <dl class="detail-grid">
+            <DetailRow label={t("governance.rules.controls.detail.justification")} value={data.approved_exception.justification} />
+            <DetailRow label={t("governance.rules.controls.detail.approvedBy")} value={data.approved_exception.approved_by} mono />
+            <DetailRow label={t("governance.rules.controls.detail.expiresAt")} value={data.approved_exception.expires_at} mono />
+          </dl>
+        </DetailSection>
+      ) : null}
       <DetailSection title={t("governance.rules.controls.detail.requirements")}>
         <div class="control-requirement-list">
           {data.requirements.map((requirement) => (
@@ -98,6 +112,13 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
             </article>
           ))}
         </div>
+      </DetailSection>
+      <DetailSection title={t("governance.rules.controls.detail.evidence")}>
+        <dl class="detail-grid">
+          <DetailRow label={t("governance.rules.controls.detail.evidenceRefs")} value={data.evidence_refs.join(", ") || "-"} mono />
+          <DetailRow label={t("governance.rules.controls.detail.evidenceDigests")} value={data.evidence_digests.join(", ") || "-"} mono />
+          <DetailRow label={t("governance.rules.controls.detail.limitations")} value={data.limitations.join(", ") || "-"} />
+        </dl>
       </DetailSection>
       <DetailSection title={t("governance.rules.detail.provenance")}>
         <dl class="detail-grid">

@@ -76,6 +76,9 @@ from fdai_operator_service.family_adapters import (
     UnavailableWorkflowAdapters,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
+from fdai_operator_service.framework_assessment_projection import (
+    FrameworkAssessmentProjectionBridge,
+)
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
     HilDecisionOutboxBridge,
@@ -271,6 +274,15 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None
             else None
         )
+        framework_assessment_projection_bridge = (
+            FrameworkAssessmentProjectionBridge(
+                store=family_store,
+                source=semantic_bus,
+                publisher=semantic_bus,
+            )
+            if family_store is not None and semantic_bus is not None
+            else None
+        )
         read_investigation_completion_bridge = (
             ReadInvestigationCompletionBridge(
                 store=PostgresReadInvestigationCompletionRepository(
@@ -381,6 +393,7 @@ class ProductionOperatorComposition:
                 read_investigation_bridge,
                 background_task_projection_bridge,
                 wara_assessment_projection_bridge,
+                framework_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -400,6 +413,7 @@ class ProductionOperatorComposition:
                 read_investigation_bridge,
                 background_task_projection_bridge,
                 wara_assessment_projection_bridge,
+                framework_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -762,6 +776,7 @@ def _application_lifecycle(
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
     wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
+    framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -781,6 +796,7 @@ def _application_lifecycle(
             read_investigation_bridge,
             background_task_projection_bridge,
             wara_assessment_projection_bridge,
+            framework_assessment_projection_bridge,
             read_investigation_completion_bridge,
             action_confirmation_bridge,
             azure_monitor_webhook_bridge,
@@ -805,6 +821,7 @@ def _readiness_probe(
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
     wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
+    framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -829,6 +846,10 @@ def _readiness_probe(
             and (
                 wara_assessment_projection_bridge is None
                 or wara_assessment_projection_bridge.workers_ready()
+            )
+            and (
+                framework_assessment_projection_bridge is None
+                or framework_assessment_projection_bridge.workers_ready()
             )
             and (
                 read_investigation_completion_bridge is None

@@ -50,6 +50,8 @@ EXPECTED_MANIFEST = (
     ("GET", "/rules/{rule_id}", "detail_handler"),
     ("GET", "/best-practices", "list_handler"),
     ("GET", "/best-practices/{best_practice_id}", "detail_handler"),
+    ("GET", "/caf-controls", "list_handler"),
+    ("GET", "/caf-controls/{control_id}", "detail_handler"),
     ("GET", "/wara-controls", "list_handler"),
     ("GET", "/wara-controls/{recommendation_id}", "detail_handler"),
     ("GET", "/mcsb-controls", "list_handler"),
@@ -161,7 +163,7 @@ def test_manifest_preserves_exact_legacy_method_path_and_name_surface() -> None:
         tuple((spec.method, spec.path, spec.name) for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST)
         == EXPECTED_MANIFEST
     )
-    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 41
+    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 43
     assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 13
 
     client, _, _, _ = _client()
@@ -478,6 +480,34 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "limitations": ["manual_evidence_required"],
         "execution_authority": False,
     }
+    caf_control = {
+        "control_id": "strategy",
+        "title": "Strategy",
+        "description": "Define measurable cloud outcomes.",
+        "area": "methodology",
+        "reference_state": "present",
+        "mapping_state": "partial",
+        "applicability": "applicable",
+        "evaluation_status": "not_evaluated",
+        "satisfaction": "unknown",
+        "owner_slot": "strategy-owner",
+        "cadence_days": 90,
+        "evaluation_scope": "sha256:" + "c" * 64,
+        "evaluated_at": "2026-09-10T01:00:00Z",
+        "profile_id": "profile-1",
+        "profile_digest": "sha256:" + "d" * 64,
+        "approved_exception": None,
+        "evidence_complete": False,
+        "evidence_refs": [],
+        "evidence_digests": [],
+        "limitations": ["decisive_evidence_unavailable"],
+        "evidence_specifications": [{"requirement_id": "artifact:strategy"}],
+        "crosswalk": [{"target_kind": "manual_evidence"}],
+        "source_url": "https://example.test/caf",
+        "source_version": "2026-08-31",
+        "source_revision": "catalog-revision",
+        "execution_authority": False,
+    }
     projections = {
         "best-practice.list": {
             "_revision": "best-practice-revision",
@@ -502,6 +532,17 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             "evaluation_source": "not_connected",
             "source_revision": "catalog-revision",
             "crosswalk_digest": "sha256:" + "b" * 64,
+        },
+        "caf.list": {
+            "_revision": "caf-revision",
+            "framework_id": "azure-caf",
+            "framework_version": "2026-08-31",
+            "catalog_digest": "sha256:" + "e" * 64,
+            "source_revision_digest": "sha256:" + "f" * 64,
+            "controls": [caf_control],
+            "evaluation_source": "framework-shadow-assessment",
+            "last_profile_id": "profile-1",
+            "last_evaluated_at": "2026-09-10T01:00:00Z",
         },
     }
 
@@ -568,6 +609,24 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             path_parameters={"recommendation_id": wara_control["id"]},
         )
     )
+    caf_list = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.CAF_LIST,
+            principal_id="operator-a",
+            query={"area": "methodology", "applicability": "applicable"},
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+    caf_detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.CAF_DETAIL,
+            principal_id="operator-a",
+            query={},
+            path_parameters={"control_id": "strategy"},
+        )
+    )
 
     assert best_list.payload["total"] == 1
     assert best_list.payload["controls"][0]["control_id"] == "RE:01"
@@ -587,6 +646,12 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert wara_list.payload["facets"]["by_automation_available"] == {"false": 1}
     assert wara_detail.payload == wara_control
     assert wara_detail.provenance.revision == "wara-revision"
+    assert caf_list.payload["filtered_total"] == 1
+    assert caf_list.payload["controls"][0]["control_id"] == "strategy"
+    assert "evidence_specifications" not in caf_list.payload["controls"][0]
+    assert caf_list.payload["facets"]["by_applicability"] == {"applicable": 1}
+    assert caf_detail.payload == caf_control
+    assert caf_detail.provenance.revision == "caf-revision"
 
 
 async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:

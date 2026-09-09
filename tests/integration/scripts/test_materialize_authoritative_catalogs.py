@@ -83,6 +83,19 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
         == 11
     )
     assert best_practices["evaluation_source"] == "repository-catalog"
+    assert best_practices["catalog_digest"].startswith("sha256:")
+    assert all(control["owner"] for control in best_practices["controls"])
+    assert all(control["evidence_specifications"] for control in best_practices["controls"])
+
+    caf = first[module.CAF_LIST_KEY]
+    assert caf["_revision"].startswith("sha256:")
+    assert caf["framework_id"] == "azure-caf"
+    assert len(caf["controls"]) == 15
+    assert all(control["reference_state"] == "present" for control in caf["controls"])
+    assert all(control["applicability"] == "unknown" for control in caf["controls"])
+    assert all(control["owner_slot"] for control in caf["controls"])
+    assert all(control["evidence_specifications"] for control in caf["controls"])
+    assert caf["evaluation_source"] == "not_connected"
 
     wara = first[module.WARA_LIST_KEY]
     assert wara["_revision"].startswith("sha256:")

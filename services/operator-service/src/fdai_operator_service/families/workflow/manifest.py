@@ -99,6 +99,21 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
     ),
     WorkflowRouteSpec(
         "GET",
+        "/caf-controls",
+        "list_handler",
+        WorkflowOperation.CAF_LIST,
+        "read",
+        pagination=PaginationSpec(100, 200),
+    ),
+    WorkflowRouteSpec(
+        "GET",
+        "/caf-controls/{control_id}",
+        "detail_handler",
+        WorkflowOperation.CAF_DETAIL,
+        "read",
+    ),
+    WorkflowRouteSpec(
+        "GET",
         "/wara-controls",
         "list_handler",
         WorkflowOperation.WARA_LIST,

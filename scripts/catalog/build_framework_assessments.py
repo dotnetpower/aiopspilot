@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""Build reviewed WAF and CAF assessment catalogs from pinned source catalogs."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+from fdai.rule_catalog.schema.best_practice_catalog import load_best_practice_catalog
+from fdai.rule_catalog.schema.framework_assessment import canonical_digest
+from fdai.rule_catalog.schema.framework_catalog import FrameworkDefinition, load_framework_catalog
+
+_DEFAULT_FRESHNESS_DAYS = {
+    "rule": 1,
+    "artifact": 180,
+    "metric": 30,
+    "drill": 365,
+    "approval": 180,
+    "observation": 1,
+}
+_PRODUCERS = {
+    "rule": "t0-rule-evaluator",
+    "artifact": "architecture-review-evidence-provider",
+    "metric": "architecture-review-evidence-provider",
+    "drill": "architecture-review-evidence-provider",
+    "approval": "human-approval-ledger",
+    "observation": "estate-observation-provider",
+}
+
+
+def _load_yaml_object(path: Path) -> dict[str, Any]:
+    raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path}: expected a YAML object")
+    return raw
+
+
+def _file_digest(path: Path) -> str:
+    return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+
+
+def _source_revision_digest(framework: FrameworkDefinition) -> str:
+    return canonical_digest(
+        sorted({resolved.resolved_ref for resolved in framework.resolved_controls()})
+    )
+
+
+def _requirement_id(kind: str, source_ref: str) -> str:
+    normalized = "".join(
+        character if character.isalnum() or character in ".:-" else "-"
+        for character in source_ref.casefold()
+    ).strip("-")
+    return f"{kind}:{normalized}"
+
+
+def _crosswalk_key(item: dict[str, object]) -> tuple[str, str, str]:
+    return (
+        str(item["target_kind"]),
+        str(item.get("target_ref") or ""),
+        str(item["relationship"]),
+    )
+
+
+def _specification_digest(value: dict[str, Any]) -> dict[str, Any]:
+    return {**value, "specification_digest": canonical_digest(value)}
+
+
+def _catalog_digest(value: dict[str, Any]) -> dict[str, Any]:
+    return {**value, "catalog_digest": canonical_digest(value)}
+
+
+def build_waf_catalog(
+    *,
+    framework: FrameworkDefinition,
+    framework_path: Path,
+    best_practice_root: Path,
+) -> dict[str, Any]:
+    """Derive strict evidence specifications from every pinned WAF BestPractice."""
+
+    practices = load_best_practice_catalog(best_practice_root, strict=False)
+    by_control = {
+        practice.control_id: practice
+        for practice in practices
+        if practice.framework == framework.id
+    }
+    controls: list[dict[str, Any]] = []
+    for resolved in framework.resolved_controls():
+        source = resolved.control
+        practice = by_control.get(source.id)
+        if practice is None:
+            raise ValueError(f"WAF control {source.id!r} has no BestPractice")
+        owner_slots = sorted(
+            {
+                requirement.ref
+                for requirement in practice.requirements
+                if requirement.kind.value == "approval"
+            }
+        )
+        if not owner_slots:
+            raise ValueError(f"WAF control {source.id!r} has no accountable approval requirement")
+        primary_owner = owner_slots[0]
+        evidence: list[dict[str, Any]] = []
+        crosswalk: list[dict[str, object]] = [
+            {
+                "target_kind": "best_practice",
+                "target_ref": f"{practice.id}@{practice.version}",
+                "relationship": "full",
+            }
+        ]
+        for requirement in practice.requirements:
+            kind = requirement.kind.value
+            freshness_days = requirement.freshness_days or _DEFAULT_FRESHNESS_DAYS[kind]
+            evidence.append(
+                {
+                    "requirement_id": _requirement_id(kind, requirement.ref),
+                    "kind": kind,
+                    "source_ref": requirement.ref,
+                    "authoritative_producer": _PRODUCERS[kind],
+                    "blocked_dependency": None,
+                    "scope_contract": "exact-workload",
+                    "generation_contract": "inventory" if kind == "rule" else "none",
+                    "freshness_ceiling_seconds": freshness_days * 86_400,
+                    "completeness_required": True,
+                    "owner_slot": (requirement.ref if kind == "approval" else primary_owner),
+                    "approval_roles": sorted({primary_owner, "framework-assessment-approver"}),
+                    "failure_behavior": "unknown",
+                    "evidence_role": "decisive",
+                    "process_phase": "none",
+                }
+            )
+            crosswalk.append(
+                {
+                    "target_kind": "rule" if kind == "rule" else "manual_evidence",
+                    "target_ref": requirement.ref,
+                    "relationship": "partial",
+                }
+            )
+        for objective_ref in source.objective_refs:
+            crosswalk.append(
+                {
+                    "target_kind": "control_objective",
+                    "target_ref": objective_ref,
+                    "relationship": "partial",
+                }
+            )
+        specification = {
+            "control_id": source.id,
+            "title": source.title,
+            "area": resolved.area or practice.category.value,
+            "requirement_mode": practice.requirement_mode.value,
+            "cadence_days": min(item["freshness_ceiling_seconds"] // 86_400 for item in evidence),
+            "owner_slot": primary_owner,
+            "evidence": sorted(evidence, key=lambda item: str(item["requirement_id"])),
+            "crosswalk": sorted(
+                {json.dumps(item, sort_keys=True): item for item in crosswalk}.values(),
+                key=_crosswalk_key,
+            ),
+            "reviewer": "fdai-maintainers",
+            "review_state": "reviewed",
+        }
+        controls.append(_specification_digest(specification))
+    if len(by_control) != 59 or len(controls) != 59:
+        raise ValueError("WAF assessment requires exactly 59 controls")
+    catalog = {
+        "schema_version": "1.0.0",
+        "framework_id": framework.id,
+        "framework_version": framework.version,
+        "framework_scope": framework.scope,
+        "source_revision_digest": _source_revision_digest(framework),
+        "framework_definition_digest": _file_digest(framework_path),
+        "expected_control_count": 59,
+        "controls": sorted(controls, key=lambda item: str(item["control_id"])),
+        "reviewer": "fdai-maintainers",
+        "review_state": "reviewed",
+    }
+    return _catalog_digest(catalog)
+
+
+def build_caf_catalog(
+    *,
+    framework: FrameworkDefinition,
+    framework_path: Path,
+    source_path: Path,
+) -> dict[str, Any]:
+    """Merge authored CAF evidence specifications with the pinned 15-area catalog."""
+
+    source = _load_yaml_object(source_path)
+    if source.get("framework_id") != framework.id or source.get("review_state") != "reviewed":
+        raise ValueError("CAF assessment source identity or review state is invalid")
+    defaults = source.get("defaults")
+    controls_source = source.get("controls")
+    if not isinstance(defaults, dict) or not isinstance(controls_source, dict):
+        raise ValueError("CAF assessment source defaults and controls are required")
+    resolved_by_id = {item.control.id: item for item in framework.resolved_controls()}
+    if set(controls_source) != set(resolved_by_id) or len(resolved_by_id) != 15:
+        raise ValueError("CAF assessment source MUST exactly cover 15 framework controls")
+
+    controls: list[dict[str, Any]] = []
+    for control_id in sorted(resolved_by_id):
+        authored = controls_source[control_id]
+        if not isinstance(authored, dict):
+            raise ValueError(f"CAF control {control_id!r} source is malformed")
+        owner_slot = str(authored["owner_slot"])
+        evidence_source = authored.get("evidence")
+        crosswalk_source = authored.get("crosswalk")
+        if not isinstance(evidence_source, list) or not isinstance(crosswalk_source, list):
+            raise ValueError(f"CAF control {control_id!r} evidence and crosswalk are required")
+        evidence: list[dict[str, Any]] = []
+        for raw in evidence_source:
+            if not isinstance(raw, dict):
+                raise ValueError(f"CAF control {control_id!r} evidence is malformed")
+            kind = str(raw["kind"])
+            source_ref = str(raw["source_ref"])
+            evidence.append(
+                {
+                    "requirement_id": _requirement_id(kind, source_ref),
+                    "kind": kind,
+                    "source_ref": source_ref,
+                    "authoritative_producer": raw.get(
+                        "authoritative_producer",
+                        defaults["authoritative_producer"],
+                    ),
+                    "blocked_dependency": raw.get("blocked_dependency"),
+                    "scope_contract": defaults["scope_contract"],
+                    "generation_contract": defaults["generation_contract"],
+                    "freshness_ceiling_seconds": int(
+                        raw.get(
+                            "freshness_ceiling_seconds",
+                            int(authored["cadence_days"]) * 86_400,
+                        )
+                    ),
+                    "completeness_required": True,
+                    "owner_slot": owner_slot,
+                    "approval_roles": defaults["approval_roles"],
+                    "failure_behavior": defaults["failure_behavior"],
+                    "evidence_role": raw.get("evidence_role", "decisive"),
+                    "process_phase": raw.get("process_phase", "none"),
+                }
+            )
+        crosswalk = sorted(
+            (dict(item) for item in crosswalk_source if isinstance(item, dict)),
+            key=_crosswalk_key,
+        )
+        resolved = resolved_by_id[control_id]
+        specification = {
+            "control_id": control_id,
+            "title": resolved.control.title,
+            "area": resolved.area or "methodology",
+            "requirement_mode": "all",
+            "cadence_days": authored["cadence_days"],
+            "owner_slot": owner_slot,
+            "evidence": sorted(evidence, key=lambda item: str(item["requirement_id"])),
+            "crosswalk": crosswalk,
+            "reviewer": source["reviewer"],
+            "review_state": source["review_state"],
+        }
+        controls.append(_specification_digest(specification))
+    catalog = {
+        "schema_version": "1.0.0",
+        "framework_id": framework.id,
+        "framework_version": framework.version,
+        "framework_scope": framework.scope,
+        "source_revision_digest": _source_revision_digest(framework),
+        "framework_definition_digest": _file_digest(framework_path),
+        "expected_control_count": 15,
+        "controls": controls,
+        "reviewer": source["reviewer"],
+        "review_state": source["review_state"],
+    }
+    return _catalog_digest(catalog)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--catalog-root", type=Path, default=Path("rule-catalog"))
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=Path("rule-catalog/framework-assessments/generated"),
+    )
+    args = parser.parse_args()
+
+    framework_root = args.catalog_root / "frameworks"
+    frameworks = {
+        item.id: item
+        for item in load_framework_catalog(
+            framework_root,
+            best_practices=load_best_practice_catalog(
+                args.catalog_root / "best-practices",
+                strict=False,
+            ),
+            objective_refs=frozenset({"reliability.node-pool.zone-failure-tolerance@1.0.0"}),
+            additional_roots=(args.catalog_root / "collected/wara-aprl",),
+        )
+    }
+    waf_path = framework_root / "azure-waf.yaml"
+    caf_path = framework_root / "azure-caf.yaml"
+    outputs = {
+        "azure-waf.json": build_waf_catalog(
+            framework=frameworks["azure-waf"],
+            framework_path=waf_path,
+            best_practice_root=args.catalog_root / "best-practices",
+        ),
+        "azure-caf.json": build_caf_catalog(
+            framework=frameworks["azure-caf"],
+            framework_path=caf_path,
+            source_path=args.catalog_root / "framework-assessments/azure-caf.source.yaml",
+        ),
+    }
+    args.output_root.mkdir(parents=True, exist_ok=True)
+    for filename, value in outputs.items():
+        (args.output_root / filename).write_text(
+            json.dumps(value, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: cb79e30dfa879c9376d99a4a2326da5a4873c2b2
+translation_source_sha: 724c28dd9421cafd6d4a87d5acd80739ea6d4799
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -39,6 +39,10 @@ translation_revised: 2026-09-10
 - **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview
   및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환
   결과를 명시적으로 선택할 수 있습니다.
+- **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과
+  재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`,
+  비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고
+  물리적 다중화 전송만 공유합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
