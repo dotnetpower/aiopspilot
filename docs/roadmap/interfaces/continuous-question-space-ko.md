@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: da9899340559f03c99f7cae333b9c89def18ecfe
+translation_source_sha: bb62c0879b1bae42329bffdf3399521111ae0e67
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,10 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | validated | Clean local treatment snapshot에서 schema-only v2와 typed target grounding이 서로 다른 10문항 스키마 cohort 5회를 연속 100%로 통과했습니다. | 로컬 exact-source live artifact 5개, 계약 50/50 통과 | 기존 16-case 안전 cohort가 primary, target, secondary 및 clarification 지표에서 회귀했으므로 shadow를 유지합니다. |
+| 2026-09-10 | validated | 서로 다른 10문항 cohort 5개에서 schema-only v2가 100%, 100%, 100%, 90%, 90%를 기록했습니다. 미달 2건은 target shape 결함이며 authority, action posture 또는 만들어 낸 capability 결함이 아닙니다. | 로컬 exact-source live artifact | Shadow mode를 유지하고 typed target 정규화를 커밋한 뒤 다시 실행합니다. |
+| 2026-09-10 | implemented | Count cue와 declaration detail을 분리하고 복수 metatype의 전체 span을 보존하도록 schema-only shadow v2를 추가했습니다. | `current change`, v1 live cohort 5개 및 집중 prompt 테스트 | 승격 전에 서로 다른 v2 cohort 5개를 실행합니다. |
+| 2026-09-10 | implemented | 관련 없는 cumulative-prompt 변동에서 온톨로지 treatment를 분리하도록 active v8 위에 schema-only semantic-judgment shadow profile을 추가했습니다. | `current change`, prompt registry 및 composition 테스트 | 승격 전에 서로 다른 10문항 스키마 cohort 5회를 연속 측정합니다. |
 | 2026-09-10 | implemented | 단일 subject 온톨로지 관계 답변을 명시적인 incoming 및 outgoing section으로 분리하고 self-link를 두 view에 모두 포함했습니다. | `current change`, 집중 이중 언어 renderer 회귀 및 전체 Core semantic-turn 테스트 | 새로운 관계 질문만 다시 측정합니다. |
 | 2026-09-10 | implemented | Typed target 또는 facet이 제공 ObjectType 하나를 인코딩한 경우에만 불필요한 스키마 subject 모호성을 닫습니다. 함수 readiness가 principal manifest의 target 가시성을 입증하지 못했으므로 Agent 스키마 challenge는 backlog로 되돌렸습니다. | `current change`, 집중 positive, 다중 subject negative 및 watchdog 선택 테스트 | Principal-visible 스키마 subject로 계속 진행하고 Agent를 다시 활성화하기 전에 target-level readiness 증명을 추가합니다. |
 | 2026-09-10 | implemented | 소진된 SRE 스키마 질문 공간을 선언 kind 개수 3개, 선언된 ObjectType 6개, 관계 subject 5개로 확장했습니다. 모두 같은 evidence-ready 함수와 서버 권한으로 gate하며 count 계약은 제공된 `query.manifest` intent를 사용합니다. | `current change`, 불변 question-contract, runtime challenge, Ruff 및 안전 테스트 | 이전 ledger 질문을 삭제하거나 재사용하지 않고 새로운 child campaign을 실행합니다. |

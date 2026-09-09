@@ -263,6 +263,15 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "use only the supplied query.manifest FunctionType" in judgment_shadow.body
     assert "A generic prohibited operation uses kind action" in judgment_shadow.body
     assert "Put only explicitly negated or prohibited operations" in judgment_shadow.body
+    schema_shadow = next(
+        artifact
+        for artifact in prompts.get_packs("semantic.judgment")
+        if artifact.id == "semantic-ontology-schema"
+    )
+    assert schema_shadow.version == 2
+    assert schema_shadow.default_mode.value == "shadow"
+    assert "never invent a count capability" in schema_shadow.body
+    assert "A declaration-detail request MUST NOT add count" in schema_shadow.body
     assert "Never convert advise_only into action_draft" in frame_shadow.body
     assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
     assert "gateway status, backend status, and model status" in operational_frame.body
