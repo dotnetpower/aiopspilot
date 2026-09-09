@@ -270,7 +270,9 @@ eliminated:
 
 - **Structural coverage diff.** Count the manual's section headings and imperative
   statements ("must", "must not", "shall"), compare against the extracted-fragment
-  count and topics, and flag uncovered sections for human review.
+  count and topics, and flag uncovered sections for human review. An unterminated
+  fenced code block produces an explicit malformed-input gap instead of silently
+  hiding the uncertain trailing content.
 - **Operational feedback.** When shadow runs a stretch with no rule firing yet a real
   incident occurs, that gap is a missing-rule signal the discovery loop turns into a
   candidate (see [observability-and-detection.md](observability-and-detection.md) and

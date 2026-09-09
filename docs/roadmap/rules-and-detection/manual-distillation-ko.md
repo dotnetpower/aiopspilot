@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 95a66ab97003f5112ba2508837333daa94b21de3
+translation_source_sha: 216eb1aca1cd6b8ae9326baf97b182da7a9bbbc7
 translation_revised: 2026-09-10
 ---
 
@@ -239,7 +239,9 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 갭(false 부정)은 증류의 정직한 한계이며 완전히 자동화될 수 없다. 제거가 아니라 완화된다:
 
 - **구조적 커버리지 차이.** 매뉴얼의 섹션 헤딩과 명령형 진술("must", "must not", "shall")을
-  세어, 추출된 조각 수/토픽과 대조하고, 커버 안 된 섹션을 human 리뷰로 플래그한다.
+  세어, 추출된 조각 수/토픽과 대조하고, 커버 안 된 섹션을 human 리뷰로 플래그한다. 닫히지
+  않은 코드 펜스는 불확실한 이후 내용을 조용히 숨기지 않고 명시적인 잘못된 입력 검토 항목을
+  생성합니다.
 - **운영 피드백.** shadow가 규칙 발동 없이 한동안 돌았는데 실제 인시던트가 발생하면, 그 갭은
   발견 루프가 후보로 바꾸는 누락 규칙 신호다
   ([observability-and-detection-ko.md](observability-and-detection-ko.md) 및
