@@ -159,6 +159,15 @@ prod topology so shadow evaluation is representative.
   deployment mode records the exact combination. The attested model digest may remain unchanged
   when the validated endpoint map is the model binding being added. No identity, authority, secret,
   command, or unrelated environment change is accepted.
+- **Bounded Core evidence binding adoption**: the Core-only
+  `core_evidence_bindings_transition` mode may add only previously absent decision-evidence storage
+  and operating-intent source bindings. It runs independently from initial cutover, database,
+  model, channel-edge, and SharePoint transitions. The guard requires one HTTPS Blob container URL,
+  a path under `/app/config/`, an exact revision, a SHA-256 content digest, a positive rollout
+  generation, and exact positive counts for all six operating-intent types. An optional
+  revalidation interval is capped at eight hours. The sealed deployment mode and prior healthy
+  revision preserve rollback, while command, identity, secret, authority, rebinding, removal, and
+  unrelated environment changes remain blocked.
 - **Metering ledger ownership**: Core owns and appends `llm_invocation` records with only
   `SELECT, INSERT`; Operator consumes the same table with `SELECT` only. The service migration
   graph treats Operator as the read-only consumer and blocks provider rollback until the Operator

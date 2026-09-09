@@ -1700,6 +1700,156 @@ def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object
     return plan
 
 
+def _core_evidence_binding_plan(guard: ModuleType) -> dict[str, object]:
+    service = "core-control-plane"
+    contract = guard.resolve_service(service, "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": "value"} for name in contract.required_environment
+        ]
+    change["after"]["template"][0]["container"][0]["env"].extend(
+        [
+            {
+                "name": "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
+                "value": "https://example.blob.core.windows.net/records",
+            },
+            {
+                "name": "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON",
+                "value": (
+                    '{"ArchitectureConstraint":1,"ChangeWindow":1,"CostObjective":1,'
+                    '"Ownership":1,"RecoveryObjective":1,"ServiceObjective":1}'
+                ),
+            },
+            {"name": "FDAI_OPERATING_INTENT_SOURCE_GENERATION", "value": "1"},
+            {
+                "name": "FDAI_OPERATING_INTENT_SOURCE_PATH",
+                "value": "/app/config/operating-intent/generic-source.json",
+            },
+            {
+                "name": "FDAI_OPERATING_INTENT_SOURCE_REVISION",
+                "value": "operating-intent-source:generic@1.0.0",
+            },
+            {
+                "name": "FDAI_OPERATING_INTENT_SOURCE_SHA256",
+                "value": "sha256:" + "a" * 64,
+            },
+        ]
+    )
+    return plan
+
+
+def test_plan_guard_allows_exact_core_evidence_binding_adoption(guard: ModuleType) -> None:
+    guard.validate_plan(
+        _core_evidence_binding_plan(guard),
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        core_evidence_bindings_transition=True,
+    )
+
+
+def test_plan_guard_rejects_implicit_or_expanded_core_evidence_binding_adoption(
+    guard: ModuleType,
+) -> None:
+    plan = _core_evidence_binding_plan(guard)
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+        )
+
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
+    with pytest.raises(guard.PlanGuardError, match="core evidence binding transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            core_evidence_bindings_transition=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("FDAI_DECISION_EVIDENCE_CONTAINER_URL", "http://evidence.example.com/records"),
+        ("FDAI_DECISION_EVIDENCE_CONTAINER_URL", "https://evidence.example.com/records"),
+        ("FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON", "{}"),
+        ("FDAI_OPERATING_INTENT_SOURCE_GENERATION", "0"),
+        ("FDAI_OPERATING_INTENT_SOURCE_PATH", "/app/config/../unreviewed.json"),
+        ("FDAI_OPERATING_INTENT_SOURCE_REVISION", "invalid revision"),
+        ("FDAI_OPERATING_INTENT_SOURCE_SHA256", "sha256:invalid"),
+    ],
+)
+def test_plan_guard_rejects_invalid_core_evidence_bindings(
+    guard: ModuleType,
+    name: str,
+    value: str,
+) -> None:
+    plan = _core_evidence_binding_plan(guard)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    next(item for item in after_environment if item["name"] == name)["value"] = value
+
+    with pytest.raises(guard.PlanGuardError, match="core evidence binding transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            core_evidence_bindings_transition=True,
+        )
+
+
+def test_plan_guard_rejects_core_evidence_rebinding_or_other_service(
+    guard: ModuleType,
+) -> None:
+    plan = _core_evidence_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    change["before"]["template"][0]["container"][0]["env"].append(
+        copy.deepcopy(
+            next(
+                item
+                for item in after_environment
+                if item["name"] == "FDAI_DECISION_EVIDENCE_CONTAINER_URL"
+            )
+        )
+    )
+    with pytest.raises(guard.PlanGuardError, match="core evidence binding transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            core_evidence_bindings_transition=True,
+        )
+
+    with pytest.raises(guard.PlanGuardError, match="Core-only"):
+        guard.validate_plan(
+            _plan(
+                "module.operator_service.module.container_app.azurerm_container_app.service",
+                ["update"],
+            ),
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            core_evidence_bindings_transition=True,
+        )
+
+
 def test_plan_guard_allows_exact_core_model_binding_transition(guard: ModuleType) -> None:
     service = "core-control-plane"
     digest = "a" * 64
@@ -4505,6 +4655,59 @@ def test_plan_bundle_binds_model_binding_mode(bundle: ModuleType, tmp_path: Path
     assert json.loads(context.read_text(encoding="utf-8"))["materials"] == {
         "resolved_models": {"canonical_json_sha256": digest}
     }
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="core-control-plane",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            resolved_models_digest=digest,
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_binds_core_evidence_binding_mode(bundle: ModuleType, tmp_path: Path) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 9, 9, 5, 0, tzinfo=UTC)
+    image = _image("fdai-core-control-plane")
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    payload = _plan(address, ["update"], image=image)
+    payload["resource_changes"][0]["change"]["after"]["tags"][  # type: ignore[index]
+        "fdai:component"
+    ] = "core-control-plane"
+    plan_json.write_text(json.dumps(payload), encoding="utf-8")
+    coordinates = _bundle_coordinates()
+    digest = "a" * 64
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="core-control-plane",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        resolved_models_digest=digest,
+        core_evidence_bindings_transition=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "core-evidence-bindings"
     with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
         bundle.verify_bundle(
             plan=plan,

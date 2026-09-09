@@ -283,6 +283,7 @@ def _deployment_context(
     initial_cutover: bool,
     database_host_binding: bool,
     degraded_recovery: bool = False,
+    core_evidence_bindings_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -292,6 +293,7 @@ def _deployment_context(
         service=service,
         initial_cutover=initial_cutover,
         database_host_binding=database_host_binding,
+        core_evidence_bindings_transition=core_evidence_bindings_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
@@ -380,6 +382,7 @@ def _deployment_mode(
     service: str,
     initial_cutover: bool,
     database_host_binding: bool,
+    core_evidence_bindings_transition: bool,
     model_binding_transition: bool,
     operator_channel_edge_transition: str,
     sharepoint_connector_transition: str,
@@ -397,6 +400,7 @@ def _deployment_mode(
     if sharepoint_connector_transition != "none" and (
         initial_cutover
         or database_host_binding
+        or core_evidence_bindings_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
     ):
@@ -411,12 +415,26 @@ def _deployment_mode(
         raise PlanBundleError(
             "model binding transition is exclusive with initial cutover and channel-edge transition"
         )
+    if core_evidence_bindings_transition and service != "core-control-plane":
+        raise PlanBundleError(
+            "core evidence binding transition is valid only for core-control-plane"
+        )
+    if core_evidence_bindings_transition and (
+        initial_cutover
+        or database_host_binding
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+        or sharepoint_connector_transition != "none"
+    ):
+        raise PlanBundleError("core evidence binding transition must be applied independently")
     if database_host_binding and model_binding_transition:
         return "database-host-binding+model-binding"
     if database_host_binding:
         return "database-host-binding"
     if model_binding_transition:
         return "model-binding"
+    if core_evidence_bindings_transition:
+        return "core-evidence-bindings"
     if initial_cutover:
         return "initial-cutover"
     if operator_channel_edge_transition != "none":
@@ -451,6 +469,7 @@ def create_bundle(
     initial_cutover: bool = False,
     database_host_binding: bool = False,
     degraded_recovery: bool = False,
+    core_evidence_bindings_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -485,6 +504,7 @@ def create_bundle(
         initial_cutover=initial_cutover,
         database_host_binding=database_host_binding,
         degraded_recovery=degraded_recovery,
+        core_evidence_bindings_transition=core_evidence_bindings_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
@@ -521,6 +541,7 @@ def create_bundle(
             service=service,
             initial_cutover=initial_cutover,
             database_host_binding=database_host_binding,
+            core_evidence_bindings_transition=core_evidence_bindings_transition,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
             sharepoint_connector_transition=sharepoint_connector_transition,
@@ -559,6 +580,7 @@ def verify_bundle(
     initial_cutover: bool = False,
     database_host_binding: bool = False,
     degraded_recovery: bool = False,
+    core_evidence_bindings_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -604,6 +626,7 @@ def verify_bundle(
             service=service,
             initial_cutover=initial_cutover,
             database_host_binding=database_host_binding,
+            core_evidence_bindings_transition=core_evidence_bindings_transition,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
             sharepoint_connector_transition=sharepoint_connector_transition,
@@ -638,6 +661,7 @@ def verify_bundle(
         initial_cutover=initial_cutover,
         database_host_binding=database_host_binding,
         degraded_recovery=degraded_recovery,
+        core_evidence_bindings_transition=core_evidence_bindings_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
@@ -675,6 +699,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument("--degraded-recovery", action="store_true")
+    parser.add_argument("--core-evidence-bindings-transition", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
@@ -723,6 +748,7 @@ def main() -> int:
         "initial_cutover": args.initial_cutover,
         "database_host_binding": args.database_host_binding,
         "degraded_recovery": args.degraded_recovery,
+        "core_evidence_bindings_transition": args.core_evidence_bindings_transition,
         "model_binding_transition": args.model_binding_transition,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
         "sharepoint_connector_transition": args.sharepoint_connector_transition,
