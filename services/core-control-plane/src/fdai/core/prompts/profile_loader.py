@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
 from fdai.core.prompts.profiles import (
     PromptArtifactRef,
@@ -64,6 +65,12 @@ def load_prompt_profiles(
         raw = yaml.safe_load(catalog_path.read_text())
     except (json.JSONDecodeError, yaml.YAMLError) as exc:
         return (), (PromptProfileIssue(str(catalog_path), f"invalid profile catalog: {exc}"),)
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        return (), (
+            PromptProfileIssue(str(schema_path), f"invalid prompt profile schema: {exc.message}"),
+        )
     validator = Draft202012Validator(schema)
     schema_errors = sorted(validator.iter_errors(raw), key=lambda error: list(error.absolute_path))
     if schema_errors:

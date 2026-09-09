@@ -116,6 +116,18 @@ def test_profile_catalog_rejects_missing_exact_artifact(tmp_path: Path) -> None:
     assert any("unknown artifact" in issue.message for issue in excinfo.value.issues)
 
 
+def test_profile_catalog_rejects_invalid_profile_schema(tmp_path: Path) -> None:
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
+    schema_path = catalog / "prompts" / "profiles" / "schema" / "prompt-profile.schema.json"
+    schema_path.write_text('{"type":"not-a-json-schema-type"}')
+
+    with pytest.raises(PromptRegistryError) as excinfo:
+        FileSystemPromptRegistry(catalog)
+
+    assert any("invalid prompt profile schema" in issue.message for issue in excinfo.value.issues)
+
+
 def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> None:
     catalog = tmp_path / "catalog"
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
