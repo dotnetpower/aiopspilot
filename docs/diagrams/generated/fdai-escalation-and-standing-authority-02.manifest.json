@@ -12,7 +12,7 @@
     "ko": {
       "title": "재결정 경로(우회 없음)",
       "description": "재결정 경로(우회 없음)에 대한 FDAI 흐름입니다.",
-      "alt": "재결정 경로(우회 없음). 주요 단계는 escalation supervisor / (ladder deadline + SA match), risk-gate / re-evaluates, Var / standing Approval, Thor / executes approved HIL action, delivery / remediation-PR / direct-api, audit (Saga) / reason: standing-authority sa-...id, terminal no-op / + A2 alert입니다."
+      "alt": "재결정 경로(우회 없음). 주요 단계는 에스컬레이션 supervisor / (ladder deadline + SA 매치), risk-gate / 재평가, Var / 상시 Approval, Thor / 승인된 HIL 액션 실행, 전달 / remediation-PR / direct-api, 감사(Saga) / reason: standing-authority sa-...id, 종료성 no-op / + A2 alert입니다."
     }
   },
   "assets": {
@@ -30,11 +30,11 @@
       "shape": "card",
       "label": {
         "en": "escalation supervisor / (ladder deadline + SA match)",
-        "ko": "escalation supervisor / (ladder deadline + SA match)"
+        "ko": "에스컬레이션 supervisor / (ladder deadline + SA 매치)"
       },
       "description": {
         "en": "escalation supervisor / (ladder deadline + SA match)",
-        "ko": "escalation supervisor / (ladder deadline + SA match)"
+        "ko": "에스컬레이션 supervisor / (ladder deadline + SA 매치)"
       }
     },
     {
@@ -43,11 +43,11 @@
       "shape": "card",
       "label": {
         "en": "risk-gate / re-evaluates",
-        "ko": "risk-gate / re-evaluates"
+        "ko": "risk-gate / 재평가"
       },
       "description": {
         "en": "risk-gate / re-evaluates",
-        "ko": "risk-gate / re-evaluates"
+        "ko": "risk-gate / 재평가"
       }
     },
     {
@@ -56,11 +56,11 @@
       "shape": "card",
       "label": {
         "en": "Var / standing Approval",
-        "ko": "Var / standing Approval"
+        "ko": "Var / 상시 Approval"
       },
       "description": {
         "en": "Var / standing Approval",
-        "ko": "Var / standing Approval"
+        "ko": "Var / 상시 Approval"
       }
     },
     {
@@ -69,11 +69,11 @@
       "shape": "card",
       "label": {
         "en": "Thor / executes approved HIL action",
-        "ko": "Thor / executes approved HIL action"
+        "ko": "Thor / 승인된 HIL 액션 실행"
       },
       "description": {
         "en": "Thor / executes approved HIL action",
-        "ko": "Thor / executes approved HIL action"
+        "ko": "Thor / 승인된 HIL 액션 실행"
       }
     },
     {
@@ -82,11 +82,11 @@
       "shape": "card",
       "label": {
         "en": "delivery / remediation-PR / direct-api",
-        "ko": "delivery / remediation-PR / direct-api"
+        "ko": "전달 / remediation-PR / direct-api"
       },
       "description": {
         "en": "delivery / remediation-PR / direct-api",
-        "ko": "delivery / remediation-PR / direct-api"
+        "ko": "전달 / remediation-PR / direct-api"
       }
     },
     {
@@ -95,11 +95,11 @@
       "shape": "card",
       "label": {
         "en": "audit (Saga) / reason: standing-authority sa-...id",
-        "ko": "audit (Saga) / reason: standing-authority sa-...id"
+        "ko": "감사(Saga) / reason: standing-authority sa-...id"
       },
       "description": {
         "en": "audit (Saga) / reason: standing-authority sa-...id",
-        "ko": "audit (Saga) / reason: standing-authority sa-...id"
+        "ko": "감사(Saga) / reason: standing-authority sa-...id"
       }
     },
     {
@@ -108,11 +108,11 @@
       "shape": "card",
       "label": {
         "en": "terminal no-op / + A2 alert",
-        "ko": "terminal no-op / + A2 alert"
+        "ko": "종료성 no-op / + A2 alert"
       },
       "description": {
         "en": "terminal no-op / + A2 alert",
-        "ko": "terminal no-op / + A2 alert"
+        "ko": "종료성 no-op / + A2 alert"
       }
     }
   ],
@@ -124,7 +124,7 @@
       "kind": "request",
       "label": {
         "en": "re-enter",
-        "ko": "re-enter"
+        "ko": "재진입"
       }
     },
     {
@@ -133,8 +133,8 @@
       "to": "v",
       "kind": "request",
       "label": {
-        "en": "SA precondition + envelope verified",
-        "ko": "SA precondition + envelope verified"
+        "en": "SA pins + envelope verified",
+        "ko": "SA pins + envelope 검증됨"
       }
     },
     {
@@ -165,7 +165,7 @@
       "kind": "request",
       "label": {
         "en": "SA invalid / envelope exceeded",
-        "ko": "SA invalid / envelope exceeded"
+        "ko": "SA invalid / envelope 초과"
       }
     },
     {
