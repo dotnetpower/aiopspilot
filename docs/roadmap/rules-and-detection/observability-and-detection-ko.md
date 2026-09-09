@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: bc09b6593cbc7e56da664a3f37f456040820f391
+translation_source_sha: c8d8348da03d8c721c5b33d0da14c251ebeafb11
 translation_revised: 2026-09-10
 ---
 
@@ -409,6 +409,12 @@ incumbent를 넘는 후보 개선, 가드 메트릭 무회귀, 정책 escape 0�
 돌아갑니다. 영속 에피소드 원장, event-time 결과 결합, intervention censoring,
 transactional 게시 발신함 및 기계적 틱 배선은 구현되어 있습니다. 승격은 계속
 측정된 배포 근거와 권위 있는 승격 레지스트리에 의존합니다.
+
+PostgreSQL 예측 에피소드 저장소는 읽기 전용 운영 근거 snapshot을 노출합니다. 결정론적
+reducer는 정밀도, 재현율, 놓친 위반율, 구간 포괄률, 평균 및 중앙값 선행 시간, 판단 보류율,
+명시적인 결과 수와 분모 공백을 보고합니다. 개입으로 검열되거나 점수화할 수 없는 결과는 계속
+표시하지만 점수화 가능한 분모에는 넣지 않으며, snapshot은 실행 또는 승격 권한을 부여하지
+않습니다.
 
 ## 4. 근본원인 분석(Root-Cause Analysis)
 

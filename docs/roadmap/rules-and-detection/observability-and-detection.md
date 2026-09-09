@@ -429,6 +429,12 @@ event-time outcome join, intervention censoring, transactional publication outbo
 tick wiring are implemented. Promotion still depends on measured deployment evidence and the
 authoritative promotion registry.
 
+The PostgreSQL forecast episode store exposes a read-only operational evidence snapshot. Its
+deterministic reducer reports precision, recall, missed-breach rate, interval coverage, mean and
+median lead time, abstention rate, explicit outcome counts, and denominator gaps. Censored and
+unscorable outcomes stay visible but do not enter the scorable denominator, and the snapshot carries
+no execution or promotion authority.
+
 ## 4. Root-Cause Analysis
 
 The tier contract, deterministic causal chain, grounded reasoning, knowledge evidence, and read-
