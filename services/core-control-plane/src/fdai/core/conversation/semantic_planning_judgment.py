@@ -65,17 +65,17 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
     ),
 }
 _MAX_JUDGMENT_CAPABILITY_BYTES = 32 * 1024
-_PRIMARY_OPERATIONAL_OUTPUT_INTENTS = {
+_PRIMARY_OPERATIONAL_OUTPUT_INTENTS: dict[str, str] = {
     "resource_configuration_changes": "query.resource_configuration_changes",
     "gateway_diagnostic_evidence": "query.gateway_diagnostic_evidence",
 }
-_SUMMARY_OPERATIONAL_OUTPUT_INTENTS = {
+_SUMMARY_OPERATIONAL_OUTPUT_INTENTS: dict[str, str] = {
     "resource_health_list": "query.resource_health_inventory",
     "resource_state_list": "query.resource_state_inventory",
     "subscription_scope_identity": "query.subscription_scope_identity",
     "subscription_service_health": "query.subscription_service_health",
 }
-_DERIVED_RESOURCE_OUTPUT_INTENTS = {
+_DERIVED_RESOURCE_OUTPUT_INTENTS: dict[str, frozenset[str]] = {
     "resource_condition_sections": frozenset(
         {
             "query.resource_health_inventory",
@@ -291,7 +291,7 @@ def _operational_frame_matches_accepted_judgment(
     if not judgment_accepted or judgment is None:
         return False
     if required_primary_intent is not None:
-        return judgment.primary_intent == required_primary_intent
+        return bool(judgment.primary_intent == required_primary_intent)
     if required_derived_intents is not None:
         return not _has_unsupported_collection_target(judgment) and required_derived_intents == {
             judgment.primary_intent,
