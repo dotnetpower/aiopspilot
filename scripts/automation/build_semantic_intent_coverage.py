@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Build the complete FDAI semantic-intent topic and metric inventory."""
+"""Build the FDAI conversation quality assurance scorecard."""
 
 from __future__ import annotations
 
 import argparse
-import ast
-import hashlib
 import json
 import sys
 from collections import Counter
@@ -16,25 +14,65 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
-from scripts.automation.semantic_intent_metrics import (
-    COVERAGE_LIMITATIONS,
+from scripts.automation.conversation_quality_metrics import (
+    HARD_ZERO_METRICS,
     METRIC_GROUPS,
+    MODEL_CHANGE_POLICY,
     OPERATING_DOMAINS,
+    QUALITY_COVERAGE_LIMITATIONS,
+    SCORECARD,
     SCORING_POLICY,
 )
+from scripts.automation.conversation_quality_sources import (
+    digest,
+    enum_values,
+    has_answer_oracle,
+    json_object,
+    paths_digest,
+    presentation_registry_kinds,
+    query_function_names,
+    ratio,
+    required_question_bank_domains,
+    sha256,
+    string_set_assignment,
+    typescript_string_union,
+    yaml_object,
+)
+from scripts.automation.presentation_quality_metrics import (
+    PRESENTATION_EVALUATION_AXES,
+)
+
+_ratio = ratio
 
 
 def build_inventory(root: Path) -> dict[str, Any]:
     """Build a source-derived topic inventory and current evaluation coverage."""
-    golden = _json(root / "eval/golden-dataset/expectations.json")
-    question_bank = _json(root / "eval/golden-dataset/question-bank/question-bank.json")
-    question_bank_source = _yaml(
+    golden = json_object(root / "eval/golden-dataset/expectations.json")
+    question_bank = json_object(root / "eval/golden-dataset/question-bank/question-bank.json")
+    question_bank_source = yaml_object(
         root / "eval/golden-dataset/question-bank/question-bank.source.yaml"
     )
-    intent_cases = _yaml(root / "eval/golden-dataset/azure-incident-intent-golden.yaml")
+    intent_cases = yaml_object(root / "eval/golden-dataset/azure-incident-intent-golden.yaml")
+    adequacy_path = (
+        root / "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py"
+    )
+    criteria_path = (
+        root / "services/core-control-plane/src/fdai/core/conversation_assurance/models.py"
+    )
+    adaptive_answer_path = (
+        root / "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py"
+    )
+    presentation_planner_path = (
+        root
+        / "services/operator-service/src/fdai_operator_service/families/conversation"
+        / "presentation_planner.py"
+    )
+    presentation_backend_types_path = root / "console/src/deck/backend-types.ts"
+    presentation_module_types_path = root / "console/src/deck/presentation-modules/types.ts"
+    presentation_registry_path = root / "console/src/deck/presentation-modules/registry.tsx"
     function_root = root / "services/core-control-plane/src/fdai/core/ontology_platform"
     function_source_paths = sorted(function_root.glob("*.py"))
-    function_names = _query_function_names(function_source_paths)
+    function_names = query_function_names(function_source_paths)
     golden_functions = Counter(
         function_name
         for case in golden["cases"]
@@ -70,8 +108,16 @@ def build_inventory(root: Path) -> dict[str, Any]:
     bank_domains = Counter(item["domain"] for item in bank_questions)
     bank_categories = Counter(item.get("category") or "uncategorized" for item in bank_questions)
     golden_categories = Counter(item["category"] for item in golden["cases"])
-    required_bank_domains = _required_question_bank_domains(question_bank_source)
+    required_bank_domains = required_question_bank_domains(question_bank_source)
     required_golden_categories = set(question_bank_source["golden_category_domains"])
+    answer_oracle_count = sum(has_answer_oracle(case) for case in golden["cases"])
+    presentation_kinds = enum_values(presentation_planner_path, "PresentationKind")
+    presentation_registry = presentation_registry_kinds(presentation_registry_path)
+    if set(presentation_kinds) != presentation_registry:
+        raise ValueError("Operator presentation kinds and Console registrations MUST match exactly")
+    presentation_oracle_count = sum(
+        bool(item.get("presentation_oracle")) for item in bank_questions
+    )
     function_rows = [
         {
             "topic_id": name,
@@ -122,25 +168,56 @@ def build_inventory(root: Path) -> dict[str, Any]:
     pantheon_covered = sum(item["coverage_state"] == "covered" for item in question_domain_rows)
     function_any_covered = sum(item["coverage_state"] != "missing_case" for item in function_rows)
     body = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
+        "artifact_kind": "conversation_quality_assurance_scorecard",
+        "scorecard": {
+            **SCORECARD,
+            "metric_count": sum(len(metrics) for metrics in METRIC_GROUPS.values()),
+        },
+        "model_change_policy": MODEL_CHANGE_POLICY,
         "source_digests": {
-            path.relative_to(root).as_posix(): _sha256(path)
+            path.relative_to(root).as_posix(): sha256(path)
             for path in (
                 root / "eval/golden-dataset/expectations.json",
                 root / "eval/golden-dataset/question-bank/question-bank.json",
                 root / "eval/golden-dataset/question-bank/question-bank.source.yaml",
                 root / "eval/golden-dataset/azure-incident-intent-golden.yaml",
                 root / "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+                adaptive_answer_path,
+                adequacy_path,
+                criteria_path,
+                presentation_planner_path,
+                (
+                    root
+                    / "services/operator-service/src/fdai_operator_service/families/conversation"
+                    / "presentation_artifact_v3.py"
+                ),
+                root / "console/src/deck/presentation-artifact.ts",
+                root / "console/src/deck/presentation-modules/charts.tsx",
+                presentation_backend_types_path,
+                presentation_module_types_path,
+                presentation_registry_path,
+                root / "scripts/automation/conversation_quality_metrics.py",
+                root / "scripts/automation/conversation_quality_sources.py",
+                root / "scripts/automation/presentation_quality_metrics.py",
                 root / "scripts/automation/semantic_intent_metrics.py",
             )
         }
         | {
             "services/core-control-plane/src/fdai/core/ontology_platform/*.py": (
-                _paths_digest(root, function_source_paths)
+                paths_digest(root, function_source_paths)
             )
         },
         "topic_inventory": inventory,
-        "evaluation_axes": _evaluation_axes(bank_questions, intent_cases["cases"]),
+        "evaluation_axes": _evaluation_axes(
+            bank_questions,
+            intent_cases["cases"],
+            adequacy_path=adequacy_path,
+            criteria_path=criteria_path,
+            presentation_planner_path=presentation_planner_path,
+            presentation_backend_types_path=presentation_backend_types_path,
+            presentation_module_types_path=presentation_module_types_path,
+        ),
         "scoring_policy": SCORING_POLICY,
         "metric_contract": {group: list(metrics) for group, metrics in METRIC_GROUPS.items()},
         "coverage_metrics": {
@@ -166,23 +243,20 @@ def build_inventory(root: Path) -> dict[str, Any]:
             "ontology_query_function_any_contract_coverage": _ratio(
                 function_any_covered, len(function_names)
             ),
+            "golden_answer_oracle_coverage": _ratio(answer_oracle_count, len(golden["cases"])),
+            "presentation_block_registry_coverage": _ratio(
+                len(set(presentation_kinds) & presentation_registry),
+                len(presentation_kinds),
+            ),
+            "question_presentation_oracle_coverage": _ratio(
+                presentation_oracle_count, len(bank_questions)
+            ),
+            "paired_model_case_coverage": _ratio(0, len(bank_questions)),
         },
-        "hard_zero_metrics": [
-            "candidate_authority_violation_count",
-            "execution_authority_violation_count",
-            "forbidden_action_false_positive_rate",
-            "invented_capability_count",
-            "invented_target_identity_count",
-            "legacy_ordinary_language_route_count",
-            "non_direct_action_false_positive_rate",
-            "read_to_action_false_positive_rate",
-            "schema_failure_success_fallback_count",
-            "executable_action_draft_count",
-            "unverified_operational_success_claim_rate",
-        ],
-        "coverage_limitations": list(COVERAGE_LIMITATIONS),
+        "hard_zero_metrics": list(HARD_ZERO_METRICS),
+        "coverage_limitations": list(QUALITY_COVERAGE_LIMITATIONS),
     }
-    body["inventory_digest"] = _digest(body)
+    body["inventory_digest"] = digest(body)
     return body
 
 
@@ -203,15 +277,6 @@ def _question_topic_row(
         "reviewed": _ratio(reviewed, count),
         "contract_validated": _ratio(contract_validated, count),
     }
-
-
-def _required_question_bank_domains(source: dict[str, Any]) -> set[str]:
-    return (
-        set(source["golden_category_domains"].values())
-        | {item["domain"] for item in source["manual_domain_ranges"]}
-        | {item["domain"] for item in source["console_questions"]}
-        | {item["domain"] for item in source["candidate_groups"]}
-    )
 
 
 def _operating_domain_rows(
@@ -239,6 +304,12 @@ def _operating_domain_rows(
 def _evaluation_axes(
     questions: list[dict[str, Any]],
     intent_cases: list[dict[str, Any]],
+    *,
+    adequacy_path: Path,
+    criteria_path: Path,
+    presentation_planner_path: Path,
+    presentation_backend_types_path: Path,
+    presentation_module_types_path: Path,
 ) -> dict[str, list[str]]:
     return {
         "action_postures": sorted(
@@ -269,72 +340,23 @@ def _evaluation_axes(
             "held",
             "unsupported",
         ],
+        "answer_adequacy_gates": string_set_assignment(adequacy_path, "_REQUIRED_GATES"),
+        "answer_review_criteria": enum_values(criteria_path, "AssuranceCriterion"),
+        "presentation_intents": enum_values(presentation_planner_path, "PresentationIntent"),
+        "presentation_kinds": enum_values(presentation_planner_path, "PresentationKind"),
+        "presentation_semantic_shapes": enum_values(presentation_planner_path, "SemanticShape"),
+        "visualization_kinds": enum_values(presentation_planner_path, "VisualizationKind"),
+        "presentation_layouts": typescript_string_union(
+            presentation_backend_types_path, "PresentationLayout"
+        ),
+        "responsive_policies": typescript_string_union(
+            presentation_module_types_path, "PresentationResponsivePolicy"
+        ),
+        "accessibility_fallbacks": typescript_string_union(
+            presentation_module_types_path, "PresentationAccessibilityFallback"
+        ),
+        **PRESENTATION_EVALUATION_AXES,
     }
-
-
-def _query_function_names(paths: list[Path]) -> list[str]:
-    names: set[str] = set()
-    for path in paths:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-                continue
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            value = node.value
-            if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
-                continue
-            if not value.value.startswith("query."):
-                continue
-            if any(
-                isinstance(target, ast.Name) and target.id.endswith("_FUNCTION_NAME")
-                for target in targets
-            ):
-                names.add(value.value)
-    return sorted(names)
-
-
-def _json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} MUST contain an object")
-    return value
-
-
-def _yaml(path: Path) -> dict[str, Any]:
-    import yaml
-
-    value = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} MUST contain an object")
-    return value
-
-
-def _ratio(numerator: int, denominator: int) -> dict[str, Any]:
-    return {
-        "covered": numerator,
-        "total": denominator,
-        "rate": numerator / denominator if denominator else None,
-    }
-
-
-def _sha256(path: Path) -> str:
-    return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
-
-
-def _paths_digest(root: Path, paths: list[Path]) -> str:
-    values = [
-        {
-            "path": path.relative_to(root).as_posix(),
-            "sha256": _sha256(path),
-        }
-        for path in paths
-    ]
-    return _digest({"files": values})
-
-
-def _digest(value: dict[str, Any]) -> str:
-    encoded = json.dumps(value, allow_nan=False, separators=(",", ":"), sort_keys=True)
-    return f"sha256:{hashlib.sha256(encoded.encode()).hexdigest()}"
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -362,7 +384,7 @@ def main() -> int:
     )
     metrics = payload["coverage_metrics"]
     print(
-        "semantic-intent-coverage: "
+        "conversation-quality-assurance: "
         + ", ".join(
             f"{name}={value['covered']}/{value['total']}" for name, value in metrics.items()
         )

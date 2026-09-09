@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: f2e91725c2f97e44c3d0b6d5dffa31d407ac7d6d
+translation_source_sha: 9a14ba7ffa5e10c525869ccaef5e3aca372b6ee4
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -78,11 +78,11 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 롤백, 스케일링 또는 자동화에 관한 질문은 자문이나 초안 전용으로 유지되며 항상
 `execution_authority=false`를 보존합니다.
 
-## 의미 의도 평가 분모
+## 대화 품질 보증 스코어카드
 
 `uv run python scripts/automation/build_semantic_intent_coverage.py`를 실행하면
-`eval/golden-dataset/semantic-intent-coverage.json`이 생성됩니다. 생성된 산출물을 직접
-편집하지 마세요. 이 산출물은 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
+`eval/golden-dataset/semantic-intent-coverage.json`이 생성됩니다. 생성된 FDAI 대화 품질
+보증 스코어카드(CQAS)는 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
 
 - **운영 모델:** SRE 운영, 복원력 엔지니어링, 변경 및 아키텍처 거버넌스, FinOps입니다.
 - **질문은행:** 도메인 7개, 범주 13개, 질문 400개입니다.
@@ -90,17 +90,36 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 - **온톨로지 계획:** 선언된 `query.*` FunctionType 36개 전체입니다.
 - **검토된 보증:** Golden 범주 12개 전체와 Azure 및 인시던트 의도 계약 사례 16개입니다.
 
-산출물은 의도, 대상 추출, 모호성, 담화 및 작업, 시간 및 근거, 로캘 및 견고성, 권한에 걸쳐
-지표 47개를 정의합니다. 지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지
-않습니다. 승격하려면 필요한 모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세에 채점 사례가
-있어야 합니다. 읽기 요청의 작업 승격, 금지 작업, 비직접 작업, 식별자나 기능 생성, 권한,
-legacy route, schema fallback 위반은 계속 hard-zero 지표입니다.
+CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니다. 모델을 바꿀 때는 각 필수
+영역과 가장 낮은 세부 구간이 모두 통과해야 하며, 한 영역의 높은 점수로 다른 영역의 실패를
+상쇄할 수 없습니다.
 
-현재 구조적 coverage는 Golden 범주 12/12, 질문은행 도메인 7/7, 검토된 질문 40/400,
+| 영역 | 지표 수 | 평가 내용 |
+|------|--------:|-----------|
+| 질문 이해 | 47 | 의도, 대상, 모호성, 작업 자세, 시간, 근거 종류, 로캘, 권한을 평가합니다. |
+| 답변 충실도 | 16 | 필수 목표와 사실, 근거 뒷받침, 인용, 한계, 확신 수준, 범위, 시간, 로캘, 독립 검토를 평가합니다. |
+| 표현 품질 | 21 | 블록과 시각화 선택, 정확한 값, 단위와 축, 근거 참조, 잘림 표시, 상태 구분, 정보 위계, 접근성, 키보드 포커스, 움직임 감소, 텍스트 대체, 반응형 레이아웃을 평가합니다. |
+| 모델 불변성 | 9 | 기준 모델과 후보 모델의 쌍별 평가 범위, 회귀, 의미 보존 변형, 반복 실행 일관성, 검토 모델 독립성, 지연 시간 및 비용 한도를 평가합니다. |
+
+기준 모델과 후보 모델은 동일한 exact-source 질문, 온톨로지 release, principal 매니페스트,
+근거 스냅샷, prompt 카탈로그, 로캘, runtime 정책을 사용합니다. 모델과 prompt를 동시에
+바꾸면 모델만의 비교 근거가 아니라 결합 변경으로 기록합니다. 모델은 의미만 제안합니다.
+결정론적 표현 플래너가 검증된 근거 형태에서 렌더러 중립 블록을 선택하고, 브라우저
+시나리오가 실제 표현 결과를 평가합니다.
+
+지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지 않습니다. 승격하려면 필요한
+모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세, 표현 시나리오에 채점 사례가 있어야 합니다.
+안전 위반, 근거 없는 주장, 만들어 낸 값, 모델 회귀는 계속 hard-zero 지표입니다.
+
+현재 구조적 범위는 Golden 범주 12/12, 질문은행 도메인 7/7, 검토된 질문 40/400,
 계약이 검증된 질문 40/400, Golden으로 다룬 query 함수 7/36, 검토된 의도 계약으로 다룬
-query 함수 12/36입니다. 검토된 crosswalk가 없으므로 Pantheon-to-semantic-case coverage는
-0/47입니다. Generator는 이름을 근거로 추측하지 않고 0으로 보고합니다. 이 값은 coverage
-측정이며 모델 정확도 또는 운영 답변 근거가 아닙니다.
+query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-semantic-case 범위는
+0/47입니다. 생성기는 이름을 근거로 추측하지 않고 0으로 보고합니다. 이 값은 범위
+측정이며 모델 정확도 또는 운영 답변 근거가 아닙니다. Golden 답변 기대값은 35/35를 다루고
+표현 블록 13개 전체가 Console에 등록되어 있습니다. 질문별 표현 기대값과 저장소가 소유한
+모델 쌍 비교 사례는 모두 0/400입니다. 따라서 기존 의도 사례 16개의 측정값은 질문 이해에만
+적용됩니다. 답변 충실도, 표현 품질, 모델 불변성은 통제된 근거를 확보할 때까지
+`not_scored`로 유지됩니다.
 
 ## 구현 상태
 
@@ -108,7 +127,7 @@ query 함수 12/36입니다. 검토된 crosswalk가 없으므로 Pantheon-to-sem
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 의미 의도 주제 및 지표 인벤토리 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/semantic_intent_metrics.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 집중 drift 및 불변식 검사 | 산출물은 현재 전체 주제 분모와 승격 지표 47개를 나열합니다. 구조적 coverage와 측정된 모델 정확도를 분리하고 지원되지 않는 Pantheon 매핑을 추론하지 않고 0/47로 기록합니다. |
+| 대화 품질 보증 스코어카드 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`, `scripts/automation/conversation_quality_sources.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 집중 drift 및 불변식 검사 | CQAS는 질문, 답변, 표현, 모델 불변성에 걸친 지표 93개를 정의합니다. 현재 답변 적정성 및 표현 계약에서 평가 축을 도출하고, 지원되지 않는 구간을 채점하지 않으며, 어떤 권한도 부여하지 않습니다. |
 | 통합 질문은행 인벤토리 | implemented | `eval/golden-dataset/question-bank/`, 공식 질문은행 생성기, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 생성된 인벤토리는 원본 파일 11개에서 논리 질문 400개를 구성합니다. 현재 리소스 SRE 후보 50개는 일반 Azure 리소스 유형 19개를 다루고 서버 소유 범위를 요구하며 읽기 전용 및 `execution_authority=false`를 유지합니다. 후보 등록은 런타임 연결이나 실제 운영 근거를 인증하지 않습니다. |
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
@@ -135,6 +154,7 @@ query 함수 12/36입니다. 검토된 crosswalk가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 의미 의도 인벤토리를 모델과 무관한 질문 이해, 답변 충실도, 표현 품질, 모델 불변성의 4개 영역 CQAS 계약으로 확장했습니다. | `current change`, 소스에서 도출한 답변 적정성, 검토 기준, 표현, 시각화, 반응형, 접근성 축, 집중 생성 산출물 및 정적 검사 | CQAS를 승격 게이트로 사용하기 전에 질문별 표현 기대값과 모든 필수 구간의 exact-source 기준 모델 및 후보 모델 쌍 실행을 추가합니다. |
 | 2026-09-09 | implemented | 소스에서 도출한 의미 의도 주제 인벤토리와 fail-closed 평가 지표 47개를 추가했습니다. 게시 전에 검토되지 않은 이름 기반 Pantheon coverage와 단순 supplied-capability coverage 가정을 제거했습니다. | `current change`, 생성 산출물 drift 검사, 분모 불변식, 집중 Ruff 및 strict mypy | Pantheon 도메인 47개 전체에 검토된 의미 사례 또는 명시적 crosswalk를 추가하고, FunctionType 36개와 질문 400개의 계약 coverage를 높이며, 승격 전에 정확한 소스의 다국어 모델 측정값을 확보합니다. |
 | 2026-09-09 | validated | 객체 전용 상태 범위에서 첫 페이지 후보가 잘린 것으로 잘못 판단하는 문제를 제거하고, 광범위한 최근 변경 계획에 운영 및 가용성 전이를 모두 포함하고, 명시적인 충돌 없음 판정을 정본 행 직렬화 전체에 보존했습니다. | `current change`, 집중 Core 검사 872개, strict mypy, Ruff 및 문서 게이트가 통과했습니다. 인증된 새 대화 재실행에서 최근 검증된 전이 5개를 표시했습니다. Browser timing은 대기 표시 45ms, 첫 진행 445ms, 첫 답변 7.545초, 최종 처리 7.766초였습니다. | 보존된 전이 출처가 연속 coverage를 증명할 수 있을 때까지 구간 coverage는 명시적으로 불완전한 상태를 유지합니다. 동시에 inventory 세대가 교체되면 검증된 일부 행을 버리지 않고 범위 완전성을 낮출 수 있습니다. |
 | 2026-09-08 | implemented | Schema v2에서 영속 큐 timing을 분리하고, 계획 전 최종 대기를 실패로 표시하고, 요청과 함께 thread 소유 model provider 작업을 취소하고, concurrent 의미 인덱스 재시도가 같은 이름의 relation을 다시 구성하도록 했습니다. | `current change`, 집중 Core timing 및 model-scope 테스트, Console timing parser 테스트 및 typecheck, migration inventory 검사, 로컬 인덱스 교체, PostgreSQL `EXPLAIN` | 공유 브라우저 연결을 사용할 수 있을 때 인증된 Browser 지연 시간 증적을 보존합니다. |
@@ -229,6 +249,12 @@ query 함수 12/36입니다. 검토된 crosswalk가 없으므로 Pantheon-to-sem
 
 ### 남은 작업
 
+- [ ] 질문은행 사례 400개 전체에 검토된 표현 기대값을 추가합니다. 예상 렌더러 중립
+  블록 또는 명시적 텍스트 대체 표현, 시각화 종류, 정확한 값 표, 근거 참조, 단위,
+  잘림 처리, 접근성 대체 표현, 필수 뷰포트를 포함해야 합니다.
+- [ ] 동일한 exact-source 사례 400개를 기준 모델과 후보 모델로 실행하고, 독립된 검토 모델
+  계열로 CQAS 지표 93개를 모두 채점합니다. 모델 승격 전에 hard-zero 또는 가장 낮은 세부
+  구간의 회귀가 0임을 보존해야 합니다.
 - [ ] Pantheon 질문 도메인 47개 전체에 검토된 의미 expectation 또는 명시적인 소스 소유
   crosswalk를 추가한 뒤, 누락된 지원을 통과 정확도로 바꾸지 않고 필요한 모든 로캘과 안전
   구간을 채점합니다.

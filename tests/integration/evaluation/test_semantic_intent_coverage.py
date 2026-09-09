@@ -27,6 +27,28 @@ def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None
     payload = _artifact()
     topics = payload["topic_inventory"]
 
+    assert payload["schema_version"] == "1.1.0"
+    assert payload["scorecard"] == {
+        "id": "fdai-conversation-quality-assurance",
+        "name": "FDAI Conversation Quality Assurance Scorecard",
+        "acronym": "CQAS",
+        "aggregation": "conjunctive",
+        "metric_count": 93,
+        "pillars": {
+            "question_understanding": [
+                "intent",
+                "target",
+                "ambiguity",
+                "discourse_and_action",
+                "time_and_evidence",
+                "locale_and_robustness",
+                "authority",
+            ],
+            "answer_fidelity": ["answer_fidelity"],
+            "presentation_quality": ["presentation_quality"],
+            "model_invariance": ["model_invariance"],
+        },
+    }
     assert len(topics["operating_domains"]) == 4
     assert len(topics["question_bank_domains"]) == 7
     assert len(topics["golden_categories"]) == 12
@@ -50,7 +72,7 @@ def test_semantic_intent_metrics_fail_closed_on_unsupported_slices() -> None:
     by_name = {metric["name"]: metric for metric in metrics}
 
     assert len(by_name) == len(metrics)
-    assert len(metrics) == 47
+    assert len(metrics) == 93
     assert payload["scoring_policy"]["empty_denominator"].startswith("not_scored")
     assert set(payload["hard_zero_metrics"]) <= set(by_name)
     assert all(by_name[name]["promotion_target"] == 0 for name in payload["hard_zero_metrics"])
@@ -60,3 +82,61 @@ def test_semantic_intent_metrics_fail_closed_on_unsupported_slices() -> None:
         "rate": 0.0,
     }
     assert _ratio(0, 0) == {"covered": 0, "total": 0, "rate": None}
+
+
+def test_answer_and_presentation_rubrics_follow_runtime_contracts() -> None:
+    payload = _artifact()
+    axes = payload["evaluation_axes"]
+    coverage = payload["coverage_metrics"]
+
+    assert axes["answer_adequacy_gates"] == [
+        "authority",
+        "calibration",
+        "completeness",
+        "evidence_entailment",
+        "scope",
+        "semantic",
+    ]
+    assert axes["answer_review_criteria"] == [
+        "actionability",
+        "calibration",
+        "clarity",
+        "completeness",
+        "factual_correctness",
+        "intent_resolution",
+    ]
+    assert len(axes["presentation_intents"]) == 12
+    assert len(axes["presentation_kinds"]) == 13
+    assert len(axes["presentation_semantic_shapes"]) == 10
+    assert len(axes["visualization_kinds"]) == 11
+    assert axes["presentation_layouts"] == [
+        "markdown_document",
+        "operational_brief",
+        "stack",
+    ]
+    assert axes["responsive_policies"] == ["reflow", "scroll", "stack"]
+    assert axes["accessibility_fallbacks"] == [
+        "description-list",
+        "exact-table",
+        "ordered-list",
+    ]
+    assert coverage["golden_answer_oracle_coverage"] == {
+        "covered": 35,
+        "total": 35,
+        "rate": 1.0,
+    }
+    assert coverage["presentation_block_registry_coverage"] == {
+        "covered": 13,
+        "total": 13,
+        "rate": 1.0,
+    }
+    assert coverage["question_presentation_oracle_coverage"] == {
+        "covered": 0,
+        "total": 400,
+        "rate": 0.0,
+    }
+    assert coverage["paired_model_case_coverage"] == {
+        "covered": 0,
+        "total": 400,
+        "rate": 0.0,
+    }

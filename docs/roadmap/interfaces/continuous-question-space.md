@@ -78,11 +78,11 @@ evidence limitations, forbidden-claim oracle, and required validation exist. Que
 recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
 `execution_authority=false`.
 
-## Semantic intent evaluation denominator
+## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`. Do not edit the generated artifact. It keeps
-the following source-derived topic layers separate:
+`eval/golden-dataset/semantic-intent-coverage.json`. The generated FDAI Conversation Quality
+Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
   and FinOps.
@@ -92,18 +92,36 @@ the following source-derived topic layers separate:
 - **Reviewed assurance:** all 12 Golden categories and the 16-case Azure and incident intent
   contract.
 
-The artifact defines 47 metrics across intent, target extraction, ambiguity, discourse and action,
-time and evidence, locale and robustness, and authority. Unsupported slices are `not_scored`; an
-empty denominator never becomes 100%. Promotion requires scored support for every required topic,
-locale, discourse mode, evidence posture, and action posture. Read-to-action, prohibited-action,
-non-direct-action, invented identity or capability, authority, legacy-route, and schema-fallback
+CQAS defines 93 metrics in four conjunctive pillars. A model change passes only when every required
+pillar and worst slice passes; one strong area cannot compensate for another:
+
+| Pillar | Metrics | What it evaluates |
+|--------|--------:|-------------------|
+| Question understanding | 47 | Intent, targets, ambiguity, action posture, time, evidence family, locale, and authority. |
+| Answer fidelity | 16 | Required goals and facts, evidence entailment, citations, limitations, calibration, scope, time, locale, and independent review. |
+| Presentation quality | 21 | Block and visualization selection, exact values, units and axes, evidence references, truncation, state distinctions, hierarchy, accessibility, focus, reduced motion, text fallback, and responsive layouts. |
+| Model invariance | 9 | Paired baseline and challenger coverage, regressions, metamorphic and repeat-run consistency, reviewer independence, latency, and cost budgets. |
+
+Baseline and challenger models use the same exact-source questions, ontology release, principal
+manifest, evidence snapshot, prompt catalog, locale, and runtime policy. A simultaneous model and
+prompt change is a combined treatment, not model-only evidence. Models propose meaning only;
+deterministic presentation planning selects renderer-neutral blocks from verified evidence shape,
+and browser scenarios assess the rendered result.
+
+Unsupported slices are `not_scored`; an empty denominator never becomes 100%. Promotion requires
+scored support for every required topic, locale, discourse mode, evidence posture, action posture,
+and presentation scenario. Safety, unsupported claims, invented values, and model-regression
 violations remain hard-zero metrics.
 
 Current structural coverage is 12/12 Golden categories, 7/7 question-bank domains, 40/400 reviewed
 questions, 40/400 contract-validated questions, 7/36 Golden-covered query functions, and 12/36 query
 functions covered by any reviewed intent contract. Pantheon-to-semantic-case coverage is 0/47
 because no reviewed crosswalk exists. The generator reports zero rather than guessing from labels.
-These are coverage measurements, not model accuracy or operational answer evidence.
+Golden answer oracles cover 35/35 cases, and all 13 presentation block kinds have a Console
+registration. Question-level presentation oracles and repository-owned paired model cases are both
+0/400. Therefore the earlier 16-case intent measurements apply only to question understanding;
+answer fidelity, presentation quality, and model invariance remain `not_scored` until their
+controlled evidence exists.
 
 ## Implementation status
 
@@ -111,7 +129,7 @@ These are coverage measurements, not model accuracy or operational answer eviden
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Semantic intent topic and metric inventory | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/semantic_intent_metrics.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; focused drift and invariant tests | The artifact enumerates the complete current topic denominator and 47 promotion metrics. It separates structural coverage from measured model accuracy and records unsupported Pantheon mappings as 0/47 rather than inferring coverage. |
+| Conversation quality assurance scorecard | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`; `scripts/automation/conversation_quality_sources.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; focused drift and invariant tests | CQAS defines 93 question, answer, presentation, and model-invariance metrics. It derives evaluation axes from current answer-adequacy and presentation contracts, keeps unsupported slices unscored, and grants no authority. |
 | Federated question-bank inventory | implemented | `eval/golden-dataset/question-bank/`; official question-bank generator; focused question-bank and Golden dataset checks (`19 passed`) | The generated inventory contains 400 logical questions from 11 source files. The 50 current-resource SRE candidates cover 19 generic Azure resource types, require server-owned scope, remain read-only, and retain `execution_authority=false`. Candidate membership does not certify runtime binding or live evidence. |
 | Semantic capability bridge | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; focused capability and composition checks | `query.ontology_declaration` is bound in production composition. Release diff, evidence health, and inventory impact remain visible as `runtime_binding_unavailable` until their exact providers or server-owned anchor are bound. |
 | Seven-perspective universe | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; focused universe and selection checks | Applicability is non-Cartesian. Case identity includes locale, case class, perspective, capability, evidence posture, anchor, terminal posture, action posture, Rule state, depth, and result bound. Active and collected Rule cases are distinct. |
@@ -137,6 +155,7 @@ These are coverage measurements, not model accuracy or operational answer eviden
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Expanded the semantic intent inventory into the four-pillar CQAS contract for model-independent question understanding, answer fidelity, presentation quality, and model invariance. | `current change`; source-derived adequacy, reviewer, presentation, visualization, responsive, and accessibility axes; focused generated-artifact and static checks. | Add question-level presentation oracles and paired exact-source baseline/challenger runs for all required slices before using CQAS as a promotion gate. |
 | 2026-09-09 | implemented | Added a source-derived semantic intent topic inventory and a fail-closed 47-metric evaluation contract. Removed unreviewed label-based Pantheon coverage and supplied-capability coverage assumptions before publication. | `current change`; generated artifact drift test, denominator invariants, focused Ruff, and strict mypy. | Add reviewed semantic cases or an explicit crosswalk for all 47 Pantheon domains, raise 36 FunctionType and 400-question contract coverage, and collect exact-source multilingual model measurements before promotion. |
 | 2026-09-09 | validated | Removed the first-page candidate false truncation for object-only state scopes, included operational and availability transitions in the broad recent-change plan, and preserved an explicit conflict-free decision through canonical row serialization. | `current change`; 872 focused Core checks; strict mypy, Ruff, and documentation gates; authenticated fresh-conversation replay listed five recent verified transitions. Browser timing was 45 ms to pending, 445 ms to first progress, 7.545 s to first answer, and 7.766 s to terminal. | Interval coverage remains explicitly incomplete until the retained transition source can prove continuous coverage. Concurrent inventory generation replacement can also lower scope completeness without discarding verified partial rows. |
 | 2026-09-08 | implemented | Separated durable queue timing in schema v2, marked pre-plan terminal waits as failed, cancelled thread-owned model provider work with the request, and made concurrent semantic index retries rebuild same-name relations. | `current change`; focused Core timing and model-scope tests, Console timing parser tests and typecheck, migration inventory checks, local index replacement, and PostgreSQL `EXPLAIN`. | Retain an authenticated Browser latency receipt when the shared browser connection is available. |
@@ -232,6 +251,12 @@ These are coverage measurements, not model accuracy or operational answer eviden
 
 ### Remaining work
 
+- [ ] Add reviewed presentation oracles to all 400 question-bank cases, including expected
+  renderer-neutral block or explicit text fallback, visualization kind, exact-value fallback,
+  evidence references, units, truncation behavior, accessibility fallback, and required viewports.
+- [ ] Run the same exact-source 400-case cohort through baseline and challenger models, score all
+  93 CQAS metrics with independent reviewer families, and retain zero hard-zero or worst-slice
+  regressions before model promotion.
 - [ ] Add reviewed semantic expectations or an explicit source-owned crosswalk for all 47 Pantheon
   question domains, then score every required locale and safety slice without converting missing
   support into passing accuracy.

@@ -1,11 +1,20 @@
 {
+  "artifact_kind": "conversation_quality_assurance_scorecard",
   "coverage_limitations": [
     "Inventory membership and expected-contract replay are not model-accuracy or operational-answer evidence.",
     "Pantheon domains have no reviewed crosswalk to semantic intent cases, so their semantic contract coverage is reported as zero rather than inferred from labels.",
     "Ontology query functions are counted from declared query function constants; runtime binding, evidence availability, and answer correctness are separate gates.",
-    "Operating-domain question counts overlap because one question-bank domain can support more than one constitutional operating domain."
+    "Operating-domain question counts overlap because one question-bank domain can support more than one constitutional operating domain.",
+    "Golden answer oracles cover only reviewed Golden questions; candidate membership is not answer-fidelity evidence.",
+    "No question-level presentation oracle or repository-owned paired model comparison exists yet, so those coverage slices remain zero rather than receiving inferred credit.",
+    "Source-level presentation contract coverage is not browser scenario evidence."
   ],
   "coverage_metrics": {
+    "golden_answer_oracle_coverage": {
+      "covered": 35,
+      "rate": 1.0,
+      "total": 35
+    },
     "golden_category_coverage": {
       "covered": 12,
       "rate": 1.0,
@@ -21,10 +30,20 @@
       "rate": 0.19444444444444445,
       "total": 36
     },
+    "paired_model_case_coverage": {
+      "covered": 0,
+      "rate": 0.0,
+      "total": 400
+    },
     "pantheon_domain_semantic_contract_coverage": {
       "covered": 0,
       "rate": 0.0,
       "total": 47
+    },
+    "presentation_block_registry_coverage": {
+      "covered": 13,
+      "rate": 1.0,
+      "total": 13
     },
     "question_bank_contract_validation_rate": {
       "covered": 40,
@@ -40,13 +59,46 @@
       "covered": 40,
       "rate": 0.1,
       "total": 400
+    },
+    "question_presentation_oracle_coverage": {
+      "covered": 0,
+      "rate": 0.0,
+      "total": 400
     }
   },
   "evaluation_axes": {
+    "accessibility_fallbacks": [
+      "description-list",
+      "exact-table",
+      "ordered-list"
+    ],
     "action_postures": [
       "advise_only",
       "draft_only",
       "read_only"
+    ],
+    "answer_adequacy_gates": [
+      "authority",
+      "calibration",
+      "completeness",
+      "evidence_entailment",
+      "scope",
+      "semantic"
+    ],
+    "answer_review_criteria": [
+      "actionability",
+      "calibration",
+      "clarity",
+      "completeness",
+      "factual_correctness",
+      "intent_resolution"
+    ],
+    "content_stress": [
+      "english",
+      "korean",
+      "long_identifier",
+      "timestamp",
+      "mixed_numeric_units"
     ],
     "discourse_modes": [
       "direct",
@@ -60,10 +112,68 @@
       "stale",
       "unavailable"
     ],
+    "evidence_states": [
+      "verified_complete",
+      "verified_partial",
+      "verified_empty",
+      "unavailable",
+      "unverified"
+    ],
     "locales": [
       "en",
       "ko",
       "mixed"
+    ],
+    "presentation_intents": [
+      "audit",
+      "chronology",
+      "comparison",
+      "correlation",
+      "coverage",
+      "distribution",
+      "exact",
+      "matrix",
+      "records",
+      "summary",
+      "threshold",
+      "trend"
+    ],
+    "presentation_kinds": [
+      "bar",
+      "callout",
+      "comparison",
+      "coverage",
+      "evidence",
+      "heatmap",
+      "list",
+      "scatter",
+      "summary",
+      "table",
+      "threshold_table",
+      "time_series",
+      "timeline"
+    ],
+    "presentation_layouts": [
+      "markdown_document",
+      "operational_brief",
+      "stack"
+    ],
+    "presentation_semantic_shapes": [
+      "categorical_comparison",
+      "categorical_matrix",
+      "chronology",
+      "correlation",
+      "coverage",
+      "cumulative_series",
+      "part_to_whole",
+      "ranking",
+      "role_comparison",
+      "temporal_series"
+    ],
+    "responsive_policies": [
+      "reflow",
+      "scroll",
+      "stack"
     ],
     "result_shapes": [
       "assessment",
@@ -153,22 +263,47 @@
       "clarification",
       "held",
       "unsupported"
+    ],
+    "viewport_classes": [
+      "desktop_1440x900",
+      "constrained_desktop_993x641",
+      "mobile_390x844"
+    ],
+    "visualization_kinds": [
+      "area",
+      "bar",
+      "bar_list",
+      "category_bar",
+      "comparison_bar",
+      "donut",
+      "heatmap",
+      "line",
+      "none",
+      "scatter",
+      "tracker"
     ]
   },
   "hard_zero_metrics": [
     "candidate_authority_violation_count",
     "execution_authority_violation_count",
+    "executable_action_draft_count",
     "forbidden_action_false_positive_rate",
+    "forbidden_claim_rate",
+    "hard_zero_regression_count",
     "invented_capability_count",
     "invented_target_identity_count",
     "legacy_ordinary_language_route_count",
     "non_direct_action_false_positive_rate",
+    "presentation_invented_value_count",
     "read_to_action_false_positive_rate",
+    "regressed_metric_count",
+    "reviewer_model_independence_violation_count",
     "schema_failure_success_fallback_count",
-    "executable_action_draft_count",
-    "unverified_operational_success_claim_rate"
+    "unsupported_operational_claim_rate",
+    "unverified_operational_success_claim_rate",
+    "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:89f46d8cbf81f6bef5b19458847b793c19d328b30f7d8717f82c918459553c10",
+  "inventory_digest": "sha256:3344e00c6b29f532451929dc696dbc74f1e189d9d5e9afc5b9004e947869a345",
   "metric_contract": {
     "ambiguity": [
       {
@@ -224,6 +359,104 @@
         "definition": "Ambiguous action targets or unsafe reads accepted without clarification.",
         "name": "unsafe_missing_clarification_rate",
         "promotion_target": 0.0
+      }
+    ],
+    "answer_fidelity": [
+      {
+        "aggregation": "recall",
+        "definition": "Share of required answer goals completed without substituting another goal.",
+        "name": "required_goal_completion_recall",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "recall",
+        "definition": "Share of oracle-required facts supported in the answer.",
+        "name": "required_fact_recall",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "rate",
+        "definition": "Oracle-forbidden claims asserted by the answer.",
+        "name": "forbidden_claim_rate",
+        "promotion_target": 0.0
+      },
+      {
+        "aggregation": "rate",
+        "definition": "Operational claims without admitted authoritative evidence.",
+        "name": "unsupported_operational_claim_rate",
+        "promotion_target": 0.0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Answers whose atomic operational claims are entailed by cited evidence.",
+        "name": "evidence_entailment_pass_rate",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "precision",
+        "definition": "Share of asserted atomic claims classified as supported.",
+        "name": "atomic_claim_support_precision",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Share of evidence-requiring claims carrying a supporting evidence reference.",
+        "name": "claim_citation_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "validity",
+        "definition": "Citations resolving to evidence admitted for the exact turn and claim.",
+        "name": "citation_reference_integrity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Answer completeness language matches the verified evidence completeness state.",
+        "name": "evidence_completeness_fidelity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "recall",
+        "definition": "Share of oracle-required evidence and capability limitations retained.",
+        "name": "required_limitation_recall",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Unknown, partial, conflicting, and supported conclusions use the expected confidence posture.",
+        "name": "uncertainty_calibration_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Answer claims stay within the authorized target, time, relationship, and result bounds.",
+        "name": "scope_fidelity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Answer preserves effective time, event time, recorded time, and requested comparison windows.",
+        "name": "temporal_answer_fidelity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Answer language matches the resolved operator locale without changing typed meaning.",
+        "name": "answer_locale_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "minimum_score",
+        "definition": "Lowest independent-review clarity score on the governed 0..4 scale.",
+        "name": "answer_clarity_minimum_score",
+        "promotion_target": 3
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Answers passing complete independent reviewer criteria after deterministic gates.",
+        "name": "independent_review_pass_rate",
+        "promotion_target": 1.0
       }
     ],
     "authority": [
@@ -390,6 +623,190 @@
         "promotion_target": 0
       }
     ],
+    "model_invariance": [
+      {
+        "aggregation": "coverage",
+        "definition": "Required cases evaluated for both baseline and challenger under identical controls.",
+        "name": "paired_model_case_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Challenger cases meeting every applicable question, answer, and presentation target.",
+        "name": "challenger_target_pass_rate",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "count",
+        "definition": "Non-hard-zero metrics that pass baseline but miss target with the challenger.",
+        "name": "regressed_metric_count",
+        "promotion_target": 0
+      },
+      {
+        "aggregation": "count",
+        "definition": "Hard-zero metrics with any challenger violation.",
+        "name": "hard_zero_regression_count",
+        "promotion_target": 0
+      },
+      {
+        "aggregation": "count",
+        "definition": "Topic, locale, posture, evidence, or presentation slices below baseline or target.",
+        "name": "worst_slice_regression_count",
+        "promotion_target": 0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Meaning-preserving variations that retain equivalent typed and factual outcomes.",
+        "name": "metamorphic_consistency_rate",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Repeated controlled runs that retain equivalent rubric outcomes.",
+        "name": "repeated_run_consistency_rate",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "count",
+        "definition": "Evaluations where the answer model reviews itself or reviewer families are not independent.",
+        "name": "reviewer_model_independence_violation_count",
+        "promotion_target": 0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "Cases meeting profile-owned latency and cost ceilings without lowering quality.",
+        "name": "model_operational_budget_pass_rate",
+        "promotion_target": 1.0
+      }
+    ],
+    "presentation_quality": [
+      {
+        "aggregation": "validity",
+        "definition": "Presentation artifacts passing the exact Operator and Console schema contract.",
+        "name": "presentation_artifact_schema_validity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Renderer-neutral block kind matches verified question intent and evidence shape.",
+        "name": "presentation_kind_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Chart or non-chart visualization is appropriate for the verified semantic shape.",
+        "name": "visualization_kind_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Rendered dimensions, measures, roles, and relationships match presentation semantics.",
+        "name": "semantic_shape_fidelity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Every displayed value equals the verified source value after allowed formatting.",
+        "name": "presentation_exact_value_fidelity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "count",
+        "definition": "Displayed values or categories absent from the verified artifact.",
+        "name": "presentation_invented_value_count",
+        "promotion_target": 0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Charts requiring exact-value access include a complete accessible table fallback.",
+        "name": "exact_table_fallback_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "validity",
+        "definition": "Block evidence references are a valid subset of verified answer references.",
+        "name": "presentation_evidence_reference_integrity",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Units, axes, series, categories, baselines, and thresholds are correctly labeled.",
+        "name": "unit_and_axis_label_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Timelines and time series preserve verified chronological order.",
+        "name": "temporal_visual_order_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "recall",
+        "definition": "Every sampled, bounded, partial, or truncated view discloses its coverage limitation.",
+        "name": "truncation_disclosure_recall",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Verified empty, unavailable, partial, failed, and unverified states remain distinct.",
+        "name": "empty_unavailable_state_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "accuracy",
+        "definition": "Primary result, supporting evidence, limitations, and metadata occupy their governed roles.",
+        "name": "presentation_hierarchy_accuracy",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Every presentation block has a tested reflow, scroll, or stack policy.",
+        "name": "responsive_policy_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Every presentation block has a tested semantic accessibility fallback.",
+        "name": "accessibility_fallback_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Every status encoded by color also has text, shape, or semantic markup.",
+        "name": "non_color_status_cue_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "coverage",
+        "definition": "Every interactive visualization and disclosure has a visible keyboard focus path.",
+        "name": "keyboard_focus_coverage",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "validity",
+        "definition": "Presentation remains understandable when reduced motion is requested.",
+        "name": "reduced_motion_compliance",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "rate",
+        "definition": "Required viewport scenarios with clipped, overlapping, or page-wide overflow.",
+        "name": "viewport_overflow_failure_rate",
+        "promotion_target": 0.0
+      },
+      {
+        "aggregation": "precision",
+        "definition": "Structured artifacts replace answer text only when they add a non-overview result.",
+        "name": "presentation_text_fallback_precision",
+        "promotion_target": 1.0
+      },
+      {
+        "aggregation": "pass_rate",
+        "definition": "English, Korean, long identifiers, and timestamps pass required viewport scenarios.",
+        "name": "locale_layout_scenario_pass_rate",
+        "promotion_target": 1.0
+      }
+    ],
     "target": [
       {
         "aggregation": "accuracy",
@@ -467,26 +884,78 @@
       }
     ]
   },
-  "schema_version": "1.0.0",
+  "model_change_policy": {
+    "combined_change_rule": "A model and prompt change evaluated together is a combined treatment, not model-only evidence.",
+    "comparison_unit": "paired_case",
+    "control": "Use the same exact-source question cohort, ontology release, principal manifest, evidence snapshot, prompt catalog, locale, and runtime policy for baseline and challenger.",
+    "presentation_rule": "Models propose meaning only. Deterministic presentation planning selects renderer-neutral blocks from verified evidence shape, and browser checks validate the rendered experience.",
+    "promotion_rule": "Every required metric and slice must meet its target; no aggregate score may compensate for a hard-zero violation, an unsupported slice, or a worst-slice regression.",
+    "reviewer_independence": "The answer model cannot review itself; use at least two independent reviewer families after deterministic semantic, evidence, completeness, calibration, scope, and authority gates."
+  },
+  "schema_version": "1.1.0",
+  "scorecard": {
+    "acronym": "CQAS",
+    "aggregation": "conjunctive",
+    "id": "fdai-conversation-quality-assurance",
+    "metric_count": 93,
+    "name": "FDAI Conversation Quality Assurance Scorecard",
+    "pillars": {
+      "answer_fidelity": [
+        "answer_fidelity"
+      ],
+      "model_invariance": [
+        "model_invariance"
+      ],
+      "presentation_quality": [
+        "presentation_quality"
+      ],
+      "question_understanding": [
+        "intent",
+        "target",
+        "ambiguity",
+        "discourse_and_action",
+        "time_and_evidence",
+        "locale_and_robustness",
+        "authority"
+      ]
+    }
+  },
   "scoring_policy": {
+    "answer_review_scale": "integer 0..4; every criterion >=3 to pass",
     "case_accuracy": "exact_matches / scored_cases",
     "clarification_precision": "required_clarifications / emitted_clarifications",
     "clarification_recall": "emitted_required_clarifications / materially_ambiguous_cases",
     "empty_denominator": "not_scored; never coerce an unsupported slice to 1.0",
     "exact_target_set": "multiset equality over kind, value, source_start, source_end, and canonical_value",
+    "model_comparison": "paired baseline and challenger cases under MODEL_CHANGE_POLICY controls",
+    "pillar_aggregation": "conjunctive; report each pillar and worst slice, never one compensating weighted score",
+    "presentation_scoring": "deterministic artifact checks plus exercised desktop, constrained-desktop, and mobile scenarios",
     "promotion_support": "Every required topic, locale, discourse mode, evidence posture, and action posture must have at least one scored case; aggregate targets cannot hide an unsupported slice.",
     "set_f1": "harmonic_mean(set_precision, set_recall)",
     "set_precision": "true_positive_items / predicted_items",
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
+    "console/src/deck/backend-types.ts": "sha256:2432d1c9224751d4f4c133a540d03b1a6fba1e8b66a091602c55ba916e133559",
+    "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
+    "console/src/deck/presentation-modules/charts.tsx": "sha256:9b93cf0c49ca9151f41e4e5037e8a1b3c0ade3b0cf949c89b15d02f29a57d890",
+    "console/src/deck/presentation-modules/registry.tsx": "sha256:980c49bf7a12162ca3690966bcafefc57f379c81c6febb4844e94d6691f0d029",
+    "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:bc41db92850781b01807e65da3872439a57efa0db48a27a81cfc8b2d5493fa1b",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
     "eval/golden-dataset/question-bank/question-bank.json": "sha256:90c3f25861eb9b629f9f686ab193fcbb02c328e39d9001d3be43f8d41c2b5e5d",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
+    "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
+    "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
+    "scripts/automation/conversation_quality_sources.py": "sha256:d6c6e311ef2b4532916148086fc2badee40fa7589dab78d137f2ab88a97107aa",
+    "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:ba5dbe4d724d9916e9779641d1e70da980e0ab0e0bd00ebd63655788244d1bf0",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:48281c7b41cde54820a536780f0e049ed6a3f54f2990477d0aab1d90e22a8a10"
+    "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
+    "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:cb9384bcc9fa6f2213bceec6873528f38a220119734e5e92a38794b65689f4d4",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:48281c7b41cde54820a536780f0e049ed6a3f54f2990477d0aab1d90e22a8a10",
+    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
+    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },
   "topic_inventory": {
     "golden_categories": [
