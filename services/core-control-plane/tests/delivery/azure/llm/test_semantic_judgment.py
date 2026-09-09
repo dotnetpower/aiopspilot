@@ -79,6 +79,10 @@ def test_config_rejects_output_above_profile_reserve() -> None:
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         layer_manifest=(),
         token_estimate=2,
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
         request_token_budget=16_384,
         reserved_output_tokens=1,
     )
@@ -115,7 +119,12 @@ async def test_profile_request_budget_blocks_judgment_provider_call() -> None:
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         layer_manifest=(),
         token_estimate=2,
-        request_token_budget=1,
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=513,
+        reserved_output_tokens=512,
     )
     candidate = ModelRequestTarget(
         endpoint="https://candidate.example",
@@ -137,6 +146,7 @@ async def test_profile_request_budget_blocks_judgment_provider_call() -> None:
                 candidates=(candidate,),
                 system_prompt=prompt,
                 system_prompt_manifest=manifest,
+                max_tokens=512,
             ),
             owner_loop=asyncio.get_running_loop(),
         )
@@ -184,6 +194,10 @@ async def test_request_budget_uses_final_sanitized_messages() -> None:
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         layer_manifest=(),
         token_estimate=len(prompt),
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
         request_token_budget=raw_estimate,
         reserved_output_tokens=512,
     )

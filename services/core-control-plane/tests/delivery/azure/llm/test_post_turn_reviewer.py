@@ -128,7 +128,11 @@ async def test_profile_budget_blocks_before_identity_or_provider_io() -> None:
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         layer_manifest=(),
         token_estimate=5,
-        request_token_budget=1,
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=513,
         reserved_output_tokens=512,
     )
 

@@ -125,6 +125,16 @@ def test_replay_profile_metadata_must_be_complete(prompt_type: type[object]) -> 
         prompt_type(**common)  # type: ignore[call-arg]
 
 
+def test_replay_budget_fields_require_profile_identity() -> None:
+    with pytest.raises(ValueError, match="entirely absent"):
+        PromptReplayManifest(
+            system_text_sha256="a" * 64,
+            layer_manifest=(),
+            token_estimate=1,
+            request_token_budget=1024,
+        )
+
+
 def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:
     registry = FileSystemPromptRegistry(_CATALOG)
 

@@ -556,8 +556,8 @@ def _validate_profile_replay_fields(
         reserved_output_tokens,
     )
     if profile_id is None:
-        if profile_version is not None or profile_digest is not None:
-            raise ValueError("prompt replay profile identity MUST be complete")
+        if any(value is not None for value in values[1:]):
+            raise ValueError("prompt replay profile metadata MUST be entirely absent")
         return
     if any(value is None for value in values):
         raise ValueError("prompt replay profile metadata MUST be complete")

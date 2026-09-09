@@ -64,8 +64,13 @@ def _prompt_manifest(prompt: str, *, request_budget: int) -> PromptReplayManifes
     return PromptReplayManifest(
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         layer_manifest=(),
-        token_estimate=max(1, len(prompt) // 4),
+        token_estimate=len(prompt.encode()),
+        profile_id="active.test",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=11_000,
         request_token_budget=request_budget,
+        reserved_output_tokens=2048,
     )
 
 
@@ -327,7 +332,7 @@ async def test_profile_request_budget_blocks_provider_call() -> None:
                 candidates=config.candidates,
                 frame_system_prompt=prompt,
                 plan_system_prompt=config.plan_system_prompt,
-                frame_prompt_manifest=_prompt_manifest(prompt, request_budget=1),
+                frame_prompt_manifest=_prompt_manifest(prompt, request_budget=11_001),
             ),
             owner_loop=asyncio.get_running_loop(),
         )
