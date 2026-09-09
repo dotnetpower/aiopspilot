@@ -139,7 +139,10 @@ def aggregate_operational_cohort_arm(
         if not guard_rows_for_id:
             continue
         breached_count = sum(row.breached for row in guard_rows_for_id)
-        observed = round(breached_count * 10_000 / len(guard_rows_for_id))
+        observed = _zero_threshold_basis_points(
+            breached_count,
+            len(guard_rows_for_id),
+        )
         guards.append(
             CohortGuardOutcome(
                 guard_id=guard_id,
@@ -230,6 +233,12 @@ def _estimate(
         lower, upper = _bootstrap_interval(metric_id, values)
         return mean, lower, upper
     raise ValueError(f"unsupported cohort interval method: {method}")
+
+
+def _zero_threshold_basis_points(breached_count: int, sample_size: int) -> int:
+    """Preserve any observed zero-threshold breach after basis-point scaling."""
+
+    return math.ceil(breached_count * 10_000 / sample_size)
 
 
 def _wilson_interval(successes: float, sample_size: int) -> tuple[float, float]:
