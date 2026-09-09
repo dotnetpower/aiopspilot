@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 332a0581dbcc6b7019f33d88e03dc3044b33e6d8
+translation_source_sha: 4c153d0cd05490d81b3b406a53e6b8af68d380c7
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -89,6 +89,9 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 `Key Vault Secrets Officer`로 만듭니다 - 적용 중 DSN 시크릿을 씁니다. 배포는 `[self-hosted, fdai-deploy, fdai-deploy-candidate]`와 일치하는 실행기에서
 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)로 실행합니다(기본 plan-only; `apply` 입력이 강제 적용). 추가 라벨은 검증된 8 vCPU 로컬 SSD 풀을 선택합니다.
 GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으면 작업이 느린 관리형 디스크 실행기로 자동 전환되지 않고 큐에서 대기합니다.
+Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 교체 경로이며 같은 계획에서
+정확한 새 Operator UAMI를 생성할 때만 Operator API OpenAI User 역할 교체를 허용합니다. 이 허용은
+검토 메타데이터만 저장하며 apply를 승인하지 않습니다.
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는

@@ -794,6 +794,16 @@ jobs:
               "additional_openai_user[\"ingestion_worker\"]",
             ),
           }
+          approved_identity_role_replacements = {
+            "module.llm_azure_openai[0].azurerm_role_assignment."
+            "additional_openai_user[\"operator_api\"]": {
+              "role_definition_name": "Cognitive Services OpenAI User",
+              "successor": (
+                "module.operator_api_identity[0]."
+                "azurerm_user_assigned_identity.primary"
+              ),
+            },
+          }
           approved_model_replacements = {
             "module.llm_azure_openai[0].azurerm_cognitive_deployment."
             "capability[\"t1.embedding\"]": {
@@ -903,6 +913,41 @@ jobs:
               and after_sku.get("capacity") == expected["after_capacity"]
             )
 
+          def exact_identity_role_replacement(change, expected):
+            details = change.get("change", {})
+            before = details.get("before")
+            after = details.get("after")
+            after_unknown = details.get("after_unknown")
+            if (
+              not isinstance(before, dict)
+              or not isinstance(after, dict)
+              or not isinstance(after_unknown, dict)
+            ):
+              return False
+            return (
+              tuple(details.get("actions", [])) == ("delete", "create")
+              and details.get("replace_paths") == [["principal_id"]]
+              and nonempty_string(before.get("scope"))
+              and before.get("scope") == after.get("scope")
+              and before.get("role_definition_name")
+              == after.get("role_definition_name")
+              == expected["role_definition_name"]
+              and nonempty_string(before.get("role_definition_id"))
+              and after.get("role_definition_id") is None
+              and after_unknown.get("role_definition_id") is True
+              and nonempty_string(before.get("principal_id"))
+              and after.get("principal_id") is None
+              and after_unknown.get("principal_id") is True
+              and before.get("principal_type") == "ServicePrincipal"
+              and after.get("principal_type") is None
+              and after_unknown.get("principal_type") is True
+              and before.get("condition") is None
+              and after.get("condition") is None
+              and before.get("delegated_managed_identity_resource_id") is None
+              and after.get("delegated_managed_identity_resource_id") is None
+              and actions_by_address.get(expected["successor"]) == ("create",)
+            )
+
           destructive = sorted(
             (
               str(change.get("address", "unknown")),
@@ -913,7 +958,13 @@ jobs:
           )
           unexpected = []
           for address, actions in destructive:
-            if address in approved_model_replacements:
+            if address in approved_identity_role_replacements:
+              if not exact_identity_role_replacement(
+                resource_changes[address],
+                approved_identity_role_replacements[address],
+              ):
+                unexpected.append(address)
+            elif address in approved_model_replacements:
               if not exact_model_replacement(
                 resource_changes[address], approved_model_replacements[address]
               ):
@@ -932,7 +983,9 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            if address in approved_model_replacements:
+            if address in approved_identity_role_replacements:
+              print(f"Protected plan permits exact identity role replacement: {address}")
+            elif address in approved_model_replacements:
               print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:
               successors = permitted_retirements[address]
