@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import subprocess
@@ -24,8 +25,9 @@ from fdai_service_contracts.baseline_cohort import (
     cohort_arm_fact_digest_values,
 )
 from fdai_service_contracts.decision_evidence import decision_critical_evidence_receipt_digest
-from tools.baseline_run import _run
+from tools.baseline_run import _render_markdown, _render_markdown_ko, _run
 from tools.baseline_run import main as baseline_main
+from tools.cohort_publication import publish_governed_baseline
 from tools.cohort_receipt import UNTRUSTED_BUNDLE_KEYS, CohortClaimBundleError
 from tools.reference_agent import AgentDecision, ReferenceAgent
 
@@ -473,9 +475,49 @@ def test_a_governed_admitted_cohort_receipt_makes_the_claim_eligible(tmp_path: P
     assert summary["cohort_claim"]["claim_eligible"] is True
     assert summary["cohort_claim"]["artifact_origin"] == "governed_external"
     assert summary["cohort_claim"]["policy_id"] == "sre-cohort-claim"
-    # The frozen set is still 12 scenarios, so the release gate keeps the
-    # published claim ineligible even with a governed cohort.
-    assert summary["evidence"]["claim_eligible"] is False
+    assert summary["cohort_claim"]["external_residual"] is None
+    assert summary["cohort_claim"]["arms"]["baseline"]["sample_count"] == 30
+    assert summary["cohort_claim"]["arms"]["treatment"]["sample_count"] == 30
+    assert summary["release_gate"]["release_eligible"] is False
+    assert summary["evidence"] == {
+        "kind": "governed-cohort",
+        "claim_eligible": True,
+        "minimum_claim_sample_size": 30,
+        "sample_size": 30,
+        "receipt_digest": summary["cohort_claim"]["receipt_digest"],
+        "fdai_revision": COHORT_REVISION,
+        "evidence_cutoff": summary["cohort_claim"]["evidence_cutoff"],
+    }
+    assert summary["success_metrics"] == _COHORT_METRIC_VALUES
+    assert set(summary["confidence_intervals_95"]) == set(_COHORT_METRIC_VALUES)
+    assert summary["guard_metric_source"] == "governed baseline cohort"
+    assert set(summary["guard_metrics_baseline"]) == {
+        "policy_violation_escape_rate",
+        "unauthorized_execution_rate",
+        "unverified_success_claim_rate",
+        "wrong_target_or_stale_revision_execution_rate",
+    }
+    report = _render_markdown(summary)
+    korean_report = _render_markdown_ko(
+        {**summary, "_source_filename": "v2026.07.md"},
+        "0" * 40,
+    )
+    for rendered in (report, korean_report):
+        assert summary["cohort_claim"]["receipt_digest"] in rendered
+        assert summary["cohort_claim"]["arms"]["baseline"]["provenance_digest"] in rendered
+        assert summary["cohort_claim"]["arms"]["treatment"]["provenance_digest"] in rendered
+        assert "None" not in rendered
+    assert "## Guard Baseline (governed baseline cohort)" in report
+    assert "## Frozen Scenario Replay Tier Economics" in report
+    assert "## 가드 기준선 (통제된 기준선 코호트)" in korean_report
+    assert "## 고정 시나리오 재생 Tier 경제성" in korean_report
+
+    unsupported_confidence = copy.deepcopy(summary)
+    unsupported_confidence["cohort_claim"]["arms"]["baseline"]["metrics"]["auto_resolution_rate"][
+        "confidence_level_basis_points"
+    ] = 9_000
+    with pytest.raises(ValueError, match="MUST use 95% confidence"):
+        publish_governed_baseline(unsupported_confidence)
 
 
 def test_a_governed_receipt_without_an_injected_provider_stays_ineligible(
@@ -552,6 +594,9 @@ def test_a_defective_cohort_receipt_fails_closed(
 
     assert summary["cohort_claim"]["claim_eligible"] is False
     assert expected in summary["cohort_claim"]["rejection_reasons"]
+    assert summary["cohort_claim"]["external_residual"] is not None
+    assert summary["evidence"]["kind"] == "synthetic-harness"
+    assert summary["evidence"]["claim_eligible"] is False
 
 
 def test_a_fully_admitted_artifact_at_a_cli_path_still_publishes_a_repository_origin(

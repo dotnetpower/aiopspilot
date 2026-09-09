@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 35cecd328dbc96521bf335a0c98533dbe3662c69
+translation_source_sha: 86943de4ccfcf8f9db3ef8810015ac4b5dc5f6dd
 translation_revised: 2026-09-09
 ---
 
@@ -36,10 +36,16 @@ translation_revised: 2026-09-09
 | 운영 인텔리전스 99% 완료 근거 | in-progress | `config/azure-discovery-live-evidence.json`; 연결된 거버넌스, RCA, 실행, 문서 수집 및 배포 원장 | Azure 발견에는 실행 권한이 없는 최신 커버리지 증적이 있습니다. 나머지 도메인에는 관리되는 정확한 개정 번호의 근거 집합이 없으므로 통합 99% 주장을 할 수 없습니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
+> **주장 게시 경계:** 코호트 주장 적격성과 고정 재생 release 적격성은 서로 독립적으로
+> 판정합니다. 통제된 코호트가 적격이면 기준선 보고서는 보존된 기준선 갈래의 절대 지표,
+> 신뢰 구간, 임계값 0 가드, 표본 수, 고정 개정, 근거 기준 시점 및 근거 다이제스트만
+> 게시합니다. 합성 재생 값을 측정 근거로 다시 표시하지 않습니다.
+
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 코호트 주장 적격성을 고정 재생 release gate에서 분리하고, 적격 보고서가 보존된 기준선 갈래의 측정값과 출처 계보만 게시하도록 했습니다. 수락되지 않은 코호트에서는 합성 하네스를 계속 부적격으로 게시합니다. | `current change`; `tools/{baseline_run.py,cohort_publication.py,cohort_receipt.py}`; `services/core-control-plane/tests/tools/test_baseline_runner.py`; 집중 기준선 실행기 테스트. | 고정된 시나리오 집합에서 비합성 기준선 및 처리 표본을 각각 30개 이상 보존하고 독립적으로 승인한 뒤 커밋된 보고서를 적격으로 변경합니다. |
 | 2026-09-09 | implemented | v2026.09를 다시 쓰지 않고 원자적 v2026.10 고정 코퍼스를 추가해 FDAI-CONST-005 기능 결과 5개를 모두 완료했습니다. SRE는 독립 복구 및 재발 종결, ARB는 승인 조건 및 독립 변경 후 검증, FinOps는 보호된 서비스 근거와 연결된 실현 절감, DR은 측정된 RTO/RPO와 연결된 데이터 무결성, Chaos는 서로 다른 사람 승인, 지속적인 가드 및 검증된 복구를 연결합니다. | `current change`; `services/core-control-plane/tests/scenarios/{v2026.10,enrichment/v2026.10,cross-objective/v2026.10-*.json,manifests/v2026.10.json,test_v2026_10_frozen.py,test_v2026_10_outcomes.py}`; v2026.09/v2026.10 집중 시나리오 검사. | 프로덕션 또는 측정된 기준선 주장을 하기 전에 배포 런타임 증적을 별도로 보존합니다. |
 | 2026-09-09 | in-progress | 정확한 성공 배포에서 최초의 최신 비합성 프로덕션 승인 집합을 보존했습니다. 독립 정책 축약, 증명, 변경할 수 없는 Blob 게시 및 다이제스트 재확인을 완료했습니다. | 보호된 계획 `34264745423`, 정확한 적용 `34265060803`, 승인 `34265297336`, 이식 가능한 통제 근거 산출물 1개. | FDAI-CONST-002를 `partial`에서 변경하기 전에 나머지 모든 등록된 긍정 경계의 최신 통제된 실제 승인을 보존합니다. |
 | 2026-09-08 | in-progress | 프로덕션에서 사용할 수 있는 공유 근거 승인 경로를 추가했습니다. StateStore 및 비공개 Blob 공급자는 변경할 수 없는 증적, 증명 5개 묶음, 정확한 조회 값, 만료 및 비권한 필드를 읽을 때마다 다시 검증합니다. Core 조립은 활성 의사 결정 경계마다 공급자를 전달하며 운영 승격 및 분석기 작업도 동일한 영속 기록을 해석합니다. 보호된 승인 워크플로는 성공한 정확한 계획 배포를 독립적으로 보존하고 증명된 기록으로 변환합니다. | `current change`; `services/core-control-plane/src/fdai/{delivery/persistence/state_store_decision_evidence.py,delivery/azure/decision_evidence.py,composition,runtime}`; `scripts/deployment/azure/{deployment_decision_evidence.py,decision_evidence_bundle.py}`; `.github/workflows/{deploy-dev.yml,decision-evidence-admission.yml}`; 집중 영속성, Azure, 조립, 워크플로 및 스크립트 테스트. | 정확한 개정을 푸시하고 필수 CI를 통과한 뒤 등록된 모든 경계의 비합성 최신 묶음을 보존해야 합니다. 그 전에는 FDAI-CONST-002를 `partial`에서 변경하지 않습니다. |

@@ -109,6 +109,27 @@ def evaluate_cohort_claim_bundle(
     if path is None:
         return missing_cohort_claim(evaluated_at=evaluated_at)
     receipt = load_cohort_claim_receipt(path)
+    return evaluate_cohort_claim_receipt(
+        receipt,
+        requirement,
+        evaluated_at=evaluated_at,
+        admission_provider=admission_provider,
+        import_origin=import_origin,
+        expected_scenario_set_version=expected_scenario_set_version,
+    )
+
+
+def evaluate_cohort_claim_receipt(
+    receipt: BaselineTreatmentCohortReceipt,
+    requirement: CohortClaimRequirement,
+    *,
+    evaluated_at: datetime,
+    admission_provider: CohortAdmissionProvider | None = None,
+    import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
+    expected_scenario_set_version: str | None = None,
+) -> CohortClaimAssessment:
+    """Evaluate one already parsed receipt against trusted caller inputs."""
+
     if (
         expected_scenario_set_version is not None
         and requirement.scenario_set_version != expected_scenario_set_version
@@ -131,5 +152,6 @@ __all__ = [
     "CohortAdmissionProvider",
     "CohortClaimBundleError",
     "evaluate_cohort_claim_bundle",
+    "evaluate_cohort_claim_receipt",
     "load_cohort_claim_receipt",
 ]
