@@ -249,6 +249,7 @@ def compose_azure_semantic_query_runtime(
         runtime=runtime,
         unavailable_reason=None,
         model_auth_audiences=audiences,
+        current_evidence_probe=runtime.current_evidence_probe,
     )
 
 

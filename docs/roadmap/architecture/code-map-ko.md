@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2f7d8f00b6f5d937a2dd3c90f3165fb88a6accf5
+translation_source_sha: 06d1df28e270d1ffeb630b55fccb5e72a85b5352
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -189,6 +189,10 @@ Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인
 Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니다.
 `wire_semantic_query.py`는 기존 공개 가져오기를 유지하면서 해당 생성자를 직접 다시
 내보내며, 일반 배선 모듈은 적용되는 800줄 상한 아래를 유지합니다.
+`semantic_query_current_evidence.py`는 동일한 정확한 함수 레지스트리, 보호된 graph-first
+Resource 범위 및 호출 권한을 Service Health, Resource 상태 및 Resource Health의 principal 범위
+준비 상태 프로브에 연결합니다. 불완전한 범위나 일치하지 않는 principal 다이제스트는 사용 불가
+상태를 유지하며 대화 품질 보증 근거가 될 수 없습니다.
 관리되는 대화형 문서 검색은 의미 판단과 계획 모듈,
 `core/knowledge/governed_document_reader.py`, 읽기 전용
 `query.governed_documents` FunctionType, Operator 신원 projection, Console 근거 decoder에 걸쳐 있습니다.
