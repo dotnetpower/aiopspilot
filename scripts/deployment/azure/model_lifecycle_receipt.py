@@ -93,15 +93,28 @@ def _load_object(path: Path) -> Mapping[str, object]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--proposal", type=Path, required=True)
-    parser.add_argument("--pull-request", type=Path, required=True)
-    parser.add_argument("--source-commit", required=True)
-    parser.add_argument("--workflow-run-id", required=True)
-    parser.add_argument("--workflow-run-attempt", type=int, required=True)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--verify-proposal-only", action="store_true")
+    parser.add_argument("--pull-request", type=Path)
+    parser.add_argument("--source-commit")
+    parser.add_argument("--workflow-run-id")
+    parser.add_argument("--workflow-run-attempt", type=int)
+    parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
     try:
+        proposal = _load_object(args.proposal)
+        if args.verify_proposal_only:
+            _verified_proposal_digest(proposal)
+            return 0
+        if (
+            args.pull_request is None
+            or args.source_commit is None
+            or args.workflow_run_id is None
+            or args.workflow_run_attempt is None
+            or args.out is None
+        ):
+            parser.error("receipt generation requires pull request, workflow, source, and output")
         receipt = build_model_lifecycle_receipt(
-            proposal=_load_object(args.proposal),
+            proposal=proposal,
             pull_request=_load_object(args.pull_request),
             source_commit=args.source_commit,
             workflow_run_id=args.workflow_run_id,

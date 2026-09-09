@@ -152,8 +152,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Open idempotent draft registry proposal
-        id: publish
+      - name: Publish idempotent proposal branch
+        id: proposal_branch
         if: ${{ steps.candidate.outputs.status == 'proposal' }}
         env:
           EVIDENCE_PATH: ${{ steps.candidate.outputs.evidence }}
@@ -170,8 +170,19 @@ jobs:
           source_commit="$(git rev-parse HEAD)"
           branch="automation/model-lifecycle-${proposal_digest:0:12}"
           proposal="config/model-lifecycle-proposals/${proposal_digest}.json"
-          if [[ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')" ]]; then
-            echo "An open draft already owns proposal_digest=$proposal_digest"
+          remote_head="$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)"
+          if [[ -n "$remote_head" ]]; then
+            echo "The proposal branch already exists for proposal_digest=$proposal_digest"
+            git fetch --no-tags origin "$remote_head"
+            if [[ "$(git rev-list --parents -n 1 "$remote_head" | wc -w)" -ne 2 ]]; then
+              echo "model lifecycle proposal branch must contain one single-parent commit" >&2
+              exit 1
+            fi
+            source_commit="$(git rev-parse "$remote_head^")"
+            if ! git merge-base --is-ancestor "$source_commit" HEAD; then
+              echo "model lifecycle proposal source is not protected main history" >&2
+              exit 1
+            fi
           else
             mkdir -p "$(dirname "$proposal")"
             cp "$EVIDENCE_PATH" "$proposal"
@@ -181,25 +192,139 @@ jobs:
             git add -- "$proposal"
             git commit -m "chore(models): propose lifecycle mapping review"
             git push --set-upstream origin "$branch"
-            gh pr create --draft \
-              --base main \
-              --head "$branch" \
-              --title "chore(models): review lifecycle proposal ${proposal_digest:0:12}" \
-              --body "This draft carries sanitized model-family and deprecation evidence. It has no activation authority and does not deploy, promote, or swap a live mapping. Compatibility impact and the exact proposal digest are recorded in the added manifest."
           fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "proposal=$proposal" >> "$GITHUB_OUTPUT"
+          echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure idempotent draft registry proposal
+        if: ${{ steps.candidate.outputs.status == 'proposal' }}
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          PROPOSAL_BRANCH: ${{ steps.proposal_branch.outputs.branch }}
+          PROPOSAL_PATH: ${{ steps.proposal_branch.outputs.proposal }}
+          PR_JSON_PATH: ${{ runner.temp }}/model-lifecycle/pull-request.json
+          PR_PROPOSAL_PATH: ${{ runner.temp }}/model-lifecycle/pull-request-proposal.json
+          PROPOSAL_SOURCE_COMMIT: ${{ steps.proposal_branch.outputs.source_commit }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require("fs");
+            const branch = process.env.PROPOSAL_BRANCH;
+            const proposalPath = process.env.PROPOSAL_PATH;
+            const sourceCommit = process.env.PROPOSAL_SOURCE_COMMIT;
+            const { owner, repo } = context.repo;
+            if (
+              !/^automation\/model-lifecycle-[0-9a-f]{12}$/.test(branch) ||
+              !/^[0-9a-f]{40}$/.test(sourceCommit)
+            ) {
+              throw new Error("model lifecycle proposal identity is invalid");
+            }
+            const ref = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${branch}`,
+            });
+            const headSha = ref.data.object.sha;
+            if (!/^[0-9a-f]{40}$/.test(headSha)) {
+              throw new Error("model lifecycle proposal head is invalid");
+            }
+            const commit = await github.rest.git.getCommit({
+              owner,
+              repo,
+              commit_sha: headSha,
+            });
+            if (
+              commit.data.parents.length !== 1 ||
+              commit.data.parents[0].sha !== sourceCommit
+            ) {
+              throw new Error("model lifecycle proposal source commit is invalid");
+            }
+            const content = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: proposalPath,
+              ref: headSha,
+            });
+            if (Array.isArray(content.data) || content.data.encoding !== "base64") {
+              throw new Error("model lifecycle proposal content is unavailable");
+            }
+            const proposalBytes = Buffer.from(content.data.content, "base64");
+            if (proposalBytes.length === 0 || proposalBytes.length > 1048576) {
+              throw new Error("model lifecycle proposal content exceeds its bound");
+            }
+            const proposal = JSON.parse(proposalBytes.toString("utf8"));
+            const proposalDigest = proposal.proposal_digest;
+            if (
+              !/^[0-9a-f]{64}$/.test(proposalDigest) ||
+              proposalPath !== `config/model-lifecycle-proposals/${proposalDigest}.json` ||
+              proposal.status !== "proposal" ||
+              proposal.activation_authority !== false
+            ) {
+              throw new Error("model lifecycle proposal contract is invalid");
+            }
+            fs.writeFileSync(process.env.PR_PROPOSAL_PATH, proposalBytes);
+            await exec.exec("python3", [
+              "scripts/deployment/azure/model_lifecycle_receipt.py",
+              "--proposal",
+              process.env.PR_PROPOSAL_PATH,
+              "--verify-proposal-only",
+            ]);
+            const matches = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: "open",
+              head: `${owner}:${branch}`,
+              per_page: 100,
+            });
+            if (matches.length > 1) {
+              throw new Error("multiple open model lifecycle proposals share one branch");
+            }
+            let pull = matches[0];
+            if (pull === undefined) {
+              const created = await github.rest.pulls.create({
+                owner,
+                repo,
+                base: "main",
+                head: branch,
+                draft: true,
+                title: `chore(models): review lifecycle proposal ${proposalDigest.slice(0, 12)}`,
+                body: "This draft carries sanitized model-family and deprecation evidence. It has no activation authority and does not deploy, promote, or swap a live mapping. Compatibility impact and the exact proposal digest are recorded in the added manifest.",
+              });
+              pull = created.data;
+            }
+            if (
+              pull.draft !== true ||
+              pull.head.sha !== headSha ||
+              pull.head.ref !== branch ||
+              pull.base.ref !== "main" ||
+              pull.user?.login !== "github-actions[bot]"
+            ) {
+              throw new Error("model lifecycle pull request readback is invalid");
+            }
+            fs.writeFileSync(
+              process.env.PR_JSON_PATH,
+              JSON.stringify({
+                number: pull.number,
+                headRefOid: headSha,
+                isDraft: true,
+              })
+            );
+
+      - name: Build governed draft receipt
+        id: publish
+        if: ${{ steps.candidate.outputs.status == 'proposal' }}
+        env:
+          SOURCE_COMMIT: ${{ steps.proposal_branch.outputs.source_commit }}
+        run: |
+          set -euo pipefail
           pr_json="$RUNNER_TEMP/model-lifecycle/pull-request.json"
           pr_proposal="$RUNNER_TEMP/model-lifecycle/pull-request-proposal.json"
           receipt="$RUNNER_TEMP/model-lifecycle/receipt.json"
-          gh pr view "$branch" --json number,headRefOid,isDraft > "$pr_json"
-          head_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["headRefOid"])' "$pr_json")"
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/contents/${proposal}?ref=${head_sha}" \
-            --jq '.content' | base64 --decode > "$pr_proposal"
           python3 scripts/deployment/azure/model_lifecycle_receipt.py \
             --proposal "$pr_proposal" \
             --pull-request "$pr_json" \
-            --source-commit "$source_commit" \
+            --source-commit "$SOURCE_COMMIT" \
             --workflow-run-id "${GITHUB_RUN_ID}" \
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --out "$receipt"
