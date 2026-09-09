@@ -33,7 +33,7 @@ from fdai.core.operator_memory import (
 )
 from fdai.core.prompts.budget import estimate_prompt_tokens
 from fdai.core.prompts.profiles import PromptBudgetExceededError
-from fdai.core.prompts.registry import PromptRegistry
+from fdai.core.prompts.registry import LegacyPromptRegistry, resolve_prompt_selection
 from fdai.core.prompts.skill_disclosure import compose_skill_disclosure
 from fdai.core.prompts.types import (
     AblatedLayerRef,
@@ -153,7 +153,7 @@ class DefaultPromptComposer(PromptComposer):
     def __init__(
         self,
         *,
-        registry: PromptRegistry,
+        registry: LegacyPromptRegistry,
         tool_registry: ToolRegistry | None = None,
         operator_memory_store: OperatorMemoryStore | None = None,
         canary_generator: CanaryGenerator | None = None,
@@ -182,7 +182,7 @@ class DefaultPromptComposer(PromptComposer):
             for artifact_id in enabled_shadow_pack_ids
         ):
             raise ValueError("enabled_shadow_pack_ids MUST be a frozenset of non-empty ids")
-        self._registry: Final[PromptRegistry] = registry
+        self._registry: Final[LegacyPromptRegistry] = registry
         self._tool_registry: Final[ToolRegistry | None] = tool_registry
         self._operator_memory_store: Final[OperatorMemoryStore | None] = operator_memory_store
         self._canary_generator: Final[CanaryGenerator | None] = canary_generator
@@ -208,7 +208,11 @@ class DefaultPromptComposer(PromptComposer):
         skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:
         started = time.perf_counter()
-        selection = self._registry.resolve(capability_id, profile_id=profile_id)
+        selection = resolve_prompt_selection(
+            self._registry,
+            capability_id,
+            profile_id=profile_id,
+        )
         if selection.profile is not None and (
             self._include_shadow_packs or self._enabled_shadow_pack_ids
         ):

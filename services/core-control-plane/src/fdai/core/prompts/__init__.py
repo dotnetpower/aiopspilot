@@ -40,9 +40,11 @@ from fdai.core.prompts.profiles import (
 )
 from fdai.core.prompts.registry import (
     FileSystemPromptRegistry,
+    LegacyPromptRegistry,
     PromptRegistry,
     PromptRegistryError,
     PromptRegistryIssue,
+    resolve_prompt_selection,
 )
 from fdai.core.prompts.types import (
     AblatedLayerRef,
@@ -68,6 +70,7 @@ __all__ = [
     "DefaultPromptComposer",
     "FileSystemPromptRegistry",
     "LayerRef",
+    "LegacyPromptRegistry",
     "PromptReplayManifest",
     "PromptArtifact",
     "PromptAblationProfile",
@@ -84,6 +87,7 @@ __all__ = [
     "PromptRegistryError",
     "PromptRegistryIssue",
     "PromptSelection",
+    "resolve_prompt_selection",
     "compare_prompt_profiles",
     "estimate_prompt_tokens",
     "estimate_chat_request_tokens",

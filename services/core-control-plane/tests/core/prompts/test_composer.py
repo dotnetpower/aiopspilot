@@ -25,7 +25,9 @@ from fdai.core.prompts import (
     FileSystemPromptRegistry,
     PromptAblationProfile,
     PromptAblationProfileName,
+    PromptArtifact,
     PromptLayer,
+    PromptMode,
     SkillDisclosureRequest,
     SkillSelectionStatus,
 )
@@ -116,6 +118,39 @@ async def test_compose_returns_base_only_when_no_packs(tmp_path: Path) -> None:
     assert out.layer_manifest[0].id == "hello"
     assert out.layer_manifest[0].layer is PromptLayer.BASE
     assert out.token_estimate >= 1
+
+
+@pytest.mark.asyncio
+async def test_compose_preserves_pre_profile_registry_compatibility() -> None:
+    artifact = PromptArtifact(
+        id="legacy",
+        version=1,
+        layer=PromptLayer.BASE,
+        body="legacy body",
+        applies_to=("t2.reasoner.primary",),
+        token_budget=32,
+        default_mode=PromptMode.ENFORCE,
+        provenance_source="test",
+    )
+
+    class LegacyRegistry:
+        def get_base(self, capability_id: str) -> PromptArtifact:
+            assert capability_id == "t2.reasoner.primary"
+            return artifact
+
+        def get_packs(self, capability_id: str) -> tuple[PromptArtifact, ...]:
+            assert capability_id == "t2.reasoner.primary"
+            return ()
+
+        def artifacts(self) -> tuple[PromptArtifact, ...]:
+            return (artifact,)
+
+    out = await DefaultPromptComposer(registry=LegacyRegistry()).compose(
+        capability_id="t2.reasoner.primary"
+    )
+
+    assert out.system_text == "legacy body"
+    assert out.profile_id is None
 
 
 @pytest.mark.asyncio

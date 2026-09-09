@@ -18,7 +18,7 @@ import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -70,7 +70,21 @@ class PromptRegistryError(ValueError):
 # ---------------------------------------------------------------------------
 
 
-class PromptRegistry(Protocol):
+class LegacyPromptRegistry(Protocol):
+    """Pre-profile registry surface retained for injected implementations."""
+
+    def get_base(self, capability_id: str) -> PromptArtifact:
+        """Return one base prompt for the capability."""
+
+    def get_packs(self, capability_id: str) -> tuple[PromptArtifact, ...]:
+        """Return task packs for the capability."""
+
+    def artifacts(self) -> tuple[PromptArtifact, ...]:
+        """Return every discovered artifact."""
+
+
+@runtime_checkable
+class PromptRegistry(LegacyPromptRegistry, Protocol):
     """Read-only lookup surface consumed by the composition root.
 
     Wave 1 exposed :meth:`get_base` only; Wave 2 adds :meth:`get_packs`
@@ -108,6 +122,24 @@ class PromptRegistry(Protocol):
 
     def profiles(self) -> tuple[PromptProfile, ...]:
         """Return every exact prompt profile sorted by id and version."""
+
+
+def resolve_prompt_selection(
+    registry: LegacyPromptRegistry,
+    capability_id: str,
+    *,
+    profile_id: str | None = None,
+) -> PromptSelection:
+    """Resolve exact profiles while preserving pre-profile injected registries."""
+
+    if isinstance(registry, PromptRegistry):
+        return registry.resolve(capability_id, profile_id=profile_id)
+    if profile_id is not None:
+        raise LookupError("explicit profile selection requires a profile-aware registry")
+    return PromptSelection(
+        root=registry.get_base(capability_id),
+        packs=registry.get_packs(capability_id),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +387,9 @@ def _as_iter(value: object) -> Iterable[object]:
 
 __all__ = [
     "FileSystemPromptRegistry",
+    "LegacyPromptRegistry",
     "PromptRegistry",
     "PromptRegistryError",
     "PromptRegistryIssue",
+    "resolve_prompt_selection",
 ]
