@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f04652c8b9e8dc7d169e196f396f91496332cc66
+translation_source_sha: c94cfef55525f88cb1ce47a0c8cecdc9568d3200
 translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -141,6 +141,9 @@ NetworkPolicy, ResourceQuota 및 LimitRange 신원을 추가합니다. 출처 �
 EndpointSlice 변환 결과는 backend 수, 조건 및 정확한 대상 Pod UID만 보존합니다. 엔드포인트
 주소는 저장하지 않으며 검토된 `routes_to` 링크는 트래픽 도착 증명이 아니라 구성 근거로
 유지됩니다.
+내용 없는 Pod 로그 근거는 반환된 레코드와 프로바이더 구간 범위를 분리합니다. 점 전용
+프로바이더는 레코드 다이제스트를 제공할 수 있지만 출처 revision, 프로바이더 기준 시점 및 독립
+범위 증적 없이는 진단을 완전하게 만들 수 없습니다.
 
 Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
 사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된

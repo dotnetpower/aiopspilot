@@ -85,6 +85,9 @@ class _LogReader:
             last_recorded_at=end - timedelta(minutes=2) if self.complete else None,
             record_digests=(("sha256:" + ("a" * 64)),) if self.complete else (),
             evidence_refs=("pod-log-source:azure-monitor",),
+            source_revision="v1",
+            provider_cutoff=end if self.complete else None,
+            coverage_receipt_ref="log-coverage:example" if self.complete else None,
         )
 
 

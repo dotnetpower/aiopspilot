@@ -143,6 +143,9 @@ approval, or execution authority.
 EndpointSlice projection keeps only backend counts, conditions, and exact target Pod UIDs. It
 stores no endpoint address, and the reviewed `routes_to` link remains configuration evidence rather
 than proof that traffic arrived.
+Content-free Pod log evidence now separates returned records from provider-window coverage. A
+point-only provider can supply record digests but cannot make a diagnosis complete without source
+revision, provider cutoff, and an independent coverage receipt.
 
 Focused production-composition checks use an exact-release Interface that spans Resource and
 Observation evidence, then invoke the issued Pod function through its secured dependency digest.

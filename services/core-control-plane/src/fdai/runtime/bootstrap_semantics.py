@@ -264,6 +264,7 @@ async def build_semantic_runtime(
                 f"{type(container.log_query_provider).__module__}."
                 f"{type(container.log_query_provider).__qualname__}"
             ),
+            source_revision="log-query-provider-v1",
         )
     )
     endpoint = environment.get("FDAI_LLM_ENDPOINT", "").strip() or None
