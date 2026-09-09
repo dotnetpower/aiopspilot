@@ -141,6 +141,11 @@ class KubernetesInventoryEnricher:
             for link in verified.links
         ):
             return _unavailable(observation, reason="kubernetes_relationship_identity_conflict")
+        recorded_at = max(
+            timestamp
+            for timestamp in (observation.recorded_at, snapshot.observed_at)
+            if timestamp is not None
+        )
         relationship_drops = (*observation.relationship_drops, *verified.dropped)
         if verified.dropped:
             # Keep independently verified records that are usable while making
@@ -150,6 +155,7 @@ class KubernetesInventoryEnricher:
                 resources=combined_resources,
                 links=(*observation.links, *verified.links),
                 relationship_drops=relationship_drops,
+                recorded_at=recorded_at,
                 source_states=(
                     *observation.source_states,
                     InventoryProjectionSourceState(
@@ -164,6 +170,7 @@ class KubernetesInventoryEnricher:
             observation,
             resources=combined_resources,
             links=(*observation.links, *verified.links),
+            recorded_at=recorded_at,
             source_states=(
                 *observation.source_states,
                 InventoryProjectionSourceState(

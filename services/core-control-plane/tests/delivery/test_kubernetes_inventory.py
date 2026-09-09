@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -132,6 +132,20 @@ async def test_adds_runtime_resources_and_verified_relationships() -> None:
         for link in result.links
     )
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.AVAILABLE
+
+
+async def test_advances_generation_cutoff_to_accepted_kubernetes_observation() -> None:
+    provider_observation = replace(
+        _observation(),
+        recorded_at=OBSERVED_AT - timedelta(seconds=1),
+    )
+
+    result = await KubernetesInventoryEnricher(
+        source=_Source(_snapshot()),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+    ).enrich(provider_observation)
+
+    assert result.recorded_at == OBSERVED_AT
 
 
 async def test_retains_observed_resources_when_one_relationship_endpoint_is_unavailable() -> None:
