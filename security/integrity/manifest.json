@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1368,
+  "file_count": 1369,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "184bbde89444c6896480ccf1b591dd5b69f2fe84513e37f8923dd1e9f61451ec",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -123,7 +123,7 @@
     "services/core-control-plane/src/fdai/composition/wire_metric_provider.py": "b0a818e3548c3443530892947fc67d4cae213ec3c797a3a79c2ebcc7c2006de1",
     "services/core-control-plane/src/fdai/composition/wire_observation_providers.py": "0457b1e8f4d2d2ae2d8d4a309c54cb3c4884a0ad6ec7373ba39139265e1391d6",
     "services/core-control-plane/src/fdai/composition/wire_read_investigation.py": "14d601c824c0de7cf7c7a7e29d9c9deea77460817de178645b3deab2017a2175",
-    "services/core-control-plane/src/fdai/composition/wire_semantic_judgment.py": "d7611487c3131339a0e1e6657bc8698b4151037e5e87e800817a291d3f6caae1",
+    "services/core-control-plane/src/fdai/composition/wire_semantic_judgment.py": "a2c574f5add394fa16b899aacc2ab224d9ed22eb45bc92666056c41318ae76cc",
     "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "c438138148bd9b00299826ef0b93d3701d7c57d5161317a2ecb32aaf90520e2b",
     "services/core-control-plane/src/fdai/composition/wire_t1_routing.py": "db8ad8591136078805f7f2c641685a23331af799b39edbdb6562a45b70cc7ef4",
     "services/core-control-plane/src/fdai/composition/wire_trajectory.py": "e4956f27caf996ab368b311105633434ab90a2787083c999c1eea4b99988ed40",
@@ -311,8 +311,9 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_ingress_planning.py": "45f72bd436173ad2e26d29a13650ea02c86fc6bd0777641dd05b66679a364a44",
     "services/core-control-plane/src/fdai/core/conversation/semantic_investigation.py": "1eb6c7493c8972e507d8f2a03e3448aaf8abebecd6465705ab513cebc9b7166a",
     "services/core-control-plane/src/fdai/core/conversation/semantic_investigation_planning.py": "9de727ef5e7a591c7dae99e9f5997a080b39d4141c40fa2cbe4610747f55fe3e",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py": "9a9a3cc369a04b9fdcf9f343f02ad287d39f10c5c50125c210493feb342bcfc2",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_rejections.py": "69a686ae84474b0fb3e8f6f7a68dc9afde24eb8e49a63efd82efeeab7c8fe25f",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py": "b03cd3852f0474640ae0007915ceb4a15046ed005994a07e43dd9c7ede71d501",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_grounding.py": "a51d63da870c5486858fc1e0166aba0a1d7ed65d09c66ae5b4ab582c5cb29fde",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_rejections.py": "3d5c3eead454f26692cc6bab3f9b99bb5e7facb0d05b89f6624d973d9f75f7db",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_telemetry.py": "9b6049cd3317f8d6596ede112671459092cc40f36be0354f3c86100bf516be21",
     "services/core-control-plane/src/fdai/core/conversation/semantic_kubernetes_pod_recovery_planning.py": "70e0ed147c3a55233a5eb06a9b05a358a9546480ff83610e364b1e25d54ca0f8",
     "services/core-control-plane/src/fdai/core/conversation/semantic_kubernetes_rollout_planning.py": "4a7fd8cf4ac19b1b3a78aaaab6937b9959c85448efd98f7472cbc253e776bf21",

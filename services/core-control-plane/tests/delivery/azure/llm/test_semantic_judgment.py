@@ -57,11 +57,13 @@ def test_semantic_judgment_uses_strict_structured_output() -> None:
 
 
 def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
-    active_schema = _semantic_judgment_proposal_schema(forbidden_actions_enabled=False)
-    shadow_schema = _semantic_judgment_proposal_schema(forbidden_actions_enabled=True)
+    active_schema = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    shadow_schema = _semantic_judgment_proposal_schema(intent_hardening_enabled=True)
 
     assert "forbidden_actions" not in active_schema["properties"]
     assert "forbidden_actions" in shadow_schema["properties"]
+    assert active_schema["properties"]["schema_version"]["const"] == "1.0.0"
+    assert shadow_schema["properties"]["schema_version"]["const"] == "1.1.0"
     active_strict = _strict_response_format(active_schema, name="semantic-judgment")
     shadow_strict = _strict_response_format(shadow_schema, name="semantic-judgment-shadow")
     assert "forbidden_actions" not in active_strict["json_schema"]["schema"]["required"]

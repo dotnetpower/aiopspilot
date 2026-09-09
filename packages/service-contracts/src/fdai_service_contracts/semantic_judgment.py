@@ -117,7 +117,7 @@ class SemanticDirectResponseDraft(QueryContract):
 class SemanticJudgmentProposal(QueryContract):
     """Untrusted structured meaning proposed without policy or action authority."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     primary_intent: MachineToken
     secondary_intents: Annotated[tuple[MachineToken, ...], Field(max_length=8)] = ()
     targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=32)] = ()
@@ -184,6 +184,10 @@ class SemanticJudgmentProposal(QueryContract):
         )
         if len(forbidden_spans) != len(set(forbidden_spans)):
             raise ValueError("semantic judgment forbidden action spans MUST be unique")
+        if self.forbidden_actions and self.schema_version != "1.1.0":
+            raise ValueError("semantic judgment forbidden actions require schema 1.1.0")
+        if any(action.kind not in {"action", "action_type"} for action in self.forbidden_actions):
+            raise ValueError("semantic judgment forbidden actions MUST use an action kind")
         if self.ambiguous != bool(self.alternatives or self.unresolved_terms):
             raise ValueError("semantic judgment ambiguity MUST match its unresolved meaning")
         if (self.clarification is not None) != self.ambiguous:
@@ -196,6 +200,15 @@ class SemanticJudgmentProposal(QueryContract):
             raise ValueError("semantic judgment clarification MUST be one question")
         if (self.action_posture == "draft_only") != (self.action_subject != "none"):
             raise ValueError("semantic judgment action subject MUST match draft posture")
+        if (
+            self.discourse_mode is not SemanticDiscourseMode.DIRECT
+            and self.action_posture != "advise_only"
+        ):
+            raise ValueError("semantic non-direct discourse MUST remain advise_only")
+        if self.discourse_mode is not SemanticDiscourseMode.DIRECT and self.forbidden_actions:
+            raise ValueError("semantic non-direct discourse MUST NOT create forbidden actions")
+        if self.primary_intent.startswith("query.") and self.action_posture != "advise_only":
+            raise ValueError("semantic query intent MUST remain advise_only")
         direct_intent = self.primary_intent in {"greeting", "self_introduction"}
         if direct_intent != (self.direct_response is not None):
             raise ValueError(

@@ -44,7 +44,7 @@ def build_azure_semantic_judgment_factory(
     preflight_system_prompt: str | None = None,
     social_narrator_system_prompts: Mapping[str, str] | None = None,
     held_capabilities: frozenset[str] = frozenset(),
-    forbidden_actions_enabled: bool = False,
+    intent_hardening_enabled: bool = False,
 ) -> SemanticJudgmentFactory | None:
     """Return a loop-bound T1/T2 factory or ``None`` when unavailable."""
 
@@ -103,7 +103,7 @@ def build_azure_semantic_judgment_factory(
                 system_prompt=system_prompt,
                 preflight_system_prompt=preflight_system_prompt,
                 social_narrator_system_prompts=narrator_prompts,
-                forbidden_actions_enabled=forbidden_actions_enabled,
+                intent_hardening_enabled=intent_hardening_enabled,
             ),
             owner_loop=owner_loop,
         )
@@ -115,7 +115,7 @@ def build_azure_semantic_judgment_factory(
                     candidates=t2_targets,
                     system_prompt=system_prompt,
                     preflight_system_prompt=preflight_system_prompt,
-                    forbidden_actions_enabled=forbidden_actions_enabled,
+                    intent_hardening_enabled=intent_hardening_enabled,
                 ),
                 owner_loop=owner_loop,
             )
@@ -141,7 +141,7 @@ def build_azure_semantic_judgment_factory(
                 if escalation is not None
                 else None
             ),
-            strict_intent_grounding=forbidden_actions_enabled,
+            strict_intent_grounding=intent_hardening_enabled,
             preflight=(
                 ConversationPreflightBoundary(
                     binding=ConversationPreflightBinding(

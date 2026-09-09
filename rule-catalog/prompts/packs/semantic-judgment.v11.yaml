@@ -1,0 +1,14 @@
+id: semantic-judgment
+version: 11
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 384
+default_mode: shadow
+body: |-
+  Apply the final intent-family audit. A request for instructions or procedure for a named change uses primary_intent action_requirements, requested_facets containing the operation and procedure, discourse_mode direct, and advise_only. A question asking whether a named action would produce an effect uses action_requirements, the operation and expected_effect facets, discourse_mode hypothetical, and advise_only. Do not use explanation for either family.
+  A compound error-and-change investigation uses query.resource_error_activity_correlation as its only intent. Error evidence and change history are requested facets inside that result, not an independent query.resource_change_activity secondary intent. Preserve the exact resource, time range, and explicitly forbidden operation.
+  An incident creation draft targets only the written severity and affected resource. The generic word incident names the artifact type through action_subject Incident; it is not an incident_id, object_type, or additional target. Preserve incident_create and severity facets.
+  For a subtype-only current-state request, use query.resource_current_state and clarify resource_identity while preserving that primary intent. Never replace it with query.resource_state_inventory unless the utterance independently requests a collection.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Shadow correction after the v10 cohort isolated procedure, hypothetical, compound-secondary, and incident-noun errors.

@@ -60,7 +60,7 @@ class AzureOpenAISemanticJudgmentModelConfig:
     timeout_seconds: float = 30.0
     social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
-    forbidden_actions_enabled: bool = False
+    intent_hardening_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
@@ -166,7 +166,7 @@ class AzureOpenAISemanticJudgmentModel:
                 encoded,
                 input_digest=input_digest,
                 proposal_schema=_semantic_judgment_proposal_schema(
-                    forbidden_actions_enabled=self._config.forbidden_actions_enabled
+                    intent_hardening_enabled=self._config.intent_hardening_enabled
                 ),
                 system_prompt=self._config.system_prompt,
                 call_kind="semantic-judgment",
@@ -515,17 +515,26 @@ def _strict_response_format(
 
 def _semantic_judgment_proposal_schema(
     *,
-    forbidden_actions_enabled: bool,
+    intent_hardening_enabled: bool,
 ) -> dict[str, Any]:
     """Expose additive forbidden-action output only to an explicit shadow candidate."""
 
     schema = SemanticJudgmentProposal.model_json_schema()
-    if forbidden_actions_enabled:
+    schema_version = schema.get("properties", {}).get("schema_version")
+    if not isinstance(schema_version, dict):
+        raise ValueError("semantic judgment proposal schema has no version property")
+    if intent_hardening_enabled:
+        schema_version.clear()
+        schema_version["const"] = "1.1.0"
+        schema_version["type"] = "string"
         return schema
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         raise ValueError("semantic judgment proposal schema has no properties")
     properties.pop("forbidden_actions", None)
+    schema_version.clear()
+    schema_version["const"] = "1.0.0"
+    schema_version["type"] = "string"
     return schema
 
 

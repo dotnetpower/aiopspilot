@@ -67,6 +67,8 @@ def test_default_document_mode_is_omitted_from_legacy_digest_material() -> None:
 
     assert "document_evidence_mode" not in payload
     assert "forbidden_actions" not in payload
+    replay = SemanticJudgmentProposal.model_validate({**payload, "forbidden_actions": []})
+    assert replay.proposal_digest == _proposal().proposal_digest
 
 
 def test_target_accepts_canonical_ontology_identity_case() -> None:
@@ -84,6 +86,7 @@ def test_target_accepts_canonical_ontology_identity_case() -> None:
 def test_proposal_preserves_typed_forbidden_action_without_action_authority() -> None:
     proposal = _proposal().model_copy(
         update={
+            "schema_version": "1.1.0",
             "forbidden_actions": (
                 SemanticTarget(
                     kind="action_type",
@@ -92,7 +95,7 @@ def test_proposal_preserves_typed_forbidden_action_without_action_authority() ->
                     source_start=14,
                     source_end=17,
                 ),
-            )
+            ),
         }
     )
 
@@ -100,6 +103,24 @@ def test_proposal_preserves_typed_forbidden_action_without_action_authority() ->
     assert proposal.action_posture == "advise_only"
     assert proposal.action_subject == "none"
     assert proposal.execution_authority is False
+
+
+def test_v1_proposal_rejects_forbidden_actions() -> None:
+    with pytest.raises(ValidationError, match="require schema 1.1.0"):
+        SemanticJudgmentProposal(
+            primary_intent="resource.health",
+            confidence=1.0,
+            ambiguous=False,
+            action_subject="none",
+            forbidden_actions=(
+                SemanticTarget(
+                    kind="action",
+                    value="재시작",
+                    source_start=0,
+                    source_end=3,
+                ),
+            ),
+        )
 
 
 def test_ambiguous_proposal_requires_one_question() -> None:
@@ -254,4 +275,66 @@ def test_action_subject_must_match_action_posture(
             ambiguous=False,
             action_posture=action_posture,  # type: ignore[arg-type]
             action_subject=action_subject,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "discourse_mode"),
+    [
+        ("action_request", "quoted"),
+        ("action_request", "hypothetical"),
+        ("query.resource_current_state", "direct"),
+    ],
+)
+def test_non_direct_and_query_meaning_cannot_become_draft(
+    primary_intent: str,
+    discourse_mode: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        SemanticJudgmentProposal(
+            primary_intent=primary_intent,
+            confidence=1.0,
+            ambiguous=False,
+            discourse_mode=discourse_mode,  # type: ignore[arg-type]
+            action_posture="draft_only",
+            action_subject="ActionType",
+        )
+
+
+def test_non_direct_discourse_cannot_manufacture_forbidden_action() -> None:
+    with pytest.raises(ValidationError, match="MUST NOT create forbidden actions"):
+        SemanticJudgmentProposal(
+            schema_version="1.1.0",
+            primary_intent="explanation",
+            confidence=1.0,
+            ambiguous=False,
+            discourse_mode="quoted",
+            action_subject="none",
+            forbidden_actions=(
+                SemanticTarget(
+                    kind="action",
+                    value="삭제",
+                    source_start=6,
+                    source_end=8,
+                ),
+            ),
+        )
+
+
+def test_forbidden_action_requires_action_kind() -> None:
+    with pytest.raises(ValidationError, match="MUST use an action kind"):
+        SemanticJudgmentProposal(
+            schema_version="1.1.0",
+            primary_intent="resource.status",
+            confidence=1.0,
+            ambiguous=False,
+            action_subject="none",
+            forbidden_actions=(
+                SemanticTarget(
+                    kind="resource",
+                    value="삭제",
+                    source_start=0,
+                    source_end=2,
+                ),
+            ),
         )

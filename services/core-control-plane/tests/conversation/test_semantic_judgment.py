@@ -77,7 +77,7 @@ class _DirectResponseModel(_Model):
 
 
 def _proposal(**overrides: object) -> dict[str, object]:
-    return {
+    proposal = {
         "primary_intent": "cost_breakdown",
         "secondary_intents": [],
         "targets": [
@@ -101,6 +101,9 @@ def _proposal(**overrides: object) -> dict[str, object]:
         "execution_authority": False,
         **overrides,
     }
+    if "forbidden_actions" in overrides and "schema_version" not in overrides:
+        proposal["schema_version"] = "1.1.0"
+    return proposal
 
 
 def test_explicit_document_mode_requires_governed_document_intent() -> None:
@@ -721,21 +724,6 @@ def test_strict_candidate_rejects_unsupplied_intent_identity_and_span() -> None:
                 {"kind": "resource_type", "name": "compute.vm"},
             ),
         ),
-        (
-            _proposal(
-                primary_intent="query.resource_current_state",
-                targets=[
-                    {
-                        "kind": "resource",
-                        "value": "vm01",
-                        "source_start": 1,
-                        "source_end": 5,
-                    }
-                ],
-            ),
-            "vm01 상태를 보여줘",
-            ({"kind": "function_type", "name": "query.resource_current_state"},),
-        ),
     )
     for proposal, utterance, capabilities in invalid_cases:
         result = _boundary(
@@ -749,6 +737,245 @@ def test_strict_candidate_rejects_unsupplied_intent_identity_and_span() -> None:
         )
         assert result.accepted is False
         assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+
+
+def test_strict_candidate_rejects_catalog_type_on_resource_instance() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource",
+                        "value": "vm01",
+                        "canonical_value": "compute.vm",
+                        "source_start": 0,
+                        "source_end": 4,
+                    }
+                ],
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance="vm01 상태를 보여줘",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.resource_current_state"},
+            {"kind": "resource_type", "name": "compute.vm"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+
+
+def test_strict_candidate_repairs_only_one_exact_current_utterance_span() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource",
+                        "value": "vm01",
+                        "source_start": 1,
+                        "source_end": 5,
+                    }
+                ],
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance="vm01 상태를 보여줘",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_current_state"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert (result.proposal.targets[0].source_start, result.proposal.targets[0].source_end) == (
+        0,
+        4,
+    )
+
+
+def test_strict_current_state_removes_only_redundant_exact_resource_clarification() -> None:
+    utterance = "vm01은 지금 실행 중이야?"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource_type",
+                        "value": "vm",
+                        "canonical_value": "compute.vm",
+                        "source_start": 0,
+                        "source_end": 2,
+                    },
+                    {
+                        "kind": "resource",
+                        "value": "vm01",
+                        "source_start": 0,
+                        "source_end": 4,
+                    },
+                ],
+                ambiguous=True,
+                alternatives=[],
+                unresolved_terms=["resource_identity"],
+                clarification="어떤 리소스를 조회할까요?",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.resource_current_state"},
+            {"kind": "resource_type", "name": "compute.vm"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert result.proposal.clarification is None
+    assert tuple(target.value for target in result.proposal.targets) == ("vm01",)
+
+
+def test_strict_action_subtype_requires_identity_clarification() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="action_request",
+                targets=[
+                    {
+                        "kind": "resource_type",
+                        "value": "VM",
+                        "canonical_value": "compute.vm",
+                        "source_start": 0,
+                        "source_end": 2,
+                    }
+                ],
+                action_posture="draft_only",
+                action_subject="ActionType",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance="VM을 재시작해줘",
+        context=(),
+        capabilities=(
+            {"kind": "intent", "name": "action_request"},
+            {"kind": "resource_type", "name": "compute.vm"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "targets", "discourse_mode"),
+    [
+        (
+            "query.resource_event_history",
+            [
+                {
+                    "kind": "time_range",
+                    "value": "지난 24시간",
+                    "source_start": 0,
+                    "source_end": 7,
+                }
+            ],
+            "direct",
+        ),
+        (
+            "action_requirements",
+            [
+                {
+                    "kind": "resource_type",
+                    "value": "VM",
+                    "canonical_value": "compute.vm",
+                    "source_start": 0,
+                    "source_end": 2,
+                }
+            ],
+            "hypothetical",
+        ),
+    ],
+)
+def test_strict_safe_read_and_action_advice_drop_identity_clarification(
+    primary_intent: str,
+    targets: list[dict[str, object]],
+    discourse_mode: str,
+) -> None:
+    utterance = (
+        "지난 24시간 Resource Health 이벤트를 시간순으로 보여줘"
+        if primary_intent.startswith("query.")
+        else "VM을 재시작하면 해결될까?"
+    )
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=targets,
+                ambiguous=True,
+                alternatives=[],
+                unresolved_terms=["resource_identity"],
+                clarification="어떤 리소스를 의미하나요?",
+                discourse_mode=discourse_mode,
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.resource_event_history"},
+            {"kind": "intent", "name": "action_requirements"},
+            {"kind": "resource_type", "name": "compute.vm"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+
+
+def test_strict_time_target_drops_canonical_value_absent_from_capabilities() -> None:
+    utterance = "지난 24시간 Resource Health 이벤트를 시간순으로 보여줘"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_event_history",
+                targets=[
+                    {
+                        "kind": "time_range",
+                        "value": "지난 24시간",
+                        "canonical_value": "duration.PT24H",
+                        "source_start": 0,
+                        "source_end": 7,
+                    }
+                ],
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_event_history"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.targets[0].canonical_value is None
 
 
 def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
@@ -970,6 +1197,36 @@ def test_complete_ontology_trace_missing_clarification_recovers_to_safe_hold(
     assert result.proposal.action_posture == "advise_only"
     assert result.proposal.execution_authority is False
     assert result.receipt.reason_code == "accepted_safe_trace_hold"
+
+
+def test_strict_candidate_never_uses_legacy_safe_trace_recovery() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_relationships",
+                targets=[],
+                requested_facets=[
+                    "resource_type",
+                    "signal_type",
+                    "action_type",
+                    "trace",
+                ],
+                ambiguous=True,
+                alternatives=["current_finding"],
+                unresolved_terms=["current_finding_state"],
+                clarification=None,
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance="Trace the governed ontology declarations.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.ontology_relationships"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
 
 
 def test_t1_only_judgment_does_not_invoke_escalation_binding() -> None:

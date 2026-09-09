@@ -35,7 +35,7 @@ class _ExpectedProposalModel:
     def judge(self, **_kwargs: object) -> Mapping[str, Any]:
         ambiguous = bool(self._expected.get("ambiguous", False))
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "primary_intent": self._expected["primary_intent"],
             "secondary_intents": self._expected.get("secondary_intents", []),
             "targets": self._expected.get("targets", []),
@@ -132,9 +132,9 @@ def test_shadow_prompts_encode_the_measured_failure_boundaries() -> None:
         if artifact.id == "semantic-query-frame"
     )
 
-    assert (judgment.version, frame.version) == (10, 41)
+    assert (judgment.version, frame.version) == (13, 41)
     assert judgment.default_mode.value == frame.default_mode.value == "shadow"
-    assert "utterance[source_start:source_end] MUST equal value exactly" in judgment.body
+    assert "Instructions or procedure for a named change" in judgment.body
     assert "Never convert advise_only into action_draft" in frame.body
     assert "An exact incident id is source-grounded identity, not permission" in frame.body
 
@@ -196,4 +196,27 @@ def test_judgment_capability_projection_preserves_only_reviewed_semantics() -> N
             "canonical_values": ["Resource", "Resource.name", "Resource.type"],
         },
         {"kind": "function_type", "name": "query.unreviewed"},
+    )
+
+
+def test_judgment_capability_projection_omits_oversized_semantic_axes() -> None:
+    measures = [f"measure.{index}" for index in range(33)]
+    properties = {f"property_{index}": {} for index in range(33)}
+
+    assert _semantic_judgment_capabilities(
+        (
+            {
+                "kind": "function",
+                "name": "query.large",
+                "output_schema": {"x-fdai-measure-concepts": measures},
+            },
+            {
+                "kind": "object",
+                "name": "LargeObject",
+                "properties": properties,
+            },
+        )
+    ) == (
+        {"kind": "function_type", "name": "query.large"},
+        {"kind": "object_type", "name": "LargeObject"},
     )
