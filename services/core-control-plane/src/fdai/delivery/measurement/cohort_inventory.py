@@ -203,7 +203,16 @@ class PostgresCohortEvidenceInventorySource:
               AND created_at >= %s
               AND created_at <= %s
               AND entry->>'measurement_protocol_digest' = %s
+              AND entry->>'measurement_protocol_version' = %s
               AND entry->>'fdai_revision' = %s
+              AND entry->>'synthetic' = 'false'
+              AND entry->>'source_cluster_digest' ~ '^sha256:[0-9a-f]{64}$'
+              AND entry->>'observation_digest' ~ '^sha256:[0-9a-f]{64}$'
+              AND (
+                (%s = 'metric_id' AND jsonb_typeof(entry->'value') = 'number'
+                  AND (entry->>'value')::NUMERIC >= 0)
+                OR (%s = 'guard_id' AND jsonb_typeof(entry->'breached') = 'boolean')
+              )
             GROUP BY 1, 2
             """,
             (
@@ -212,7 +221,10 @@ class PostgresCohortEvidenceInventorySource:
                 window_start,
                 window_end,
                 self._policy.measurement_protocol_digest,
+                self._policy.measurement_protocol_version,
                 self._expected_revision,
+                identifier_key,
+                identifier_key,
             ),
         )
         return list(await cursor.fetchall())

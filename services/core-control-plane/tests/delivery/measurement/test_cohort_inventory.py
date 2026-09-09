@@ -139,5 +139,9 @@ async def test_measure_query_groups_the_single_bound_projection() -> None:
 
     assert rows == []
     assert "GROUP BY 1, 2" in connection.query
-    assert connection.query.count("%s") == len(connection.params) == 6
-    assert connection.params[-1] == REVISION
+    assert "entry->>'synthetic' = 'false'" in connection.query
+    assert "source_cluster_digest" in connection.query
+    assert "observation_digest" in connection.query
+    assert "jsonb_typeof(entry->'value') = 'number'" in connection.query
+    assert connection.query.count("%s") == len(connection.params) == 9
+    assert REVISION in connection.params
