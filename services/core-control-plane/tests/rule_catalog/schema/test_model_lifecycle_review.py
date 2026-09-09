@@ -228,12 +228,17 @@ def _resolved_content() -> str:
     ).to_json()
 
 
-def _observation(content: str, *, trusted: bool = True) -> dict[str, object]:
+def _observation(
+    content: str,
+    *,
+    trusted: bool = True,
+    schema_version: str = "fdai.model-lifecycle-proposal.v3",
+) -> dict[str, object]:
     source_digest = hashlib.sha256(
         json.dumps(json.loads(content), sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     proposal: dict[str, object] = {
-        "schema_version": "fdai.model-lifecycle-proposal.v3",
+        "schema_version": schema_version,
         "status": "proposal",
         "activation_authority": False,
         "source_models_digest": source_digest,
@@ -280,6 +285,27 @@ async def test_startup_owner_loads_once_persists_verified_hold_before_binding() 
     stored = await store.find_state("model-lifecycle-review:", field="status", value="hold")
     assert stored is not None
     assert stored["decision_digest"] == revision.decisions[0].decision_digest
+
+
+@pytest.mark.asyncio
+async def test_startup_owner_accepts_current_proposal_schema() -> None:
+    content = _resolved_content()
+    artifact = _Artifact(content, hashlib.sha256(content.encode()).hexdigest())
+
+    revision = await resolve_models_startup_revision(
+        _Source(artifact),
+        expected_artifact_digest=artifact.digest,
+        observations=(
+            _observation(
+                content,
+                schema_version="fdai.model-lifecycle-proposal.v4",
+            ),
+        ),
+        decision_store=InMemoryStateStore(),
+        evaluated_at=_NOW + timedelta(days=2),
+    )
+
+    assert revision.held_capabilities == ("t1.judge",)
 
 
 @pytest.mark.asyncio

@@ -62,6 +62,20 @@ class AsyncHttpClient(Protocol):
     def stream(self, url: str, **kwargs: Any) -> AbstractAsyncContextManager[httpx.Response]: ...
 
 
+class ResolvedModelsRevision(Protocol):
+    """Expose startup-owned resolved-model content."""
+
+    @property
+    def content(self) -> str: ...
+
+
+class ResolvedModelsRevisionOwner(Protocol):
+    """Expose the immutable revision after lifecycle startup."""
+
+    @property
+    def revision(self) -> ResolvedModelsRevision | None: ...
+
+
 @dataclass(slots=True)
 class LocalAzureNarratorAdapters:
     """Serve real local narration with Azure CLI auth and no execution authority."""
@@ -74,6 +88,7 @@ class LocalAzureNarratorAdapters:
     timeout_seconds: float = 90.0
     vision_targets: tuple[NarratorTarget, ...] = ()
     clock: MonotonicClock = monotonic
+    _owns_http_client: bool = field(default=False, repr=False)
     _pool: NarratorLatencyPool = field(init=False, repr=False)
     _refresh_task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
 
@@ -119,17 +134,46 @@ class LocalAzureNarratorAdapters:
             ):
                 raise ValueError("resolved narrator artifact digest does not match deploy")
         try:
-            payload = json.loads(encoded.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            content = encoded.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("resolved narrator artifact is unavailable or invalid") from exc
+        return cls.from_content(
+            content,
+            fallback_projections=fallback_projections,
+            fallback_streams=fallback_streams,
+            token_provider=token_provider,
+            http_client=http_client,
+        )
+
+    @classmethod
+    def from_content(
+        cls,
+        content: str,
+        *,
+        fallback_projections: ConversationProjectionReader,
+        fallback_streams: ConversationStreamReader,
+        token_provider: TokenProvider | None = None,
+        http_client: AsyncHttpClient | None = None,
+    ) -> LocalAzureNarratorAdapters:
+        """Build a narrator from one startup-owned immutable revision."""
+        if len(content.encode("utf-8")) > _MAX_ARTIFACT_BYTES:
+            raise ValueError("resolved narrator artifact exceeds the size limit")
+        try:
+            payload = json.loads(content)
+        except (json.JSONDecodeError, RecursionError) as exc:
             raise ValueError("resolved narrator artifact is unavailable or invalid") from exc
         targets = narrator_targets(payload)
+        resolved_vision_targets = vision_targets(payload)
+        owned_http_client = http_client is None
+        resolved_http_client = http_client or cast(AsyncHttpClient, httpx.AsyncClient())
         return cls(
             targets=targets,
             fallback_projections=fallback_projections,
             fallback_streams=fallback_streams,
             token_provider=token_provider or azure_cli_token,
-            http_client=http_client or cast(AsyncHttpClient, httpx.AsyncClient()),
-            vision_targets=vision_targets(payload),
+            http_client=resolved_http_client,
+            vision_targets=resolved_vision_targets,
+            _owns_http_client=owned_http_client,
         )
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
@@ -167,17 +211,21 @@ class LocalAzureNarratorAdapters:
         return self._pool.snapshot(vision=vision)
 
     async def aclose(self) -> None:
-        """Cancel and join the process-local coalesced probe task."""
+        """Cancel the probe task and close a composition-owned HTTP client."""
 
         task = self._refresh_task
         self._refresh_task = None
-        if task is None or task.done():
-            return
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        if self._owns_http_client:
+            if not isinstance(self.http_client, httpx.AsyncClient):
+                raise AssertionError("owned narrator HTTP client has an invalid type")
+            await self.http_client.aclose()
+            self._owns_http_client = False
 
     async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
         """Call the configured narrator and expose one bounded canonical SSE turn."""
@@ -403,9 +451,57 @@ class LocalAzureNarratorAdapters:
         )
 
 
+@dataclass(slots=True)
+class StartupOwnedLocalAzureNarratorAdapters:
+    """Delay narrator target binding until the startup owner publishes its revision."""
+
+    revision_owner: ResolvedModelsRevisionOwner
+    fallback_projections: ConversationProjectionReader
+    fallback_streams: ConversationStreamReader
+    token_provider: TokenProvider | None = None
+    http_client: AsyncHttpClient | None = None
+    _inner: LocalAzureNarratorAdapters | None = field(default=None, init=False, repr=False)
+
+    async def start(self) -> None:
+        """Validate narrator targets after the revision owner starts."""
+        self._bound()
+
+    async def read(self, query: ConversationQuery) -> ConversationResponse:
+        return await self._bound().read(query)
+
+    async def refresh(self) -> None:
+        await self._bound().refresh()
+
+    def latency_snapshot(self, *, vision: bool = False) -> tuple[NarratorLatencyStats, ...]:
+        return self._bound().latency_snapshot(vision=vision)
+
+    async def aclose(self) -> None:
+        if self._inner is not None:
+            await self._inner.aclose()
+
+    async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
+        return await self._bound().open(request)
+
+    def _bound(self) -> LocalAzureNarratorAdapters:
+        if self._inner is not None:
+            return self._inner
+        revision = self.revision_owner.revision
+        if revision is None:
+            raise RuntimeError("local narrator model revision is unavailable before startup")
+        self._inner = LocalAzureNarratorAdapters.from_content(
+            revision.content,
+            fallback_projections=self.fallback_projections,
+            fallback_streams=self.fallback_streams,
+            token_provider=self.token_provider,
+            http_client=self.http_client,
+        )
+        return self._inner
+
+
 __all__ = [
     "LocalAzureNarratorAdapters",
     "NarratorLatencyPool",
     "NarratorLatencyStats",
+    "StartupOwnedLocalAzureNarratorAdapters",
     "NarratorTarget",
 ]

@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 
-_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v3"
+_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v4"
 _PROVIDER_FAILURES = frozenset({"ambiguous", "rate_limited", "unavailable", "unsupported_response"})
 _CAPABILITY = re.compile(r"^(t1|t2)\.[a-z][a-z0-9._-]{1,63}$")
 
@@ -52,11 +52,13 @@ def reconcile_model_lifecycle(
         change = {
             "capability": capability,
             "current_family": previous.get("family"),
+            "current_version": previous.get("version"),
             "current_publisher": previous.get("publisher"),
             "current_sku": previous.get("sku"),
             "current_capacity_unit": previous.get("capacity_unit"),
             "current_capacity_value": previous.get("capacity_value"),
             "proposed_family": proposed.get("family"),
+            "proposed_version": proposed.get("version"),
             "proposed_publisher": proposed.get("publisher"),
             "proposed_sku": proposed.get("sku"),
             "proposed_capacity_unit": proposed.get("capacity_unit"),
@@ -66,6 +68,12 @@ def reconcile_model_lifecycle(
         changes.append(change)
         if previous.get("family") != proposed.get("family"):
             compatibility.add("model_family_change")
+        if (
+            isinstance(previous.get("version"), str)
+            and isinstance(proposed.get("version"), str)
+            and previous.get("version") != proposed.get("version")
+        ):
+            compatibility.add("model_version_change")
         if previous.get("publisher") != proposed.get("publisher"):
             compatibility.add("publisher_change")
         if previous.get("sku") != proposed.get("sku"):
@@ -81,22 +89,14 @@ def reconcile_model_lifecycle(
         if proposed.get("status") not in {"resolved", "capacity-reduced"}:
             compatibility.add("capability_degradation")
 
-    current_families = {
-        value.get("family")
-        for value in current_capabilities.values()
-        if isinstance(value.get("family"), str)
-    }
-    sanitized_deprecations = _sanitize_deprecations(deprecations, current_families)
+    sanitized_deprecations, deprecated_capabilities = _sanitize_deprecations(
+        deprecations,
+        current_capabilities,
+    )
     if sanitized_deprecations:
         compatibility.add("current_family_deprecated")
-    deprecated_families = {item["family"] for item in sanitized_deprecations}
     affected_capabilities = sorted(
-        {str(change["capability"]) for change in changes}
-        | {
-            capability
-            for capability, current_capability in current_capabilities.items()
-            if current_capability.get("family") in deprecated_families
-        }
+        {str(change["capability"]) for change in changes} | deprecated_capabilities
     )
 
     status = "proposal" if changes or sanitized_deprecations else "no-change"
@@ -151,8 +151,12 @@ def _base_result(
 
 def _capability_index(payload: Mapping[str, object]) -> dict[str, dict[str, object]]:
     raw_capabilities = payload.get("capabilities")
-    if not isinstance(raw_capabilities, list) or not raw_capabilities:
-        raise ValueError("resolved model capabilities must be a non-empty array")
+    if not isinstance(raw_capabilities, list):
+        raise ValueError("resolved model capabilities must be an array")
+    if not raw_capabilities:
+        if payload.get("mixed_model_mode") != "hil-only":
+            raise ValueError("empty resolved model capabilities require hil-only mode")
+        return {}
     indexed: dict[str, dict[str, object]] = {}
     for raw in raw_capabilities:
         if not isinstance(raw, Mapping):
@@ -164,6 +168,7 @@ def _capability_index(payload: Mapping[str, object]) -> dict[str, dict[str, obje
             raise ValueError("resolved model capability name must be unique")
         indexed[name] = {
             "family": _optional_string(raw.get("family")),
+            "version": _optional_string(raw.get("version")),
             "publisher": _optional_string(raw.get("publisher")),
             "sku": _optional_string(raw.get("sku")),
             **_capacity(raw),
@@ -187,23 +192,43 @@ def _capacity(raw: Mapping[str, object]) -> dict[str, object]:
 
 def _sanitize_deprecations(
     deprecations: Sequence[Mapping[str, object]],
-    current_families: set[object],
-) -> list[dict[str, str]]:
-    sanitized: dict[tuple[str, str], dict[str, str]] = {}
+    current_capabilities: Mapping[str, Mapping[str, object]],
+) -> tuple[list[dict[str, str]], set[str]]:
+    sanitized: dict[tuple[str, str, str, str], dict[str, str]] = {}
+    affected_capabilities: set[str] = set()
     for raw in deprecations:
         family = _required_string(raw.get("family"), "deprecation family")
+        version = _optional_string(raw.get("version"))
+        sku = _optional_string(raw.get("sku"))
         retirement_date = _required_string(raw.get("retirement_date"), "retirement date")
         try:
             date.fromisoformat(retirement_date)
         except ValueError as exc:
             raise ValueError("retirement date must be an ISO 8601 calendar date") from exc
-        if family not in current_families:
+        matched = {
+            capability
+            for capability, current in current_capabilities.items()
+            if current.get("family") == family
+            and (
+                version is None
+                or current.get("version") is None
+                or current.get("version") == version
+            )
+            and (sku is None or current.get("sku") is None or current.get("sku") == sku)
+        }
+        if not matched:
             continue
-        sanitized[(family, retirement_date)] = {
+        affected_capabilities.update(matched)
+        notice = {
             "family": family,
             "retirement_date": retirement_date,
         }
-    return [sanitized[key] for key in sorted(sanitized)]
+        if version is not None:
+            notice["version"] = version
+        if sku is not None:
+            notice["sku"] = sku
+        sanitized[(family, version or "", sku or "", retirement_date)] = notice
+    return [sanitized[key] for key in sorted(sanitized)], affected_capabilities
 
 
 def _required_string(value: object, name: str) -> str:

@@ -157,10 +157,12 @@ readers without changing WARA's pinned crosswalk, shadow consumer, projection ow
 Multiplexed WARA and other non-request payloads add their logical-topic marker before one bounded
 encode; semantic request payloads still pass their versioned producer codec first.
 It delegates resolved-model source construction to focused lifecycle composition and starts the
-resulting revision fence before the WARA projection bridge.
-A model digest mismatch therefore blocks all later lifecycle services without changing WARA
-evidence, assessment, projection, or remediation authority. Startup failure cleanup attempts every
-acquired service, so one failing close cannot leave an earlier WARA dependency running.
+resulting revision fence before the WARA projection bridge. When local Azure narration is enabled,
+the same ordered lifecycle validates narrator targets from that revision before WARA starts.
+A model digest mismatch or invalid required narrator target therefore blocks all later lifecycle
+services without changing WARA evidence, assessment, projection, or remediation authority. Startup
+failure cleanup attempts every acquired service, so one failing close cannot leave an earlier WARA
+dependency running.
 The same boundary applies to the shared [recorded Resource state query](../interfaces/recorded-resource-state.md).
 Its inventory facts are operator context, not WARA assessment receipts. A retained `Running` or
 `Succeeded` value, particularly one with unknown freshness, cannot populate recommendation

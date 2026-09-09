@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 2f774dc2e6b93189182347a73735d0b828e89a72
-translation_revised: 2026-09-08
+translation_source_sha: a6c214e57dc74a5512fb91666acb9c0802811034
+translation_revised: 2026-09-09
 ---
 # WARA 근거 기반 평가
 
@@ -153,15 +153,16 @@ Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제�
 사용 불가로 표시하고 잘못되었거나 예상하지 못한 응답은 눈에 띄는 오류로 유지합니다.
 잘린 식별자는 네이티브 title 속성 대신 공유 Tooltip을 통해 전체 값을 표시합니다.
 공유 Operator 조립에 principal 범위 대화 문서 및 T1 상태 판독기를 추가해도 WARA의 고정
-crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 변경되지 않습니다. 해석 모델 출처 구성은
+crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 변경되지 않습니다.
 다중화된 WARA 및 다른 request 이외 payload는 한 번의 범위 제한 인코딩 전에 logical-topic
 표시를 추가하며, 의미 request payload는 먼저 버전 지정 producer codec을 통과합니다.
 해석 모델 출처 구성은
 수명 주기 전용 조립에 위임하고 그 결과인 리비전 경계를 WARA 변환 결과 bridge보다 먼저
-시작합니다.
-따라서 모델 다이제스트가 불일치하면 WARA 근거, 평가, 변환 결과 또는 개선 권한을 바꾸지
-않고 모든 후속 수명 주기 서비스를 차단합니다. 시작 실패 정리는 획득한 모든 서비스를
-시도하므로 하나의 종료 실패가 앞선 WARA 의존성을 실행 상태로 남기지 않습니다.
+시작합니다. 로컬 Azure 서술기를 사용하면 같은 순서의 수명 주기가 해당 리비전의 서술기 대상을
+검증한 뒤 WARA를 시작합니다.
+따라서 모델 다이제스트가 불일치하거나 필수 서술기 대상이 잘못되면 WARA 근거, 평가, 변환 결과
+또는 개선 권한을 바꾸지 않고 모든 후속 수명 주기 서비스를 차단합니다. 시작 실패 정리는 획득한
+모든 서비스를 시도하므로 하나의 종료 실패가 앞선 WARA 의존성을 실행 상태로 남기지 않습니다.
 공통 [기록된 Resource 상태 조회](../interfaces/recorded-resource-state-ko.md)에도 같은 경계를 적용합니다.
 인벤토리에 기록된 사실은 운영자에게 제공하는 맥락이지 WARA 평가 증적이 아닙니다. 기록된
 `Running` 또는 `Succeeded` 값, 특히 최신성을 알 수 없는 값으로 권고의 적용 가능성, 평가 또는
