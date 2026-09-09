@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 0435b33a35bdd2d42897871c9768ed3a464bb008 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4a1024907bfa05dfbd7cfb2f0024e257496d8e46 }]
 ---
 
 # Deploy Quickstart
@@ -52,7 +52,8 @@ key, Core starts in observation-only Trial and denies acting paths.
 - Apply `infra/bootstrap` to create the stable deploy UAMI, then publish its
   client and principal IDs as `DEPLOY_RUNNER_CLIENT_ID` and
   `DEPLOY_RUNNER_PRINCIPAL_ID`. Protected workflows select that client ID and
-  stop unless the ARM token `oid`, tenant, and subscription all match. For a
+  stop unless the ARM token `oid`, tenant, and subscription all match. The
+  permanent VM retains only this UAMI after migration. For a
   closed-network image, use `runner_bootstrap_mode = "offline"` only with an
   exact managed-image or numeric gallery-version ID.
 - When you promote a reviewed blue/green candidate, set its existing VM name in

@@ -140,7 +140,7 @@ module "deploy_runner_identity" {
 # -----------------------------------------------------------------------
 # Self-hosted deploy runner - the only host with line-of-sight to the app's
 # private endpoints. The stable deploy UAMI authenticates Terraform to Azure;
-# the system identity remains attached only for the reviewed migration window.
+# a legacy system identity is not retained after the reviewed migration window.
 # No public IP (reach via Bastion / az vm run-command / serial console).
 # -----------------------------------------------------------------------
 # The runner NIC is protected by azurerm_network_security_group.runner through
@@ -175,7 +175,7 @@ resource "azurerm_linux_virtual_machine" "runner" {
   tags = local.tags
 
   identity {
-    type         = "SystemAssigned, UserAssigned"
+    type         = "UserAssigned"
     identity_ids = [module.deploy_runner_identity.resource_id]
   }
 

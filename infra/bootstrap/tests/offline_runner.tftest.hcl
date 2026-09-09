@@ -89,7 +89,7 @@ run "offline_gallery_version_skips_network_bootstrap" {
 
   assert {
     condition = (
-      azurerm_linux_virtual_machine.runner[0].identity[0].type == "SystemAssigned, UserAssigned" &&
+      azurerm_linux_virtual_machine.runner[0].identity[0].type == "UserAssigned" &&
       length(azurerm_linux_virtual_machine.runner[0].identity[0].identity_ids) == 1 &&
       length(output.deploy_runner_role_manifest) == 8 &&
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].option == "Local" &&

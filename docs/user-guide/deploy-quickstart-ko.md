@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 39ed5d224057e2bf6d6d7c28e7c30a50ebd6dc42
+translation_source_sha: c73d687c52daeb25699f504b30a419d295a76c56
 translation_revised: 2026-09-09
 ---
 
@@ -49,6 +49,7 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 - `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
   `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
+  이행 후 영구 VM에는 이 UAMI만 남습니다.
   폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
   `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
 - 검토된 블루/그린 후보를 승격할 때는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기

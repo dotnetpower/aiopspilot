@@ -27,7 +27,7 @@ def test_bootstrap_provisions_and_attaches_stable_deploy_uami() -> None:
     assert 'module "deploy_runner_identity"' in _MAIN
     assert 'name                = "id-${local.suffix}-deploy"' in _MAIN
     vm = _resource_body("azurerm_linux_virtual_machine", "runner")
-    assert 'type         = "SystemAssigned, UserAssigned"' in vm
+    assert 'type         = "UserAssigned"' in vm
     assert "identity_ids = [module.deploy_runner_identity.resource_id]" in vm
 
 
