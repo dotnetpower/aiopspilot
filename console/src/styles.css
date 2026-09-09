@@ -2991,6 +2991,13 @@ button.primary:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.assurance-twin-gaps {
+  min-width: 0;
+}
+.assurance-twin-gaps li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 640px) {
   .assurance-twin-back-link,
   .assurance-twin-review-link {
