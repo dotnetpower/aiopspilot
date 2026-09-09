@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2a5b59d198a160a33f37da6f3a2737c617ee2563
+translation_source_sha: 6f4de655ad83f0b78d8e0ab98054ca43e61e3cbd
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -96,6 +96,8 @@ Primary active judgment가 항상 먼저 실행되며 typed schema 불완전성�
 Non-schema turn을 바꾸거나 권한을 부여할 수 없습니다.
 유효하지 않거나 사용할 수 없거나 family를 바꾸는 repair는 성공 형태의 대체 결과를 만들지 않고
 검증된 primary 제안을 유지합니다.
+Primary schema 제안에 표준 target과 완전한 count, declaration-detail 또는 양방향 관계 facet
+집합이 이미 있을 때만 repair를 생략합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

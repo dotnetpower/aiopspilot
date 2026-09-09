@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:0cc9edb8da8244e6708769e03365c60e6e902058b7a7005b69443a1952517acd",
+  "catalog_digest": "sha256:1b70be47f5681b75d937919710d9de8c732919cfb48cbd0e244e6102454b3605",
   "execution_authority": false,
-  "generated_at": "2026-09-09T21:46:48.409044Z",
+  "generated_at": "2026-09-09T22:17:51.072241Z",
   "records": [
     {
       "designed_behavior": [
@@ -413,7 +413,7 @@
         "How does FDAI route natural-language questions?",
         "FDAI는 자연어 질문을 어떻게 라우팅하나요?"
       ],
-      "record_digest": "sha256:8b2da60fd1f81b41f960908e8699b24d57b49fd021f7ecd44b98edd39cb1f698",
+      "record_digest": "sha256:099da6fe1d09a586acb4952d87e650238196b6c4e1be537a120f9bd16e6f399f",
       "sources": [
         {
           "authority_role": "implementation",
@@ -426,7 +426,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "d69c65b3fd8d5d0016284c792312692142f9b198",
+          "blob_sha": "76606a320f5696c2a53ea14a83ac5d74b20ef56e",
           "line_end": 11,
           "line_start": 11,
           "path": "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
@@ -562,5 +562,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "ce153b5c269a8d4206431e1e2233e5b37042651a"
+  "source_revision": "2c166245d2877e35a52158d1ccff1f56c6d756fb"
 }

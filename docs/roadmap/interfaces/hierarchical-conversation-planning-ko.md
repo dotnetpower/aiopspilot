@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: a6ba558e7d9db5d626b210d22e80feb05e4e2e8b
+translation_source_sha: 76606a320f5696c2a53ea14a83ac5d74b20ef56e
 translation_revised: 2026-09-09
 ---
 
@@ -201,6 +201,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | validated | Conditional schema-repair prompt v2가 서로 다른 스키마 cohort 5개에서 50/50을 통과했으며 non-schema turn은 primary model만 사용했습니다. | 로컬 live schema 및 legacy artifact, 집중 boundary 및 운영 wiring 테스트 | 전역 primary profile은 바꾸지 않고 provider/model 변동을 schema repair와 분리해 조사합니다. |
 | 2026-09-10 | implemented | Active primary가 불완전한 typed schema family를 선택한 뒤에만 schema-repair T1 binding 하나를 조건부로 추가했습니다. 유효하지 않은 repair는 primary fail-closed 제안을 유지하고 non-schema turn은 호출하지 않습니다. | `current change`, boundary fallback, no-call, wiring, prompt-profile, Ruff 및 mypy 검사 | 새로운 스키마 답변을 end-to-end로 검증하고 non-schema model call 수가 바뀌지 않았는지 확인합니다. |
 | 2026-09-10 | validated | Clean local treatment snapshot에서 schema-only v2와 typed target grounding이 서로 다른 10-case 스키마 cohort 5개를 각각 100%로 통과했습니다. | 로컬 exact-source live artifact 5개, primary, target, facet, posture 및 ambiguity 계약 50/50 통과 | 승격하지 않습니다. 안전 오탐과 만들어 낸 신원은 0이지만 기존 16-case cohort가 primary 75%, exact target 43.75%, secondary recall 0%, clarification precision 50%로 회귀했습니다. |
 | 2026-09-10 | validated | 서로 다른 schema-only v2 cohort 5개를 실행했습니다. 3개는 10/10을 통과했고 2개는 모델이 올바른 표준 subject target에 일반 `ObjectType` 또는 `LinkType` 문구를 함께 유지하여 9/10이었습니다. | 로컬 exact-source live artifact, round 점수 100%, 100%, 100%, 90%, 90%, 안전한 authority 및 posture 유지 | V2를 shadow로 유지하고 clean committed snapshot에서 typed 메타타입 정규화를 검증합니다. |
