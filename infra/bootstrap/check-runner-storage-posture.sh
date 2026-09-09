@@ -35,6 +35,7 @@ if [[ -n "$managed_disk_id" ]]; then
   managed_disk_inventory="$({
     az disk list \
       --subscription "$EXPECTED_SUBSCRIPTION" \
+      --resource-group "$OPS_RESOURCE_GROUP" \
       --query '[].id' \
       --output json \
       --only-show-errors

@@ -169,6 +169,12 @@ def test_storage_posture_check_accepts_local_ephemeral_os_disk(
 
     assert result.returncode == 0, result.stderr
     assert "FDAI_RUNNER_STORAGE_POSTURE_OK" in result.stdout
+    assert '--resource-group "$OPS_RESOURCE_GROUP"' in (
+        Path(__file__).resolve().parents[3]
+        / "infra"
+        / "bootstrap"
+        / "check-runner-storage-posture.sh"
+    ).read_text(encoding="utf-8")
 
 
 def test_storage_posture_check_accepts_ephemeral_model_disk_id_without_disk_resource(

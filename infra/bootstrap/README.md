@@ -169,7 +169,7 @@ preserves the adopted image reference; replace it only through an explicit revie
 The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` before the bootstrap
 plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an
 actual managed disk resource. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
-check confirms the disk against the subscription inventory before reporting drift. A mismatch fails
+check confirms the disk against the ops resource group's inventory before reporting drift. A mismatch fails
 the workflow with the blue/green recovery action. The bootstrap refresh plan reads structured drift
 and output actions rather than trusting the provider exit code alone; neither check changes the VM.
 

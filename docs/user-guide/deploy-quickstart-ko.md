@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: dde86edd923c4378c0093014ec8d54d3e26c0346
+translation_source_sha: 2161b0839e33dcb503c821def33b14fb96fa84d8
 translation_revised: 2026-09-09
 ---
 
@@ -54,7 +54,7 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
   `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
 - 검토된 블루/그린 후보를 승격할 때는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기
   전에 기존 VM 이름을 `runner_vm_name`에 설정합니다. 예약된 상태 점검은 모델에만 존재하는 OS
-  디스크 ID를 Azure 디스크 인벤토리와 비교하고 새로 고침 계획은 종료 코드만 신뢰하지 않고
+  디스크 ID를 ops 리소스 그룹의 디스크 인벤토리와 비교하고 새로 고침 계획은 종료 코드만 신뢰하지 않고
   구조화된 드리프트 작업을 검증합니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지
   참조를 보존합니다.
 - **새 오프라인 구독:** 독립 Bootstrap은 기존 상태 계정과 애플리케이션 그룹을 요구합니다.
