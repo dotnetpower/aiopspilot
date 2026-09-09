@@ -24,6 +24,7 @@ from fdai.core.conversation_assurance.quality_latency import (
     latency_sample_from_stage_receipt,
 )
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
+from fdai.core.prompts import PromptProfileEvidence
 
 
 def _turn(**overrides: object) -> TurnAssessmentInput:
@@ -73,6 +74,7 @@ class _Evaluator:
     prospective_cost_microusd: int = 2
     calls: int = 0
     saw_debate: bool = False
+    prompt_profile_evidence: PromptProfileEvidence | None = None
 
     async def evaluate(
         self,
@@ -90,6 +92,7 @@ class _Evaluator:
             prompt_tokens=10,
             completion_tokens=5,
             cost_microusd=2,
+            prompt_profile_evidence=self.prompt_profile_evidence,
         )
 
 
@@ -136,7 +139,21 @@ def test_deterministic_unverified_preserves_exact_reason() -> None:
 
 
 async def test_diagnostic_semantic_review_preserves_verification_failure() -> None:
-    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    profile = PromptProfileEvidence(
+        profile_id="active.conversation-assurance",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_text_sha256="b" * 64,
+        system_token_budget=2048,
+        request_token_budget=16_384,
+        reserved_output_tokens=1024,
+    )
+    first = _Evaluator(
+        "publisher-a:model-a",
+        "family-a",
+        4,
+        prompt_profile_evidence=profile,
+    )
     second = _Evaluator("publisher-b:model-b", "family-b", 4)
     coordinator = ConversationAssuranceCoordinator(
         ledger=InMemoryConversationAssuranceLedger(),
@@ -154,6 +171,7 @@ async def test_diagnostic_semantic_review_preserves_verification_failure() -> No
     assert review.decision.verdict is AssuranceVerdict.FAIL
     assert review.decision.reasons == ("verification_failed:provider_evidence_unavailable",)
     assert len(review.evaluator_outputs) == 2
+    assert review.decision.prompt_profile_evidence == (profile,)
     assert review.semantic_review_valid
     assert first.calls == second.calls == 1
 

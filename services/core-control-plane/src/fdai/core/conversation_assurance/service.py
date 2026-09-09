@@ -168,20 +168,13 @@ class ConversationAssuranceCoordinator:
                 reason for reason in decision.reasons if _is_deferred_reason(reason)
             )
             reasons = (*reasons, *semantic_holds)
-            decision = AssuranceDecision(
+            decision = replace(
+                decision,
                 verdict=deterministic.verdict,
-                content_score=decision.content_score,
                 confidence=(
                     1.0 if deterministic.verdict is not AssuranceVerdict.INCONCLUSIVE else 0.0
                 ),
-                criteria=decision.criteria,
                 reasons=reasons,
-                evaluator_identities=decision.evaluator_identities,
-                disagreement=decision.disagreement,
-                model_calls=decision.model_calls,
-                prompt_tokens=decision.prompt_tokens,
-                completion_tokens=decision.completion_tokens,
-                cost_microusd=decision.cost_microusd,
             )
         return AssuranceReview(
             decision=decision,
@@ -201,18 +194,8 @@ class ConversationAssuranceCoordinator:
 
         decision = review.decision
         if pantheon_diagnostic is not None:
-            decision = AssuranceDecision(
-                verdict=decision.verdict,
-                content_score=decision.content_score,
-                confidence=decision.confidence,
-                criteria=decision.criteria,
-                reasons=decision.reasons,
-                evaluator_identities=decision.evaluator_identities,
-                disagreement=decision.disagreement,
-                model_calls=decision.model_calls,
-                prompt_tokens=decision.prompt_tokens,
-                completion_tokens=decision.completion_tokens,
-                cost_microusd=decision.cost_microusd,
+            decision = replace(
+                decision,
                 pantheon_diagnostic=pantheon_diagnostic,
             )
         assessment_id = _assessment_id(
