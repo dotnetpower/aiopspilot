@@ -84,6 +84,48 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: [a5d3627b3]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-v15
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-judgment, version: 15, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-v16
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-judgment, version: 16, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-judgment-v17
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-judgment, version: 17, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-compact
     version: 1
     capability_id: semantic.judgment

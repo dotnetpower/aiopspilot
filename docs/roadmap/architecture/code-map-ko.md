@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dcb238addd480f344523f9af16292e1d5b29f068
+translation_source_sha: 72a115d97a9147edd93021b9c38a848e7b032025
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -75,6 +75,9 @@ catalog 값 필터를 추가하지 않습니다.
 수락된 매니페스트 개수, 정확한 선언 상세 정보, 단일 ObjectType 스키마 관계 judgment도
 결정론적 frame과 닫힌 FunctionType 인자로 compile됩니다. 이 경로는 lexical route를 추가하거나
 권한을 부여하지 않습니다.
+매니페스트 개수 judgment가 메타타입 target을 누락하면 Core는 이미 typed된 count facet에서 선언
+kind 하나만 복구할 수 있습니다. Operator presentation은 표준 `aggregate` operation을 수락하고
+독립 oracle 검증에 필요한 구조화 count를 보존합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

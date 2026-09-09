@@ -149,6 +149,35 @@ def test_error_activity_correlation_uses_summary_and_window_blocks() -> None:
     assert "Co-occurrence in the same window does not establish causation." in lines
 
 
+def test_v2_compiler_preserves_a_canonical_aggregate_count() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(
+            [{"operation": "count", "value": 49}],
+            operation="aggregate",
+            output_shape="aggregation_table",
+        ),
+        locale="en",
+    )
+
+    assert artifact is not None
+    blocks = artifact["blocks"]
+    assert isinstance(blocks, list)
+    assert any(
+        isinstance(block, dict)
+        and isinstance((data := block.get("data")), dict)
+        and isinstance((items := data.get("items")), list)
+        and {"operation": "count", "value": "49"}
+        == {
+            str(item["label"]).casefold(): item["value"]
+            for item in items
+            if isinstance(item, dict)
+            and str(item.get("label", "")).casefold() in {"operation", "value"}
+        }
+        for block in blocks
+    )
+
+
 @pytest.mark.parametrize(
     ("details", "slot", "kind"),
     (

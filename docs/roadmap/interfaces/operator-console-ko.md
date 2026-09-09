@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2de61abb6abde3ec851763c066452e1f20c807ba
+translation_source_sha: cc9f79f27489d85ffdf8148bed5bdd7259109c49
 translation_revised: 2026-09-09
 ---
 # FDAI Console 대화
@@ -17,6 +17,8 @@ Settings > Runtime policies에서는 Owner가 적극적인 T2 답변 복구를 �
 하나의 정규 선언 타입과 개수 항목을 식별한 스키마 읽기는 인접한 매니페스트, 선언 및 관계 의도를
 서버 소유 principal 매니페스트 개수 계획으로 수렴시킵니다. 이 경로는 두 번째 모델을 요청하거나
 실행 권한을 부여하지 않습니다.
+결과 semantic operation은 `aggregate`를 유지합니다. Presentation compiler는 표준 operation과
+value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 있게 합니다.
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뜁니다. Workflow Builder는 별도로 사용자 범위의 영속 Process 이력만 요약하고 결과를 워크플로 상태 전용으로 표시하며, 구조 검증을 실제 기반 환경 변경 미리 보기로 제시하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로 표시합니다.
