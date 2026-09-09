@@ -65,6 +65,10 @@ the corresponding outcomes are complete. Completion status is derived in both
 directions, so fully evidenced packs and aggregates cannot remain `partial` or
 `incomplete`.
 
+DR outcome evidence additionally binds the plan revision and recovery epoch,
+accepts only the independent observation lane, and verifies integrity plus
+measured RPO/RTO before the pack can cite the outcome.
+
 Frozen safety checks scan each complete enrichment overlay recursively, including
 `event_payload_resource`, for customer identifiers, non-example endpoints,
 non-redacted secret values, and non-ASCII machine fields.
