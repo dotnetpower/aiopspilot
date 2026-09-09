@@ -1299,7 +1299,17 @@ def test_ontology_declaration_answer_preserves_exact_manifest_detail() -> None:
     assert cast(dict[str, object], row["values"])["declaration"] == declaration
 
 
-def test_ontology_declaration_answer_does_not_render_incomplete_detail() -> None:
+@pytest.mark.parametrize(
+    ("source_complete", "release_digest"),
+    (
+        (False, RELEASE_DIGEST),
+        (True, "not-a-release-digest"),
+    ),
+)
+def test_ontology_declaration_answer_does_not_render_unverified_detail(
+    source_complete: bool,
+    release_digest: str,
+) -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
 
@@ -1312,7 +1322,7 @@ def test_ontology_declaration_answer_does_not_render_incomplete_detail() -> None
                     {
                         "row_id": "object:Example",
                         "values": {
-                            "ontology_release_digest": RELEASE_DIGEST,
+                            "ontology_release_digest": release_digest,
                             "declaration_kind": "object",
                             "declaration_name": "Example",
                             "section": "detail",
@@ -1328,8 +1338,8 @@ def test_ontology_declaration_answer_does_not_render_incomplete_detail() -> None
                 ],
                 "returned_rows": 1,
                 "total_rows": 1,
-                "source_complete": False,
-                "source_truncation_reason": "source_incomplete",
+                "source_complete": source_complete,
+                "source_truncation_reason": (None if source_complete else "source_incomplete"),
                 "display_truncated": False,
             }
         ],

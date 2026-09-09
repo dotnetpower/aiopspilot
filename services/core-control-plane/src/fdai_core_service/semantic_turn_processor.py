@@ -2960,8 +2960,7 @@ def _ontology_declaration_answer_values(
         or not _is_presentable_declaration_kind(values.get("declaration_kind"))
         or not isinstance(values.get("declaration_name"), str)
         or not values["declaration_name"]
-        or not isinstance(values.get("ontology_release_digest"), str)
-        or not values["ontology_release_digest"]
+        or not _is_ontology_release_digest(values.get("ontology_release_digest"))
         or values.get("execution_authority") is not False
         or values.get("mutation_authority") is not False
         or not isinstance(declaration, Mapping)
@@ -2987,6 +2986,15 @@ def _ontology_declaration_answer_values(
 
 def _is_presentable_declaration_kind(value: object) -> bool:
     return value == "action" or value == "link" or value == "object"
+
+
+def _is_ontology_release_digest(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )
 
 
 def _project_json_answer_value(value: object) -> tuple[bool, object]:
@@ -4404,8 +4412,7 @@ def _render_ontology_declaration_answer(
         and _is_presentable_declaration_kind(declaration_kind)
         and isinstance(declaration_name, str)
         and bool(declaration_name)
-        and isinstance(release_digest, str)
-        and bool(release_digest)
+        and _is_ontology_release_digest(release_digest)
         and values.get("execution_authority") is False
         and values.get("mutation_authority") is False
         and isinstance(declaration, Mapping)
