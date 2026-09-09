@@ -102,3 +102,42 @@ def test_inventory_source_requires_an_immutable_revision(revision: str) -> None:
             policy=POLICY,
             expected_revision=revision,
         )
+
+
+async def test_measure_query_groups_the_single_bound_projection() -> None:
+    class _Cursor:
+        async def fetchall(self) -> list[dict[str, object]]:
+            return []
+
+    class _Connection:
+        query = ""
+        params: tuple[object, ...] = ()
+
+        async def execute(
+            self,
+            query: str,
+            params: tuple[object, ...],
+        ) -> _Cursor:
+            self.query = query
+            self.params = params
+            return _Cursor()
+
+    source = PostgresCohortEvidenceInventorySource(
+        dsn="postgresql://example",
+        policy=POLICY,
+        expected_revision=REVISION,
+    )
+    connection = _Connection()
+
+    rows = await source._measure_counts(  # type: ignore[arg-type]
+        connection,
+        action_kind="measurement.cohort.metric.v1",
+        identifier_key="metric_id",
+        window_start=NOW,
+        window_end=NOW,
+    )
+
+    assert rows == []
+    assert "GROUP BY 1, 2" in connection.query
+    assert connection.query.count("%s") == len(connection.params) == 6
+    assert connection.params[-1] == REVISION

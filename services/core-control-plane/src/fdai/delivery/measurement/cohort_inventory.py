@@ -204,7 +204,7 @@ class PostgresCohortEvidenceInventorySource:
               AND created_at <= %s
               AND entry->>'measurement_protocol_digest' = %s
               AND entry->>'fdai_revision' = %s
-            GROUP BY entry->>'arm', entry->>%s
+            GROUP BY 1, 2
             """,
             (
                 identifier_key,
@@ -213,7 +213,6 @@ class PostgresCohortEvidenceInventorySource:
                 window_end,
                 self._policy.measurement_protocol_digest,
                 self._expected_revision,
-                identifier_key,
             ),
         )
         return list(await cursor.fetchall())
