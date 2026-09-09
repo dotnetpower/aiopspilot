@@ -1,7 +1,7 @@
 id: fdai-ontology-driven-automation-02
 version: 1
 kind: flowchart
-updated: 2026-08-20
+updated: 2026-09-09
 formats:
   - svg
 locales:
@@ -9,12 +9,13 @@ locales:
     title: From declaration to running action
     description: FDAI flow for From declaration to running action.
     alt: From declaration to running action. The main stages are ActionType declaration, Bounded action instance,
-      Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome.
+      Operational context snapshot, Safety check, Executor, Human approval, Held for review, Denied, Audit and
+      outcome.
   ko:
     title: 선언에서 실행 중인 작업으로
     description: 선언에서 실행 중인 작업으로에 대한 FDAI 흐름입니다.
-    alt: 선언에서 실행 중인 작업으로. 주요 단계는 ActionType declaration, Bounded action instance, Operational context snapshot, Safety
-      check, Executor, Human approval, Held for review, Audit and outcome입니다.
+    alt: 선언에서 실행 중인 작업으로. 주요 단계는 ActionType 선언, 제한된 작업 인스턴스, 운영 컨텍스트 스냅샷, 안전성 검토, 실행기, 사람 승인,
+      검토 보류, 거부됨, 감사 및 결과입니다.
 canvas:
   width: 1200
   height: 720
@@ -24,60 +25,78 @@ nodes:
   - id: t
     kind: process
     shape: card
+    tone: model
     label:
       en: ActionType declaration
-      ko: ActionType declaration
+      ko: ActionType 선언
   - id: i
     kind: process
     shape: card
+    tone: input
     label:
       en: Bounded action instance
-      ko: Bounded action instance
+      ko: 제한된 작업 인스턴스
   - id: c
     kind: process
     shape: card
+    tone: interpretation
     label:
       en: Operational context snapshot
-      ko: Operational context snapshot
+      ko: 운영 컨텍스트 스냅샷
   - id: g
     kind: process
     shape: card
+    tone: policy
     label:
       en: Safety check
-      ko: Safety check
+      ko: 안전성 검토
   - id: x
     kind: process
     shape: card
+    tone: execution
     label:
       en: Executor
-      ko: Executor
+      ko: 실행기
     description:
       en: "When: allowed"
-      ko: "조건: allowed"
+      ko: "조건: 허용됨"
   - id: h
     kind: process
     shape: card
+    tone: decision
     label:
       en: Human approval
-      ko: Human approval
+      ko: 사람 승인
     description:
       en: "When: approval required"
-      ko: "조건: approval required"
+      ko: "조건: 승인 필요"
   - id: r
     kind: process
     shape: card
+    tone: feedback
     label:
       en: Held for review
-      ko: Held for review
+      ko: 검토 보류
     description:
       en: "When: insufficient evidence"
-      ko: "조건: insufficient evidence"
+      ko: "조건: 근거 부족"
+  - id: d
+    kind: process
+    shape: card
+    tone: policy
+    label:
+      en: Denied
+      ko: 거부됨
+    description:
+      en: "When: denied"
+      ko: "조건: 거부됨"
   - id: a
     kind: process
     shape: card
+    tone: store
     label:
       en: Audit and outcome
-      ko: Audit and outcome
+      ko: 감사 및 결과
 edges:
   - id: flow-01
     from: t
@@ -111,3 +130,24 @@ edges:
     from: h
     to: x
     kind: request
+  - id: flow-09
+    from: g
+    to: d
+    kind: request
+  - id: flow-10
+    from: h
+    to: d
+    kind: request
+  - id: flow-11
+    from: d
+    to: a
+    kind: request
+  - id: flow-12
+    from: r
+    to: a
+    kind: request
+legend:
+  - kind: request
+    label: { en: Control-loop flow, ko: 컨트롤 루프 흐름 }
+  - kind: approval
+    label: { en: Human authority, ko: 사람 권한 }

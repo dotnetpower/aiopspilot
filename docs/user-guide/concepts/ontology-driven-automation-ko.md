@@ -2,8 +2,8 @@
 title: 에이전트 기반 자동화(Agent-driven automation)
 description: FDAI 에이전트가 typed operational truth와 ActionType 안전 계약으로 cloud operations를 자동화하는 방식을 설명합니다.
 translation_of: ontology-driven-automation.md
-translation_source_sha: af24a6b4ef80f4a114d44c423a582502ec1d28d8
-translation_revised: 2026-08-20
+translation_source_sha: c932e9a055db17c4cdbbd1641f1a869347cb80a3
+translation_revised: 2026-09-09
 sidebar:
   order: 4
 ---
@@ -54,9 +54,11 @@ FDAI가 무엇을 검토했는지, 작업이 어떤 효과를 냈는지를 연�
 ![운영 모델의 연결 방식. 주요 단계는 BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule, ActionType입니다.](../../diagrams/generated/fdai-ontology-driven-automation-01.ko.svg)
 
 이 모델은 교체 가능한 클라우드 리소스 위에 안정적인 서비스와 워크로드 ID를 추가합니다.
-목표와 담당 체계도 타입 없는 컨텍스트 묶음에 숨기지 않고 명시적으로 유지합니다. 변경
-불가능한 운영 컨텍스트, 결정 사례, 응답 결과 계약은 이 의미를 결정과 효과 확인까지
-전달합니다. 따라서 FDAI는 다음과 같은 질문에 결정론적으로 답할 수 있습니다.
+목표, 담당 체계, `Rule`이 제안하는 `ActionType`으로 이어지는 연결도 타입 없는 컨텍스트
+묶음에 숨기지 않고 명시적으로 유지합니다. 위 다이어그램은 `Rule`이 제안하는 `ActionType`
+까지만 보여주며, [전체 운영 모델](../../roadmap/architecture/operating-ontology-ko.md)은 같은
+ID 체계를 변경 불가능한 운영 컨텍스트, 결정 사례, 응답 결과 계약으로 확장하여 결정과 효과
+확인까지 의미를 전달합니다. 따라서 FDAI는 다음과 같은 질문에 결정론적으로 답할 수 있습니다.
 
 - **영향:** 이 리소스에 의존하는 비즈니스 서비스와 목표는 무엇인가요?
 - **권한:** 영향을 받는 워크로드의 담당자는 누구이며 검토된 제약 조건은 무엇인가요?
@@ -125,7 +127,7 @@ ceiling_by_tier:
 인스턴스화는 정적 `ActionType` 선언을 특정 대상과 이벤트에 대한 하나의 제한된 작업으로
 바꿉니다.
 
-![선언에서 실행 중인 작업으로. 주요 단계는 ActionType declaration, Bounded action instance, Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome입니다.](../../diagrams/generated/fdai-ontology-driven-automation-02.ko.svg)
+![선언에서 실행 중인 작업으로. 주요 단계는 ActionType 선언, 제한된 작업 인스턴스, 운영 컨텍스트 스냅샷, 안전성 검토, 실행기, 사람 승인, 검토 보류, 거부됨, 감사 및 결과입니다.](../../diagrams/generated/fdai-ontology-driven-automation-02.ko.svg)
 
 - **규칙 위반:** 컨트롤 루프가 일치한 규칙, 발견된 문제, 리소스, 타입 계약으로 인스턴스를
   만듭니다.
@@ -133,6 +135,9 @@ ceiling_by_tier:
   검증된 인자로 인스턴스를 만들 수 있습니다.
 - **두 트리거:** `trigger_kind: both`는 실행 및 감사 계약을 바꾸지 않고 두 경로를 모두
   허용합니다.
+- **모든 경로가 감사됩니다:** 안전성 검토는 허용, 사람 승인으로 라우팅, 근거 부족으로 인한
+  보류, 또는 즉시 거부 중 하나로 이어집니다. 보류나 거부를 포함한 모든 결과는 여전히 감사
+  기록에 도달합니다.
 
 대화, 그래프 간선, 선언만으로는 실행 권한이 생기지 않습니다. 인스턴스는 동일한 정책,
 리스크, 역할, 근거, 승격, 잠금, 감사 검사를 모두 통과해야 합니다.
@@ -181,11 +186,13 @@ event -> ingest -> trust route -> T0 | T1 | (T2 -> quality checks)
 
 ## 온톨로지 확인
 
-읽기 담당 역할로 접근하는 `GET /ontology/graph` 엔드포인트는 결정론적인 읽기 전용 변환 결과를
-제공합니다. ObjectType과 LinkType 노드 및 간선, ActionType 안전 계약, Mermaid 렌더링,
-카탈로그 개수, 출처 개정 번호와 집계된 인스턴스 개수를 포함한 운영 모델 상태를 반환합니다.
+읽기 담당 역할로 접근하는 `GET /ontology/graph` 엔드포인트는 결정론적인 선언 전용 변환
+결과를 제공합니다. ObjectType과 LinkType 노드 및 간선, ActionType 안전 계약, Mermaid 렌더링,
+카탈로그 개수와 함께, 반환된 카탈로그의 정확한 개정을 식별하는 온톨로지 릴리스 다이제스트를
+포함합니다.
 
-이 엔드포인트는 배포 인스턴스 속성을 노출하지 않습니다. 그래프는 점검과 설명을 위한 것이며
+이 엔드포인트는 `mutation_authority`를 가지지 않으며 집계된 런타임 인스턴스 개수도 포함하지
+않습니다. 배포 인스턴스 속성도 노출하지 않습니다. 그래프는 점검과 설명을 위한 것이며
 변경을 수행하지 않습니다. 콘솔의 온톨로지 화면도 같은 변환 결과를 사용합니다.
 
 ## 자연어로 질문하기
