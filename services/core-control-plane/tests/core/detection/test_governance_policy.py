@@ -70,6 +70,16 @@ def test_policy_rejects_seasonal_method_without_phase(tmp_path: Path) -> None:
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_reports_a_malformed_seasonal_phase_as_a_policy_error(tmp_path: Path) -> None:
+    raw = _policy()
+    signal_classes = raw["signal_classes"]
+    assert isinstance(signal_classes, list)
+    signal_classes[0]["seasonal_phase"] = []
+
+    with pytest.raises(DetectionGovernancePolicyError, match="seasonal_phase"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
     raw = _policy()
     promotion = raw["forecast_promotion"]

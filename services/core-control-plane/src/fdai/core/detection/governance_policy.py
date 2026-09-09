@@ -188,9 +188,8 @@ def _signal_class(value: object, *, index: int) -> SignalClassPolicy:
         method = AnomalyMethod(_text(raw["anomaly_method"], "anomaly_method"))
     except ValueError as exc:
         raise DetectionGovernancePolicyError("unsupported anomaly method") from exc
-    phase = raw["seasonal_phase"]
-    if phase is not None and phase not in _PHASES:
-        raise DetectionGovernancePolicyError("seasonal_phase is unsupported")
+    phase_raw = raw["seasonal_phase"]
+    phase = _member(phase_raw, "seasonal_phase", allowed=_PHASES) if phase_raw is not None else None
     if method is AnomalyMethod.SEASONAL_Z_SCORE and phase is None:
         raise DetectionGovernancePolicyError("seasonal anomaly method requires seasonal_phase")
     if method is AnomalyMethod.Z_SCORE and phase is not None:
