@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: bcb10a2fb6fd9ae1be3e595715bcc8cbca45a9ee
+translation_source_sha: 76dc2ce185eb225a1ff32c4ace2dfeafe9814b03
 translation_revised: 2026-09-10
 ---
 
@@ -530,61 +530,6 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 유지됩니다. 진행 시 다시 설정되는 무진행 마감과 절대 상한은 계속 batch를 내는 느린 원본을
 종료하지 않으면서 멈춘 원본을 실패시킵니다. 전체 수집, 보존, rollup, archive 계약은
 [지속형 운영 인스턴스 그래프](../architecture/continuous-operational-instance-graph-ko.md)에 정의됩니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 이벤트 상관관계 | implemented | `services/core-control-plane/src/fdai/core/event_ingest/correlator.py`; `services/core-control-plane/tests/core/event_ingest/test_correlator.py` | 결정론적 그룹화, 에피소드 범위, 안정된 인시던트 신원을 집중 테스트로 검증합니다. |
-| 이상 및 복합 감지 | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; 집중 `tests/core/detection/test_*.py` | 콜드 스타트, 평탄 기준선, 정족수, 중복 축약, 설명 가능한 점수가 실패 시 차단됩니다. |
-| 예측 및 결과 종결 | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; 집중 예측 테스트 | 예측, 검열, 종결 계약이 구현되어 있습니다. 승격에는 측정된 배포 근거가 계속 필요합니다. |
-| 구성 표류 | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; 집중 구성 표류 테스트 | 동결 기준선, 결정론적 비교, 검토, 보고는 근거 전용으로 유지됩니다. |
-| 실시간 구성 관측 | in-progress | `services/core-control-plane/src/fdai/delivery/azure/configuration_drift.py`; `runtime/configuration.py`; `runtime/bootstrap_plan.py`; `infra/modules/compute/container-apps/`; 집중 Azure, 런타임, 구성 표류 및 인프라 테스트 | 범위가 제한된 읽기 전용 Azure Resource Graph 어댑터가 구성된 스칼라 경로를 관측하고 불완전한 근거가 있으면 차단하며, 명시적인 런타임 구성이 완전할 때만 연결됩니다. Terraform은 기본적으로 기능을 사용하지 않습니다. 검토된 기준선 내용과 관리되는 실시간 근거는 아직 남아 있습니다. |
-| 예약된 분석기 전달 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | 구성된 진입점이 존재하며 발견 건마다 창 키를 가진 정본 Event 하나를 게시합니다. 게시 실패는 보고되고 0이 아닌 종료 코드로 작업이 재시도됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
-| 인벤토리 기반 대상 해석 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/core/investigation/analyzers.py`; `services/core-control-plane/tests/delivery/test_analyzer_targets.py`; `tests/integration/infra/test_detection_readiness.py` | 한 번의 tick이 구성된 대상과 영속 인벤토리 projection의 적격 `Resource`를 함께 분석합니다. 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 모두 실패 시 차단됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
-| 분산 추적 연속성 | implemented | `core/detection/trace_continuity.py`; `core/rca/trace_continuity.py`; `delivery/azure/trace_continuity.py`; `delivery/trace_continuity_tick.py`; 분석기 Job 바인딩; 집중 감지기, RCA, 소스, 틱, 인시던트, HIL, Terraform 검사 | 결정론적 평가, 엄격하고 범위가 제한된 Azure 정규화, shadow Event 발행, 반복 발견의 인시던트 생성, 근거가 제한된 계측/수집기/헤더 원인 구분이 구현되어 있습니다. 권위 있는 원인 근거 생산자와 실시간 Azure 감지, 승인, 복구 근거는 이슈 #142에 남아 있습니다. |
-| 관리되는 운영 정확도 | in-progress | [런타임 전달 상태](#런타임-전달-상태); [열린 결정](#열림-decisions) | 런타임 정밀도, 재현율, 구간 포괄률, 선행 시간, 오탐 근거는 배포 작업으로 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-09 | implemented | 정확한 범위와 시각에 결속된 독립 인용 신호 하나에서만 계측, 수집기, 헤더 전파를 구분하고 수정 참조를 반환하지 않는 결정론적 T1 추적 원인 경계를 추가했습니다. | `current change`; 전체 RCA, 감지기, 인시던트 연결 범위 294건 통과; RCA 소스 26개 파일 strict mypy 통과. | 권위 있는 원인 근거 생산자를 연결하고 #142에서 관리하는 실시간 승인 또는 모든 안전조건을 갖춘 작업과 복구 증적을 보존합니다. |
-| 2026-08-29 | implemented | 강화 라운드 3에서 Azure 표류 어댑터 관점 26개를 검토하고 유효한 빈 ARG 위치와 누락 필드를 구분했습니다. 이제 전역 범위 리소스는 전체 관측을 실패시키지 않고 안정적인 `global` 리전 토큰을 사용합니다. | `current change`; 집중 Azure 구성 표류 테스트. | 관리되는 현재 상태 표류 증적을 보존합니다. |
-| 2026-08-28 | in-progress | 범위가 고정된 Azure Resource Graph 구성 관측 소스를 추가하고 런타임에 연결했습니다. 정렬된 스칼라 속성 경로만 허용하고, 임의의 속성 묶음을 변환하지 않으며, 원시 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸고, 누락된 속성을 알 수 없음으로 표시합니다. 불완전한 구성, 범위 이탈, 잘림, 페이지 처리, 크기, HTTP 또는 행 형식 오류가 있으면 관측 결과를 만들지 않고 차단합니다. 시작 과정은 기능이 명시적으로 사용 설정된 경우 워크로드 신원을 요청하고 모든 전제 조건이 유효한 뒤에만 읽기 전용 도구를 설치합니다. Terraform은 전체 입력 집합을 명시적으로 사용 설정하는 계약으로 노출하고 기본적으로 표류 환경을 내보내지 않습니다. | `current change`; `delivery/azure/configuration_drift.py`; `runtime/{bootstrap,bootstrap_plan,configuration}.py`; `infra/services/core-control-plane/`; 집중 Azure 어댑터, 런타임 연결, 표류 서비스 및 인프라 검사 69건 통과; Ruff 및 strict mypy 통과; Core 서비스 Terraform 검증 성공. | 검토된 배포 기준선 내용을 적재하고 관리되는 현재 상태 표류 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 트리에 맞게 분석기 전달 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 분석기 전달을 복원하고 관리되는 정확도 근거를 보존합니다. |
-| 2026-08-15 | implemented | Terraform 작업이 구성하는 `fdai.delivery.analyzer_tick_cli` 진입점과 분석기 tick 실행기를 추가해, 발견 건마다 창 키를 가진 정본 Event를 게시하고 게시 실패를 보고합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick.py` (10 passed). | 배포 정확도 근거를 보존합니다. 대상 해석은 아직 구성된 목록만 사용합니다. |
-| 2026-08-16 | not-started | 이 문서가 설명한 대로 존재하지 않는 코드에 대한 주장 세 가지를 바로재았습니다. 동결 기준선 항목은 `delivery/azure/configuration_drift.py`와 Azure Resource Graph 조회를 거론했으나 그런 모듈은 없으며 제공되는 관측 소스는 파일 기반 하나뿐입니다. 실시간 구성 관측은 이제 implemented 표류 행이 암시하는 대신 별도 `not-started` 범위 행입니다. | `current change`; `find services -name "configuration_drift*.py"`는 `core/detection/*`와 `delivery/configuration_drift.py`만 반환하며 후자의 모듈 docstring은 "File-backed baseline sources"입니다. `grep -rn bind_configuration_drift`는 런타임 부트스트랩이 호출하지 않음을 보입니다. | Azure 관측 어댑터를 만들거나, 표류를 근거 재현 전용으로 유지한다는 결정을 기록합니다. |
-| 2026-08-16 | not-applicable | 오래된 참조 둘을 다시 가리켰습니다. RCA 투영은 `services/operator-service/src/fdai_operator_service/rca_projection.py`로 이동했고, 공유 범주 목록은 `compliance`를 빼머고 `Category`가 `config_drift`를 쓰는 자리에 하이픈을 사용했습니다. | `current change`; `find services -name "rca_projection*.py"`; `services/core-control-plane/src/fdai/shared/contracts/models/enums.py`의 `Category`는 다섯 개 멤버를 가집니다. | 없음. 둘 다 이제 정확합니다. |
-| 2026-08-16 | implemented | 분석기 tick 대상을 구성된 목록에 더해 영속 인벤토리 projection에서도 해석했습니다. 검토된 중립 리소스 유형 맵이 분석기 종류를 선택하고, 구성된 대상이 우선하며, 발견된 대상은 상한과 결정론적 순서를 가지고, 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 관측 범위를 조용히 좁히는 대신 실패 시 차단됩니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py` (24 passed); 변경 파일에 strict mypy와 Ruff 통과. | 인벤토리에서 발견된 리소스가 실제 tick에 포함된다는 배포 런타임 근거를 기록합니다. |
-| 2026-08-16 | implemented | 검토 후 인벤토리 기반 해석을 강화했습니다. 발견 상한이 영속 저장소 자체 조회 한도보다 한 행 아래에서 멈추므로 문서화된 최댓값이 projection 읽기 안에서 예외를 일으킬 수 없고, `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`는 환경 키 이름과 함께 파싱 시점에 거부되며, 증거 기준 시각에 시간대가 없는 상태 사실은 예외 대신 사용할 수 없음으로 건너뛰고, 실제로 대상이 보류된 경우에만 절단을 보고하며, 배포된 Job이 CLI가 읽는 `FDAI_INVENTORY_DSN` 키를 연결합니다. 결정론은 이제 절단되지 않은 projection에 대해서만 주장합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` (30 passed); `pytest tests/integration/infra/test_detection_readiness.py` (3 passed). | 인벤토리에서 발견된 리소스가 실제 tick에 포함된다는 배포 런타임 근거를 기록합니다. |
-| 2026-08-17 | in-progress | 추적 토폴로지를 관리되는 Resource로 잘못 표현하는 인벤토리 리소스 매핑을 거부하고, 결정론적 분산 추적 연속성 설계를 확정했습니다. | `current change`; 이 문서; [이슈 #142](https://github.com/dotnetpower/fdai/issues/142). | 소스, 감지기, 공유 분석기 Job 바인딩, 관리되는 Event 경로를 구현하고 집중 테스트한 뒤 실시간 `preserve`, `regenerate`, `drop`, 승인, 복구 근거를 보존합니다. |
-| 2026-08-17 | implemented | 분산 추적 연속성 감지기, 엄격한 작업 영역 기반 Application Insights 소스, 공유 분석기 Job 실행기와 구성, 반복 발견의 인시던트 인계를 구현했습니다. KQL은 문서화된 `Id`, `OperationId`, `Properties`, `TimeGenerated` 열을 사용합니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, strict mypy와 작업 범위 Ruff 통과, `terraform -chdir=infra validate` 성공. | 정확히 검증된 리비전을 관측 실험실에 배포하고 실시간 `preserve`, `regenerate`, `drop`, 승인, 복구 근거를 보존한 뒤 이 범위를 `validated`로 올립니다. |
-
-### 남은 작업
-
-- [x] Terraform 작업이 구성하는 분석기 진입점이 존재하며 창 키를 가진 정본 Event를 게시하고 게시 실패를 0이 아닌 결과로 보고합니다. `services/core-control-plane/tests/delivery/test_analyzer_tick.py`가 이를 증명합니다.
-- [x] 분석기 대상이 구성된 목록과 영속 인벤토리 projection에서 검토된 중립 리소스 유형 맵을 통해 해석되며, 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 실패 시 차단됩니다. `services/core-control-plane/tests/delivery/test_analyzer_targets.py`가 이를 증명합니다.
-- [x] 범위가 제한된 Azure용 실시간 `ConfigurationObservationSource`를 구현하고 집중 어댑터
-  및 표류 서비스 테스트로 증명합니다.
-- [x] 완전하고 명시적인 런타임 구성에서 Azure 소스를 연결하고 집중 테스트를 통해 시작 시 워크로드
-  신원 선택과 기능 설치를 증명합니다.
-- [x] 완전한 구성을 명시적으로 사용 설정하는 Container Apps Terraform 계약으로 노출하고,
-  기본적으로 표류 환경을 내보내지 않으며 모듈 계약 테스트와 Terraform 검증을 통과합니다.
-- [ ] 실시간 구성 관측을 `validated`로 올리기 전에 검토된 배포 기준선 내용을 적재하고 관리되는
-  현재 상태 증적을 보존합니다.
-- [ ] 감지기 정밀도, 재현율, 누락 위반, 구간 포괄률, 예측 선행 시간, 판단 보류 비율의 배포 근거를 기록합니다.
-- [ ] 인벤토리에서 발견된 리소스가 배포 변경 없이 실제 분석기 tick에 포함된다는 배포 런타임 근거를 기록하고 그 tick 보고를 보존합니다.
-- [x] 독립적으로 인용된 신호 하나에서만 계측, 수집기, 헤더 전파 원인을 구분하고 수정 권한을
-  포함하지 않는 근거 제한 추적 RCA를 추가합니다.
-- [ ] [이슈 #142](https://github.com/dotnetpower/fdai/issues/142)를 완료합니다. 집중 검사와 실시간 Azure 근거를 통해 `preserve`가 정상으로 유지되고, `regenerate`와 `drop`이 근거가 있는 발견 사항을 만들며, 반복 발견이 인시던트 하나를 열고, 복구 경로가 검증된 종결 전에 사람 승인 또는 모든 안전조건을 갖춘 작업에 도달함을 증명합니다.
-- [x] `config/detection-governance-policy.json`에서 신호 클래스 방식, 기준선 이력,
-  상관관계 기본값, 예측 기간, 변경 창 처리, 승격 임계값을 확정하고
-  `services/core-control-plane/tests/core/detection/test_governance_policy.py`의 정확한 로더
-  검사로 검증합니다.
-
 ## 확정된 결정
 
 | 결정 | 관리되는 기본값 |
@@ -595,3 +540,9 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 | 콜드 스타트 | 정상성이 있는 클래스에는 기준선 샘플 30개, 계절 클래스에는 같은 위상의 샘플 10개가 필요합니다. 예측에는 샘플 5개와 `R-squared >= 0.5`가 필요합니다. |
 | 백테스트 및 승격 | 최소 14일의 관찰 모드와 점수화 가능한 에피소드 30개를 확보한 뒤 매주 평가합니다. 정밀도와 재현율은 각각 `0.8` 이상이어야 하고, 90% 구간 포괄률은 `[0.85, 0.95]`, 중앙값 선행 시간은 300초 이상, 판단 보류율은 `0.2` 이하, 정책 이탈은 0건이어야 합니다. |
 | 변경 창 | 완전한 근거가 있는 정확한 범위의 활성 창은 발견된 문제에 주석을 남기고 Incident 승격을 보류합니다. 누락되거나 오래되었거나 불완전하거나 일치하지 않는 창 근거는 발견된 문제를 억제할 수 없습니다. |
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/observability-and-detection.md) |
