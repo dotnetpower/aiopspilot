@@ -36,6 +36,7 @@ from fdai.delivery.inventory_sync_cli import (
     ChangeStreamDrainResult,
     _build_kubernetes_enricher,
     _build_ontology_observer,
+    _build_runtime_call_enricher,
     _build_sources,
     _collect_kubernetes_lifecycle,
     _drain_change_stream,
@@ -53,6 +54,10 @@ from fdai.delivery.kubernetes_inventory import UnavailableKubernetesInventoryEnr
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
+)
+from fdai.delivery.runtime_call_inventory import (
+    RuntimeCallInventoryEnricher,
+    UnavailableRuntimeCallInventoryEnricher,
 )
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
@@ -195,8 +200,91 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.kubernetes_ca_path is None
     assert config.kubernetes_ca_pem is None
     assert config.kubernetes_auth_mode is None
+    assert config.monitor_workspace_id is None
+    assert config.runtime_call_evidence_enabled is False
     assert config.snapshot_policy("arg").max_requests_per_window == 180
     assert config.collection_policy is not None
+
+
+def test_job_config_binds_bounded_monitor_workspace_for_runtime_calls() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_MONITOR_WORKSPACE_ID": "workspace-example",
+            "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED": "1",
+        }
+    )
+
+    assert config.monitor_workspace_id == "workspace-example"
+    assert config.runtime_call_evidence_enabled is True
+
+    with pytest.raises(ValueError, match="MUST be bounded printable text"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                "FDAI_MONITOR_WORKSPACE_ID": "workspace with spaces",
+            }
+        )
+    with pytest.raises(ValueError, match="requires FDAI_MONITOR_WORKSPACE_ID"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED": "1",
+            }
+        )
+
+
+async def test_runtime_call_enricher_requires_deployed_explicit_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = StaticWorkloadIdentity(
+        audience="https://api.loganalytics.io/.default",
+        token="test-token",
+    )
+    monkeypatch.setenv("FDAI_EXECUTION_VENUE", "local")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        unavailable = _build_runtime_call_enricher(
+            config=InventoryJobConfig.from_env(
+                {
+                    "FDAI_INVENTORY_DSN": "postgresql://example",
+                    "AZURE_SUBSCRIPTION_ID": "sub-1",
+                }
+            ),
+            identity=identity,
+            http_client=client,
+        )
+        local_candidate = _build_runtime_call_enricher(
+            config=InventoryJobConfig.from_env(
+                {
+                    "FDAI_INVENTORY_DSN": "postgresql://example",
+                    "AZURE_SUBSCRIPTION_ID": "sub-1",
+                    "FDAI_MONITOR_WORKSPACE_ID": "workspace-example",
+                    "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED": "1",
+                }
+            ),
+            identity=identity,
+            http_client=client,
+        )
+        monkeypatch.setenv("FDAI_EXECUTION_VENUE", "deployed")
+        available = _build_runtime_call_enricher(
+            config=InventoryJobConfig.from_env(
+                {
+                    "FDAI_INVENTORY_DSN": "postgresql://example",
+                    "AZURE_SUBSCRIPTION_ID": "sub-1",
+                    "FDAI_MONITOR_WORKSPACE_ID": "workspace-example",
+                    "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED": "1",
+                }
+            ),
+            identity=identity,
+            http_client=client,
+        )
+
+    assert isinstance(unavailable, UnavailableRuntimeCallInventoryEnricher)
+    assert isinstance(local_candidate, UnavailableRuntimeCallInventoryEnricher)
+    assert isinstance(available, RuntimeCallInventoryEnricher)
 
 
 def test_default_inventory_scope_includes_llm_model_deployments() -> None:

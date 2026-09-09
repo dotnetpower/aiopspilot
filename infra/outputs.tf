@@ -221,6 +221,15 @@ output "contributor_core_service_tfvars" {
   } : null
 }
 
+output "runtime_call_evidence_binding" {
+  description = "Exact deployed Operator-to-Core Resource IDs for authenticated runtime-call evidence."
+  sensitive   = true
+  value = var.enable_operator_api ? {
+    caller_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/${module.operator_api[0].name}"
+    target_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/${module.compute.core_app_name}"
+  } : null
+}
+
 output "dev_operations_gateway_url" {
   description = "Authenticated development operations gateway URL. Empty when disabled."
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""

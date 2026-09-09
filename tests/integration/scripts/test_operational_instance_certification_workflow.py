@@ -15,6 +15,8 @@ def test_oi12_workflow_binds_exact_source_and_required_ci() -> None:
         "Verify exact source and required CI",
         'select(.name == "required" and .conclusion == "success")',
         "bind_core_runtime_image.sh",
+        "GH_TOKEN: ${{ github.token }}",
+        "GHCR_TOKEN: ${{ github.token }}",
     ):
         assert value in _WORKFLOW
 

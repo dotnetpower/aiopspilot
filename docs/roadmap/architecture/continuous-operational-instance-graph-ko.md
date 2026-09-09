@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4052ba4caf71cc3642c48297f89ec54723e35106
+translation_source_sha: 71b55bfe2acf1c6476604896ec25111dac24bbae
 translation_revised: 2026-09-09
 ---
 # 지속형 운영 인스턴스 그래프
@@ -64,6 +64,26 @@ translation_revised: 2026-09-09
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
+
+런타임 호출 근거에는 해시된 요청 식별자와 정확한 호출자 및 대상 Container App Resource ID가
+같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자
+증표를 내보내고 Core는 해당 브로커 전달이 대상 경계에 도달하는 즉시 turn 처리에서 거절되기
+전에 대상 증표를 내보냅니다. 두 증표 모두 요청 내용이나 권한을 포함하지 않습니다. Azure Monitor
+원본은 일치하는 구조의 Container Apps 로그
+스키마만 수락한 다음 플랫폼이 기록한 각 revision과 replica를 해당 증표가 주장한 정확한
+Container App ARM ID 아래에서 다시 읽습니다. 이 방식으로 독립적으로 결속된 엔드포인트 증표만
+기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널
+경계 프로세스는 호출자 바인딩을 받지 않으므로 공유 토픽의 요청을 잘못된 Operator-to-Core
+edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 일치하지 않는 증표가 있으면 원본은
+불완전 상태가 됩니다. 결합된 반복 호출은 정확한 엔드포인트 쌍별 최신 관측으로 축약합니다.
+60초 후행 유예 구간은 처리 중인 쌍을 대기 상태로 유지하며, 원본은 최신성 구간보다 유예 구간
+하나를 더 읽어 기준 시점 경계가 보존 대상 쌍을 나누지 않도록 합니다. 정확한 replica 검증은
+하나의 30초 기한 안에서 최대 네 개의 동시 읽기를 사용하며, 최신성은 해당
+읽기가 끝난 뒤에만 평가합니다. 그런 다음 인벤토리 기록기는 `runtime_calls`를 변환하기 전에
+완전한 활성 세대, principal 범위, 최신성 예산 및 정확한 온톨로지 릴리스에 대해 두 엔드포인트
+ID를 다시 검사합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
+이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
+사용 불가 결과를 유지합니다.
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
 
@@ -371,7 +391,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가합니다. 제거는 별도의 파괴적 작업으로 유지합니다. 보호된 배포 및 certification 증적은 별도 운영 근거로 남습니다. |
+| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 인증은 정확한 source attestation 검증을 위해 GitHub API와 registry 자격 증명을 분리해 연결합니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가하며 제거는 별도의 파괴적 작업으로 유지합니다. |
 ## 운영 상태 전이 원장
 
 FDAI는 의미가 부여된 상태 변경을 Core 소유의 추가 전용 PostgreSQL 원장에 저장합니다.

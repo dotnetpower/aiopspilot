@@ -62,6 +62,25 @@ A collected property becomes a relationship only through a reviewed provider map
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 
+Runtime-call evidence requires two typed endpoint witnesses with the same hashed request identity
+and exact caller and target Container App Resource IDs. Operator emits the caller witness only after
+authenticated broker acceptance, and Core emits the target witness as soon as that broker delivery
+reaches the target boundary, before turn processing can reject it. Neither witness carries request
+content or authority. The Azure Monitor source accepts
+only the matching structured Container Apps log schema, then re-reads each platform-stamped
+revision and replica under its claimed exact Container App ARM ID. Only those independently bound
+endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller
+binding, so its requests on the shared topic cannot join a false Operator-to-Core edge. Orphaned,
+malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
+newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
+pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
+not split a retained pair. Exact replica verification uses at most four concurrent reads under one
+30-second deadline, and freshness is evaluated only after those reads finish. The
+inventory writer then rechecks both endpoint IDs against the complete active generation, principal
+scope, freshness budget, and exact ontology release before it can project `runtime_calls`. Local
+development, a disabled binding, and an empty witness query report this source unavailable instead
+of fabricating an edge.
+
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete
@@ -378,7 +397,7 @@ design and implementation status and remaining work in the linked delivery ledge
 | Adaptive scheduling | implemented | Validated source policies and a pure reducer consume freshness, lag, demand, provider pressure, `Retry-After`, remaining budget, concurrency, circuit-open state, and recovery probes. PostgreSQL supplies durable due state, and the principal-safe health projection exposes the next bounded action. |
 | Retention and holds | implemented | The archive purge coordinator blocks deletion until exact verification, restore sampling, and retention or legal-hold evaluation pass. Append-only PostgreSQL receipts preserve blocked, pending, failed, successful, and retry outcomes. |
 | Typed rollup | implemented | Fact-specific policies separately aggregate gauges, counters, categorical state, relationship changes, and evidence health while preserving source and generation lineage, bitemporal ranges, missing intervals, observed zero, conflicts, completeness, and mergeable count and sum. Percentiles remain unavailable. |
-| Archive lifecycle | implemented | Content-addressed manifests, the private Azure Blob writer, principal-scoped verified reader, database-gated source purger, append-only verification, restore, coverage, hold, and purge receipts, and a dedicated fixed-shadow Container Apps Job are implemented. A protected plan preserves the prior archive data owner and adds the repository-bound deploy UAMI at a separate address; any retirement remains a separate destructive operation. Protected deployment and certification receipts remain separate operational evidence. |
+| Archive lifecycle | implemented | Content-addressed manifests, the private Azure Blob writer, principal-scoped verified reader, database-gated source purger, append-only verification, restore, coverage, hold, and purge receipts, and a dedicated fixed-shadow Container Apps Job are implemented. Protected certification binds separate GitHub API and registry credentials to exact-source attestation verification. A protected plan preserves the prior archive data owner and adds the repository-bound deploy UAMI at a separate address; any retirement remains a separate destructive operation. |
 ## Operational state-transition ledger
 
 FDAI stores semantic state changes in a Core-owned append-only PostgreSQL ledger. Event Hubs

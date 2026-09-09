@@ -28,6 +28,15 @@ variable "identity" {
     extra_resource_ids = optional(list(string), [])
   })
 }
+
+variable "runtime_call_evidence" {
+  type = object({
+    caller_resource_id = optional(string, "")
+    target_resource_id = optional(string, "")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   type = object({
     resource_id = optional(string, "")

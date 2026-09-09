@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import os
 import ssl
@@ -14,10 +16,21 @@ from datetime import UTC, datetime
 import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
+from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.azure.log_query import (
+    AzureLogAnalyticsQueryConfig,
+    AzureLogAnalyticsQueryProvider,
+)
 from fdai.delivery.azure.resource_health_inventory import (
     AzureResourceHealthInventoryConfig,
     AzureResourceHealthInventoryEnricher,
+)
+from fdai.delivery.azure.runtime_call_telemetry import (
+    AzureContainerAppRevisionVerifier,
+    AzureMonitorRuntimeCallAuthenticator,
+    AzureMonitorRuntimeCallContextProvider,
+    AzureRuntimeCallTelemetrySource,
 )
 from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
@@ -99,7 +112,10 @@ from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
-from fdai.delivery.runtime_call_inventory import UnavailableRuntimeCallInventoryEnricher
+from fdai.delivery.runtime_call_inventory import (
+    RuntimeCallInventoryEnricher,
+    UnavailableRuntimeCallInventoryEnricher,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -113,6 +129,7 @@ from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionStatus,
     InventoryOntologyProjector,
 )
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.inventory_snapshot import InventorySourcesExhaustedError
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -148,6 +165,62 @@ def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
     )
+
+
+def _build_runtime_call_enricher(
+    *,
+    config: InventoryJobConfig,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> InventoryPromotionEnricher:
+    """Bind authenticated Azure Monitor evidence or explicit unavailability."""
+
+    if (
+        config.monitor_workspace_id is None
+        or not config.runtime_call_evidence_enabled
+        or resolve_execution_venue(os.environ) is not ExecutionVenue.DEPLOYED
+    ):
+        return UnavailableRuntimeCallInventoryEnricher()
+    catalog_root = _REPO_ROOT / "rule-catalog"
+    catalog = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+    scope_ref = _scope_ref(config.scopes)
+    source = AzureRuntimeCallTelemetrySource(
+        provider=AzureLogAnalyticsQueryProvider(
+            config=AzureLogAnalyticsQueryConfig(
+                workspace_id=config.monitor_workspace_id,
+            ),
+            identity=identity,
+            http_client=http_client,
+        ),
+        context_provider=AzureMonitorRuntimeCallContextProvider(),
+        endpoint_verifier=AzureContainerAppRevisionVerifier(
+            identity=identity,
+            http_client=http_client,
+            management_endpoint=config.management_endpoint,
+            management_audience=config.management_audience,
+        ),
+        scope_ref=scope_ref,
+        freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+    )
+    return RuntimeCallInventoryEnricher(
+        source=source,
+        producer=RuntimeCallTelemetryProducer(
+            authenticator=AzureMonitorRuntimeCallAuthenticator(),
+        ),
+        ontology_release=catalog.build_release(),
+        scope_ref=scope_ref,
+        endpoint_verifier_identity="inventory.runtime-call-endpoint-verifier",
+        endpoint_verifier_revision="1.0.0",
+    )
+
+
+def _scope_ref(scopes: tuple[str, ...]) -> str:
+    encoded = json.dumps(sorted(set(scopes)), separators=(",", ":")).encode("utf-8")
+    return "scope-set:sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 async def _build_kubernetes_enricher(
@@ -381,8 +454,13 @@ async def run(
             ),
             previous_state_reader=durable_store,
         )
+        runtime_call_enricher = promotion_enricher or _build_runtime_call_enricher(
+            config=config,
+            identity=identity,
+            http_client=client,
+        )
         effective_enricher = SequentialInventoryPromotionEnricher(
-            promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
+            runtime_call_enricher,
             resource_health_enricher,
             static_web_app_enricher,
             kubernetes_enricher,

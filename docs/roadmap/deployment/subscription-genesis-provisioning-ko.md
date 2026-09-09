@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: b450dc79e7c2b94205f1e1a48a07bf93d502e3c9
-translation_revised: 2026-09-08
+translation_source_sha: 672b71d9222e216c612481f619bf811a4206c33b
+translation_revised: 2026-09-09
 ---
 # 구독 초기 프로비저닝
 
@@ -395,6 +395,9 @@ database purge gate 및 고정 shadow schedule은 전용 Job binding을 준비�
 증적이 생길 때까지 Genesis는 archive 수명 주기를 incomplete로 보고합니다.
 CI는 database integration 검사 전에 service 소유 migration chain 전체를 적용하고 해당 검사가
 그 migration 적용 database를 사용하게 하여 Genesis runtime 순서와 일치시킵니다.
+런타임 호출 보강은 배포된 인벤토리 Job이 명시적인 플랫폼 플래그와 쌍을 이룬 엔드포인트 증표를
+받은 뒤에만 활성화됩니다. 바인딩이 없거나 쿼리가 비어 있으면 사용 불가 상태를 유지하며 Genesis
+그래프 완전성을 전진시킬 수 없습니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

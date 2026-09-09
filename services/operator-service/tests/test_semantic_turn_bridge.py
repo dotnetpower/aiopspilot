@@ -47,11 +47,13 @@ from fdai_operator_service.families.conversation.document_export import (
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
+    RuntimeCallEndpointObserver,
     SemanticTurnBridge,
     SemanticTurnConversationAdapters,
     SemanticTurnOutboxDrainer,
     SemanticTurnProjectionConsumer,
     _held_projection,
+    runtime_call_endpoint_observer_from_config,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -2158,6 +2160,95 @@ async def test_outbox_publish_failure_releases_claim_for_retry() -> None:
     assert await drainer.run_once() is True
     assert publisher.calls == 2
     assert store.published == 1
+
+
+async def test_outbox_logs_exact_runtime_call_only_after_broker_acceptance() -> None:
+    caller = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-runtime-call-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    publisher = _FailOncePublisher()
+    records: list[dict[str, object]] = []
+    drainer = SemanticTurnOutboxDrainer(
+        store,
+        publisher,
+        "replica-a",
+        runtime_call_observer=RuntimeCallEndpointObserver(
+            caller_resource_id=caller,
+            target_resource_id=target,
+            clock=lambda: datetime(2026, 9, 9, 10, tzinfo=UTC),
+            emit=lambda record: records.append(json.loads(record)),
+        ),
+    )
+
+    assert await drainer.run_once() is False
+    assert records == []
+    assert await drainer.run_once() is True
+
+    assert len(records) == 1
+    assert records == [
+        {
+            "caller_resource_id": caller,
+            "endpoint_role": "caller",
+            "execution_authority": False,
+            "message": "runtime_call_endpoint_observed",
+            "mutation_authority": False,
+            "observation_id": records[0]["observation_id"],
+            "observed_at": "2026-09-09T10:00:00+00:00",
+            "schema_version": "fdai.runtime-call-endpoint-log@1.0.0",
+            "target_resource_id": target,
+        }
+    ]
+    assert records[0]["observation_id"].startswith("sha256:")
+
+
+def test_runtime_call_observer_requires_complete_deployed_resource_binding() -> None:
+    caller = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+
+    assert runtime_call_endpoint_observer_from_config({}) is None
+    with pytest.raises(RuntimeError, match="MUST be configured together"):
+        runtime_call_endpoint_observer_from_config({"FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID": caller})
+    with pytest.raises(RuntimeError, match="only in the deployed venue"):
+        runtime_call_endpoint_observer_from_config(
+            {
+                "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID": caller,
+                "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID": target,
+                "FDAI_EXECUTION_VENUE": "local",
+            }
+        )
+
+    observer = runtime_call_endpoint_observer_from_config(
+        {
+            "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID": caller,
+            "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID": target,
+            "FDAI_EXECUTION_VENUE": "deployed",
+        }
+    )
+    assert observer is not None
+    assert observer.caller_resource_id == caller
 
 
 async def test_outbox_publish_lease_loss_is_retryable() -> None:

@@ -54,6 +54,7 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_core_service.semantic_service_health_answer import render_service_health_answer
 from fdai_core_service.semantic_turn_consumer import (
+    RuntimeCallEndpointObserver,
     StateStoreSemanticTurnResultStore,
     consume_semantic_turns,
     semantic_turn_binding_from_config,
@@ -5423,6 +5424,122 @@ async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
     assert dlq[-1].payload["reason"] == "semantic_turn_publish_failed"
 
 
+async def test_consumer_emits_exact_authority_free_runtime_call_target_witness() -> None:
+    caller = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+    records: list[dict[str, object]] = []
+    bus = InMemoryEventBus()
+    await bus.publish("operator.request", "one", _request(idempotency_key="runtime-call-one"))
+
+    await consume_semantic_turns(
+        bus=bus,
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=_processor(None),
+        stop=asyncio.Event(),
+        runtime_call_observer=RuntimeCallEndpointObserver(
+            caller_resource_id=caller,
+            target_resource_id=target,
+            clock=lambda: datetime(2026, 9, 9, 10, tzinfo=UTC),
+            emit=lambda record: records.append(json.loads(record)),
+        ),
+    )
+
+    assert len(records) == 1
+    assert records[0]["endpoint_role"] == "target"
+    assert records[0]["caller_resource_id"] == caller
+    assert records[0]["target_resource_id"] == target
+    assert str(records[0]["observation_id"]).startswith("sha256:")
+    assert records[0]["execution_authority"] is False
+    assert records[0]["mutation_authority"] is False
+
+
+async def test_consumer_emits_target_witness_before_semantic_rejection() -> None:
+    caller = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+    records: list[str] = []
+    bus = InMemoryEventBus()
+    await bus.publish(
+        "operator.request",
+        "bad",
+        {
+            "schema_version": "1.2.0",
+            "request_id": "00000000-0000-0000-0000-000000000001",
+        },
+    )
+
+    await consume_semantic_turns(
+        bus=bus,
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=_processor(None),
+        stop=asyncio.Event(),
+        runtime_call_observer=RuntimeCallEndpointObserver(
+            caller_resource_id=caller,
+            target_resource_id=target,
+            emit=records.append,
+        ),
+    )
+
+    dlq = [item async for item in bus.subscribe("operator.request.dlq", "assert")]
+    assert len(records) == 1
+    assert len(dlq) == 1
+
+
+async def test_malformed_runtime_witness_does_not_leak_progress_task() -> None:
+    caller = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+        "ca-example-operator-api"
+    )
+    target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+    )
+    bus = InMemoryEventBus()
+    await bus.publish("operator.request", "bad", {"schema_version": "1.2.0"})
+
+    await consume_semantic_turns(
+        bus=bus,
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=_processor(None),
+        stop=asyncio.Event(),
+        runtime_call_observer=RuntimeCallEndpointObserver(
+            caller_resource_id=caller,
+            target_resource_id=target,
+        ),
+    )
+    await asyncio.sleep(0)
+
+    current = asyncio.current_task()
+    leaked = [
+        task
+        for task in asyncio.all_tasks()
+        if task is not current
+        and not task.done()
+        and "_drain_progress" in task.get_coro().__qualname__
+    ]
+    assert leaked == []
+
+
 def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() -> None:
     state_store = InMemoryStateStore()
 
@@ -5451,6 +5568,54 @@ def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() ->
     assert binding is not None
     assert binding.available is False
     assert binding.unavailable_reason == "semantic_runtime_unavailable"
+    assert binding.runtime_call_observer is None
+
+    with pytest.raises(RuntimeError, match="MUST be configured together"):
+        semantic_turn_binding_from_config(
+            state_store=state_store,
+            runtime=None,
+            config={
+                "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+                "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+                "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+                    "ca-example-operator-api"
+                ),
+            },
+        )
+
+
+def test_runtime_binding_rejects_cloud_resource_ids_outside_deployed_venue() -> None:
+    values = {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+        "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID": (
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.App/containerApps/"
+            "ca-example-operator-api"
+        ),
+        "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID": (
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+        ),
+        "FDAI_EXECUTION_VENUE": "local",
+    }
+
+    with pytest.raises(RuntimeError, match="only in the deployed venue"):
+        semantic_turn_binding_from_config(
+            state_store=InMemoryStateStore(),
+            runtime=None,
+            config=values,
+        )
+
+    binding = semantic_turn_binding_from_config(
+        state_store=InMemoryStateStore(),
+        runtime=None,
+        config={**values, "FDAI_EXECUTION_VENUE": "deployed"},
+    )
+    assert binding is not None
+    assert binding.runtime_call_observer is not None
 
 
 async def test_runtime_binding_propagates_answer_continuity_policy() -> None:

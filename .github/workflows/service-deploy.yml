@@ -57,6 +57,10 @@ on:
         description: "Adopt the protected Core decision-evidence and operating-intent bindings."
         type: boolean
         default: false
+      runtime_call_evidence_transition:
+        description: "Adopt the exact Operator/Core runtime-call witness bindings."
+        type: boolean
+        default: false
       operator_channel_edge_transition:
         description: "Explicit Operator channel-edge transition sealed into the protected plan."
         type: choice
@@ -147,6 +151,7 @@ jobs:
           DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
+          RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
@@ -229,6 +234,23 @@ jobs:
               && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
               && "$SHAREPOINT_CONNECTOR_TRANSITION" == "none" ]] || {
               echo "Core evidence binding transition must be applied independently." >&2
+              exit 1
+            }
+          fi
+          if [[ "$RUNTIME_CALL_EVIDENCE_TRANSITION" == "true" ]]; then
+            [[ "${{ inputs.service }}" == "core-control-plane" \
+              || "${{ inputs.service }}" == "operator-service" ]] || {
+              echo "Runtime-call evidence transition is valid only for Core or Operator." >&2
+              exit 1
+            }
+            [[ "$MIGRATE_STATE" != "true" \
+              && "$INITIAL_CUTOVER" != "true" \
+              && "$DATABASE_HOST_BINDING" != "true" \
+              && "$MODEL_BINDING_TRANSITION" != "true" \
+              && "$CORE_EVIDENCE_BINDINGS_TRANSITION" != "true" \
+              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$SHAREPOINT_CONNECTOR_TRANSITION" == "none" ]] || {
+              echo "Runtime-call evidence transition must be applied independently." >&2
               exit 1
             }
           fi
@@ -607,6 +629,7 @@ jobs:
           )"
           observation_context_binding="null"
           rca_reader_identity_binding="null"
+          runtime_call_evidence_binding="null"
           stewardship_gitops_binding="null"
           operator_channel_edge_identity_binding="null"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
@@ -640,6 +663,35 @@ jobs:
               echo "Platform state returned an invalid RCA reader identity." >&2
               exit 1
             }
+          fi
+          if [[ "$SERVICE" == "core-control-plane" || "$SERVICE" == "operator-service" ]]; then
+            operator_api_name="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -raw operator_api_name 2>/dev/null || true
+            )"
+            runtime_call_evidence_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json runtime_call_evidence_binding 2>/dev/null || printf 'null\n'
+            )"
+            if [[ -n "$operator_api_name" ]]; then
+              jq -e '
+                type == "object" and
+                keys == ["caller_resource_id", "target_resource_id"] and
+                all(.[]; type == "string" and startswith("/subscriptions/")) and
+                (.caller_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
+                (.target_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
+                (.caller_resource_id | ascii_downcase) != (.target_resource_id | ascii_downcase)
+              ' <<<"$runtime_call_evidence_binding" >/dev/null || {
+                echo "Platform state returned an invalid runtime-call evidence binding." >&2
+                exit 1
+              }
+            else
+              [[ "$SERVICE" == "core-control-plane" ]] \
+                && jq -e '. == null' <<<"$runtime_call_evidence_binding" >/dev/null || {
+                  echo "Operator deployment requires a runtime-call evidence binding." >&2
+                  exit 1
+                }
+            fi
           fi
           if [[ "$SERVICE" == "core-control-plane" || "$SERVICE" == "document-ingestion-api" ]]; then
             stewardship_gitops_binding="$(
@@ -761,6 +813,7 @@ jobs:
               OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               DECISION_EVIDENCE_CONTAINER_URL="$decision_evidence_container_url" \
+              RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
@@ -775,6 +828,7 @@ jobs:
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
+          RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -796,6 +850,9 @@ jobs:
           evidence_args=()
           [[ "$CORE_EVIDENCE_BINDINGS_TRANSITION" == "true" ]] \
             && evidence_args+=(--core-evidence-bindings-transition)
+          runtime_call_args=()
+          [[ "$RUNTIME_CALL_EVIDENCE_TRANSITION" == "true" ]] \
+            && runtime_call_args+=(--runtime-call-evidence-transition)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition --resolved-models-digest "$RESOLVED_MODELS_DIGEST")
@@ -811,6 +868,7 @@ jobs:
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${evidence_args[@]}" \
+            "${runtime_call_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}"
 
@@ -835,6 +893,7 @@ jobs:
           DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
+          RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
         run: |
@@ -850,6 +909,9 @@ jobs:
           evidence_args=()
           [[ "$CORE_EVIDENCE_BINDINGS_TRANSITION" == "true" ]] \
             && evidence_args+=(--core-evidence-bindings-transition)
+          runtime_call_args=()
+          [[ "$RUNTIME_CALL_EVIDENCE_TRANSITION" == "true" ]] \
+            && runtime_call_args+=(--runtime-call-evidence-transition)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition)
@@ -881,6 +943,7 @@ jobs:
             "${database_args[@]}" \
             "${recovery_args[@]}" \
             "${evidence_args[@]}" \
+            "${runtime_call_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
@@ -1004,6 +1067,7 @@ jobs:
           DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
+          RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
         run: |
@@ -1020,6 +1084,9 @@ jobs:
           evidence_args=()
           [[ "$CORE_EVIDENCE_BINDINGS_TRANSITION" == "true" ]] \
             && evidence_args+=(--core-evidence-bindings-transition)
+          runtime_call_args=()
+          [[ "$RUNTIME_CALL_EVIDENCE_TRANSITION" == "true" ]] \
+            && runtime_call_args+=(--runtime-call-evidence-transition)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition)
@@ -1053,6 +1120,7 @@ jobs:
             "${database_args[@]}" \
             "${recovery_args[@]}" \
             "${evidence_args[@]}" \
+            "${runtime_call_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
@@ -1070,6 +1138,7 @@ jobs:
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${evidence_args[@]}" \
+            "${runtime_call_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST"
@@ -1170,8 +1239,21 @@ jobs:
             echo "SERVICE_DEPLOY_TFVARS_JSON is required for channel-edge rollback." >&2
             exit 1
           }
+          runtime_call_evidence_binding="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" \
+              output -json runtime_call_evidence_binding 2>/dev/null || printf 'null\n'
+          )"
+          jq -e '
+            type == "object" and
+            keys == ["caller_resource_id", "target_resource_id"] and
+            all(.[]; type == "string" and startswith("/subscriptions/"))
+          ' <<<"$runtime_call_evidence_binding" >/dev/null || {
+            echo "Channel-edge rollback requires the runtime-call evidence binding." >&2
+            exit 1
+          }
           printf '%s' "$SERVICE_TFVARS_JSON" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+            | RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
+              python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service operator-service \
                 --environment "${{ inputs.environment }}" \
                 --operator-channel-edge-enabled false \

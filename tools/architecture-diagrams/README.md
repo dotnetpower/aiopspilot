@@ -308,3 +308,10 @@ every future correction into a required test update instead of the safety
 net it is meant to be; treat such a discrepancy between the test and the
 diagram's own current source as a translation bug in the diagram, not a
 reason to leave the assertion unchanged.
+
+Every documentation page that embeds one or more owned diagrams should have
+page-scoped regression coverage for those diagrams somewhere under `test/`
+(model-level, like `risk-tiers.test.ts`, or page-level via the site test
+suite). `shadow-then-enforce.test.ts` closes a gap for a page that predated
+this expectation: it had correct diagram content but no dedicated regression
+test.
