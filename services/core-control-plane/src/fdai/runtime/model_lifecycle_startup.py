@@ -25,7 +25,12 @@ from fdai.rule_catalog.schema.model_lifecycle_review import (
 from fdai.shared.providers.state_store import StateStore
 
 _HEAD_SHA = re.compile(r"^[a-f0-9]{40}$")
-_PROPOSAL_SCHEMA = "fdai.model-lifecycle-proposal.v3"
+_PROPOSAL_SCHEMAS = frozenset(
+    {
+        "fdai.model-lifecycle-proposal.v3",
+        "fdai.model-lifecycle-proposal.v4",
+    }
+)
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 
 
@@ -166,7 +171,7 @@ def _trusted_proposal(observation: Mapping[str, object]) -> ModelLifecyclePropos
     if not isinstance(raw, Mapping):
         raise ValueError("model lifecycle observation proposal is invalid")
     if (
-        raw.get("schema_version") != _PROPOSAL_SCHEMA
+        raw.get("schema_version") not in _PROPOSAL_SCHEMAS
         or raw.get("status") != "proposal"
         or raw.get("activation_authority") is not False
     ):

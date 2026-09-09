@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 16609d74a0ef59f94d00152e490b04a7fdcfd8c2
-translation_revised: 2026-09-08
+translation_source_sha: 9f875b25052b9e547fac0a6708ffe549d98054ad
+translation_revised: 2026-09-09
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -252,7 +252,9 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
   audience, 정확한 secret 신원, 크기, JSON 구조, 활성화 및 만료 상태, 전체 마감을 검증하면서
   값을 노출하지 않습니다. 수명 주기 전용 조립이 이 출처를 구성하고 애플리케이션 lifespan이
   하나의 비동기 소유자를 호출합니다. 이 소유자는 후속 서비스를 시작하기 전에 기능 바인딩과
-  수명 주기 보류 평가에 변경 불가능한 출처 리비전 하나를 발행합니다.
+  수명 주기 보류 평가에 변경 불가능한 출처 리비전 하나를 발행합니다. 로컬 Azure 서술기는 이
+  소유자가 리비전을 발행할 때까지 대상 구성을 미룹니다. 동기 조립은 파일이나 인라인 출처를
+  다시 읽지 않습니다.
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
 - **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을

@@ -412,9 +412,9 @@ corresponding protocols. Otherwise the existing single-route behavior remains un
 
 ### Reconciler Job
 
-The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never changes the live mapping.
-Proposal schema v2 compares SKU and effective capacity unit/value in addition to family, publisher, and status, so an in-place scale or replacement cannot be misclassified as no change.
-An expired unmerged replacement lowers the capability to human review, and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
+The [Model Capability Lifecycle reconciler](model-capability-lifecycle.md#reconciler-job) compares exact family,
+version, publisher, SKU, capacity, and status, normalizes deprecations within 60 days, and opens only an
+idempotent draft PR. It never changes the live mapping; acceptance still needs Owner review and shadow replay.
 
 ### Mixed-Model Family Strategies
 

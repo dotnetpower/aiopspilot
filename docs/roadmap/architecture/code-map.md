@@ -26,11 +26,10 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
-- **Operator startup revision fence:** Production Operator composition delegates resolved-model
-  source construction to a focused lifecycle module and verifies the immutable digest before Cost
-  Governance projections or any other lifecycle bridge starts.
-  The fence grants no mapping, assessment, or execution authority. If startup fails, composition
-  attempts every acquired service cleanup and reports cleanup errors with the original failure.
+- **Operator startup revision fence:** Production Operator composition delegates resolved-model source
+  construction, verifies its immutable digest, and validates local Azure narrator targets from that
+  revision before Cost Governance or other lifecycle bridges start. The fence grants no mapping,
+  assessment, or execution authority; startup failure cleans up every acquired service.
 - **Platform-to-service bindings:** Root Terraform exports reviewed targets and Key Vault references.
   Protected deployment validates them, and its bot wrapper accepts only exact service plans. For
   public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest,

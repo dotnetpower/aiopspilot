@@ -12,6 +12,9 @@ from typing import Any, cast
 
 import fdai_operator_service.composition as operator_composition
 import pytest
+from fdai_operator_service.adapters.local_narrator import (
+    StartupOwnedLocalAzureNarratorAdapters,
+)
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
@@ -55,7 +58,10 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
 )
 from fdai_operator_service.local_auth import AzureCliIdentityError, LocalAzureCliIdentity
 from fdai_operator_service.main import SERVICE
-from fdai_operator_service.model_lifecycle_startup import ConfiguredResolvedModelsSource
+from fdai_operator_service.model_lifecycle_startup import (
+    ConfiguredResolvedModelsSource,
+    OperatorResolvedModelsRevisionOwner,
+)
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
@@ -106,6 +112,14 @@ class _ResolvedModelsSource:
     async def load(self) -> _ResolvedModelsArtifact:
         self.loads += 1
         return self.artifact
+
+
+def _local_narrator_content() -> str:
+    return (
+        '{"capabilities":[],"narrator":{'
+        '"endpoint":"https://example.openai.azure.com",'
+        '"deployment":"narrator","api_version":"2024-08-01-preview"}}'
+    )
 
 
 EXPECTED_ROUTES = (
@@ -261,6 +275,92 @@ async def test_production_lifecycle_rejects_operator_revision_mismatch() -> None
         }
     )
 
+    assert runtime.lifecycle is not None
+    with pytest.raises(ValueError, match="deployment binding"):
+        await runtime.lifecycle.start()
+
+    assert source.loads == 1
+
+
+@pytest.mark.asyncio
+async def test_local_narrator_defers_binding_to_startup_owner() -> None:
+    source = _ResolvedModelsSource(_local_narrator_content())
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        resolved_models_source=source,
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            LOCAL_AZURE_NARRATOR_ENV: "1",
+            "RUNTIME_ENV": "dev",
+            "LLM_RESOLVED_MODELS_SHA256": source.artifact.digest,
+        }
+    )
+
+    assert source.loads == 0
+    assert isinstance(runtime.lifecycle, operator_composition._CompositeLifecycle)
+    owner = runtime.lifecycle.services[0]
+    assert isinstance(owner, OperatorResolvedModelsRevisionOwner)
+    narrator = runtime.lifecycle.services[1]
+    assert isinstance(narrator, StartupOwnedLocalAzureNarratorAdapters)
+    scheduler = next(
+        service
+        for service in runtime.lifecycle.services
+        if isinstance(service, PeriodicNarratorRefreshScheduler)
+    )
+    assert isinstance(scheduler.refresher, StartupOwnedLocalAzureNarratorAdapters)
+
+    await owner.start()
+    await narrator.start()
+    await runtime.lifecycle.aclose()
+
+    assert source.loads == 1
+
+
+@pytest.mark.asyncio
+async def test_local_narrator_rejects_unbindable_revision_during_startup() -> None:
+    source = _ResolvedModelsSource('{"capabilities":[]}')
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        resolved_models_source=source,
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            LOCAL_AZURE_NARRATOR_ENV: "1",
+            "RUNTIME_ENV": "dev",
+            "LLM_RESOLVED_MODELS_SHA256": source.artifact.digest,
+        }
+    )
+
+    assert runtime.lifecycle is not None
+    with pytest.raises(ValueError, match="no usable narrator candidate"):
+        await runtime.lifecycle.start()
+
+    assert source.loads == 1
+
+
+@pytest.mark.asyncio
+async def test_local_narrator_revision_mismatch_fails_before_scheduler() -> None:
+    source = _ResolvedModelsSource(_local_narrator_content())
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        resolved_models_source=source,
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            LOCAL_AZURE_NARRATOR_ENV: "1",
+            "RUNTIME_ENV": "dev",
+            "LLM_RESOLVED_MODELS_SHA256": "0" * 64,
+        }
+    )
+
+    assert source.loads == 0
     assert runtime.lifecycle is not None
     with pytest.raises(ValueError, match="deployment binding"):
         await runtime.lifecycle.start()
@@ -981,15 +1081,11 @@ def test_recorded_state_route_and_source_are_common_to_both_venues(
     assert getattr(route, "name", "") == "ontology_instance_states"
 
 
-def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
-    model_path = tmp_path / "models.json"
-    content = (
-        '{"narrator":{"endpoint":"https://example.openai.azure.com",'
-        '"deployment":"narrator","api_version":"2024-08-01-preview"}}'
-    )
-    model_path.write_text(content, encoding="utf-8")
+def test_local_narrator_binds_periodic_scheduler_lifecycle() -> None:
+    source = _ResolvedModelsSource(_local_narrator_content())
     runtime = ProductionOperatorComposition(
-        verifier_factory=lambda environment: _verify
+        verifier_factory=lambda environment: _verify,
+        resolved_models_source=source,
     ).build_runtime(
         {
             **BASE_ENV,
@@ -998,8 +1094,7 @@ def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> No
             LOCAL_AZURE_NARRATOR_ENV: "1",
             NARRATOR_PROBE_INTERVAL_ENV: "30",
             "RUNTIME_ENV": "dev",
-            "LLM_RESOLVED_MODELS_PATH": str(model_path),
-            "LLM_RESOLVED_MODELS_SHA256": hashlib.sha256(content.encode()).hexdigest(),
+            "LLM_RESOLVED_MODELS_SHA256": source.artifact.digest,
         }
     )
 
@@ -1010,6 +1105,8 @@ def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> No
         if isinstance(service, PeriodicNarratorRefreshScheduler)
     )
     assert scheduler.interval_seconds == 30
+    assert isinstance(scheduler.refresher, StartupOwnedLocalAzureNarratorAdapters)
+    assert source.loads == 0
 
 
 @pytest.mark.parametrize(
