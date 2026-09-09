@@ -27,6 +27,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticPlanningModelResponse,
 )
+from fdai.core.prompts import estimate_chat_request_tokens
 from fdai.core.prompts.types import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
@@ -368,9 +369,14 @@ class AzureOpenAISemanticPlanningModel:
             )
             return None
         prompt_manifest = self._prompt_manifest(prompt)
-        request_token_estimate = (
-            len(system_content) + len(user_content) + 3
-        ) // 4 + self._config.max_tokens
+        request_token_estimate = estimate_chat_request_tokens(
+            messages=(
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ),
+            response_format={"type": "json_object"},
+            reserved_output_tokens=self._config.max_tokens,
+        )
         if (
             prompt_manifest is not None
             and prompt_manifest.request_token_budget is not None
