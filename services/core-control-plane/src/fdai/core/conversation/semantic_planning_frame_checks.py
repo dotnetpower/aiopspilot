@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from fdai_service_contracts.ontology_query import SemanticOperation
+from fdai_service_contracts.semantic_judgment import SemanticDiscourseMode
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
@@ -114,6 +115,12 @@ def deterministic_pre_frame_outcome(
 ) -> SemanticPlanningOutcome | None:
     """Return deterministic short-circuit outcomes before model frame proposal."""
 
+    if judgment is not None and judgment.discourse_mode is not SemanticDiscourseMode.DIRECT:
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_non_direct_discourse",
+            manifest_digest=manifest_digest,
+        )
     if (
         judgment is not None
         and judgment.primary_intent
