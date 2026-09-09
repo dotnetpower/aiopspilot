@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 043ae1ad0ee154e04d81de0dfa677627b16ea085
+translation_source_sha: 462b0a714f59da3423fa20d75ba8e25613b526ff
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -60,7 +60,7 @@ Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행합니다
 서술자 범위와 전체 요청의 64KiB 상한을 적용합니다. 전체 판단은 selector 순서를 보존하는 32 KiB 후보 전용 기능 변환 결과를 사용하고, 수락된 Resource 이벤트 이력 의도는 frame 서술자를 정확한 `Resource` 및 `query.resource_event_history` 선언으로 축소합니다.
 정확한 F1-F4 형식에서는 preflight가 출처가 결속된 후보 의미를 제공해 직렬 전체 의미 판단 호출 하나를
 제거할 수도 있습니다. Core는 이를 재사용하기 전에 현재 입력 digest, 원문 범위, 확신도, 맥락
-독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다. 이후의 모든 운영 요약에는 수락된 일치 판단이 필요하며, 영어 `subscription` 명사 앞뒤의 범위가 제한된 Unicode 이름은 지정된 범위로 유지합니다. 타입이 지정된 `quoted` 또는 `hypothetical` 판단은 frame 선택 전에 종료되므로 모델 frame이나 서버 소유 대상 후보 대체 경로가 전달되거나 조건부로 제시된 작업 언어를 운영 읽기로 다시 해석할 수 없습니다. `direct` 판단은 인용절 밖에 별도로 명시된 읽기를 계속 계획할 수 있습니다.
+독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다. 이후의 모든 운영 요약에는 수락된 일치 판단이 필요하며, 영어 `subscription` 명사 앞뒤의 범위가 제한된 Unicode 이름은 지정된 범위로 유지합니다. 타입이 지정된 `quoted` 또는 `hypothetical` 판단은 frame 선택 전에 종료되므로 모델 frame이나 서버 소유 대상 후보 대체 경로가 전달되거나 조건부로 제시된 작업 언어를 운영 읽기로 다시 해석할 수 없습니다. `direct` 판단은 인용절 밖에 별도로 명시된 읽기를 계속 계획할 수 있습니다. `semantic_action_guidance.py`는 매니페스트에 근거하고 수락된 `action_requirements` 장애 주제만 범위가 제한된 무권한 안내로 바꾸며, 결속되지 않은 `draft_only` 완화 요청은 형식화된 장애 참조 명확화로 유지합니다.
 정확한 Resource 현재 상태 preflight는 전체 이름 또는 Resource ID 하나를
 `query.resource_current_state`에 결속합니다. 결과 ObjectSet은 관계를 제외하며 식별자 안에서 찾은
 catalog 값 필터를 추가하지 않습니다.

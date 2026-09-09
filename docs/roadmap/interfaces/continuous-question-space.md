@@ -89,7 +89,7 @@ Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 - **Question bank:** 7 domains, 13 categories, and 400 questions.
 - **Agent accountability:** 15 fixed agents and all 47 Pantheon question domains.
 - **Ontology planning:** all 36 declared `query.*` FunctionTypes.
-- **Reviewed assurance:** all 12 Golden categories and the 16-case Azure and incident intent
+- **Reviewed assurance:** all 12 Golden categories and the 24-case Azure and incident intent
   contract.
 
 CQAS defines 93 metrics in four conjunctive pillars. A model change passes only when every required
@@ -120,6 +120,11 @@ boundary. Core deterministically builds the exact manifest count, declaration de
 single-ObjectType relationship frame and compiles its closed FunctionType arguments. This avoids a
 second model-dependent frame or plan decision without introducing a phrase or keyword route.
 
+The Azure and incident intent contract includes English and Korean original-plus-three cohorts for
+targetless review-only incident mitigation requirements. Every case requires `action_requirements`,
+a source-grounded `Incident` type, `advise_only`, no incident identity, and no authority. The
+separate targetless draft control remains a typed incident-identity clarification.
+
 Unsupported slices are `not_scored`; an empty denominator never becomes 100%. Promotion requires
 scored support for every required topic, locale, discourse mode, evidence posture, action posture,
 and presentation scenario. Safety, unsupported claims, invented values, and model-regression
@@ -131,7 +136,7 @@ functions covered by any reviewed intent contract. Pantheon-to-semantic-case cov
 because no reviewed crosswalk exists. The generator reports zero rather than guessing from labels.
 Golden answer oracles cover 35/35 cases, and all 13 presentation block kinds have a Console
 registration. Question-level presentation oracles and repository-owned paired model cases are both
-0/400. Therefore the earlier 16-case intent measurements apply only to question understanding;
+0/400. Therefore the 24-case intent measurements apply only to question understanding;
 answer fidelity, presentation quality, and model invariance remain `not_scored` until their
 controlled evidence exists.
 
@@ -141,7 +146,7 @@ controlled evidence exists.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Conversation quality assurance scorecard | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`; `scripts/automation/conversation_quality_sources.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; focused drift and invariant tests | CQAS defines 93 question, answer, presentation, and model-invariance metrics. It derives evaluation axes from current answer-adequacy and presentation contracts, keeps unsupported slices unscored, and grants no authority. |
+| Conversation quality assurance scorecard | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; bilingual Azure/Incident replay and focused invariant tests | CQAS defines 93 metrics and now covers 24 Azure/Incident intent cases, including the targetless mitigation-requirements cohorts. Unsupported slices remain unscored, and no result grants authority. |
 | Federated question-bank inventory | implemented | `eval/golden-dataset/question-bank/`; official question-bank generator; focused question-bank and Golden dataset checks (`19 passed`) | The generated inventory contains 400 logical questions from 11 source files. The 50 current-resource SRE candidates cover 19 generic Azure resource types, require server-owned scope, remain read-only, and retain `execution_authority=false`. Candidate membership does not certify runtime binding or live evidence. |
 | Semantic capability bridge | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; focused capability and composition checks | `query.ontology_declaration` is bound in production composition. Release diff, evidence health, and inventory impact remain visible as `runtime_binding_unavailable` until their exact providers or server-owned anchor are bound. |
 | Seven-perspective universe | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; focused universe and selection checks | Applicability is non-Cartesian. Case identity includes locale, case class, perspective, capability, evidence posture, anchor, terminal posture, action posture, Rule state, depth, and result bound. Active and collected Rule cases are distinct. |
@@ -167,6 +172,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Expanded the Azure/Incident intent contract from 16 to 24 cases with English and Korean original-plus-three targetless mitigation-requirements cohorts and regenerated the CQAS source digest. | `current change`; focused Golden replay, semantic planning, terminal presentation, generated-artifact drift, Ruff, and mypy checks. | Run authenticated exact-source model evidence separately before promoting or claiming live quality. |
 | 2026-09-10 | implemented | Added ten principal-catalog schema canaries for Approval, Decision, Observation, Rule, and ServiceObjective so the conditional repair can be evaluated in one fresh 10-question full-answer child without deleting duplicate history. | `current change`; typed contract, catalog-subject, watchdog, Ruff, and mypy checks. | Run one explicit 10-question child on the new challenge ids. |
 | 2026-09-10 | implemented | Tightened the conditional repair trigger to the exact CQAS schema contract after synonym-only primary facets caused repair fallback. | `current change`; five perfect conditional-repair-v2 schema cohorts and focused trigger/fallback tests. | Preserve global primary behavior and validate full answers when new unique questions are available. |
 | 2026-09-10 | validated | Conditional schema-repair v2 passed five distinct 10-question schema cohorts at 100% each. The trigger does not run for non-schema families; repeated v14 legacy primary accuracy still varied from 81.25% to 93.75%, so no global primary promotion occurred. | Five 50/50 local live schema artifacts; five legacy artifacts; zero read/action false positives and zero invented identities in every legacy run. | Validate full answer rendering on new questions when the immutable generator has new non-duplicate space; treat primary-model variance separately. |

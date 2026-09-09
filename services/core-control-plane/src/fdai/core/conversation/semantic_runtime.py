@@ -234,6 +234,7 @@ class SemanticConversationRuntime:
                 progress_observer=progress_observer,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
+                target_agent=target_agent,
             )
 
         if (
@@ -494,6 +495,7 @@ class SemanticConversationRuntime:
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
+        target_agent: str = "Bragi",
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
         planner = self._planner
@@ -526,6 +528,33 @@ class SemanticConversationRuntime:
         )
         if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:
             return _terminal("direct_response", planning.reason, planning)
+        if planning.disposition is SemanticPlanningDisposition.ADVISORY_RESPONSE:
+            if (
+                planning.advisory_response_intent is None
+                or planning.advisory_response_answer is None
+            ):
+                raise RuntimeError("typed advisory planning result is incomplete")
+            return SemanticTurnResult(
+                disposition="advisory_response",
+                reason=planning.reason,
+                planning=planning,
+                adaptive_answer=AdaptiveAnswer.model_validate(
+                    {
+                        "answer": planning.advisory_response_answer,
+                        "goals": (
+                            {
+                                "goal_id": planning.advisory_response_intent.value,
+                                "kind": "knowledge",
+                                "required": True,
+                                "status": "answered",
+                            },
+                        ),
+                        "role_agent": target_agent,
+                        "quality_status": "passed",
+                        "execution_authority": False,
+                    }
+                ),
+            )
         if planning.disposition is SemanticPlanningDisposition.CLARIFICATION:
             return _terminal("clarification", planning.reason, planning)
         if planning.disposition is SemanticPlanningDisposition.ACTION_DRAFT:

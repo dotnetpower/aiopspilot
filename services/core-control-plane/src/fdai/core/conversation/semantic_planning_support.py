@@ -28,6 +28,7 @@ from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
+    SemanticAdvisoryResponseIntent,
     SemanticDirectResponseIntent,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -333,6 +334,8 @@ def _outcome(
     clarification: str | None = None,
     direct_response_intent: SemanticDirectResponseIntent | None = None,
     direct_response_answer: str | None = None,
+    advisory_response_intent: SemanticAdvisoryResponseIntent | None = None,
+    advisory_response_answer: str | None = None,
     social_act: SocialAct = SocialAct.NONE,
     model_observations: tuple[SemanticJudgmentObservation, ...] = (),
 ) -> SemanticPlanningOutcome:
@@ -347,6 +350,8 @@ def _outcome(
         clarification=clarification,
         direct_response_intent=direct_response_intent,
         direct_response_answer=direct_response_answer,
+        advisory_response_intent=advisory_response_intent,
+        advisory_response_answer=advisory_response_answer,
         social_act=social_act,
         model_observations=model_observations,
     )

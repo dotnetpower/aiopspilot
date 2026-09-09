@@ -237,6 +237,38 @@ def normalize_required_identity_clarification(
     )
 
 
+def normalize_incident_mitigation_identity_clarification(
+    proposal: SemanticJudgmentProposal,
+    *,
+    bound_incident: bool,
+    locale: str,
+) -> SemanticJudgmentProposal:
+    """Require one incident identity before an unbound mitigation draft."""
+
+    if (
+        bound_incident
+        or proposal.primary_intent != "action_request"
+        or proposal.action_posture != "draft_only"
+        or proposal.action_subject != "Incident"
+        or "incident_mitigation" not in proposal.requested_facets
+        or any(target.kind == "incident_id" for target in proposal.targets)
+    ):
+        return proposal
+    clarification = (
+        "완화 초안에 사용할 정확한 장애 ID는 무엇인가요?"
+        if locale == "ko"
+        else "Which exact incident ID should the mitigation draft use?"
+    )
+    return proposal.model_copy(
+        update={
+            "ambiguous": True,
+            "alternatives": (),
+            "unresolved_terms": ("incident_identity",),
+            "clarification": clarification,
+        }
+    )
+
+
 def normalize_overlapping_target_fragments(
     proposal: SemanticJudgmentProposal,
 ) -> SemanticJudgmentProposal:
@@ -396,7 +428,7 @@ def normalize_target_shape(proposal: SemanticJudgmentProposal) -> SemanticJudgme
     elif proposal.primary_intent == "query.contextual_resources":
         allowed = {"resource_group", "resource_type"}
     elif proposal.primary_intent == "action_requirements":
-        allowed = {"action_type", "resource_type"}
+        allowed = {"action_type", "object_type", "resource_type"}
     elif proposal.primary_intent == "action_request" and proposal.action_subject == "ActionType":
         allowed = {"action_type", "resource", "resource_type"}
     elif proposal.primary_intent == "action_request" and proposal.action_subject == "Incident":
@@ -517,10 +549,17 @@ def validate_required_target_shape(proposal: SemanticJudgmentProposal) -> None:
         and "resource_type" not in kinds
     ):
         raise ValueError("semantic compound state intent requires resource type")
-    elif proposal.primary_intent == "action_requirements" and not {
-        "action_type",
-        "resource_type",
-    }.intersection(kinds):
+    elif (
+        proposal.primary_intent == "action_requirements"
+        and not {"action_type", "resource_type"}.intersection(kinds)
+        and not (
+            "incident_mitigation" in facets
+            and any(
+                target.kind == "object_type" and target.canonical_value == "Incident"
+                for target in proposal.targets
+            )
+        )
+    ):
         raise ValueError("semantic action requirements require action or resource type")
     elif (
         proposal.primary_intent == "action_request"
@@ -534,6 +573,7 @@ def validate_required_target_shape(proposal: SemanticJudgmentProposal) -> None:
         and proposal.action_subject == "Incident"
         and "incident_mitigation" in facets
         and "incident_id" not in kinds
+        and not (proposal.ambiguous and proposal.unresolved_terms == ("incident_identity",))
     ):
         raise ValueError("semantic incident mitigation requires incident id")
 
