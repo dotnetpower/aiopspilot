@@ -42,6 +42,22 @@ _RESOURCE_PATHS: Final[tuple[tuple[str, str, bool, str, str], ...]] = (
     ("/api/v1/services", "kubernetes.service", True, "v1", "Service"),
     ("/api/v1/endpoints", "kubernetes.endpoints", True, "v1", "Endpoints"),
     (
+        "/api/v1/persistentvolumeclaims",
+        "kubernetes.persistent-volume-claim",
+        True,
+        "v1",
+        "PersistentVolumeClaim",
+    ),
+    (
+        "/api/v1/persistentvolumes",
+        "kubernetes.persistent-volume",
+        False,
+        "v1",
+        "PersistentVolume",
+    ),
+    ("/api/v1/resourcequotas", "kubernetes.resource-quota", True, "v1", "ResourceQuota"),
+    ("/api/v1/limitranges", "kubernetes.limit-range", True, "v1", "LimitRange"),
+    (
         "/apis/discovery.k8s.io/v1/endpointslices",
         "kubernetes.endpoint-slice",
         True,
@@ -55,6 +71,20 @@ _RESOURCE_PATHS: Final[tuple[tuple[str, str, bool, str, str], ...]] = (
     ("/apis/apps/v1/daemonsets", "kubernetes.daemon-set", True, "apps/v1", "DaemonSet"),
     ("/apis/apps/v1/statefulsets", "kubernetes.stateful-set", True, "apps/v1", "StatefulSet"),
     (
+        "/apis/autoscaling/v2/horizontalpodautoscalers",
+        "kubernetes.horizontal-pod-autoscaler",
+        True,
+        "autoscaling/v2",
+        "HorizontalPodAutoscaler",
+    ),
+    (
+        "/apis/policy/v1/poddisruptionbudgets",
+        "kubernetes.pod-disruption-budget",
+        True,
+        "policy/v1",
+        "PodDisruptionBudget",
+    ),
+    (
         "/apis/networking.k8s.io/v1/ingresses",
         "kubernetes.ingress",
         True,
@@ -67,6 +97,20 @@ _RESOURCE_PATHS: Final[tuple[tuple[str, str, bool, str, str], ...]] = (
         False,
         "networking.k8s.io/v1",
         "IngressClass",
+    ),
+    (
+        "/apis/networking.k8s.io/v1/networkpolicies",
+        "kubernetes.network-policy",
+        True,
+        "networking.k8s.io/v1",
+        "NetworkPolicy",
+    ),
+    (
+        "/apis/storage.k8s.io/v1/storageclasses",
+        "kubernetes.storage-class",
+        False,
+        "storage.k8s.io/v1",
+        "StorageClass",
     ),
 )
 
@@ -354,6 +398,7 @@ def _resource_record(
     props.update(
         diagnostic_properties(
             resource_type=resource_type,
+            body=item,
             spec=spec if isinstance(spec, Mapping) else None,
             status=status if isinstance(status, Mapping) else None,
         )

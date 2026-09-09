@@ -54,6 +54,7 @@ def diagnostic_properties(
     resource_type: str,
     spec: Mapping[str, Any] | None,
     status: Mapping[str, Any] | None,
+    body: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     """Return allowlisted diagnostic facts without raw provider-controlled text."""
 
@@ -77,7 +78,257 @@ def diagnostic_properties(
                 props[f"{prefix}_{key}"] = value
     if spec is not None and resource_type == "kubernetes.pod":
         props.update(_pod_spec_properties(spec))
+    if resource_type == "kubernetes.persistent-volume-claim":
+        props.update(_persistent_volume_claim_properties(spec=spec, status=status))
+    elif resource_type == "kubernetes.persistent-volume":
+        props.update(_persistent_volume_properties(spec=spec, status=status))
+    elif resource_type == "kubernetes.storage-class" and body is not None:
+        props.update(_storage_class_properties(body))
+    elif resource_type == "kubernetes.horizontal-pod-autoscaler":
+        props.update(_horizontal_pod_autoscaler_properties(spec=spec, status=status))
+    elif resource_type == "kubernetes.pod-disruption-budget":
+        props.update(_pod_disruption_budget_properties(spec=spec, status=status))
+    elif resource_type == "kubernetes.network-policy" and spec is not None:
+        props.update(_network_policy_properties(spec))
+    elif resource_type == "kubernetes.resource-quota" and status is not None:
+        props.update(_resource_quota_properties(status))
+    elif resource_type == "kubernetes.limit-range" and spec is not None:
+        props.update(_limit_range_properties(spec))
     return props
+
+
+def _persistent_volume_claim_properties(
+    *,
+    spec: Mapping[str, Any] | None,
+    status: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    props: dict[str, object] = {}
+    if spec is not None:
+        for source_name, output_name in (
+            ("storageClassName", "storage_class_name"),
+            ("volumeMode", "volume_mode"),
+            ("volumeName", "volume_name"),
+        ):
+            value = _optional_text(spec.get(source_name))
+            if value is not None:
+                props[output_name] = value
+        access_modes = _string_sequence(spec.get("accessModes"), field="PVC accessModes")
+        if access_modes:
+            props["access_modes"] = access_modes
+        resources = spec.get("resources")
+        if resources is not None and not isinstance(resources, Mapping):
+            raise ValueError("Kubernetes PVC resources MUST be an object")
+        requests = resources.get("requests") if isinstance(resources, Mapping) else None
+        if isinstance(requests, Mapping):
+            requested = _optional_text(requests.get("storage"))
+            if requested is not None:
+                props["requested_storage"] = requested
+    if status is not None:
+        phase = _optional_text(status.get("phase"))
+        if phase is not None:
+            props["phase"] = phase
+        capacity = status.get("capacity")
+        if isinstance(capacity, Mapping):
+            storage = _optional_text(capacity.get("storage"))
+            if storage is not None:
+                props["capacity_storage"] = storage
+    return props
+
+
+def _persistent_volume_properties(
+    *,
+    spec: Mapping[str, Any] | None,
+    status: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    props: dict[str, object] = {}
+    if spec is not None:
+        for source_name, output_name in (
+            ("persistentVolumeReclaimPolicy", "reclaim_policy"),
+            ("storageClassName", "storage_class_name"),
+            ("volumeMode", "volume_mode"),
+        ):
+            value = _optional_text(spec.get(source_name))
+            if value is not None:
+                props[output_name] = value
+        capacity = spec.get("capacity")
+        if isinstance(capacity, Mapping):
+            storage = _optional_text(capacity.get("storage"))
+            if storage is not None:
+                props["capacity_storage"] = storage
+        claim_ref = spec.get("claimRef")
+        if claim_ref is not None:
+            if not isinstance(claim_ref, Mapping):
+                raise ValueError("Kubernetes PV claimRef MUST be an object")
+            for source_name, output_name in (
+                ("name", "claim_name"),
+                ("namespace", "claim_namespace"),
+                ("uid", "claim_uid"),
+            ):
+                value = _optional_text(claim_ref.get(source_name))
+                if value is not None:
+                    props[output_name] = value
+    if status is not None:
+        phase = _optional_text(status.get("phase"))
+        if phase is not None:
+            props["phase"] = phase
+        reason = _optional_text(status.get("reason"))
+        if reason is not None:
+            props["reason"] = reason
+    return props
+
+
+def _storage_class_properties(body: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    for source_name, output_name in (
+        ("provisioner", "provisioner"),
+        ("reclaimPolicy", "reclaim_policy"),
+        ("volumeBindingMode", "volume_binding_mode"),
+    ):
+        value = _optional_text(body.get(source_name))
+        if value is not None:
+            props[output_name] = value
+    expansion = body.get("allowVolumeExpansion")
+    if expansion is not None:
+        if not isinstance(expansion, bool):
+            raise ValueError("Kubernetes StorageClass allowVolumeExpansion MUST be boolean")
+        props["allow_volume_expansion"] = expansion
+    return props
+
+
+def _horizontal_pod_autoscaler_properties(
+    *,
+    spec: Mapping[str, Any] | None,
+    status: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    props: dict[str, object] = {}
+    if spec is not None:
+        target = spec.get("scaleTargetRef")
+        if target is not None:
+            if not isinstance(target, Mapping):
+                raise ValueError("Kubernetes HPA scaleTargetRef MUST be an object")
+            for source_name, output_name in (
+                ("apiVersion", "scale_target_api_version"),
+                ("kind", "scale_target_kind"),
+                ("name", "scale_target_name"),
+            ):
+                value = _optional_text(target.get(source_name))
+                if value is not None:
+                    props[output_name] = value
+        for source_name, output_name in (
+            ("minReplicas", "min_replicas"),
+            ("maxReplicas", "max_replicas"),
+        ):
+            value = spec.get(source_name)
+            if value is not None:
+                props[output_name] = _non_negative_int(value, field=f"HPA {source_name}")
+    if status is not None:
+        for source_name, output_name in (
+            ("currentReplicas", "current_replicas"),
+            ("desiredReplicas", "desired_replicas"),
+        ):
+            value = status.get(source_name)
+            if value is not None:
+                props[output_name] = _non_negative_int(value, field=f"HPA {source_name}")
+    return props
+
+
+def _pod_disruption_budget_properties(
+    *,
+    spec: Mapping[str, Any] | None,
+    status: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    props: dict[str, object] = {}
+    if spec is not None:
+        selector = _match_labels(spec.get("selector"))
+        if selector:
+            props["selector"] = selector
+        for source_name, output_name in (
+            ("minAvailable", "min_available"),
+            ("maxUnavailable", "max_unavailable"),
+        ):
+            value = spec.get(source_name)
+            if isinstance(value, (int, str)) and not isinstance(value, bool):
+                props[output_name] = str(value)
+    if status is not None:
+        for source_name, output_name in (
+            ("currentHealthy", "current_healthy"),
+            ("desiredHealthy", "desired_healthy"),
+            ("disruptionsAllowed", "disruptions_allowed"),
+            ("expectedPods", "expected_pods"),
+        ):
+            value = status.get(source_name)
+            if value is not None:
+                props[output_name] = _non_negative_int(value, field=f"PDB {source_name}")
+    return props
+
+
+def _network_policy_properties(spec: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    selector = _match_labels(spec.get("podSelector"))
+    if selector:
+        props["selector"] = selector
+    policy_types = _string_sequence(spec.get("policyTypes"), field="NetworkPolicy policyTypes")
+    if policy_types:
+        props["policy_types"] = policy_types
+    for source_name, output_name in (
+        ("ingress", "ingress_rule_count"),
+        ("egress", "egress_rule_count"),
+    ):
+        value = spec.get(source_name)
+        if value is not None:
+            props[output_name] = len(
+                _mapping_sequence(
+                    value,
+                    field=f"NetworkPolicy {source_name}",
+                    limit=_MAX_SCHEDULING_ITEMS,
+                )
+            )
+    return props
+
+
+def _resource_quota_properties(status: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    for source_name, output_name in (("hard", "quota_hard"), ("used", "quota_used")):
+        values = _bounded_text_mapping(
+            status.get(source_name), field=f"ResourceQuota {source_name}"
+        )
+        if values:
+            props[output_name] = values
+    return props
+
+
+def _limit_range_properties(spec: Mapping[str, Any]) -> dict[str, object]:
+    rows = _mapping_sequence(
+        spec.get("limits"),
+        field="LimitRange limits",
+        limit=_MAX_SCHEDULING_ITEMS,
+        allow_none=True,
+    )
+    summaries: list[dict[str, object]] = []
+    for row in rows:
+        summary: dict[str, object] = {"type": _required_text(row.get("type"), field="limit type")}
+        for source_name, output_name in (
+            ("default", "default"),
+            ("defaultRequest", "default_request"),
+            ("max", "max"),
+            ("min", "min"),
+        ):
+            values = _bounded_text_mapping(row.get(source_name), field=f"LimitRange {source_name}")
+            if values:
+                summary[output_name] = values
+        summaries.append(summary)
+    return {"limit_summaries": tuple(summaries)} if summaries else {}
+
+
+def _match_labels(value: object) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ValueError("Kubernetes label selector MUST be an object")
+    expressions = value.get("matchExpressions")
+    if expressions not in (None, []):
+        raise ValueError("Kubernetes diagnostic selector expressions are not supported")
+    return _string_mapping(value.get("matchLabels"))
 
 
 def _conditions(value: object, *, resource_type: str) -> tuple[dict[str, object], ...]:
@@ -300,6 +551,22 @@ def _quantity_mapping(value: object) -> dict[str, str]:
     return dict(sorted(output.items()))
 
 
+def _bounded_text_mapping(value: object, *, field: str) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping) or len(value) > _MAX_SCHEDULING_ITEMS:
+        raise ValueError(f"Kubernetes {field} MUST be a bounded object")
+    return dict(
+        sorted(
+            (
+                _required_text(key, field=f"{field} key"),
+                _required_text(item, field=f"{field} value"),
+            )
+            for key, item in value.items()
+        )
+    )
+
+
 def _string_mapping(value: object) -> dict[str, str]:
     if value is None:
         return {}
@@ -314,6 +581,24 @@ def _string_mapping(value: object) -> dict[str, str]:
             for key, item in value.items()
         )
     )
+
+
+def _string_sequence(value: object, *, field: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes))
+        or len(value) > _MAX_SCHEDULING_ITEMS
+    ):
+        raise ValueError(f"Kubernetes {field} MUST be a bounded array")
+    return tuple(sorted({_required_text(item, field=field) for item in value}))
+
+
+def _non_negative_int(value: object, *, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"Kubernetes {field} MUST be a non-negative integer")
+    return value
 
 
 def _mapping_sequence(

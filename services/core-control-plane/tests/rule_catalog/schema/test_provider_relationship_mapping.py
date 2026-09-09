@@ -108,7 +108,7 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 97
+    assert len(loaded.mappings) == 107
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -118,6 +118,8 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "kubernetes.pod-scheduled-on-node": "kubernetes_scheduled_on",
         "kubernetes.resource-owned-by-controller": "kubernetes_owned_by",
         "kubernetes.service-selects-pod": "kubernetes_selects",
+        "kubernetes.pdb-selects-pod": "kubernetes_selects",
+        "kubernetes.network-policy-selects-pod": "kubernetes_selects",
     }
     for mapping in loaded.mappings:
         expected_link_type = special_link_types.get(mapping.mapping_id)
@@ -155,6 +157,7 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.vm-scale-set-contains-vm",
         "kubernetes.agent-pool-contains-node",
         "kubernetes.cluster-contains-ingress-class",
+        "kubernetes.cluster-contains-diagnostic-resource",
         "kubernetes.cluster-contains-namespace",
         "kubernetes.endpoint-slice-exposed-by-service",
         "kubernetes.namespace-contains-resource",
@@ -177,9 +180,15 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.web-app-depends-on-container-registry",
         "kubernetes.agent-pool-contains-node",
         "kubernetes.endpoint-slice-exposed-by-service",
+        "kubernetes.hpa-attached-to-daemon-set",
+        "kubernetes.hpa-attached-to-deployment",
+        "kubernetes.hpa-attached-to-replica-set",
+        "kubernetes.hpa-attached-to-stateful-set",
         "kubernetes.ingress-attached-to-class",
         "kubernetes.namespace-contains-resource",
         "kubernetes.pod-scheduled-on-node",
+        "kubernetes.pvc-attached-to-pv",
+        "kubernetes.pvc-depends-on-storage-class",
         "kubernetes.service-exposes-endpoints",
     }
     label_selectors = {
@@ -187,7 +196,11 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         for mapping in loaded.mappings
         if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR
     }
-    assert label_selectors == {"kubernetes.service-selects-pod"}
+    assert label_selectors == {
+        "kubernetes.network-policy-selects-pod",
+        "kubernetes.pdb-selects-pod",
+        "kubernetes.service-selects-pod",
+    }
 
     exact_identities = {
         mapping.mapping_id
@@ -196,6 +209,7 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     }
     assert exact_identities == {
         "kubernetes.cluster-contains-ingress-class",
+        "kubernetes.cluster-contains-diagnostic-resource",
         "kubernetes.cluster-contains-namespace",
     }
     provider_identities = {
@@ -209,7 +223,10 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         for mapping in loaded.mappings
         if mapping.reference_format is ProviderReferenceFormat.RESOLVED_NAMES
     }
-    assert resolved_name_sets == {"kubernetes.ingress-routes-to-service"}
+    assert resolved_name_sets == {
+        "kubernetes.ingress-routes-to-service",
+        "kubernetes.pod-depends-on-pvc",
+    }
     resolved_uids = {
         mapping.mapping_id
         for mapping in loaded.mappings

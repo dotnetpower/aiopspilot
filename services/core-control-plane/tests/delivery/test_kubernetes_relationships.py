@@ -184,6 +184,78 @@ def test_complete_snapshot_projects_ingress_and_endpoint_slice_relationships() -
     assert (SERVICE_ID, "kubernetes_exposes_endpoint_slice", endpoint_slice_id) in edges
 
 
+def test_complete_snapshot_projects_storage_policy_and_autoscale_relationships() -> None:
+    pvc_id = f"{CLUSTER_REF}/resource/pvc-data"
+    pv_id = f"{CLUSTER_REF}/resource/pv-data"
+    storage_class_id = f"{CLUSTER_REF}/resource/storage-class"
+    hpa_id = f"{CLUSTER_REF}/resource/hpa-api"
+    pdb_id = f"{CLUSTER_REF}/resource/pdb-api"
+    network_policy_id = f"{CLUSTER_REF}/resource/network-policy-api"
+    deployment_id = f"{CLUSTER_REF}/resource/deployment-api"
+    resources = (
+        *_resources(),
+        _resource(
+            pvc_id,
+            "kubernetes.persistent-volume-claim",
+            name="data",
+            extra={"volume_name": "pv-data", "storage_class_name": "managed-csi"},
+        ),
+        ResourceRecord(
+            resource_id=pv_id,
+            type="kubernetes.persistent-volume",
+            props={"cluster_ref": CLUSTER_REF, "name": "pv-data", "uid": "uid-pv"},
+            last_seen=OBSERVED_AT,
+        ),
+        ResourceRecord(
+            resource_id=storage_class_id,
+            type="kubernetes.storage-class",
+            props={"cluster_ref": CLUSTER_REF, "name": "managed-csi", "uid": "uid-sc"},
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(
+            deployment_id,
+            "kubernetes.deployment",
+            name="api",
+            labels={"app": "api"},
+        ),
+        _resource(
+            hpa_id,
+            "kubernetes.horizontal-pod-autoscaler",
+            name="api",
+            extra={"scale_target_kind": "Deployment", "scale_target_name": "api"},
+        ),
+        _resource(
+            pdb_id,
+            "kubernetes.pod-disruption-budget",
+            name="api",
+            selector={"app": "api"},
+        ),
+        _resource(
+            network_policy_id,
+            "kubernetes.network-policy",
+            name="api",
+            selector={"app": "api"},
+        ),
+    )
+
+    result = project_kubernetes_relationships(
+        resources,
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.dropped == ()
+    edges = {(link.from_id, link.link_type, link.to_id) for link in result.links}
+    assert (NAMESPACE_ID, "contains", pvc_id) in edges
+    assert (CLUSTER_REF, "contains", pv_id) in edges
+    assert (CLUSTER_REF, "contains", storage_class_id) in edges
+    assert (pvc_id, "attached_to", pv_id) in edges
+    assert (pvc_id, "depends_on", storage_class_id) in edges
+    assert (hpa_id, "attached_to", deployment_id) in edges
+    assert (pdb_id, "kubernetes_selects", POD_ID) in edges
+    assert (network_policy_id, "kubernetes_selects", POD_ID) in edges
+
+
 def test_reversed_snapshot_input_preserves_canonical_direction() -> None:
     catalog = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
 

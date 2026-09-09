@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8a9ddbf8dd27b6fa53c092b4a4d9fca920d89376
-translation_revised: 2026-09-09
+translation_source_sha: e70294a01d30c21a3a544d040c783ca3d7d7bf08
+translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -133,6 +133,11 @@ Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 �
 않습니다. 별도의 완전 세대 검증기가 변경할 수 없는 관측 메타데이터를 첨부한 뒤에만 인벤토리
 변환 결과가 두 관계를 노출할 수 있습니다. Production Kubernetes 인벤토리 연결과 보존된 조립
 증적은 아직 남아 있습니다.
+
+AKS 진단 근거 플레인은 정식 ResourceType 레지스트리에 PVC, PV, StorageClass, HPA, PDB,
+NetworkPolicy, ResourceQuota 및 LimitRange 신원을 추가합니다. 출처 스키마 v2는 검토된
+클러스터, 네임스페이스, 스토리지, 선택기 및 종류로 한정된 자동 확장 관계를 추가합니다. 이러한
+객체와 링크는 관측된 인벤토리 사실로 유지되며 진단, 정책, 승인 또는 실행 권한을 만들지 않습니다.
 
 Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
 사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된

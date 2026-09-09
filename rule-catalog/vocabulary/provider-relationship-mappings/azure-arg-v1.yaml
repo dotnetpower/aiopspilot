@@ -1183,8 +1183,8 @@ mappings:
     link_type: contains
     endpoint_orientation: referenced_to_owner
     source_schema: &kubernetes_inventory_schema
-      version: kubernetes-api-inventory-v1
-      digest: sha256:cd6ed8e6b0cdbb54a832797ebe42731f3b40f0e3b38c9c59f41d1bf3224e4fb4
+      version: kubernetes-api-inventory-v2
+      digest: sha256:b455318c9ba929e978a47d3538addf7fdb1f9f5b492c93f2137abe2aa46d3697
     evidence_method: deterministic-cross-check
     freshness: &kubernetes_freshness
       max_age_seconds: 300
@@ -1201,8 +1201,14 @@ mappings:
       - kubernetes.endpoints
       - kubernetes.ingress
       - kubernetes.job
+      - kubernetes.horizontal-pod-autoscaler
+      - kubernetes.limit-range
+      - kubernetes.network-policy
+      - kubernetes.persistent-volume-claim
       - kubernetes.pod
+      - kubernetes.pod-disruption-budget
       - kubernetes.replica-set
+      - kubernetes.resource-quota
       - kubernetes.service
       - kubernetes.stateful-set
     source_property_path: namespace
@@ -1233,6 +1239,22 @@ mappings:
     provider: kubernetes
     source_identity: kubernetes-api-inventory
     source_provider_types: [kubernetes.ingress-class]
+    source_property_path: cluster_ref
+    target_provider_types: [kubernetes-cluster]
+    reference_format: exact_identity
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.cluster-contains-diagnostic-resource
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types:
+      - kubernetes.persistent-volume
+      - kubernetes.storage-class
     source_property_path: cluster_ref
     target_provider_types: [kubernetes-cluster]
     reference_format: exact_identity
@@ -1305,6 +1327,144 @@ mappings:
     freshness: *kubernetes_freshness
     completeness: *completeness
 
+  - mapping_id: kubernetes.pod-depends-on-pvc
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.pod]
+    source_property_path: pvc_claim_names
+    target_provider_types: [kubernetes.persistent-volume-claim]
+    reference_format: resolved_names
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.pvc-attached-to-pv
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.persistent-volume-claim]
+    source_property_path: volume_name
+    target_provider_types: [kubernetes.persistent-volume]
+    reference_format: resolved_name
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.pvc-depends-on-storage-class
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.persistent-volume-claim]
+    source_property_path: storage_class_name
+    target_provider_types: [kubernetes.storage-class]
+    reference_format: resolved_name
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.hpa-attached-to-daemon-set
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.horizontal-pod-autoscaler]
+    source_property_path: scale_target_name
+    target_provider_types: [kubernetes.daemon-set]
+    reference_format: resolved_name
+    predicate:
+      property_path: scale_target_kind
+      equals: DaemonSet
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.hpa-attached-to-deployment
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.horizontal-pod-autoscaler]
+    source_property_path: scale_target_name
+    target_provider_types: [kubernetes.deployment]
+    reference_format: resolved_name
+    predicate:
+      property_path: scale_target_kind
+      equals: Deployment
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.hpa-attached-to-replica-set
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.horizontal-pod-autoscaler]
+    source_property_path: scale_target_name
+    target_provider_types: [kubernetes.replica-set]
+    reference_format: resolved_name
+    predicate:
+      property_path: scale_target_kind
+      equals: ReplicaSet
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.hpa-attached-to-stateful-set
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.horizontal-pod-autoscaler]
+    source_property_path: scale_target_name
+    target_provider_types: [kubernetes.stateful-set]
+    reference_format: resolved_name
+    predicate:
+      property_path: scale_target_kind
+      equals: StatefulSet
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.pdb-selects-pod
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.pod-disruption-budget]
+    source_property_path: selector
+    target_provider_types: [kubernetes.pod]
+    reference_format: label_selector
+    link_type: kubernetes_selects
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.network-policy-selects-pod
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.network-policy]
+    source_property_path: selector
+    target_provider_types: [kubernetes.pod]
+    reference_format: label_selector
+    link_type: kubernetes_selects
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
   - mapping_id: kubernetes.service-exposes-endpoints
     provider: kubernetes
     source_identity: kubernetes-api-inventory
@@ -1365,4 +1525,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-09-06T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:766b81b2140154f739f9c3ca2e2abb8cf98c1cc32f319a1a0a680b4580ccc9db
+  content_hash: sha256:6d312e6e48dd5f97ae575a8032f24e4f85e2be754798463b7af5ed25a44dd898

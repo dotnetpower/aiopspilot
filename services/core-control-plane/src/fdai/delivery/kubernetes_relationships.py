@@ -21,14 +21,18 @@ from fdai.shared.providers.inventory import (
     ResourceRecord,
 )
 
-KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_VERSION = "kubernetes-api-inventory-v1"
+KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_VERSION = "kubernetes-api-inventory-v2"
 _KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA = (
     "resource_types=kubernetes.cron-job,kubernetes.daemon-set,kubernetes.deployment,"
     "kubernetes.endpoint-slice,kubernetes.endpoints,kubernetes.ingress,"
-    "kubernetes.ingress-class,kubernetes.job,kubernetes.namespace,kubernetes.node,"
-    "kubernetes.pod,kubernetes.replica-set,kubernetes.service,kubernetes.stateful-set;"
+    "kubernetes.ingress-class,kubernetes.horizontal-pod-autoscaler,kubernetes.job,"
+    "kubernetes.limit-range,kubernetes.namespace,kubernetes.network-policy,kubernetes.node,"
+    "kubernetes.persistent-volume,kubernetes.persistent-volume-claim,kubernetes.pod,"
+    "kubernetes.pod-disruption-budget,kubernetes.replica-set,kubernetes.resource-quota,"
+    "kubernetes.service,kubernetes.stateful-set,kubernetes.storage-class;"
     "relationship_properties=backend_service_names,cluster_ref,ingress_class_name,name,"
-    "namespace,node_name,node_pool,owner_uids,provider_resource_ref,selector,service_name;"
+    "namespace,node_name,node_pool,owner_uids,provider_resource_ref,pvc_claim_names,"
+    "scale_target_name,selector,service_name,storage_class_name,volume_name;"
     "provider_ref=kubernetes-uid:{uid};"
     "resource_id={cluster_ref}/kubernetes/{resource_type}/{namespace_or_cluster}/"
     "{sha256_uid_24}"
@@ -82,6 +86,10 @@ def project_kubernetes_relationships(
                 continue
             if mapping.source_schema.digest != observed_schema_digest:
                 dropped.append(_drop(RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST, mapping))
+                continue
+            if mapping.predicate is not None and (
+                owner.props.get(mapping.predicate.property_path) != mapping.predicate.equals
+            ):
                 continue
             if not _has_reference(owner, mapping):
                 continue
@@ -300,6 +308,11 @@ def _namespace_compatible(
         return target.type == "kubernetes.node"
     if mapping.mapping_id == "kubernetes.ingress-attached-to-class":
         return target.type == "kubernetes.ingress-class"
+    if mapping.mapping_id in {
+        "kubernetes.pvc-attached-to-pv",
+        "kubernetes.pvc-depends-on-storage-class",
+    }:
+        return True
     return owner.props.get("namespace") == target.props.get("namespace")
 
 

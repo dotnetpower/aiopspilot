@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 2f3f59db5008ff9ea56ddb1da3da9f9cd78c7438
-translation_revised: 2026-09-09
+translation_source_sha: 72d456d03804dea44f557b41bb5568248de043e7
+translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
 
@@ -387,7 +387,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
-| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 80개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 80개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
+| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 88개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 88개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
@@ -397,13 +397,14 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 내구성 있는 인스턴스 무효화 전달 | validated | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운, 인증된 AKS 전환 근거 | AKS 시작 중 SSE가 연결 상태를 유지했고 VM 및 NIC 토폴로지가 추가되고 클러스터가 `Stopped`에서 `Running`으로 전환됐습니다. 커밋된 watermark마다 권위 있는 데이터를 다시 읽었습니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 거버넌스 만료 액션 연결 | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; 집중 수명 주기 및 ActionType 카탈로그 검사 | 정확한 배정 연결과 예외 개정은 등록된 ActionType 하나를 위한 런타임 근거입니다. 새 LinkType을 만들거나 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
-| 프로바이더 관찰 토폴로지 생산 | validated | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, `refresh-authoritative-inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff, strict mypy 및 Issue #278 정확한 클러스터 근거 | 검토된 매핑 95개가 Azure 포함 및 트래픽 구성, UID 기반 Kubernetes 런타임 토폴로지, 정확한 Node 프로바이더 아이덴티티, Ingress 백엔드 Service 및 EndpointSlice 노출을 포함합니다. 보존된 정확한 클러스터 세대에는 Kubernetes Resource 103개와 독립적으로 검증된 Kubernetes 관계 208개가 있으며 정확한 Node-to-VMSS-VM 연결 하나가 포함됩니다. 구성되지 않았거나 도달할 수 없는 출처는 계속 명시적인 `unavailable` 근거로 남습니다. |
+| 프로바이더 관찰 토폴로지 생산 | in-progress | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, `refresh-authoritative-inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff, strict mypy 및 Issue #278 정확한 클러스터 근거 | 검토된 매핑 107개가 이전에 검증한 토폴로지에 스토리지, 정책 및 종류로 한정된 자동 확장 관계를 추가합니다. 이전 정확한 클러스터 증적은 해당 release에 유효하며 확장된 release는 Issue #578에서 새 실제 운영 근거가 필요합니다. |
 | 적대적 하드닝 | implemented | 아래의 누적 46회 기록에는 이번 출처, 아이덴티티 연결, 분류 체계, 변환 결과, 호환성, 준비, 시간 및 표현 관점 18개가 포함됩니다. | 검증된 모든 Critical, High 및 Medium 발견 사항을 해결했습니다. 검증된 부재와 검증되지 않은 외부 인바운드는 코드 주장이 아닌 명시적인 근거 상태로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | in-progress | 진단용 Kubernetes ResourceType 8개와 검토된 스토리지, 정책, 종류로 한정된 자동 확장 및 포함 mapping 10개를 추가했습니다. | `current change`, 집중 리소스 레지스트리, 클래스 클로저, 출처 스키마, 수집 및 관계 검사 | Issue #578에서 확장된 release의 완전한 실제 운영 세대를 보존합니다. |
 | 2026-09-09 | validated | 완전한 정확한 클러스터 Kubernetes 세대 하나를 보존하고, 권위 있는 로컬 준비 경로가 Kubernetes 출처를 일시적으로 미구성 상태로 기록하는 대신 구성된 출처를 조합하도록 수정했으며, 세대 기준 시점을 가장 최근에 수락한 Kubernetes 관측 시점까지 전진시켰습니다. | `current change`, `kubernetes_inventory.py`, `refresh-authoritative-inventory.py`, 집중 AKS 인벤토리 및 새로 고침 검사 88개, Ruff 및 strict mypy가 통과했습니다. Issue #278에는 민감값을 제거한 홉별 런타임 근거를 기록합니다. | 완전한 출처에 Ingress 또는 부하 분산 장치 경로가 없으면 외부 인바운드는 명시적인 부재 또는 알 수 없음으로 유지합니다. 브라우저에서 링크를 추론하지 않습니다. |
 | 2026-09-09 | validated | 저장소에서 실행할 수 없는 객체 전용 조건식을 위해 범위가 제한된 단일 스냅샷 후보 스캔을 추가했으며 관계 또는 그래프 권한은 변경하지 않았습니다. | `current change`, 집중 Core 검사 872개, strict mypy, Ruff, 문서 쌍 게이트, 인증된 Console 재실행 및 Medium 이상 발견 사항이 없는 집중 재검토 | 연속 전이 coverage는 이 구조 조회 계약 밖의 명시적인 근거 제한으로 유지합니다. |
 | 2026-09-06 | validated | 표준 ResourceType 80개 전체에 닫힌 운영 상태 적용 가능성 분류를 추가하고 그래프와 Inspector가 같은 이유 기반 값 레이블을 사용하도록 했습니다. | `current change`, 집중 backend 및 Console 검사, 타입 검사, 프로덕션 빌드, 실제 ARG 승격, 인증된 Application Insights, Log Analytics, 디스크 및 Resource Group 브라우저 검사가 통과했습니다. | 하위 포크의 사용자 지정 ResourceType은 자체 카탈로그 변경 전까지 명시적인 미검토 상태로 유지합니다. |

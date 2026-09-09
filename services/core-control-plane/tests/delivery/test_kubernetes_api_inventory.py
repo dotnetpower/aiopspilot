@@ -273,7 +273,7 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
         )
         snapshot = await source.collect()
 
-    assert len(requested_paths) == 14
+    assert len(requested_paths) == 22
     assert set(authorization_headers) == {"Bearer test-token"}
     by_type = {resource.type: resource for resource in snapshot.resources}
     assert by_type["kubernetes.namespace"].props["namespace"] == "default"

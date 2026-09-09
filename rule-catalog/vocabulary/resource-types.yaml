@@ -182,6 +182,54 @@ types:
     description: Kubernetes StatefulSet observed with immutable UID.
     azure_arm_type: null
     typical_parents: [kubernetes.namespace]
+  - id: kubernetes.persistent-volume-claim
+    category: storage
+    description: Namespaced Kubernetes PersistentVolumeClaim observed with immutable UID and binding state.
+    azure_arm_type: null
+    query_terms: [persistent volume claim, pvc, persistent volume claims, pvcs]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.persistent-volume
+    category: storage
+    description: Cluster-scoped Kubernetes PersistentVolume observed with immutable UID and claim binding.
+    azure_arm_type: null
+    query_terms: [persistent volume, pv, persistent volumes, pvs]
+    typical_parents: [kubernetes-cluster]
+  - id: kubernetes.storage-class
+    category: storage
+    description: Cluster-scoped Kubernetes StorageClass observed with immutable UID and binding mode.
+    azure_arm_type: null
+    query_terms: [storage class, storage classes]
+    typical_parents: [kubernetes-cluster]
+  - id: kubernetes.horizontal-pod-autoscaler
+    category: compute
+    description: Kubernetes HorizontalPodAutoscaler observed with immutable UID and replica state.
+    azure_arm_type: null
+    query_terms: [horizontal pod autoscaler, hpa, horizontal pod autoscalers]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.pod-disruption-budget
+    category: compute
+    description: Kubernetes PodDisruptionBudget observed with immutable UID and disruption capacity.
+    azure_arm_type: null
+    query_terms: [pod disruption budget, pdb, pod disruption budgets]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.network-policy
+    category: network
+    description: Kubernetes NetworkPolicy observed with immutable UID and bounded selector summary.
+    azure_arm_type: null
+    query_terms: [network policy, network policies]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.resource-quota
+    category: compute
+    description: Kubernetes ResourceQuota observed with immutable UID and bounded hard and used values.
+    azure_arm_type: null
+    query_terms: [resource quota, resource quotas]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.limit-range
+    category: compute
+    description: Kubernetes LimitRange observed with immutable UID and bounded limit summaries.
+    azure_arm_type: null
+    query_terms: [limit range, limit ranges]
+    typical_parents: [kubernetes.namespace]
   - id: workflow.logic-app
     category: compute
     description: Managed workflow application executed by the Azure Logic Apps service.

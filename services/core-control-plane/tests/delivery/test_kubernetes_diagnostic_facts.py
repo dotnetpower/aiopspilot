@@ -128,3 +128,78 @@ def test_collects_workload_specific_status_counts() -> None:
         "number_ready": 2,
         "number_unavailable": 1,
     }
+
+
+def test_collects_storage_binding_without_provider_details() -> None:
+    pvc = diagnostic_properties(
+        resource_type="kubernetes.persistent-volume-claim",
+        spec={
+            "accessModes": ["ReadWriteOnce"],
+            "resources": {"requests": {"storage": "10Gi"}},
+            "storageClassName": "managed-csi",
+            "volumeMode": "Filesystem",
+            "volumeName": "pv-data",
+        },
+        status={"phase": "Bound", "capacity": {"storage": "10Gi"}},
+    )
+    pv = diagnostic_properties(
+        resource_type="kubernetes.persistent-volume",
+        spec={
+            "capacity": {"storage": "10Gi"},
+            "claimRef": {"name": "data", "namespace": "default", "uid": "uid-pvc"},
+            "persistentVolumeReclaimPolicy": "Delete",
+            "storageClassName": "managed-csi",
+        },
+        status={"phase": "Bound", "message": "provider-controlled"},
+    )
+
+    assert pvc["volume_name"] == "pv-data"
+    assert pvc["requested_storage"] == "10Gi"
+    assert pv["claim_uid"] == "uid-pvc"
+    assert "message" not in str(pv)
+
+
+def test_collects_policy_autoscale_quota_and_limit_summaries() -> None:
+    hpa = diagnostic_properties(
+        resource_type="kubernetes.horizontal-pod-autoscaler",
+        spec={
+            "scaleTargetRef": {"apiVersion": "apps/v1", "kind": "Deployment", "name": "api"},
+            "minReplicas": 2,
+            "maxReplicas": 10,
+        },
+        status={"currentReplicas": 2, "desiredReplicas": 4},
+    )
+    pdb = diagnostic_properties(
+        resource_type="kubernetes.pod-disruption-budget",
+        spec={"selector": {"matchLabels": {"app": "api"}}, "minAvailable": "50%"},
+        status={"currentHealthy": 2, "desiredHealthy": 2, "disruptionsAllowed": 0},
+    )
+    policy = diagnostic_properties(
+        resource_type="kubernetes.network-policy",
+        spec={
+            "podSelector": {"matchLabels": {"app": "api"}},
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": [{}],
+            "egress": [{}, {}],
+        },
+        status=None,
+    )
+    quota = diagnostic_properties(
+        resource_type="kubernetes.resource-quota",
+        spec={},
+        status={"hard": {"requests.cpu": "4"}, "used": {"requests.cpu": "3"}},
+    )
+    limits = diagnostic_properties(
+        resource_type="kubernetes.limit-range",
+        spec={"limits": [{"type": "Container", "default": {"cpu": "1"}}]},
+        status=None,
+    )
+
+    assert hpa["scale_target_name"] == "api"
+    assert hpa["desired_replicas"] == 4
+    assert pdb["selector"] == {"app": "api"}
+    assert pdb["disruptions_allowed"] == 0
+    assert policy["policy_types"] == ("Egress", "Ingress")
+    assert policy["egress_rule_count"] == 2
+    assert quota["quota_used"] == {"requests.cpu": "3"}
+    assert limits["limit_summaries"] == ({"type": "Container", "default": {"cpu": "1"}},)

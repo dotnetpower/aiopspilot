@@ -21,10 +21,14 @@ classes:
       - kubernetes.deployment
       - kubernetes.endpoints
       - kubernetes.job
+      - kubernetes.horizontal-pod-autoscaler
+      - kubernetes.limit-range
       - kubernetes.namespace
       - kubernetes.node
       - kubernetes.pod
+      - kubernetes.pod-disruption-budget
       - kubernetes.replica-set
+      - kubernetes.resource-quota
       - kubernetes.service
       - kubernetes.stateful-set
       - llm-endpoint
@@ -72,6 +76,7 @@ classes:
       - kubernetes.endpoint-slice
       - kubernetes.ingress
       - kubernetes.ingress-class
+      - kubernetes.network-policy
     specializes: [class.resource]
   - id: class.observability-resource
     description: Resource that collects, evaluates, or routes operational evidence.
@@ -102,6 +107,9 @@ classes:
       - disk-snapshot
       - file-share
       - object-storage
+      - kubernetes.persistent-volume
+      - kubernetes.persistent-volume-claim
+      - kubernetes.storage-class
     specializes: [class.resource]
   - id: class.workload
     description: Resource that runs application work.

@@ -135,6 +135,12 @@ or duplicate candidates. A separate complete-generation verifier must attach imm
 metadata before inventory projection can expose either relationship. Production Kubernetes
 inventory binding and retained composition receipts remain open.
 
+The AKS diagnostic evidence plane extends the canonical ResourceType registry with PVC, PV,
+StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange identities. Source schema v2
+adds reviewed cluster, namespace, storage, selector, and kind-qualified autoscale relationships.
+These objects and links remain observed inventory facts; they do not create diagnosis, policy,
+approval, or execution authority.
+
 Focused production-composition checks use an exact-release Interface that spans Resource and
 Observation evidence, then invoke the issued Pod function through its secured dependency digest.
 They prove that complete evidence returns four verified segments and that a synthetic sample stays
