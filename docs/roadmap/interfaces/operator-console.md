@@ -9,8 +9,7 @@ identity or diagnostic details. The Console never fills missing identity fields 
 name or another current object.
 The Kubernetes detail decoder accepts the collector's 384-record maximum diagnostic sequence and
 rejects larger input. It does not silently shorten a valid collector response.
-The same decoder retains reviewed rollout, storage, policy, and ephemeral-container facts from the
-Operator projection.
+The same decoder retains reviewed rollout, storage, policy, and ephemeral-container facts from the Operator projection; diagnostic lists use visible headings, and every canonical Kubernetes type has an explicit Architecture-map visual mapping.
 NetworkPolicy detail retains the content-safe `selector_matches_all` marker so the Console does not
 render an explicit match-all selector as missing.
 For an exact Kubernetes Resource, the Inspector shows the persisted Forseti status, signals,

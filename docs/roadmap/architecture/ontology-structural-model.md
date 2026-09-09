@@ -41,6 +41,8 @@ type, and reviewed mapping.
 An AKS diagnostic receipt is typed evidence attached to the selected Resource read response. It does
 not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
 or relationship identity.
+Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
+never converted into a generic healthy value.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 693990cdb8029665c62c3938aed7e35d3c4c8887
+translation_source_sha: 7167ca3c88c9e123d1d8a2daea9e47ec45f55aa3
 translation_revised: 2026-09-10
 ---
 # FDAI Console 대화
@@ -11,8 +11,7 @@ Kubernetes 신원 스키마 이행 중에는 기존 Resource 행을 정확한 �
 표시합니다. Console은 Resource 이름이나 현재의 다른 객체에서 누락된 신원 필드를 채우지 않습니다.
 Kubernetes 상세 정보 해석기는 수집기와 같은 최대 384개 진단 배열을 수락하고 이보다 큰 입력을
 차단합니다. 유효한 수집기 응답을 조용히 줄이지 않습니다.
-같은 해석기는 Operator 변환 결과에서 검토된 롤아웃, 스토리지, 정책 및 임시 컨테이너 사실을
-보존합니다.
+같은 해석기는 Operator 변환 결과에서 검토된 롤아웃, 스토리지, 정책 및 임시 컨테이너 사실을 보존합니다. 진단 목록은 표시되는 제목을 사용하고 모든 정본 Kubernetes 유형에 명시적인 아키텍처 지도 시각 매핑을 제공합니다.
 NetworkPolicy 상세 정보는 내용이 안전한 `selector_matches_all` 표식을 보존하므로 Console이
 명시적인 전체 일치 선택기를 누락으로 표시하지 않습니다.
 정확한 Kubernetes Resource의 Inspector는 영속 Forseti 상태, 신호, 완전성, 기준 시점, 출처

@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 5642b3c19daae952cd273398525483e4db4e77e4
+translation_source_sha: 304456b0d8e3767d6023e73a9a82ec3939cd6cff
 translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -47,6 +47,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
 최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
 principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
+생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
+오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

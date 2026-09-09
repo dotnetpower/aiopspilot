@@ -43,6 +43,8 @@ the two reviewed configuration functions; gateway diagnostics add `routes_to` an
 gateway function. This projection is a prompt-minimization view, not another manifest or authority
 source. Every descriptor still originates in the complete principal-scoped manifest, and plan
 verification still resolves against the exact release.
+The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
+Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

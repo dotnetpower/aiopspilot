@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 1cd3aacde01b601085a73b22227abde57cbf75d2
+translation_source_sha: d44b4655c0e63933814c54a31728a0fa09b19483
 translation_revised: 2026-09-10
 ---
 # 온톨로지 구조 모델
@@ -41,6 +41,8 @@ translation_revised: 2026-09-10
 계속 제한됩니다.
 AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 근거입니다. 별도 ObjectType이나
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
+모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
+정상 값으로 바꾸지 않습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
