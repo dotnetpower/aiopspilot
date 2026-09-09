@@ -20,6 +20,7 @@ SERVICE_SOURCE_ROOTS = {
     "document-ingestion-api": "services/document-ingestion-api",
     "document-processing-worker": "services/document-processing-worker",
     "isolated-executor": "services/isolated-executor",
+    "system-knowledge-service": "services/system-knowledge-service",
 }
 
 

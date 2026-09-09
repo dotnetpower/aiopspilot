@@ -18,6 +18,7 @@ python_paths=(
   services/document-ingestion-api/src
   services/document-processing-worker/src
   services/isolated-executor/src
+  services/system-knowledge-service/src
   services/core-control-plane/src/fdai/composition/wire_llm.py
   services/core-control-plane/src/fdai/core/capability_catalog
   services/core-control-plane/src/fdai/core/conversation/channel_access.py
@@ -64,6 +65,7 @@ test_paths=(
   services/document-ingestion-api/tests
   services/document-processing-worker/tests
   services/isolated-executor/tests
+  services/system-knowledge-service/tests
   tests/integration/infra/test_apim_ai_gateway.py
   tests/integration/test_composition_llm.py
   tests/integration/services/test_core_service_package.py
@@ -145,6 +147,7 @@ distribution_packages=(
   fdai-document-ingestion-api
   fdai-document-processing-worker
   fdai-isolated-executor-service
+  fdai-system-knowledge-service
 )
 for package in "${distribution_packages[@]}"; do
   uv build --wheel --package "$package" --out-dir "$tmp_dir/dist"

@@ -459,13 +459,20 @@ def test_uv_cache_contract_allows_one_writer(
     workflow_dir.mkdir(parents=True)
     workflow = workflow_dir / "ci.yml"
     setup = (
+        "      - name: Set up Python\n"
+        "        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97\n"
+        "        with:\n"
+        '          python-version: "3.13"\n'
         "      - name: Set up uv (Python 3.13)\n"
         "        uses: astral-sh/setup-uv@v8.3.2\n"
         "        with:\n"
+        '          version: "0.12.11"\n'
         '          python-version: "3.13"\n'
         "          enable-cache: true\n"
+        "          cache-dependency-glob: uv.lock\n"
     )
-    workflow.write_text(f"jobs:\n  first:\n{setup}  second:\n{setup}", encoding="utf-8")
+    prefix = "env:\n  UV_PYTHON_DOWNLOADS: never\njobs:\n"
+    workflow.write_text(f"{prefix}  first:\n{setup}  second:\n{setup}", encoding="utf-8")
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_uv_cache_writers() == [
@@ -473,7 +480,7 @@ def test_uv_cache_contract_allows_one_writer(
     ]
 
     workflow.write_text(
-        f"jobs:\n  first:\n{setup}  second:\n{setup}          save-cache: false\n",
+        f"{prefix}  first:\n{setup}  second:\n{setup}          save-cache: false\n",
         encoding="utf-8",
     )
     assert module._validate_uv_cache_writers() == []
@@ -487,16 +494,45 @@ def test_uv_cache_contract_requires_python_313_pin(
     workflow_dir = tmp_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "ci.yml").write_text(
+        "env:\n"
+        "  UV_PYTHON_DOWNLOADS: never\n"
+        "      - name: Set up Python\n"
+        "        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97\n"
         "      - name: Install uv for regression tests\n"
         "        uses: astral-sh/setup-uv@v8.3.2\n"
         "        with:\n"
-        "          enable-cache: true\n",
+        '          version: "0.12.11"\n'
+        "          enable-cache: true\n"
+        "          cache-dependency-glob: uv.lock\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_uv_cache_writers() == [
         "every ci.yml Python 3.13 setup-uv block must pin python-version: 3.13"
+    ]
+
+
+def test_uv_cache_contract_requires_explicit_locked_setup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow = tmp_path / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        "env:\n"
+        "  UV_PYTHON_DOWNLOADS: never\n"
+        "      - name: Set up uv\n"
+        "        uses: astral-sh/setup-uv@v8.3.2\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_uv_cache_writers() == [
+        "every ci.yml setup-uv block must configure enable-cache explicitly",
+        "every ci.yml setup-uv block must pin uv version 0.12.11",
+        "ci.yml must have exactly one setup-uv cache writer; found 0",
     ]
 
 
@@ -664,21 +700,49 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
 
 def test_ci_separates_root_and_service_migration_database_tests() -> None:
     workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
-    steps = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]["db-migrations"][
-        "steps"
-    ]
-    step_names = [step["name"] for step in steps]
+    jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]
+    integration_job = jobs["db-integration"]
+    migration_job = jobs["db-migrations"]
 
-    assert step_names.index("Run integration test suite") < step_names.index(
-        "Run service-owned migrations"
+    assert integration_job["strategy"]["matrix"]["shard"] == [1, 2]
+    assert integration_job["env"]["FDAI_PYTEST_MODE"] == "integration"
+    assert integration_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
+    assert integration_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
+    integration_steps = [step["name"] for step in integration_job["steps"]]
+    assert integration_steps.index("Run alembic upgrade head") < integration_steps.index(
+        "Run integration test shard"
     )
-    integration_step = next(step for step in steps if step["name"] == "Run integration test suite")
-    assert integration_step["env"]["FDAI_PYTEST_MODE"] == "integration"
-    assert "FDAI_DATABASE_URL" not in integration_step["env"]
+    migration_steps = [step["name"] for step in migration_job["steps"]]
+    assert "Run integration test shard" not in migration_steps
+    assert migration_steps.index("Run service-owned migrations") < migration_steps.index(
+        "Run serial service migration lifecycle tests"
+    )
     service_step = next(
-        step for step in steps if step["name"] == "Run service-owned database tests"
+        step
+        for step in migration_job["steps"]
+        if step["name"] == "Run service-owned database tests"
     )
     assert service_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+
+
+def test_ci_merges_sharded_coverage_before_enforcing_the_floor() -> None:
+    jobs = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )["jobs"]
+    shard_job = jobs["python-tests"]
+    merge_job = jobs["python-coverage"]
+
+    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2]
+    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
+    assert shard_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
+    assert merge_job["needs"] == ["changes", "python-tests"]
+    merge_step = next(
+        step
+        for step in merge_job["steps"]
+        if step["name"] == "Enforce aggregate safety-core coverage"
+    )
+    assert "coverage combine coverage-data" in merge_step["run"]
+    assert "coverage report --fail-under=90" in merge_step["run"]
 
 
 def test_ci_required_status_aggregates_every_execution_job() -> None:

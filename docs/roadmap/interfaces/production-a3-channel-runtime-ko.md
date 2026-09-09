@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: e7c42a867281fcbe601dd8b204c837265359187c
+translation_source_sha: 2cf49515077b830a3360c73a2888b642b5a8b53c
 translation_revised: 2026-09-09
 ---
 # 운영 A3 채널 런타임
@@ -11,7 +11,9 @@ translation_revised: 2026-09-09
 전송을 완성하지만 새로운 판단 또는 실행 표면을 만들지 않습니다.
 
 > **범위:** A3 읽기 및 초안 전용 요청을 포함합니다. Slack A1 승인, A2/A4 알림 정책, 문서
-> 의미 전송, inline vision 및 관련 없는 채널 backlog는 기존 소유 문서에 유지합니다.
+> 의미 전송, inline vision 및 관련 없는 채널 backlog는 기존 소유 문서에 유지합니다. 전용
+> [시스템 지식 서비스](system-knowledge-service-ko.md)는 자체 Teams 봇과 서비스 distribution을
+> 사용하며 이 edge에 탑재하지 않습니다.
 >
 > **토폴로지:** 런타임은 기존 Operator Service distribution으로 만드는 권한 없는 edge
 > adapter workload입니다. 독립적으로 release하는 여섯 번째 컨트롤 플레인 distribution이

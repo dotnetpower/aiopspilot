@@ -46,6 +46,7 @@ COPY services/operator-service/pyproject.toml ./services/operator-service/pyproj
 COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestion-api/pyproject.toml
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
+COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
 COPY packages/github-app-auth/ ./packages/github-app-auth/
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/core-control-plane/ ./services/core-control-plane/

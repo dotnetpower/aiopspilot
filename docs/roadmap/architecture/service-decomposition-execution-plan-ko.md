@@ -1,26 +1,26 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 71f202b15adcffa8b6bd14eb5964839a9e37246c
-translation_revised: 2026-08-15
+translation_source_sha: 02210af8bfc7dde81f2e1d527e6bd94cf300003b
+translation_revised: 2026-09-09
 ---
 # 서비스 분해 실행 계획
 
-이 문서는 FDAI를 독립 배포 가능한 5개 런타임 서비스로 전환하는 구현 진행 상태를 추적합니다.
-이 문서를 리팩터링의 지속 가능한 진행 기록으로 사용하며, 상세 설계는 각 아키텍처 문서에서
+이 문서는 완료된 5개 서비스 분해와 이후 독립 패키지로 추가한 시스템 지식 서비스 후보를
+추적합니다. 서비스 경계 변경의 지속 가능한 진행 기록이며 상세 설계는 각 아키텍처 문서에서
 관리합니다.
 
-> **목표:** 5개 서비스가 각각 독립 항목 지점, 상태 검사, 신원, 타입이 지정된 전송 계층을
-> 갖추어야 프로그램을 완료합니다. 실행기 게이트를 충족하지 못하면 목표를 다시 4개로 줄이지 않고
-> 전체 완료를 차단합니다.
+> **목표:** 기존 5개 서비스 프로그램은 완료 상태와 정확한 근거를 유지합니다. SD-10은 그 근거를
+> 다시 작성하지 않고 여섯 번째 읽기 전용 후보를 추가합니다. 확장 목표는 새 서비스가 독립 승격 및
+> 배포 gate를 통과한 후에만 완료됩니다.
 >
 > **안전:** 검사된 항목은 exit 근거가 존재한다는 의미입니다. 계획 문구, 패키지 이동 또는
 > 단위 테스트 통과만으로 프로세스 경계의 권한 전환 준비를 증명할 수 없습니다.
 
 ## 설계 개요
 
-FDAI는 이 프로그램을 5개 런타임 서비스로 완료합니다. 처음 4개 역할은 이미 존재하지만 내부
-패키지와 배포 경계를 계속 강화해야 합니다. 다섯 번째 서비스는 Thor 소유 실행을
-Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신원을 보유하게 합니다.
+FDAI는 기존 프로그램을 5개 런타임 서비스로 완료했습니다. SD-10은 저장소 기반 검색과 전용
+Teams 봇이 Core 또는 Operator의 장애, 신원, release 경계를 공유하지 않도록 시스템 지식
+서비스를 별도 패키지 후보로 추가합니다.
 
 | # | 런타임 서비스 | 목표 responsibility | Ingress | 실행기 권한 |
 |---|-----------------|---------------------|---------|--------------------|
@@ -29,6 +29,7 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 | 3 | 문서 인제스트 API | 인증된 업로드 intake와 API 소유 문서 전이 | 외부 HTTPS와 이벤트 버스 | 없음 |
 | 4 | 문서 처리 워커 | 영속 점검, 추출, 인덱싱, 점유, 조정 | 내부 이벤트 버스와 탐색 | 없음 |
 | 5 | Isolated 실행기 | Thor 소유 명령 검증, 대상 잠금, 프로바이더 효과, 롤백 시도, 실행 증적 | 내부 이벤트 버스와 탐색 | 유일한 보유자 |
+| 6 | 시스템 지식 서비스 | Release 고정 FDAI 설계 및 구현 지식과 전용 Teams 멘션 봇 | 외부 Teams HTTPS | 없음 |
 
 온톨로지, Rule 카탈로그, Rego 빌드 파이프라인, Console, scheduled 작업, 15개 에이전트는 이 프로그램에서
 별도 서비스가 되지 않습니다. 각 소유 런타임 서비스 안에서 계약, 패키지, static 클라이언트,
@@ -43,16 +44,20 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 | SD-00부터 SD-09까지의 서비스 분해 | validated | `config/service-decomposition.json`; SD-09 중앙 검증 증적을 포함한 [근거 로그](#근거-로그) | 작업 패키지 10개가 모두 완료됐으며 권한 전환, 정확한 토폴로지, 롤백 및 구조적 종료 근거를 보존합니다. |
 | IS-00부터 IS-09까지의 독립 서비스 추출 | validated | `config/independent-services.json`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl`; [IS 근거 로그](#근거-로그) | 독립 릴리스 가능한 분포, 서비스 루트, migration 가지, 보호된 전이 및 원격 N/N-1/N 증명 5개를 보존합니다. |
 | 5개 서비스 소유권과 격리된 실행 권한 | validated | SD-08 및 IS-09 근거 행; `services/`; `packages/service-contracts/`; `service-migrations/branches/` | Core, Operator, 인제스트 API, 처리 워커 및 Isolated 실행기는 서로 다른 프로세스, 신원, 전송 계층, 상태 및 데이터 소유권 경계를 가집니다. |
+| SD-10 시스템 지식 서비스 후보 | in-progress | `services/system-knowledge-service/`; [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md); 현재 변경의 집중 서비스 검사 | 패키지, 카탈로그, 멘션 경계, claim 원장 및 이미지가 있습니다. 운영 신원, persistent volume, 비용, canary 및 롤백 근거는 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | validated | 이전 전이를 다시 작성하지 않고 기존의 추가 전용 SD 및 IS 근거를 요약해 필수 구현 원장을 도입했습니다. | `current change`; 위에 인용한 머신 매니페스트와 보존된 로컬, 원격, 롤백 및 증명 기록입니다. | 범위가 제한된 SD 또는 IS 프로그램에 남은 작업은 없습니다. 이후 서비스 후보는 별도의 승격 결정 절차를 따릅니다. |
+| 2026-09-09 | in-progress | 검증된 5개 서비스 기준선을 바꾸지 않고 SD-10을 별도 패키지의 읽기 전용 시스템 지식 서비스 후보로 추가했습니다. | `current change`; 서비스 패키지, 계약, 이미지, 카탈로그, Teams 및 집중 검사 경로입니다. | 운영 신원, volume, 비용, 프로바이더 canary, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [x] SD-00부터 SD-09 또는 IS-00부터 IS-09에 남은 작업이 없습니다. 머신 매니페스트, 근거 로그, 원격 증명 및 집중 프로그램 검사가 완료를 기록합니다.
+- [ ] 정확한 이미지 하나에 대해 운영 Teams canary, 재시작에 안전한 persistent claim 증적,
+  비용 근거, 보호된 비활성화 및 15분 이내 롤백을 기록한 후에만 SD-10을 완료합니다.
 
 ## 상태 요약
 
@@ -60,11 +65,11 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 |------|------|------|
 | 완료 - SD | 10 | SD-00부터 SD-09까지 exit 근거와 focused 검증을 기록했습니다. |
 | 완료 - IS | 10 | IS-00부터 IS-09까지 로컬, 원격, 롤백 및 증명 근거를 기록했습니다. |
-| 진행 중 | 0 | 활성 service-decomposition 작업 패키지가 없습니다. |
+| 진행 중 | 1 | SD-10에서 독립 패키지 시스템 지식 서비스 후보를 구현합니다. |
 | 계획됨 | 0 | 계획 상태의 service-decomposition 작업 패키지가 없습니다. |
 | 차단됨 | 0 | 현재 차단된 작업 패키지가 없습니다. |
 
-마지막 업데이트: 2026-08-10.
+마지막 업데이트: 2026-09-09.
 
 ## 실행 checklist
 
@@ -80,6 +85,7 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 | [x] | SD-07 | 효과 권한 없이 Isolated 실행기 명령과 증적 계약, 영속 시도 mechanics, shadow 소비자, 상태, 텔레메트리, 신원, Container App을 구현합니다. | SD-02, SD-04 | C | 중복, reorder, 재시작, 기한, 잠금, shadow 증적 |
 | [x] | SD-08 | 변경 권한을 Isolated 실행기로 전환하고 Core에서 실행기 역할을 제거하며 독립적인 효과를 검증하고 프로세스 내 토폴로지 복귀를 예행 연습합니다. | SD-07 | 직렬 | Effective-access 증명, exact-topology smoke, timed 롤백 증적 |
 | [x] | SD-09 | 만료된 호환성 경로를 제거하고 경계를 강제 적용하며 정본 문서를 업데이트하고 centralized stable-batch 검증을 실행한 뒤 잔여 작업을 종료합니다. | SD-01부터 SD-08 | 직렬 | Exact 커밋 범위의 green 검증 증적 |
+| [ ] | SD-10 | 시스템 지식 서비스를 별도 패키지로 만들고 release 고정 지식을 컴파일하며 mention-only Teams 유입을 검증하고 배포 및 롤백 근거를 보존합니다. | SD-09 | 직렬 | 집중 서비스 검사와 정확한 이미지의 Teams canary, persistence, 비용, 비활성화 및 15분 이내 롤백 증적 |
 
 ## 독립 서비스 추출
 

@@ -1,0 +1,31 @@
+[project]
+name = "fdai-system-knowledge-service"
+version = "0.1.0"
+description = "FDAI release-bound system knowledge Teams service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.23,<2",
+    "fdai-service-contracts==0.1.0",
+    "httpx>=0.28,<1",
+    "pyjwt[crypto]>=2.10,<3",
+    "starlette>=1.3.1,<2",
+    "uvicorn>=0.35,<1",
+]
+
+[project.scripts]
+fdai-system-knowledge-service = "fdai_system_knowledge_service.main:main"
+fdai-system-knowledge-build-catalog = "fdai_system_knowledge_service.build_catalog:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-service-contracts = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_system_knowledge_service"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/fdai_system_knowledge_service/data/catalog.json" = "fdai_system_knowledge_service/data/catalog.json"

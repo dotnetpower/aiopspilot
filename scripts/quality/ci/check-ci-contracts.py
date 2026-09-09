@@ -74,6 +74,8 @@ UV_SETUP_BLOCK_RE = re.compile(
     r"(?ms)^\s+- name: [^\n]+\n"
     r"\s+uses: astral-sh/setup-uv@[^\n]+.*?(?=^\s+- name:|\Z)"
 )
+CI_UV_VERSION = "0.12.11"
+CI_PYTHON_VERSION = "3.13"
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
@@ -255,8 +257,14 @@ def _validate_python_test_partitioning() -> list[str]:
     )
     required_workflow_fragments = (
         "pytest regression shard ${{ matrix.shard }}/3",
+        "pytest safety-core coverage shard ${{ matrix.shard }}/2",
+        "python-coverage:",
+        "coverage combine coverage-data",
+        "coverage report --fail-under=90",
         "FDAI_PYTEST_MODE: coverage",
         "FDAI_PYTEST_MODE: integration",
+        "pytest Postgres integration shard ${{ matrix.shard }}/2",
+        "db-integration:",
         "provider-contracts-docker:",
         "FDAI_PROVIDER_CONTRACT_BACKENDS: real",
         "services/core-control-plane/tests/providers/test_contracts.py",
@@ -417,22 +425,42 @@ def _validate_privileged_workflow_guards() -> list[str]:
 
 def _validate_uv_cache_writers() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    blocks = [block for block in UV_SETUP_BLOCK_RE.findall(workflow) if "enable-cache:" in block]
+    blocks = UV_SETUP_BLOCK_RE.findall(workflow)
     if not blocks:
-        return ["ci.yml has no setup-uv cache blocks"]
+        return ["ci.yml has no setup-uv blocks"]
     errors = [
-        "every ci.yml setup-uv block must restore the shared cache"
+        "every ci.yml setup-uv block must configure enable-cache explicitly"
         for block in blocks
-        if "enable-cache: true" not in block
+        if "enable-cache:" not in block
     ]
     errors.extend(
-        "every ci.yml Python 3.13 setup-uv block must pin python-version: 3.13"
+        f"every ci.yml setup-uv block must pin uv version {CI_UV_VERSION}"
         for block in blocks
-        if 'python-version: "3.13"' not in block
+        if f'version: "{CI_UV_VERSION}"' not in block
     )
-    writer_count = sum("save-cache: false" not in block for block in blocks)
+    cache_blocks = [block for block in blocks if "enable-cache: true" in block]
+    errors.extend(
+        "every ci.yml Python 3.13 setup-uv block must pin python-version: 3.13"
+        for block in cache_blocks
+        if f'python-version: "{CI_PYTHON_VERSION}"' not in block
+    )
+    errors.extend(
+        "every ci.yml setup-uv cache block must key only on the frozen root uv.lock"
+        for block in cache_blocks
+        if "cache-dependency-glob: uv.lock" not in block
+    )
+    writer_count = sum("save-cache: false" not in block for block in cache_blocks)
     if writer_count != 1:
         errors.append(f"ci.yml must have exactly one setup-uv cache writer; found {writer_count}")
+    setup_python_ref = f"uses: actions/setup-python@{APPROVED_ACTIONS['actions/setup-python'][0]}"
+    setup_python_count = workflow.count(setup_python_ref)
+    if setup_python_count != len(cache_blocks):
+        errors.append(
+            "every ci.yml setup-uv cache block must reuse one setup-python interpreter; "
+            f"found {setup_python_count} interpreters for {len(cache_blocks)} cache blocks"
+        )
+    if "UV_PYTHON_DOWNLOADS: never" not in workflow:
+        errors.append("ci.yml must prohibit managed Python downloads after setup-python")
     return errors
 
 

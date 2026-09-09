@@ -1,16 +1,16 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: da1e737813db5910974364a1a6a3683497764c69
+translation_source_sha: 4eed52f7e7b353fc66fc80f4f28dc347b293d68c
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
 
-이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 5개 서비스 workspace 내부의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
+이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
 
 ## 설계 개요
 
-물리적인 5개 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소
+물리적인 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소
 규칙을 소유합니다. 비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다. 사례 이력 검토는 비활성
 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두 요구합니다. Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그 로드 시점에 비활성화된 값을 거부합니다. `verticals.resilience` 패키지는 실행 권한을 추가하지 않고 결정론적 복구 계획 컴파일을 노출합니다. DR 목표
 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적은 cohort도 가장 느린 측정 실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다. 기록된 action 다이제스트가 없는 park된 HIL 레코드는 재개하지 않고 무결성

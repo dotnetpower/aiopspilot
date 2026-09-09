@@ -10,7 +10,8 @@ contracts without creating another judgment or execution surface.
 
 > **Scope:** A3 reads and draft-only requests are in scope. Slack A1 approval, A2/A4 notification
 > policy, document semantic transport, inline vision, and unrelated channel backlog remain with
-> their existing owners.
+> their existing owners. The dedicated [System Knowledge Service](system-knowledge-service.md)
+> uses its own Teams bot and service distribution and is not mounted in this edge.
 >
 > **Topology:** The runtime is an authority-free edge adapter workload built from the existing
 > Operator Service distribution. It is not a sixth independently releasable control-plane

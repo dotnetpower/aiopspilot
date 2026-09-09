@@ -386,11 +386,11 @@ implicitly.
 
 ## Deployment artifact model
 
-The runtime now ships as five service wheels plus the versioned service-contract SDK. Those
-runtime distributions do not include the planned `fdaictl` deployment commands. Deployment also
-depends on Terraform modules, policies, schemas, and selected rule-catalog data. Packaging all
-mutable infrastructure files as importable Python resources would make version alignment and
-inspection harder. Use a dedicated CLI wheel and a version-matched deployment bundle instead.
+The release wheelhouse now stages six service wheels plus the versioned service-contract SDK. The
+sixth is the read-only System Knowledge Service candidate: productization builds and checks it, but
+it stays outside the validated six-image runtime release until deployment graduation. These runtime
+distributions do not include `fdaictl`; deployment also depends on Terraform, policies, schemas, and
+selected rule-catalog data. Use a dedicated CLI wheel and version-matched deployment bundle instead.
 
 ### Planned deployment CLI wheel
 

@@ -15,6 +15,7 @@ PROJECT_PATHS = (
     REPO_ROOT / "services" / "document-ingestion-api" / "pyproject.toml",
     REPO_ROOT / "services" / "document-processing-worker" / "pyproject.toml",
     REPO_ROOT / "services" / "isolated-executor" / "pyproject.toml",
+    REPO_ROOT / "services" / "system-knowledge-service" / "pyproject.toml",
 )
 
 

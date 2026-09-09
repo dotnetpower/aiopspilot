@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "target_service_count": 5,
+  "target_service_count": 6,
   "services": [
     {
       "id": "core-control-plane",
@@ -26,6 +26,11 @@
       "id": "isolated-executor",
       "current_state": "deployed-sole-executor-identity",
       "target_state": "deployed-sole-executor-identity"
+    },
+    {
+      "id": "system-knowledge-service",
+      "current_state": "implemented-not-deployed",
+      "target_state": "deployed-read-only"
     }
   ],
   "work_packages": [
@@ -96,6 +101,12 @@
         "SD-07",
         "SD-08"
       ],
+      "parallel_lane": null
+    },
+    {
+      "id": "SD-10",
+      "status": "in_progress",
+      "dependencies": ["SD-09"],
       "parallel_lane": null
     }
   ],

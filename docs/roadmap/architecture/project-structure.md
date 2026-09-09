@@ -3,11 +3,11 @@ title: Project Structure
 ---
 # Project Structure
 
-The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions inside the five-service workspace. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
+The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 
 ## Design at a glance
 
-The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns
+The physical service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns
 dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
 composition type module stays below its enforced size ceiling so new bindings remain reviewable and move to focused wire modules before the
 shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an

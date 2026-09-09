@@ -14,6 +14,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  UV_PYTHON_DOWNLOADS: never
+
 jobs:
   changes:
     name: test change scope
@@ -50,11 +53,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.12.11"
           python-version: "3.13"
           enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies
         run: uv sync --extra dev --extra azure-mcp --frozen
@@ -100,15 +110,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.12.11"
           python-version: "3.13"
           enable-cache: true
+          cache-dependency-glob: uv.lock
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen
+        run: uv sync --extra dev --extra pdf-report --frozen
 
       - name: Materialize resolved model manifest
         env:
@@ -122,27 +139,40 @@ jobs:
         run: bash scripts/quality/ci/run-python-tests.sh
 
   python-tests:
-    name: pytest • safety-core coverage
+    name: pytest safety-core coverage shard ${{ matrix.shard }}/2
     needs: changes
     if: needs.changes.outputs.python == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-24.04
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
-      FDAI_PYTEST_MAX_WORKERS: "8"
+      FDAI_PYTEST_MAX_WORKERS: "4"
       FDAI_PYTEST_MODE: coverage
+      FDAI_PYTEST_SHARD_COUNT: "2"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.12.11"
           python-version: "3.13"
           enable-cache: true
+          cache-dependency-glob: uv.lock
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen
+        run: uv sync --extra dev --frozen
 
       - name: Materialize resolved model manifest
         env:
@@ -155,16 +185,69 @@ jobs:
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
 
-      - name: Focused safety-core coverage
+      - name: Run safety-core coverage shard
         run: bash scripts/quality/ci/run-python-tests.sh
 
-      - name: Upload coverage report
+      - name: Prepare coverage data
+        run: mv .coverage ".coverage.${{ matrix.shard }}"
+
+      - name: Upload coverage data
         if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: safety-coverage-data-${{ matrix.shard }}
+          path: .coverage.${{ matrix.shard }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  python-coverage:
+    name: pytest • safety-core coverage
+    needs:
+      - changes
+      - python-tests
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: false
+
+      - name: Install coverage tooling
+        run: uv sync --extra dev --frozen
+
+      - name: Download coverage data
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: safety-coverage-data-*
+          path: coverage-data
+          merge-multiple: true
+
+      - name: Enforce aggregate safety-core coverage
+        run: |
+          uv run coverage combine coverage-data
+          uv run coverage report --fail-under=90
+          uv run coverage xml
+
+      - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-xml
           path: coverage.xml
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   operator-surfaces:
     name: console and CLI tests • typecheck • build
@@ -326,6 +409,12 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: false
 
       - name: Install frozen runtime workspace
         run: uv sync --frozen --package fdai-core-control-plane --no-dev
@@ -447,6 +536,12 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: false
 
       - name: Install frozen workspace
         run: uv sync --all-packages --extra dev --frozen
@@ -494,6 +589,9 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          enable-cache: false
 
       - name: Export frozen runtime dependencies
         run: >-
@@ -573,8 +671,69 @@ jobs:
           python3 scripts/quality/ci/check-frozen-scenario-additions.py \
             --base-sha "$base_sha"
 
+  db-integration:
+    name: pytest Postgres integration shard ${{ matrix.shard }}/2
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: fdai
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: fdai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fdai -d fdai"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
+      FDAI_PYTEST_MODE: integration
+      FDAI_PYTEST_SHARD_COUNT: "2"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Run alembic upgrade head
+        run: uv run alembic upgrade head
+
+      - name: Install OPA (Rego runner)
+        uses: ./.github/actions/setup-opa
+
+      - name: Run integration test shard
+        run: bash scripts/quality/ci/run-python-tests.sh
+
   db-migrations:
-    name: Alembic migrations against pgvector
+    name: Alembic and service-owned migrations against pgvector
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
@@ -601,15 +760,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.12.11"
           python-version: "3.13"
           enable-cache: true
+          cache-dependency-glob: uv.lock
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra azure-mcp --frozen
+        run: uv sync --extra dev --frozen
 
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
@@ -635,11 +801,6 @@ jobs:
 
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
-
-      - name: Run integration test suite
-        env:
-          FDAI_PYTEST_MODE: integration
-        run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Run service-owned migrations
         run: |
@@ -698,11 +859,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.12.11"
           python-version: "3.13"
           enable-cache: true
+          cache-dependency-glob: uv.lock
           save-cache: false
 
       - name: Install dependencies
@@ -810,6 +978,7 @@ jobs:
       - lint
       - python-regression
       - python-tests
+      - python-coverage
       - operator-surfaces
       - translations
       - design-contracts
@@ -819,6 +988,7 @@ jobs:
       - secret-scan
       - deps-audit
       - freeze-scenarios
+      - db-integration
       - db-migrations
       - provider-contracts-docker
       - terraform-validate

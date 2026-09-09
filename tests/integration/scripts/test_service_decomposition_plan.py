@@ -14,22 +14,28 @@ EXPECTED_SERVICES = (
     "document-ingestion-api",
     "document-processing-worker",
     "isolated-executor",
+    "system-knowledge-service",
 )
-EXPECTED_WORK_PACKAGES = tuple(f"SD-{index:02d}" for index in range(10))
+EXPECTED_WORK_PACKAGES = tuple(f"SD-{index:02d}" for index in range(11))
 
 
 def _load_plan() -> dict[str, object]:
     return json.loads(PLAN_PATH.read_text(encoding="utf-8"))
 
 
-def test_service_decomposition_target_is_exactly_five_services() -> None:
+def test_service_decomposition_adds_the_read_only_knowledge_service_candidate() -> None:
     plan = _load_plan()
     services = plan["services"]
 
     assert isinstance(services, list)
-    assert plan["target_service_count"] == 5
+    assert plan["target_service_count"] == 6
     assert tuple(service["id"] for service in services) == EXPECTED_SERVICES
-    assert services[-1]["target_state"] == "deployed-sole-executor-identity"
+    assert services[-2]["target_state"] == "deployed-sole-executor-identity"
+    assert services[-1] == {
+        "id": "system-knowledge-service",
+        "current_state": "implemented-not-deployed",
+        "target_state": "deployed-read-only",
+    }
 
 
 def test_service_decomposition_work_package_graph_is_acyclic() -> None:

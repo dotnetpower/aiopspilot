@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 990546ddaa3857d8f19d5a9f60ff4fc242ca8842
+translation_source_sha: 05d3fc48c16e77859f53a2b6a4e98beb377de0c1
 translation_revised: 2026-09-09
 ---
 
@@ -50,12 +50,14 @@ Teams Workflows 웹훅 바인딩은
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 권한, 기본 설정, 가시성, 전달 및 알림 클릭 시 창 활성화 동작이 집중 Vitest 사례를 통과했습니다. 실제 Windows 알림 또는 푸시 서비스 증적은 기록되지 않았습니다. |
 | 이해관계자 브리핑과 A3 edge 런타임 | 구현됨 | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 독립 Operator distribution ASGI factory, 로컬 실행 및 선택적 Container App이 구현됐으며 통제된 프로바이더 및 보호된 배포 근거는 런타임 소유 문서에서 추적합니다. |
+| 전용 시스템 지식 Teams 봇 | 진행 중 | [시스템 지식 서비스](system-knowledge-service-ko.md), `services/system-knowledge-service/`, 집중 서비스 검사 | 읽기 전용 봇은 별도 distribution, 애플리케이션 신원, 카탈로그 및 전달 원장을 사용합니다. 운영 Teams 및 롤백 근거는 남아 있으며 A1-A4 준비 상태를 바꾸지 않습니다. |
 | 선택적 비용 거버넌스 알림 | implemented | `fdai_cost_governance/notifications.py`, 패키지 알림 테스트, `config/notifications-matrix.yaml` | 패키지는 알림을 만들기 전에 활성화를 확인하고 API 변환 결과와 같은 공개 정책을 적용합니다. 비활성 패키지는 아무것도 전송하지 않으며 전역 인시던트, 승인, KPI 및 LLM 비용 경로는 독립적으로 유지됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | 진행 중 | 운영 A3 edge 또는 A1-A4 준비 상태를 바꾸지 않고 mention-only 전용 시스템 지식 Teams 봇을 별도 distribution으로 추가했습니다. | `current change`, 시스템 지식 서비스 설계, 패키지, 계약, 카탈로그, Teams 경계, 원장 및 집중 검사입니다. | 운영 프로바이더, persistent volume, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
 | 2026-08-31 | implemented | 브라우저 알림을 클릭하면 동일 출처 인시던트 화면으로 이동할 때 반환된 창을 활성화하고, 정확한 창의 활성화 또는 화면 이동이 실패하면 대상을 새 창으로 열도록 수정했습니다. | `current change`; 집중 서비스 워커 및 브라우저 알림 테스트, Console 타입 검사와 빌드. | 실제 데스크톱 검증을 주장하기 전에 사람이 확인한 Windows 알림 클릭 증적을 보존합니다. |
 | 2026-08-29 | implemented | 공유 라우팅 권한을 바꾸지 않고 활성화 및 공개 정책으로 제한되는 비용 거버넌스 알림 생성을 추가했습니다. | `current change`; 패키지 알림, 공개 정책 및 비활성 전송 테스트. | 실제 비용 거버넌스 검증 중에 통제된 전달 증적을 보존합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했으며 근거가 없는 Slack A1 및 독립 런타임 구현 주장을 바로잡았습니다. | 현재 변경에서 Python 집중 테스트 170개가 통과했고, `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL 통합 테스트 두 개가 건너뛰어졌으며, 브라우저 알림 집중 테스트 일곱 개가 통과했습니다. 테스트 경로는 구현 범위 표에 나열했습니다. | 데이터베이스 기반 검사를 실행하고 Slack A1과 운영 대화 어댑터를 구현하며 독립 런타임을 조립하고 통제된 runtime 증적을 수집해야 합니다. |

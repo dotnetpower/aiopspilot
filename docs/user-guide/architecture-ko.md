@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 2f0df1dd6886e09a3a0462993754aeb96901a0b8
-translation_revised: 2026-09-09
+translation_source_sha: 5236ac9cf0f0abb9d269619f70735270abd04693
+translation_revised: 2026-09-10
 ---
 
 # FDAI 아키텍처
@@ -139,11 +139,12 @@ Azure Resource Graph 조회와 observability 쓰기는 Azure 컨트롤 플레인
 사용하므로 비공개 데이터 플레인 경로 밖에 표시합니다. Day-zero Terraform 기준선은 여전히
 애플리케이션 게이트웨이, WAF, Managed Grafana 또는 부하 balancer를 추가하지 않습니다.
 
-## 배포 가능한 5개 서비스
+## 검증된 5개 서비스 기준선과 후보 1개
 
 15개 agent는 Core runtime 안의 논리적 책임 소유자이며 15개의 Azure service가 아닙니다.
-FDAI는 자체 image, Terraform state, migration branch, 상태 계약, workload identity를 가진
-5개 서비스를 독립적으로 배포하고 릴리스합니다.
+FDAI는 자체 이미지, Terraform 상태, 마이그레이션 브랜치, 상태 계약, workload identity를
+가진 5개 서비스를 독립적으로 배포하고 릴리스합니다. SD-10은 졸업 근거가 마련될 때까지
+배포하지 않는 별도 패키지형 System Knowledge Service 후보를 추가합니다.
 
 | 서비스 | 책임 | Effect 권한 |
 |--------|------|-------------|
@@ -152,9 +153,11 @@ FDAI는 자체 image, Terraform state, migration branch, 상태 계약, workload
 | Document Ingestion API | 인증된 upload 수신 및 API 소유 document transition | 없음 |
 | Document Processing Worker | 영속 inspection, extraction, indexing, claim 및 reconciliation | 없음 |
 | Isolated Executor | 명령 검증, 대상 잠금, provider effect, 롤백 시도 및 실행 receipt | 유일하게 보유 가능 |
+| System Knowledge Service 후보 | 릴리스에 결속된 FDAI 참조 검색 및 전용 Teams 멘션 봇 | 없음 |
 
-Event bus와 버전이 지정된 service contract가 이 서비스를 연결합니다. 한 서비스는 다른 서비스의
-구현을 import하거나 가변 workflow state를 공유하지 않습니다.
+이벤트 버스와 버전이 지정된 서비스 계약이 검증된 기준선을 연결합니다. 후보는 자체 카탈로그,
+Teams HTTPS 수신 경로 및 서비스 계약을 사용합니다. 어떤 서비스도 다른 서비스의 구현을
+가져오거나 가변 작업 흐름 상태를 공유하지 않습니다.
 
 ## 5개 아키텍처 레이어
 

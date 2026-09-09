@@ -38,6 +38,7 @@ RUNTIME_PACKAGES = {
     "fdai-document-ingestion-api": "services/document-ingestion-api",
     "fdai-document-processing-worker": "services/document-processing-worker",
     "fdai-isolated-executor-service": "services/isolated-executor",
+    "fdai-system-knowledge-service": "services/system-knowledge-service",
 }
 SUPPORT_PACKAGES = {"fdai-github-app-auth": "packages/github-app-auth"}
 STAGE_TIMEOUT = 600

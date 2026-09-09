@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4210ed3fb3045606485dcb8593e9ec7de49e82bc
-translation_revised: 2026-09-09
+translation_source_sha: 03ea0b0515f7909b18d53d7e92a5e2dd412bf9f2
+translation_revised: 2026-09-10
 ---
 # 설치형 배포 CLI
 
@@ -386,11 +386,11 @@ fdaictl bootstrap probe-policy --allow-probe-resources
 
 ## 배포 산출물 모델
 
-런타임은 이제 5개 서비스 휠과 versioned service-contract SDK로 제공됩니다. 이 런타임
-분포에는 계획된 `fdaictl` 배포 명령이 포함되지 않습니다. 배포에는 Terraform
-모듈, 정책, 스키마, 선택된 rule-catalog 데이터도 필요합니다. 변경 가능한 모든 infrastructure
-파일을 가져오기 가능한 Python 리소스로 packaging하면 버전 alignment와 점검이
-어려워집니다. 대신 전용 CLI 휠과 버전이 일치하는 배포 번들을 사용합니다.
+릴리스 휠하우스는 이제 서비스 휠 6개와 버전이 지정된 서비스 계약 SDK를 준비합니다. 여섯
+번째는 읽기 전용 System Knowledge Service 후보입니다. 제품화 과정에서 이를 빌드하고 검사하지만
+배포 졸업 전까지 검증된 이미지 6개 런타임 릴리스에는 포함하지 않습니다. 이 런타임 배포판에는
+`fdaictl`이 포함되지 않으며 배포에는 Terraform, 정책, 스키마, 선택된 rule-catalog 데이터도
+필요합니다. 전용 CLI 휠과 버전이 일치하는 배포 번들을 사용합니다.
 
 ### 계획된 배포 CLI 휠
 

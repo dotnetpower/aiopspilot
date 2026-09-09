@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ce614b2a42af4547234843d67fe680cb344db247
-translation_revised: 2026-09-09
+translation_source_sha: 5c582813d60d591c627e236c2198f8bf6c018f67
+translation_revised: 2026-09-10
 ---
 # 코드 맵
 
@@ -14,7 +14,7 @@ translation_revised: 2026-09-09
 
 ## 설계 개요
 
-- **서비스 분포 5개:** 각 런타임 프로세스는 `services/` 아래 패키지 하나를 소유합니다.
+- **서비스 distribution:** distribution 5개는 검증된 배포 근거를 유지합니다. 독립 패키지 시스템 지식 서비스는 여섯 번째 읽기 전용 후보입니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유하고
   `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
 - **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된
@@ -125,10 +125,10 @@ Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consume
 | 문서 인제스트 API | [fdai_ingestion_api_service](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) | [인제스트 API 테스트](../../../services/document-ingestion-api/tests/) | `fdai-document-ingestion-api` |
 | 문서 처리 워커 | [fdai_document_worker_service](../../../services/document-processing-worker/src/fdai_document_worker_service/) | [워커 테스트](../../../services/document-processing-worker/tests/) | `fdai-document-processing-worker` |
 | Isolated 실행기 | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [실행기 테스트](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
+| 시스템 지식 서비스 | [fdai_system_knowledge_service](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) | [시스템 지식 테스트](../../../services/system-knowledge-service/tests/) | `fdai-system-knowledge-service` |
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
 | 선택적 비용 거버넌스 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) 및 [레거시 자문 가드 커버리지](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
-
 공유 인수인계 아티팩트는 계산된 편의 필드를 직렬화된 API 및 저장소 프로젝션에서 제외합니다.
 따라서 서비스 로컬 파생 속성이 서비스 간 연결 계약을 변경할 수 없습니다.
 
@@ -575,7 +575,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
-
+| 시스템 지식 서비스 | Release 고정 FDAI 설계 및 구현 검색과 mention-only 전용 Teams 봇, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [설계](../interfaces/system-knowledge-service-ko.md), [테스트](../../../services/system-knowledge-service/tests/) |
 이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.
 로컬 조립은 서비스 소유 클라이언트 수명 주기와 loopback 어댑터를 연결합니다. 따라서 Operator 의미
 브리지, 인제스트 게시자, 문서 워커 consumer 및 Isolated 실행기는 배포된 어댑터와 동일한 logical

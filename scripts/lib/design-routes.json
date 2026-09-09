@@ -1766,6 +1766,35 @@
       ]
     },
     {
+      "id": "system-knowledge-service",
+      "paths": [
+        "services/system-knowledge-service/**",
+        "packages/service-contracts/src/fdai_service_contracts/system_knowledge.py",
+        "packages/service-contracts/tests/test_system_knowledge.py",
+        "docs/roadmap/interfaces/system-knowledge-service*.md",
+        "docs/roadmap-implementation/interfaces/system-knowledge-service.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/interfaces/system-knowledge-service.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/system-knowledge-service.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/system-knowledge-service/tests packages/service-contracts/tests/test_system_knowledge.py",
+        "uv run mypy --strict services/system-knowledge-service/src packages/service-contracts/src/fdai_service_contracts/system_knowledge.py",
+        "uv run ruff check services/system-knowledge-service packages/service-contracts/src/fdai_service_contracts/system_knowledge.py packages/service-contracts/tests/test_system_knowledge.py"
+      ]
+    },
+    {
       "id": "workflow-automation",
       "paths": [
         "services/core-control-plane/src/fdai/core/workflow/**",

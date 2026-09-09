@@ -7,12 +7,7 @@ cd "$repo_root"
 # repository's own `tests/` namespace wins and `tests.core.*` helpers stop resolving.
 export PYTHONPATH="$repo_root/services/core-control-plane:$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
-coverage_args=(
-  --cov-branch
-  --cov-report=term-missing
-  --cov-report=xml
-  --cov-fail-under=90
-)
+coverage_args=(--cov-branch)
 mapfile -t coverage_sources < <(
   python3 - <<'PY'
 import tomllib
@@ -58,6 +53,16 @@ if [[ -n "${FDAI_PYTEST_SHARD_COUNT:-}" || -n "${FDAI_PYTEST_SHARD_INDEX:-}" ]];
   shard_args=(-p scripts.quality.ci.pytest_shard)
 fi
 
+if ((${#shard_args[@]} > 0)); then
+  coverage_args+=(--cov-report=)
+else
+  coverage_args+=(
+    --cov-report=term-missing
+    --cov-report=xml
+    --cov-fail-under=90
+  )
+fi
+
 mode="${FDAI_PYTEST_MODE:-all}"
 case "$mode" in
   all)
@@ -78,14 +83,16 @@ case "$mode" in
   coverage)
     env -u FDAI_DATABASE_URL -u FDAI_STATE_STORE_DSN \
       uv run pytest -q -m "not integration" --durations=25 \
-      "${parallel_args[@]}" "${coverage_args[@]}" "${coverage_paths[@]}" "$@"
+      "${parallel_args[@]}" "${shard_args[@]}" "${coverage_args[@]}" \
+      "${coverage_paths[@]}" "$@"
     ;;
   integration)
     if [[ -z "${FDAI_DATABASE_URL:-}" ]]; then
       printf '%s\n' "python-tests: FDAI_DATABASE_URL is required for integration mode" >&2
       exit 2
     fi
-    uv run pytest -q -m integration --no-cov --durations=25 "$@"
+    uv run pytest -q -m integration --no-cov --durations=25 \
+      "${shard_args[@]}" "$@"
     ;;
   *)
     printf '%s\n' "python-tests: unknown FDAI_PYTEST_MODE=$mode" >&2

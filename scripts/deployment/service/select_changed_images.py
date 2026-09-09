@@ -52,6 +52,12 @@ IMAGE_TARGETS = (
         dockerfile="services/isolated-executor/docker/Dockerfile",
         image="fdai-isolated-executor",
     ),
+    ImageTarget(
+        target="system-knowledge-service",
+        service="system-knowledge-service",
+        dockerfile="services/system-knowledge-service/docker/Dockerfile",
+        image="fdai-system-knowledge-service",
+    ),
 )
 
 _ALL_TARGET_EXACT_PATHS = {

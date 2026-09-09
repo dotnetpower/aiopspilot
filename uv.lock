@@ -23,6 +23,7 @@ members = [
     "fdai-isolated-executor-service",
     "fdai-operator-service",
     "fdai-service-contracts",
+    "fdai-system-knowledge-service",
 ]
 
 [[package]]
@@ -1241,6 +1242,29 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "pydantic", specifier = ">=2.11,<3" },
+]
+
+[[package]]
+name = "fdai-system-knowledge-service"
+version = "0.1.0"
+source = { editable = "services/system-knowledge-service" }
+dependencies = [
+    { name = "azure-identity" },
+    { name = "fdai-service-contracts" },
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "azure-identity", specifier = ">=1.23,<2" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
+    { name = "starlette", specifier = ">=1.3.1,<2" },
+    { name = "uvicorn", specifier = ">=0.35,<1" },
 ]
 
 [[package]]

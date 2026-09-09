@@ -3,14 +3,13 @@ title: Service Decomposition Execution Plan
 ---
 # Service Decomposition Execution Plan
 
-This document tracks the implementation that moves FDAI to five independently
-deployable runtime services. It is the durable progress record for the refactor;
-design details remain in the owning architecture documents.
+This document tracks the completed five-service decomposition and the subsequent independently
+packaged System Knowledge Service candidate. It is the durable progress record for service
+boundary changes; design details remain in the owning architecture documents.
 
-> **Target:** The program is complete only when all five services are deployed
-> with distinct entry points, health checks, identities, and typed transport.
-> An unmet Executor gate blocks completion instead of reducing the target back
-> to four services.
+> **Target:** The original five-service program remains complete and retains its exact evidence.
+> SD-10 adds a sixth read-only candidate without rewriting that evidence. The expanded target is
+> complete only after the new service passes the independent graduation and deployment gates.
 >
 > **Safety:** A checked item means its exit evidence exists. Planning text,
 > package movement, or a passing unit test alone does not prove a process
@@ -18,10 +17,9 @@ design details remain in the owning architecture documents.
 
 ## Design at a glance
 
-FDAI will finish this program with five runtime services. The first four roles
-already exist, although their internal package and deployment boundaries still
-need hardening. The fifth service extracts Thor-owned execution from Core so
-only the isolated Executor holds mutation-capable workload identity.
+FDAI completed the original program with five runtime services. SD-10 adds the System Knowledge
+Service as a separately packaged candidate so repository-derived search and the dedicated Teams
+bot do not share Core or Operator failure, identity, or release boundaries.
 
 | # | Runtime service | Target responsibility | Ingress | Executor authority |
 |---|-----------------|-----------------------|---------|--------------------|
@@ -30,6 +28,7 @@ only the isolated Executor holds mutation-capable workload identity.
 | 3 | Document Ingestion API | Authenticated upload intake and API-owned document transitions | External HTTPS and event bus | None |
 | 4 | Document Processing Worker | Durable inspection, extraction, indexing, claims, and reconciliation | Internal event bus and probes | None |
 | 5 | Isolated Executor | Thor-owned command validation, target lock, provider effect, rollback attempt, and execution receipt | Internal event bus and probes | Sole holder |
+| 6 | System Knowledge Service | Release-bound FDAI design and implementation knowledge plus a dedicated Teams mention bot | External Teams HTTPS | None |
 
 The ontology, Rule Catalog, Rego build pipeline, Console, scheduled jobs, and
 the 15 agents do not become separate services in this program. They remain
@@ -45,16 +44,20 @@ subscribers inside their owning runtime service.
 | SD-00 through SD-09 service decomposition | validated | `config/service-decomposition.json`; [Evidence log](#evidence-log), including the SD-09 centralized validation receipt | All ten work packages are complete, and the authority cutover, exact topology, rollback, and structural closure have retained evidence. |
 | IS-00 through IS-09 independent service extraction | validated | `config/independent-services.json`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl`; [IS evidence log](#evidence-log) | Five independently releasable distributions, service roots, migration branches, protected transitions, and remote N/N-1/N proof are retained. |
 | Five-service ownership and isolated execution authority | validated | SD-08 and IS-09 evidence rows; `services/`; `packages/service-contracts/`; `service-migrations/branches/` | Core, Operator, Ingestion API, Processing Worker, and Isolated Executor have distinct process, identity, transport, health, and data ownership boundaries. |
+| SD-10 System Knowledge Service candidate | in-progress | `services/system-knowledge-service/`; [System Knowledge Service](../interfaces/system-knowledge-service.md); focused service checks in the current change | The package, catalog, mention boundary, claim ledger, and image exist. Production identity, persistent volume, cost, canary, and rollback evidence remain open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | validated | Adopted the required implementation ledger by summarizing the existing append-only SD and IS evidence without rewriting prior transitions. | `current change`; machine manifests and the retained local, remote, rollback, and attestation records cited above. | No remaining work for the bounded SD or IS programs; later service candidates use the separate graduation decision process. |
+| 2026-09-09 | in-progress | Added SD-10 as a separately packaged read-only System Knowledge Service candidate without changing the validated five-service baseline. | `current change`; service package, contract, image, catalog, Teams, and focused test paths. | Retain the production identity, volume, cost, provider canary, disable, and timed rollback evidence. |
 
 ### Remaining work
 
 - [x] No work remains for SD-00 through SD-09 or IS-00 through IS-09; the machine manifests, evidence log, remote attestation, and focused program checks record completion.
+- [ ] Complete SD-10 only after a production Teams canary, restart-safe persistent claim receipt,
+  cost evidence, protected disable, and rollback within 15 minutes are recorded for one exact image.
 
 ## Status summary
 
@@ -62,11 +65,11 @@ subscribers inside their owning runtime service.
 |-------|-------|---------|
 | Completed - SD | 10 | SD-00 through SD-09 have recorded exit evidence and focused validation. |
 | Completed - IS | 10 | IS-00 through IS-09 have local, remote, rollback, and attestation evidence. |
-| In progress | 0 | No service-decomposition work package remains active. |
+| In progress | 1 | SD-10 implements the independently packaged System Knowledge Service candidate. |
 | Planned | 0 | No service-decomposition work package remains planned. |
 | Blocked | 0 | No work package is currently blocked. |
 
-Last updated: 2026-08-10.
+Last updated: 2026-09-09.
 
 ## Execution checklist
 
@@ -82,6 +85,7 @@ Last updated: 2026-08-10.
 | [x] | SD-07 | Implement the Isolated Executor command and receipt contracts, durable attempt mechanics, shadow consumer, health, telemetry, identity, and Container App without effect authority. | SD-02, SD-04 | C | Duplicate, reorder, restart, deadline, lock, and shadow receipts |
 | [x] | SD-08 | Cut mutation authority over to the Isolated Executor, remove executor roles from Core, verify independent effects, and rehearse return to the in-process topology. | SD-07 | Serial | Effective-access proof, exact-topology smoke, and timed rollback receipt |
 | [x] | SD-09 | Remove expired compatibility paths, enforce boundaries, update canonical documentation, run centralized stable-batch validation, and close residual work. | SD-01 through SD-08 | Serial | Green validation receipt for the exact commit range |
+| [ ] | SD-10 | Package the System Knowledge Service separately, compile release-bound knowledge, verify mention-only Teams ingress, and retain deployment and rollback evidence. | SD-09 | Serial | Focused service checks plus exact-image Teams canary, persistence, cost, disable, and timed rollback receipts |
 
 ## Independent service extraction
 

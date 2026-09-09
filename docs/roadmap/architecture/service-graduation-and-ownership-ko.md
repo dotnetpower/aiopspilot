@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 5b874aee2f28cf550c46f57419bf2d6ac65d715d
-translation_revised: 2026-09-06
+translation_source_sha: aad888df649673fda9da8b3850d01267ea8e360c
+translation_revised: 2026-09-09
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -39,6 +39,7 @@ translation_revised: 2026-09-06
 |------|------|------|------|
 | Pod 수명 주기 탐지 축약과 프로젝션 분리 | implemented | `fdai/core/readiness/detection_lifecycle.py`, `fdai/delivery/detection_lifecycle_state.py`, `fdai_operator_service/detection_lifecycle_projection.py`, `check-independent-services` OK | Core가 축약과 `runtime:detection-lifecycle:` 단일 기록자를 소유하고, Operator 서비스는 저장된 프로젝션을 검증하고 집계해 기존 인증된 `/detection-readiness` 계열에 제공하며 이를 위해 어떤 `fdai.*` 모듈도 가져오지 않습니다. 저장된 행에 결함이 있으면 판독기가 재해석하지 않고 명시된 사유와 함께 해당 구획을 사용 불가로 만듭니다. |
 | 5개 서비스 승격 결정과 권한 전환 | validated | `config/service-decomposition.json`; `config/independent-services.json`; [서비스 분해 근거 로그](service-decomposition-execution-plan-ko.md#근거-로그) | 필수 및 승인된 서비스 후보는 정확한 토폴로지, 신원, 상태, 롤백 및 원격 전이 근거를 완료했습니다. |
+| 시스템 지식 서비스 후보 | in-progress | `services/system-knowledge-service/`, `packages/service-contracts/src/fdai_service_contracts/system_knowledge.py`, 현재 변경의 집중 서비스 검사 | 검증된 5개 서비스 기준선을 바꾸지 않고 독립 읽기 전용 패키지와 이미지를 구현했습니다. 운영 승격 근거는 남아 있습니다. |
 | 단일 쓰기 담당 데이터 소유권과 서비스 migration 가지 | validated | `service-migrations/branches/`; 실행 계획의 독립 서비스 도입 및 peer-isolation 근거 | 5개 migration 가지와 서비스 역할은 보호된 N/N-1/N 전이 전체에서 겹치지 않는 쓰기 담당 소유권을 유지합니다. |
 | 버전이 지정된 프로세스 간 계약과 격리된 신원 | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07 및 IS-09 근거 | 서비스 분포는 다른 서비스 구현을 가져오지 않고 공유 계약 SDK를 소비하며 Isolated 실행기만 효과 권한을 보유할 수 있습니다. |
 | 보류 및 거절된 향후 후보 | deferred | [후보 결정](#후보-결정) | Operator 애플리케이션, 읽기, SSE 분리 및 background 읽기 작업은 측정된 강제 트리거와 완전한 게이트 근거가 생길 때까지 보류됩니다. A3 channel edge는 별도 구현 gate가 있는 non-distribution adapter workload로 승인했습니다. Ad hoc 제어 루프 서비스 분리는 계속 거절됩니다. |
@@ -51,6 +52,7 @@ translation_revised: 2026-09-06
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | in-progress | 저장소 지식을 Core, Operator Service 또는 A3 edge에 합치지 않고 시스템 지식 서비스를 여섯 번째 읽기 전용 후보로 승인하고 구현했습니다. | `current change`, 패키지, 계약, 카탈로그, Teams 멘션, 원장, 이미지 및 집중 검사 경로입니다. | 운영 승격 전에 persistent volume, 신원, 비용, 프로바이더 canary, 비활성화 및 15분 이내 롤백 근거를 기록합니다. |
 | 2026-09-06 | validated | 서비스, 작성자 또는 서비스 간 구현 가져오기를 추가하지 않고 기존 Core, delivery, Operator 및 Console 소유권에 이유 기반 기록 Resource 상태를 추가했습니다. | `current change`, 집중 경계 검사, 로컬 PostgreSQL로 실제 ARG 수집 및 인증된 표준 포트 브라우저 검증이 통과했습니다. | 범위가 제한된 이 읽기 경로에는 서비스 승격 작업이 남아 있지 않습니다. |
 | 2026-09-06 | validated | 서비스 또는 작성자 소유권을 바꾸지 않고 새로 병합된 `llm-model-deployment` 유형을 기존 Operator 읽기 변환 결과에 분류했습니다. | `current change`, 병합된 main 스냅샷에서 정확한 카탈로그 일치와 집중 backend 검사 268개가 통과했습니다. | 이후 ResourceType을 추가할 때는 같은 읽기 계약을 갱신해야 합니다. |
 | 2026-09-06 | implemented | Application Insights와 Log Analytics에서 연결되지 않은 Azure Resource Health 출처를 일반적인 공급자 사용 불가와 구분했습니다. | `current change`, 공급자 호출, 영속성 또는 권한을 추가하지 않고 기존 Operator 읽기 변환 결과와 Console 지역화를 변경했습니다. | 가용성 값을 표시하기 전에 별도로 검토한 출처 바인딩으로 Resource Health 관측을 영속화해야 합니다. |
@@ -72,6 +74,8 @@ translation_revised: 2026-09-06
 | 2026-09-05 | implemented | 새로운 handover, document 및 protection suite의 정확한 service-test 소유권을 복원하고 5개 서비스 토폴로지를 변경하지 않은 채 Operator aggregate manifest를 등록된 경로 188개와 일치시켰습니다. | `current change`, service-suite 소유권 및 Operator full-composition 검사 통과 | 각 소유 capability에서 이미 추적하는 통제된 runtime 근거를 보존합니다. |
 ### 남은 작업
 
+- [ ] 정확한 이미지의 Teams, persistent claim, 신원, 비용, 비활성화 및 롤백 근거가 적용 가능한
+  모든 scorecard 행을 충족한 후에만 시스템 지식 서비스를 승격합니다.
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
 - [ ] Operator 애플리케이션, 읽기 변환 결과 및 SSE 후보 중 하나가 고정된 개정 번호에서 점수표 강제 트리거와 모든 binary 게이트 근거를 기록한 뒤에만 다시 평가합니다.
 - [ ] 구현된 non-distribution A3 edge의 통제된 provider 및 보호된 배포 근거를 소유 설계에
@@ -124,6 +128,7 @@ channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비�
 | 문서 인제스트 API | 승인 | 권한과 scaling 격리, 타입이 지정된 전송 계층, role-scoped 데이터베이스 접근, 탐색, co-host 롤백이 구현됐습니다. |
 | 문서 인제스트 워커 | 승인 | 영속 임차 기간/CAS 점유, 재시작/reorder/DLQ 테스트, 내부 상태, dedicated 신원, 규모 게이트가 구현됐습니다. |
 | 대화 채널 런타임 | 여섯 번째 distribution이 아닌 edge adapter workload로 승인 | 공개 프로바이더 인증 유입과 channel-secret 격리가 forcing trigger입니다. Operator distribution, conversation writer, migration branch 및 semantic EventBus bridge를 사용하고 executor 권한이 없는 전용 신원을 받으며 [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md)의 gate를 통과해야 합니다. |
+| 시스템 지식 서비스 | 독립 구현 승인, 운영 승격 보류 | 전용 봇은 저장소 기반 release 산출물, Teams 신원 및 검색 장애를 Core, Operator Service 및 운영 A3 edge 밖에 둡니다. 패키지와 이미지는 구현할 수 있지만 운영 활성화에는 [시스템 지식 서비스](../interfaces/system-knowledge-service-ko.md)의 persistent claim storage, 정확한 이미지 canary, 비용, 신원 및 15분 이내 롤백 근거가 필요합니다. |
 | Background read-task 실행기 | 별도 서비스로는 보류 | 영속 시도는 있습니다. 첫 운영 바인딩은 버전 지정 전송을 사용하는 선택적 Core 조정기로 실행합니다. 독립 서비스 승격에는 측정된 비용/실패 트리거와 완전한 점수표가 계속 필요합니다. |
 | 스케줄러, 인벤토리, 측정, canary 작업 | 작업으로 승인 | 범위가 제한된 run-to-completion 계약과 dedicated 신원이 out-of-band Container Apps 작업을 이미 정당화합니다. |
 | 권위 있는 control-loop 단계 | Ad hoc 서비스로 거절 | 에이전트 single-writer 소유권, 필수 의존성, 타입이 지정된 pub/sub, 완전한 실행 safeguard를 보존하지 않으면 단계를 분리할 수 없습니다. |

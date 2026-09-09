@@ -1,0 +1,74 @@
+# System Knowledge Service image built from its owned distribution and shared contracts.
+
+ARG BASE_IMAGE_REGISTRY=docker.io
+
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apk add --no-cache build-base zlib-dev
+RUN pip install --no-cache-dir uv==0.11.32
+
+WORKDIR /build
+COPY pyproject.toml uv.lock LICENSE README.md ./
+COPY evaluation-sdk/pyproject.toml ./evaluation-sdk/pyproject.toml
+COPY benchmarks/sregym/pyproject.toml ./benchmarks/sregym/pyproject.toml
+COPY benchmarks/cybergym/pyproject.toml ./benchmarks/cybergym/pyproject.toml
+COPY extensions/code-assurance/pyproject.toml ./extensions/code-assurance/pyproject.toml
+COPY extensions/cost-governance/pyproject.toml ./extensions/cost-governance/pyproject.toml
+COPY services/core-control-plane/pyproject.toml ./services/core-control-plane/pyproject.toml
+COPY services/operator-service/pyproject.toml ./services/operator-service/pyproject.toml
+COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestion-api/pyproject.toml
+COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
+COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
+COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
+COPY packages/service-contracts/ ./packages/service-contracts/
+COPY services/system-knowledge-service/ ./services/system-knowledge-service/
+RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
+    && uv build --wheel --package fdai-system-knowledge-service --out-dir /wheels \
+    && uv sync --frozen --package fdai-system-knowledge-service --no-dev --no-editable \
+        --no-install-package fdai \
+        --no-install-package fdai-service-contracts \
+        --no-install-package fdai-system-knowledge-service \
+    && uv pip install --python /app/.venv/bin/python --no-deps \
+        /wheels/fdai_service_contracts-*.whl \
+        /wheels/fdai_system_knowledge_service-*.whl \
+    && test -x /app/.venv/bin/fdai-system-knowledge-service \
+    && test "$(head -n 1 /app/.venv/bin/fdai-system-knowledge-service)" = "#!/app/.venv/bin/python"
+
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
+
+ARG OPENSSL_LIBS_VERSION=3.5.8-r0
+ARG SQLITE_LIBS_VERSION=3.53.4-r0
+ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r1
+RUN apk add --no-cache --upgrade \
+        "libcrypto3=${OPENSSL_LIBS_VERSION}" \
+        "libssl3=${OPENSSL_LIBS_VERSION}" \
+    && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+        "libuuid=${UTIL_LINUX_LIBS_VERSION}" \
+        "sqlite-libs=${SQLITE_LIBS_VERSION}" \
+    && rm -rf /usr/local/lib/python3.13/site-packages/pip \
+        /usr/local/lib/python3.13/site-packages/pip-*.dist-info
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FDAI_SYSTEM_KNOWLEDGE_HOST=0.0.0.0 \
+    FDAI_SYSTEM_KNOWLEDGE_PORT=8015 \
+    FDAI_SYSTEM_KNOWLEDGE_LEDGER_PATH=/data/system-knowledge-ledger.sqlite3 \
+    HOME=/tmp/fdai \
+    PATH="/app/.venv/bin:${PATH}" \
+    XDG_CACHE_HOME=/tmp/fdai/.cache
+
+WORKDIR /app
+COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+RUN mkdir -p /data && chown 65532:65532 /data
+USER 65532
+RUN test -x /app/.venv/bin/fdai-system-knowledge-service
+EXPOSE 8015
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8015/health/live',timeout=2).read()"]
+ENTRYPOINT ["fdai-system-knowledge-service"]

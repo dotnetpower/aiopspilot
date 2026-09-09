@@ -21,6 +21,7 @@ EXPECTED = {
     "fdai-document-ingestion-api",
     "fdai-document-processing-worker",
     "fdai-isolated-executor-service",
+    "fdai-system-knowledge-service",
 }
 REQUIREMENTS = b"example-dependency==1.0 \\\n    --hash=sha256:" + b"a" * 64 + b"\n"
 
@@ -117,7 +118,7 @@ def test_exact_roots_locked_exports_binary_hash_downloads(module, repository, tm
     assert inventory["production_release_eligible"] is False
     assert json.loads((out / "inventory.json").read_text()) == inventory
     assert out.stat().st_mode & 0o777 == 0o700
-    assert len(runner.calls) == 20
+    assert len(runner.calls) == 2 + len(EXPECTED) * 3
     for args, options in runner.calls:
         assert options["cwd"] == repository
         assert 0 < options["timeout"] <= module.STAGE_TIMEOUT
@@ -165,7 +166,7 @@ def test_exact_roots_locked_exports_binary_hash_downloads(module, repository, tm
         assert info["version"] == "1.0"
         assert (out / info["requirements"]).read_bytes() == REQUIREMENTS
         assert info["wheel"].startswith("build/")
-    assert len(inventory["files"]) == 19
+    assert len(inventory["files"]) == len(EXPECTED) * 3 + 1
     support = (out / inventory["support_requirements"]).read_text()
     for name in EXPECTED:
         assert f"{name}==1.0 --hash=sha256:" in support

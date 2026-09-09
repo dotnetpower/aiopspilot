@@ -5,7 +5,7 @@ sidebar:
   order: 2
 derives_from:
   - source: docs/roadmap/architecture/service-decomposition-execution-plan.md
-    sha: 71f202b15adcffa8b6bd14eb5964839a9e37246c
+    sha: 02210af8bfc7dde81f2e1d527e6bd94cf300003b
 ---
 
 # FDAI Architecture
@@ -149,12 +149,13 @@ private data-plane path because they use Azure control-plane and telemetry
 contracts. The day-zero Terraform baseline still doesn't add an Application
 Gateway, WAF, Managed Grafana, or load balancer.
 
-## The five deployable services
+## The validated five-service baseline and one candidate
 
 The 15 agents are logical responsibility owners inside the Core runtime. They
-are not 15 Azure services. FDAI deploys five independently releasable services,
+are not 15 Azure services. FDAI retains five independently releasable services,
 each with its own image, Terraform state, migration branch, health contract,
-and workload identity.
+and workload identity. SD-10 adds a separately packaged System Knowledge
+Service candidate that remains undeployed until its graduation evidence exists.
 
 | Service | Responsibility | Effect authority |
 |---------|----------------|------------------|
@@ -163,10 +164,12 @@ and workload identity.
 | Document Ingestion API | Authenticated upload intake and API-owned document transitions | None |
 | Document Processing Worker | Durable inspection, extraction, indexing, claims, and reconciliation | None |
 | Isolated Executor | Command validation, target locking, provider effect, rollback attempt, and execution receipt | Sole eligible holder |
+| System Knowledge Service candidate | Release-bound FDAI reference search and a dedicated Teams mention bot | None |
 
-The event bus and versioned service contracts connect these services. One
-service never imports another service's implementation or shares its mutable
-workflow state.
+The event bus and versioned service contracts connect the validated baseline.
+The candidate uses its own catalog, Teams HTTPS ingress, and service contract.
+No service imports another service's implementation or shares mutable workflow
+state.
 
 ## The five architecture layers
 

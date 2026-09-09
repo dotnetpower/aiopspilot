@@ -30,6 +30,10 @@ EXPECTED = {
         "fdai-isolated-executor-service",
         "fdai-isolated-executor-service",
     ),
+    "system-knowledge-service": (
+        "fdai-system-knowledge-service",
+        "fdai-system-knowledge-service",
+    ),
 }
 
 PACKAGE_ROOTS = {
@@ -38,6 +42,7 @@ PACKAGE_ROOTS = {
     "document-ingestion-api": {"fdai_ingestion_api_service"},
     "document-processing-worker": {"fdai_document_worker_service"},
     "isolated-executor": {"fdai_executor_service"},
+    "system-knowledge-service": {"fdai_system_knowledge_service"},
 }
 
 EXPECTED_DEPENDENCIES = {
@@ -114,6 +119,18 @@ EXPECTED_DEPENDENCIES = {
         "psycopg",
         "pydantic",
     },
+    "system-knowledge-service": {
+        "azure-identity",
+        "fdai-service-contracts",
+        "httpx",
+        "pyjwt",
+        "starlette",
+        "uvicorn",
+    },
+}
+EXPECTED_VERSIONS = {
+    **{service_id: "0.1.3" for service_id in EXPECTED if service_id != "system-knowledge-service"},
+    "system-knowledge-service": "0.1.0",
 }
 
 EXPECTED_OPTIONAL_DEPENDENCIES = {
@@ -180,7 +197,7 @@ def _direct_import_distributions(source_root: Path) -> set[str]:
     return distributions
 
 
-def test_five_service_distributions_have_owned_entrypoints() -> None:
+def test_service_distributions_have_owned_entrypoints() -> None:
     assert {
         path.name
         for path in SERVICE_ROOT.iterdir()
@@ -191,17 +208,19 @@ def test_five_service_distributions_have_owned_entrypoints() -> None:
     for service_id, (distribution, script) in EXPECTED.items():
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())
         assert project["project"]["name"] == distribution
-        assert project["project"]["version"] == "0.1.3"
+        assert project["project"]["version"] == EXPECTED_VERSIONS[service_id]
         assert script in project["project"]["scripts"]
         assert "fdai-service-contracts==0.1.0" in project["project"]["dependencies"]
         distributions.add(distribution)
         scripts.add(script)
-    assert len(distributions) == 5
-    assert len(scripts) == 5
+    assert len(distributions) == len(EXPECTED)
+    assert len(scripts) == len(EXPECTED)
 
 
 def test_service_modules_force_the_declared_postgres_role() -> None:
     for service_id in EXPECTED:
+        if service_id == "system-knowledge-service":
+            continue
         module = (
             REPO_ROOT / "infra" / "services" / service_id / "modules" / service_id / "main.tf"
         ).read_text(encoding="utf-8")

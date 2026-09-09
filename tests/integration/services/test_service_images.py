@@ -77,6 +77,11 @@ SERVICES = {
         "fdai-isolated-executor-service",
         "fdai-isolated-executor",
     ),
+    "system-knowledge-service": (
+        "fdai-system-knowledge-service",
+        "fdai-system-knowledge-service",
+        "fdai-system-knowledge-service",
+    ),
 }
 
 
@@ -159,6 +164,10 @@ def test_runtime_assets_follow_service_ownership() -> None:
         _dockerfile("document-processing-worker").read_text(encoding="utf-8"), "runtime"
     )
     executor = _stage(_dockerfile("isolated-executor").read_text(encoding="utf-8"), "runtime")
+    system_knowledge = _stage(
+        _dockerfile("system-knowledge-service").read_text(encoding="utf-8"),
+        "runtime",
+    )
 
     assert "COPY --from=opa-builder /go/bin/opa" in core
     assert "rule-catalog/" in core and "policies/" in core and "config/" in core
@@ -179,6 +188,9 @@ def test_runtime_assets_follow_service_ownership() -> None:
     assert "config/" not in worker
     for asset in ("config/", "rule-catalog/", "policies/", "resolved-models.json", "opa-builder"):
         assert asset not in executor
+        assert asset not in system_knowledge
+    assert "docs/roadmap/" not in system_knowledge
+    assert "services/core-control-plane/src" not in system_knowledge
 
 
 def test_service_images_declare_runtime_appropriate_health_checks() -> None:
@@ -192,6 +204,7 @@ def test_service_images_declare_runtime_appropriate_health_checks() -> None:
     assert "/healthz" in dockerfiles["document-ingestion-api"]
     assert "/live" in dockerfiles["document-processing-worker"]
     assert "/live" in dockerfiles["isolated-executor"]
+    assert "/health/live" in dockerfiles["system-knowledge-service"]
     assert all(text.count("HEALTHCHECK") == 1 for text in dockerfiles.values())
 
 

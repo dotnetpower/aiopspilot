@@ -11,7 +11,7 @@ and owning designs. Use it instead of the retired top-level application tree.
 
 ## Design at a glance
 
-- **Five service distributions:** Every runtime process owns one package under `services/`.
+- **Service distributions:** Five distributions retain validated deployment evidence. The independently packaged System Knowledge Service is a sixth read-only candidate.
 - **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts;
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
 - **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
@@ -110,10 +110,10 @@ for scenario acceptance, checkpoint evidence, and the unfinished live/hardening 
 | Document Ingestion API | [fdai_ingestion_api_service](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) | [Ingestion API tests](../../../services/document-ingestion-api/tests/) | `fdai-document-ingestion-api` |
 | Document Processing Worker | [fdai_document_worker_service](../../../services/document-processing-worker/src/fdai_document_worker_service/) | [Worker tests](../../../services/document-processing-worker/tests/) | `fdai-document-processing-worker` |
 | Isolated Executor | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [Executor tests](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
+| System Knowledge Service | [fdai_system_knowledge_service](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) | [System knowledge tests](../../../services/system-knowledge-service/tests/) | `fdai-system-knowledge-service` |
 | Service contracts | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [Contract tests](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
 | Optional Cost Governance package | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [Package tests](../../../extensions/cost-governance/tests/) and [legacy advisory guard coverage](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | Cross-service integration | Not applicable | [Root integration tests](../../../tests/integration/) | Virtual root only |
-
 Shared handover artifacts exclude computed convenience fields from their serialized API and storage
 projection, so service-local derived properties cannot change the cross-service wire contract.
 
@@ -588,7 +588,7 @@ an agent into the framework.
 | Document Ingestion API | Upload intake, API-owned transitions, governed preview authorization, and fenced connector state | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing, process-isolated Korean and English OCR, and restart-safe protection revocation cleanup | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/), [local OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), and [provider policy contract](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated Executor | Thor-owned command handling, provider effects, receipts, and executor adapters | [package](../../../services/isolated-executor/src/fdai_executor_service/) |
-
+| System Knowledge Service | Release-bound FDAI design and implementation retrieval plus a dedicated mention-only Teams bot, with no operational authority | [package](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/), [design](../interfaces/system-knowledge-service.md), and [tests](../../../services/system-knowledge-service/tests/) |
 These packages depend only on `fdai-service-contracts`, never another service implementation.
 Local composition binds service-owned client lifecycles and loopback adapters, so the Operator
 semantic bridge, ingestion publisher, document worker consumer, and isolated Executor preserve the

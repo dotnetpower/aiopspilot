@@ -3,16 +3,16 @@ title: Multi-Service Repository Layout
 ---
 # Multi-Service Repository Layout
 
-FDAI uses one development repository containing five independently packaged and deployed backend
-services plus a shared service-contract SDK. The root coordinates tooling and integration tests;
-it is not a monolithic runtime distribution, and no service imports another service's
-implementation.
+FDAI uses one development repository containing five independently packaged and validated backend
+services, one independently packaged read-only service candidate, and a shared service-contract
+SDK. The root coordinates tooling and integration tests; it is not a monolithic runtime
+distribution, and no service imports another service's implementation.
 
 ## Packaging contract
 
 | Surface | Ownership contract |
 |---------|--------------------|
-| Five backend services | Each `services/*` root owns its `pyproject.toml`, source package, tests, image, process identity, and service migration branch. |
+| Backend services | Each `services/*` root owns its `pyproject.toml`, source package, tests, and image. The validated five-service baseline also owns process identities and migration branches. The System Knowledge Service remains deployment-gated until its graduation evidence is complete. |
 | Core service entry points | The Core manifest exposes service-owned bounded maintenance entry points, including the `once`/`loop` inventory synchronization wrapper, the active-generation projection release migration, the shadow operational-history lifecycle Job, and the protected certification runner used by Container Apps. Each entry point composes delivery adapters inside Core's package boundary and does not grant executor authority. |
 | Core cryptographic verification | The Core manifest owns the `cryptography` dependency used to verify deployment-owned Ed25519 observation receipts. No other service imports the Core implementation or receives the signing seed. |
 | Core event compression | The Core manifest owns `python-snappy` because the EventBus can deliver Snappy-compressed Kafka records. The root lock records the transitive codec package for reproducible local and deployed consumers. |
