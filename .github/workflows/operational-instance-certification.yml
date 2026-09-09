@@ -140,11 +140,12 @@ jobs:
           )"
           if [[ -z "$inventory_job_name" ]]; then
             inventory_job_name="$(
-              az containerapp job list \
-                --resource-group "$resource_group" \
+              az rest \
+                --method get \
+                --uri "https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs?api-version=2024-03-01" \
                 --output json |
                 jq -er '
-                  [.[] |
+                  [.value[] |
                     select(
                       (.properties.template.containers | length) == 1 and
                       [.properties.template.containers[]? |
