@@ -11,17 +11,23 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.oci_archive import (
+    DOCKER_CONFIG,
+    DOCKER_MANIFEST,
     OCI_CONFIG,
     OCI_INDEX,
     OCI_MANIFEST,
     OciArchiveError,
+    validate_dependency_oci_archive,
     validate_oci_archive,
 )
 
 COMMIT = "a" * 40
 PLATFORM = "linux-x86_64"
+OCI_LAYER = "application/vnd.oci.image.layer.v1.tar"
+DOCKER_LAYER = "application/vnd.docker.image.rootfs.diff.tar.gzip"
 
 
 def _json(value: object) -> bytes:
@@ -75,8 +81,15 @@ def make_archive(
     manifest_updates: Mapping[str, Any] | None = None,
     descriptor_updates: Mapping[str, Any] | None = None,
     index_updates: Mapping[str, Any] | None = None,
+    image_media_types: tuple[str, str, str] | None = None,
 ) -> ArchiveFixture:
     """Shared synthetic fixture for validator and recording-transport tests."""
+
+    manifest_media_type, config_media_type, layer_media_type = image_media_types or (
+        OCI_MANIFEST,
+        OCI_CONFIG,
+        OCI_LAYER,
+    )
 
     layer_stream = io.BytesIO()
     with tarfile.open(fileobj=layer_stream, mode="w", format=tarfile.USTAR_FORMAT) as layer_tar:
@@ -98,18 +111,18 @@ def make_archive(
         entries["blobs/sha256/" + digest[7:]] = content
         return {"digest": digest, "size": len(content), "mediaType": media_type}
 
-    config_descriptor = descriptor(_json(config), OCI_CONFIG)
-    layer_descriptor = descriptor(layer, "application/vnd.oci.image.layer.v1.tar")
+    config_descriptor = descriptor(_json(config), config_media_type)
+    layer_descriptor = descriptor(layer, layer_media_type)
     manifest = _json(
         {
             "schemaVersion": 2,
-            "mediaType": OCI_MANIFEST,
+            "mediaType": manifest_media_type,
             "config": config_descriptor,
             "layers": [layer_descriptor],
             **(manifest_updates or {}),
         }
     )
-    selected = {**descriptor(manifest, OCI_MANIFEST), **(descriptor_updates or {})}
+    selected = {**descriptor(manifest, manifest_media_type), **(descriptor_updates or {})}
     entries["index.json"] = _json(
         {
             "schemaVersion": 2,
@@ -150,6 +163,56 @@ def test_valid_image_retains_immutable_streaming_snapshot(
     assert not (tmp_path / "hello.txt").exists()
     with pytest.raises(OciArchiveError, match="descriptor"):
         list(image.iter_bytes(image.manifest, chunk_size=0))
+
+
+def test_docker_schema2_image_keeps_original_manifest_digest(
+    tmp_path: Path,
+) -> None:
+    fixture = make_archive(
+        tmp_path / "docker-image.tar",
+        image_media_types=(DOCKER_MANIFEST, DOCKER_CONFIG, DOCKER_LAYER),
+    )
+
+    image = validate_oci_archive(fixture.path, **fixture.expectations())
+    dependency_expectations = fixture.expectations()
+    dependency_expectations.pop("expected_source_commit")
+    dependency = validate_dependency_oci_archive(fixture.path, **dependency_expectations)
+
+    assert image.manifest.digest == fixture.manifest_digest
+    assert image.manifest.media_type == DOCKER_MANIFEST
+    assert image.config.media_type == DOCKER_CONFIG
+    assert {layer.media_type for layer in image.layers} == {DOCKER_LAYER}
+    assert dependency.manifest.digest == fixture.manifest_digest
+
+
+@pytest.mark.parametrize(
+    "image_media_types",
+    [
+        (DOCKER_MANIFEST, OCI_CONFIG, DOCKER_LAYER),
+        (DOCKER_MANIFEST, DOCKER_CONFIG, OCI_LAYER),
+        (
+            DOCKER_MANIFEST,
+            DOCKER_CONFIG,
+            "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+        ),
+        (
+            "application/vnd.docker.distribution.manifest.v1+json",
+            DOCKER_CONFIG,
+            DOCKER_LAYER,
+        ),
+    ],
+)
+def test_rejects_mixed_or_unsupported_docker_media_families(
+    tmp_path: Path,
+    image_media_types: tuple[str, str, str],
+) -> None:
+    fixture = make_archive(
+        tmp_path / "unsupported-image.tar",
+        image_media_types=image_media_types,
+    )
+
+    with pytest.raises(OciArchiveError, match="unsupported"):
+        validate_oci_archive(fixture.path, **fixture.expectations())
 
 
 @pytest.mark.parametrize(

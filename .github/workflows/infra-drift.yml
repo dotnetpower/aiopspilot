@@ -20,6 +20,11 @@ on:
         type: choice
         options: [dev, staging, prod]
         default: dev
+      scope:
+        description: "Drift roots to verify."
+        type: choice
+        options: [all, runner]
+        default: all
       commit_sha:
         description: "Exact protected origin/main commit for a manual drift plan."
         type: string
@@ -102,6 +107,7 @@ jobs:
         run: cp backend.azurerm.tf.example backend.tf
 
       - name: Initialize legacy state
+        if: inputs.scope != 'runner'
         run: |
           terraform init -input=false \
             -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
@@ -110,6 +116,7 @@ jobs:
             -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
 
       - name: Plan legacy root
+        if: inputs.scope != 'runner'
         id: legacy_drift
         continue-on-error: true
         run: >-
@@ -117,6 +124,7 @@ jobs:
           -detailed-exitcode
 
       - name: Plan independent service roots
+        if: inputs.scope != 'runner'
         id: service_drift
         continue-on-error: true
         working-directory: ${{ github.workspace }}
@@ -253,10 +261,17 @@ jobs:
           refresh_plan_json="$RUNNER_TEMP/bootstrap-refresh-plan.json"
           trap 'rm -f "$state_json" "$refresh_plan" "$refresh_plan_json"' EXIT
           terraform show -json >"$state_json"
-          stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
-            bootstrap-inputs --state-json "$state_json")"
-          app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
-          runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          if stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
+            bootstrap-inputs --state-json "$state_json" 2>/dev/null)"; then
+            app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+            runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          else
+            app_resource_group_name="$(terraform output -raw app_resource_group_name)"
+            runner_ssh_public_key="$(awk 'NF >= 2 && $1 ~ /^ssh-/ {print; exit}' \
+              "$HOME/.ssh/authorized_keys")"
+            [[ -n "$app_resource_group_name" && -n "$runner_ssh_public_key" ]]
+            echo "Recovered promoted runner plan inputs from authoritative host readback."
+          fi
           export TF_VAR_app_resource_group_name="$app_resource_group_name"
           export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
           set +e
@@ -285,20 +300,23 @@ jobs:
       - name: Enforce complete drift evidence
         if: always()
         env:
+          DRIFT_SCOPE: ${{ inputs.scope || 'all' }}
           LEGACY_OUTCOME: ${{ steps.legacy_drift.outcome }}
           SERVICE_OUTCOME: ${{ steps.service_drift.outcome }}
           BOOTSTRAP_OUTCOME: ${{ steps.bootstrap_drift.outcome }}
           RUNNER_STORAGE_OUTCOME: ${{ steps.runner_storage_posture.outcome }}
         run: |
           set -euo pipefail
-          [[ "$LEGACY_OUTCOME" == "success" ]] || {
-            echo "Legacy Terraform drift was detected or could not be evaluated." >&2
-            exit 1
-          }
-          [[ "$SERVICE_OUTCOME" == "success" ]] || {
-            echo "Independent-service Terraform drift was detected or could not be evaluated." >&2
-            exit 1
-          }
+          if [[ "$DRIFT_SCOPE" != "runner" ]]; then
+            [[ "$LEGACY_OUTCOME" == "success" ]] || {
+              echo "Legacy Terraform drift was detected or could not be evaluated." >&2
+              exit 1
+            }
+            [[ "$SERVICE_OUTCOME" == "success" ]] || {
+              echo "Independent-service Terraform drift was detected or could not be evaluated." >&2
+              exit 1
+            }
+          fi
           [[ "$BOOTSTRAP_OUTCOME" == "success" ]] || {
             echo "Bootstrap Terraform drift was detected or could not be evaluated." >&2
             exit 1

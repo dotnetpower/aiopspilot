@@ -139,6 +139,10 @@ larger release layouts need a reviewed format change, not disabled bounds. V2 st
 preparation validate each image's OCI layout, blob hashes, manifest digest, and CPU platform without
 extracting or executing layers. Service images must also carry the declared FDAI source revision.
 Dependency images do not inherit that revision: their content is digest-bound, not source-attested.
+The layout retains the registry manifest bytes. It accepts either the OCI image media family or the
+family-consistent Docker schema 2 manifest, config, and gzip-layer media types emitted by the
+protected publisher. Schema 1, mixed families, and foreign layers remain blocked, so
+`image_digest` stays bound to the original registry and provenance subject rather than a conversion.
 Provenance and SBOM semantics, layer contents, Console configuration, and migration completeness
 still require independent validation.
 OPA is embedded in the Core image and already included as a deployment-tool binary in the kit;

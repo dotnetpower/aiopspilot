@@ -128,6 +128,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert '"scripts/deployment/service/drift_contract.py"' in workflow
     assert "github.event_name == 'push' && github.ref == 'refs/heads/main'" in workflow
     assert '"infra/bootstrap/check-runner-storage-posture.sh"' in workflow
+    assert "options: [all, runner]" in workflow
+    assert workflow.count("if: inputs.scope != 'runner'") == 3
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
     assert "drift_contract.py \\\n            platform-inputs" in workflow
@@ -152,6 +154,9 @@ def test_workflow_plans_every_production_root() -> None:
     assert "TF_VAR_runner_vm_size: Standard_D4ds_v5" in workflow
     assert "TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}" in workflow
     assert 'refresh_plan="$RUNNER_TEMP/bootstrap-refresh.tfplan"' in workflow
+    assert 'app_resource_group_name="$(terraform output -raw app_resource_group_name)"' in workflow
+    assert '"$HOME/.ssh/authorized_keys"' in workflow
+    assert "Recovered promoted runner plan inputs from authoritative host readback." in workflow
     assert "($plan.resource_drift // [])[]" in workflow
     assert "($plan.output_changes // {}) | to_entries[]" in workflow
     assert '[[ "$drift_count" -eq 0 ]]' in workflow
@@ -160,6 +165,7 @@ def test_workflow_plans_every_production_root() -> None:
         "Enforce complete drift evidence"
     )
     assert "RUNNER_STORAGE_OUTCOME" in workflow
+    assert 'if [[ "$DRIFT_SCOPE" != "runner" ]]' in workflow
     assert "Enforce complete drift evidence" in workflow
 
 
