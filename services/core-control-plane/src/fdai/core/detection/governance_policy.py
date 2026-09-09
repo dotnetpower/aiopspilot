@@ -342,12 +342,18 @@ def _change_window(value: object) -> ChangeWindowPolicy:
     behavior = _text(raw["behavior"], "change_window.behavior")
     if behavior != "annotate_and_hold_incident":
         raise DetectionGovernancePolicyError("change-window behavior MUST hold incident promotion")
+    require_exact_scope = _boolean(raw["require_exact_scope"], "require_exact_scope")
+    require_complete_evidence = _boolean(
+        raw["require_complete_evidence"], "require_complete_evidence"
+    )
+    if not require_exact_scope or not require_complete_evidence:
+        raise DetectionGovernancePolicyError(
+            "change-window suppression requires exact scope and complete evidence"
+        )
     return ChangeWindowPolicy(
         behavior=behavior,
-        require_exact_scope=_boolean(raw["require_exact_scope"], "require_exact_scope"),
-        require_complete_evidence=_boolean(
-            raw["require_complete_evidence"], "require_complete_evidence"
-        ),
+        require_exact_scope=require_exact_scope,
+        require_complete_evidence=require_complete_evidence,
     )
 
 

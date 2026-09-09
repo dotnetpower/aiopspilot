@@ -198,3 +198,17 @@ def test_policy_rejects_confidence_levels_the_forecast_band_cannot_evaluate(
 
     with pytest.raises(DetectionGovernancePolicyError, match="confidence_level"):
         load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
+@pytest.mark.parametrize("field", ("require_exact_scope", "require_complete_evidence"))
+def test_policy_rejects_weakened_change_window_evidence_guards(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    raw = _policy()
+    change_window = raw["change_window"]
+    assert isinstance(change_window, dict)
+    change_window[field] = False
+
+    with pytest.raises(DetectionGovernancePolicyError, match="exact scope"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
