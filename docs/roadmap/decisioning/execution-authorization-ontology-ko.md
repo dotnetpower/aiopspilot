@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: f28c56a07fb7a692ae3144aeaf2d4281f5f74a34
-translation_revised: 2026-08-30
+translation_source_sha: f5d143c191a78882982eefc724701eb57339d3d0
+translation_revised: 2026-09-09
 ---
 # 실행 권한 부여 온톨로지
 
@@ -12,6 +12,8 @@ translation_revised: 2026-08-30
 > **권한 경계:** 온톨로지는 필요한 기능과 정책 관계를 설명합니다. 접근 권한을 부여하지
 > 않습니다. 범위 정책이 기능을 허용하고, 선택된 워크로드 신원의 유효 접근이 확인되며,
 > 기존 risk 게이트가 허용한 경우에만 액션이 진행됩니다.
+> 런타임 라이선싱은 현재 시각 기준 상한을 Thor에 추가할 수 있지만, 이 권한 부여 결정을
+> 대체하거나 높일 수 없습니다.
 >
 > **고객 경계:** 업스트림은 metamodel과 결정론적 해석기를 소유합니다. 다운스트림 배포판은
 > 지원되는 카탈로그 및 프로바이더 경계를 통해 정책과 프로바이더 대응을 추가합니다. 배포 신원,

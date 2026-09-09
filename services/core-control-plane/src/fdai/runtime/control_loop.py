@@ -25,7 +25,6 @@ from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiExecutionPort,
     InProcessThorExecutionPort,
-    LicenseGatedThorExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
@@ -134,6 +133,7 @@ from fdai.runtime.delivery import (
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
 )
+from fdai.runtime.licensing import gate_execution
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
 from fdai.runtime.providers import (
     _build_audit_store,
@@ -545,14 +545,8 @@ def _build_control_loop(
             direct_api=direct_api_executor,
             tool_call=tool_executor,
         )
-    if license_authority is not None:
-        thor_execution_port = LicenseGatedThorExecutionPort(
-            delegate=thor_execution_port,
-            authority=license_authority,
-            audit_store=audit_store,
-        )
+    thor_execution_port = gate_execution(thor_execution_port, license_authority, audit_store)
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
-
     # Detection-and-explanation seams (observability-and-detection.md).
     # EventCorrelator groups an event storm into one incident id; the
     # RcaCoordinator adds the deterministic T0 "why" per finding and,
