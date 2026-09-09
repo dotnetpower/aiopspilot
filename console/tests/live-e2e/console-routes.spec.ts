@@ -7,7 +7,9 @@ import { buildBrowserEvidenceProvenance } from "./browser-evidence-provenance";
 import { judgeSemanticTurn } from "./ontology-query-assurance";
 
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
-  process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
+  process.env.FDAI_E2E_BASE_URL &&
+    process.env.FDAI_E2E_OPERATOR_API_URL &&
+    process.env.FDAI_E2E_STORAGE_STATE,
 );
 
 const ROUTES = [
@@ -209,6 +211,8 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     operator_api_origin: new URL(operatorApiUrl).origin,
     question_contract: "all_queryable_ontology_types_in_current_scope",
   };
+  expect(runConfiguration.console_origin).toBe("http://localhost:5273");
+  expect(runConfiguration.operator_api_origin).toBe("http://127.0.0.1:8010");
   const provenance = buildBrowserEvidenceProvenance(
     process.env.FDAI_E2E_SOURCE_REVISION,
     process.env.FDAI_E2E_WORKSPACE_PATCH_SHA256,
@@ -314,6 +318,10 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     await expect(receipt.getByTestId(testId)).toHaveText(/^sha256:[0-9a-f]{64}$/);
   }
   await expect(receipt.getByTestId("semantic-execution-authority")).toHaveText("false");
+  expect(semanticReceipt.execution_authority).toBe(false);
+  expect(semanticReceipt.assurance_observation?.authority_posture).toBe("read_only");
+  expect(semanticReceipt.assurance_observation?.read_performed).toBe(true);
+  expect(semanticReceipt.assurance_observation?.execution_authority).toBe(false);
 
   const rendered = {
     projection_id: await receipt.getByTestId("semantic-projection-id").innerText(),
@@ -346,6 +354,12 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     ...provenance,
     run_configuration: runConfiguration,
     authentication: "browser_entra",
+    authority: {
+      observation_authority: false,
+      mutation_authority: false,
+      execution_authority: false,
+      basis: "authenticated_read_only_semantic_projection",
+    },
     stages: {
       operator_publication: {
         request_id: semanticReceipt.request_id,

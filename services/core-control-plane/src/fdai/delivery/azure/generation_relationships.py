@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from urllib.parse import urlparse
 
 from fdai.delivery.azure.arg_relationships import (
@@ -15,10 +15,19 @@ from fdai.delivery.azure.arg_relationships import (
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
 )
-from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+    ResourceRecord,
+)
 
 _MAX_ALIAS_LENGTH = 2_048
 _MAX_ALIASES_PER_RESOURCE = 64
+_CONFIGURED_ENDPOINT_MAPPING_ID = "azure.container-workload-depends-on-configured-endpoint"
+_OPEN_ENV_VALUE_PATH = "properties.template.containers[].env[].value"
+_POSTGRES_PROVIDER_TYPE = "Microsoft.DBforPostgreSQL/flexibleServers"
 _TARGET_ALIAS_PATHS: Mapping[str, tuple[str, ...]] = {
     "api-gateway": ("properties.gatewayUrl",),
     "communication-service": ("properties.hostName",),
@@ -109,6 +118,23 @@ def project_complete_generation_relationships(
             and link.mapping_evidence.mapping_id in generation_mapping_ids
         )
         drops.extend(drop for drop in result.dropped if drop.mapping_id in generation_mapping_ids)
+        for _ in range(
+            _unresolved_bare_postgres_host_count(
+                resource,
+                resolve=resolve,
+                neutral_type_by_provider_ref=neutral_type_by_provider_ref,
+            )
+        ):
+            drops.append(
+                RelationshipDrop(
+                    reason=RelationshipDropReason.UNRESOLVED_REFERENCE,
+                    mapping_id=_CONFIGURED_ENDPOINT_MAPPING_ID,
+                    source_property_path=_OPEN_ENV_VALUE_PATH,
+                    source_provider_type=str(row["type"]),
+                    target_provider_type=_POSTGRES_PROVIDER_TYPE,
+                    unavailable_reason=RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+                )
+            )
     return RelationshipProjectionResult(
         links=tuple(links),
         dropped=tuple(
@@ -122,6 +148,43 @@ def project_complete_generation_relationships(
             )
         ),
     )
+
+
+def _unresolved_bare_postgres_host_count(
+    resource: ResourceRecord,
+    *,
+    resolve: Callable[[str], str | None],
+    neutral_type_by_provider_ref: Mapping[str, str],
+) -> int:
+    return sum(
+        1
+        for value in set(_postgres_host_values(resource.props))
+        if "://" not in value
+        and (
+            (provider_ref := resolve(value)) is None
+            or neutral_type_by_provider_ref.get(provider_ref.casefold()) != "postgresql-server"
+        )
+    )
+
+
+def _postgres_host_values(props: Mapping[str, object]) -> tuple[str, ...]:
+    properties = props.get("properties")
+    template = properties.get("template") if isinstance(properties, Mapping) else None
+    containers = template.get("containers") if isinstance(template, Mapping) else None
+    if not isinstance(containers, Sequence) or isinstance(containers, (str, bytes)):
+        return ()
+    values: list[str] = []
+    for container in containers:
+        environment = container.get("env") if isinstance(container, Mapping) else None
+        if not isinstance(environment, Sequence) or isinstance(environment, (str, bytes)):
+            continue
+        for binding in environment:
+            if not isinstance(binding, Mapping) or binding.get("name") != "POSTGRES_HOST":
+                continue
+            value = binding.get("value")
+            if isinstance(value, str) and value.strip():
+                values.append(value.strip())
+    return tuple(values)
 
 
 def _path_values(value: object, path: str) -> tuple[str, ...]:

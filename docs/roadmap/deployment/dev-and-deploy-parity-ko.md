@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d2d63a7f0ba6321b721b3d168544051d9f5afd14
+translation_source_sha: 635446bc4798ff01c2202cb24597e0cdac7839c1
 translation_revised: 2026-09-09
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -57,6 +57,10 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 취급하지 않으면서 화면에 그대로 표시합니다. 또한 실제 운영 Command Deck을 통해 결정론적 현재
 시각 턴과 허용 목록에 포함된 Microsoft Learn 웹 검색을 제출하고, 검증된 또는 근거에 기반한 최종
 근거를 요구합니다. 통제된 온톨로지 보증 아티팩트는 정확한 source revision, 정규 run configuration과 digest, workspace patch digest, authentication attestation 및 정확한 request와 projection id를 기록하며, runner는 malformed source 또는 workspace 출처 이력을 첫 요청 전에 거부합니다.
+인증된 외부 증적은 표준 `http://localhost:5273` Console과
+`http://127.0.0.1:8010` Operator API 원본만 허용합니다. 작업 영역 패치 다이제스트에는 무시
+대상이 아닌 추적되지 않은 파일도 포함되므로, 커밋되지 않은 파일이 기록된 출처에서 누락되지
+않습니다.
 ### dev-up.sh 필요 (여전히 로컬)
 | 서브시스템 | 로컬 백엔드 | Prod 백엔드 |
 |-----------|-------------|--------------|

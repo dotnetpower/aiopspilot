@@ -17,7 +17,11 @@ from fdai.rule_catalog.schema.provider_relationship_mapping import (
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
-from fdai.shared.providers.inventory import RelationshipDropReason, ResourceRecord
+from fdai.shared.providers.inventory import (
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+    ResourceRecord,
+)
 
 CATALOG_ROOT = Path("rule-catalog/vocabulary/provider-relationship-mappings")
 RESOURCE_TYPES = Path("rule-catalog/vocabulary/resource-types.yaml")
@@ -228,6 +232,96 @@ def test_complete_generation_projects_unique_registry_workspace_and_endpoint_ali
         workspace.resource_id,
     ) in edges
     assert result.dropped == ()
+
+
+def test_complete_generation_classifies_unmatched_bare_postgres_host() -> None:
+    app = _resource(
+        "app-example",
+        "compute.container-app",
+        "Microsoft.App/containerApps",
+        {
+            "template": {
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "POSTGRES_HOST",
+                                "value": "missing.postgres.database.azure.com",
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+    )
+
+    result = _project((app,))
+
+    assert result.links == ()
+    assert [
+        (
+            drop.mapping_id,
+            drop.reason,
+            drop.unavailable_reason,
+            drop.target_provider_type,
+        )
+        for drop in result.dropped
+    ] == [
+        (
+            "azure.container-workload-depends-on-configured-endpoint",
+            RelationshipDropReason.UNRESOLVED_REFERENCE,
+            RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+            "Microsoft.DBforPostgreSQL/flexibleServers",
+        )
+    ]
+
+
+def test_complete_generation_accounts_for_each_bare_postgres_host() -> None:
+    database = _resource(
+        "database-example",
+        "postgresql-server",
+        "Microsoft.DBforPostgreSQL/flexibleServers",
+        {"fullyQualifiedDomainName": "database-example.postgres.database.azure.com"},
+    )
+    app = _resource(
+        "app-example",
+        "compute.container-app",
+        "Microsoft.App/containerApps",
+        {
+            "template": {
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "POSTGRES_HOST",
+                                "value": "database-example.postgres.database.azure.com",
+                            }
+                        ]
+                    },
+                    {
+                        "env": [
+                            {
+                                "name": "POSTGRES_HOST",
+                                "value": "missing.postgres.database.azure.com",
+                            }
+                        ]
+                    },
+                ]
+            }
+        },
+    )
+
+    result = _project((app, database))
+
+    assert [(link.link_type, link.to_id) for link in result.links] == [
+        ("depends_on", database.resource_id)
+    ]
+    assert [(drop.reason, drop.unavailable_reason) for drop in result.dropped] == [
+        (
+            RelationshipDropReason.UNRESOLVED_REFERENCE,
+            RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+        )
+    ]
 
 
 def test_complete_generation_projects_exact_key_vault_secret_reference() -> None:

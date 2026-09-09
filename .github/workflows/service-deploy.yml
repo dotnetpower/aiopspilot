@@ -298,6 +298,21 @@ jobs:
       - name: Install pinned GitHub CLI
         run: bash "$TRUSTED_CONTROLS/scripts/deployment/azure/install-pinned-github-cli.sh"
 
+      - name: Verify required CI for exact revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check." >&2
+            exit 1
+          }
+
       - name: Verify protected environment approval policy before mutation
         if: ${{ inputs.apply }}
         env:

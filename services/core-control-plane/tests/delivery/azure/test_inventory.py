@@ -138,6 +138,51 @@ async def test_full_snapshot_emits_complete_generation_relationships_before_fenc
 
 
 @pytest.mark.asyncio
+async def test_full_snapshot_redacts_runtime_environment_after_relationship_projection() -> None:
+    resource = ResourceRecord(
+        resource_id="app/1",
+        type="compute.container-app",
+        props={
+            "properties": {
+                "template": {
+                    "containers": [
+                        {
+                            "env": [
+                                {"name": "POSTGRES_HOST", "value": "db.example.com"},
+                                {"name": "FDAI_DATABASE_URL", "secretRef": "database-dsn"},
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+    )
+
+    async def _q(_rt: str) -> ResourceQueryResult:
+        return ResourceQueryResult(resources=(resource,))
+
+    def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
+        environment = resources[0].props["properties"]["template"]["containers"][0]["env"]  # type: ignore[index]
+        assert environment[0]["value"] == "db.example.com"
+        return ResourceQueryResult()
+
+    seen = [
+        batch
+        async for batch in _adapter(
+            _q,
+            types=("compute.container-app",),
+            generation_relationships=_relationships,
+        ).full_snapshot()
+    ]
+
+    persisted = next(batch.resources[0] for batch in seen if batch.resources)
+    assert persisted.props["properties"]["template"]["containers"][0]["env"] == [  # type: ignore[index]
+        {"bindingRedacted": True},
+        {"bindingRedacted": True},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_full_snapshot_drops_generation_relationship_with_missing_target() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1"),), ()

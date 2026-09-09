@@ -106,6 +106,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   deployed venue supplies one complete configuration. The Core Container App receives the private
   seed only through a Managed Identity-backed Key Vault reference. Partial configuration, local
   venue use, signature substitution, and collapsed credential lineages fail closed.
+- **operational certification stays in delivery**:
+  `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
+  one content-addressed private Blob receipt through a non-executor Managed Identity. The entry
+  point records measurement coverage with observation, mutation, and execution authority fixed to
+  false. It does not become an ontology writer or an action path.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through
   typed ingress, and one Core writer delegates to the provider-neutral atomic store. The PostgreSQL
   adapter serializes on a family row and commits an immutable revision, hash-chained transition,
