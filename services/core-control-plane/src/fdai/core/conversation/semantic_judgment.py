@@ -21,6 +21,7 @@ from fdai_service_contracts.semantic_judgment import (
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
+from . import semantic_judgment_grounding as grounding
 from .conversation_preflight import (
     ConversationPreflightBoundary,
     ConversationPreflightResult,
@@ -28,33 +29,6 @@ from .conversation_preflight import (
     SocialResponseNarratorResult,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
-from .semantic_judgment_grounding import (
-    ground_unique_source_spans as _ground_unique_source_spans,
-)
-from .semantic_judgment_grounding import (
-    normalize_action_advice_identity_ambiguity as _normalize_action_advice_identity_ambiguity,
-)
-from .semantic_judgment_grounding import (
-    normalize_exact_resource_identity_ambiguity as _normalize_exact_resource_identity_ambiguity,
-)
-from .semantic_judgment_grounding import (
-    normalize_overlapping_target_fragments as _normalize_overlapping_target_fragments,
-)
-from .semantic_judgment_grounding import (
-    normalize_unsupplied_time_canonical_values as _normalize_unsupplied_time_canonical_values,
-)
-from .semantic_judgment_grounding import (
-    validate_action_target_ambiguity as _validate_action_target_ambiguity,
-)
-from .semantic_judgment_grounding import (
-    validate_capability_grounding as _validate_capability_grounding,
-)
-from .semantic_judgment_grounding import (
-    validate_forbidden_action_canonical_values as _validate_forbidden_action_canonical_values,
-)
-from .semantic_judgment_grounding import (
-    validate_source_spans as _validate_source_spans,
-)
 from .semantic_judgment_rejections import (
     SAFE_SEMANTIC_JUDGMENT_REJECTION_REASONS as _SAFE_REJECTION_REASONS,
 )
@@ -284,13 +258,13 @@ class SemanticJudgmentBoundary:
                     proposal = SemanticJudgmentProposal.model_validate(
                         _canonicalize_machine_tokens(raw)
                     )
-                    proposal = _ground_unique_source_spans(
+                    proposal = grounding.ground_unique_source_spans(
                         proposal,
                         utterance=utterance,
                         capabilities=bounded_capabilities,
                         allow_context_target_drop=not self._strict_intent_grounding,
                     )
-                    _validate_forbidden_action_canonical_values(
+                    grounding.validate_forbidden_action_canonical_values(
                         proposal,
                         capabilities=bounded_capabilities,
                     )
@@ -299,13 +273,19 @@ class SemanticJudgmentBoundary:
                         capabilities=bounded_capabilities,
                     )
                     if self._strict_intent_grounding:
-                        proposal = _normalize_overlapping_target_fragments(proposal)
-                        proposal = _normalize_action_advice_identity_ambiguity(proposal)
-                        proposal = _normalize_unsupplied_time_canonical_values(
+                        proposal = grounding.normalize_intents_from_typed_facets(
                             proposal,
                             capabilities=bounded_capabilities,
                         )
-                        _validate_capability_grounding(
+                        proposal = grounding.normalize_overlapping_target_fragments(proposal)
+                        proposal = grounding.normalize_target_shape(proposal)
+                        proposal = grounding.normalize_complete_target_ambiguity(proposal)
+                        proposal = grounding.normalize_action_advice_identity_ambiguity(proposal)
+                        proposal = grounding.normalize_unsupplied_time_canonical_values(
+                            proposal,
+                            capabilities=bounded_capabilities,
+                        )
+                        grounding.validate_capability_grounding(
                             proposal,
                             capabilities=bounded_capabilities,
                         )
@@ -314,16 +294,17 @@ class SemanticJudgmentBoundary:
                         capabilities=bounded_capabilities,
                     )
                     if self._strict_intent_grounding:
-                        proposal = _normalize_exact_resource_identity_ambiguity(proposal)
+                        proposal = grounding.normalize_exact_resource_identity_ambiguity(proposal)
                     _validate_intent_target_compatibility(proposal)
                     if self._strict_intent_grounding:
-                        _validate_action_target_ambiguity(proposal)
+                        grounding.validate_action_target_ambiguity(proposal)
+                        grounding.validate_required_target_shape(proposal)
                     _validate_direct_response(
                         proposal,
                         locale=response_locale,
                         profile_digest=response_profile_digest,
                     )
-                    _validate_source_spans(proposal, utterance=utterance)
+                    grounding.validate_source_spans(proposal, utterance=utterance)
                 except (TypeError, ValueError, ValidationError) as exc:
                     recovered_trace = (
                         None
@@ -564,7 +545,7 @@ def _recover_bound_subject_proposal(
             proposal,
             capabilities=capabilities,
         )
-        _validate_source_spans(proposal, utterance=utterance)
+        grounding.validate_source_spans(proposal, utterance=utterance)
     except (TypeError, ValueError, ValidationError):
         return None
     return proposal
@@ -603,7 +584,7 @@ def _recover_safe_ontology_trace_proposal(
     )
     try:
         proposal = SemanticJudgmentProposal.model_validate(candidate)
-        proposal = _ground_unique_source_spans(
+        proposal = grounding.ground_unique_source_spans(
             proposal,
             utterance=utterance,
             capabilities=capabilities,
@@ -612,7 +593,7 @@ def _recover_safe_ontology_trace_proposal(
             proposal,
             capabilities=capabilities,
         )
-        _validate_source_spans(proposal, utterance=utterance)
+        grounding.validate_source_spans(proposal, utterance=utterance)
     except (TypeError, ValueError, ValidationError):
         return None
     expected_targets = {"ActionType", "ResourceType", "Rule", "SignalType"}
@@ -634,6 +615,8 @@ def _canonicalize_machine_tokens(raw: Mapping[str, Any]) -> dict[str, Any]:
         return _MACHINE_TOKEN_SEPARATOR.sub("_", value.strip().lower()).strip("_")
 
     normalized["primary_intent"] = canonicalize(normalized.get("primary_intent"))
+    if normalized.get("discourse_mode") in {"hypothetical", "quoted"}:
+        normalized["forbidden_actions"] = []
     if normalized.get("action_posture") == "advise_only":
         normalized["action_subject"] = "none"
     for field in ("secondary_intents", "requested_facets", "alternatives"):

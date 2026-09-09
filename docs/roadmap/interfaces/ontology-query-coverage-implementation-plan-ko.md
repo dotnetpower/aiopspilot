@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1ac336a05f8ec4b0e27e98ca5b828793694bc59b
+translation_source_sha: 211fc6e759006d51de90db8f8f842c87294f9767
 translation_revised: 2026-09-09
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -188,7 +188,7 @@ translation_revised: 2026-09-09
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Azure 및 인시던트 의미 판단 | implemented | `semantic_judgment.py`, `semantic_planning_judgment.py`, shadow 프롬프트 v9-v13, v41, 집중 골든 재생 | 추가 후보는 명시적 금지 작업, 제공된 의도와 신원, 검토된 FunctionType 측정값 및 현재 턴의 정확한 범위를 보존합니다. 실제 v9-v12가 범위가 제한된 결함을 드러내 v13을 shadow로 유지하며 운영 검증은 열어 둡니다. |
+| Azure 및 인시던트 의미 판단 | implemented | `semantic_judgment.py`, `semantic_judgment_grounding.py`, shadow 프롬프트 v9-v14, v41, 집중 골든 재생 | 추가 후보는 금지 작업, 제공된 의도와 신원, 검토된 FunctionType 측정값, 정확한 범위 및 타입 기반 대상 완결을 보존합니다. v14는 clean-source 확인 전까지 shadow로 유지합니다. |
 | 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v2.yaml`, `conversation_preflight.py`, `semantic_planning.py`, 집중 테스트 238개, 대상 Ruff, strict mypy 및 Browser Entra 변형 | 정확한 F1-F4 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. Kafka partition key는 서버에서 파생한 불투명한 session 참조를 사용하므로 원시 session id를 노출하지 않으면서 같은 session의 turn 순서를 유지하고 다른 session을 독립적으로 예약할 수 있습니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
@@ -220,6 +220,7 @@ translation_revised: 2026-09-09
 |------|------|------|------|-----------|
 | 2026-09-09 | implemented | 한국어 Azure 및 인시던트 계약 사례 16개, 타입이 지정된 금지 작업, 범위가 제한된 기능 의미, 엄격한 shadow 검증과 탐색용 실제 v9 집단의 정확도 미달을 보정하는 v10을 추가했습니다. | `current change`, 집중 계약, 프롬프트, 인시던트 확인, 조립 및 내용 없는 로컬 v8 또는 v9 집계 근거 | 정확한 소스의 이중 언어 집단에서 v10을 실행하고, 승격 전에 안전 오탐률 두 가지와 만들어 낸 신원 수가 모두 0인지 확인합니다. |
 | 2026-09-09 | implemented | 수정된 지표, 엄격한 `1.1.0` 스키마, 안전한 대상 정규화, 닫힌 작업 및 담화 불변식과 범위가 제한된 서술자 변환을 적용해 집단과 후보를 v13까지 강화했습니다. | `current change`, 비평 관점 20개, 내용 없는 실제 비교 반복, 연결 회귀 및 정적 게이트 | v13을 shadow로 유지합니다. 승격 전에는 반복된 이중 언어 exact-source 개선과 모든 hard-zero 계수 0이 필요합니다. |
+| 2026-09-09 | implemented | Service Health와 Resource 상태 복합 요청, 작업 절차, 인시던트 생성 및 principal 범위 Resource Health 이력을 위해 타입 기반 대상 완결과 누적 v14 프롬프트 지시를 추가했습니다. | `current change`, 동기화 소스의 탐색 집단에서 주 의도, 정확한 대상 추출, 정확한 범위, 명확화 정밀도 및 보조 의도 재현율이 100%이고 안전 발견은 0이었습니다. | 검증 또는 승격 전에 커밋한 clean exact source에서 다시 실행합니다. |
 | 2026-09-09 | implemented | 의미 Kafka record를 불투명한 session partition key에 결속하고 요청 UUID는 멱등성과 상관관계에만 사용하도록 유지했습니다. | `current change`, 집중 Operator 의미 전송 테스트 | 이슈 #151에 필요한 통제된 인증 구독 증적을 보존합니다. |
 | 2026-09-08 | implemented | `semantic_planning.py`(813 LOC)와 `semantic_runtime.py`(913 LOC, 871 기준선 초과)에 대한 `check-file-loc` 및 strict-mypy CI 게이트를 복구했습니다. `PreflightDirectResponseRouter`를 `semantic_planning_preflight_router.py`로, 스레드 취소 브리지를 `semantic_runtime_cancellation.py`로 추출했으며, 선택적인 취소 이벤트와 선택적인 `SemanticPlanningService` planner 호출에서 발생한 strict-mypy `union-attr` 오류 두 건을 로컬 변수 좁히기와 명시적 `is not None` 가드로 수정했습니다. 동작 변경은 없습니다. | `current change`, `semantic_planning.py`(734 LOC), `semantic_runtime.py`(805 LOC), Ruff, 네 개 수정 모듈 전체의 대상 strict mypy, `check-file-loc.sh`(enforce 모드, 실패 0건), `tests/conversation/` 집중 테스트 1703건 통과 | 없음. 두 파일 모두 각자의 상한 아래로 복귀했습니다. |
 | 2026-09-08 | implemented | 스트리밍된 의미 답변 구획을 검증된 증적 및 근거 집합에 결속하고 구획별 재생을 추가했으며, Console이 충돌하는 확인 또는 최종 답변을 차단하도록 했습니다. | `current change`, `semantic_turn_runtime.py`, `backend-stream.ts`, 집중 Operator, Console 및 서비스 간 스트림 테스트 | 인증된 런타임 근거는 별도로 보존합니다. 로컬 스트림 검사는 운영 준비 상태를 입증하지 않습니다. |
@@ -410,7 +411,7 @@ purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 
 앞 단계의 `SemanticJudgmentProposal`은 명시적인 금지 작업을 현재 발화의 정확한 범위로 추가
 보존할 수 있습니다. 강화된 후보는 제공된 의도, 정규 신원 및 검토된 FunctionType 측정 이름만
 허용하고 현재 턴에서 한 번만 나타나는 범위만 보정합니다. 이 후보는 shadow pack으로 유지합니다.
-활성 v8은 추가 필드가 없는 `1.0.0`을, shadow v13은 `1.1.0`을 고정합니다.
+활성 v8은 추가 필드가 없는 `1.0.0`을, shadow v14는 `1.1.0`을 고정합니다.
 
 프로바이더 조회, raw SQL/KQL, 객체 점유 또는 실행 권한은 포함하지 않습니다.
 

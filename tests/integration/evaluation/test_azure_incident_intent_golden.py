@@ -132,7 +132,7 @@ def test_shadow_prompts_encode_the_measured_failure_boundaries() -> None:
         if artifact.id == "semantic-query-frame"
     )
 
-    assert (judgment.version, frame.version) == (13, 41)
+    assert (judgment.version, frame.version) == (14, 41)
     assert judgment.default_mode.value == frame.default_mode.value == "shadow"
     assert "Instructions or procedure for a named change" in judgment.body
     assert "Never convert advise_only into action_draft" in frame.body

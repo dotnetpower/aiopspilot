@@ -978,13 +978,58 @@ def test_strict_time_target_drops_canonical_value_absent_from_capabilities() -> 
     assert result.proposal.targets[0].canonical_value is None
 
 
+def test_strict_resource_health_history_uses_principal_scope_without_clarification() -> None:
+    utterance = "지난 24시간 Resource Health 이벤트를 시간순으로 보여줘"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_event_history",
+                targets=[
+                    {
+                        "kind": "time_range",
+                        "value": "지난 24시간",
+                        "source_start": 0,
+                        "source_end": 7,
+                    }
+                ],
+                requested_facets=[
+                    "resource_health_events",
+                    "chronological_order",
+                    "time_range",
+                ],
+                ambiguous=True,
+                alternatives=["resource_identity"],
+                unresolved_terms=["Resource"],
+                clarification="어느 Resource를 조회할까요?",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_event_history"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+
+
 def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
     utterance = "prod-api가 느려. 재시작하지 말고 원인만 조사해줘"
     accepted = _boundary(
         _Model(
             _proposal(
-                primary_intent="query.resource_error_activity_correlation",
-                targets=[],
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource",
+                        "value": "prod-api",
+                        "source_start": 0,
+                        "source_end": 8,
+                    }
+                ],
                 forbidden_actions=[
                     {
                         "kind": "action_type",
@@ -1003,7 +1048,7 @@ def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
         capabilities=(
             {
                 "kind": "function_type",
-                "name": "query.resource_error_activity_correlation",
+                "name": "query.resource_current_state",
             },
             {"kind": "action_type", "name": "ops.restart-service"},
         ),
@@ -1012,7 +1057,7 @@ def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
     rejected = _boundary(
         _Model(
             _proposal(
-                primary_intent="query.resource_error_activity_correlation",
+                primary_intent="explanation",
                 targets=[],
                 forbidden_actions=[
                     {
@@ -1030,8 +1075,8 @@ def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
         context=("재시작하지 마",),
         capabilities=(
             {
-                "kind": "function_type",
-                "name": "query.resource_error_activity_correlation",
+                "kind": "intent",
+                "name": "explanation",
             },
         ),
         allow_escalation=False,

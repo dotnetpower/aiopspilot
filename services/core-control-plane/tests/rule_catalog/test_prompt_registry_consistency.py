@@ -253,7 +253,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert frame.version == 40
     assert judgment.version == 8
     assert operational_frame.version == 1
-    assert judgment_shadow.version == 13
+    assert judgment_shadow.version == 14
     assert frame_shadow.version == 41
     assert judgment_shadow.default_mode.value == frame_shadow.default_mode.value == "shadow"
     assert "Instructions or procedure for a named change" in judgment_shadow.body

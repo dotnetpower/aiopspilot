@@ -84,7 +84,7 @@ def normalize_action_advice_identity_ambiguity(
         or proposal.action_posture != "advise_only"
         or not any(target.kind == "resource_type" for target in proposal.targets)
         or not proposal.ambiguous
-        or proposal.alternatives
+        or not _alternatives_repeat_primary(proposal)
         or proposal.unresolved_terms != ("resource_identity",)
     ):
         return proposal
@@ -101,11 +101,87 @@ def normalize_exact_resource_identity_ambiguity(
         proposal.primary_intent != "query.resource_current_state"
         or len(exact_resources) != 1
         or not proposal.ambiguous
-        or proposal.alternatives
+        or not _alternatives_repeat_primary(proposal)
         or proposal.unresolved_terms != ("resource_identity",)
     ):
         return proposal
     return _without_ambiguity(proposal)
+
+
+def normalize_complete_target_ambiguity(
+    proposal: SemanticJudgmentProposal,
+) -> SemanticJudgmentProposal:
+    """Remove ambiguity contradicted by complete typed server-scope or draft targets."""
+
+    if not proposal.ambiguous or proposal.action_posture not in {"advise_only", "draft_only"}:
+        return proposal
+    facets = set(proposal.requested_facets)
+    kinds = {target.kind for target in proposal.targets}
+    subscription_complete = (
+        proposal.primary_intent == "query.subscription_service_health"
+        and not proposal.targets
+        and {"current_state", "subscription"}.intersection(facets)
+    )
+    resource_health_history_complete = (
+        proposal.primary_intent == "query.resource_event_history"
+        and {"resource_health_events", "time_range"} <= facets
+        and "time_range" in kinds
+        and not {"resource", "resource_group"}.intersection(kinds)
+    )
+    incident_create_complete = (
+        proposal.primary_intent == "action_request"
+        and proposal.action_subject == "Incident"
+        and "incident_create" in facets
+        and {"resource", "severity"} <= kinds
+    )
+    return (
+        _without_ambiguity(proposal)
+        if (subscription_complete or resource_health_history_complete or incident_create_complete)
+        else proposal
+    )
+
+
+def normalize_intents_from_typed_facets(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    """Complete procedure intent only from proposed facets and supplied intent names."""
+
+    intent_names = {
+        name
+        for capability in capabilities
+        if capability.get("kind") in {"intent", "question_domain"}
+        if isinstance((name := capability.get("name")), str)
+    }
+    if "action_requirements" not in intent_names or not {
+        "delete",
+        "deletion",
+        "procedure",
+    }.intersection(proposal.requested_facets):
+        return proposal
+    primary_intent = (
+        "action_requirements"
+        if proposal.primary_intent == "explanation"
+        else proposal.primary_intent
+    )
+    secondary_intents = tuple(
+        "action_requirements" if intent == "explanation" else intent
+        for intent in proposal.secondary_intents
+    )
+    if primary_intent.startswith("query.") and "action_requirements" not in secondary_intents:
+        secondary_intents = (*secondary_intents, "action_requirements")
+    if (
+        primary_intent == proposal.primary_intent
+        and secondary_intents == proposal.secondary_intents
+    ):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "primary_intent": primary_intent,
+            "secondary_intents": secondary_intents,
+        }
+    )
 
 
 def normalize_overlapping_target_fragments(
@@ -126,6 +202,72 @@ def normalize_overlapping_target_fragments(
             and target.source_end <= resource.source_end
             and (target.source_start, target.source_end)
             != (resource.source_start, resource.source_end)
+        )
+    )
+    return (
+        proposal
+        if targets == proposal.targets
+        else proposal.model_copy(update={"targets": targets})
+    )
+
+
+def normalize_target_shape(proposal: SemanticJudgmentProposal) -> SemanticJudgmentProposal:
+    """Keep only target roles licensed by the proposed typed intent family."""
+
+    targets = proposal.targets
+    allowed: set[str] | None = None
+    facets = set(proposal.requested_facets)
+    if proposal.primary_intent == "query.resource_error_activity_correlation":
+        allowed = {"resource", "time_range"}
+    elif proposal.primary_intent in {
+        "query.resource_change_activity",
+        "query.resource_current_state",
+    }:
+        allowed = {"resource", "resource_type"}
+    elif proposal.primary_intent == "query.resource_event_history":
+        allowed = {"event_type", "resource", "resource_type", "time_range"}
+    elif proposal.primary_intent == "query.subscription_service_health":
+        allowed = (
+            {"resource_type"}
+            if "query.resource_state_inventory" in proposal.secondary_intents
+            else set()
+        )
+    elif proposal.primary_intent == "query.incident_evidence":
+        allowed = {"incident_id"}
+    elif proposal.primary_intent == "query.contextual_resources":
+        allowed = {"resource_group", "resource_type"}
+    elif proposal.primary_intent == "action_requirements":
+        allowed = {"action_type", "resource_type"}
+    elif proposal.primary_intent == "action_request" and proposal.action_subject == "ActionType":
+        allowed = {"action_type", "resource", "resource_type"}
+    elif proposal.primary_intent == "action_request" and proposal.action_subject == "Incident":
+        if "incident_create" in facets and len(targets) >= 2:
+            ordered = sorted(targets, key=lambda target: (target.source_start, target.source_end))
+            targets = (
+                ordered[0].model_copy(update={"kind": "severity", "canonical_value": None}),
+                ordered[-1].model_copy(update={"kind": "resource", "canonical_value": None}),
+            )
+        allowed = {"resource", "severity"} if "incident_create" in facets else {"incident_id"}
+    elif proposal.primary_intent == "explanation" and proposal.discourse_mode.value == "quoted":
+        allowed = set()
+    if allowed is None:
+        return proposal
+    selected = [target for target in targets if target.kind in allowed]
+    if any(target.kind == "resource_type" for target in selected) and not any(
+        target.kind == "resource" for target in selected
+    ):
+        selected = [target for target in selected if target.kind != "action_type"]
+    if any(target.kind == "resource" for target in selected):
+        selected = [target for target in selected if target.kind != "resource_type"]
+    targets = tuple(
+        sorted(
+            dict.fromkeys(selected),
+            key=lambda target: (
+                target.source_start,
+                target.source_end,
+                target.kind,
+                target.value,
+            ),
         )
     )
     return (
@@ -173,6 +315,68 @@ def validate_action_target_ambiguity(proposal: SemanticJudgmentProposal) -> None
         and not any(target.kind in {"action_type", "resource"} for target in proposal.targets)
     ):
         raise ValueError("semantic draft action requires an exact target or clarification")
+
+
+def validate_required_target_shape(proposal: SemanticJudgmentProposal) -> None:
+    """Require targets implied by the already proposed typed intent and facets."""
+
+    kinds = {target.kind for target in proposal.targets}
+    facets = set(proposal.requested_facets)
+    if proposal.primary_intent == "query.resource_current_state":
+        if "resource" not in kinds and not ("resource_type" in kinds and proposal.ambiguous):
+            raise ValueError(
+                "semantic current-state intent requires exact Resource or clarification"
+            )
+    elif proposal.primary_intent == "query.resource_change_activity" and "resource" not in kinds:
+        raise ValueError("semantic Resource activity intent requires exact Resource")
+    elif (
+        proposal.primary_intent == "query.resource_error_activity_correlation"
+        and not {
+            "resource",
+            "time_range",
+        }
+        <= kinds
+    ):
+        raise ValueError("semantic error correlation requires Resource and time range")
+    elif (
+        proposal.primary_intent == "query.resource_event_history"
+        and "time_range" in facets
+        and "time_range" not in kinds
+    ):
+        raise ValueError("semantic event history requires its requested time range")
+    elif proposal.primary_intent == "query.incident_evidence" and "incident_id" not in kinds:
+        raise ValueError("semantic incident evidence requires incident id")
+    elif (
+        proposal.primary_intent == "query.contextual_resources"
+        and {"current_state", "name_filter"} <= facets
+        and not {"resource_group", "resource_type"} <= kinds
+    ):
+        raise ValueError("semantic contextual state list requires group and resource type")
+    elif (
+        proposal.primary_intent == "query.subscription_service_health"
+        and "query.resource_state_inventory" in proposal.secondary_intents
+        and "resource_type" not in kinds
+    ):
+        raise ValueError("semantic compound state intent requires resource type")
+    elif proposal.primary_intent == "action_requirements" and not {
+        "action_type",
+        "resource_type",
+    }.intersection(kinds):
+        raise ValueError("semantic action requirements require action or resource type")
+    elif (
+        proposal.primary_intent == "action_request"
+        and proposal.action_subject == "Incident"
+        and "incident_create" in facets
+        and not {"resource", "severity"} <= kinds
+    ):
+        raise ValueError("semantic incident creation requires severity and Resource")
+    elif (
+        proposal.primary_intent == "action_request"
+        and proposal.action_subject == "Incident"
+        and "incident_mitigation" in facets
+        and "incident_id" not in kinds
+    ):
+        raise ValueError("semantic incident mitigation requires incident id")
 
 
 def validate_capability_grounding(
@@ -275,14 +479,22 @@ def _without_ambiguity(proposal: SemanticJudgmentProposal) -> SemanticJudgmentPr
     )
 
 
+def _alternatives_repeat_primary(proposal: SemanticJudgmentProposal) -> bool:
+    return not proposal.alternatives or set(proposal.alternatives) == {proposal.primary_intent}
+
+
 __all__ = [
     "ground_unique_source_spans",
     "normalize_action_advice_identity_ambiguity",
+    "normalize_complete_target_ambiguity",
     "normalize_exact_resource_identity_ambiguity",
+    "normalize_intents_from_typed_facets",
     "normalize_overlapping_target_fragments",
+    "normalize_target_shape",
     "normalize_unsupplied_time_canonical_values",
     "validate_action_target_ambiguity",
     "validate_capability_grounding",
     "validate_forbidden_action_canonical_values",
+    "validate_required_target_shape",
     "validate_source_spans",
 ]

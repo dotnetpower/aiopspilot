@@ -3,7 +3,7 @@ dataset_version: 2.0.0
 evidence_kind: expected_contract_cases
 operational_validation: false
 active_prompt: semantic-judgment.v8
-shadow_prompt: semantic-judgment.v13
+shadow_prompt: semantic-judgment.v14
 capabilities:
   - {kind: function_type, name: query.resource_error_activity_correlation}
   - {kind: function_type, name: query.resource_current_state}
