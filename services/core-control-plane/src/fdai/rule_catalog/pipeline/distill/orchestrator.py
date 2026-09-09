@@ -214,10 +214,12 @@ async def build_distillation_plan(
             held.append(HeldManual(candidate=item.candidate, reason="classifier:uncertain"))
 
     distilled: list[DistilledManual] = []
+    unfetched: set[str] = set()
     for candidate in prioritize(procedures, incident_refs=incident_refs):
         document = await source.fetch(candidate.doc_id)
         if document is None:
-            # Vanished between list and fetch - nothing to compile, no error.
+            # Do not mark a transient list/fetch race as processed.
+            unfetched.add(candidate.source_ref)
             continue
         report = scan_sensitivity(document)
         if not report.is_clear:
@@ -249,20 +251,17 @@ async def build_distillation_plan(
             )
         )
 
-    # Do not record sensitivity-held docs in the snapshot: they carry an
-    # unresolved secret and were not distilled, so marking them "seen" would
-    # drop them from the HIL queue on the next unchanged run. Excluding them
-    # re-surfaces the secret every run until the content changes or a human
-    # resolves it. Uncertain / rejected / distilled outcomes are content- or
+    # Do not record sensitivity-held or unfetched docs in the snapshot. Both
+    # outcomes are non-terminal and must re-enter processing on the next run.
+    # Uncertain / rejected / distilled outcomes are content- or
     # decision-terminal and stay recorded so deletion tracking still works.
     sensitivity_held = {
         held_item.candidate.source_ref
         for held_item in held
         if held_item.reason.startswith("sensitivity:")
     }
-    snapshot = {
-        ref: sha for ref, sha in snapshot_of(current).items() if ref not in sensitivity_held
-    }
+    retry_refs = sensitivity_held | unfetched
+    snapshot = {ref: sha for ref, sha in snapshot_of(current).items() if ref not in retry_refs}
 
     return DistillationPlan(
         distilled=tuple(distilled),

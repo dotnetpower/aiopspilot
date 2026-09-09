@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: d5f0c96443449c5f74fd3f5773678977d804fc51
-translation_revised: 2026-08-24
+translation_source_sha: d631818916a8d69253da1179a9ab51fae3fccd53
+translation_revised: 2026-09-10
 ---
 
 # 매뉴얼 증류(수동 정제)
@@ -160,6 +160,9 @@ living-rules 폐기 경로처럼 다뤄진다.
 마운트 실패나 인증 만료와 구별되지 않으므로, 수상 소스 장애로 보고 실패 시 차단한다
 - 은퇴를 하나도 계획하지 않고 이전 스냅샷을 보존하므로, 일시적 장애가 증류된 카탈로그
 전체를 tombstone하지 않는다(삭제 경로의 blast-radius 제한).
+
+목록에는 있지만 가져올 수 없는 후보도 새 스냅샷에서 제외합니다. 다음 실행은 불완전한
+가져오기를 처리 완료로 잘못 간주하지 않고 내용이 바뀌지 않은 후보를 다시 시도합니다.
 
 ## 증류 파이프라인
 

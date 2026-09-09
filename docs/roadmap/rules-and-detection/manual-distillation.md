@@ -180,6 +180,10 @@ planned and the prior snapshot is preserved, so a transient outage never
 tombstones the whole distilled catalog (a blast-radius limit on the deletion
 path).
 
+A candidate that appears in the listing but cannot be fetched is also excluded
+from the new snapshot. The next run retries the unchanged candidate instead of
+silently treating an incomplete fetch as processed.
+
 ## The distillation pipeline
 
 Offline, build-time, and staged behind the same gate every rule candidate passes.

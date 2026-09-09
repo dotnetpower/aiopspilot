@@ -299,13 +299,22 @@ async def test_empty_source_with_empty_prior_is_not_outage() -> None:
 
 async def test_vanished_document_is_skipped() -> None:
     cands = [_cand("run", labels=("proc",))]
-    plan = await build_distillation_plan(
+    first = await build_distillation_plan(
         source=FakeSource(cands, docs={}),  # listed but fetch returns None
         classifier=LabelClassifier(),
         distiller=OneRuleDistiller(),
     )
-    assert plan.distilled == ()
-    assert plan.held == ()
+    assert first.distilled == ()
+    assert first.held == ()
+    assert first.snapshot == {}
+
+    second = await build_distillation_plan(
+        source=FakeSource(cands, docs={"run": _doc("run")}),
+        classifier=LabelClassifier(),
+        distiller=OneRuleDistiller(),
+        previous_snapshot=first.snapshot,
+    )
+    assert [item.candidate.doc_id for item in second.distilled] == ["run"]
 
 
 async def test_triage_policy_filters_before_classify() -> None:
