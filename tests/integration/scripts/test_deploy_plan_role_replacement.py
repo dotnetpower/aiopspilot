@@ -3,30 +3,14 @@
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 import pytest
+from scripts.deployment.azure import guard_operator_role_plan as guard
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = (ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8")
-ROLE_ADDRESS = (
-    'module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user["operator_api"]'
-)
-IDENTITY_ADDRESS = "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
-
-
-def _guard_source() -> str:
-    step = WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[1].split(
-        "- name: Run complete Azure live preflight",
-        maxsplit=1,
-    )[0]
-    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
-    assert match is not None
-    return textwrap.dedent(match.group("source"))
 
 
 def _plan(mutation: str | None = None) -> dict[str, object]:
@@ -46,7 +30,7 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
         "principal_type": None,
     }
     role_change = {
-        "address": ROLE_ADDRESS,
+        "address": guard.ROLE_ADDRESS,
         "change": {
             "actions": ["delete", "create"],
             "before": before,
@@ -60,7 +44,7 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
         },
     }
     identity_change = {
-        "address": IDENTITY_ADDRESS,
+        "address": guard.IDENTITY_ADDRESS,
         "change": {"actions": ["create"], "before": None, "after": {}},
     }
     changes = [role_change, identity_change]
@@ -90,25 +74,37 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
     return {"resource_changes": changes}
 
 
-def _run_guard(tmp_path: Path, mutation: str | None = None) -> subprocess.CompletedProcess[str]:
-    (tmp_path / "dev.plan.review.json").write_text(
-        json.dumps(_plan(mutation)),
-        encoding="utf-8",
+def test_workflow_runs_guard_before_excluding_reviewed_role() -> None:
+    guard_command = "python3 ../scripts/deployment/azure/guard_operator_role_plan.py"
+
+    assert guard_command in WORKFLOW
+    assert guard.ROLE_ADDRESS not in WORKFLOW
+
+
+def test_guard_accepts_exact_operator_identity_role_replacement() -> None:
+    assert guard.validate_operator_role_replacement(_plan()) is True
+    filtered, accepted = guard.filter_validated_operator_role_replacement(_plan())
+
+    assert accepted is True
+    assert all(
+        not isinstance(change, dict) or change.get("address") != guard.ROLE_ADDRESS
+        for change in filtered["resource_changes"]
     )
-    return subprocess.run(  # noqa: S603 - fixed interpreter executes reviewed local source
-        [sys.executable, "-c", _guard_source()],
-        cwd=tmp_path,
-        check=False,
-        capture_output=True,
-        text=True,
+
+
+def test_guard_cli_filters_the_temporary_review_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan_path = tmp_path / "dev.plan.review.json"
+    plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["guard_operator_role_plan.py", "--plan", str(plan_path)])
+
+    assert guard.main() == 0
+    filtered = json.loads(plan_path.read_text(encoding="utf-8"))
+    assert all(
+        change.get("address") != guard.ROLE_ADDRESS for change in filtered["resource_changes"]
     )
-
-
-def test_guard_accepts_exact_operator_identity_role_replacement(tmp_path: Path) -> None:
-    result = _run_guard(tmp_path)
-
-    assert result.returncode == 0, result.stderr
-    assert "permits exact identity role replacement" in result.stdout
 
 
 @pytest.mark.parametrize(
@@ -126,10 +122,7 @@ def test_guard_accepts_exact_operator_identity_role_replacement(tmp_path: Path) 
     ],
 )
 def test_guard_rejects_operator_identity_role_drift(
-    tmp_path: Path,
     mutation: str,
 ) -> None:
-    result = _run_guard(tmp_path, mutation)
-
-    assert result.returncode == 1
-    assert ROLE_ADDRESS in result.stdout
+    with pytest.raises(ValueError, match="Operator API role replacement"):
+        guard.validate_operator_role_replacement(_plan(mutation))

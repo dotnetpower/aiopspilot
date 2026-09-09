@@ -85,13 +85,10 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml) on runners matching `[self-hosted, fdai-deploy, fdai-deploy-candidate]` (plan-only by default; the `apply` input enforces).
 The additional label selects the validated 8-vCPU local-SSD pool; conjunctive GitHub label matching queues jobs when that pool is unavailable instead of silently falling back to the slower managed-disk runner.
-Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role
-are unchanged, `principal_id` is the sole replacement path, and the exact new Operator UAMI is
-created in the same plan. This admission stores review metadata and never authorizes apply.
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
-floor. The protected deploy workflow keeps repeated request validation and plan-scope logic in
+floor. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole replacement path, and the exact new Operator UAMI is created in the same plan; this stores review metadata and never authorizes apply. The protected deploy workflow keeps repeated request validation and plan-scope logic in
 reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
