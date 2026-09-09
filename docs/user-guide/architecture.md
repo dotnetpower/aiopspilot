@@ -5,7 +5,7 @@ sidebar:
   order: 2
 derives_from:
   - source: docs/roadmap/architecture/service-decomposition-execution-plan.md
-    sha: 02210af8bfc7dde81f2e1d527e6bd94cf300003b
+    sha: 2f7a36669eb3e6daaf729d9889621390a2f28a4c
 ---
 
 # FDAI Architecture

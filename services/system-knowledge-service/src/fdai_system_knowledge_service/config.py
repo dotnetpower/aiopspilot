@@ -22,6 +22,7 @@ PORT_ENV = "FDAI_SYSTEM_KNOWLEDGE_PORT"
 CATALOG_PATH_ENV = "FDAI_SYSTEM_KNOWLEDGE_CATALOG_PATH"
 SOURCE_REVISION_ENV = "FDAI_SYSTEM_KNOWLEDGE_SOURCE_REVISION"
 LEDGER_PATH_ENV = "FDAI_SYSTEM_KNOWLEDGE_LEDGER_PATH"
+CLAIM_CONTAINER_URL_ENV = "FDAI_SYSTEM_KNOWLEDGE_CLAIM_CONTAINER_URL"
 APPLICATION_ID_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID"
 BOT_ID_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_BOT_ID"
 TENANT_ID_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TENANT_ID"
@@ -63,6 +64,7 @@ class SystemKnowledgeSettings:
     catalog_path: Path
     expected_source_revision: str | None
     ledger_path: Path
+    claim_container_url: str | None
     managed_identity_client_id: str | None
     teams: TeamsSettings
 
@@ -91,6 +93,20 @@ class SystemKnowledgeSettings:
         ledger_path = Path(
             values.get(LEDGER_PATH_ENV, ".fdai/system-knowledge-ledger.sqlite3")
         ).expanduser()
+        claim_container_url_raw = values.get(CLAIM_CONTAINER_URL_ENV, "").strip()
+        claim_container_url = (
+            _https_url(claim_container_url_raw, CLAIM_CONTAINER_URL_ENV)
+            if claim_container_url_raw
+            else None
+        )
+        if venue is ExecutionVenue.LOCAL and claim_container_url is not None:
+            raise SystemKnowledgeConfigurationError(
+                f"{CLAIM_CONTAINER_URL_ENV} MUST be unset in the local venue"
+            )
+        if venue is ExecutionVenue.DEPLOYED and claim_container_url is None:
+            raise SystemKnowledgeConfigurationError(
+                f"{CLAIM_CONTAINER_URL_ENV} MUST be set in the deployed venue"
+            )
         application_id = _required(values, APPLICATION_ID_ENV)
         client_secret = values.get(CLIENT_SECRET_ENV, "").strip() or None
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
@@ -124,6 +140,7 @@ class SystemKnowledgeSettings:
             catalog_path=catalog_path,
             expected_source_revision=expected_revision,
             ledger_path=ledger_path,
+            claim_container_url=claim_container_url,
             managed_identity_client_id=managed_identity_client_id,
             teams=teams,
         )

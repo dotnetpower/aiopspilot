@@ -72,7 +72,7 @@ Core only after the exact live evidence closes.
 | 2026-09-05 | implemented | Restored exact service-test ownership for the new handover, document, and protection suites and aligned the Operator aggregate manifest with its 188 registered routes without changing the five-service topology. | `current change`; service-suite ownership and Operator full-composition tests passed. | Retain the governed runtime evidence already tracked by each owning capability. |
 ### Remaining work
 
-- [ ] Graduate the System Knowledge Service only after exact-image Teams, persistent claim,
+- [ ] Graduate the System Knowledge Service only after exact-image Teams, Blob claim,
   identity, cost, disable, and rollback evidence satisfies every applicable scorecard row.
 - [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
 - [ ] Re-evaluate Operator application, read-projection, and SSE candidates only after one candidate records a scorecard forcing trigger and all binary gate evidence on one pinned revision.

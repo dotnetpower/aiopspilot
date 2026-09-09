@@ -1,0 +1,504 @@
+name: system-knowledge-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact CI-verified protected-main revision."
+        type: string
+        required: true
+      image_ref:
+        description: "System Knowledge Service GHCR image pinned by sha256 digest."
+        type: string
+        required: true
+      previous_image_ref:
+        description: "Rollback image pinned by sha256 digest."
+        type: string
+        required: true
+      transition:
+        description: "Explicit complete-service transition."
+        type: choice
+        options: [enable, disable]
+        required: true
+      apply:
+        description: "Apply one previously sealed plan."
+        type: boolean
+        default: false
+      plan_run_id:
+        description: "Plan workflow run id. Required only for apply."
+        type: string
+        required: false
+      plan_run_attempt:
+        description: "Plan workflow run attempt. Required only for apply."
+        type: string
+        required: false
+      plan_digest:
+        description: "Binary Terraform plan SHA-256. Required only for apply."
+        type: string
+        required: false
+      context_digest:
+        description: "Sealed deployment context SHA-256. Required only for apply."
+        type: string
+        required: false
+
+permissions:
+  actions: read
+  attestations: read
+  checks: read
+  contents: read
+  id-token: write
+  packages: read
+
+concurrency:
+  group: ${{ inputs.apply && 'system-knowledge-apply-dev' || 'system-knowledge-plan-dev' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
+    environment: ${{ inputs.apply && 'dev' || 'plan-only' }}
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    timeout-minutes: 90
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_REGION: ${{ vars.AZURE_REGION }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
+      SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON: ${{ secrets.SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON }}
+      SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON: ${{ secrets.SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/system-knowledge-deploy.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact protected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Verify exact CI and apply inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ inputs.apply }}
+          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+          PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
+          CONTEXT_DIGEST: ${{ inputs.context_digest }}
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.commit_sha }}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase Git object id" >&2
+            exit 1
+          }
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/${{ inputs.commit_sha }}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact revision has no successful required CI check" >&2
+            exit 1
+          }
+          if [[ "$APPLY" == "true" ]]; then
+            [[ "$PLAN_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
+              && [[ "$PLAN_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] \
+              && [[ "$PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]] \
+              && [[ "$CONTEXT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+                echo "apply requires exact plan run and digest inputs" >&2
+                exit 1
+              }
+          else
+            [[ -z "$PLAN_RUN_ID$PLAN_RUN_ATTEMPT$PLAN_DIGEST$CONTEXT_DIGEST" ]] || {
+              echo "plan-only run cannot accept apply evidence" >&2
+              exit 1
+            }
+          fi
+
+      - name: Verify immutable image attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          expected="ghcr.io/${GITHUB_REPOSITORY,,}/fdai-system-knowledge-service@sha256:"
+          [[ "$IMAGE_REF" == "$expected"* ]] || {
+            echo "image_ref is outside the System Knowledge Service repository" >&2
+            exit 1
+          }
+          timeout 60s gh attestation verify \
+            "oci://${IMAGE_REF}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "${{ inputs.commit_sha }}" \
+            --predicate-type "https://slsa.dev/provenance/v1" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            >/dev/null
+          timeout 60s gh attestation verify \
+            "oci://${IMAGE_REF}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "${{ inputs.commit_sha }}" \
+            --predicate-type "https://spdx.dev/Document/v2.3" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            >/dev/null
+
+      - name: Authenticate and verify stable deploy identity
+        run: |
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Read exact private platform outputs
+        run: |
+          set -euo pipefail
+          cat > infra/service-state-backend.tf <<'EOF'
+          terraform {
+            backend "azurerm" {}
+          }
+          EOF
+          terraform -chdir=infra init -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fdai-dev.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          terraform -chdir=infra output -json > "$RUNNER_TEMP/system-knowledge-platform.json"
+
+      - name: Materialize current protected inputs
+        id: context
+        run: |
+          set -euo pipefail
+          catalog_revision="$(
+            jq -er '.source_revision' \
+              services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json
+          )"
+          context_digest="$(
+            uv run --frozen --package fdai-system-knowledge-service python \
+              scripts/deployment/system_knowledge/prepare_deployment.py \
+              --platform-outputs "$RUNNER_TEMP/system-knowledge-platform.json" \
+              --subscription-id "$ARM_SUBSCRIPTION_ID" \
+              --region "$AZURE_REGION" \
+              --environment dev \
+              --image-ref "${{ inputs.image_ref }}" \
+              --previous-image-ref "${{ inputs.previous_image_ref }}" \
+              --source-revision "$catalog_revision" \
+              --transition "${{ inputs.transition }}" \
+              --tfvars-output "$RUNNER_TEMP/system-knowledge.tfvars.json" \
+              --context-output "$RUNNER_TEMP/system-knowledge-context.json"
+          )"
+          echo "context_digest=$context_digest" >> "$GITHUB_OUTPUT"
+          echo "catalog_source_revision=$catalog_revision" >> "$GITHUB_OUTPUT"
+
+      - name: Initialize and validate isolated service state
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/services/system-knowledge-service init -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=services/system-knowledge-service/dev.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          terraform -chdir=infra/services/system-knowledge-service validate
+
+      - name: Create and guard plan
+        if: ${{ !inputs.apply }}
+        id: plan
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/services/system-knowledge-service plan \
+            -input=false \
+            -lock-timeout=5m \
+            -var-file="$RUNNER_TEMP/system-knowledge.tfvars.json" \
+            -out="$RUNNER_TEMP/system-knowledge.plan"
+          terraform -chdir=infra/services/system-knowledge-service show -json \
+            "$RUNNER_TEMP/system-knowledge.plan" \
+            > "$RUNNER_TEMP/system-knowledge-plan.json"
+          uv run --frozen --package fdai-system-knowledge-service python \
+            scripts/deployment/system_knowledge/guard_plan.py \
+            --plan-json "$RUNNER_TEMP/system-knowledge-plan.json" \
+            --transition "${{ inputs.transition }}" \
+            --image-ref "${{ inputs.image_ref }}"
+          plan_digest="$(sha256sum "$RUNNER_TEMP/system-knowledge.plan" | awk '{print $1}')"
+          context_digest="${{ steps.context.outputs.context_digest }}"
+          jq -n \
+            --arg commit_sha "${{ inputs.commit_sha }}" \
+            --arg image_ref "${{ inputs.image_ref }}" \
+            --arg previous_image_ref "${{ inputs.previous_image_ref }}" \
+            --arg transition "${{ inputs.transition }}" \
+            --arg plan_digest "$plan_digest" \
+            --arg context_digest "$context_digest" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{schema_version:"fdai.system-knowledge-plan.v1",commit_sha:$commit_sha,image_ref:$image_ref,previous_image_ref:$previous_image_ref,transition:$transition,plan_digest:$plan_digest,context_digest:$context_digest,run_id:$run_id,run_attempt:$run_attempt}' \
+            > "$RUNNER_TEMP/system-knowledge-plan-metadata.json"
+          chmod 600 "$RUNNER_TEMP"/system-knowledge-*
+          echo "plan_digest=$plan_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload guarded plan
+        if: ${{ !inputs.apply }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: system-knowledge-plan-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/system-knowledge.plan
+            ${{ runner.temp }}/system-knowledge-plan.json
+            ${{ runner.temp }}/system-knowledge-plan-metadata.json
+            ${{ runner.temp }}/system-knowledge-context.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Download guarded plan
+        if: ${{ inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -m 700 "$RUNNER_TEMP/sealed-plan"
+          gh run download "${{ inputs.plan_run_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "system-knowledge-plan-dev-${{ inputs.plan_run_id }}-${{ inputs.plan_run_attempt }}" \
+            --dir "$RUNNER_TEMP/sealed-plan"
+
+      - name: Verify guarded plan evidence
+        if: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/sealed-plan"
+          metadata="$bundle/system-knowledge-plan-metadata.json"
+          jq -e \
+            --arg commit_sha "${{ inputs.commit_sha }}" \
+            --arg image_ref "${{ inputs.image_ref }}" \
+            --arg previous_image_ref "${{ inputs.previous_image_ref }}" \
+            --arg transition "${{ inputs.transition }}" \
+            --arg plan_digest "${{ inputs.plan_digest }}" \
+            --arg context_digest "${{ inputs.context_digest }}" \
+            --arg run_id "${{ inputs.plan_run_id }}" \
+            --arg run_attempt "${{ inputs.plan_run_attempt }}" \
+            '.schema_version == "fdai.system-knowledge-plan.v1" and .commit_sha == $commit_sha and .image_ref == $image_ref and .previous_image_ref == $previous_image_ref and .transition == $transition and .plan_digest == $plan_digest and .context_digest == $context_digest and .run_id == $run_id and .run_attempt == $run_attempt' \
+            "$metadata" >/dev/null
+          [[ "$(sha256sum "$bundle/system-knowledge.plan" | awk '{print $1}')" == "${{ inputs.plan_digest }}" ]]
+          cmp "$bundle/system-knowledge-context.json" \
+            "$RUNNER_TEMP/system-knowledge-context.json"
+          terraform -chdir=infra/services/system-knowledge-service show -json \
+            "$bundle/system-knowledge.plan" > "$RUNNER_TEMP/replayed-system-knowledge-plan.json"
+          cmp "$bundle/system-knowledge-plan.json" \
+            "$RUNNER_TEMP/replayed-system-knowledge-plan.json"
+          uv run --frozen --package fdai-system-knowledge-service python \
+            scripts/deployment/system_knowledge/guard_plan.py \
+            --plan-json "$RUNNER_TEMP/replayed-system-knowledge-plan.json" \
+            --transition "${{ inputs.transition }}" \
+            --image-ref "${{ inputs.image_ref }}"
+
+      - name: Materialize principal map in private Key Vault
+        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+        run: |
+          set -euo pipefail
+          vault_uri="$(jq -er '.key_vault_uri.value' "$RUNNER_TEMP/system-knowledge-platform.json")"
+          uv run --frozen --package fdai-system-knowledge-service python \
+            scripts/deployment/azure/materialize_system_knowledge_secret.py \
+            --vault-uri "$vault_uri"
+
+      - name: Apply exact guarded plan
+        if: ${{ inputs.apply }}
+        id: apply
+        run: |
+          set -euo pipefail
+          started="$SECONDS"
+          terraform -chdir=infra/services/system-knowledge-service apply \
+            -input=false \
+            -lock-timeout=5m \
+            -auto-approve \
+            "$RUNNER_TEMP/sealed-plan/system-knowledge.plan"
+          elapsed=$((SECONDS - started))
+          echo "elapsed_seconds=$elapsed" >> "$GITHUB_OUTPUT"
+          terraform -chdir=infra/services/system-knowledge-service output -json \
+            > "$RUNNER_TEMP/system-knowledge-outputs.json"
+
+      - name: Verify enabled runtime and build Teams package
+        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+        run: |
+          set -euo pipefail
+          service_id="$(jq -er '.service.value.id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          service_name="$(jq -er '.service.value.name' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          revision_name="$(jq -er '.service.value.latest_revision_name' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          service_fqdn="$(jq -er '.service.value.fqdn' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          app_id="$(jq -er '.bot.value.app_id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          claim_url="$(jq -er '.claim_store.value.container_url' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+          timeout 60s az containerapp revision show \
+            --name "$service_name" \
+            --revision "$revision_name" \
+            --resource-group "$(jq -er '.resource_group_name.value' "$RUNNER_TEMP/system-knowledge-platform.json")" \
+            --output json --only-show-errors \
+            > "$RUNNER_TEMP/system-knowledge-revision.json"
+          jq -e \
+            --arg image "${{ inputs.image_ref }}" \
+            --arg revision "$revision_name" \
+            '.name == $revision and .properties.active == true and .properties.healthState == "Healthy" and .properties.provisioningState == "Provisioned" and (.properties.template.containers | length) == 1 and .properties.template.containers[0].image == $image' \
+            "$RUNNER_TEMP/system-knowledge-revision.json" >/dev/null
+          timeout 30s curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 15 \
+            "https://${service_fqdn}/health/ready" \
+            | jq -e '.status == "ok"' >/dev/null
+          storage_account="$(jq -er '.document_storage_account_name.value' "$RUNNER_TEMP/system-knowledge-platform.json")"
+          timeout 60s az storage container show \
+            --auth-mode login \
+            --account-name "$storage_account" \
+            --name system-knowledge-claims \
+            --only-show-errors --output none
+          uv run --frozen --package fdai-system-knowledge-service python \
+            scripts/deployment/system_knowledge/build_teams_app.py \
+            --app-id "$app_id" \
+            --bot-id "$app_id" \
+            --output "$RUNNER_TEMP/fdai-system-knowledge-teams.zip"
+          SERVICE_ID="$service_id" CLAIM_URL="$claim_url" \
+            python3 - > "$RUNNER_TEMP/system-knowledge-runtime-receipt.json" <<'PY'
+          import hashlib
+          import json
+          import os
+
+          def digest(value: str) -> str:
+              return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
+
+          print(json.dumps({
+              "schema_version": "fdai.system-knowledge-runtime.v1",
+              "service_id_digest": digest(os.environ["SERVICE_ID"]),
+              "claim_url_digest": digest(os.environ["CLAIM_URL"]),
+              "deployment_revision": os.environ["GITHUB_SHA"],
+              "catalog_source_revision": os.environ["CATALOG_SOURCE_REVISION"],
+              "image_digest": os.environ["IMAGE_REF"].rsplit("@", 1)[1],
+              "health": "ready",
+              "execution_authority": False,
+          }, separators=(",", ":"), sort_keys=True))
+          PY
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+          CATALOG_SOURCE_REVISION: ${{ steps.context.outputs.catalog_source_revision }}
+
+      - name: Verify disabled rollback state
+        if: ${{ inputs.apply && inputs.transition == 'disable' }}
+        run: |
+          set -euo pipefail
+          jq -e \
+            '.service.value == null and .identity.value == null and .bot.value == null and .claim_store.value == null' \
+            "$RUNNER_TEMP/system-knowledge-outputs.json" >/dev/null
+          [[ -z "$(terraform -chdir=infra/services/system-knowledge-service state list)" ]] || {
+            echo "disabled System Knowledge Service state is not empty" >&2
+            exit 1
+          }
+
+      - name: Install Teams package with deployment-only identity
+        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+        env:
+          INSTALLER_CLIENT_ID: ${{ vars.SYSTEM_KNOWLEDGE_INSTALLER_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$INSTALLER_CLIENT_ID" =~ ^[0-9a-f-]{36}$ ]] || {
+            echo "SYSTEM_KNOWLEDGE_INSTALLER_CLIENT_ID is required" >&2
+            exit 1
+          }
+          oidc_response="$(
+            curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+          )"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+          az login --service-principal \
+            --username "$INSTALLER_CLIENT_ID" \
+            --tenant "$ARM_TENANT_ID" \
+            --federated-token "$oidc_token" \
+            --allow-no-subscriptions \
+            --output none
+          mapfile -t teams < <(
+            jq -er '.team_ids[]' <<<"$SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON"
+          )
+          [[ ${#teams[@]} -ge 1 && ${#teams[@]} -le 100 ]] || {
+            echo "Teams installation targets are invalid" >&2
+            exit 1
+          }
+          uploaded=0
+          installed=0
+          for index in "${!teams[@]}"; do
+            result="$RUNNER_TEMP/system-knowledge-install-${index}.json"
+            uv run --frozen --package fdai-system-knowledge-service python \
+              scripts/deployment/system_knowledge/install_teams_app.py \
+              --package "$RUNNER_TEMP/fdai-system-knowledge-teams.zip" \
+              --team-id "${teams[$index]}" >"$result"
+            [[ "$(jq -er '.uploaded | type' "$result")" == "boolean" ]]
+            [[ "$(jq -er '.installed | type' "$result")" == "boolean" ]]
+            [[ "$(jq -er '.uploaded' "$result")" == "true" ]] && uploaded=$((uploaded + 1))
+            [[ "$(jq -er '.installed' "$result")" == "true" ]] && installed=$((installed + 1))
+          done
+          jq -n \
+            --argjson team_count "${#teams[@]}" \
+            --argjson upload_count "$uploaded" \
+            --argjson install_count "$installed" \
+            '{schema_version:"fdai.system-knowledge-teams-install.v1",team_count:$team_count,upload_count:$upload_count,install_count:$install_count}' \
+            > "$RUNNER_TEMP/system-knowledge-installation-receipt.json"
+          find "$RUNNER_TEMP" -maxdepth 1 -name 'system-knowledge-install-[0-9]*.json' \
+            -exec shred --force --remove {} +
+          oidc_token=""
+          oidc_response=""
+
+      - name: Upload runtime and Teams package evidence
+        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: system-knowledge-runtime-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/fdai-system-knowledge-teams.zip
+            ${{ runner.temp }}/system-knowledge-installation-receipt.json
+            ${{ runner.temp }}/system-knowledge-runtime-receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "## System Knowledge Service"
+            echo "- transition: \`${{ inputs.transition }}\`"
+            echo "- apply: \`${{ inputs.apply }}\`"
+            echo "- source revision: \`${{ inputs.commit_sha }}\`"
+            if [[ "${{ inputs.apply }}" != "true" ]]; then
+              echo "- plan digest: \`${{ steps.plan.outputs.plan_digest }}\`"
+              echo "- context digest: \`${{ steps.context.outputs.context_digest }}\`"
+            else
+              echo "- apply seconds: \`${{ steps.apply.outputs.elapsed_seconds }}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean sensitive runner artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          find "$RUNNER_TEMP" -maxdepth 2 -type f -name 'system-knowledge*' \
+            -exec shred --force --remove {} +
+          rm -f infra/service-state-backend.tf
+          if [[ -n "${AZURE_CONFIG_DIR:-}" && -d "$AZURE_CONFIG_DIR" ]]; then
+            find "$AZURE_CONFIG_DIR" -type f -exec shred --force --remove {} +
+            rm -rf -- "$AZURE_CONFIG_DIR"
+          fi

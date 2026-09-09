@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 0b9b5562a488f08f2013455ac2814851ee440db4
+translation_source_sha: 00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8
 translation_revised: 2026-09-10
 ---
 # 시스템 지식 서비스
@@ -142,18 +142,28 @@ channel allowlist에서 제외해야 합니다.
 | 관련 레코드 없음 | 검증된 시스템 지식 레코드가 일치하지 않았음을 표시 |
 | 증적 전 프로바이더 차단 | 다시 시도할 수 있는 claim 해제 |
 | 증적 중단 | 모호한 terminal claim을 보존하고 다시 보내지 않음 |
-| 프로세스 재시작 | 프로바이더 전송 전에 영속 claim store 재사용 |
+| 프로세스 재시작 | 프로바이더 전송 전에 실행 장소별 영속 claim store 재사용 |
 
-참조 구현은 서비스 소유 SQLite claim store를 사용하며 replica 하나를 지원합니다. 운영 scale-out
-또는 Container Apps 배포는 persistent volume, 동시성, 비용 및 롤백 근거로 서비스 분리
+로컬 구현은 서비스 소유 SQLite claim store를 사용합니다. 배포 구현은 기존 비공개 storage
+account의 Managed Identity Blob CAS(compare-and-swap) 원장을 사용합니다. Storage key,
+connection string 또는 file share를 만들지 않습니다. 시작할 때 container를 탐색하고 중단된
+`processing` claim을 제거하며 중단된 `sending` claim을 terminal `ambiguous`로 전환합니다. 첫
+배포는 replica 하나를 유지합니다. 더 많은 replica는 동시성, 비용 및 롤백 근거로 서비스 분리
 scorecard를 닫을 때까지 차단됩니다.
+
+독립 Terraform root는 전용 UAMI(user-assigned managed identity), 비공개 claim container,
+`AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User`, replica 하나의 Container
+App, F0 Azure Bot 및 Teams channel 하나를 소유합니다. 보호된 workflow는 plan-only를 기본으로
+사용하며 apply 전에 정확한 CI, image attestation, plan 및 context digest, 명시적 `enable` 또는
+`disable` 전환을 요구합니다.
 
 ## 출시 순서
 
 1. 카탈로그, 결정적 검색, 멘션 검증 및 응답 렌더러를 build하고 검사합니다.
 2. 저장소 소스 없이 서비스와 이미지를 패키징합니다.
 3. 합성 signed activity로 로컬 Activity Protocol canary를 실행합니다.
-4. downstream Teams 애플리케이션과 persistent claim volume을 프로비저닝합니다.
+4. 보호된 Terraform plan을 적용하고 결정적 Teams package를 build한 뒤 필요한 Microsoft Graph
+   app catalog 권한을 가진 tenant 관리자가 설치합니다.
 5. 운영 준비를 선언하기 전에 mention-only 수신, 동일 대화 응답, 재시작 중복 제거, 비활성화 및
    롤백을 검증합니다.
 
@@ -162,6 +172,7 @@ scorecard를 닫을 때까지 차단됩니다.
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 현재 구현 상태 | [시스템 지식 서비스 구현 원장](../../roadmap-implementation/interfaces/system-knowledge-service.md) |
+| 전용 Teams 봇 배포 및 설치 | [시스템 지식 Teams 온보딩](../../runbooks/system-knowledge-teams-onboarding-ko.md) |
 | 일반 운영 Teams 대화 | [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) |
 | 사람 신원 및 역할 경계 | [사용자 RBAC 및 Entra 신원](user-rbac-and-identity-ko.md) |
 | 서비스 분리 수락 gate | [서비스 분리 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md) |

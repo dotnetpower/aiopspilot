@@ -1,7 +1,7 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: 5a3623bd97fd371b0b52a471877a26715d4b1131
+translation_source_sha: 5dfe920cb298b8351e66323634c8a88b48114e13
 translation_revised: 2026-09-10
 ---
 # 다중 서비스 저장소 레이아웃
@@ -15,7 +15,7 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 검증한 
 
 | 표면 | 소유권 계약 |
 |------|-------------|
-| 백엔드 서비스 | 각 `services/*` 루트가 자체 `pyproject.toml`, 소스 패키지, 테스트 및 이미지를 소유합니다. 검증된 5개 서비스 기준선은 프로세스 신원과 migration branch도 소유합니다. 시스템 지식 서비스는 승격 근거가 완료될 때까지 배포 gate를 유지합니다. |
+| 백엔드 서비스 | 각 `services/*` 루트가 자체 `pyproject.toml`, 소스 패키지, 테스트 및 이미지를 소유합니다. 검증된 5개 서비스 기준선은 프로세스 신원과 migration branch도 소유합니다. 시스템 지식 서비스는 격리된 Terraform root, Managed Identity Blob CAS 원장, Azure Bot 및 보호된 workflow도 소유하며 실제 승격 근거는 열린 상태입니다. |
 | Core 서비스 진입점 | Core manifest는 `once`/`loop` inventory 동기화 wrapper, active generation projection release migration, shadow 운영 이력 lifecycle Job 및 Container Apps에서 사용하는 보호 certification runner를 포함해 서비스 소유의 범위가 제한된 유지 관리 진입점을 노출합니다. 각 진입점은 Core 패키지 경계 안에서 delivery adapter를 조립하며 executor 권한을 부여하지 않습니다. |
 | Core 암호화 검증 | Core manifest가 배포 소유 Ed25519 관측 증적을 검증하는 `cryptography` 의존성을 소유합니다. 다른 서비스는 Core 구현을 가져오지 않으며 signing seed를 받지 않습니다. |
 | Core 이벤트 압축 | EventBus가 Snappy 압축 Kafka 레코드를 전달할 수 있으므로 Core manifest가 `python-snappy`를 소유합니다. 루트 lock은 재현 가능한 로컬 및 배포 consumer를 위해 전이 codec 패키지를 기록합니다. |

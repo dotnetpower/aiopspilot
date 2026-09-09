@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 92263b3dd17adb836391efa902ef5f339df1860a
+translation_source_sha: d28bbaf029e39eb9ca7ebd857d70fcf1d5ca885a
 translation_revised: 2026-09-10
 ---
 
@@ -81,9 +81,10 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 - Operator API UAMI 이름을 바꾸는 보호 계획은 역할 범위와 이름 외 UAMI 설정이 모두 바뀌지
   않을 때만 정확한 OpenAI User 역할 교체를 포함해 보존할 수 있습니다. 보존은 검토만 허용하며
   apply를 승인하지 않습니다. 정확한 계획 적용은 별도 승인 작업으로 유지됩니다.
-- VNet에 연결된 runner에서 5개 서비스 root를 독립적으로 배포합니다. 각 서비스는 자체
-  이미지, Terraform state, migration branch, 상태 probe, workload identity를 소유합니다.
-  Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
+- VNet에 연결된 runner에서 검증된 5개 service root를 독립적으로 배포합니다. 배포 gate가
+  적용된 시스템 지식 서비스는 별도 `system-knowledge-deploy.yml` plan/apply workflow, Blob
+  claim state, Azure Bot 및 배포 전용 Graph installer identity를 사용합니다. Isolated
+  Executor만 작업별 효과 역할을 받을 수 있습니다.
 - 단독 유지관리자 저장소에서는 `DEV_DEPLOY_REQUIRED_APPROVALS=0` 저장소 변수를 설정해
   검토자 없이 직접 `dev` 적용을 실행합니다. `dev` 환경에는 검토자 규칙을 두지 않고 관리자
   우회를 비활성화하세요. 스테이징, 운영 및 봇 소유 적용 경로는 독립 검토자 한 명을 계속

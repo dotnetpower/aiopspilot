@@ -319,8 +319,9 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   compliant-device on `aw-owners`, dedicated hardware token + sign-in alert on
   `aw-break-glass`. Available on Entra ID P1
   ([user-rbac-and-identity.md#43-conditional-access](../interfaces/user-rbac-and-identity.md#43-conditional-access)).
-- **Azure Bot (Free tier, not provisioned)** - a downstream deployment that selects Teams Adaptive
-  Cards supplies it. Service Terraform accepts its identity and endpoint but does not create the Bot.
+- **Azure Bots** - the approval bot remains deployment-owned. The independent System Knowledge
+  Service Terraform root creates its own F0 Bot, Teams channel, dedicated UAMI, private Blob claim
+  container, and exact HTTPS endpoint only through the protected service workflow.
 - **Signed HIL webhook** - production supplies the URL and a 32+ character HMAC secret through
   CI secrets. Terraform stores both in Key Vault; the core reads URL + secret and the Operator API
   receives only the callback secret. A group-connected approval team and channel are separate deployment slots shared by Core and Operator; RBAC group ids remain role assignments only.
