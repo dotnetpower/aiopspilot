@@ -4,28 +4,56 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
-from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+
+from fdai.core.detection.governance_policy_fields import (
+    DetectionGovernancePolicyError,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_array as _array,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_boolean as _boolean,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_identifier as _identifier,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_integer as _integer,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_mapping as _mapping,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_member as _member,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_ratio as _ratio,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_text as _text,
+)
+from fdai.core.detection.governance_policy_fields import (
+    policy_version as _version,
+)
+from fdai.core.detection.governance_policy_fields import (
+    require_exact_keys as _exact_keys,
+)
+from fdai.core.detection.governance_policy_fields import (
+    require_unique as _unique,
+)
 
 DETECTION_GOVERNANCE_POLICY_PATH = "config/detection-governance-policy.json"
 DETECTION_GOVERNANCE_SCHEMA_VERSION = "1.0.0"
 DETECTION_GOVERNANCE_POLICY_ID = "detection-governance"
 
-_IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
-_SEMANTIC_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 _PHASES = frozenset({"hour_of_day", "day_of_week", "hour_of_week"})
 _CORRELATION_KEYS = frozenset({"correlation_id", "resource_ref"})
 _REQUIRED_CORRELATION_KEYS = ("correlation_id", "resource_ref")
 _FORECAST_CONFIDENCE_LEVELS = frozenset({"0.80", "0.90", "0.95", "0.99"})
 _MIN_T1_SIMILARITY = 0.85
-
-
-class DetectionGovernancePolicyError(ValueError):
-    """The detector governance policy is absent, malformed, or unsafe."""
 
 
 class AnomalyMethod(StrEnum):
@@ -370,80 +398,6 @@ def _change_window(value: object) -> ChangeWindowPolicy:
         require_exact_scope=require_exact_scope,
         require_complete_evidence=require_complete_evidence,
     )
-
-
-def _mapping(value: object, label: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise DetectionGovernancePolicyError(f"{label} MUST be an object")
-    return value
-
-
-def _array(value: object, label: str, *, maximum: int = 64) -> list[object]:
-    if not isinstance(value, list) or not value:
-        raise DetectionGovernancePolicyError(f"{label} MUST be a non-empty array")
-    if len(value) > maximum:
-        raise DetectionGovernancePolicyError(f"{label} MUST contain at most {maximum} items")
-    return value
-
-
-def _exact_keys(value: Mapping[str, Any], label: str, expected: set[str]) -> None:
-    if set(value) != expected:
-        raise DetectionGovernancePolicyError(f"{label} fields do not match the governed schema")
-
-
-def _text(value: object, label: str) -> str:
-    if not isinstance(value, str) or not value.strip() or len(value) > 128:
-        raise DetectionGovernancePolicyError(f"{label} MUST be bounded non-empty text")
-    return value
-
-
-def _identifier(value: object, label: str) -> str:
-    text = _text(value, label)
-    if _IDENTIFIER.fullmatch(text) is None:
-        raise DetectionGovernancePolicyError(f"{label} MUST be a canonical identifier")
-    return text
-
-
-def _version(value: object, label: str) -> str:
-    text = _text(value, label)
-    if _SEMANTIC_VERSION.fullmatch(text) is None:
-        raise DetectionGovernancePolicyError(f"{label} MUST be a semantic version")
-    return text
-
-
-def _integer(value: object, label: str, *, minimum: int, maximum: int) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
-        raise DetectionGovernancePolicyError(f"{label} MUST be in [{minimum}, {maximum}]")
-    return value
-
-
-def _ratio(value: object, label: str, *, minimum: float = 0.0, maximum: float = 1.0) -> float:
-    if (
-        not isinstance(value, (int, float))
-        or isinstance(value, bool)
-        or not minimum <= value <= maximum
-    ):
-        raise DetectionGovernancePolicyError(f"{label} MUST be in [{minimum}, {maximum}]")
-    return float(value)
-
-
-def _member(value: object, label: str, *, allowed: frozenset[str]) -> str:
-    text = _text(value, label)
-    if text not in allowed:
-        raise DetectionGovernancePolicyError(f"{label} is unsupported")
-    return text
-
-
-def _boolean(value: object, label: str) -> bool:
-    if not isinstance(value, bool):
-        raise DetectionGovernancePolicyError(f"{label} MUST be boolean")
-    return value
-
-
-def _unique(values: Any, *, label: str) -> None:
-    items = tuple(values)
-    if not items or len(items) != len(set(items)):
-        raise DetectionGovernancePolicyError(f"{label} identifiers MUST be non-empty and unique")
 
 
 __all__ = [

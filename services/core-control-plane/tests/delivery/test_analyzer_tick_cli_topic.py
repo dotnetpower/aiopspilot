@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fdai.delivery import analyzer_tick_cli as analyzer_tick_cli_module
+from fdai.delivery.analyzer_run_receipt import resolve_analyzer_run_id
 from fdai.delivery.analyzer_targets import AnalyzerTargetResolution
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport
 from fdai.delivery.analyzer_tick_cli import (
@@ -19,7 +20,6 @@ from fdai.delivery.analyzer_tick_cli import (
     metric_source_delays,
     parse_loop_interval,
     parse_tick_budget,
-    resolve_analyzer_run_id,
     resolve_finding_topic,
     resolve_scheduling_mode,
     resolve_trace_window_seconds,
@@ -227,14 +227,13 @@ async def test_persisted_receipt_uses_the_exact_operational_report_body(
 ) -> None:
     captured: dict[str, object] = {}
 
-    class _Store:
-        async def record(self, **values: object) -> None:
-            captured.update(values)
+    async def record_receipt(**values: object) -> None:
+        captured.update(values)
 
     monkeypatch.setenv("FDAI_ANALYZER_RUN_ID", "test-run-1")
     monkeypatch.setenv("FDAI_MONITOR_WORKSPACE_ID", "configured")
     monkeypatch.setenv("FDAI_PROMETHEUS_ENDPOINT", "https://metrics.example")
-    monkeypatch.setattr(analyzer_tick_cli_module, "build_run_receipt_store", lambda: _Store())
+    monkeypatch.setattr(analyzer_tick_cli_module, "record_analyzer_run_receipt", record_receipt)
     report = _job_report()
 
     await analyzer_tick_cli_module._record_run_receipt(
@@ -243,7 +242,7 @@ async def test_persisted_receipt_uses_the_exact_operational_report_body(
         tick_id="7",
     )
 
-    assert captured["run_id"] == "test-run-1"
+    assert captured["environment"]["FDAI_ANALYZER_RUN_ID"] == "test-run-1"  # type: ignore[index]
     assert captured["tick_id"] == "7"
     assert captured["report"] == analyzer_tick_cli_module._report_body(
         report,

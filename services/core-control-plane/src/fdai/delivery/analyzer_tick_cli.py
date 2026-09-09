@@ -31,8 +31,8 @@ from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
 from fdai.delivery.analyzer_receipt_store import (
     StateStoreAnalyzerReceiptStore,
-    StateStoreAnalyzerRunReceiptStore,
 )
+from fdai.delivery.analyzer_run_receipt import record_analyzer_run_receipt
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
@@ -107,8 +107,6 @@ _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops
 _MAX_TRACE_TOPOLOGIES = 32
 LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
 BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
-RUN_ID_ENV = "FDAI_ANALYZER_RUN_ID"
-_CONTAINER_APP_JOB_EXECUTION_NAME_ENV = "CONTAINER_APP_JOB_EXECUTION_NAME"
 _DEFAULT_LOOP_INTERVAL_SECONDS = 60
 _DEFAULT_TICK_BUDGET_SECONDS = 300
 _SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
@@ -444,21 +442,6 @@ def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
     )
 
 
-def build_run_receipt_store() -> StateStoreAnalyzerRunReceiptStore | None:
-    """Bind complete tick receipts when tracked state is configured."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        return None
-    return StateStoreAnalyzerRunReceiptStore(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
 def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
     """Bind the tracked-state writer that keeps Pod failure history readable.
 
@@ -623,38 +606,12 @@ async def _record_run_receipt(
     scheduling: str,
     tick_id: str,
 ) -> None:
-    run_id = resolve_analyzer_run_id(os.environ)
-    if run_id is None:
-        _LOGGER.info(
-            "analyzer_tick_receipt_unbound",
-            extra={"reason": "stable_run_identity_absent"},
-        )
-        return
-    store = build_run_receipt_store()
-    if store is None:
-        return
-    recorded_at = datetime.now(tz=UTC)
-    body = _report_body(report, scheduling=scheduling)
-    await store.record(
-        run_id=run_id,
+    await record_analyzer_run_receipt(
+        environment=os.environ,
         tick_id=tick_id,
-        recorded_at=recorded_at,
-        report=body,
+        recorded_at=datetime.now(tz=UTC),
+        report=_report_body(report, scheduling=scheduling),
     )
-
-
-def resolve_analyzer_run_id(environment: Mapping[str, str]) -> str | None:
-    """Return a retry-stable explicit or platform Job execution identity."""
-
-    run_id = (
-        environment.get(RUN_ID_ENV, "").strip()
-        or environment.get(_CONTAINER_APP_JOB_EXECUTION_NAME_ENV, "").strip()
-    )
-    if not run_id:
-        return None
-    if len(run_id) > 256 or any(char.isspace() for char in run_id):
-        raise ValueError("analyzer run identity MUST be bounded and contain no whitespace")
-    return run_id
 
 
 def _empty_trace_report() -> TraceContinuityTickReport:

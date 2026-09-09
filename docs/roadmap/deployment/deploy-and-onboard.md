@@ -149,9 +149,7 @@ Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and
 `forecast_targets_json` opt into the forecast Job and inject `FDAI_FORECAST_TARGETS_JSON`. The
 forecast Job publishes only a raw tick, which Huginn normalizes for Heimdall to evaluate and close.
-Each target entry names `target_kind` and matches the repository-governed horizon, confidence level,
-sample floor, and fit floor. Core loads that policy even when forecast targets are disabled, so a
-missing or malformed policy blocks startup rather than leaving an ungoverned target path.
+Each target entry names `target_kind` and matches the repository-governed horizon, confidence level, sample floor, and fit floor. Core loads that policy even when forecast targets are disabled, so a missing or malformed policy blocks startup rather than leaving an ungoverned target path.
 The inventory reconciliation Job inherits the same required non-secret runtime config as core so
 recovery-delta forwarding can open its typed Event Bus publisher without a partial config.
 Scheduler and analyzer Jobs set `FDAI_MI_CLIENT_ID` to the client id of the user-assigned identity
