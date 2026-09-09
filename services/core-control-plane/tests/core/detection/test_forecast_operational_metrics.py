@@ -32,6 +32,7 @@ def test_reducer_reports_accuracy_coverage_lead_time_and_abstention() -> None:
     assert metrics.interval_coverage == 0.75
     assert metrics.abstention_rate == 0.2
     assert metrics.scorable_outcome_count == 12
+    assert metrics.non_positive_lead_time_count == 0
     assert metrics.execution_authority is False
 
 
@@ -52,6 +53,21 @@ def test_reducer_keeps_rates_unknown_without_a_denominator() -> None:
     assert metrics.abstention_rate is None
 
 
+def test_reducer_counts_non_positive_lead_time_without_failing_the_snapshot() -> None:
+    metrics = reduce_forecast_operational_metrics(
+        episode_count=1,
+        abstained_count=0,
+        outcome_counts={"true_positive": 1},
+        mean_lead_time_seconds=None,
+        median_lead_time_seconds=None,
+        lead_time_sample_count=0,
+        non_positive_lead_time_count=1,
+    )
+
+    assert metrics.lead_time_sample_count == 0
+    assert metrics.non_positive_lead_time_count == 1
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     (
@@ -67,7 +83,7 @@ def test_reducer_keeps_rates_unknown_without_a_denominator() -> None:
                 "median_lead_time_seconds": 10.0,
                 "lead_time_sample_count": 2,
             },
-            "detected",
+            "non-positive",
         ),
     ),
 )

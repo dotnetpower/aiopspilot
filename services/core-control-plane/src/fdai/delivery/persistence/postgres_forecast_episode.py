@@ -82,15 +82,24 @@ class PostgresForecastEpisodeStore:
                 "GROUP BY payload->>'label', payload->>'miss_origin'",
             )
             lead_times = await connection.execute(
-                "SELECT COUNT(*) AS sample_count, "
+                "SELECT COUNT(*) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS sample_count, "
+                "COUNT(*) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz <= episode.created_at"
+                ") AS non_positive_count, "
                 "AVG(EXTRACT(EPOCH FROM ("
                 "(outcome.payload->>'actual_breach_at')::timestamptz - "
                 "episode.created_at"
-                "))) AS mean_seconds, "
+                "))) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS mean_seconds, "
                 "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ("
                 "(outcome.payload->>'actual_breach_at')::timestamptz - "
                 "episode.created_at"
-                "))) AS median_seconds "
+                "))) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS median_seconds "
                 "FROM forecast_publication_outbox AS outcome "
                 "JOIN forecast_episode AS episode USING (episode_id) "
                 "WHERE outcome.topic = 'object.forecast-outcome' "
@@ -141,6 +150,9 @@ class PostgresForecastEpisodeStore:
                 else None
             ),
             lead_time_sample_count=lead_time_sample_count,
+            non_positive_lead_time_count=(
+                int(lead_time_row["non_positive_count"]) if lead_time_row is not None else 0
+            ),
         )
         return {
             "episodes": {

@@ -431,9 +431,11 @@ authoritative promotion registry.
 
 The PostgreSQL forecast episode store exposes a read-only operational evidence snapshot. Its
 deterministic reducer reports precision, recall, missed-breach rate, interval coverage, mean and
-median lead time, abstention rate, explicit outcome counts, and denominator gaps. Censored and
-unscorable outcomes stay visible but do not enter the scorable denominator, and the snapshot carries
-no execution or promotion authority.
+median positive lead time, non-positive lead-time count, abstention rate, explicit outcome counts,
+and denominator gaps. A breach already present before the finding is retained as non-actionable
+evidence instead of failing the snapshot or inflating lead time. Censored and unscorable outcomes
+stay visible but do not enter the scorable denominator, and the snapshot carries no execution or
+promotion authority.
 
 ## 4. Root-Cause Analysis
 

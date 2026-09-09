@@ -26,6 +26,7 @@ class ForecastOperationalMetrics:
     mean_lead_time_seconds: float | None
     median_lead_time_seconds: float | None
     lead_time_sample_count: int
+    non_positive_lead_time_count: int
     outcome_counts: tuple[tuple[str, int], ...]
     execution_authority: bool = False
 
@@ -44,6 +45,7 @@ class ForecastOperationalMetrics:
             "mean_lead_time_seconds": self.mean_lead_time_seconds,
             "median_lead_time_seconds": self.median_lead_time_seconds,
             "lead_time_sample_count": self.lead_time_sample_count,
+            "non_positive_lead_time_count": self.non_positive_lead_time_count,
             "outcome_counts": dict(self.outcome_counts),
             "execution_authority": self.execution_authority,
         }
@@ -57,12 +59,14 @@ def reduce_forecast_operational_metrics(
     mean_lead_time_seconds: float | None,
     median_lead_time_seconds: float | None,
     lead_time_sample_count: int,
+    non_positive_lead_time_count: int = 0,
 ) -> ForecastOperationalMetrics:
     """Compute precision, recall, coverage, lead time, and abstention rates."""
 
     _count("episode_count", episode_count)
     _count("abstained_count", abstained_count)
     _count("lead_time_sample_count", lead_time_sample_count)
+    _count("non_positive_lead_time_count", non_positive_lead_time_count)
     if abstained_count > episode_count:
         raise ValueError("forecast abstained_count MUST NOT exceed episode_count")
     if set(outcome_counts) - _LABELS:
@@ -82,8 +86,11 @@ def reduce_forecast_operational_metrics(
     false_negative = outcome_counts.get(ForecastOutcomeLabel.FALSE_NEGATIVE.value, 0)
     late_breach = outcome_counts.get(ForecastOutcomeLabel.LATE_BREACH.value, 0)
     detected_breach = true_positive + magnitude_error
-    if lead_time_sample_count != detected_breach:
-        raise ValueError("forecast lead-time samples MUST match detected in-horizon breaches")
+    if lead_time_sample_count + non_positive_lead_time_count != detected_breach:
+        raise ValueError(
+            "forecast lead-time samples and non-positive count MUST match "
+            "detected in-horizon breaches"
+        )
 
     precision_denominator = detected_breach + false_positive + late_breach
     recall_denominator = detected_breach + false_negative
@@ -110,6 +117,7 @@ def reduce_forecast_operational_metrics(
         mean_lead_time_seconds=mean_lead_time_seconds,
         median_lead_time_seconds=median_lead_time_seconds,
         lead_time_sample_count=lead_time_sample_count,
+        non_positive_lead_time_count=non_positive_lead_time_count,
         outcome_counts=tuple(sorted(outcome_counts.items())),
     )
 

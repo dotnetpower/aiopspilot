@@ -167,6 +167,7 @@ async def test_health_snapshot_executes_operational_accuracy_query() -> None:
         assert isinstance(metrics, dict)
         assert metrics["episode_count"] >= 1
         assert metrics["lead_time_sample_count"] >= 1
+        assert metrics["non_positive_lead_time_count"] >= 0
         assert 1_799.0 <= metrics["mean_lead_time_seconds"] <= 1_800.0
         assert 1_799.0 <= metrics["median_lead_time_seconds"] <= 1_800.0
         assert metrics["execution_authority"] is False

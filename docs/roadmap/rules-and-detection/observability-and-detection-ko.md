@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 4a8b7462a2e196fb1334f13883d9089a0d3399e2
+translation_source_sha: bcb10a2fb6fd9ae1be3e595715bcc8cbca45a9ee
 translation_revised: 2026-09-10
 ---
 
@@ -411,10 +411,11 @@ transactional 게시 발신함 및 기계적 틱 배선은 구현되어 있습�
 측정된 배포 근거와 권위 있는 승격 레지스트리에 의존합니다.
 
 PostgreSQL 예측 에피소드 저장소는 읽기 전용 운영 근거 snapshot을 노출합니다. 결정론적
-reducer는 정밀도, 재현율, 놓친 위반율, 구간 포괄률, 평균 및 중앙값 선행 시간, 판단 보류율,
-명시적인 결과 수와 분모 공백을 보고합니다. 개입으로 검열되거나 점수화할 수 없는 결과는 계속
-표시하지만 점수화 가능한 분모에는 넣지 않으며, snapshot은 실행 또는 승격 권한을 부여하지
-않습니다.
+reducer는 정밀도, 재현율, 놓친 위반율, 구간 포괄률, 양수인 평균 및 중앙값 선행 시간, 양수가
+아닌 선행 시간 수, 판단 보류율, 명시적인 결과 수와 분모 공백을 보고합니다. 발견된 문제를
+발행하기 전에 이미 발생한 위반은 snapshot을 실패시키거나 선행 시간을 부풀리지 않고 액션할
+수 없는 근거로 보존합니다. 개입으로 검열되거나 점수화할 수 없는 결과는 계속 표시하지만
+점수화 가능한 분모에는 넣지 않으며, snapshot은 실행 또는 승격 권한을 부여하지 않습니다.
 
 ## 4. 근본원인 분석(Root-Cause Analysis)
 
