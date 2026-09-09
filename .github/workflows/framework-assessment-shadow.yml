@@ -103,20 +103,10 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-dev.tfstate"
-          resource_group="$(terraform output -raw resource_group_name)"
           postgres_host="$(terraform output -raw postgres_fqdn)"
           postgres_database="$(terraform output -raw postgres_database)"
-          jobs="$RUNNER_TEMP/framework-assessment-jobs.json"
           hierarchy="$RUNNER_TEMP/framework-assessment-hierarchy.json"
           hierarchy_query="$RUNNER_TEMP/framework-assessment-hierarchy-query.json"
-          az containerapp job list \
-            --resource-group "$resource_group" \
-            --subscription "$ARM_SUBSCRIPTION_ID" \
-            --only-show-errors \
-            --output json > "$jobs"
-          python3 ../scripts/deployment/azure/export_wara_job_context.py \
-            --jobs "$jobs" \
-            --github-env "$GITHUB_ENV"
           HIERARCHY_QUERY_PATH="$hierarchy_query" python3 - <<'PY'
           import json
           import os
@@ -160,7 +150,13 @@ jobs:
                   f"{os.environ['RUNNER_TEMP']}/framework-assessment-hierarchy.json\n"
               )
           PY
-          chmod 0600 "$jobs" "$hierarchy_query" "$hierarchy"
+          chmod 0600 "$hierarchy_query" "$hierarchy"
+      - name: Discover exact WAF workload scope
+        run: |
+          set -euo pipefail
+          uv run --frozen --package fdai-core-control-plane \
+            python scripts/deployment/azure/export_wara_database_context.py \
+            --github-env "$GITHUB_ENV"
       - name: Run governed WAF and CAF shadow assessments
         run: |
           set -euo pipefail
@@ -195,6 +191,5 @@ jobs:
         if: always()
         run: |
           rm -f -- \
-            "$RUNNER_TEMP/framework-assessment-jobs.json" \
             "$RUNNER_TEMP/framework-assessment-hierarchy-query.json" \
             "$RUNNER_TEMP/framework-assessment-hierarchy.json"

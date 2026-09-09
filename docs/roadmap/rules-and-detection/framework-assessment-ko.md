@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 7cd876a9b84c209efe41d50baa84afa520776f91
+translation_source_sha: 986781afa7ef490e090ff402d51268a01f0b8553
 translation_revised: 2026-09-10
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -191,8 +191,9 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 로컬 픽스처는 동작 방식만 증명합니다. 검증된 WAF 또는 CAF 상태에는 정확히 푸시되고 필수 CI를
 통과한 개정에서 생성된 관리형 실제 Azure shadow 증적 하나가 추가로 필요합니다. 유지되는
 증적은 정제된 다이제스트와 수량을 포함하고 독립 검토를 거치며 실행 권한을 부여하지 않습니다.
-검증 워크플로는 비공개 러너에서 이미 배포된 WARA 워크로드 바인딩, 현재 PostgreSQL 목록 세대,
-Azure 관리 계층을 읽습니다. Terraform apply는 실행하지 않습니다.
+검증 워크플로는 현재 PostgreSQL 온톨로지에서 topology에 연결된 Workload를 정확히 하나 선택한
+후 비공개 러너에서 해당 Workload의 현재 목록 세대와 Azure 관리 계층을 읽습니다. 후보가 없거나
+여러 개이면 프로바이더 관측 전에 실패합니다. Terraform apply는 실행하지 않습니다.
 
 ## 관련 문서
 
