@@ -2,8 +2,8 @@ schema_version: 1.0.0
 dataset_version: 2.0.0
 evidence_kind: expected_contract_cases
 operational_validation: false
-active_prompt: semantic-judgment.v8
-shadow_prompt: semantic-judgment.v14
+active_prompt: active.semantic-judgment@2
+shadow_prompt: shadow.semantic-judgment-v17@2
 capabilities:
   - {kind: function_type, name: query.resource_error_activity_correlation}
   - {kind: function_type, name: query.resource_current_state}
@@ -99,6 +99,86 @@ cases:
       discourse_mode: direct
       action_posture: draft_only
       action_subject: Incident
+  - id: targetless-incident-requirements-en
+    utterance: "What information is required for a review-only incident mitigation draft?"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements]
+      targets:
+        - {kind: object_type, value: incident, canonical_value: Incident, source_start: 47, source_end: 55}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-details-en
+    utterance: "Which details must a review-only incident mitigation proposal contain?"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, details]
+      targets:
+        - {kind: object_type, value: incident, canonical_value: Incident, source_start: 33, source_end: 41}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-evidence-en
+    utterance: "Explain the evidence and safeguards needed before writing an incident mitigation draft."
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, evidence, safeguards]
+      targets:
+        - {kind: object_type, value: incident, canonical_value: Incident, source_start: 61, source_end: 69}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-inputs-en
+    utterance: "List the inputs needed to prepare an incident mitigation draft for human review."
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, inputs]
+      targets:
+        - {kind: object_type, value: incident, canonical_value: Incident, source_start: 37, source_end: 45}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-requirements-ko
+    utterance: "검토 전용 장애 완화 초안에는 어떤 정보가 필요한가요?"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements]
+      targets:
+        - {kind: object_type, value: 장애, canonical_value: Incident, source_start: 6, source_end: 8}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-details-ko
+    utterance: "사람이 검토할 장애 완화 제안에 어떤 세부 정보가 들어가야 하나요?"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, details]
+      targets:
+        - {kind: object_type, value: 장애, canonical_value: Incident, source_start: 8, source_end: 10}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-evidence-ko
+    utterance: "장애 완화 초안을 작성하기 전에 필요한 근거와 안전장치를 설명해 주세요."
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, evidence, safeguards]
+      targets:
+        - {kind: object_type, value: 장애, canonical_value: Incident, source_start: 0, source_end: 2}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: targetless-incident-inputs-ko
+    utterance: "사람 검토용 장애 완화 초안을 준비하는 데 필요한 입력을 알려 주세요."
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [incident_mitigation, requirements, inputs]
+      targets:
+        - {kind: object_type, value: 장애, canonical_value: Incident, source_start: 7, source_end: 9}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
   - id: incident-create-confirmation
     utterance: "SEV2 인시던트를 prod-api 대상으로 생성해줘"
     expected:
