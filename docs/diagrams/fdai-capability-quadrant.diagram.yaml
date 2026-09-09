@@ -27,6 +27,7 @@ nodes:
     yValue: 18
     size: 96
     label: { en: Explain, ko: 설명 }
+    description: { en: High evidence confidence with low change impact, ko: 근거 신뢰도가 높고 변경 영향이 낮습니다 }
   - id: notify
     kind: process
     shape: circle
@@ -35,6 +36,7 @@ nodes:
     yValue: 42
     size: 96
     label: { en: Notify, ko: 알림 }
+    description: { en: High evidence confidence with moderate change impact, ko: 근거 신뢰도가 높고 변경 영향이 중간입니다 }
   - id: remediate
     kind: process
     shape: circle
@@ -43,6 +45,7 @@ nodes:
     yValue: 76
     size: 100
     label: { en: Remediate, ko: 수정 }
+    description: { en: High evidence confidence with high change impact, ko: 근거 신뢰도가 높고 변경 영향이 큽니다 }
   - id: hold
     kind: process
     shape: circle
@@ -51,4 +54,5 @@ nodes:
     yValue: 68
     size: 96
     label: { en: Hold, ko: 보류 }
+    description: { en: Low evidence confidence with high change impact, ko: 근거 신뢰도가 낮고 변경 영향이 큽니다 }
 edges: []

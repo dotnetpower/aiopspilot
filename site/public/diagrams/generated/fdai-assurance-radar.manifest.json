@@ -38,8 +38,8 @@
         "ko": "근거"
       },
       "description": {
-        "en": "Evidence",
-        "ko": "근거"
+        "en": "Evidence assurance scores 92 percent",
+        "ko": "근거 보증 점수는 92퍼센트입니다"
       }
     },
     {
@@ -54,8 +54,8 @@
         "ko": "안전"
       },
       "description": {
-        "en": "Safety",
-        "ko": "안전"
+        "en": "Safety assurance scores 94 percent",
+        "ko": "안전 보증 점수는 94퍼센트입니다"
       }
     },
     {
@@ -70,8 +70,8 @@
         "ko": "복구"
       },
       "description": {
-        "en": "Recovery",
-        "ko": "복구"
+        "en": "Recovery assurance scores 78 percent",
+        "ko": "복구 보증 점수는 78퍼센트입니다"
       }
     },
     {
@@ -86,8 +86,8 @@
         "ko": "관찰"
       },
       "description": {
-        "en": "Observe",
-        "ko": "관찰"
+        "en": "Observability assurance scores 86 percent",
+        "ko": "관찰 가능성 보증 점수는 86퍼센트입니다"
       }
     },
     {
@@ -99,11 +99,11 @@
       "size": 76,
       "label": {
         "en": "Replay",
-        "ko": "Replay"
+        "ko": "재생"
       },
       "description": {
-        "en": "Replay",
-        "ko": "Replay"
+        "en": "Replay assurance scores 72 percent",
+        "ko": "재생 보증 점수는 72퍼센트입니다"
       }
     }
   ],

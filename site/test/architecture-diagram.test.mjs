@@ -81,3 +81,99 @@ test("diagram gallery publishes every visual strategy example", async () => {
     assert.ok(manifest.nodes.length > 0);
   }
 });
+
+test("diagram gallery embed alt text matches each diagram's own canonical alt", async () => {
+  const [english, korean] = await Promise.all([
+    readFile(new URL("src/content/docs/diagram-gallery.md", root), "utf8"),
+    readFile(new URL("src/content/docs/ko/diagram-gallery.md", root), "utf8"),
+  ]);
+  const diagramIds = [
+    "fdai-conceptual-control-loop",
+    "fdai-delivery-roadmap",
+    "fdai-decision-mix",
+    "fdai-assurance-radar",
+    "fdai-capability-quadrant",
+    "fdai-governance-kanban",
+    "fdai-evidence-sankey",
+  ];
+
+  for (const diagramId of diagramIds) {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL(`public/diagrams/generated/${diagramId}.manifest.json`, root),
+        "utf8",
+      ),
+    );
+    const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    assert.match(
+      english,
+      new RegExp(`${diagramId}\\.en\\.svg" alt="${escape(manifest.locales.en.alt)}"`),
+      `English gallery embed for ${diagramId} must reuse the diagram's own canonical alt text`,
+    );
+    assert.match(
+      korean,
+      new RegExp(`${diagramId}\\.ko\\.svg" alt="${escape(manifest.locales.ko.alt)}"`),
+      `Korean gallery embed for ${diagramId} must reuse the diagram's own canonical alt text`,
+    );
+  }
+});
+
+test("diagram gallery's solely-owned diagrams give every node a real, translated aria description", async () => {
+  const solelyOwnedDiagramIds = [
+    "fdai-decision-mix",
+    "fdai-assurance-radar",
+    "fdai-capability-quadrant",
+    "fdai-governance-kanban",
+    "fdai-evidence-sankey",
+  ];
+
+  for (const diagramId of solelyOwnedDiagramIds) {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL(`public/diagrams/generated/${diagramId}.manifest.json`, root),
+        "utf8",
+      ),
+    );
+
+    for (const node of manifest.nodes) {
+      assert.notEqual(
+        node.label.ko,
+        node.label.en,
+        `${diagramId} node "${node.id}" must have a translated Korean label, not a copy of the English label`,
+      );
+
+      for (const locale of ["en", "ko"]) {
+        assert.ok(
+          node.description?.[locale],
+          `${diagramId} node "${node.id}" must declare its own ${locale} description so the renderer does not echo the label as a redundant aria-label`,
+        );
+        assert.notEqual(
+          node.description[locale],
+          node.label[locale],
+          `${diagramId} node "${node.id}" description must not merely repeat its ${locale} label`,
+        );
+      }
+
+      const [enSvg, koSvg] = await Promise.all([
+        readFile(
+          new URL(`public/diagrams/generated/${diagramId}.en.svg`, root),
+          "utf8",
+        ),
+        readFile(
+          new URL(`public/diagrams/generated/${diagramId}.ko.svg`, root),
+          "utf8",
+        ),
+      ]);
+      const echoedLabel = `${node.label.en}. ${node.label.en}`;
+      assert.ok(
+        !enSvg.includes(`aria-label="${echoedLabel}"`),
+        `${diagramId} rendered SVG must not echo node "${node.id}"'s label as its own description`,
+      );
+      assert.ok(
+        !koSvg.includes(`aria-label="${node.label.ko}. ${node.label.ko}"`),
+        `${diagramId} rendered Korean SVG must not echo node "${node.id}"'s label as its own description`,
+      );
+    }
+  }
+});

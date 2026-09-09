@@ -19,14 +19,17 @@ nodes:
     shape: pie-slice
     value: 62
     label: { en: Rules 62%, ko: 규칙 62% }
+    description: { en: Deterministic rules resolve 62 percent of the decision workload, ko: 결정적 규칙이 결정 작업의 62퍼센트를 처리합니다 }
   - id: verified-reuse
     kind: process
     shape: pie-slice
     value: 25
     label: { en: Reuse 25%, ko: 재사용 25% }
+    description: { en: Verified reuse resolves 25 percent of the decision workload, ko: 검증된 재사용이 결정 작업의 25퍼센트를 처리합니다 }
   - id: grounded-reasoning
     kind: process
     shape: pie-slice
     value: 13
     label: { en: Reasoning 13%, ko: 추론 13% }
+    description: { en: Grounded reasoning resolves 13 percent of the decision workload, ko: 근거 기반 추론이 결정 작업의 13퍼센트를 처리합니다 }
 edges: []
