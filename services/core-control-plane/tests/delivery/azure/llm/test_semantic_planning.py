@@ -343,6 +343,46 @@ async def test_profile_request_budget_blocks_provider_call() -> None:
     assert result is None
 
 
+async def test_observation_manifest_hashes_transmitted_system_content() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    prompt = "bounded frame prompt"
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=(_target("primary"),),
+                frame_system_prompt=prompt,
+                plan_system_prompt="plan",
+                frame_prompt_manifest=_prompt_manifest(prompt, request_budget=16_384),
+                timeout_seconds=2,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert result is not None
+    manifest = result.observation.prompt_replay_manifest
+    assert manifest is not None
+    request_body = json.loads(captured[0].content)
+    transmitted = request_body["messages"][0]["content"]
+    assert manifest.system_text_sha256 == hashlib.sha256(transmitted.encode()).hexdigest()
+    assert manifest.layer_manifest[-1].id == "semantic-response-schema"
+    assert manifest.layer_manifest[-1].layer.value == "adapter-schema"
+
+
 async def test_dedicated_recovery_profile_avoids_full_prompt_overflow() -> None:
     captured: list[httpx.Request] = []
 
@@ -384,6 +424,12 @@ async def test_dedicated_recovery_profile_avoids_full_prompt_overflow() -> None:
     system_prompt = request_body["messages"][0]["content"]
     assert system_prompt.startswith("compact recovery")
     assert full_prompt not in system_prompt
+    manifest = result.observation.prompt_replay_manifest
+    assert manifest is not None
+    assert [layer.id for layer in manifest.layer_manifest[-2:]] == [
+        "semantic-recovery-directive",
+        "semantic-response-schema",
+    ]
 
 
 async def test_escalated_frame_uses_compact_typed_recovery_context() -> None:

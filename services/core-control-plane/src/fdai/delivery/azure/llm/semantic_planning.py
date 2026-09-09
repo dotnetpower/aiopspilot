@@ -27,8 +27,8 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticPlanningModelResponse,
 )
-from fdai.core.prompts import estimate_chat_request_tokens
-from fdai.core.prompts.types import PromptReplayManifest
+from fdai.core.prompts import estimate_chat_request_tokens, estimate_prompt_tokens
+from fdai.core.prompts.types import LayerRef, PromptLayer, PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -375,7 +375,11 @@ class AzureOpenAISemanticPlanningModel:
                 extra={"request_bytes": request_bytes},
             )
             return None
-        prompt_manifest = self._prompt_manifest(prompt)
+        prompt_manifest = _transmitted_prompt_manifest(
+            self._prompt_manifest(prompt),
+            system_content=system_content,
+            schema=schema,
+        )
         request_token_estimate = estimate_chat_request_tokens(
             messages=(
                 {"role": "system", "content": system_content},
@@ -540,10 +544,20 @@ class AzureOpenAISemanticPlanningModel:
             if prompt == configured_prompt:
                 return manifest
             if prompt.startswith(f"{configured_prompt}\n\n"):
+                recovery_text = prompt[len(configured_prompt) + 2 :]
                 return replace(
                     manifest,
                     system_text_sha256=_sha256(prompt),
-                    token_estimate=max(1, (len(prompt) + 3) // 4),
+                    layer_manifest=(
+                        *manifest.layer_manifest,
+                        LayerRef(
+                            id="semantic-recovery-directive",
+                            version=1,
+                            layer=PromptLayer.RECOVERY,
+                            token_estimate=estimate_prompt_tokens(recovery_text),
+                        ),
+                    ),
+                    token_estimate=estimate_prompt_tokens(prompt),
                 )
         return None
 
@@ -558,6 +572,30 @@ def _bounded_recovery_context(context: Mapping[str, str]) -> dict[str, str]:
     if len(encoded) > _MAX_RECOVERY_CONTEXT_CHARS:
         raise ValueError("semantic planning recovery context is too large")
     return normalized
+
+
+def _transmitted_prompt_manifest(
+    manifest: PromptReplayManifest | None,
+    *,
+    system_content: str,
+    schema: str,
+) -> PromptReplayManifest | None:
+    if manifest is None:
+        return None
+    return replace(
+        manifest,
+        system_text_sha256=_sha256(system_content),
+        layer_manifest=(
+            *manifest.layer_manifest,
+            LayerRef(
+                id="semantic-response-schema",
+                version=1,
+                layer=PromptLayer.ADAPTER_SCHEMA,
+                token_estimate=estimate_prompt_tokens(schema),
+            ),
+        ),
+        token_estimate=estimate_prompt_tokens(system_content),
+    )
 
 
 def _validate_prompt_manifest(

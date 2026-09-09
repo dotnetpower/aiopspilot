@@ -52,6 +52,8 @@ class PromptLayer(StrEnum):
     SKILL_BODY = "skill-body"
     SKILL_REFERENCE = "skill-reference"
     SKILL_BUNDLE = "skill-bundle"
+    RECOVERY = "recovery"
+    ADAPTER_SCHEMA = "adapter-schema"
 
 
 class PromptMode(StrEnum):
