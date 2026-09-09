@@ -826,6 +826,23 @@ class _BudgetComposer:
         )
 
 
+class _SanitizedComposer:
+    async def compose(self, *, capability_id: str, scope: object = None) -> object:
+        from fdai.core.prompts import ComposedPrompt, LayerRef, PromptLayer
+
+        del capability_id, scope
+        text = (
+            "Inspect /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg."
+        )
+        return ComposedPrompt(
+            system_text=text,
+            layer_manifest=(
+                LayerRef(id="base", version=1, layer=PromptLayer.BASE, token_estimate=len(text)),
+            ),
+            token_estimate=len(text),
+        )
+
+
 @pytest.mark.asyncio
 async def test_cross_check_profile_budget_blocks_identity_and_provider_io() -> None:
     class NoIdentity:
@@ -932,6 +949,35 @@ async def test_cross_check_prompt_evidence_reaches_model_vote_and_audit() -> Non
     replay = audit["model_votes"][0]["prompt_replay_manifest"]
     assert replay["system_text_sha256"] == vote.prompt_replay_manifest.system_text_sha256
     assert replay["layer_manifest"][0]["id"] == "base"
+
+
+@pytest.mark.asyncio
+async def test_cross_check_replay_hashes_sanitized_system_message() -> None:
+    captured: list[httpx.Request] = []
+    transport = _mock_cross_check_transport(
+        json.dumps({"action_type": "remediate.tag-add", "params": {}}),
+        captured=captured,
+    )
+    async with httpx.AsyncClient(transport=transport) as http:
+        adapter = AzureOpenAICrossCheckModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                system_prompt="unused-fallback",
+            ),
+            prompt_composer=_SanitizedComposer(),  # type: ignore[arg-type]
+            capability_id="t2.reasoner.primary",
+        )
+        proposal = await adapter.propose_with_evidence(_candidate())
+
+    manifest = proposal.prompt_replay_manifest
+    assert manifest is not None
+    body = json.loads(captured[0].content)
+    transmitted_system = body["messages"][0]["content"]
+    assert "[REDACTED]" in transmitted_system
+    assert manifest.system_text_sha256 == hashlib.sha256(transmitted_system.encode()).hexdigest()
 
 
 class _ConcurrentComposer:

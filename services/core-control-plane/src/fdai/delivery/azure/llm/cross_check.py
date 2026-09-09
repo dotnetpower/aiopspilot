@@ -27,9 +27,10 @@ paths remain valid.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 import httpx
@@ -37,7 +38,10 @@ import httpx
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.operator_memory import OperatorScope
-from fdai.core.prompts.budget import estimate_serialized_request_tokens
+from fdai.core.prompts.budget import (
+    estimate_prompt_tokens,
+    estimate_serialized_request_tokens,
+)
 from fdai.core.prompts.composer import PromptComposer
 from fdai.core.prompts.types import PromptMode, PromptReplayManifest
 from fdai.core.quality_gate.gate import CrossCheckProposal, QualityCandidate
@@ -243,6 +247,7 @@ class AzureOpenAICrossCheckModel:
         # mask the original exception.
         total_usage = TokenUsage.zero()
         token: IdentityToken | None = None
+        transmitted_manifest = resolved_prompt.replay_manifest
         try:
             for iteration in range(self._config.max_tool_iterations + 1):
                 body: dict[str, Any] = {
@@ -257,18 +262,22 @@ class AzureOpenAICrossCheckModel:
                 if self._tools_param is not None:
                     body["tools"] = self._tools_param
                     body["tool_choice"] = "auto"
-                body["messages"] = list(prepare_model_messages(messages).messages)
+                prepared_messages = list(prepare_model_messages(messages).messages)
+                body["messages"] = prepared_messages
                 if request.model_body_field is not None:
                     body["model"] = request.model_body_field
-                manifest = resolved_prompt.replay_manifest
+                transmitted_manifest = _transmitted_cross_check_manifest(
+                    resolved_prompt.replay_manifest,
+                    prepared_messages,
+                )
                 request_tokens = estimate_serialized_request_tokens(
                     body,
                     reserved_output_tokens=self._config.max_tokens,
                 )
                 if (
-                    manifest is not None
-                    and manifest.request_token_budget is not None
-                    and request_tokens > manifest.request_token_budget
+                    transmitted_manifest is not None
+                    and transmitted_manifest.request_token_budget is not None
+                    and request_tokens > transmitted_manifest.request_token_budget
                 ):
                     raise RuntimeError("cross-check request exceeds its prompt profile budget")
                 if token is None:
@@ -320,7 +329,7 @@ class AzureOpenAICrossCheckModel:
                 return CrossCheckProposal(
                     action_type=action_type,
                     params=params,
-                    prompt_replay_manifest=resolved_prompt.replay_manifest,
+                    prompt_replay_manifest=transmitted_manifest,
                 )
 
             # The loop always either returns or raises inside the body;
@@ -417,6 +426,22 @@ class AzureOpenAICrossCheckModel:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _transmitted_cross_check_manifest(
+    manifest: PromptReplayManifest | None,
+    messages: list[dict[str, Any]],
+) -> PromptReplayManifest | None:
+    if manifest is None:
+        return None
+    system_content = messages[0].get("content") if messages else None
+    if not isinstance(system_content, str):
+        raise ValueError("cross-check prepared system message MUST be text")
+    return replace(
+        manifest,
+        system_text_sha256=hashlib.sha256(system_content.encode()).hexdigest(),
+        token_estimate=estimate_prompt_tokens(system_content),
+    )
 
 
 def _encode_function_name(tool_id: str) -> str:
