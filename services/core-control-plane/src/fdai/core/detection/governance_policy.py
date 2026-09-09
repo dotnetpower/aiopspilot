@@ -18,6 +18,7 @@ _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _SEMANTIC_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 _PHASES = frozenset({"hour_of_day", "day_of_week", "hour_of_week"})
 _CORRELATION_KEYS = frozenset({"correlation_id", "resource_ref"})
+_REQUIRED_CORRELATION_KEYS = ("correlation_id", "resource_ref")
 _FORECAST_CONFIDENCE_LEVELS = frozenset({"0.80", "0.90", "0.95", "0.99"})
 
 
@@ -257,6 +258,10 @@ def _correlation(value: object) -> CorrelationPolicy:
         raise DetectionGovernancePolicyError("correlation exact_keys MUST be non-empty and unique")
     if any(item not in _CORRELATION_KEYS for item in exact_keys):
         raise DetectionGovernancePolicyError("correlation exact_keys contain an unsupported key")
+    if exact_keys != _REQUIRED_CORRELATION_KEYS:
+        raise DetectionGovernancePolicyError(
+            "correlation exact_keys MUST preserve correlation_id then resource_ref"
+        )
     return CorrelationPolicy(
         exact_keys=exact_keys,
         default_window_seconds=_integer(

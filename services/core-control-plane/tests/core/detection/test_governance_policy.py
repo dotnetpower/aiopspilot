@@ -101,6 +101,16 @@ def test_policy_reports_a_malformed_seasonal_phase_as_a_policy_error(tmp_path: P
         load_detection_governance_policy(_write_policy(tmp_path, raw))
 
 
+def test_policy_rejects_a_narrowed_exact_correlation_key_set(tmp_path: Path) -> None:
+    raw = _policy()
+    correlation = raw["correlation"]
+    assert isinstance(correlation, dict)
+    correlation["exact_keys"] = ["correlation_id"]
+
+    with pytest.raises(DetectionGovernancePolicyError, match="preserve"):
+        load_detection_governance_policy(_write_policy(tmp_path, raw))
+
+
 def test_policy_rejects_reversed_interval_coverage(tmp_path: Path) -> None:
     raw = _policy()
     promotion = raw["forecast_promotion"]
