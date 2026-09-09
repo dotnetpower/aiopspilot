@@ -93,8 +93,8 @@ same verifier safely extracts and verifies the signed bundle before Terraform re
 snapshot rather than the original kit. Artifact metadata and content descriptors open in
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
-Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
-versions before it can sign an offline kit. Terraform and OPA are downloaded at pinned versions
+Connected staging accepts complete runtime v2 only from digest-bound `build-runtime-release.py`,
+then requires the committed CLI lock and exact Hatchling and pip versions before kit signing. Terraform and OPA are downloaded at pinned versions
 and accepted only after their platform-specific official SHA-256 values match. The output root must
 be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
@@ -112,12 +112,10 @@ sets mode `0700` through the newly opened directory descriptor before materializ
 artifacts.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
-The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
-target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
-provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
-configuration only inside a sentinel-owned work directory. Fresh drills require a nonexistent safe
-absolute path, and both fresh and resumed drills use the descriptor-based UID and mode guard. The
-drill needs no ambient Terraform because it uses the authenticated kit snapshot.
+The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter target
+evidence and uses only the authenticated kit snapshot. Complete mode (`--runtime-release <directory>
+--require-runtime`) prepares six images and installs support without route or DNS; the default remains
+toolchain-only. Fresh and resumed drills use sentinel-owned directories and descriptor guards.
 It also clears Python import overrides before invoking the installed distribution, so checkout
 source cannot shadow a shipped wheel. Manifest, trust-key, and SBOM reads use bounded nonblocking
 regular-file readers in both source and installed-wheel verification.
@@ -133,21 +131,6 @@ no-follow, 65536-byte regular-file boundary. Private keys must be owned by the c
 `0600`.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
-
-Connected release engineering can now assemble a complete runtime v2 input before the outer kit
-is signed. `build-runtime-release.py` accepts a private descriptor whose relative source paths and
-SHA-256 values bind five FDAI OCI archives, revision-neutral ClamAV, each SBOM and provenance file,
-the prebuilt Console archive, and deployment support. It validates all six OCI archives and
-publishes a new exact tree without downloading, executing, signing, attesting, or uploading
-content. Its `production_release_eligibility=unverified` result prevents local assembly from being
-reported as governed release evidence.
-
-`airgap-drill.sh --runtime-release <directory> --require-runtime` stages that tree plus locked
-runtime support wheels. Inside the no-route, no-DNS verification namespace, the drill installs the
-authenticated CLI wheel and requires `offline prepare` to return a v2 preparation receipt with six
-image digests and `subscription_ready=false`. It then installs and reads back every hash-pinned
-runtime support distribution with indexes, downloads, source builds, and caches disabled. Running
-the drill without those options remains a toolchain-only check and is labeled accordingly.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active subscription and tenant identifiers,
 environment, region, remote-runner boundary, and shadow-mode default in a gitignored mode-`0600` file. Human output never prints the account
