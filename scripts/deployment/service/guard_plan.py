@@ -1826,7 +1826,9 @@ def validate_plan(
                         f"{actions!r} is not an explicit transition at {address}"
                     )
                 continue
-            if actions != expected_action:
+            if actions != expected_action and not (
+                operator_channel_edge_transition == "enable" and actions == ("update",)
+            ):
                 violations.append(
                     f"operator channel edge action {actions!r} is not an explicit "
                     f"{operator_channel_edge_transition} at {address}"
@@ -1835,13 +1837,26 @@ def validate_plan(
             if not isinstance(change, dict):
                 raise PlanGuardError(f"plan change for {address} is invalid")
             if operator_channel_edge_transition == "enable":
+                after = _resource(change, side="after", address=address)
                 violations.extend(
                     _guard_operator_channel_edge(
-                        _resource(change, side="after", address=address),
+                        after,
                         address=address,
                         image_ref=image_ref,
                     )
                 )
+                if actions == ("update",):
+                    before = _resource(change, side="before", address=address)
+                    violations.extend(
+                        _guard_update(
+                            before,
+                            after,
+                            address=address,
+                            contract=channel_edge_contract,
+                            initial_cutover=False,
+                            database_host_binding=False,
+                        )
+                    )
             elif operator_channel_edge_transition == "disable":
                 violations.extend(
                     _guard_operator_channel_edge(
@@ -1905,10 +1920,19 @@ def validate_plan(
             )
         )
     if operator_channel_edge_transition in {"enable", "disable"}:
-        if set(channel_edge_actions) != {
-            _OPERATOR_CHANNEL_EDGE_ADDRESS,
-            _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS,
-        }:
+        initial_transition = channel_edge_actions == {
+            _OPERATOR_CHANNEL_EDGE_ADDRESS: (
+                ("create",) if operator_channel_edge_transition == "enable" else ("delete",)
+            ),
+            _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS: (
+                ("create",) if operator_channel_edge_transition == "enable" else ("delete",)
+            ),
+        }
+        idempotent_enable = (
+            operator_channel_edge_transition == "enable"
+            and channel_edge_actions == {_OPERATOR_CHANNEL_EDGE_ADDRESS: ("update",)}
+        )
+        if not initial_transition and not idempotent_enable:
             violations.append(
                 f"operator channel edge {operator_channel_edge_transition} plan is incomplete"
             )

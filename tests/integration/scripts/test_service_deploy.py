@@ -1093,6 +1093,18 @@ def test_plan_guard_allows_exact_operator_channel_edge_disable(guard: ModuleType
     )
 
 
+def test_plan_guard_allows_idempotent_operator_channel_edge_enable_update(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _channel_edge_update_plan(),
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        operator_channel_edge_transition="enable",
+    )
+
+
 def test_plan_guard_rejects_implicit_or_partial_operator_channel_edge_enable(
     guard: ModuleType,
 ) -> None:
