@@ -1520,6 +1520,92 @@ def test_complete_collection_scope_drops_redundant_resource_identity_clarificati
 
 
 @pytest.mark.parametrize(
+    ("primary_intent", "targets", "requested_facets"),
+    (
+        (
+            "query.ontology_declaration",
+            [],
+            ["agent_declaration", "read_only_properties"],
+        ),
+        (
+            "query.ontology_relationships",
+            [
+                {
+                    "kind": "object_type",
+                    "value": "BusinessService",
+                    "canonical_value": "BusinessService",
+                    "source_start": 0,
+                    "source_end": 15,
+                }
+            ],
+            ["declared_relationships", "incoming_relationships", "outgoing_relationships"],
+        ),
+    ),
+)
+def test_complete_schema_subject_drops_redundant_identity_clarification(
+    primary_intent: str,
+    targets: list[dict[str, object]],
+    requested_facets: list[str],
+) -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=primary_intent,
+                targets=targets,
+                requested_facets=requested_facets,
+                ambiguous=True,
+                alternatives=["resource_identity"],
+                unresolved_terms=["Resource"],
+                clarification="Which exact schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance="BusinessService schema" if targets else "Agent schema",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": primary_intent},
+            {"kind": "object_type", "name": "Agent"},
+            {"kind": "object_type", "name": "BusinessService"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert result.proposal.unresolved_terms == ()
+    assert result.proposal.clarification is None
+
+
+def test_schema_identity_ambiguity_preserves_multiple_typed_subjects() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_declaration",
+                targets=[],
+                requested_facets=["agent_declaration", "workload_declaration"],
+                ambiguous=True,
+                alternatives=["Agent", "Workload"],
+                unresolved_terms=["schema_subject"],
+                clarification="Which schema subject should I use?",
+            )
+        )
+    ).judge(
+        utterance="Show the Agent or Workload schema.",
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.ontology_declaration"},
+            {"kind": "object_type", "name": "Agent"},
+            {"kind": "object_type", "name": "Workload"},
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.CLARIFICATION
+
+
+@pytest.mark.parametrize(
     ("confidence", "unresolved_terms", "alternatives", "expected_disposition"),
     (
         (0.5, ["resource_identity"], [], SemanticJudgmentDisposition.LOW_CONFIDENCE),
