@@ -22,11 +22,24 @@ def estimate_chat_request_tokens(
 ) -> int:
     """Estimate the complete serialized chat request plus reserved output."""
 
-    encoded = json.dumps(
+    return estimate_serialized_request_tokens(
         {
             "messages": list(messages),
             "response_format": response_format,
         },
+        reserved_output_tokens=reserved_output_tokens,
+    )
+
+
+def estimate_serialized_request_tokens(
+    request: Mapping[str, object],
+    *,
+    reserved_output_tokens: int,
+) -> int:
+    """Estimate one finalized provider request plus reserved output."""
+
+    encoded = json.dumps(
+        request,
         allow_nan=False,
         ensure_ascii=False,
         separators=(",", ":"),
@@ -35,4 +48,8 @@ def estimate_chat_request_tokens(
     return estimate_prompt_tokens(encoded) + reserved_output_tokens
 
 
-__all__ = ["estimate_chat_request_tokens", "estimate_prompt_tokens"]
+__all__ = [
+    "estimate_chat_request_tokens",
+    "estimate_prompt_tokens",
+    "estimate_serialized_request_tokens",
+]

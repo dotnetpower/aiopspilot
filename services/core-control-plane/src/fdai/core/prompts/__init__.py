@@ -21,7 +21,11 @@ Design references:
 
 from __future__ import annotations
 
-from fdai.core.prompts.budget import estimate_chat_request_tokens, estimate_prompt_tokens
+from fdai.core.prompts.budget import (
+    estimate_chat_request_tokens,
+    estimate_prompt_tokens,
+    estimate_serialized_request_tokens,
+)
 from fdai.core.prompts.composer import (
     DefaultPromptComposer,
     PromptComposer,
@@ -90,6 +94,7 @@ __all__ = [
     "resolve_prompt_selection",
     "compare_prompt_profiles",
     "estimate_prompt_tokens",
+    "estimate_serialized_request_tokens",
     "estimate_chat_request_tokens",
     "SkillDisclosureRequest",
     "SkillBundleMemberReplayRecord",

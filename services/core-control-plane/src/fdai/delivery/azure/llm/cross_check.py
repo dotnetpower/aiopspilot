@@ -37,6 +37,7 @@ import httpx
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.operator_memory import OperatorScope
+from fdai.core.prompts.budget import estimate_serialized_request_tokens
 from fdai.core.prompts.composer import PromptComposer
 from fdai.core.prompts.types import PromptMode, PromptReplayManifest
 from fdai.core.quality_gate.gate import CrossCheckProposal, QualityCandidate
@@ -51,7 +52,7 @@ from fdai.delivery.azure.llm.request_target import (
 )
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
-from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 # OpenAI function names accept ``[A-Za-z0-9_-]{1,64}`` only, so tool ids
 # with dots (our catalog convention) need a lossless wire encoding. The
@@ -214,7 +215,6 @@ class AzureOpenAICrossCheckModel:
     async def propose_with_evidence(self, candidate: QualityCandidate) -> CrossCheckProposal:
         """Return a proposal plus prompt evidence scoped to this call."""
 
-        token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
         resolved_prompt = await self._resolve_system_prompt(candidate)
         user_prompt = json.dumps(
@@ -242,6 +242,7 @@ class AzureOpenAICrossCheckModel:
         # spend (H7). ``emit_safe`` never raises, so the finally cannot
         # mask the original exception.
         total_usage = TokenUsage.zero()
+        token: IdentityToken | None = None
         try:
             for iteration in range(self._config.max_tool_iterations + 1):
                 body: dict[str, Any] = {
@@ -259,6 +260,19 @@ class AzureOpenAICrossCheckModel:
                 body["messages"] = list(prepare_model_messages(messages).messages)
                 if request.model_body_field is not None:
                     body["model"] = request.model_body_field
+                manifest = resolved_prompt.replay_manifest
+                request_tokens = estimate_serialized_request_tokens(
+                    body,
+                    reserved_output_tokens=self._config.max_tokens,
+                )
+                if (
+                    manifest is not None
+                    and manifest.request_token_budget is not None
+                    and request_tokens > manifest.request_token_budget
+                ):
+                    raise RuntimeError("cross-check request exceeds its prompt profile budget")
+                if token is None:
+                    token = await self._identity.get_token(self._target.auth_audience)
                 response = await self._http.post(
                     request.url,
                     params=request.params,

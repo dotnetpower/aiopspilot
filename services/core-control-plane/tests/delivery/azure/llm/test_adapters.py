@@ -806,6 +806,51 @@ class _RaisingComposer:
         raise RuntimeError("catalog unavailable")
 
 
+class _BudgetComposer:
+    async def compose(self, *, capability_id: str, scope: object = None) -> object:
+        from fdai.core.prompts import ComposedPrompt, LayerRef, PromptLayer
+
+        del capability_id, scope
+        return ComposedPrompt(
+            system_text="bounded",
+            layer_manifest=(
+                LayerRef(id="base", version=1, layer=PromptLayer.BASE, token_estimate=7),
+            ),
+            token_estimate=7,
+            profile_id="active.test",
+            profile_version=1,
+            profile_digest="sha256:" + ("a" * 64),
+            system_token_budget=128,
+            request_token_budget=513,
+            reserved_output_tokens=512,
+        )
+
+
+@pytest.mark.asyncio
+async def test_cross_check_profile_budget_blocks_identity_and_provider_io() -> None:
+    class NoIdentity:
+        async def get_token(self, audience: str) -> object:
+            raise AssertionError(f"unexpected identity request for {audience}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as http:
+        adapter = AzureOpenAICrossCheckModel(
+            identity=NoIdentity(),  # type: ignore[arg-type]
+            http_client=http,
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                system_prompt="unused-fallback",
+            ),
+            prompt_composer=_BudgetComposer(),  # type: ignore[arg-type]
+            capability_id="t2.reasoner.primary",
+        )
+
+        with pytest.raises(RuntimeError, match="profile budget"):
+            await adapter.propose(_candidate())
+
+
 @pytest.mark.asyncio
 async def test_cross_check_composes_prompt_per_event() -> None:
     """When ``prompt_composer`` is wired, each call re-composes.
