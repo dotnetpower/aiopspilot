@@ -151,6 +151,7 @@ def test_non_ontology_candidate_can_account_for_claim_without_graph_proposal() -
         source_ref="doc:service-map",
         source_section="Ownership",
         source_lines=(1, 1),
+        content_sha=hashlib.sha256(b"Checkout service is owned by Platform team.").hexdigest(),
     )
     package = build_ontology_review_package(
         document=_document(),

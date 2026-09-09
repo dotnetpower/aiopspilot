@@ -134,11 +134,14 @@ def reconcile_claims(
             candidate.candidate_id
             for candidate in candidates
             if (
-                exact.get(candidate.candidate_id) == claim.claim_id
-                if candidate.candidate_id in exact
-                else candidate.source_ref == claim.evidence.source_ref
-                and candidate.source_lines[0] <= claim.evidence.line_start
-                and candidate.source_lines[1] >= claim.evidence.line_end
+                candidate.content_sha == claim.evidence.content_sha256
+                and (
+                    exact.get(candidate.candidate_id) == claim.claim_id
+                    if candidate.candidate_id in exact
+                    else candidate.source_ref == claim.evidence.source_ref
+                    and candidate.source_lines[0] <= claim.evidence.line_start
+                    and candidate.source_lines[1] >= claim.evidence.line_end
+                )
             )
         )
         if matching:

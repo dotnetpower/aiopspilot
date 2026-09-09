@@ -93,6 +93,10 @@ of reporting zero claims. A council-backed result must carry exactly one content
 every inventoried claim, so unsupported, contested, and unresolved claims remain visible as
 `needs_review`.
 
+Claim reconciliation accepts line-range coverage only when the candidate also pins the inventoried
+document's exact content digest. A candidate from a stale revision remains `needs_review` even when
+its source reference and line numbers still match.
+
 ## Authority classes
 
 The source authority controls which proposal operations are eligible.

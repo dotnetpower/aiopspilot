@@ -70,12 +70,31 @@ def test_reconcile_accounts_for_mapped_and_unmapped_claims() -> None:
         source_ref=document.source_ref,
         source_section="Service",
         source_lines=(1, 1),
+        content_sha=document.content_sha,
     )
 
     resolutions = reconcile_claims(claims, [candidate])
 
     assert resolutions[0].disposition is ClaimDisposition.MAPPED
     assert resolutions[1].disposition is ClaimDisposition.NEEDS_REVIEW
+
+
+def test_reconcile_rejects_candidate_from_stale_document_content() -> None:
+    document = _document("Operators must page on-call within five minutes.")
+    claims = inventory_claims(document)
+    stale_text = "Operators must page on-call within thirty minutes."
+    candidate = DistilledCandidate(
+        kind=CandidateKind.RULE,
+        candidate_id="candidate-1",
+        source_ref=document.source_ref,
+        source_section="Paging",
+        source_lines=(1, 1),
+        content_sha=hashlib.sha256(stale_text.encode()).hexdigest(),
+    )
+
+    resolutions = reconcile_claims(claims, [candidate])
+
+    assert resolutions[0].disposition is ClaimDisposition.NEEDS_REVIEW
 
 
 def test_reconcile_rejects_duplicate_or_unknown_identity() -> None:
@@ -87,6 +106,7 @@ def test_reconcile_rejects_duplicate_or_unknown_identity() -> None:
         source_ref=document.source_ref,
         source_section="Service",
         source_lines=(1, 1),
+        content_sha=document.content_sha,
     )
     with pytest.raises(ValueError, match="candidate ids MUST be unique"):
         reconcile_claims(claims, [candidate, candidate])

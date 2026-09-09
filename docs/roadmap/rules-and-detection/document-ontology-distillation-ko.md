@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 720f06fd96d5e3b19356c57fbfd3c6b5490914cd
+translation_source_sha: e98c407bddfbf367a8c2b13d55efc31e9f0c8552
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -92,6 +92,10 @@ projected -> superseded | rolled_back
 인벤토리에 기록합니다. 협의체 기반 결과는 인벤토리의 각 점유마다 내용이 없는 증적을 정확히
 하나씩 포함해야 하므로 지원되지 않음, 이견 있음, 미해결 점유가 `needs_review` 상태로
 계속 표시됩니다.
+
+점유 조정은 후보가 인벤토리에 기록된 문서의 정확한 내용 다이제스트도 고정한 경우에만 줄
+범위 커버리지를 허용합니다. 오래된 개정 번호의 후보는 소스 참조와 줄 번호가 계속 일치해도
+`needs_review` 상태로 남습니다.
 
 ## 권한 등급
 
