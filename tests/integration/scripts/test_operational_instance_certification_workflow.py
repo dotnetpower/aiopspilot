@@ -11,12 +11,14 @@ def test_oi12_workflow_binds_exact_source_and_required_ci() -> None:
         "commit_sha",
         "request_id",
         "window_seconds",
+        "promote_runtime_image",
         "Verify protected workflow source",
         "Verify exact source and required CI",
         'select(.name == "required" and .conclusion == "success")',
         "bind_core_runtime_image.sh",
         "GH_TOKEN: ${{ github.token }}",
         "GHCR_TOKEN: ${{ github.token }}",
+        "PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}",
     ):
         assert value in _WORKFLOW
 

@@ -23,6 +23,10 @@ on:
         options: ["60", "300"]
         default: "60"
         required: true
+      promote_runtime_image:
+        description: "Import the exact verified GHCR subject into ACR without rebuilding."
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -126,6 +130,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
