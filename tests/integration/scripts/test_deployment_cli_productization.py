@@ -91,8 +91,13 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert '"$WORKDIR/cli-venv" "$WORKDIR/empty-azure"' in drill
     assert 'export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"' in drill
     assert "unset PYTHONPATH PYTHONHOME" in drill
-    assert "for tool in az curl git openssl unshare uv" in drill
+    assert "for tool in az curl git mount openssl unshare uv" in drill
     assert "for tool in az terraform" not in drill
+    assert 'HOST_WORKDIR="$WORKDIR"' in drill
+    assert "unshare -rmn --propagation private" in drill
+    assert 'mount --bind "$HOST_WORKDIR" /mnt' in drill
+    assert "WORKDIR=/mnt" in drill
+    assert 'KIT="$WORKDIR/kit"' in drill
     assert 'SENTINEL=".fdai-airgap-workdir"' in drill
     assert "workdir-guard.py create" in drill
     assert "workdir-guard.py verify" in drill
@@ -182,6 +187,7 @@ def test_airgap_drill_has_explicit_complete_runtime_mode() -> None:
     assert '"$CLI" offline prepare' in drill
     assert '"$CLI" offline install-support' in drill
     assert '"$WORKDIR/authenticated-kit/runtime/release.json"' in drill
+    assert 'include_all=\\"runtime/release.json\\" in dict(result.file_digests)' in drill
     assert '"schema_version\\") != \\"fdai.offline-preparation.v2\\"' in drill
     assert "complete runtime release prepared with no network" in drill
     assert "toolchain path passed; runtime preparation was not exercised" in drill
