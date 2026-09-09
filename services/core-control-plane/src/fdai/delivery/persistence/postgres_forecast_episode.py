@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -21,6 +21,9 @@ from fdai.core.detection.forecast_episode import (
     ForecastEvaluationKind,
     ForecastPublicationOutboxItem,
     forecast_publication_id,
+)
+from fdai.core.detection.forecast_operational_metrics import (
+    reduce_forecast_operational_metrics,
 )
 from fdai.shared.contracts.models import ForecastOutcome, Mode
 
@@ -59,6 +62,7 @@ class PostgresForecastEpisodeStore:
     async def health_snapshot(self, *, now: datetime) -> Mapping[str, object]:
         _aware("health snapshot time", now)
         async with await self._connect() as connection, connection.transaction():
+            await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             await self._timeout(connection)
             episodes = await connection.execute(
                 "SELECT COUNT(*) AS total, "
@@ -66,7 +70,9 @@ class PostgresForecastEpisodeStore:
                 "COUNT(*) FILTER (WHERE state = 'open' AND closure_due_at < %s) AS overdue, "
                 "COUNT(*) FILTER (WHERE closure_due_at <= %s) AS due_total, "
                 "COUNT(*) FILTER (WHERE state = 'closed' AND closure_due_at <= %s) AS due_closed, "
-                "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained "
+                "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained, "
+                "COUNT(*) FILTER (WHERE state = 'closed' "
+                "AND evaluation_kind = 'abstained') AS abstained_closed "
                 "FROM forecast_episode",
                 (now, now, now),
             )
@@ -76,6 +82,30 @@ class PostgresForecastEpisodeStore:
                 "COUNT(*) AS count FROM forecast_publication_outbox "
                 "WHERE topic = 'object.forecast-outcome' "
                 "GROUP BY payload->>'label', payload->>'miss_origin'",
+            )
+            lead_times = await connection.execute(
+                "SELECT COUNT(*) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS sample_count, "
+                "COUNT(*) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz <= episode.created_at"
+                ") AS non_positive_count, "
+                "AVG(EXTRACT(EPOCH FROM ("
+                "(outcome.payload->>'actual_breach_at')::timestamptz - "
+                "episode.created_at"
+                "))) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS mean_seconds, "
+                "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ("
+                "(outcome.payload->>'actual_breach_at')::timestamptz - "
+                "episode.created_at"
+                "))) FILTER (WHERE "
+                "(outcome.payload->>'actual_breach_at')::timestamptz > episode.created_at"
+                ") AS median_seconds "
+                "FROM forecast_publication_outbox AS outcome "
+                "JOIN forecast_episode AS episode USING (episode_id) "
+                "WHERE outcome.topic = 'object.forecast-outcome' "
+                "AND outcome.payload->>'label' IN ('true_positive', 'magnitude_error')",
             )
             publication = await connection.execute(
                 "SELECT COUNT(*) FILTER (WHERE published_at IS NULL "
@@ -98,10 +128,34 @@ class PostgresForecastEpisodeStore:
             )
             deletion_row = await deletion.fetchone()
             outcome_rows = await labels.fetchall()
+            lead_time_row = await lead_times.fetchone()
         total = int(episode_row["total"]) if episode_row else 0
         closed = int(episode_row["closed"]) if episode_row else 0
         due_total = int(episode_row["due_total"]) if episode_row else 0
         due_closed = int(episode_row["due_closed"]) if episode_row else 0
+        outcome_counts = _aggregate_outcome_counts(outcome_rows)
+        lead_time_sample_count = (
+            int(lead_time_row["sample_count"]) if lead_time_row is not None else 0
+        )
+        operational_metrics = reduce_forecast_operational_metrics(
+            episode_count=closed,
+            abstained_count=int(episode_row["abstained_closed"]) if episode_row else 0,
+            outcome_counts=outcome_counts,
+            mean_lead_time_seconds=(
+                float(lead_time_row["mean_seconds"])
+                if lead_time_row is not None and lead_time_row["mean_seconds"] is not None
+                else None
+            ),
+            median_lead_time_seconds=(
+                float(lead_time_row["median_seconds"])
+                if lead_time_row is not None and lead_time_row["median_seconds"] is not None
+                else None
+            ),
+            lead_time_sample_count=lead_time_sample_count,
+            non_positive_lead_time_count=(
+                int(lead_time_row["non_positive_count"]) if lead_time_row is not None else 0
+            ),
+        )
         return {
             "episodes": {
                 "total": total,
@@ -119,6 +173,7 @@ class PostgresForecastEpisodeStore:
                 }
                 for row in outcome_rows
             ],
+            "operational_metrics": operational_metrics.to_dict(),
             "publication": {
                 "pending": int(publication_row["pending_due"]) if publication_row else 0,
                 "future": int(publication_row["pending_future"]) if publication_row else 0,
@@ -367,6 +422,19 @@ class PostgresForecastEpisodeStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+def _aggregate_outcome_counts(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Combine label counts while preserving separate miss-origin rows."""
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        label = row.get("label")
+        if label is None:
+            continue
+        key = str(label)
+        counts[key] = counts.get(key, 0) + int(row["count"])
+    return counts
 
 
 def _episode_values(episode: ForecastEpisode) -> tuple[object, ...]:

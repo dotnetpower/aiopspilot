@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "detection-governance",
+  "policy_version": "1.0.0",
+  "signal_classes": [
+    {
+      "signal_class": "cost.seasonal",
+      "anomaly_method": "seasonal_z_score",
+      "min_baseline_samples": 10,
+      "seasonal_phase": "day_of_week"
+    },
+    {
+      "signal_class": "reliability.seasonal",
+      "anomaly_method": "seasonal_z_score",
+      "min_baseline_samples": 10,
+      "seasonal_phase": "hour_of_week"
+    },
+    {
+      "signal_class": "reliability.stationary",
+      "anomaly_method": "z_score",
+      "min_baseline_samples": 30,
+      "seasonal_phase": null
+    },
+    {
+      "signal_class": "security.activity",
+      "anomaly_method": "z_score",
+      "min_baseline_samples": 30,
+      "seasonal_phase": null
+    }
+  ],
+  "forecast_targets": [
+    {
+      "target_kind": "capacity",
+      "model_family": "linear_trend",
+      "horizon_seconds": 86400,
+      "min_samples": 5,
+      "min_r_squared": 0.5,
+      "confidence_level": "0.90"
+    },
+    {
+      "target_kind": "cost",
+      "model_family": "linear_trend",
+      "horizon_seconds": 604800,
+      "min_samples": 5,
+      "min_r_squared": 0.5,
+      "confidence_level": "0.90"
+    },
+    {
+      "target_kind": "expiry",
+      "model_family": "linear_trend",
+      "horizon_seconds": 2592000,
+      "min_samples": 5,
+      "min_r_squared": 0.5,
+      "confidence_level": "0.90"
+    },
+    {
+      "target_kind": "replication_lag",
+      "model_family": "linear_trend",
+      "horizon_seconds": 3600,
+      "min_samples": 5,
+      "min_r_squared": 0.5,
+      "confidence_level": "0.90"
+    }
+  ],
+  "correlation": {
+    "exact_keys": [
+      "correlation_id",
+      "resource_ref"
+    ],
+    "default_window_seconds": 60,
+    "trace_window_seconds": 300,
+    "t1_similarity_floor": 0.85,
+    "t1_min_shared_evidence_fields": 2
+  },
+  "forecast_promotion": {
+    "cadence_seconds": 604800,
+    "min_scorable_episodes": 30,
+    "min_shadow_days": 14,
+    "min_precision": 0.8,
+    "min_recall": 0.8,
+    "min_interval_coverage": 0.85,
+    "max_interval_coverage": 0.95,
+    "min_median_lead_seconds": 300,
+    "max_abstention_rate": 0.2,
+    "max_policy_escapes": 0
+  },
+  "change_window": {
+    "behavior": "annotate_and_hold_incident",
+    "require_exact_scope": true,
+    "require_complete_evidence": true
+  }
+}

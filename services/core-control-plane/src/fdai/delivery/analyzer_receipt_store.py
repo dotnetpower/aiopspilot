@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 
 from fdai.delivery.analyzer_tick import AnalyzerFindingReceipt
 from fdai.shared.providers.state_store import StateStore
 
 ANALYZER_RECEIPT_STATE_PREFIX = "runtime:analyzer-finding-receipt:"
+ANALYZER_RUN_RECEIPT_STATE_PREFIX = "runtime:analyzer-tick-receipt:"
 DEFAULT_ANALYZER_RECEIPT_RETENTION = 500
 #: Per-tick observation values. A finding that outlives one tick keeps the same
 #: window-bucket idempotency key, so a later tick re-reports the same outcome
@@ -59,8 +62,80 @@ class StateStoreAnalyzerReceiptStore:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class StateStoreAnalyzerRunReceiptStore:
+    """Retain bounded complete tick reports for operational evidence."""
+
+    state_store: StateStore
+    retain_newest: int = DEFAULT_ANALYZER_RECEIPT_RETENTION
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.retain_newest <= 10_000:
+            raise ValueError("analyzer run receipt retention MUST be in [1, 10000]")
+
+    async def record(
+        self,
+        *,
+        run_id: str,
+        tick_id: str = "0",
+        recorded_at: datetime,
+        report: Mapping[str, object],
+    ) -> None:
+        """Record one tick result idempotently and reject identity reuse."""
+
+        if not run_id.strip() or len(run_id) > 256:
+            raise ValueError("analyzer run receipt id MUST be bounded text")
+        if not tick_id.strip() or len(tick_id) > 64 or any(char.isspace() for char in tick_id):
+            raise ValueError("analyzer tick receipt id MUST be bounded and contain no whitespace")
+        if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+            raise ValueError("analyzer run receipt time MUST be timezone-aware")
+        canonical_report = json.dumps(
+            report,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        report_digest = hashlib.sha256(canonical_report.encode("utf-8")).hexdigest()
+        attempt_digest = hashlib.sha256(
+            f"{run_id}\n{tick_id}\n{report_digest}".encode()
+        ).hexdigest()
+        key = f"{ANALYZER_RUN_RECEIPT_STATE_PREFIX}{attempt_digest}"
+        value: dict[str, object] = {
+            "schema_version": "1.2.0",
+            "run_id": run_id,
+            "tick_id": tick_id,
+            "attempt_id": report_digest,
+            "recorded_at": recorded_at.isoformat(),
+            "report_digest": report_digest,
+            "report": dict(report),
+            "execution_authority": False,
+        }
+        if not await self.state_store.write_state_if_absent(key, value):
+            existing = await self.state_store.read_state(key)
+            immutable_fields = (
+                "schema_version",
+                "run_id",
+                "tick_id",
+                "attempt_id",
+                "report_digest",
+                "report",
+                "execution_authority",
+            )
+            if existing is None or any(
+                existing.get(field) != value[field] for field in immutable_fields
+            ):
+                raise ValueError("analyzer run receipt identity collision")
+        await self.state_store.delete_states_beyond(
+            ANALYZER_RUN_RECEIPT_STATE_PREFIX,
+            retain_newest=self.retain_newest,
+        )
+
+
 __all__ = [
     "ANALYZER_RECEIPT_STATE_PREFIX",
+    "ANALYZER_RUN_RECEIPT_STATE_PREFIX",
     "DEFAULT_ANALYZER_RECEIPT_RETENTION",
     "StateStoreAnalyzerReceiptStore",
+    "StateStoreAnalyzerRunReceiptStore",
 ]
