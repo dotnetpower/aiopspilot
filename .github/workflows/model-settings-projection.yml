@@ -194,7 +194,8 @@ jobs:
           export FDAI_OCR_ENDPOINT="$document_ocr_endpoint"
           export FDAI_DOCUMENT_OCR_PROVIDER="$document_ocr_provider"
           uv run --frozen --package fdai-core-control-plane python \
-            scripts/deployment/local/materialize-authoritative-settings.py --model-only
+            scripts/deployment/local/materialize-authoritative-settings.py \
+              --seed-runtime-if-missing
           EXPECTED_DIGEST="sha256:$artifact_digest" \
             EXPECTED_ENVIRONMENT="${{ inputs.environment }}" \
             uv run --frozen --package fdai-core-control-plane python - <<'PY'
@@ -207,18 +208,41 @@ jobs:
           )
           with psycopg.connect(dsn, connect_timeout=10) as connection:
               connection.execute("SET TRANSACTION READ ONLY")
-              row = connection.execute(
-                  "SELECT value FROM state_kv WHERE key = %s",
-                  ("operator-projection:iam:model-settings",),
-              ).fetchone()
-          if row is None or not isinstance(row[0], dict):
+              rows = dict(
+                  connection.execute(
+                      "SELECT key, value FROM state_kv WHERE key IN (%s, %s)",
+                      (
+                          "operator-projection:iam:model-settings",
+                          "operator-projection:iam:runtime-settings",
+                      ),
+                  ).fetchall()
+              )
+          projection = rows.get("operator-projection:iam:model-settings")
+          if not isinstance(projection, dict):
               raise SystemExit("model Settings projection readback is unavailable")
-          projection = row[0]
           if projection.get("environment") != os.environ["EXPECTED_ENVIRONMENT"]:
               raise SystemExit("model Settings projection environment is incorrect")
           metadata = projection.get("resolved_metadata")
           if not isinstance(metadata, dict) or metadata.get("digest") != os.environ["EXPECTED_DIGEST"]:
               raise SystemExit("model Settings projection digest is incorrect")
-          print(json.dumps({"status": "verified", "digest": metadata["digest"]}, sort_keys=True))
+          runtime = rows.get("operator-projection:iam:runtime-settings")
+          if not isinstance(runtime, dict):
+              raise SystemExit("runtime Settings projection readback is unavailable")
+          runtime_metadata = runtime.get("runtime")
+          if (
+              not isinstance(runtime_metadata, dict)
+              or runtime_metadata.get("environment") != os.environ["EXPECTED_ENVIRONMENT"]
+          ):
+              raise SystemExit("runtime Settings projection environment is incorrect")
+          print(
+              json.dumps(
+                  {
+                      "status": "verified",
+                      "digest": metadata["digest"],
+                      "runtime_environment": runtime_metadata["environment"],
+                  },
+                  sort_keys=True,
+              )
+          )
           PY
           unset FDAI_STATE_STORE_DSN migration_dsn

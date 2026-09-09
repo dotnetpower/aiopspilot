@@ -439,6 +439,11 @@ later stage with a broken earlier one.
   projections. A management-plane prebind or prestart is accepted only when readback proves the
   digest-pinned image and latest successful execution; the VNet runner then compares every expected
   repository projection with PostgreSQL before reporting success.
+- **Settings projections remain independently owned**. The protected model Settings workflow
+  refreshes the model projection and uses an insert-only bootstrap for a missing runtime Settings
+  row. It preserves an existing runtime projection, then reads both rows in a read-only transaction
+  and verifies the target environment. This lets a fresh Console render setup controls without
+  allowing a model refresh to replace runtime evidence.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 

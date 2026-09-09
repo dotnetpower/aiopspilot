@@ -38,17 +38,25 @@ def test_projection_workflow_requires_three_way_active_digest_cas() -> None:
     assert "verify_active_model_attestation.py" in WORKFLOW
 
 
-def test_projection_workflow_writes_only_model_projection_and_reads_it_back() -> None:
-    assert "materialize-authoritative-settings.py --model-only" in WORKFLOW
+def test_projection_workflow_preserves_or_seeds_runtime_projection_and_reads_both_back() -> None:
+    materializer = (
+        "materialize-authoritative-settings.py \\\n              --seed-runtime-if-missing"
+    )
+    assert materializer in WORKFLOW
     assert "SET TRANSACTION READ ONLY" in WORKFLOW
     assert "operator-projection:iam:model-settings" in WORKFLOW
-    assert "operator-projection:iam:runtime-settings" not in WORKFLOW
+    assert "operator-projection:iam:runtime-settings" in WORKFLOW
+    assert "runtime Settings projection readback is unavailable" in WORKFLOW
+    assert "runtime Settings projection environment is incorrect" in WORKFLOW
     assert "provider mutation" not in WORKFLOW.lower()
     assert "::add-mask::$migration_dsn" in WORKFLOW
     assert "^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$" in WORKFLOW
     assert 'vault_name="${BASH_REMATCH[1]}"' in WORKFLOW
     assert '"postgresql+psycopg://", "postgresql://", 1' in WORKFLOW
     assert WORKFLOW.index("model Settings projection digest is incorrect") < WORKFLOW.index(
+        "unset FDAI_STATE_STORE_DSN migration_dsn"
+    )
+    assert WORKFLOW.index("runtime Settings projection environment is incorrect") < WORKFLOW.index(
         "unset FDAI_STATE_STORE_DSN migration_dsn"
     )
 

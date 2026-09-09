@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 13484b88a17570edf3aea4cec5ba3717061e38f7
+translation_source_sha: 5ba1c24dce606ce3778610a53c448174c4e60a3b
 translation_revised: 2026-09-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -438,6 +438,11 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
   리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다.
+- **Settings projection은 독립적인 소유권을 유지합니다**. 보호된 모델 Settings workflow는
+  모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 삽입 방식으로 초기화합니다.
+  기존 런타임 projection은 보존합니다. 그런 다음 읽기 전용 트랜잭션에서 두 행을 다시 읽고
+  대상 환경을 확인합니다. 따라서 모델 새로 고침이 런타임 근거를 교체하지 않으면서 새 Console에서
+  설정 컨트롤을 표시할 수 있습니다.
 - Post-deploy smoke 테스트와 합성 카나리는
   [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
 

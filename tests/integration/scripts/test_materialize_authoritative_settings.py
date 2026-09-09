@@ -201,15 +201,23 @@ def test_runtime_projection_honors_disabled_workflow_observation() -> None:
 
 
 @pytest.mark.parametrize(
-    ("model_only", "expected_keys"),
+    ("model_only", "seed_runtime_if_missing", "expected_writes", "expected_seeds"),
     [
-        (True, ("operator-projection:iam:model-settings",)),
+        (True, False, ("operator-projection:iam:model-settings",), ()),
         (
+            False,
             False,
             (
                 "operator-projection:iam:model-settings",
                 "operator-projection:iam:runtime-settings",
             ),
+            (),
+        ),
+        (
+            False,
+            True,
+            ("operator-projection:iam:model-settings",),
+            ("operator-projection:iam:runtime-settings",),
         ),
     ],
 )
@@ -217,7 +225,9 @@ def test_materialize_can_preserve_runtime_projection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     model_only: bool,
-    expected_keys: tuple[str, ...],
+    seed_runtime_if_missing: bool,
+    expected_writes: tuple[str, ...],
+    expected_seeds: tuple[str, ...],
 ) -> None:
     module = _module()
     artifact = tmp_path / "resolved-models.json"
@@ -232,6 +242,7 @@ def test_materialize_can_preserve_runtime_projection(
         encoding="utf-8",
     )
     writes: list[str] = []
+    seeds: list[str] = []
 
     class Store:
         def __init__(self, *, config: object) -> None:
@@ -241,11 +252,32 @@ def test_materialize_can_preserve_runtime_projection(
             del value
             writes.append(key)
 
+        async def write_state_if_absent(self, key: str, value: object) -> bool:
+            del value
+            seeds.append(key)
+            return True
+
     monkeypatch.setattr(module, "PostgresStateStore", Store)
     monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
     monkeypatch.setenv("LLM_RESOLVED_MODELS_PATH", str(artifact))
     monkeypatch.setenv("RUNTIME_ENV", "dev")
 
-    asyncio.run(module.materialize(model_only=model_only))
+    asyncio.run(
+        module.materialize(
+            model_only=model_only,
+            seed_runtime_if_missing=seed_runtime_if_missing,
+        )
+    )
 
-    assert tuple(writes) == expected_keys
+    assert tuple(writes) == expected_writes
+    assert tuple(seeds) == expected_seeds
+
+
+def test_materialize_rejects_conflicting_runtime_modes() -> None:
+    module = _module()
+
+    with pytest.raises(
+        ValueError,
+        match="model_only and seed_runtime_if_missing are mutually exclusive",
+    ):
+        asyncio.run(module.materialize(model_only=True, seed_runtime_if_missing=True))

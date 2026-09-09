@@ -222,6 +222,10 @@ capacity: { unit: ptu, value: 30 }
 - **Capacity units:** Standard SKUs use TPM. Provisioned SKUs use PTU without conversion.
 - **T2 pair atomicity:** Primary and secondary must resolve to distinct publishers unless held.
 - **No Console authority:** Draft, assessment, and plan requests perform no provider mutation. A protected model plan identifies the exact Operator proposal and policy digest in one request id; the runner reads PostgreSQL without writes and rejects stale or authority-bearing state.
+- **Settings bootstrap:** The protected model Settings producer refreshes the digest-bound model
+  projection and creates the runtime Settings baseline only when that row is missing. Existing
+  runtime Settings evidence is never overwritten by a model refresh. The producer reads back both
+  rows and verifies their deployment environment before reporting success.
 - **Independent tools:** Search, RCA, rubric, escalation, and tool calling retain separate gates.
 
 ### Bootstrap Provisioner

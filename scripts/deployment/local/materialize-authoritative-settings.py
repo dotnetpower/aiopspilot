@@ -324,8 +324,14 @@ def _canonical_json_digest(value: Mapping[str, object]) -> str:
     return "sha256:" + hashlib.sha256(canonical).hexdigest()
 
 
-async def materialize(*, model_only: bool = False) -> None:
+async def materialize(
+    *,
+    model_only: bool = False,
+    seed_runtime_if_missing: bool = False,
+) -> None:
     """Write sanitized Settings projections without exposing deployment values."""
+    if model_only and seed_runtime_if_missing:
+        raise ValueError("model_only and seed_runtime_if_missing are mutually exclusive")
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     artifact_value = os.environ.get("LLM_RESOLVED_MODELS_PATH", "").strip()
     if not dsn:
@@ -359,17 +365,34 @@ async def materialize(*, model_only: bool = False) -> None:
             document_ocr_endpoint_configured=bool(os.environ.get("FDAI_OCR_ENDPOINT", "").strip()),
         ),
     )
-    if not model_only:
-        await store.write_state(RUNTIME_SETTINGS_KEY, runtime_settings_projection(os.environ))
+    if model_only:
+        return
+    runtime_projection = runtime_settings_projection(os.environ)
+    if seed_runtime_if_missing:
+        await store.write_state_if_absent(RUNTIME_SETTINGS_KEY, runtime_projection)
+    else:
+        await store.write_state(RUNTIME_SETTINGS_KEY, runtime_projection)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Materialize selected Settings projections without printing deployment values."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-only", action="store_true")
+    parser.add_argument("--seed-runtime-if-missing", action="store_true")
     args = parser.parse_args(argv)
-    asyncio.run(materialize(model_only=args.model_only))
-    scope = "model" if args.model_only else "model and runtime"
+    asyncio.run(
+        materialize(
+            model_only=args.model_only,
+            seed_runtime_if_missing=args.seed_runtime_if_missing,
+        )
+    )
+    scope = (
+        "model"
+        if args.model_only
+        else "model and missing runtime"
+        if args.seed_runtime_if_missing
+        else "model and runtime"
+    )
     print(f"authoritative local {scope} settings projections refreshed")
     return 0
 

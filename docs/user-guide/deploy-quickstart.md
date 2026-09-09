@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 13484b88a17570edf3aea4cec5ba3717061e38f7 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5ba1c24dce606ce3778610a53c448174c4e60a3b }]
 ---
 
 # Deploy Quickstart
@@ -90,6 +90,11 @@ Executor.
   compare every expected Rule and Ontology projection with PostgreSQL. A
   prebound or prestarted catalog Job is accepted only after image and successful
   execution readback.
+- After the Core and Operator services are healthy, run the protected
+  `model-settings-projection` workflow for the exact green commit. It refreshes the
+  model Settings projection, creates the runtime Settings baseline only when missing,
+  and verifies both rows against the target environment. An existing runtime
+  projection is preserved.
 - To enable the standalone Slack or Teams channel edge, keep provider credentials and principal
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
