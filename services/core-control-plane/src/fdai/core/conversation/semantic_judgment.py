@@ -280,6 +280,11 @@ class SemanticJudgmentBoundary:
                         proposal,
                         capabilities=bounded_capabilities,
                     )
+                    proposal = grounding.normalize_incident_mitigation_identity_clarification(
+                        proposal,
+                        bound_incident="Incident" in bounded_subject_types,
+                        locale=response_locale,
+                    )
                     if strict_grounding:
                         proposal = grounding.normalize_intents_from_typed_facets(
                             proposal,
