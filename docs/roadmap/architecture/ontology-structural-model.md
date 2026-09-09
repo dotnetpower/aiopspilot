@@ -28,6 +28,9 @@ execution, and presentation. Each concern has one canonical representation and o
 consumer contract.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
 metadata for one collection scope and does not replace Resource or link identity.
+Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
+but consumers cannot project a new exact identity until every field required by that identity is
+present.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

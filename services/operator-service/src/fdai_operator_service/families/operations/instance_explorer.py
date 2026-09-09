@@ -639,6 +639,8 @@ def _kubernetes_identity_projection(
         key: properties.get(key)
         for key in ("api_version", "kind", "name", "resource_version", "uid")
     }
+    if all(fields[key] is None for key in ("api_version", "kind", "resource_version")):
+        return None
     if all(value is None for value in fields.values()):
         return None
     if any(not isinstance(value, str) or not value.strip() for value in fields.values()):

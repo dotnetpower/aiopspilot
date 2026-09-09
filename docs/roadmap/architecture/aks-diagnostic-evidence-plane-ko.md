@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: b7beb7a66d43a94000ba1f7837dcc0fbd3b86aa4
+translation_source_sha: 30c6b7367c2d3233f4385028ac6c851791b56ac2
 translation_revised: 2026-09-10
 ---
 # AKS 진단 근거 플레인
@@ -90,6 +90,10 @@ UID가 객체 신원을 고정합니다. API 버전, 종류, 이름 및 네임�
 
 Pod 교체는 두 UID를 모두 보존합니다. 확인자는 이전 UID를 같은 이름의 현재 객체로 다시 쓰지
 않습니다.
+버전이 지정된 신원 계약보다 먼저 만든 스냅샷도 이행 중에는 목록에서 조회할 수 있습니다.
+`api_version`, `kind`, `resource_version`이 모두 없으면 Operator는 전체 인스턴스 응답을 실패시키거나
+누락된 값을 만들어 내지 않고 정확한 Kubernetes 신원과 진단을 보류합니다. 버전이 지정된 신원이
+일부만 채워져 있으면 계속 잘못된 형식이며 사용할 수 없습니다.
 
 ## 근거 수집
 

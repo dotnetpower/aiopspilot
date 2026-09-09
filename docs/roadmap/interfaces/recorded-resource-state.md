@@ -22,6 +22,9 @@ become an operational, availability, or provisioning state axis, and missing dia
 not become a state value.
 Fleet source availability is also separate from Resource state. The instance detail retains
 several same-name sources only when distinct opaque `scope_digest` values qualify them.
+During schema rollout, a legacy Kubernetes record without every versioned identity field remains a
+Resource row. Exact Kubernetes identity and diagnostics stay withheld until a complete versioned
+observation replaces it.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|

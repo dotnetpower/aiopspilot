@@ -21,6 +21,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
     ProjectionQuery,
+    ProjectionUnavailableError,
 )
 from fdai_operator_service.families.operations.instance_explorer import (
     _model_deployment_projection,
@@ -878,6 +879,45 @@ def test_kubernetes_projection_exposes_exact_identity_and_allowlisted_diagnostic
         "container_waiting_reasons": ["ImagePullBackOff"],
         "phase": "Pending",
     }
+
+
+def test_kubernetes_projection_tolerates_a_legacy_identity() -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+            resource_type="kubernetes.pod",
+            properties={
+                "name": "api",
+                "namespace": "default",
+                "uid": "uid-api",
+                "phase": "Running",
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    assert "kubernetes_identity" not in projected
+    assert "kubernetes_diagnostics" not in projected
+    assert projected["name"] == "api"
+
+
+def test_kubernetes_projection_rejects_a_partial_versioned_identity() -> None:
+    with pytest.raises(ProjectionUnavailableError, match="identity is incomplete"):
+        _resource_projection(
+            InventoryInstanceResource(
+                resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                resource_type="kubernetes.pod",
+                properties={
+                    "api_version": "v1",
+                    "name": "api",
+                    "resource_version": "20",
+                    "uid": "uid-api",
+                },
+                last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+            ),
+            root_id=None,
+        )
 
 
 @pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])

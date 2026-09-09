@@ -89,6 +89,10 @@ API server and is never compared across clusters. A resolver can return:
 
 Pod replacement retains both UIDs. The resolver never rewrites an old UID to the current object
 with the same name.
+Snapshots created before the versioned identity contract remain listable during rollout. When all
+of `api_version`, `kind`, and `resource_version` are absent, the Operator withholds exact
+Kubernetes identity and diagnostics instead of failing the entire instance response or inventing
+the missing values. A partially populated versioned identity remains malformed and unavailable.
 
 ## Evidence collection
 
