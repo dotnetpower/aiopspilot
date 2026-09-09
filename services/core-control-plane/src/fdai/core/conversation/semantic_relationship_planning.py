@@ -12,10 +12,17 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
-from .semantic_planning_models import QueryNodeProposal, QueryPlanProposal
+from .semantic_planning_frame import build_semantic_frame
+from .semantic_planning_models import (
+    QueryNodeProposal,
+    QueryPlanProposal,
+    SemanticFrameProposal,
+    SemanticOutputShape,
+)
 from .semantic_planning_support import _build_plan
 from .session import Principal
 
@@ -33,6 +40,57 @@ _SERVICE_AGENT_STEPS = (
 )
 
 
+def build_ontology_relationship_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build one release-schema relationship frame from accepted typed meaning."""
+
+    if (
+        judgment is None
+        or judgment.ambiguous
+        or judgment.primary_intent != "query.ontology_relationships"
+        or judgment.action_posture != "advise_only"
+        or judgment.execution_authority
+        or judgment.secondary_intents
+        or not any(
+            descriptor.get("kind") == "function"
+            and descriptor.get("name") == "query.ontology_relationships"
+            for descriptor in descriptors
+        )
+    ):
+        return None
+    subjects = {
+        target.canonical_value
+        for target in judgment.targets
+        if target.kind == "object_type"
+        and target.canonical_value is not None
+        and any(
+            descriptor.get("kind") == "object" and descriptor.get("name") == target.canonical_value
+            for descriptor in descriptors
+        )
+    }
+    if len(subjects) != 1:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=(next(iter(subjects)),),
+        measure_concepts=tuple(sorted(judgment.requested_facets)),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
 def compile_typed_relationship_plan(
     *,
     frame: SemanticProblemFrame,
@@ -46,10 +104,11 @@ def compile_typed_relationship_plan(
     """Compile endpoint and schema reads for one reviewed relationship family."""
 
     subjects = frozenset(frame.subject_constraints)
+    singleton_schema_subject = len(subjects) == 1 and not frame.temporal_scope
     if (
         frame.operation is not SemanticOperation.SELECT
         or frame.output_shape != "ontology_relationships"
-        or subjects not in _SUPPORTED_SUBJECT_SETS
+        or (not singleton_schema_subject and subjects not in _SUPPORTED_SUBJECT_SETS)
     ):
         return None
     object_names = {
@@ -69,7 +128,11 @@ def compile_typed_relationship_plan(
             evaluation_time=evaluation_time,
             verifier=verifier,
         )
-    relationship_pairs = _relationship_pairs(subjects, descriptors)
+    relationship_pairs = (
+        (tuple(subjects),)
+        if singleton_schema_subject
+        else _relationship_pairs(subjects, descriptors)
+    )
     if not relationship_pairs:
         return None
     nodes: list[QueryNodeProposal] = []

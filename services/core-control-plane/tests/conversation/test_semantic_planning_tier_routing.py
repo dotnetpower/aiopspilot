@@ -11049,6 +11049,120 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
 
 
 @pytest.mark.parametrize(
+    ("primary_intent", "target_name", "expected_shape", "expected_function"),
+    (
+        (
+            "query.manifest",
+            "FunctionType",
+            "aggregation_table",
+            "query.manifest",
+        ),
+        (
+            "query.ontology_declaration",
+            "Resource",
+            "ontology_declaration",
+            "query.ontology_declaration",
+        ),
+        (
+            "query.ontology_relationships",
+            "Resource",
+            "ontology_relationships",
+            "query.ontology_relationships",
+        ),
+    ),
+)
+def test_accepted_schema_judgment_builds_frame_and_plan_without_model_fallback(
+    primary_intent: str,
+    target_name: str,
+    expected_shape: str,
+    expected_function: str,
+) -> None:
+    class _SchemaJudgmentModel:
+        def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+            source_start = utterance.index(target_name)
+            return {
+                "primary_intent": primary_intent,
+                "targets": [
+                    {
+                        "kind": "object_type",
+                        "value": target_name,
+                        "canonical_value": target_name,
+                        "source_start": source_start,
+                        "source_end": source_start + len(target_name),
+                    }
+                ],
+                "requested_facets": ["count"]
+                if primary_intent == "query.manifest"
+                else ["declaration_detail"]
+                if primary_intent == "query.ontology_declaration"
+                else ["incoming_relationships", "outgoing_relationships"],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "action_subject": "none",
+                "execution_authority": False,
+            }
+
+    function_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="FunctionType",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    resource_dependency = OntologyLinkType(
+        schema_version="1.0.0",
+        name="resource_depends_on",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    manifest, _definition = _fixture(
+        function_types=(
+            ontology_manifest_function_type(),
+            ontology_declaration_function_type(),
+            ontology_relationships_function_type(),
+        ),
+        additional_object_types=(function_type,),
+        additional_link_types=(resource_dependency,),
+    )
+    t1 = _Model(frame=None, plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_SchemaJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.AGGREGATE),
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=f"Show the current {target_name} schema evidence.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == expected_shape
+    assert outcome.plan is not None
+    function_nodes = tuple(
+        node for node in outcome.plan.nodes if node.kind is QueryNodeKind.FUNCTION
+    )
+    assert len(function_nodes) == 1
+    assert function_nodes[0].arguments["function_name"] == expected_function
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
     (
         "judgment_target",
         "include_domain_target",
