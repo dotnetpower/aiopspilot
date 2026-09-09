@@ -82,6 +82,8 @@ An invalid, unavailable, or family-changing repair retains the validated primary
 of returning a success-shaped replacement.
 Repair is skipped only when the primary schema proposal already has its canonical target and the
 complete count, declaration-detail, or bidirectional-relationship facet set.
+Prompt v2 made that completeness test exact after live fallback evidence showed that synonym-only
+facets still bypassed repair.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time

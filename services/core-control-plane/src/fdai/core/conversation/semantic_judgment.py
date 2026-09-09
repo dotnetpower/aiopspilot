@@ -780,21 +780,16 @@ def _schema_repair_required(proposal: SemanticJudgmentProposal) -> bool:
         if target.kind == "object_type" and target.canonical_value is not None
     }
     if proposal.primary_intent != "query.manifest":
-        return len(object_targets) != 1
+        required_facets = (
+            {"declaration_detail", "readable_properties"}
+            if proposal.primary_intent == "query.ontology_declaration"
+            else {"incoming_relationships", "outgoing_relationships"}
+        )
+        return len(object_targets) != 1 or not required_facets <= set(proposal.requested_facets)
     if object_targets - _SCHEMA_METATYPES:
         return True
-    normalized_facets = {
-        facet.replace("_", "").replace("-", "").casefold() for facet in proposal.requested_facets
-    }
-    has_count = any(
-        facet == "count" or facet == "total" or facet.endswith("count")
-        for facet in normalized_facets
-    )
-    has_kind = bool(object_targets) or any(
-        metatype.casefold() in facet
-        for metatype in _SCHEMA_METATYPES
-        for facet in normalized_facets
-    )
+    has_count = "count" in proposal.requested_facets
+    has_kind = len(object_targets.intersection(_SCHEMA_METATYPES)) == 1
     return not has_count or not has_kind
 
 

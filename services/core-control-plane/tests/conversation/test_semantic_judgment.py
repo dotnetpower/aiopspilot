@@ -243,7 +243,7 @@ def test_complete_schema_proposal_does_not_spend_repair_call() -> None:
                     "source_end": 17,
                 }
             ],
-            requested_facets=["declaration_detail"],
+            requested_facets=["declaration_detail", "readable_properties"],
         )
     )
     repair = _Model(_proposal(primary_intent="query.ontology_declaration"))

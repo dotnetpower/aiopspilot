@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6f4de655ad83f0b78d8e0ab98054ca43e61e3cbd
+translation_source_sha: 9a24ff5f93944d70cdad1f716587a8cb6ee14885
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -98,6 +98,8 @@ Non-schema turn을 바꾸거나 권한을 부여할 수 없습니다.
 검증된 primary 제안을 유지합니다.
 Primary schema 제안에 표준 target과 완전한 count, declaration-detail 또는 양방향 관계 facet
 집합이 이미 있을 때만 repair를 생략합니다.
+Live fallback 근거에서 synonym-only facet이 repair를 우회함을 확인한 뒤 prompt v2가 이 완결성
+검사를 exact contract로 고정했습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

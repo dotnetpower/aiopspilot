@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 7f9c0d76e67fbd95481b295b8b6b12553478bbc5
+translation_source_sha: c08eecafbfdeaa4ffa3cbf6bf5a30320a9578670
 translation_revised: 2026-09-09
 ---
 # 지속형 질문 공간
@@ -166,6 +166,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |
 | 2026-09-10 | validated | Conditional schema-repair v2가 서로 다른 10문항 스키마 cohort 5개를 각각 100%로 통과했습니다. Trigger는 non-schema family에서 실행되지 않습니다. 반복한 v14 legacy primary accuracy는 81.25%~93.75%로 변동하여 전역 primary를 승격하지 않았습니다. | 로컬 live 스키마 artifact 50/50 5개, legacy artifact 5개, 모든 legacy 실행에서 read/action 오탐과 만들어 낸 신원 0 | 불변 generator에 새로운 non-duplicate 공간이 생기면 새 질문으로 전체 답변 rendering을 검증하고 primary-model 변동은 별도로 처리합니다. |
 | 2026-09-10 | implemented | 승격한 schema-repair prompt를 active v8 뒤의 typed-triggered T1 재시도 한 번으로 연결했습니다. 완전한 schema 및 모든 non-schema 제안은 model call 하나를 사용하며 유효하지 않은 repair는 primary 제안을 유지합니다. | `current change`, boundary, 운영 factory, prompt composition, package-layout, Ruff 및 mypy 검사 | 새로운 end-to-end 답변 cohort를 실행하고 turn별 repair observation을 보존합니다. |
 | 2026-09-10 | implemented | 50/50 스키마 근거를 바탕으로 별도 `semantic.judgment.schema-repair` prompt capability를 승격했습니다. 전역 semantic-judgment profile이 아니며 실행 권한을 포함하지 않습니다. | `current change`, 완전 통과 스키마 cohort 5개, active prompt-profile 검증 및 composition 테스트 | 조건부로 연결한 repair를 새로운 end-to-end 답변 cohort에서 검증하고 전역 schema-only profile은 shadow로 유지합니다. |
