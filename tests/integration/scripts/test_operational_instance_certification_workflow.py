@@ -40,9 +40,11 @@ def test_oi12_workflow_refreshes_inventory_before_seven_axis_measurement() -> No
 
 def test_oi12_workflow_recovers_legacy_inventory_job_from_reviewed_arm_contract() -> None:
     root_output = "terraform -chdir=infra output -raw inventory_job_name"
-    arm_fallback = "az containerapp job list"
+    arm_fallback = "az rest"
     assert _WORKFLOW.index(root_output) < _WORKFLOW.index(arm_fallback)
-    assert '--resource-group "$resource_group"' in _WORKFLOW
+    assert "Microsoft.App/jobs?api-version=2024-03-01" in _WORKFLOW
+    assert ".value[]" in _WORKFLOW
+    assert "az containerapp job list" not in _WORKFLOW
     assert '.name == "inventory"' in _WORKFLOW
     assert '"fdai.delivery.inventory_sync_cli"' in _WORKFLOW
     assert "(.args // []) == []" in _WORKFLOW

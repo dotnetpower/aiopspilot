@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Pinned the ARM-observed inventory Job lookup to the supported stable Container Apps `2024-03-01` API instead of the runner CLI extension's invalid default version. The exact resource-group and runtime-contract cardinality checks remain unchanged. | `current change`; failed protected certification `34406488996`; stable-API live read returned one reviewed contract match; focused workflow contract test. | Publish the API pin, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Replaced the unavailable Terraform state snapshot fallback with an ARM-observed inventory Job lookup in the exact platform resource group. The fallback requires exactly one container with the reviewed name, command, and empty arguments; it never derives identity from the Job name. | `current change`; failed protected certification `34403565287`; bounded live ARM cardinality diagnostic; focused workflow contract test. | Publish the ARM fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Bound the OI-12 legacy inventory Job lookup to a mode-0600 point-in-time Terraform state snapshot after implicit state rendering returned no matching resource. The runner deletes the snapshot at step exit and still requires exactly one tracked address. | `current change`; failed protected certification `34400981555`; actual private-state address diagnostic; focused workflow contract test. | Publish the snapshot fix, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Made protected OI-12 inventory refresh compatible with a deployed platform state that predates the root inventory Job output. The workflow prefers the root output, then resolves exactly one tracked inventory Job resource from state without deriving identity from a name. | `current change`; failed protected certification `34389423964`; `.github/workflows/operational-instance-certification.yml`; focused workflow contract test. | Publish the compatibility fix, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
@@ -280,8 +281,9 @@ prod topology so shadow evaluation is representative.
   Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
   Protected OI-12 inventory refresh prefers the platform root output for the inventory Job. When a
   deployed state predates that output, it queries ARM only inside the exact platform resource group
-  and requires one container with the reviewed inventory name, command, and empty arguments. It does
-  not derive Job identity from a naming pattern or persist provider output.
+  through the stable Container Apps `2024-03-01` API and requires one container with the reviewed
+  inventory name, command, and empty arguments. It does not derive Job identity from a naming
+  pattern or persist provider output.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.
