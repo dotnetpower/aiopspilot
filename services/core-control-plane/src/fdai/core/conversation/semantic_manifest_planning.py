@@ -61,12 +61,7 @@ def build_ontology_schema_frame(
     requests_declaration_count = any(
         facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
     )
-    schema_read_intent = (
-        judgment.primary_intent == ONTOLOGY_MANIFEST_FUNCTION_NAME
-        or judgment.primary_intent == ONTOLOGY_DECLARATION_FUNCTION_NAME
-        or judgment.primary_intent == ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME
-    )
-    if requests_declaration_count and schema_read_intent:
+    if requests_declaration_count and _is_schema_read_intent(judgment.primary_intent):
         declaration_kinds = {
             declaration_kind
             for target in judgment.targets
@@ -126,6 +121,14 @@ def build_ontology_schema_frame(
         confidence=judgment.confidence,
     )
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def _is_schema_read_intent(primary_intent: str) -> bool:
+    return (
+        primary_intent == ONTOLOGY_MANIFEST_FUNCTION_NAME
+        or primary_intent == ONTOLOGY_DECLARATION_FUNCTION_NAME
+        or primary_intent == ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME
+    )
 
 
 def normalize_ontology_manifest_count_frame(

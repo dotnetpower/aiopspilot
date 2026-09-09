@@ -11165,7 +11165,7 @@ def test_accepted_schema_judgment_builds_frame_and_plan_without_model_fallback(
 
 @pytest.mark.parametrize(
     "schema_intent",
-    ("query.ontology_declaration", "query.ontology_relationships"),
+    ("query.manifest", "query.ontology_declaration", "query.ontology_relationships"),
 )
 def test_typed_declaration_count_repairs_adjacent_schema_intents_without_frame_model(
     schema_intent: str,
