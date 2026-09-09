@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: a374f1dbb77ee688128eb98664a6d913565c323b
+translation_source_sha: 57bd0e6a28e81fe145719478e6eea44084abaa1b
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -287,7 +287,8 @@ mixed-publisher quality 게이트를 충족하거나 완화하지 않습니다. 
 필요합니다. 각 엔드포인트 연결은 null이 아닌 exact 모델 버전, 배포, Entra authentication,
 경로, API style 및 검증된 resource-reference 다이제스트를 고정합니다. 이 다이제스트가 모델 신원의 fault
 도메인이 됩니다. 다이제스트가 같으면 계정 또는 게이트웨이 fault 도메인을 공유하므로 infrastructure risk가
-correlated되었음을 나타냅니다. Council 기록이 하나도 없으면 backward 호환성을 위해 기본
+correlated되었음을 나타냅니다. 세 fault 도메인이 모두 다르지 않으면 협의체 연결을 거부합니다.
+Council 기록이 하나도 없으면 backward 호환성을 위해 기본
 abstaining distiller를 유지합니다. 부분, `hil-only`, mismatched, unversioned, non-Entra 또는 그 밖의
 잘못된 council 구성은 온톨로지 추출을 사용 불가로 만들고 시작 연결을
 실패시킵니다. 실행 T2 풀을 빌려 쓰거나 기존 실행 quality 게이트를 degrade하지 않습니다.

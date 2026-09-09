@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
 from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyCouncilDistiller
 from fdai.shared.providers.distiller import CandidateKind
 from fdai.shared.providers.ontology_council import CouncilOutcome, CouncilTokenUsage
@@ -163,6 +164,15 @@ async def test_deterministic_fake_replay_is_stable() -> None:
     ).distill_ontology(document(), context())
 
     assert first == second
+
+
+def test_shared_fault_domain_cannot_form_council() -> None:
+    council_models = models((object_vote, object_vote, object_vote))
+    for model in council_models:
+        model.identity = replace(model.identity, fault_domain="shared-fault-domain")
+
+    with pytest.raises(ValueError, match="distinct model fault domains"):
+        OntologyCouncilDistiller(models=council_models, policy=policy())
 
 
 def test_conformance_identity_changes_with_models_prompt_and_schema() -> None:

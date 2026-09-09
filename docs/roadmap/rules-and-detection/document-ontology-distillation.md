@@ -288,7 +288,8 @@ Runtime binding requires all three resolved capabilities and all three structure
 bindings together. Each endpoint binding pins an exact non-null model version, deployment, Entra
 authentication, route, API style, and verified resource-reference digest. That digest becomes the
 model identity's fault domain; equal digests reveal a shared account or gateway fault domain and
-therefore correlated infrastructure risk. Zero council records preserve the default abstaining
+therefore correlated infrastructure risk. Binding rejects a council unless all three fault domains
+are distinct. Zero council records preserve the default abstaining
 distiller for backward compatibility. Any partial, `hil-only`, mismatched, unversioned, non-Entra,
 or otherwise invalid council configuration makes ontology extraction unavailable and fails startup
 binding. It never borrows the execution T2 pool or degrades the existing execution quality gate.
