@@ -288,6 +288,10 @@ class SemanticJudgmentBoundary:
                         proposal,
                         capabilities=bounded_capabilities,
                     )
+                    proposal = _normalize_schema_identity_ambiguity(
+                        proposal,
+                        capabilities=bounded_capabilities,
+                    )
                     if self._strict_intent_grounding:
                         proposal = grounding.normalize_exact_resource_identity_ambiguity(proposal)
                     _validate_intent_target_compatibility(proposal)
@@ -642,6 +646,58 @@ def _validate_intent_target_compatibility(proposal: SemanticJudgmentProposal) ->
     ):
         raise ValueError("semantic current-state intent requires a Resource target")
 
+
+def _normalize_schema_identity_ambiguity(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    """Remove only ambiguity contradicted by one supplied schema subject."""
+
+    if (
+        not proposal.ambiguous
+        or proposal.action_posture != "advise_only"
+        or proposal.secondary_intents
+        or proposal.primary_intent
+        not in {"query.ontology_declaration", "query.ontology_relationships"}
+    ):
+        return proposal
+    object_names = {
+        name
+        for capability in capabilities
+        if capability.get("kind") == "object_type"
+        if isinstance((name := capability.get("name")), str)
+    }
+    target_subjects = {
+        target.canonical_value
+        for target in proposal.targets
+        if target.kind == "object_type" and target.canonical_value in object_names
+    }
+    normalized_facets = {
+        facet.replace("_", "").replace("-", "").casefold() for facet in proposal.requested_facets
+    }
+    facet_subjects = {
+        name
+        for name in object_names
+        if any(facet.startswith(name.casefold()) for facet in normalized_facets)
+    }
+    subjects = target_subjects or facet_subjects
+    declaration_complete = proposal.primary_intent == "query.ontology_declaration" and any(
+        "declaration" in facet for facet in normalized_facets
+    )
+    relationship_complete = proposal.primary_intent == "query.ontology_relationships" and any(
+        "relationship" in facet for facet in normalized_facets
+    )
+    if len(subjects) != 1 or not (declaration_complete or relationship_complete):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "ambiguous": False,
+            "alternatives": (),
+            "unresolved_terms": (),
+            "clarification": None,
+        }
+    )
 
 def _schema_repair_feedback(
     exc: TypeError | ValueError | ValidationError,

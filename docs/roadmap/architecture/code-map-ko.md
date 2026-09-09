@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4f3400cd0497f75aaad859b9ace1b3449333012c
+translation_source_sha: fd3d24842b169ef4f1df9cc54d6860fe5e13bb77
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -83,6 +83,8 @@ oracle 검증에 필요한 구조화 count를 보존합니다. `FunctionType` �
 모델이 범위가 제한된 온톨로지 선언 개수 별칭을 제안하면
 `semantic_judgment_capabilities.py`가 이를 제공된 `query.manifest` FunctionType과 형식화된 선언 종류
 개수 facet 하나로 다시 작성한 후 계획을 시작합니다. 해당 FunctionType이 없으면 제안을 거부합니다.
+스키마 선언 및 관계 조회에서는 exact target 또는 typed facet에 인코딩된 제공 ObjectType 하나만
+불필요한 subject 모호성을 닫습니다. Subject가 여러 개이면 명확화를 유지합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
