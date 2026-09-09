@@ -171,7 +171,7 @@ plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement
 actual managed disk resource. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
 check confirms the disk against the ops resource group's inventory before reporting drift. A mismatch fails
 the workflow with the blue/green recovery action. The bootstrap refresh plan reads structured drift
-and output actions rather than trusting the provider exit code alone; neither check changes the VM.
+and output actions, then exits successfully only when both are empty; neither check changes the VM.
 
 Independent service plans use a concurrency group per service and environment. Mutating apply and
 state-migration runs use one environment-wide concurrency group so two service writers cannot make

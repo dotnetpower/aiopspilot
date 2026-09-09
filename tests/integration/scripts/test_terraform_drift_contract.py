@@ -155,6 +155,10 @@ def test_workflow_plans_every_production_root() -> None:
     assert "($plan.resource_drift // [])[]" in workflow
     assert "($plan.output_changes // {}) | to_entries[]" in workflow
     assert '[[ "$drift_count" -eq 0 ]]' in workflow
+    assert 'echo "No bootstrap Terraform drift detected."' in workflow
+    assert workflow.index('echo "No bootstrap Terraform drift detected."') < workflow.index(
+        "Enforce complete drift evidence"
+    )
     assert "RUNNER_STORAGE_OUTCOME" in workflow
     assert "Enforce complete drift evidence" in workflow
 
