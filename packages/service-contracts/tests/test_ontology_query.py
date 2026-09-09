@@ -411,3 +411,49 @@ def test_console_intent_projection_accepts_an_object_set_membership_predicate() 
     projected = project_intent_graph(graph)
 
     assert projected["goals"][0]["arguments"] == arguments
+
+
+def test_console_intent_projection_separately_bounds_membership_values() -> None:
+    frame = _frame()
+    plan = _plan(frame)
+    values = [f"resource-type-{index:02d}" for index in range(33)]
+    arguments = {
+        "definition": {
+            "selector": {"kind": "object_type", "name": "Resource"},
+            "predicates": [{"property": "type", "operator": "in", "values": values}],
+            "as_of": "2026-08-17T00:00:00+00:00",
+            "purpose": "operations-review",
+            "limit": 1000,
+        }
+    }
+    graph = IntentGraph(
+        problem_frame_digest=frame.frame_digest,
+        plan_digest=plan.plan_digest,
+        goals=(
+            IntentGoal(
+                goal_id="goal-1",
+                intent="object_set",
+                capability="query.object_set",
+                arguments_json=canonical_json(arguments),
+                evidence_mode=GoalEvidenceMode.OPERATIONAL,
+                freshness_required=True,
+                confidence=0.9,
+            ),
+        ),
+        confidence=0.9,
+        action_posture="advise_only",
+    )
+
+    assert project_intent_graph(graph)["goals"][0]["arguments"] == arguments
+
+    unrelated = graph.model_copy(
+        update={
+            "goals": (
+                graph.goals[0].model_copy(
+                    update={"arguments_json": canonical_json({"values": values})}
+                ),
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="argument array exceeds bound"):
+        project_intent_graph(unrelated)

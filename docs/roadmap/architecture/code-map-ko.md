@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9c1d92b5cbb0288f71f3a00b7265c1ce5dbdbaf6
+translation_source_sha: c43899f9a1f8466fa0a543f78634b7ea9a65b3db
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -31,31 +31,13 @@ translation_revised: 2026-09-10
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 위임하고 불변 다이제스트를 검증합니다.
   로컬 Azure 서술기는 같은 리비전의 대상을 확인한 뒤 Cost Governance 또는 다른 수명 주기 bridge를
   시작합니다. 이 경계는 매핑, 평가, 실행 권한을 부여하지 않으며 시작 실패 시 획득한 서비스를 정리합니다.
-- **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 대상과 Key Vault 참조를 내보내며, 보호된 배포와 봇 소유 래퍼는 정확한 서비스 계획만 수락합니다.
-  AKS 인벤토리는 managed cluster의 정확한 ARM 리소스 ID 범위에서만
-  `Azure Kubernetes Service RBAC Reader`를 부여합니다. 더 넓은 구독 및 리소스 그룹 할당은
-  유효한 연결이 아닙니다.
+- **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 대상과 Key Vault 참조를 내보냅니다. 보호된 배포와 봇 소유 래퍼는 정확한 서비스 계획만 수락하고, AKS 인벤토리는 managed cluster의 정확한 ARM 리소스 ID 범위에만 `Azure Kubernetes Service RBAC Reader`를 부여합니다.
   공개 개발에서 `azd-up.sh`는 이미지 없는 플랫폼 단계, 배포 소유 ACR 다이제스트, 마이그레이션, 카탈로그, 민감한 Core 인계, 정확한 Core 계획 및 범위가 제한된 검증을 조립합니다.
   런타임 호출 인계는 같은 정확한 Operator 및 Core Container App Resource ID를 두 엔드포인트 서비스에 전달하고, 인벤토리 Job은 단일 기록기 변환 전에 두 플랫폼 로그를 독립적으로 결합합니다.
   비공개, 공유, 스테이징 및 운영 경로는 보호된 실행기와 봉인된 승인 제어를 유지합니다.
 - **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
 - **Console 데이터 모드:** Console은 권위 있는 Live 데이터를 기본값으로 사용합니다. 검토된 Overview 및 Operations 경로는 읽기 전용이며 일반화되어 있고 운영 근거와 명확히 구분되는 Sample 변환 결과를 명시적으로 선택할 수 있습니다.
 - **프레임워크 평가 소유권:** `core/framework_assessment/`는 결정론적 WAF 및 CAF 근거 수락과 재현을 담당합니다. 공급자 계약은 `shared/providers/`, Azure 관측 어댑터는 `delivery/azure/`, 비권한 이벤트 변환 결과는 Operator가 담당합니다. WARA는 특화된 APRL 런타임을 유지하고 물리적 다중화 전송만 공유합니다.
-- **AKS 메트릭 수락:** `core/ontology_platform`의 Forseti 소유 결정론적 축약기는 클러스터, UID,
-  네임스페이스, 지점 레이블, 출처 revision 및 시간 구간이 정확한 진단 맥락과 일치할 때만 메트릭
-  신호를 수락합니다. 불일치는 보류된 충돌을 만듭니다. 공유 메트릭 계약은 프로바이더 기준 시점이
-  요청 구간의 끝에 도달한 경우에만 완전한 범위를 허용합니다.
-- **AKS 엔드포인트 수락:** 같은 축약기는 생략된 EndpointSlice 준비 상태를 알 수 없음으로
-  보존합니다. null 준비 상태를 완전한 `endpoint_unready` 신호로 바꿀 수 없습니다.
-- **AKS 정책 관계:** Kubernetes 인벤토리는 명시적인 빈 NetworkPolicy `podSelector`를 형식이
-  지정된 전체 일치 표식으로 보존합니다. 관계 변환은 같은 클러스터와 네임스페이스의 Pod에만 이
-  표식을 적용합니다.
-- **AKS 진단 증적:** 인벤토리 승격은 범위가 제한된 Forseti 축약기를 호출하고 기존 원자적
-  상태-감사 저장소를 사용해 내용 주소 기반 증적을 기록합니다. Operator는 현재 UID,
-  resourceVersion, 세대, release, 기준 시점 및 fleet 범위와 일치하는 증적만 수락하며 Console은
-  이 형식화된 증적을 검증하고 표시합니다. 수명 주기 범위 공백은 별도 추가 전용 Core 마이그레이션을
-  사용하며 커서 복구 뒤에도 조회할 수 있습니다. 범위가 제한된 API 상태 정규화는 격리하며 모든 정본 ResourceType에 명시적인 기록 상태 처리 결과가 있습니다.
-
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
 > [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.

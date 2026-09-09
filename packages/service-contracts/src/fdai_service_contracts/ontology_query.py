@@ -16,6 +16,8 @@ _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_JSON_BYTES = 65_536
 _MAX_PLAN_NODES = 32
+_MAX_CONSOLE_ARGUMENT_ARRAY_ITEMS = 32
+_MAX_CONSOLE_MEMBERSHIP_VALUES = 64
 MAX_INTENT_GRAPH_GOALS = 16
 
 
@@ -513,7 +515,7 @@ def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> Non
             raise ValueError("Console intent argument string exceeds bound")
         return
     if isinstance(value, list):
-        if len(value) > 32:
+        if len(value) > _MAX_CONSOLE_ARGUMENT_ARRAY_ITEMS:
             raise ValueError("Console intent argument array exceeds bound")
         for item in value:
             _validate_console_json(item, depth=depth + 1, counter=counter)
@@ -524,9 +526,41 @@ def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> Non
         for key, item in value.items():
             if not key or len(key) > 128:
                 raise ValueError("Console intent argument key exceeds bound")
+            if (
+                key == "values"
+                and _is_object_set_membership_predicate(value)
+                and isinstance(item, list)
+            ):
+                _validate_console_membership_values(item, depth=depth + 1, counter=counter)
+                continue
             _validate_console_json(item, depth=depth + 1, counter=counter)
         return
     raise ValueError("Console intent arguments contain a non-JSON value")
+
+
+def _is_object_set_membership_predicate(value: dict[str, Any]) -> bool:
+    return (
+        set(value) == {"property", "operator", "values"}
+        and isinstance(value.get("property"), str)
+        and value.get("operator") == "in"
+    )
+
+
+def _validate_console_membership_values(
+    values: list[Any],
+    *,
+    depth: int,
+    counter: list[int],
+) -> None:
+    counter[0] += 1
+    if counter[0] > 128 or depth > 6:
+        raise ValueError("Console intent arguments exceed structural bounds")
+    if len(values) > _MAX_CONSOLE_MEMBERSHIP_VALUES:
+        raise ValueError("Console intent membership values exceed bound")
+    for item in values:
+        if not isinstance(item, str | bool | int | float) or isinstance(item, bool):
+            raise ValueError("Console intent membership values must be scalar")
+        _validate_console_json(item, depth=depth + 1, counter=counter)
 
 
 __all__ = [
