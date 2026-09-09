@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: cee4e29fa8b6142a6a65c6024f93c7dacedd2ef7
+translation_source_sha: 8e16a68e52100250eb0a382b47b590fd36ced293
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -90,6 +90,10 @@ LinkType은 instance link를 만들지 않고 두 방향 view에 모두 표시�
 `ObjectType` 구문 또는 추가 `LinkType`/`ObjectType` 메타타입을 제거합니다.
 스키마 intent가 이미 typed된 뒤에는 메타타입이 아닌 ObjectType capability 하나가 현재 turn에
 범위가 명확한 신원으로 정확히 한 번 나타날 때만 누락 subject를 grounding할 수 있습니다.
+운영 composition은 `semantic_judgment_model_binding.py`를 사용해 같은 T1 candidate에 별도
+schema-repair prompt를 연결하고 `wire_semantic_judgment.py`를 binder 크기 상한 안에 유지합니다.
+Primary active judgment가 항상 먼저 실행되며 typed schema 불완전성만 repair 호출을 허용합니다.
+Non-schema turn을 바꾸거나 권한을 부여할 수 없습니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후

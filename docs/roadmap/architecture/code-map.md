@@ -74,6 +74,10 @@ Schema target normalization removes only a generic trailing `ObjectType` phrase 
 `LinkType`/`ObjectType` metatype when another supplied concrete ObjectType remains.
 After a schema intent is already typed, a missing subject may be grounded only when one
 non-metatype ObjectType capability occurs exactly once as a bounded current-turn identity.
+Production composition uses `semantic_judgment_model_binding.py` to bind a separate schema-repair
+prompt to the same T1 candidates while keeping `wire_semantic_judgment.py` under its binder size
+ceiling. The primary active judgment always runs first; the repair call is admitted only by typed
+schema incompleteness and cannot alter non-schema turns or grant authority.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
 The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
