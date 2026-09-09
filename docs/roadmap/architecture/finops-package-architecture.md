@@ -107,6 +107,8 @@ cannot resolve the case or when policy requires approval.
 The target distribution is `fdai-cost-governance`, with import namespace
 `fdai_cost_governance` and workspace path `extensions/cost-governance/`. It is built as its own
 wheel and source distribution, like `fdai-code-assurance`.
+Its image target retains `service="core-control-plane"`: this adds a distribution profile, not an
+independent runtime service, regardless of which other service candidates are registered.
 
 The wheel is included through a reviewed image build or downstream composition. Runtime activation
 does not download or import arbitrary code from an uploaded archive. The trusted-artifact record

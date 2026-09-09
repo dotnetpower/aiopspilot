@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 6277825860e55439880537c6076bc4bfa09a853a
-translation_revised: 2026-09-09
+translation_source_sha: 1457176d9e94aabe07c670fd2086d6dd96c3109d
+translation_revised: 2026-09-10
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -108,6 +108,8 @@ exact release, 프로필 버전, principal, 목적 및 기준 시점에 고정�
 대상 배포판은 `fdai-cost-governance`, 가져오기 네임스페이스는
 `fdai_cost_governance`, 워크스페이스 경로는 `extensions/cost-governance/`입니다.
 `fdai-code-assurance`와 같이 자체 wheel과 source distribution으로 빌드합니다.
+이미지 대상은 `service="core-control-plane"`을 유지합니다. 따라서 등록된 다른 서비스 후보와
+관계없이 독립 런타임 서비스가 아니라 distribution 프로필만 추가합니다.
 
 wheel은 검토된 이미지 빌드나 downstream 조립을 통해 포함합니다. 런타임 활성화는 업로드한
 보관 파일에서 임의 코드를 다운로드하거나 가져오지 않습니다. trusted-artifact 기록은 해당

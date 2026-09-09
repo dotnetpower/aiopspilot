@@ -20,9 +20,13 @@ def test_distribution_profile_installs_core_and_cost_governance_wheels() -> None
     assert "candidate_state'] == 'inert'" in content
 
 
-def test_distribution_profile_is_not_a_seventh_runtime_service() -> None:
+def test_distribution_profile_reuses_the_core_runtime_service() -> None:
     target = next(item for item in IMAGE_TARGETS if item.target == "cost-governance")
+    service_targets_without_profile = {
+        item.service for item in IMAGE_TARGETS if item.target != "cost-governance"
+    }
 
     assert target.service == "core-control-plane"
     assert target.image == "fdai-cost-governance"
-    assert len({item.service for item in IMAGE_TARGETS}) == 6
+    assert target.service in service_targets_without_profile
+    assert {item.service for item in IMAGE_TARGETS} == service_targets_without_profile

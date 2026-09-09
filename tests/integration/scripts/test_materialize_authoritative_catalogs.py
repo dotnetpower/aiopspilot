@@ -11,7 +11,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/materialize-authoritative-catalogs.py"
 GENERATOR = REPO_ROOT / "mocks/ui/scripts/generate-ontology-knowledge-graph.py"
-_CATALOG_MATERIALIZATION_TIMEOUT_SECONDS = 300
 
 
 def _module() -> ModuleType:
@@ -36,7 +35,7 @@ def _generator_module() -> ModuleType:
         sys.path.remove(str(GENERATOR.parent))
 
 
-@pytest.mark.timeout(_CATALOG_MATERIALIZATION_TIMEOUT_SECONDS)
+@pytest.mark.timeout(240)
 def test_catalog_snapshots_are_deterministic_complete_reference_projections() -> None:
     module = _module()
 
@@ -296,17 +295,14 @@ def test_action_type_palette_matches_the_builder_contract() -> None:
         assert set(entry["hil_tiers"]) <= {"T0", "T1", "T2"}
 
 
-@pytest.mark.timeout(_CATALOG_MATERIALIZATION_TIMEOUT_SECONDS)
 def test_workflow_catalog_carries_reviewed_steps_and_source() -> None:
     module = _module()
 
-    catalog = module.catalog_snapshots(REPO_ROOT)[module.WORKFLOW_CATALOG_KEY]
+    snapshots = module.catalog_snapshots(REPO_ROOT)
+    catalog = snapshots[module.WORKFLOW_CATALOG_KEY]
     workflows = catalog["workflows"]
     palette_names = {
-        entry["name"]
-        for entry in module.catalog_snapshots(REPO_ROOT)[module.ACTION_TYPE_LIST_KEY][
-            "action_types"
-        ]
+        entry["name"] for entry in snapshots[module.ACTION_TYPE_LIST_KEY]["action_types"]
     }
 
     assert catalog["count"] == len(workflows) > 0

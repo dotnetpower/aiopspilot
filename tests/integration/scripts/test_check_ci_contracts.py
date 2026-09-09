@@ -649,8 +649,13 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     root = Path(__file__).resolve().parents[3]
     assert not (root / "Dockerfile").exists()
     assert not (root / "services" / "Dockerfile").exists()
-    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
-    assert len(dockerfiles) == 6
+    dockerfiles = set((root / "services").glob("*/docker/Dockerfile"))
+    expected = {
+        root / target.dockerfile
+        for target in IMAGE_TARGETS
+        if target.dockerfile.startswith("services/")
+    }
+    assert dockerfiles == expected
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "--no-install-package fdai-service-contracts" in text
@@ -669,10 +674,12 @@ def test_azd_is_infrastructure_only_without_a_stale_service_target() -> None:
 
 def test_shipped_runtime_images_pin_fixed_runtime_packages() -> None:
     root = Path(__file__).resolve().parents[3]
-    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
-    dockerfiles.append(root / "extensions" / "cost-governance" / "docker" / "Dockerfile")
+    dockerfiles = {root / target.dockerfile for target in IMAGE_TARGETS}
 
-    assert len(dockerfiles) == 7
+    assert dockerfiles == {
+        *set((root / "services").glob("*/docker/Dockerfile")),
+        root / "extensions" / "cost-governance" / "docker" / "Dockerfile",
+    }
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text
