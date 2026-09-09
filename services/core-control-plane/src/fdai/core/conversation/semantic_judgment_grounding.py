@@ -128,6 +128,11 @@ def normalize_complete_target_ambiguity(
         and "time_range" in kinds
         and not {"resource", "resource_group"}.intersection(kinds)
     )
+    error_correlation_complete = (
+        proposal.primary_intent == "query.resource_error_activity_correlation"
+        and {"resource", "time_range"} <= kinds
+        and proposal.action_posture == "advise_only"
+    )
     incident_create_complete = (
         proposal.primary_intent == "action_request"
         and proposal.action_subject == "Incident"
@@ -136,7 +141,12 @@ def normalize_complete_target_ambiguity(
     )
     return (
         _without_ambiguity(proposal)
-        if (subscription_complete or resource_health_history_complete or incident_create_complete)
+        if (
+            subscription_complete
+            or resource_health_history_complete
+            or error_correlation_complete
+            or incident_create_complete
+        )
         else proposal
     )
 

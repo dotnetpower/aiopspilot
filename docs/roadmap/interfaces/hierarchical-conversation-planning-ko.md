@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: b176aac3a4136ad89aeefdcac26da995720b9be0
+translation_source_sha: 26bbbd4a20efe88d3baba4e7f619b095fb346f88
 translation_revised: 2026-09-09
 ---
 
@@ -201,6 +201,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 | 2026-09-09 | implemented | 타입이 지정된 `forbidden_actions`, 범위가 제한된 서술자 의미, shadow 전용의 엄격한 범위 및 기능 근거 확인과 Azure/인시던트 의도를 위한 v9/v10/v41 shadow 프롬프트를 추가했습니다. 첫 실제 v9 집단은 안전했지만 정확도 승격 기준을 충족하지 못해 v10을 shadow로 유지합니다. | `current change`, 한국어 예상 사례 16개, 활성 스키마 격리, 결정론적 인시던트 확인, 집중 의미 검사 및 로컬의 내용 없는 탐색용 v8/v9 artifact | enforce 승격 전에 안전 오탐률 두 가지와 만들어 낸 신원 수가 모두 0인 정확한 소스의 이중 언어 v10 집단 통과 근거를 보존합니다. |
 | 2026-09-09 | implemented | 실제 shadow 근거가 누적 프롬프트, 대상, 명확화, 버전 및 구조 결함을 드러낸 뒤 v10부터 v13까지 강화했습니다. 활성 v8 스키마는 그대로 유지하고 shadow v13은 `1.1.0`으로 고정해 안전하게 실패합니다. | `current change`, 비평 관점 20개, 내용 없는 v8/v13 반복 측정, 연결 회귀 467개 및 엄격한 정적 검사 | 반복된 이중 언어 exact-source 집단이 모든 승격 기준을 충족할 때까지 v13을 shadow로 유지합니다. |
 | 2026-09-09 | implemented | 동기화된 실제 근거가 남은 대상 및 명확화 실패 세 건을 분리한 뒤 타입 기반 대상 완결과 누적 v14 지시를 추가했습니다. | `current change`, 탐색용 16-case v14 처리에서 요청한 세 지표, 보조 의도 재현율 및 모든 hard-zero 계수가 100% 또는 0을 달성했습니다. | 검증을 보고하기 전에 커밋하고 같은 집단을 clean source에서 다시 실행합니다. |
+| 2026-09-09 | implemented | clean-source v14가 완전한 Resource 및 시간 대상을 유지하면서 신원을 다시 물은 마지막 오탐을 typed 완결성으로 닫았습니다. | `current change`, 집중 typed 완결성 회귀 | 커밋하고 exact-source 집단을 반복합니다. |
 | 2026-09-08 | implemented | 의미 판단 이후 제안된 모든 운영 요약이 수락된 타입 기반 판단과 일치하도록 하고, 영어 명사 순서에서 범위가 제한된 Unicode 구독 이름을 감지하도록 확장했습니다. | `current change`, 수락되지 않은 판단, 구독 범위, 혼합 언어, 정확한 Resource 및 Resource 계획 집중 검사 통과 | 인증된 표준 Console 근거는 별도로 보존합니다. 이번 로컬 하드닝은 기존 런타임 검증 상태를 변경하지 않습니다. |
 | 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight 유형을 추가하고, 객체 전용 완전성을 관련 없는 관계 및 `scope-test` journal 공백과 분리했으며, 로컬 authoritative refresh의 구성 범위와 journal watermark를 정렬했습니다. | `current change`; 집중 preflight, 계획, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `answered`와 `semantic_answer_verified`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | Compact preflight에 출처가 결속된 F1-F4 후보 의미를 추가해 정확하고 명시적이며 맥락과 독립적인 요청이 직렬 전체 의미 판단 호출 하나를 생략할 수 있게 했습니다. 확신도, 원문 범위, 한 시간, 유형별 형식 및 Resource 신원 검사를 추가했고 다른 모든 요청은 전체 의미 판단을 유지합니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 F1-F4의 답변 token TTFT와 완전한 근거 결과를 보존합니다. |

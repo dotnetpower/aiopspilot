@@ -1016,6 +1016,51 @@ def test_strict_resource_health_history_uses_principal_scope_without_clarificati
     assert result.proposal.ambiguous is False
 
 
+def test_strict_complete_error_correlation_drops_redundant_clarification() -> None:
+    utterance = "prod-api가 느려. 재시작하지 말고 지난 30분 오류와 변경 이력만 조사해줘"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_error_activity_correlation",
+                targets=[
+                    {
+                        "kind": "resource",
+                        "value": "prod-api",
+                        "source_start": 0,
+                        "source_end": 8,
+                    },
+                    {
+                        "kind": "time_range",
+                        "value": "지난 30분",
+                        "source_start": 23,
+                        "source_end": 29,
+                    },
+                ],
+                requested_facets=["cause", "errors", "change_history", "time_range"],
+                ambiguous=True,
+                alternatives=["resource_identity"],
+                unresolved_terms=["resource_identity"],
+                clarification="어느 리소스를 조사할까요?",
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {
+                "kind": "function_type",
+                "name": "query.resource_error_activity_correlation",
+            },
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+
+
 def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
     utterance = "prod-api가 느려. 재시작하지 말고 원인만 조사해줘"
     accepted = _boundary(

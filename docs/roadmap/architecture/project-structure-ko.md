@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 905f1e8ce4503610712fcc092aee38662666e010
+translation_source_sha: fce9f23407ed4e1479d4d8dbfc8220cab83dfc5a
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -110,9 +110,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   다루고 승인 및 검증된 근거 다이제스트는 순환 다이제스트를 만들지 않고 해당 신원에 결속됩니다.
   정확한 주 저장소 fence 가드는 shadow 전용이며 연결되지 않았습니다. 이후 적용 설계에는 부작용
   커밋 동안 유지되는 검토된 lease가 필요합니다.
-- **의미 대상 해석은 결정론적으로 유지**: Core는 현재 턴의 정확한 식별자 하나가 있을 때만 리소스
-  신원 명확화를 제거합니다. shadow 스키마는 제공된 의도와 정규 신원을 요구하고 유일한 exact 범위만
-  보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
+- **의미 대상 해석은 결정론적으로 유지**: Core는 정확한 식별자 하나 또는 완전한 읽기 전용 Resource
+  및 시간 상관관계가 있을 때만 신원 명확화를 제거합니다. shadow 스키마는 제공된 의도와 정규 신원을
+  요구하고 유일한 exact 범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
   `1.1.0`으로 고정합니다. 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을
   추가하지 않습니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
