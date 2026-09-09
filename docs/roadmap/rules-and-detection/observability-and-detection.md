@@ -531,10 +531,13 @@ projected without a state fact carries identity and type only, which is what tar
 so it stays eligible. Discovered targets are bounded and deterministically ordered. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
 check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
-When tracked state is configured, every completed pass also retains one content-digested
+When tracked state and a retry-stable explicit or Container Apps Job execution identity are
+configured, every completed pass also retains one content-digested
 `runtime:analyzer-tick-receipt:` record with target-resolution counts, finding publication,
-trace-continuity outcomes, and readiness. Reusing a run identity with different content is blocked,
-and the receipt always carries `execution_authority: false`.
+trace-continuity outcomes, and readiness. A retry with the same content is a no-op. Reusing the
+execution identity with different content is blocked, and the receipt always carries
+`execution_authority: false`. Local runs without a stable execution identity do not create an
+operational receipt.
 
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,

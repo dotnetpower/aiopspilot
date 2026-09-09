@@ -105,7 +105,16 @@ class StateStoreAnalyzerRunReceiptStore:
         }
         if not await self.state_store.write_state_if_absent(key, value):
             existing = await self.state_store.read_state(key)
-            if existing != value:
+            immutable_fields = (
+                "schema_version",
+                "run_id",
+                "report_digest",
+                "report",
+                "execution_authority",
+            )
+            if existing is None or any(
+                existing.get(field) != value[field] for field in immutable_fields
+            ):
                 raise ValueError("analyzer run receipt identity collision")
         await self.state_store.delete_states_beyond(
             ANALYZER_RUN_RECEIPT_STATE_PREFIX,

@@ -19,6 +19,7 @@ from fdai.delivery.analyzer_tick_cli import (
     metric_source_delays,
     parse_loop_interval,
     parse_tick_budget,
+    resolve_analyzer_run_id,
     resolve_finding_topic,
     resolve_scheduling_mode,
     resolve_trace_window_seconds,
@@ -68,6 +69,28 @@ def test_missing_state_store_leaves_target_admission_unbound(
     monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
 
     assert build_decision_evidence_admission_provider() is None
+
+
+def test_run_receipts_prefer_explicit_then_platform_execution_identity() -> None:
+    assert (
+        resolve_analyzer_run_id(
+            {
+                "FDAI_ANALYZER_RUN_ID": "manual-run-1",
+                "CONTAINER_APP_JOB_EXECUTION_NAME": "platform-run-1",
+            }
+        )
+        == "manual-run-1"
+    )
+    assert (
+        resolve_analyzer_run_id({"CONTAINER_APP_JOB_EXECUTION_NAME": "platform-run-1"})
+        == "platform-run-1"
+    )
+    assert resolve_analyzer_run_id({}) is None
+
+
+def test_run_receipts_reject_unstable_whitespace_identity() -> None:
+    with pytest.raises(ValueError, match="run identity"):
+        resolve_analyzer_run_id({"FDAI_ANALYZER_RUN_ID": "run 1"})
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:

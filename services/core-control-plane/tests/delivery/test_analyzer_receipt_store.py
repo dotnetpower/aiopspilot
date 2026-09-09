@@ -143,3 +143,19 @@ async def test_run_store_rejects_reusing_an_identity_for_another_report() -> Non
 
     with pytest.raises(ValueError, match="identity collision"):
         await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 2})
+
+
+async def test_run_store_keeps_first_time_for_an_idempotent_retry() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerRunReceiptStore(state)
+    await store.record(run_id="run-1", recorded_at=NOW, report={"targets": 1})
+    await store.record(
+        run_id="run-1",
+        recorded_at=NOW + timedelta(minutes=1),
+        report={"targets": 1},
+    )
+
+    records = await state.read_states(ANALYZER_RUN_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 1
+    assert records[0]["recorded_at"] == NOW.isoformat()

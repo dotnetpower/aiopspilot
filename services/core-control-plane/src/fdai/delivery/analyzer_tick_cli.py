@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -108,6 +107,8 @@ _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops
 _MAX_TRACE_TOPOLOGIES = 32
 LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
 BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
+RUN_ID_ENV = "FDAI_ANALYZER_RUN_ID"
+_CONTAINER_APP_JOB_EXECUTION_NAME_ENV = "CONTAINER_APP_JOB_EXECUTION_NAME"
 _DEFAULT_LOOP_INTERVAL_SECONDS = 60
 _DEFAULT_TICK_BUDGET_SECONDS = 300
 _SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
@@ -619,20 +620,34 @@ async def run_once() -> AnalyzerJobReport:
 
 
 async def _record_run_receipt(report: AnalyzerJobReport) -> None:
+    run_id = resolve_analyzer_run_id(os.environ)
+    if run_id is None:
+        _LOGGER.info(
+            "analyzer_tick_receipt_unbound",
+            extra={"reason": "stable_run_identity_absent"},
+        )
+        return
     store = build_run_receipt_store()
     if store is None:
         return
     recorded_at = datetime.now(tz=UTC)
     scheduling = resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", ""))
     body = report.to_dict(scheduling=scheduling)
-    identity = {
-        "recorded_at": recorded_at.isoformat(),
-        "report": body,
-    }
-    run_id = hashlib.sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
-    ).hexdigest()
     await store.record(run_id=run_id, recorded_at=recorded_at, report=body)
+
+
+def resolve_analyzer_run_id(environment: Mapping[str, str]) -> str | None:
+    """Return a retry-stable explicit or platform Job execution identity."""
+
+    run_id = (
+        environment.get(RUN_ID_ENV, "").strip()
+        or environment.get(_CONTAINER_APP_JOB_EXECUTION_NAME_ENV, "").strip()
+    )
+    if not run_id:
+        return None
+    if len(run_id) > 256 or any(char.isspace() for char in run_id):
+        raise ValueError("analyzer run identity MUST be bounded and contain no whitespace")
+    return run_id
 
 
 def _empty_trace_report() -> TraceContinuityTickReport:
