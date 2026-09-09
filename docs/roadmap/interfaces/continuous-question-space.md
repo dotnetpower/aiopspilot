@@ -167,6 +167,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Promoted a separate `semantic.judgment.schema-repair` prompt capability from the 50/50 schema evidence. It is not the global semantic-judgment profile and carries no execution authority. | `current change`; five perfect schema cohorts, active prompt-profile validation, and composition tests. | Validate the conditionally wired repair through new end-to-end answer cohorts; retain the global schema-only profile in shadow. |
 | 2026-09-10 | validated | Schema-only v2 plus typed target grounding passed five consecutive distinct 10-question schema cohorts at 100% on a clean local treatment snapshot. | Five local exact-source live artifacts, 50/50 contract passes. | Keep shadow: the legacy 16-case safety cohort regressed on primary, target, secondary, and clarification metrics. |
 | 2026-09-10 | validated | Schema-only v2 produced 100%, 100%, 100%, 90%, and 90% across five distinct 10-question cohorts. The two misses were target-shape defects, not authority, action-posture, or capability inventions. | Local exact-source live artifacts. | Retain shadow mode and rerun after typed target normalization is committed. |
 | 2026-09-10 | implemented | Added schema-only shadow v2 to separate count cues from declaration detail and preserve complete plural metatype spans. | `current change`; five v1 live cohorts and focused prompt tests. | Run five distinct v2 cohorts before promotion. |

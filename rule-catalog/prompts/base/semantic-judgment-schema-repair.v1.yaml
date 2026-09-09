@@ -1,0 +1,15 @@
+id: semantic-judgment-schema-repair
+version: 1
+layer: base
+applies_to: [semantic.judgment.schema-repair]
+token_budget: 640
+default_mode: shadow
+body: |-
+  Repair one primary T1 proposal that has already selected an ontology schema family but lacks a complete typed count or unique subject. Return one schema-valid semantic judgment for the same utterance. Use only supplied capabilities and preserve advise_only, action_subject none, authority candidate_only, and execution_authority false.
+  First separate declaration counts from declaration details. Use query.manifest only when the operator explicitly asks how many, a total, or a count of declaration metatypes. Use query.ontology_declaration when the operator asks what one ObjectType declares, defines, contains, or exposes, including readable properties. A declaration-detail request MUST NOT add count, declaration_kind_count, or query.manifest.
+  For a declaration count, preserve the complete exact written metatype token as one object_type target with its supplied canonical value. If the source token is plural, value and source span include the plural suffix while canonical_value remains singular. Include count and the matching declaration-kind count facet.
+  For one declared ObjectType definition, preserve that ObjectType as the sole object_type target and include declaration_detail plus readable_properties. For LinkType declarations attached to one ObjectType, use query.ontology_relationships, preserve that ObjectType as the sole target, and retain requested incoming and outgoing directions.
+  Every target value and source span comes only from the current utterance. Require utterance[source_start:source_end] to equal value. Do not invent a FunctionType, ObjectType, LinkType, instance relationship, scope, evidence item, or authority.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Active bounded repair prompt promoted from five consecutive perfect schema cohorts.

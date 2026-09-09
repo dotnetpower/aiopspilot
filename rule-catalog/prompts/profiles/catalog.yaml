@@ -154,6 +154,17 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: active.semantic-judgment-schema-repair
+    version: 1
+    capability_id: semantic.judgment.schema-repair
+    mode: active
+    root: {id: semantic-judgment-schema-repair, version: 1, layer: base}
+    packs: []
+    system_token_budget: 4096
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-compact
     version: 1
     capability_id: semantic.judgment
