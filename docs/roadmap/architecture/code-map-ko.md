@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 65c2a580d10e529d5dc3688836e2b84bbf2cfdac
+translation_source_sha: e5db3d5ddf62eaacd3e139118b19b78bbea00442
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -54,9 +54,7 @@ translation_revised: 2026-09-10
   상태-감사 저장소를 사용해 내용 주소 기반 증적을 기록합니다. Operator는 현재 UID,
   resourceVersion, 세대, release, 기준 시점 및 fleet 범위와 일치하는 증적만 수락하며 Console은
   이 형식화된 증적을 검증하고 표시합니다. 수명 주기 범위 공백은 별도 추가 전용 Core 마이그레이션을
-  사용하며 커서 복구 뒤에도 조회할 수 있습니다. Kubernetes API 전송과 신원은
-  `kubernetes_api_inventory.py`에 유지하고 범위가 제한된 상태 정규화는
-  `kubernetes_api_status.py`에서 담당합니다.
+  사용하며 커서 복구 뒤에도 조회할 수 있습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

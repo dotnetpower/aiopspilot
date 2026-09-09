@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 34a35d8726c225c7d5e421c6e849210c804e3e13
-translation_revised: 2026-09-09
+translation_source_sha: 769a68fdfdc31693f6f09d607e75bb07321eeee3
+translation_revised: 2026-09-10
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -95,6 +95,8 @@ Azure AI 모델 배포를 포함합니다. 검토된 `id.providerRoot` 경로는
 account로 별도로 해석합니다. 같은 엔드포인트 pair라도 출처별 mapping은 분리합니다. ARM 모델
 배포 mapping을 추가하면 내용 주소 기반 공급자 스키마 관계 검토를 다시 생성하고 카탈로그
 다이제스트와 겹침 수를 전진시키지만 의미 승격이나 그래프 변경 권한은 부여하지 않습니다. 최상위
+검토는 완전한 mapping 카탈로그를 고정하므로 Kubernetes 전용 mapping 변경도 Azure 후보 수나
+권한을 바꾸지 않고 다이제스트를 다시 생성합니다.
 리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을

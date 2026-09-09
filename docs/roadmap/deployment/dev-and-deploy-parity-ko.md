@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0459b250b31d676c7538faeb903498e79eb7ceae
+translation_source_sha: ac7ad564ab264a766a5a263e23e4720205736f3e
 translation_revised: 2026-09-10
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -18,9 +18,6 @@ AKS fleet 인벤토리는 로컬과 배포 프로필에서 같은 정확한 mana
 구독, 리소스 그룹 또는 하위 리소스로 넓히지 않습니다.
 두 프로필은 수집 전에 Core 소유 수명 주기 범위 마이그레이션을 적용합니다. 따라서 추가 전용 구간
 테이블은 로컬과 배포 뒤에 동일한 Event 커서 공백을 보존합니다.
-프로바이더 스키마 관계 검토는 완전한 검토 매핑 카탈로그에 내용 주소로 연결됩니다. Kubernetes
-매핑을 추가하면 Azure 후보 수를 변경하거나 의미 승격 권한을 부여하지 않고 두 프로필에서 이
-비권한 검토 산출물을 다시 생성합니다.
 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 콘솔은 사용할 수
 있는 모든 자세 범위를 표시하고 보류된 행을 빈 원장이 아니라 사용 불가로 표시합니다. 이러한
 검사는 로컬과 배포 프로필에서 동일합니다.
