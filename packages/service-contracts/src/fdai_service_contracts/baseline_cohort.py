@@ -205,6 +205,12 @@ class BaselineTreatmentCohortReceipt(_BaselineTreatmentCohortReceiptBody):
             raise ValueError("cohort baseline arm MUST be labelled baseline")
         if self.treatment.arm is not CohortArm.TREATMENT:
             raise ValueError("cohort treatment arm MUST be labelled treatment")
+        expected_cutoff = max(
+            self.baseline.evidence_receipt.evidence_cutoff,
+            self.treatment.evidence_receipt.evidence_cutoff,
+        )
+        if self.evidence_cutoff != expected_cutoff:
+            raise ValueError("cohort evidence cutoff MUST equal the latest arm cutoff")
         expected = content_digest(self.model_dump(mode="json", exclude={"receipt_digest"}))
         if self.receipt_digest != expected:
             raise ValueError("cohort receipt digest does not match its content")

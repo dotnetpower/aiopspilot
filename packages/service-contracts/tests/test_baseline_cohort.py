@@ -620,6 +620,15 @@ def test_a_tampered_cohort_receipt_digest_is_rejected() -> None:
         BaselineTreatmentCohortReceipt.model_validate(payload)
 
 
+def test_the_cohort_cutoff_cannot_move_past_its_arm_evidence() -> None:
+    payload = _receipt().model_dump(mode="json")
+    payload["evidence_cutoff"] = (NOW + timedelta(hours=1)).isoformat()
+    payload["receipt_digest"] = baseline_treatment_cohort_receipt_digest(**payload)
+
+    with pytest.raises(ValidationError, match="latest arm cutoff"):
+        BaselineTreatmentCohortReceipt.model_validate(payload)
+
+
 def test_the_producer_helper_reproduces_the_evaluated_arm_fact_digest() -> None:
     arm = _arm(
         CohortArm.BASELINE,
