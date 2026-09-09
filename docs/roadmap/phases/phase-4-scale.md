@@ -58,7 +58,10 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   The jobs call `fdai.delivery.measurement_runner_cli`, not the library-only
   core module. Baseline mode replays the shipped enriched frozen scenarios,
   persists regression demotions in the shared `StateStore`, and audits every
-  run. Growth mode reads only explicit `measurement.action_outcome.v1` audit
+  run. The runtime image and the CLI resolve those assets through the same
+  service-owned `services/core-control-plane/tests/scenarios/` path. Missing
+  catalog or scenario assets fail startup instead of producing an empty run.
+  Growth mode reads only explicit `measurement.action_outcome.v1` audit
   records that prove enforce execution, deterministic verification, rollback
   state, embedding projection, exact parameters, and incident provenance.
   Outcome and durable audit timestamps must be timezone-aware. An outcome more

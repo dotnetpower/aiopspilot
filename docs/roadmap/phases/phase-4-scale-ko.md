@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: f000d526d9476a6e410523f1e02ecdd4593c9432
-translation_revised: 2026-08-31
+translation_source_sha: d5b4eb3821de62d048c15326e55b28d1fc615cfe
+translation_revised: 2026-09-09
 ---
 
 # 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -57,7 +57,10 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
   받지 않습니다.
   작업 은 library-only 코어 모듈 이 아니라 `fdai.delivery.measurement_runner_cli`을
   호출합니다. 기준선 모드 는 배포된 enriched 고정된 시나리오 를 재생 하고 회귀
-  demotion 을 shared `StateStore`에 저장 하며 모든 실행 을 감사 합니다. Growth 모드 는
+  demotion 을 shared `StateStore`에 저장 하며 모든 실행 을 감사 합니다. 런타임 이미지와
+  CLI는 동일한 서비스 소유 `services/core-control-plane/tests/scenarios/` 경로에서 이 자산을
+  해석합니다. 카탈로그 또는 시나리오 자산이 없으면 빈 실행을 만들지 않고 시작을 차단합니다.
+  Growth 모드 는
   강제 적용 실행, 결정론적 검증, 롤백 상태, 임베딩 변환 결과, exact
   매개변수, 인시던트 출처 이력 를 증명하는 명시적 `measurement.action_outcome.v1` 감사
   기록 만 읽습니다. 결과 및 영속 감사 시각은 timezone-aware여야 합니다. 감사

@@ -34,6 +34,8 @@ from fdai.shared.contracts.validation import (
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 
+FROZEN_SCENARIO_ASSET_ROOT = Path("services") / "core-control-plane" / "tests" / "scenarios"
+
 
 class FrozenScenarioReplayer:
     """Replay enriched frozen scenarios through the shipped control loop."""
@@ -53,10 +55,9 @@ class FrozenScenarioReplayer:
 
     async def replay(self) -> tuple[MeasurementSample, ...]:
         loop, rules_by_id = self._build_loop()
-        scenario_root = self._root / "tests" / "scenarios" / self.scenario_set_version
-        enrichment_root = (
-            self._root / "tests" / "scenarios" / "enrichment" / self.scenario_set_version
-        )
+        scenario_assets = self._root / FROZEN_SCENARIO_ASSET_ROOT
+        scenario_root = scenario_assets / self.scenario_set_version
+        enrichment_root = scenario_assets / "enrichment" / self.scenario_set_version
         if not scenario_root.is_dir() or not enrichment_root.is_dir():
             raise FileNotFoundError(
                 f"frozen scenarios or enrichment missing for {self.scenario_set_version}"

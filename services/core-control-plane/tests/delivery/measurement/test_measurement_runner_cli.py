@@ -86,6 +86,17 @@ def test_catalog_root_does_not_require_test_scenarios(
     assert measurement_runner_cli._catalog_root() == catalog
 
 
+def test_repo_root_uses_the_service_owned_frozen_scenarios(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "rule-catalog").mkdir()
+    (tmp_path / measurement_runner_cli.FROZEN_SCENARIO_ASSET_ROOT).mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+
+    assert measurement_runner_cli._repo_root() == tmp_path
+
+
 def _phase4_batch(
     batch_id: str,
     *,
