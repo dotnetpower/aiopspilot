@@ -22,7 +22,13 @@ from fdai.core.conversation.adaptive_prompt import (
     compose_adaptive_prompt,
 )
 from fdai.core.conversation.adaptive_service import AdaptiveConversationService
-from fdai.core.prompts import FileSystemPromptRegistry, PromptComposer, PromptLayer
+from fdai.core.prompts import (
+    FileSystemPromptRegistry,
+    PromptComposer,
+    PromptLayer,
+    PromptReplayManifest,
+    compose_static_selection,
+)
 from fdai.delivery.azure.llm.adaptive_answer import (
     AzureOpenAIAdaptiveModel,
 )
@@ -144,20 +150,26 @@ def build_adaptive_conversation_service(
             build_adaptive_conversation_profile(agent=spec.name) for spec in PANTHEON_SPECS
         )
         prompts: dict[str, str] = {}
+        prompt_manifests: dict[str, PromptReplayManifest] = {}
         for stage in ADAPTIVE_STAGES:
             capability = f"conversation.adaptive.{stage}"
-            selection = registry.resolve(capability)
-            layers = (selection.root, *selection.packs)
-            if tuple((layer.id, layer.layer) for layer in layers) != (
+            composed = compose_static_selection(registry.resolve(capability))
+            layers = tuple((layer.id, layer.layer) for layer in composed.layer_manifest)
+            if layers != (
                 ("adaptive-common", PromptLayer.BASE),
                 (f"adaptive-{stage}", PromptLayer.PACK),
             ):
                 _unavailable("prompt_layers_unavailable")
                 return None
-            text = "\n\n".join(layer.body for layer in layers)
+            text = composed.system_text
             for profile in profiles:
                 compose_adaptive_prompt(profile, stage, text)
             prompts[stage] = text
+            prompt_manifests[stage] = composed.replay_manifest()
+        config = replace(
+            config,
+            stage_prompt_manifests=MappingProxyType(prompt_manifests),
+        )
         service = AdaptiveConversationService(
             model=AzureOpenAIAdaptiveModel(
                 identity=identity, http_client=http_client, config=config
@@ -253,6 +265,7 @@ async def build_adaptive_conversation_dependencies(
         prompts: dict[str, str] = {}
         digests: dict[str, str] = {}
         layer_ids: dict[str, tuple[str, ...]] = {}
+        prompt_manifests: dict[str, PromptReplayManifest] = {}
         for stage in ADAPTIVE_STAGES:
             composed = await prompt_composer.compose(capability_id=f"conversation.adaptive.{stage}")
             layers = tuple((layer.id, layer.layer) for layer in composed.layer_manifest)
@@ -268,11 +281,19 @@ async def build_adaptive_conversation_dependencies(
             layer_ids[stage] = tuple(
                 f"{layer.id}.v{layer.version}" for layer in composed.layer_manifest
             )
+            prompt_manifests[stage] = composed.replay_manifest()
     except (LookupError, ValueError):
         _unavailable("configuration_unavailable")
         return None
     return AdaptiveConversationDependencies(
-        model=AzureOpenAIAdaptiveModel(identity=identity, http_client=http_client, config=config),
+        model=AzureOpenAIAdaptiveModel(
+            identity=identity,
+            http_client=http_client,
+            config=replace(
+                config,
+                stage_prompt_manifests=MappingProxyType(prompt_manifests),
+            ),
+        ),
         profile=profile,
         stage_prompts=MappingProxyType(prompts),
         prompt_digests=MappingProxyType(digests),

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from typing import Any, cast
 
@@ -25,6 +26,13 @@ from fdai.core.conversation.adaptive_prompt import (
 from fdai.core.conversation.model_observation import (
     ConversationModelObservation,
     ConversationModelResponse,
+)
+from fdai.core.prompts import (
+    LayerRef,
+    PromptLayer,
+    PromptReplayManifest,
+    estimate_prompt_tokens,
+    estimate_serialized_request_tokens,
 )
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
@@ -82,6 +90,7 @@ class AzureOpenAIAdaptiveModelConfig:
     max_request_bytes: int = 262_144
     max_response_bytes: int = 65_536
     max_system_tokens: int = MAX_ADAPTIVE_SYSTEM_TOKENS
+    stage_prompt_manifests: Mapping[str, PromptReplayManifest] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for producer in (self.primary, self.escalation):
@@ -97,6 +106,14 @@ class AzureOpenAIAdaptiveModelConfig:
         ):
             if type(value) is not int or not 1 <= value <= upper:
                 raise ValueError("adaptive request and response budgets MUST be bounded integers")
+        if set(self.stage_prompt_manifests) - set(ADAPTIVE_STAGES):
+            raise ValueError("adaptive prompt manifests contain an unknown stage")
+        for stage, manifest in self.stage_prompt_manifests.items():
+            if (
+                manifest.reserved_output_tokens is not None
+                and manifest.reserved_output_tokens < self.max_tokens
+            ):
+                raise ValueError(f"adaptive {stage} output reserve is below max_tokens")
 
 
 class AzureOpenAIAdaptiveModel:
@@ -204,6 +221,18 @@ class AzureOpenAIAdaptiveModel:
             len(system_prompt.encode("utf-8")) > self._config.max_system_tokens
         ):
             raise ValueError("adaptive system prompt is empty or exceeds budget")
+        base_manifest = self._config.stage_prompt_manifests.get(stage)
+        prompt_manifest = (
+            _adaptive_prompt_manifest(base_manifest, system_prompt)
+            if base_manifest is not None
+            else None
+        )
+        if (
+            prompt_manifest is not None
+            and prompt_manifest.system_token_budget is not None
+            and prompt_manifest.token_estimate > prompt_manifest.system_token_budget
+        ):
+            raise ValueError("adaptive system prompt exceeds its profile budget")
         schema_text = _dump_json(dict(schema))
         if len(schema_text.encode("utf-8")) > self._config.max_request_bytes:
             raise ValueError("adaptive schema exceeds request byte budget")
@@ -245,6 +274,16 @@ class AzureOpenAIAdaptiveModel:
         encoded = _dump_json(body).encode("utf-8")
         if len(encoded) > self._config.max_request_bytes:
             raise ValueError("adaptive request exceeds byte budget")
+        if (
+            prompt_manifest is not None
+            and prompt_manifest.request_token_budget is not None
+            and estimate_serialized_request_tokens(
+                body,
+                reserved_output_tokens=self._config.max_tokens,
+            )
+            > prompt_manifest.request_token_budget
+        ):
+            raise ValueError("adaptive request exceeds its prompt profile budget")
         token = await self._identity.get_token(selected.target.auth_audience)
         trace_start = start_model_trace(messages)
         async with self._http.stream(
@@ -284,8 +323,32 @@ class AzureOpenAIAdaptiveModel:
                 model=selected.target.deployment,
                 usage=bounded_usage(usage),
                 trace_call=trace_call,
+                prompt_replay_manifest=prompt_manifest,
             ),
         )
+
+
+def _adaptive_prompt_manifest(
+    manifest: PromptReplayManifest,
+    system_prompt: str,
+) -> PromptReplayManifest:
+    return replace(
+        manifest,
+        system_text_sha256=hashlib.sha256(system_prompt.encode()).hexdigest(),
+        layer_manifest=(
+            *manifest.layer_manifest,
+            LayerRef(
+                id="adaptive-server-profile",
+                version=1,
+                layer=PromptLayer.ROLE_HEADER,
+                token_estimate=max(
+                    0,
+                    estimate_prompt_tokens(system_prompt) - manifest.token_estimate,
+                ),
+            ),
+        ),
+        token_estimate=estimate_prompt_tokens(system_prompt),
+    )
 
 
 @lru_cache(maxsize=16)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import replace
@@ -11,6 +12,7 @@ from typing import Any
 
 import httpx
 import pytest
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.adaptive_answer import (
     AdaptiveModelTarget,
     AzureOpenAIAdaptiveModel,
@@ -130,6 +132,31 @@ async def test_strict_output_keeps_untrusted_prose_out_of_system_and_measures_us
     assert result.observation.usage["total_tokens"] == 54
     assert result.observation.model == "primary"
     assert result.observation.trace_call["kind"] == "adaptive-answer"
+
+
+async def test_stage_profile_budget_blocks_before_identity_and_provider_io() -> None:
+    identity = _Identity()
+    prompt = "Server policy."
+    manifest = PromptReplayManifest(
+        system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        layer_manifest=(),
+        token_estimate=len(prompt),
+        profile_id="active.adaptive-answer",
+        profile_version=1,
+        profile_digest="sha256:" + ("a" * 64),
+        system_token_budget=128,
+        request_token_budget=4097,
+        reserved_output_tokens=4096,
+    )
+
+    result = await _call(
+        lambda _request: pytest.fail("unexpected provider call"),
+        config=_config(stage_prompt_manifests={"answer": manifest}),
+        identity=identity,
+    )
+
+    assert result is None
+    assert identity.calls == 0
 
 
 async def test_t2_conversation_tier_uses_the_configured_escalation_author() -> None:
