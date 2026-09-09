@@ -872,6 +872,43 @@ class _StalledCasStateStore:
         )
 
 
+class _StalledMatchingReadStateStore:
+    """Pause the matching replay's first read until a conflict tombstone lands."""
+
+    def __init__(self, inner: InMemoryStateStore) -> None:
+        self._inner = inner
+        self._reads = 0
+        self._tombstoned: asyncio.Event = asyncio.Event()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def read_state(self, key: str) -> Any:
+        self._reads += 1
+        captured = await self._inner.read_state(key)
+        if self._reads == 1:
+            await self._tombstoned.wait()
+        return captured
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Any,
+        *,
+        expected_revision: int,
+        audit_entry: Any,
+    ) -> bool:
+        advanced = await self._inner.compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+        if advanced:
+            self._tombstoned.set()
+        return advanced
+
+
 async def test_concurrent_conflicting_redeliveries_tombstone_exactly_once() -> None:
     """Two different-body redeliveries racing the same tombstone write.
 
@@ -1025,6 +1062,44 @@ async def test_matching_replay_is_read_only_before_a_later_conflict() -> None:
     marker = rows[0][CONFLICT_MARKER_FIELD]
     assert marker["reason_code"] == REVIEW_CONFLICT_REASON_CODE
     assert marker["stored_evidence_digest"] == baseline.evidence_digest
+
+
+async def test_concurrent_matching_replay_observes_a_racing_conflict_without_writing() -> None:
+    inner = InMemoryStateStore()
+    store = _StalledMatchingReadStateStore(inner)
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+
+    baseline = await ledger.record_change_review(
+        _review("k-1", _finding()),
+        freshness="fresh",
+        **_PROVENANCE,
+    )
+
+    matching_result, conflicting_result = await asyncio.gather(
+        ledger.record_change_review(
+            _review("k-1", _finding()),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+        ledger.record_change_review(
+            _review("k-1", _finding(rule="r-conflict"), verdict="blocked"),
+            freshness="fresh",
+            **_PROVENANCE,
+        ),
+    )
+
+    assert matching_result.conflict is True
+    assert matching_result.created is False
+    assert matching_result.evidence_digest == baseline.evidence_digest
+    assert matching_result.stored_evidence_digest == baseline.evidence_digest
+    assert conflicting_result.conflict is True
+
+    conflict_audits = [
+        entry
+        for entry in inner.audit_entries
+        if entry["entry"].get("action_kind") == "assurance_twin.review_conflict_marked"
+    ]
+    assert len(conflict_audits) == 1
 
 
 async def test_concurrent_new_key_writes_preserve_first_writer_and_mark_conflict() -> None:

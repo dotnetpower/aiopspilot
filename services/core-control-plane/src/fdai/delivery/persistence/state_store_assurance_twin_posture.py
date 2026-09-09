@@ -453,7 +453,13 @@ class StateStoreAssuranceTwinPostureLedger:
                 stored_evidence_digest=stored_digest,
             )
         if stored_comparison_digest == digest:
-            return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
+            return await self._confirm_matching_replay(
+                key=key,
+                digest=digest,
+                existing=existing,
+                correlation_id=correlation_id,
+                attempts_remaining=attempts_remaining,
+            )
         if attempts_remaining <= 0:
             raise RuntimeError(
                 "assurance twin review conflict compare-and-set exceeded its retry bound"
@@ -500,6 +506,44 @@ class StateStoreAssuranceTwinPostureLedger:
             correlation_id=correlation_id,
             attempts_remaining=attempts_remaining - 1,
         )
+
+    async def _confirm_matching_replay(
+        self,
+        *,
+        key: str,
+        digest: str,
+        existing: Mapping[str, Any],
+        correlation_id: str,
+        attempts_remaining: int,
+    ) -> AssuranceTwinLedgerWrite:
+        """Confirm a matching replay without mutating state or audit history."""
+
+        if attempts_remaining <= 0:
+            raise RuntimeError("assurance twin review replay exceeded its retry bound")
+        confirmed = await self._store.read_state(key)
+        if confirmed is None:
+            raise RuntimeError("assurance twin review row disappeared during replay confirmation")
+        stored_digest = _stored_digest(confirmed)
+        if _has_conflict_marker(confirmed):
+            return AssuranceTwinLedgerWrite(
+                key=key,
+                created=False,
+                evidence_digest=digest,
+                conflict=True,
+                stored_evidence_digest=stored_digest,
+            )
+        if (
+            _stored_revision(confirmed) != _stored_revision(existing)
+            or _stored_comparison_digest(confirmed) != digest
+        ):
+            return await self._resolve_conflict(
+                key=key,
+                digest=digest,
+                existing=confirmed,
+                correlation_id=correlation_id,
+                attempts_remaining=attempts_remaining - 1,
+            )
+        return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
 
     async def read_latest_posture_report(self, scope: str) -> Mapping[str, Any] | None:
         """Return the latest durable posture report for ``scope``, if any."""
