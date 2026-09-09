@@ -50,6 +50,78 @@
   gap: 8px 12px;
 }
 
+.settings-teams-a1-onboarding {
+  display: grid;
+  gap: 14px;
+  max-width: 880px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.settings-teams-a1-onboarding h5,
+.settings-teams-a1-onboarding p {
+  margin: 0;
+}
+
+.settings-teams-a1-onboarding h5 {
+  font-size: 0.88rem;
+}
+
+.settings-teams-a1-onboarding > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.settings-teams-a1-onboarding > div:first-child p,
+.settings-teams-a1-onboarding-note {
+  max-width: 72ch;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.settings-teams-a1-onboarding-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+
+.settings-teams-a1-onboarding-columns > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.settings-teams-a1-onboarding-columns strong {
+  font-size: 0.8rem;
+}
+
+.settings-teams-a1-onboarding-columns ul,
+.settings-teams-a1-onboarding-columns ol {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-inline-start: 20px;
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.settings-teams-a1-onboarding-note {
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--warning);
+}
+
+.settings-teams-a1-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
 .settings-teams-workflow-steps {
   display: grid;
   gap: 0;
@@ -222,7 +294,8 @@
   }
 
   .settings-teams-workflow-identities,
-  .settings-teams-workflow-account-control {
+  .settings-teams-workflow-account-control,
+  .settings-teams-a1-onboarding-columns {
     grid-template-columns: minmax(0, 1fr);
   }
 }

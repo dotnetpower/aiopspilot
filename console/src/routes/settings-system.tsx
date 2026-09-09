@@ -41,8 +41,8 @@ import {
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
+import { TeamsA1OnboardingGuide } from "./settings-teams-a1-onboarding";
 import { DocumentOcrSettingsPanel } from "./document-ocr-settings";
-
 /**
  * A1 approvals, A2/A4 notifications, and A3 conversations use separate
  * transports and separate trust. Grouping them here keeps an operator from
@@ -59,7 +59,6 @@ const NOTIFICATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "email",
 ]);
 const CONVERSATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set(["teams-a3-conversation"]);
-
 interface Props {
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
@@ -153,6 +152,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                 integrations={runtime.integrations.filter((integration) =>
                   APPROVAL_INTEGRATION_KEYS.has(integration.key)
                 )}
+                children={<TeamsA1OnboardingGuide />}
               />
               <IntegrationGroup
                 headingId="settings-a2-a4-notifications"
