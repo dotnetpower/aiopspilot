@@ -155,6 +155,9 @@ def _require_classified_covers(
             "ManualClassifier.classify MUST return exactly one verdict per input "
             f"candidate (got {len(out_refs)} for {len(input_refs)} inputs)"
         )
+    inputs_by_ref = {candidate.source_ref: candidate for candidate in inputs}
+    if any(inputs_by_ref[item.candidate.source_ref] != item.candidate for item in classified):
+        raise ValueError("ManualClassifier.classify MUST preserve each input candidate unchanged")
 
 
 async def build_distillation_plan(

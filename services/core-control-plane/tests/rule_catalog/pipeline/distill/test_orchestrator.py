@@ -163,6 +163,32 @@ async def test_classifier_duplicating_a_candidate_fails_closed() -> None:
         )
 
 
+async def test_classifier_substituting_candidate_identity_fails_closed() -> None:
+    original = _cand("run", labels=("proc",))
+
+    class SubstitutingClassifier:
+        async def classify(self, candidates):  # noqa: ANN001
+            substituted = ManualCandidate(
+                doc_id="other",
+                source_ref=candidates[0].source_ref,
+                labels=candidates[0].labels,
+                content_sha=candidates[0].content_sha,
+            )
+            return (
+                ClassifiedManual(
+                    candidate=substituted,
+                    verdict=ProcedureVerdict.PROCEDURE,
+                ),
+            )
+
+    with pytest.raises(ValueError, match="preserve each input candidate"):
+        await build_distillation_plan(
+            source=FakeSource([original], docs={"run": _doc("run")}),
+            classifier=SubstitutingClassifier(),
+            distiller=OneRuleDistiller(),
+        )
+
+
 async def test_full_flow_splits_by_verdict() -> None:
     cands = [
         _cand("run", labels=("proc",)),

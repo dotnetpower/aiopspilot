@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: d631818916a8d69253da1179a9ab51fae3fccd53
+translation_source_sha: 95a66ab97003f5112ba2508837333daa94b21de3
 translation_revised: 2026-09-10
 ---
 
@@ -132,6 +132,10 @@ Confluence나 Notion 규모에서 문제는 인제스션이 아니라 이것이 
 5. **최소 human 큐레이션.** 회사에 수천 페이지 정리를 요구하는 대신, 라벨 하나(`fdai`)를
    요청하거나 배치 "이것이 매뉴얼인가? [예 / 아니오]" HIL 선별을 돌린다. 인간은 O(수천)이
    아니라 O(수십)만 확인한다.
+
+분류기 공급자 경계에서 모든 판정은 정확한 입력 후보에 계속 결합되어야 합니다. 결과 수나
+소스 참조 집합만 일치해서는 충분하지 않습니다. 대체된 신원은 이후 출처 이력을 훼손하기
+때문입니다.
 
 자체 큐레이션을 발명하지 말고 소스의 것을 재사용하라: Notion의 **verified-page**
 속성(워크스페이스 오너가 wiki 페이지를 검증 표시, 만료일 옵션)과 Confluence 라벨/스페이스는

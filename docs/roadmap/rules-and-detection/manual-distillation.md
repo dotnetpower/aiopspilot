@@ -147,6 +147,10 @@ expensively, and only on a small subset.
    pages, ask for one label (`fdai`) or run a batch "is this a manual? [yes / no]" HIL
    triage. Humans confirm O(dozens), never O(thousands).
 
+At the classifier provider boundary, every verdict remains bound to the exact
+input candidate. Matching only the result count or source-reference set is not
+sufficient because a substituted identity would corrupt downstream provenance.
+
 Reuse the source's own curation instead of inventing one: Notion's **verified-page**
 property (a workspace owner marks a wiki page verified, optionally with an expiry) and
 Confluence labels / spaces are ready-made authority signals.
