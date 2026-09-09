@@ -41,6 +41,7 @@ roots=(
   infra/services/document-ingestion-api
   infra/services/document-processing-worker
   infra/services/isolated-executor
+  infra/services/system-knowledge-service
 )
 
 # Check every root before invoking Terraform; never resolve an unlocked root.

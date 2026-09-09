@@ -4,9 +4,31 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from collections.abc import Awaitable
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
+
+
+class DeliveryLedger(Protocol):
+    """Persist delivery ownership across retries and process restarts."""
+
+    def start(self) -> Awaitable[None]: ...
+
+    def claim(self, key: str) -> Awaitable[bool]: ...
+
+    def mark_sending(self, key: str, response_digest: str) -> Awaitable[None]: ...
+
+    def mark_delivered(self, key: str, provider_activity_id: str) -> Awaitable[None]: ...
+
+    def mark_ambiguous(self, key: str) -> Awaitable[None]: ...
+
+    def release_retryable(self, key: str) -> Awaitable[None]: ...
+
+    def state(self, key: str) -> Awaitable[str | None]: ...
+
+    def aclose(self) -> Awaitable[None]: ...
 
 
 class MessageLedger:
@@ -66,6 +88,9 @@ class MessageLedger:
 
         async with self._lock:
             return await asyncio.to_thread(self._state, key)
+
+    async def aclose(self) -> None:
+        """Close the local ledger; connections are operation-scoped."""
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._path, timeout=5.0)
@@ -162,4 +187,4 @@ class MessageLedger:
         return str(row[0]) if row is not None else None
 
 
-__all__ = ["MessageLedger"]
+__all__ = ["DeliveryLedger", "MessageLedger"]

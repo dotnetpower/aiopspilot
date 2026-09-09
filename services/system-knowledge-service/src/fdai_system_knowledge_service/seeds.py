@@ -378,13 +378,9 @@ REFERENCE_SEEDS = (
         ),
         sources=(
             _doc(
-                "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
-                "Design at a glance",
+                ".github/instructions/architecture.instructions.md",
+                "Natural-language intent routing (MUST)",
                 SystemKnowledgeAuthorityRole.DESIGN,
-            ),
-            _code(
-                "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py",
-                "SemanticPlanningService",
             ),
         ),
     ),

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:558911acba5a2d26cf6cb5c387d8d82d37bcc49365799739f7f3d96e91e333db",
+  "catalog_digest": "sha256:4afdc7e58b09ea3e14b99e51f7fcacc877b421130cdac88befd85908bd35d242",
   "execution_authority": false,
-  "generated_at": "2026-09-09T23:05:01.281997Z",
+  "generated_at": "2026-09-09T23:29:05.090805Z",
   "records": [
     {
       "designed_behavior": [
@@ -413,25 +413,16 @@
         "How does FDAI route natural-language questions?",
         "FDAI는 자연어 질문을 어떻게 라우팅하나요?"
       ],
-      "record_digest": "sha256:099da6fe1d09a586acb4952d87e650238196b6c4e1be537a120f9bd16e6f399f",
+      "record_digest": "sha256:98e3d4a9e09315916601751f5dee54bac204f1483f85ba8e5382bc4b232f44f9",
       "sources": [
         {
-          "authority_role": "implementation",
-          "blob_sha": "017d8d68c64bc5fa9651c77159853559693e9e03",
-          "line_end": 115,
-          "line_start": 115,
-          "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py",
-          "source_kind": "code",
-          "symbol": "SemanticPlanningService"
-        },
-        {
           "authority_role": "design",
-          "blob_sha": "76606a320f5696c2a53ea14a83ac5d74b20ef56e",
-          "line_end": 11,
-          "line_start": 11,
-          "path": "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
+          "blob_sha": "cf32fb328c19ecb891485f9678e9022b6a1c4a41",
+          "line_end": 85,
+          "line_start": 85,
+          "path": ".github/instructions/architecture.instructions.md",
           "source_kind": "doc",
-          "symbol": "Design at a glance"
+          "symbol": "Natural-language intent routing (MUST)"
         }
       ],
       "status": "implemented",
@@ -457,11 +448,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:5133409348a3a34905af11d670e1b1b4f0f7dfc86e1d3a233a9276c63746cc9f",
+      "record_digest": "sha256:0d57812d30d3a4989dc782749464ffef16781cb5b490a3c7f7acffd8126644e9",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "0b9b5562a488f08f2013455ac2814851ee440db4",
+          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
           "line_end": 74,
           "line_start": 74,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -470,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "aad888df649673fda9da8b3850d01267ea8e360c",
+          "blob_sha": "8a32b4753651ff63e73e777cda932c9e5b146ac8",
           "line_end": 91,
           "line_start": 91,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
@@ -500,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:e4f97b2de3c35087bdba41e6765e16566b61ec34d5b4adbffb1fc3bfe3ba3696",
+      "record_digest": "sha256:b15f1529be573b948ac41641ba4cebe8a127e4472022076d74677e6ca038d29f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "0b9b5562a488f08f2013455ac2814851ee440db4",
+          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
           "line_end": 74,
           "line_start": 74,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -562,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "f8bd57539ca8d8cef04d66c14ed808b5cfca3100"
+  "source_revision": "11693ae2d4dba1181dcc060f24d5925dcd9a5100"
 }

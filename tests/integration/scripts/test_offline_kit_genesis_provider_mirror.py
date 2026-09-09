@@ -22,6 +22,7 @@ ROOTS = (
     "infra/services/document-ingestion-api",
     "infra/services/document-processing-worker",
     "infra/services/isolated-executor",
+    "infra/services/system-knowledge-service",
 )
 AZURERM = "registry.terraform.io/hashicorp/azurerm"
 AZAPI = "registry.terraform.io/azure/azapi"

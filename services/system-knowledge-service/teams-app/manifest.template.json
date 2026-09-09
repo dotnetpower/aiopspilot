@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.30/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.30",
+  "version": "1.0.0",
+  "id": "${TEAMS_APP_ID}",
+  "developer": {
+    "name": "FDAI",
+    "websiteUrl": "https://github.com/dotnetpower/fdai",
+    "privacyUrl": "https://github.com/dotnetpower/fdai",
+    "termsOfUseUrl": "https://github.com/dotnetpower/fdai"
+  },
+  "name": {
+    "short": "FDAI Knowledge",
+    "full": "FDAI System Knowledge"
+  },
+  "description": {
+    "short": "Ask about FDAI design and implementation status.",
+    "full": "Mention this read-only bot to ask bounded questions about FDAI design, implementation status, verification evidence, and known limitations."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#2563EB",
+  "bots": [
+    {
+      "botId": "${BOT_APP_ID}",
+      "scopes": [
+        "team"
+      ],
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false,
+      "supportsFiles": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "team"
+          ],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show what the FDAI knowledge bot can answer."
+            },
+            {
+              "title": "status",
+              "description": "Explain designed, implemented, validated, and remaining work."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [],
+  "showLoadingIndicator": false
+}
