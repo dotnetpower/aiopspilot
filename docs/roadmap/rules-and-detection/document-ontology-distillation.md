@@ -367,6 +367,10 @@ When source precedence resolves a lower-priority conflict, the passing receipt s
 overridden fact's immutable evidence reference. Deterministic precedence does not erase audit
 lineage.
 
+When the two link endpoints produce different gate outcomes, the identity gate keeps the strongest
+result in the order `denied`, `review_required`, then pass. An ambiguous endpoint cannot downgrade a
+type mismatch or another denial on its peer endpoint.
+
 Model self-reported confidence is never an authority signal. A computed confidence may summarize
 grounding, independent agreement, identity resolution, freshness, and historical performance, but
 it can only lower eligibility. Independent model disagreement on normalized critical fields routes

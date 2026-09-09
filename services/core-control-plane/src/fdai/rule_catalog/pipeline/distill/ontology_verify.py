@@ -385,7 +385,8 @@ def _identity_gate(proposal: OntologyChangeProposal, context: VerificationContex
                         if resolution.candidates
                         else "existing_endpoint_not_found"
                     )
-                    outcome = GateOutcome.REVIEW
+                    if outcome is GateOutcome.PASS:
+                        outcome = GateOutcome.REVIEW
                 elif resolution.selected_identity != identity:
                     reasons.append("resolution_target_mismatch")
                     outcome = GateOutcome.DENY
@@ -394,7 +395,8 @@ def _identity_gate(proposal: OntologyChangeProposal, context: VerificationContex
                     outcome = GateOutcome.DENY
                 elif resolution.method not in {"exact", "alias"}:
                     reasons.append("identity_resolution_unverified")
-                    outcome = GateOutcome.REVIEW
+                    if outcome is GateOutcome.PASS:
+                        outcome = GateOutcome.REVIEW
         else:
             if entities.get(proposal.from_identity or "") != declaration.from_type:
                 reasons.append("from_identity_type_mismatch")

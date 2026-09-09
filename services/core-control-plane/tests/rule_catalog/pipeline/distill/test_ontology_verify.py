@@ -242,6 +242,46 @@ def test_link_endpoint_type_mismatch_is_denied() -> None:
     assert _receipt(result, "identity").outcome is GateOutcome.DENY
 
 
+def test_link_review_condition_cannot_downgrade_endpoint_denial() -> None:
+    claim, text = _claim()
+    from_resolution = EntityResolution(
+        selected_identity="owner:platform",
+        candidates=("owner:platform",),
+        method="exact",
+    )
+    proposal = _proposal(
+        claim,
+        target_kind=OntologyTargetKind.LINK,
+        target_type="owned_by",
+        target_identity="owner:platform",
+        entity_resolution=from_resolution,
+        from_identity="owner:platform",
+        to_identity="Platform Owner",
+        from_resolution=from_resolution,
+        to_resolution=EntityResolution(
+            candidates=("owner:primary", "owner:secondary"),
+            method="ambiguous_alias",
+        ),
+        properties=(),
+    )
+    context = _context(
+        claim,
+        text,
+        entities=(
+            EntityRecord("owner:platform", "Ownership"),
+            EntityRecord("owner:primary", "Ownership"),
+            EntityRecord("owner:secondary", "Ownership"),
+        ),
+    )
+
+    result = verify_ontology_proposal(proposal, claim, context)
+
+    identity = _receipt(result, "identity")
+    assert identity.outcome is GateOutcome.DENY
+    assert identity.reason_codes == ("from_identity_type_mismatch", "ambiguous_alias")
+    assert result.state is ProposalState.DENIED
+
+
 def test_unknown_link_returns_denied_receipts_instead_of_crashing() -> None:
     claim, text = _claim()
     proposal = _proposal(

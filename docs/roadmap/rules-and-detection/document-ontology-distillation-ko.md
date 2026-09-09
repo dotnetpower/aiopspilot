@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 0fb8b4eabd4dfafdbffcc7b902250913736bb11c
+translation_source_sha: b530f844fccdad6f8de0e0123905debf46f409e1
 translation_revised: 2026-09-10
 ---
 # 문서 온톨로지 증류
@@ -364,6 +364,10 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 
 출처 우선순위가 낮은 순위의 충돌을 해소해도 통과 증적은 덮어쓴 각 사실의 변경할 수 없는
 근거 참조를 유지합니다. 결정론적 우선순위는 감사 계보를 지우지 않습니다.
+
+링크의 두 끝점이 서로 다른 게이트 결과를 만들면 신원 게이트는 `denied`,
+`review_required`, 통과 순서로 가장 강한 결과를 유지합니다. 모호한 끝점은 다른 끝점의 유형
+불일치나 다른 거절을 낮출 수 없습니다.
 
 모델 self-reported 확신도는 권한 신호가 아닙니다. Computed 확신도는 grounding,
 독립적인 agreement, 신원 해석, 최신성 및 historical performance를 요약할 수 있지만
