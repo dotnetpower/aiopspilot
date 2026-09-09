@@ -12,7 +12,7 @@ dependency direction, structural gates, extension seams, control-loop wiring, co
 composition type module stays below its enforced size ceiling so new bindings remain reviewable and move to focused wire modules before the
 shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an
 inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
-catalog load. DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured run instead of reporting an
+catalog load. The `verticals.resilience` package exposes deterministic recovery-plan compilation without adding execution authority. DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured run instead of reporting an
 objective as met. A parked HIL record without a recorded action digest fails the integrity gate instead of resuming, so removing the digest
 cannot authorize a tampered payload. The quality gate refuses duplicate cross-check models, so one model cannot agree with itself and
 satisfy the mixed-model quorum. An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority instead of being

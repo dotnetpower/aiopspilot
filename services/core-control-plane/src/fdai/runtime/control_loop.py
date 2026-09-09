@@ -13,10 +13,7 @@ from typing import Any, cast
 import httpx
 import yaml
 
-from fdai.composition import (
-    Container,
-    LlmBindings,
-)
+from fdai.composition import Container, LlmBindings
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
     GraphDynamicRuntimeCoordinator,
