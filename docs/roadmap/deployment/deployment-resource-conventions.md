@@ -34,6 +34,8 @@ separate address. Replacing either assignment remains a destructive plan and is 
 The dev operations gateway target set includes that same moved resource-group address before its
 gateway, runtime, identity, and role targets, so a protected image update can reconcile the state
 move without widening to an untargeted destructive plan.
+The compute target closure also includes its existing out-of-band and rule-watcher Jobs before
+Terraform evaluates the selected measurement runners.
 The protected Console release workflow binds an exact CI-verified Core image, updates the existing
 catalog materialization Job with rollback, runs schema migration, and verifies the selected
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the

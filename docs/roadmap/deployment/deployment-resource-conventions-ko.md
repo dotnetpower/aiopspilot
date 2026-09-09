@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9384630575bd50f621a3e44608fd59386aed3e6e
+translation_source_sha: ae801cce4909b48abc227fb38364437a130b2afa
 translation_revised: 2026-09-09
 ---
 # 배포 리소스 규약
@@ -34,6 +34,8 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 dev 운영 게이트웨이 대상 집합도 게이트웨이, 런타임, 신원 및 역할 대상보다 먼저 같은 리소스
 그룹 이동 주소를 포함합니다. 따라서 보호된 이미지 업데이트는 대상이 없는 파괴적 계획으로
 범위를 넓히지 않고 상태 이동을 조정할 수 있습니다.
+compute 대상 종결 집합은 선택한 측정 실행기를 Terraform이 평가하기 전에 기존 out-of-band Job과
+rule-watcher Job도 포함합니다.
 배포자 신원을 이행하는 동안 모듈은 이전 데이터 소유자 할당을 보존하고 별도 주소에 안정적인
 runner 할당을 추가합니다. 두 할당 중 하나라도 교체하는 파괴적 계획은 차단됩니다.
 보호된 Console release workflow는 CI로 검증된 정확한 Core image를 연결하고 기존 catalog 구체화
