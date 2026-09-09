@@ -549,6 +549,7 @@ jobs:
           }
           resolved_model_args=()
           channel_edge_args=()
+          current_channel_edge_id=""
           case "$OPERATOR_CHANNEL_EDGE_TRANSITION" in
             enable) channel_edge_args+=(--operator-channel-edge-enabled true) ;;
             disable) channel_edge_args+=(--operator-channel-edge-enabled false) ;;
@@ -694,7 +695,8 @@ jobs:
             )"
           fi
           if [[ "$SERVICE" == "operator-service" \
-            && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "enable" ]]; then
+            && ( "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "enable" \
+              || -n "$current_channel_edge_id" ) ]]; then
             if ! operator_channel_edge_identity_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
                 output -json operator_channel_edge_identity 2>/dev/null

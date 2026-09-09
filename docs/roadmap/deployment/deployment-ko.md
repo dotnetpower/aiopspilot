@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 9e1c5820ba338556a843e2104035ac3a2dabbcc6
+translation_source_sha: 47000c6b6e3989ebbff55c6578105a288d6b4c69
 translation_revised: 2026-09-09
 ---
 
@@ -139,7 +139,7 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   게시 연결을 사용하고 `cors_allow_origins`를 정규화된 단일 Static Web Apps HTTPS origin으로
   바꿉니다. 또한 플랫폼 상태에서 정본 기본 유입, pipeline-stage 및 Pantheon-object 토픽을 확인하고 Core, Operator 및
   document service의 소유 `event_topics` 필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
-  남습니다. 관련 없는 현재 Operator channel edge는 정확한 service-state 재확인 결과에 따라
+  남습니다. 관련 없는 현재 Operator channel edge와 플랫폼 신원은 정확한 service-state 재확인 결과에 따라
   보존합니다. 이전에 없던 `FDAI_EXECUTION_VENUE` 연결은 정확한 `deployed` 값으로만 채택할 수
   있습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
   Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을
