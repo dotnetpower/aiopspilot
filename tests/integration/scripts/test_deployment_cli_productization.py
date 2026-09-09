@@ -42,6 +42,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'STAGE_SENTINEL=".fdai-offline-stage"' in stage
     assert "workdir-guard.py verify" in stage
     assert "secure_work_file.py" in stage
+    assert "PYTHONPATH=scripts/deployment/release:services/core-control-plane/src" in stage
+    assert "PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src" in stage
     assert "openssl pkey -in" not in stage
     assert "--out must be a safe absolute path" in stage
     assert "existing --out is not owned by offline staging" in stage

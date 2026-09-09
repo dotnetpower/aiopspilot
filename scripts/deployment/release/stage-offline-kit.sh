@@ -175,7 +175,7 @@ rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$OUT/toolchain" "$KIT"
 
-PYTHONPATH=scripts/deployment/release "$PYTHON" -c '
+PYTHONPATH=scripts/deployment/release:services/core-control-plane/src "$PYTHON" -c '
 import sys
 from pathlib import Path
 from cryptography.hazmat.primitives import serialization
@@ -340,7 +340,8 @@ print(f"   {len(components)} components")
 PY
 
 echo "-- sign kit"
-PYTHONPATH=packages/deployment-cli/src "$PYTHON" scripts/deployment/release/build-offline-kit.py \
+PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src "$PYTHON" \
+  scripts/deployment/release/build-offline-kit.py \
   --kit "$KIT" --private-key "$RELEASE_KEY" --release-root "$OUT/release-root.pub" \
   --kit-version "$CLI_VERSION" --cli-version "$CLI_VERSION" \
   --bundle-version "$BUNDLE_VERSION" --platform-tag "$PLATFORM_TAG" \
