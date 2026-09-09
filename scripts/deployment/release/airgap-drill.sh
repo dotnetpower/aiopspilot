@@ -30,6 +30,11 @@
 #      kit verification, mirror-pinned CLI configuration, and `terraform init` -
 #      and gets far enough that the only thing still missing is deployment
 #      input, not a provider and not a network.
+#  10. when a complete runtime v2 release is supplied, installed `fdaictl`
+#      snapshots all five service images, ClamAV, Console, and deployment support
+#      without a route or DNS and reports prepared, never subscription-ready.
+#  11. the same authenticated kit installs all runtime support distributions
+#      from hash-pinned wheels with indexes, downloads, builds, and caches disabled.
 #
 # What it does NOT prove: a real `terraform apply` still needs the tenant's
 # approved private path to the Azure management plane. This drill stops at plan
@@ -40,15 +45,20 @@
 #
 # Usage:
 #   bash scripts/deployment/release/airgap-drill.sh [--workdir DIR] [--skip-stage]
+#     [--runtime-release DIR] [--require-runtime]
 
 set -euo pipefail
 
 WORKDIR="${TMPDIR:-/tmp}/fdai-airgap-drill"
 SKIP_STAGE=0
+RUNTIME_RELEASE=""
+REQUIRE_RUNTIME=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workdir) WORKDIR="$2"; shift 2 ;;
     --skip-stage) SKIP_STAGE=1; shift ;;
+    --runtime-release) RUNTIME_RELEASE="$2"; shift 2 ;;
+    --require-runtime) REQUIRE_RUNTIME=1; shift ;;
     *) echo "airgap-drill: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -65,6 +75,12 @@ if [[ "$WORKDIR" != /* || "$WORKDIR" == "/" || "$WORKDIR" == "$HOME" || "$WORKDI
 fi
 if [[ -L "$WORKDIR" ]]; then
   echo "airgap-drill: workdir must not be a symbolic link." >&2
+  exit 2
+fi
+if [[ -n "$RUNTIME_RELEASE" ]] && {
+  [[ "$RUNTIME_RELEASE" != /* ]] || [[ ! -d "$RUNTIME_RELEASE" ]] || [[ -L "$RUNTIME_RELEASE" ]];
+}; then
+  echo "airgap-drill: --runtime-release must be an absolute real directory." >&2
   exit 2
 fi
 if [[ "$SKIP_STAGE" -eq 0 ]]; then
@@ -106,12 +122,18 @@ stage() {
 
   # The drill runs the real release staging script, so a green drill exercises
   # the release path itself rather than a second copy of it.
+  stage_arguments=(
+    --out "$WORKDIR"
+    --release-key "$WORKDIR/release-key.pem"
+    --bundle-key "$WORKDIR/bundle-key.pem"
+    --bundle-version "$BUNDLE_VERSION"
+    --platform-tag "$PLATFORM_TAG"
+  )
+  if [[ -n "$RUNTIME_RELEASE" ]]; then
+    stage_arguments+=(--runtime-release "$RUNTIME_RELEASE" --with-runtime-wheels)
+  fi
   bash scripts/deployment/release/stage-offline-kit.sh \
-    --out "$WORKDIR" \
-    --release-key "$WORKDIR/release-key.pem" \
-    --bundle-key "$WORKDIR/bundle-key.pem" \
-    --bundle-version "$BUNDLE_VERSION" \
-    --platform-tag "$PLATFORM_TAG" >/dev/null
+    "${stage_arguments[@]}" >/dev/null
 
   echo "-- issue a drill license"
   PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src \
@@ -139,8 +161,17 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
 else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
+HAS_RUNTIME=0
+if [[ -f "$KIT/runtime/release.json" ]]; then
+  HAS_RUNTIME=1
+fi
+if [[ "$REQUIRE_RUNTIME" -eq 1 && "$HAS_RUNTIME" -ne 1 ]]; then
+  echo "airgap-drill: --require-runtime needs a complete staged runtime release." >&2
+  exit 2
+fi
 rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" \
-  "$WORKDIR/cli-venv" "$WORKDIR/empty-azure"
+  "$WORKDIR/cli-venv" "$WORKDIR/empty-azure" "$WORKDIR/preparation" \
+  "$WORKDIR/support-install"
 mkdir -m 700 "$WORKDIR/empty-azure"
 
 # The kit declares which CLI it was built for; verification binds that exact
@@ -183,6 +214,7 @@ EOF
 echo "== verify (network namespace, no route, no DNS) =="
 REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
   CLI_VERSION="$CLI_VERSION" PLATFORM_TAG="$PLATFORM_TAG" BUNDLE_VERSION="$BUNDLE_VERSION" \
+  HAS_RUNTIME="$HAS_RUNTIME" \
   unshare -rn -- bash -euo pipefail -c '
 ip link set lo up 2>/dev/null || true
 export TF_IN_AUTOMATION=1
@@ -332,6 +364,70 @@ grep -q '"\*/\*"' "$WORKDIR/provision/offline.tfrc" \
 grep -q "exclude" "$WORKDIR/provision/offline.tfrc" \
   || fail "provision plan left a direct installation path open"
 echo "   kit verified, mirror pinned, init resolved every provider offline"
+
+echo "-- 10. complete runtime preparation"
+if [[ "$HAS_RUNTIME" == "1" ]]; then
+  source_commit="$("$CLI_PYTHON" -c "
+import json
+import sys
+from pathlib import Path
+from fdai_deployment_cli.offline_kit import _read_regular
+
+value = json.loads(_read_regular(Path(sys.argv[1]), 1024 * 1024))
+print(value[\"source_commit\"])
+" "$WORKDIR/authenticated-kit/runtime/release.json")"
+  [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "runtime release source revision is invalid"
+  prepare_output="$("$CLI" offline prepare \
+    --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
+    --bundle-public-key "$WORKDIR/bundle-key.pub" \
+    --profile "$WORKDIR/offline-profile.json" --source-commit "$source_commit" \
+    --work-dir "$WORKDIR/preparation" --output json)" \
+    || fail "installed CLI could not prepare the complete runtime release"
+  "$CLI_PYTHON" -c "
+import json
+import sys
+
+value = json.loads(sys.argv[1])
+if (
+    value.get(\"schema_version\") != \"fdai.offline-preparation.v2\"
+    or value.get(\"state\") != \"prepared\"
+    or value.get(\"subscription_ready\") is not False
+    or value.get(\"mutation_performed\") is not False
+    or len(value.get(\"binding\", {}).get(\"image_content_digests\", {})) != 6
+):
+    raise SystemExit(\"airgap-drill: FAIL - complete preparation receipt is invalid\")
+" "$prepare_output"
+  echo "   six images and deployment payload prepared without network"
+
+  echo "-- 11. offline deployment-support installation"
+  support_output="$("$CLI" offline install-support \
+    --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
+    --work-dir "$WORKDIR/support-install" --output json)" \
+    || fail "installed CLI could not install deployment support from the signed wheelhouse"
+  "$CLI_PYTHON" -c "
+import json
+import sys
+
+value = json.loads(sys.argv[1])
+if (
+    value.get(\"schema_version\") != \"fdai.support-installation.v1\"
+    or value.get(\"dependencies_verified\") is not True
+    or value.get(\"services_started\") is not False
+    or value.get(\"cloud_mutation_performed\") is not False
+    or value.get(\"subscription_ready\") is not False
+    or len(value.get(\"packages\", {})) < 6
+):
+    raise SystemExit(\"airgap-drill: FAIL - support installation receipt is invalid\")
+" "$support_output"
+  echo "   runtime support distributions installed and read back without network"
+else
+  echo "   skipped: no runtime release supplied (toolchain-only drill)"
+fi
 '
 
-echo "== airgap-drill: OK - every disconnected step passed with no network =="
+if [[ "$HAS_RUNTIME" -eq 1 ]]; then
+  echo "== airgap-drill: OK - complete runtime release prepared with no network =="
+else
+  echo "== airgap-drill: OK - toolchain path passed; runtime preparation was not exercised =="
+fi
