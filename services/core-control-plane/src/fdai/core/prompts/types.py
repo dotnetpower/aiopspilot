@@ -15,7 +15,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, cast
 
 _MAX_AGENT_CHARS = 128
 _MAX_QUERY_CHARS = 4_096
@@ -28,6 +28,7 @@ _MAX_INDEX_BUDGET_CHARS = 32 * 1_024
 _MAX_BODY_BUDGET_CHARS = 4 * 64 * 1_024
 _MAX_REFERENCE_BUDGET_BYTES = 256 * 1_024
 _PROMPT_COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-:]{0,127}$")
+_SHA256_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 
 class PromptLayer(StrEnum):
@@ -371,6 +372,20 @@ class PromptReplayManifest:
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
 
+    def __post_init__(self) -> None:
+        if re.fullmatch(r"[a-f0-9]{64}", self.system_text_sha256) is None:
+            raise ValueError("prompt replay system_text_sha256 MUST be a SHA-256 hex digest")
+        if not isinstance(self.token_estimate, int) or self.token_estimate < 0:
+            raise ValueError("prompt replay token_estimate MUST be a non-negative integer")
+        _validate_profile_replay_fields(
+            profile_id=self.profile_id,
+            profile_version=self.profile_version,
+            profile_digest=self.profile_digest,
+            system_token_budget=self.system_token_budget,
+            request_token_budget=self.request_token_budget,
+            reserved_output_tokens=self.reserved_output_tokens,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ComposedPrompt:
@@ -407,6 +422,18 @@ class ComposedPrompt:
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.token_estimate, int) or self.token_estimate < 0:
+            raise ValueError("composed prompt token_estimate MUST be a non-negative integer")
+        _validate_profile_replay_fields(
+            profile_id=self.profile_id,
+            profile_version=self.profile_version,
+            profile_digest=self.profile_digest,
+            system_token_budget=self.system_token_budget,
+            request_token_budget=self.request_token_budget,
+            reserved_output_tokens=self.reserved_output_tokens,
+        )
+
     def replay_manifest(self) -> PromptReplayManifest:
         """Return immutable evidence without retaining mutable adapter state."""
 
@@ -431,6 +458,48 @@ class ComposedPrompt:
 def _validate_budget(name: str, value: int, maximum: int) -> None:
     if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
         raise ValueError(f"skill disclosure {name} MUST be between 1 and {maximum}")
+
+
+def _validate_profile_replay_fields(
+    *,
+    profile_id: str | None,
+    profile_version: int | None,
+    profile_digest: str | None,
+    system_token_budget: int | None,
+    request_token_budget: int | None,
+    reserved_output_tokens: int | None,
+) -> None:
+    values = (
+        profile_id,
+        profile_version,
+        profile_digest,
+        system_token_budget,
+        request_token_budget,
+        reserved_output_tokens,
+    )
+    if profile_id is None:
+        if profile_version is not None or profile_digest is not None:
+            raise ValueError("prompt replay profile identity MUST be complete")
+        return
+    if any(value is None for value in values):
+        raise ValueError("prompt replay profile metadata MUST be complete")
+    digest = cast(str, profile_digest)
+    system_budget = cast(int, system_token_budget)
+    request_budget = cast(int, request_token_budget)
+    output_reserve = cast(int, reserved_output_tokens)
+    if _PROMPT_COMPONENT_ID.fullmatch(profile_id) is None:
+        raise ValueError("prompt replay profile id MUST be canonical")
+    if not isinstance(profile_version, int) or isinstance(profile_version, bool):
+        raise ValueError("prompt replay profile version MUST be an integer")
+    if profile_version < 1 or _SHA256_DIGEST.fullmatch(digest) is None:
+        raise ValueError("prompt replay profile identity is invalid")
+    budgets = (system_budget, request_budget, output_reserve)
+    if any(not isinstance(value, int) or isinstance(value, bool) or value < 1 for value in budgets):
+        raise ValueError("prompt replay profile budgets MUST be positive integers")
+    if not system_budget < request_budget:
+        raise ValueError("prompt replay request budget MUST exceed the system budget")
+    if output_reserve >= request_budget:
+        raise ValueError("prompt replay output reserve MUST be below the request budget")
 
 
 __all__ = [

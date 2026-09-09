@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from fdai.core.prompts import (
+    ComposedPrompt,
     FileSystemPromptRegistry,
     PromptArtifactRef,
     PromptBudgetExceededError,
@@ -14,6 +15,7 @@ from fdai.core.prompts import (
     PromptProfile,
     PromptProfileMode,
     PromptRegistryError,
+    PromptReplayManifest,
     PromptSelection,
     compose_static_selection,
 )
@@ -105,6 +107,22 @@ def test_selection_digest_changes_when_artifact_body_changes() -> None:
         )
 
     assert selection("first").digest != selection("second").digest
+
+
+@pytest.mark.parametrize("prompt_type", (ComposedPrompt, PromptReplayManifest))
+def test_replay_profile_metadata_must_be_complete(prompt_type: type[object]) -> None:
+    common = {
+        "layer_manifest": (),
+        "token_estimate": 1,
+        "profile_id": "test.profile",
+    }
+    if prompt_type is ComposedPrompt:
+        common["system_text"] = "prompt"
+    else:
+        common["system_text_sha256"] = "a" * 64
+
+    with pytest.raises(ValueError, match="profile metadata MUST be complete"):
+        prompt_type(**common)  # type: ignore[call-arg]
 
 
 def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:
