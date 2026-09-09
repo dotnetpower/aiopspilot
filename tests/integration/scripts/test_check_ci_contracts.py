@@ -435,6 +435,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "devbox-smoke.yml",
         "destroy-env.yml",
         "infra-drift.yml",
+        "framework-assessment-shadow.yml",
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",
         "model-settings-projection.yml",

@@ -148,6 +148,8 @@ verification, automation, mapping, applicability, evaluation, and satisfaction.
 The shared physical transport may also carry the separate WAF and CAF framework-assessment logical
 topic. Topic filtering, consumer groups, projection keys, and catalog pins remain independent, so a
 framework assessment event cannot update WARA state or satisfy WARA evidence.
+The Operator composition root imports both projection bridges through one assessment-projection
+facade to preserve its reviewed fanout ceiling. The facade shares no state or assessment authority.
 The shared Operator composition may register unrelated read projections in `/system/data-sources`;
 those registrations don't add a WARA source, widen WARA scope, or change its shadow-only authority.
 
