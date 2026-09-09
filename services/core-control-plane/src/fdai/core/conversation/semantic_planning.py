@@ -97,6 +97,7 @@ from .semantic_planning_support import (
     _validated_metric_concepts,
 )
 from .semantic_resource_state_planning import resource_condition_intents_grounded
+from .semantic_target_candidate_planning import build_stated_resource_filter_frame
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
@@ -209,6 +210,35 @@ class SemanticPlanningService:
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             preflight_intent = _preflight_descriptor_intent(preflight_router.effective_result)
+            promoted_preflight = (
+                preflight_operational_judgment(
+                    preflight_router.effective_result,
+                    utterance=utterance,
+                )
+                if self._semantic_judgment is not None
+                and preflight_router.effective_result is not None
+                else None
+            )
+            if promoted_preflight is not None:
+                stated_filter = build_stated_resource_filter_frame(
+                    semantic_judgment=promoted_preflight.model_dump(mode="json"),
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                if stated_filter is not None:
+                    stated_proposal, stated_frame = stated_filter
+                    if stated_frame.unresolved_terms:
+                        return preflight_router.finish(
+                            _outcome(
+                                SemanticPlanningDisposition.CLARIFICATION,
+                                "semantic_clarification_required",
+                                manifest_digest=manifest.manifest_digest,
+                                frame=stated_frame,
+                                clarification=stated_proposal.clarification,
+                            )
+                        )
             if preflight_intent is not None:
                 descriptors = _descriptors_for_operational_intent(descriptors, preflight_intent)
                 _LOGGER.info(
@@ -231,14 +261,6 @@ class SemanticPlanningService:
                         for capability in judgment_capabilities
                     )
                     else ()
-                )
-                promoted_preflight = (
-                    preflight_operational_judgment(
-                        preflight_router.effective_result,
-                        utterance=utterance,
-                    )
-                    if preflight_router.effective_result is not None
-                    else None
                 )
                 if promoted_preflight is not None:
                     _LOGGER.info(
