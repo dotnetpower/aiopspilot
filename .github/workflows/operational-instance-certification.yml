@@ -139,38 +139,48 @@ jobs:
             terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
           )"
           if [[ -z "$inventory_job_name" ]]; then
-            inventory_job_name="$(
-              az rest \
-                --method get \
-                --uri "https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs?api-version=2024-03-01" \
-                --output json |
-                jq -er '
-                  [.value[] |
-                    select(
-                      (.properties.template.containers | length) == 1 and
-                      [.properties.template.containers[]? |
-                        select(
-                          .name == "inventory" and
-                          .command == [
-                            "python",
-                            "-m",
-                            "fdai.delivery.inventory_sync_cli"
-                          ] and
-                          (.args // []) == []
-                        )] |
-                      length == 1
-                    ) |
-                    .name |
-                    select(type == "string" and length > 0)] |
-                  if length == 1 then
-                    .[0]
-                  else
-                    error(
-                      "expected exactly one inventory job matching the reviewed runtime contract"
-                    )
-                  end
-                '
-            )"
+            mapfile -t inventory_job_ids < <(
+              az resource list \
+                --resource-group "$resource_group" \
+                --resource-type Microsoft.App/jobs \
+                --query '[].id' \
+                --output tsv \
+                --only-show-errors
+            )
+            (( ${#inventory_job_ids[@]} >= 1 && ${#inventory_job_ids[@]} <= 64 )) || {
+              echo "inventory job resource count is outside the reviewed bound" >&2
+              exit 1
+            }
+            inventory_job_candidates=()
+            for inventory_job_id in "${inventory_job_ids[@]}"; do
+              inventory_job_json="$(
+                timeout 30s az resource show \
+                  --ids "$inventory_job_id" \
+                  --api-version 2024-03-01 \
+                  --output json \
+                  --only-show-errors
+              )"
+              if jq -e '
+                (.properties.template.containers | length) == 1 and
+                ([.properties.template.containers[]? |
+                  select(
+                    .name == "inventory" and
+                    .command == [
+                      "python",
+                      "-m",
+                      "fdai.delivery.inventory_sync_cli"
+                    ] and
+                    (.args // []) == []
+                  )] | length) == 1
+              ' <<<"$inventory_job_json" >/dev/null; then
+                inventory_job_candidates+=("$(jq -er '.name' <<<"$inventory_job_json")")
+              fi
+            done
+            [[ ${#inventory_job_candidates[@]} -eq 1 ]] || {
+              echo "expected exactly one inventory job matching the reviewed runtime contract" >&2
+              exit 1
+            }
+            inventory_job_name="${inventory_job_candidates[0]}"
           fi
           history_job_id="$(terraform -chdir=infra output -raw operational_history_lifecycle_job_id)"
           container_url="$(terraform -chdir=infra output -raw operational_history_container_url)"
