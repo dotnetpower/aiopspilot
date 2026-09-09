@@ -75,6 +75,10 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
   The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG, `Storage Blob Data Contributor` on state, and subscription `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`.
   Its conditional `Role Based Access Control Administrator` grant can assign only `Reader`, `Monitoring Reader`, and `Cost Management Reader` to service principals.
   During migration, the current VM keeps its system identity alongside the UAMI, but workflows never select an identity implicitly. Each run clears the Azure CLI account cache, logs in with the configured UAMI client ID, and proves the exact repository-configured subscription, tenant, and ARM token `oid` before any storage, plan, or apply step.
+  A reviewed blue/green cutover can preserve an existing candidate's GitHub registrations by setting
+  `runner_vm_name` before importing its VM and network interface into bootstrap state. Scheduled
+  posture checks compare any model-only OS disk ID with the actual Azure disk inventory, so only a
+  real managed disk resource blocks the ephemeral runner.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
   CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV` for subsequent steps. Because

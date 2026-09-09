@@ -59,6 +59,7 @@ jobs:
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
       TF_VAR_runner_vm_size: Standard_D4ds_v5
+      TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}

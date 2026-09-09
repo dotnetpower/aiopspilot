@@ -4,7 +4,9 @@
 # -----------------------------------------------------------------------
 
 locals {
-  suffix = "${var.workload}-${var.env}-${var.region_short}"
+  suffix          = "${var.workload}-${var.env}-${var.region_short}"
+  runner_vm_name  = var.runner_vm_name != "" ? var.runner_vm_name : "vm-runner-${local.suffix}"
+  runner_nic_name = replace(local.runner_vm_name, "vm-runner-", "nic-runner-")
 
   # FDAI tag taxonomy - same `fdai:` namespace as the app config (infra/main.tf).
   # The ops/hub layer is cross-vertical, so fdai:vertical is always 'shared'.
@@ -147,7 +149,7 @@ module "deploy_runner_identity" {
 #trivy:ignore:AZU-0068
 resource "azurerm_network_interface" "runner" {
   count               = var.create_runner_vm ? 1 : 0
-  name                = "nic-runner-${local.suffix}"
+  name                = local.runner_nic_name
   location            = var.region
   resource_group_name = azurerm_resource_group.ops.name
   tags                = local.tags
@@ -162,7 +164,7 @@ resource "azurerm_network_interface" "runner" {
 resource "azurerm_linux_virtual_machine" "runner" {
   # checkov:skip=CKV_AZURE_50:The runner declares no virtual_machine_extension resource; cloud-init performs bounded bootstrap.
   count               = var.create_runner_vm ? 1 : 0
-  name                = "vm-runner-${local.suffix}"
+  name                = local.runner_vm_name
   location            = var.region
   resource_group_name = azurerm_resource_group.ops.name
   size                = var.runner_vm_size

@@ -30,6 +30,25 @@ diff_disk_option="$(jq -r '.option // ""' <<<"$runner_storage")"
 diff_disk_placement="$(jq -r '.placement // ""' <<<"$runner_storage")"
 managed_disk_id="$(jq -r '.managed_disk_id // ""' <<<"$runner_storage")"
 
+managed_disk_exists=false
+if [[ -n "$managed_disk_id" ]]; then
+  managed_disk_inventory="$({
+    az disk list \
+      --subscription "$EXPECTED_SUBSCRIPTION" \
+      --query '[].id' \
+      --output json \
+      --only-show-errors
+  } 2>/dev/null)" || {
+    echo "runner storage posture unavailable: Azure disk inventory read failed." >&2
+    exit 1
+  }
+  managed_disk_exists="$(
+    jq -r --arg disk_id "$managed_disk_id" \
+      'map(ascii_downcase) | index($disk_id | ascii_downcase) != null' \
+      <<<"$managed_disk_inventory"
+  )"
+fi
+
 posture_errors=()
 [[ "$actual_vm_size" == "$EXPECTED_VM_SIZE" ]] || \
   posture_errors+=("VM size is not the reviewed value")
@@ -37,7 +56,7 @@ posture_errors=()
   posture_errors+=("OS disk is not ephemeral")
 [[ "$diff_disk_placement" == "ResourceDisk" ]] || \
   posture_errors+=("ephemeral OS disk is not on ResourceDisk")
-[[ -z "$managed_disk_id" ]] || \
+[[ "$managed_disk_exists" == "false" ]] || \
   posture_errors+=("a managed OS disk exists")
 
 if [[ "${#posture_errors[@]}" -gt 0 ]]; then

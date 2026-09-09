@@ -160,10 +160,17 @@ deallocate, redeploy, or host move resets the OS and GitHub registration. The bo
 refuses to deallocate an ephemeral runner. Recreate the runner through a reviewed blue/green
 transition when the VM size or OS placement must change.
 
+When a reviewed blue/green transition promotes an existing candidate, set `runner_vm_name` to that
+VM's current name before importing its VM and network interface into bootstrap state. The
+`infra-drift` workflow reads the deployment-specific value from `DEPLOY_RUNNER_VM_NAME`. Leave the
+variable empty for the canonical `vm-runner-<workload>-<env>-<region_short>` name.
+
 The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` before the bootstrap
-plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of a
-managed OS disk. A mismatch fails the workflow with the blue/green recovery action; the check never
-changes the VM or fights a tenant policy in place.
+plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an
+actual managed disk resource. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
+check confirms the disk against the subscription inventory before reporting drift. A mismatch fails
+the workflow with the blue/green recovery action; the check never changes the VM or fights a tenant
+policy in place.
 
 Independent service plans use a concurrency group per service and environment. Mutating apply and
 state-migration runs use one environment-wide concurrency group so two service writers cannot make

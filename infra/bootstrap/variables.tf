@@ -94,6 +94,20 @@ variable "runner_vm_size" {
   default     = "Standard_D4ds_v5"
 }
 
+variable "runner_vm_name" {
+  description = "Existing promoted runner VM name to manage after a reviewed blue/green cutover. Leave empty to use the canonical vm-runner-<workload>-<env>-<region_short> name."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = var.runner_vm_name == "" || can(regex(
+      "^vm-runner-[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      var.runner_vm_name
+    ))
+    error_message = "runner_vm_name must be empty or a lowercase Azure VM name beginning with vm-runner-."
+  }
+}
+
 variable "runner_bootstrap_mode" {
   description = "Runner bootstrap source: online preserves marketplace Ubuntu and network cloud-init; offline uses a prebuilt image without cloud-init or GitHub registration."
   type        = string

@@ -149,6 +149,7 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Verify runner storage posture" in workflow
     assert "./check-runner-storage-posture.sh" in workflow
     assert "TF_VAR_runner_vm_size: Standard_D4ds_v5" in workflow
+    assert "TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}" in workflow
     assert "RUNNER_STORAGE_OUTCOME" in workflow
     assert "Enforce complete drift evidence" in workflow
 

@@ -90,6 +90,10 @@ def test_runner_uses_sustained_compute_and_an_ephemeral_resource_disk() -> None:
     main = (bootstrap_root / "main.tf").read_text(encoding="utf-8")
 
     assert 'default     = "Standard_D4ds_v5"' in variables
+    assert 'variable "runner_vm_name"' in variables
+    assert 'runner_vm_name  = var.runner_vm_name != ""' in main
+    assert "name                = local.runner_vm_name" in main
+    assert "name                = local.runner_nic_name" in main
     assert 'storage_account_type = "Standard_LRS"' in main
     assert 'option    = "Local"' in main
     assert 'placement = "ResourceDisk"' in main
@@ -100,6 +104,8 @@ def _run_storage_posture_check(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     vm_payload: str,
+    *,
+    disk_payload: str = "[]",
 ) -> subprocess.CompletedProcess[str]:
     bootstrap_root = Path(__file__).resolve().parents[3] / "infra" / "bootstrap"
     script_path = bootstrap_root / "check-runner-storage-posture.sh"
@@ -119,6 +125,7 @@ case "$1 $2" in
     ;;
   "account set") ;;
   "vm show") printf '%s\\n' "$TEST_VM_PAYLOAD" ;;
+  "disk list") printf '%s\\n' "$TEST_DISK_PAYLOAD" ;;
   *) exit 64 ;;
 esac
 """,
@@ -129,6 +136,7 @@ esac
     monkeypatch.setenv("TEST_SUBSCRIPTION", "00000000-0000-0000-0000-000000000001")
     monkeypatch.setenv("TEST_TENANT", "00000000-0000-0000-0000-000000000002")
     monkeypatch.setenv("TEST_VM_PAYLOAD", vm_payload)
+    monkeypatch.setenv("TEST_DISK_PAYLOAD", disk_payload)
 
     return subprocess.run(  # noqa: S603 - static repository-owned script
         [
@@ -160,6 +168,20 @@ def test_storage_posture_check_accepts_local_ephemeral_os_disk(
     assert "FDAI_RUNNER_STORAGE_POSTURE_OK" in result.stdout
 
 
+def test_storage_posture_check_accepts_ephemeral_model_disk_id_without_disk_resource(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _run_storage_posture_check(
+        tmp_path,
+        monkeypatch,
+        '{"vm_size":"Standard_D4ds_v5","option":"Local","placement":"ResourceDisk","managed_disk_id":"/example/ephemeral-model-disk"}',
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "FDAI_RUNNER_STORAGE_POSTURE_OK" in result.stdout
+
+
 def test_storage_posture_check_rejects_managed_os_disk(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -168,6 +190,7 @@ def test_storage_posture_check_rejects_managed_os_disk(
         tmp_path,
         monkeypatch,
         '{"vm_size":"Standard_D4ds_v5","option":null,"placement":null,"managed_disk_id":"/example/disk"}',
+        disk_payload='["/example/disk"]',
     )
 
     assert result.returncode == 1
