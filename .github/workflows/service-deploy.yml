@@ -665,7 +665,7 @@ jobs:
                       .[0] | {
                         client_id: .clientId,
                         principal_id: .principalId,
-                        resource_id: .id
+                        resource_id: (.id | sub("/resourcegroups/"; "/resourceGroups/"))
                       }
                     else
                       error("expected exactly one deployed channel-edge identity")

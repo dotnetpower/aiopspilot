@@ -866,6 +866,7 @@ def test_workflow_binds_channel_edge_provider_through_github_secrets() -> None:
     assert "az identity list" in _WORKFLOW
     assert 'endswith("-channel-edge")' in _WORKFLOW
     assert "expected exactly one deployed channel-edge identity" in _WORKFLOW
+    assert 'sub("/resourcegroups/"; "/resourceGroups/")' in _WORKFLOW
     assert (
         'OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding"'
     ) in _WORKFLOW
