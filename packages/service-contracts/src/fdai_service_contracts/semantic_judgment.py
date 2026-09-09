@@ -121,6 +121,10 @@ class SemanticJudgmentProposal(QueryContract):
     primary_intent: MachineToken
     secondary_intents: Annotated[tuple[MachineToken, ...], Field(max_length=8)] = ()
     targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=32)] = ()
+    forbidden_actions: Annotated[
+        tuple[SemanticTarget, ...],
+        Field(max_length=8, exclude_if=lambda actions: not actions),
+    ] = ()
     requested_facets: Annotated[tuple[MachineToken, ...], Field(max_length=32)] = ()
     confidence: float = Field(ge=0.0, le=1.0)
     ambiguous: bool
@@ -163,6 +167,23 @@ class SemanticJudgmentProposal(QueryContract):
                 raise ValueError(f"semantic judgment {name} MUST be unique")
         if self.primary_intent in self.secondary_intents:
             raise ValueError("primary semantic intent MUST NOT be duplicated")
+        forbidden_identities = tuple(
+            (
+                action.kind,
+                action.value,
+                action.canonical_value,
+                action.source_start,
+                action.source_end,
+            )
+            for action in self.forbidden_actions
+        )
+        if len(forbidden_identities) != len(set(forbidden_identities)):
+            raise ValueError("semantic judgment forbidden actions MUST be unique")
+        forbidden_spans = tuple(
+            (action.source_start, action.source_end) for action in self.forbidden_actions
+        )
+        if len(forbidden_spans) != len(set(forbidden_spans)):
+            raise ValueError("semantic judgment forbidden action spans MUST be unique")
         if self.ambiguous != bool(self.alternatives or self.unresolved_terms):
             raise ValueError("semantic judgment ambiguity MUST match its unresolved meaning")
         if (self.clarification is not None) != self.ambiguous:
@@ -185,6 +206,7 @@ class SemanticJudgmentProposal(QueryContract):
             or self.action_posture != "advise_only"
             or self.action_subject != "none"
             or self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE
+            or self.forbidden_actions
         ):
             raise ValueError("semantic direct response answer MUST remain unambiguous and advisory")
         if self.ambiguous and self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:

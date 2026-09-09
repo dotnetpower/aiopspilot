@@ -14,6 +14,7 @@ from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import (
     AzureOpenAISemanticJudgmentModel,
     AzureOpenAISemanticJudgmentModelConfig,
+    _semantic_judgment_proposal_schema,
     _strict_response_format,
 )
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -53,6 +54,18 @@ def test_semantic_judgment_uses_strict_structured_output() -> None:
     assert envelope["name"] == "semantic-judgment"
     assert envelope["strict"] is True
     _assert_strict_objects(envelope["schema"])
+
+
+def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
+    active_schema = _semantic_judgment_proposal_schema(forbidden_actions_enabled=False)
+    shadow_schema = _semantic_judgment_proposal_schema(forbidden_actions_enabled=True)
+
+    assert "forbidden_actions" not in active_schema["properties"]
+    assert "forbidden_actions" in shadow_schema["properties"]
+    active_strict = _strict_response_format(active_schema, name="semantic-judgment")
+    shadow_strict = _strict_response_format(shadow_schema, name="semantic-judgment-shadow")
+    assert "forbidden_actions" not in active_strict["json_schema"]["schema"]["required"]
+    assert "forbidden_actions" in shadow_strict["json_schema"]["schema"]["required"]
 
 
 def test_conversation_preflight_uses_the_same_strict_contract() -> None:

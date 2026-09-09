@@ -17,6 +17,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticJudgmentReceipt,
     SemanticJudgmentTier,
+    SemanticTarget,
 )
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
@@ -115,6 +116,7 @@ class SemanticJudgmentBoundary:
         escalation: SemanticJudgmentBinding | None = None,
         preflight: ConversationPreflightBoundary | None = None,
         confidence_threshold: float = 0.75,
+        strict_intent_grounding: bool = False,
     ) -> None:
         if primary is not None and primary.tier is not SemanticJudgmentTier.T1:
             raise ValueError("primary semantic judgment binding MUST use T1")
@@ -127,6 +129,7 @@ class SemanticJudgmentBoundary:
         self._bindings = tuple(item for item in (primary, escalation) if item is not None)
         self._preflight = preflight
         self._confidence_threshold = confidence_threshold
+        self._strict_intent_grounding = strict_intent_grounding
 
     def preflight(
         self,
@@ -254,15 +257,25 @@ class SemanticJudgmentBoundary:
                     proposal = SemanticJudgmentProposal.model_validate(
                         _canonicalize_machine_tokens(raw)
                     )
-                    proposal = _ground_unique_source_spans(
+                    if not self._strict_intent_grounding:
+                        proposal = _ground_unique_source_spans(
+                            proposal,
+                            utterance=utterance,
+                            capabilities=bounded_capabilities,
+                        )
+                    _validate_forbidden_action_canonical_values(
                         proposal,
-                        utterance=utterance,
                         capabilities=bounded_capabilities,
                     )
                     proposal = _normalize_primary_intent_capability(
                         proposal,
                         capabilities=bounded_capabilities,
                     )
+                    if self._strict_intent_grounding:
+                        _validate_capability_grounding(
+                            proposal,
+                            capabilities=bounded_capabilities,
+                        )
                     proposal = _normalize_collection_identity_ambiguity(
                         proposal,
                         capabilities=bounded_capabilities,
@@ -275,10 +288,14 @@ class SemanticJudgmentBoundary:
                     )
                     _validate_source_spans(proposal, utterance=utterance)
                 except (TypeError, ValueError, ValidationError) as exc:
-                    recovered_trace = _recover_safe_ontology_trace_proposal(
-                        raw,
-                        utterance=utterance,
-                        capabilities=bounded_capabilities,
+                    recovered_trace = (
+                        None
+                        if self._strict_intent_grounding
+                        else _recover_safe_ontology_trace_proposal(
+                            raw,
+                            utterance=utterance,
+                            capabilities=bounded_capabilities,
+                        )
                     )
                     if recovered_trace is not None:
                         return self._result(
@@ -292,11 +309,15 @@ class SemanticJudgmentBoundary:
                             proposal=recovered_trace,
                             observations=tuple(observations),
                         )
-                    recovered_proposal = _recover_bound_subject_proposal(
-                        raw,
-                        utterance=utterance,
-                        capabilities=bounded_capabilities,
-                        bound_subject_types=bounded_subject_types,
+                    recovered_proposal = (
+                        None
+                        if self._strict_intent_grounding
+                        else _recover_bound_subject_proposal(
+                            raw,
+                            utterance=utterance,
+                            capabilities=bounded_capabilities,
+                            bound_subject_types=bounded_subject_types,
+                        )
                     )
                     if recovered_proposal is not None:
                         return self._result(
@@ -586,23 +607,86 @@ def _canonicalize_machine_tokens(raw: Mapping[str, Any]) -> dict[str, Any]:
     unresolved_terms = normalized.get("unresolved_terms")
     if isinstance(alternatives, (list, tuple)) and isinstance(unresolved_terms, (list, tuple)):
         normalized["ambiguous"] = bool(alternatives or unresolved_terms)
-    targets = normalized.get("targets")
-    if isinstance(targets, (list, tuple)):
-        normalized["targets"] = [
-            {**target, "kind": canonicalize(target.get("kind"))}
-            if isinstance(target, Mapping)
-            else target
-            for target in targets
-        ]
+    for field in ("targets", "forbidden_actions"):
+        targets = normalized.get(field)
+        if isinstance(targets, (list, tuple)):
+            normalized[field] = [
+                {**target, "kind": canonicalize(target.get("kind"))}
+                if isinstance(target, Mapping)
+                else target
+                for target in targets
+            ]
     return normalized
 
 
 def _validate_source_spans(proposal: SemanticJudgmentProposal, *, utterance: str) -> None:
-    for target in proposal.targets:
-        if target.source_end > len(utterance):
-            raise ValueError("semantic target source span exceeds the utterance")
-        if utterance[target.source_start : target.source_end] != target.value:
-            raise ValueError("semantic target source span does not match the utterance")
+    for field, targets in (
+        ("target", proposal.targets),
+        ("forbidden action", proposal.forbidden_actions),
+    ):
+        for target in targets:
+            if target.source_end > len(utterance):
+                raise ValueError(f"semantic {field} source span exceeds the utterance")
+            if utterance[target.source_start : target.source_end] != target.value:
+                raise ValueError(f"semantic {field} source span does not match the utterance")
+
+
+def _validate_forbidden_action_canonical_values(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> None:
+    supplied = {
+        (kind, name)
+        for capability in capabilities
+        if isinstance((kind := capability.get("kind")), str)
+        if isinstance((name := capability.get("name")), str)
+    }
+    if any(
+        action.canonical_value is not None and (action.kind, action.canonical_value) not in supplied
+        for action in proposal.forbidden_actions
+    ):
+        raise ValueError("semantic forbidden action canonical identity is not supplied")
+
+
+def _validate_capability_grounding(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> None:
+    allowed_intents: set[str] = set()
+    allowed_canonical_values: set[str] = set()
+    for capability in capabilities:
+        kind = capability.get("kind")
+        name = capability.get("name")
+        if isinstance(name, str):
+            allowed_canonical_values.add(name)
+            if kind in {"action_type", "function_type", "intent", "question_domain"}:
+                allowed_intents.add(name)
+            if kind == "link_type":
+                allowed_intents.add(f"query.{name}")
+        intent = capability.get("intent")
+        if isinstance(intent, str):
+            allowed_intents.add(intent)
+        for field in ("question_domains", "measure_concepts", "canonical_values"):
+            values = capability.get(field)
+            if isinstance(values, (list, tuple)) and all(
+                isinstance(value, str) for value in values
+            ):
+                allowed_canonical_values.update(values)
+                if field == "question_domains":
+                    allowed_intents.update(values)
+    if any(
+        intent not in allowed_intents
+        for intent in (proposal.primary_intent, *proposal.secondary_intents)
+    ):
+        raise ValueError("semantic intent is not supplied by capabilities")
+    if any(
+        target.canonical_value is not None
+        and target.canonical_value not in allowed_canonical_values
+        for target in (*proposal.targets, *proposal.forbidden_actions)
+    ):
+        raise ValueError("semantic target canonical identity is not supplied")
 
 
 def _validate_intent_target_compatibility(proposal: SemanticJudgmentProposal) -> None:
@@ -656,41 +740,50 @@ def _ground_unique_source_spans(
         if isinstance((kind := capability.get("kind")), str)
         if isinstance((name := capability.get("name")), str)
     }
-    targets = []
     changed = False
-    for target_index, target in enumerate(proposal.targets):
-        if utterance[target.source_start : target.source_end] == target.value:
-            targets.append(target)
-            continue
-        source_start = utterance.find(target.value)
-        second_start = utterance.find(target.value, source_start + 1) if source_start >= 0 else -1
-        if source_start < 0 or second_start >= 0:
-            _LOGGER.warning(
-                "semantic_judgment_target_span_unresolved",
-                extra={
-                    "target_index": target_index,
-                    "target_kind": target.kind,
-                    "exact_occurrences": 0 if source_start < 0 else 2,
-                },
-            )
-            if (
-                target.canonical_value is not None
-                and (target.kind, target.canonical_value) in canonical_targets
-            ):
-                changed = True
+    grounded_fields: dict[str, tuple[SemanticTarget, ...]] = {}
+    for field_name, proposed_targets in (
+        ("targets", proposal.targets),
+        ("forbidden_actions", proposal.forbidden_actions),
+    ):
+        grounded_targets: list[SemanticTarget] = []
+        for target_index, target in enumerate(proposed_targets):
+            if utterance[target.source_start : target.source_end] == target.value:
+                grounded_targets.append(target)
                 continue
-            targets.append(target)
-            continue
-        targets.append(
-            target.model_copy(
-                update={
-                    "source_start": source_start,
-                    "source_end": source_start + len(target.value),
-                }
+            source_start = utterance.find(target.value)
+            second_start = (
+                utterance.find(target.value, source_start + 1) if source_start >= 0 else -1
             )
-        )
-        changed = True
-    return proposal.model_copy(update={"targets": tuple(targets)}) if changed else proposal
+            if source_start < 0 or second_start >= 0:
+                _LOGGER.warning(
+                    "semantic_judgment_target_span_unresolved",
+                    extra={
+                        "target_field": field_name,
+                        "target_index": target_index,
+                        "target_kind": target.kind,
+                        "exact_occurrences": 0 if source_start < 0 else 2,
+                    },
+                )
+                if field_name == "targets" and (
+                    target.canonical_value is not None
+                    and (target.kind, target.canonical_value) in canonical_targets
+                ):
+                    changed = True
+                    continue
+                grounded_targets.append(target)
+                continue
+            grounded_targets.append(
+                target.model_copy(
+                    update={
+                        "source_start": source_start,
+                        "source_end": source_start + len(target.value),
+                    }
+                )
+            )
+            changed = True
+        grounded_fields[field_name] = tuple(grounded_targets)
+    return proposal.model_copy(update=grounded_fields) if changed else proposal
 
 
 def _normalize_collection_identity_ambiguity(

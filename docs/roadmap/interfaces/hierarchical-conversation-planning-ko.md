@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 477cace3d218a5b2ff430bb8d327f2760b00bace
-translation_revised: 2026-09-08
+translation_source_sha: aee8892f2007fda84db256a13029a14fafb973f6
+translation_revised: 2026-09-09
 ---
 
 # 계층형 대화 계획
@@ -180,7 +180,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
 | Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v8.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 프롬프트 계약 검사 및 인증된 영어/한국어 비교 턴 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 지식, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 맥락과 독립적인 일반 지식은 one-shot 답변 경로를 선택하고 현재 환경 질문은 검증된 경로나 Adaptive 근거 경로를 유지합니다. 대상이 없는 구독 신원, Service Health 및 최근 Resource 상태 변경 조회를 포함한 검토된 운영 형식은 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. |
-| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. 출처가 결속된 F1-F4 preflight 의미는 별도의 전체 의미 판단 호출을 생략할 수 있고, 다른 모든 요청은 이 호출을 유지합니다. 수락된 인벤토리 문서, 구성 변경, 게이트웨이 진단 판단은 모델에 전달하는 서술자를 각각 검토된 선언 1개, 3개, 5개로 축소하고 64KiB 요청 상한이 있는 전용 544토큰 frame 계약을 사용합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. |
+| Semantic frame, 검증된 계획 및 intent graph | implemented | `semantic_judgment.py`, `semantic_planning.py`, `semantic-judgment.v10.yaml`, `semantic-query-frame.v41.yaml`, 집중 의미 및 Azure/인시던트 재생 검사 | 전체 턴 제안은 범위가 제한되고 권한 없이 유지됩니다. shadow 후보는 금지 작업의 정확한 범위, 제공된 의도와 정규 신원 및 검토된 FunctionType 측정 개념을 보존합니다. 엄격한 스키마, 범위 및 기능 검사는 명시적으로 선택해야 하며 v8은 활성 기본값으로 유지됩니다. |
 | Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
 | Principal 범위 관리 문서 RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), 집중 계약, ACL, runtime 및 projection 검사 | 의미 판단은 문서 근거를 `none`, `optional`, `required`, `explicit` 중 하나로 선택합니다. 검색은 인증된 principal의 정확한 그룹, 컬렉션, 개정, 수명 주기, 목적, 접근 정책을 먼저 제한하고 다시 검증합니다. 필수 근거는 안전하게 종료하고, 독립적인 선택 문서 실패는 완료된 운영 근거가 있을 때만 한계를 표시한 부분 답변을 허용합니다. 현재 PostgreSQL 어댑터는 `index_completeness_unverified`를 보고하므로 완전한 프로바이더 세대를 연결하기 전까지 운영 환경의 필수 및 명시적 턴은 보류됩니다. 문서 텍스트는 신뢰할 수 없으며 지시 또는 실행 권한이 없습니다. |
@@ -198,6 +198,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-09 | implemented | 타입이 지정된 `forbidden_actions`, 범위가 제한된 서술자 의미, shadow 전용의 엄격한 범위 및 기능 근거 확인과 Azure/인시던트 의도를 위한 v9/v10/v41 shadow 프롬프트를 추가했습니다. 첫 실제 v9 집단은 안전했지만 정확도 승격 기준을 충족하지 못해 v10을 shadow로 유지합니다. | `current change`, 한국어 예상 사례 16개, 활성 스키마 격리, 결정론적 인시던트 확인, 집중 의미 검사 및 로컬의 내용 없는 탐색용 v8/v9 artifact | enforce 승격 전에 안전 오탐률 두 가지와 만들어 낸 신원 수가 모두 0인 정확한 소스의 이중 언어 v10 집단 통과 근거를 보존합니다. |
 | 2026-09-08 | implemented | 의미 판단 이후 제안된 모든 운영 요약이 수락된 타입 기반 판단과 일치하도록 하고, 영어 명사 순서에서 범위가 제한된 Unicode 구독 이름을 감지하도록 확장했습니다. | `current change`, 수락되지 않은 판단, 구독 범위, 혼합 언어, 정확한 Resource 및 Resource 계획 집중 검사 통과 | 인증된 표준 Console 근거는 별도로 보존합니다. 이번 로컬 하드닝은 기존 런타임 검증 상태를 변경하지 않습니다. |
 | 2026-09-07 | implemented | 정확한 Resource 현재 상태 preflight 유형을 추가하고, 객체 전용 완전성을 관련 없는 관계 및 `scope-test` journal 공백과 분리했으며, 로컬 authoritative refresh의 구성 범위와 journal watermark를 정렬했습니다. | `current change`; 집중 preflight, 계획, query gateway, inventory refresh, source coverage, Ruff 및 strict mypy 검사. 격리된 production Operator E2E가 `answered`와 `semantic_answer_verified`를 반환했습니다. | 인증된 표준 Console 브라우저에서 같은 결과를 보존합니다. |
 | 2026-09-07 | implemented | Compact preflight에 출처가 결속된 F1-F4 후보 의미를 추가해 정확하고 명시적이며 맥락과 독립적인 요청이 직렬 전체 의미 판단 호출 하나를 생략할 수 있게 했습니다. 확신도, 원문 범위, 한 시간, 유형별 형식 및 Resource 신원 검사를 추가했고 다른 모든 요청은 전체 의미 판단을 유지합니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 F1-F4의 답변 token TTFT와 완전한 근거 결과를 보존합니다. |
@@ -377,12 +378,11 @@ evidence_requirements:
 배포 요청인지 모호하거나 달력 경계가 확정되지 않으면, 검증기는 운영 데이터를 읽기 전에
 명확화를 요청합니다.
 
-스키마 대응을 마치면 의도 그래프는 메트릭 변화 탐지, 영향받은 Service 객체 선택, Workload와
-Pod로의 탐색, 변화 시점 근처의 Deployment 및 구성 Change 조회, 정렬된 메트릭 구간 비교 같은
-목표를 연결할 수 있습니다. 작업 DAG는 서로 독립적인 읽기를 동시에 수행할 수 있지만, 인과 관계
-결합은 각 증적을 기다립니다. 증가보다 먼저 일어난 배포는 설명 후보일 뿐입니다. 의존 관계,
-시점, 작동 기제, 완전성, 경합하는 변경의 근거를 모두 따져 지지됨, 반증됨, 미확정 중
-하나로 판정합니다.
+스키마 대응을 마치면 의도 그래프는 메트릭 변화, 영향받은 Service, Workload와 Pod 탐색, 인접
+Change 및 정렬된 구간을 연결합니다. 독립 읽기는 함께 실행할 수 있지만 인과 관계 결합은 증적을
+기다리며 앞선 배포를 설명 후보로만 취급합니다. 의미 판단은 명시적 금지 작업을 현재 발화의
+`forbidden_actions`로 보존하며 목표나 초안을 만들지 않습니다. 별도의 검토 가능한 산출물은
+`draft_only`로 유지할 수 있습니다.
 
 ## 의도 그래프 계약
 

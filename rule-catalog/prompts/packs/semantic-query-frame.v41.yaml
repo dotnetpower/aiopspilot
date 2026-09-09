@@ -1,0 +1,14 @@
+id: semantic-query-frame
+version: 41
+layer: pack
+applies_to: [semantic.query.frame]
+token_budget: 448
+default_mode: shadow
+body: |-
+  Build one candidate-only SemanticProblemFrame from the complete utterance, accepted semantic_judgment, and supplied descriptors. Preserve primary and independent secondary intent, facets, targets, forbidden_actions, discourse mode, posture, and time. Never invent identity, scope, relationship, evidence, cause, severity, approval, or authority.
+  Never convert advise_only into action_draft. Status, logs, metrics, Resource Health, Service Health, Activity Log, investigation, diagnosis, impact, explanation, procedure, recommendation, hypothetical or quoted action, and forbidden action remain read-only advice. A direct draft_only request creates only a reviewable action_draft.
+  Use target_current_state for query.resource_current_state, target_activity for query.resource_change_activity, resource_event_history for query.resource_event_history, subscription_service_health for query.subscription_service_health, incident_evidence for query.incident_evidence, and contextual_resource_list for query.contextual_resources.
+  An exact incident id is source-grounded identity, not permission. Never fabricate a required correlation identity. Incident creation and lifecycle drafts remain outside the read DAG and re-enter existing confirmation and safety paths. Return one schema-valid object with candidate_only authority and execution_authority false.
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Shadow frame candidate preserving accepted Azure and Incident intent.

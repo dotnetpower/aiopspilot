@@ -1,0 +1,202 @@
+schema_version: 1.0.0
+dataset_version: 2.0.0
+evidence_kind: expected_contract_cases
+operational_validation: false
+active_prompt: semantic-judgment.v8
+shadow_prompt: semantic-judgment.v10
+capabilities:
+  - {kind: function_type, name: query.resource_error_activity_correlation}
+  - {kind: function_type, name: query.resource_current_state}
+  - {kind: function_type, name: query.resource_change_activity}
+  - {kind: function_type, name: query.resource_event_history, measure_concepts: [resource_event.resource_health]}
+  - {kind: function_type, name: query.resource_health_inventory}
+  - {kind: function_type, name: query.subscription_service_health, measure_concepts: [service_health.active_event]}
+  - {kind: function_type, name: query.incident_evidence}
+  - {kind: function_type, name: query.contextual_resources}
+  - {kind: function_type, name: query.resource_state_inventory}
+  - {kind: intent, name: action_request}
+  - {kind: intent, name: action_requirements}
+  - {kind: intent, name: explanation}
+  - {kind: object_type, name: Incident}
+  - {kind: object_type, name: Resource}
+  - {kind: resource_type, name: compute.vm}
+  - {kind: resource_type, name: storage.account}
+  - {kind: resource_type, name: container-app}
+  - {kind: resource_type, name: resource-group}
+  - {kind: action_type, name: ops.restart-service}
+cases:
+  - id: forbidden-restart-investigation
+    utterance: "prod-api가 느려. 재시작하지 말고 지난 30분 오류와 변경 이력만 조사해줘"
+    expected:
+      primary_intent: query.resource_error_activity_correlation
+      requested_facets: [cause, errors, change_history, time_range]
+      targets:
+        - {kind: resource, value: prod-api, source_start: 0, source_end: 8}
+        - {kind: time_range, value: "지난 30분", source_start: 23, source_end: 29}
+      forbidden_actions:
+        - {kind: action_type, value: "재시작", canonical_value: ops.restart-service, source_start: 14, source_end: 17}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: exact-vm-current-state
+    utterance: "vm01은 지금 실행 중이야?"
+    expected:
+      primary_intent: query.resource_current_state
+      requested_facets: [current_state, running_state]
+      targets:
+        - {kind: resource, value: vm01, source_start: 0, source_end: 4}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: exact-vm-change-attribution
+    utterance: "vm01을 누가 언제 중지했어?"
+    expected:
+      primary_intent: query.resource_change_activity
+      requested_facets: [actor, operation_time, stopped_state]
+      targets:
+        - {kind: resource, value: vm01, source_start: 0, source_end: 4}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: resource-health-history
+    utterance: "지난 24시간 Resource Health 이벤트를 시간순으로 보여줘"
+    expected:
+      primary_intent: query.resource_event_history
+      requested_facets: [resource_health_events, chronological_order, time_range]
+      targets:
+        - {kind: time_range, value: "지난 24시간", source_start: 0, source_end: 7}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: subscription-platform-outage
+    utterance: "현재 구독에 Azure 플랫폼 장애가 있어?"
+    expected:
+      primary_intent: query.subscription_service_health
+      requested_facets: [current_state, subscription, service_issue]
+      targets: []
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: incident-impact-evidence
+    utterance: "INC-1042의 영향 범위와 근거를 정리해줘"
+    expected:
+      primary_intent: query.incident_evidence
+      requested_facets: [impact_scope, evidence]
+      targets:
+        - {kind: incident_id, value: INC-1042, source_start: 0, source_end: 8}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: incident-mitigation-draft-no-execution
+    utterance: "INC-1042 완화안만 초안으로 만들어줘. 실행하지 마"
+    expected:
+      primary_intent: action_request
+      requested_facets: [incident_mitigation, draft]
+      targets:
+        - {kind: incident_id, value: INC-1042, source_start: 0, source_end: 8}
+      forbidden_actions:
+        - {kind: action, value: "실행", source_start: 25, source_end: 27}
+      discourse_mode: direct
+      action_posture: draft_only
+      action_subject: Incident
+  - id: incident-create-confirmation
+    utterance: "SEV2 인시던트를 prod-api 대상으로 생성해줘"
+    expected:
+      primary_intent: action_request
+      requested_facets: [incident_create, severity]
+      targets:
+        - {kind: severity, value: SEV2, source_start: 0, source_end: 4}
+        - {kind: resource, value: prod-api, source_start: 11, source_end: 19}
+      discourse_mode: direct
+      action_posture: draft_only
+      action_subject: Incident
+  - id: delete-procedure-advice
+    utterance: "스토리지 계정을 삭제하는 방법만 설명해줘"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [delete, procedure]
+      targets:
+        - {kind: resource_type, value: "스토리지 계정", canonical_value: storage.account, source_start: 0, source_end: 7}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: hypothetical-restart-advice
+    utterance: "VM을 재시작하면 해결될까?"
+    expected:
+      primary_intent: action_requirements
+      requested_facets: [restart, expected_effect]
+      targets:
+        - {kind: resource_type, value: VM, canonical_value: compute.vm, source_start: 0, source_end: 2}
+      discourse_mode: hypothetical
+      action_posture: advise_only
+      action_subject: none
+  - id: quoted-delete-report
+    utterance: "운영자가 'VM을 삭제해'라고 말했다"
+    expected:
+      primary_intent: explanation
+      requested_facets: [reported_statement]
+      targets: []
+      discourse_mode: quoted
+      action_posture: advise_only
+      action_subject: none
+  - id: resource-group-container-app-state
+    utterance: "rg-prod 안의 Container App 목록과 각각의 상태를 보여줘"
+    expected:
+      primary_intent: query.contextual_resources
+      requested_facets: [details, current_state, name_filter]
+      targets:
+        - {kind: resource_group, value: rg-prod, canonical_value: resource-group, source_start: 0, source_end: 7}
+        - {kind: resource_type, value: Container App, canonical_value: container-app, source_start: 11, source_end: 24}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: independent-service-health-and-vm-list
+    utterance: "현재 구독의 Azure 플랫폼 장애와 실행 중인 VM 목록을 각각 보여줘"
+    expected:
+      primary_intent: query.subscription_service_health
+      secondary_intents: [query.resource_state_inventory]
+      requested_facets: [service_issue, running_state, resource_list]
+      targets:
+        - {kind: resource_type, value: VM, canonical_value: compute.vm, source_start: 27, source_end: 29}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: independent-state-and-delete-advice
+    utterance: "vm01 상태를 보여주고 삭제 방법도 설명해줘"
+    expected:
+      primary_intent: query.resource_current_state
+      secondary_intents: [action_requirements]
+      requested_facets: [current_state, delete, procedure]
+      targets:
+        - {kind: resource, value: vm01, source_start: 0, source_end: 4}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: ambiguous-vm-state
+    utterance: "VM 상태를 보여줘"
+    expected:
+      primary_intent: query.resource_current_state
+      requested_facets: [current_state]
+      targets:
+        - {kind: resource_type, value: VM, canonical_value: compute.vm, source_start: 0, source_end: 2}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+      ambiguous: true
+      alternatives: []
+      unresolved_terms: [resource_identity]
+      clarification: "어떤 VM의 상태를 조회할까요?"
+  - id: ambiguous-vm-restart
+    utterance: "VM을 재시작해줘"
+    expected:
+      primary_intent: action_request
+      requested_facets: [restart]
+      targets:
+        - {kind: resource_type, value: VM, canonical_value: compute.vm, source_start: 0, source_end: 2}
+      discourse_mode: direct
+      action_posture: draft_only
+      action_subject: ActionType
+      ambiguous: true
+      alternatives: []
+      unresolved_terms: [resource_identity]
+      clarification: "어떤 VM을 재시작할지 이름이나 ID를 알려줄까요?"

@@ -1,0 +1,16 @@
+id: semantic-judgment
+version: 9
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 1536
+default_mode: shadow
+body: |-
+  Interpret one bounded operator utterance as candidate-only structured meaning. Use only supplied intent, FunctionType, ActionType, ObjectType, LinkType, resource type, agent, and measure names. Set authority candidate_only and execution_authority false. Never invent identity, scope, relationship, cause, severity, approval, evidence, or authority.
+  Select one most precise primary_intent. Put only independently requested additional work in secondary_intents and preserve all requested result elements in requested_facets. Current state, logs, metrics, Resource Health, Service Health, Activity Log, investigation, diagnosis, comparison, explanation, procedure, recommendation, hypothetical language, and quoted language are advise_only. Only a direct change or governed artifact request is draft_only.
+  Keep incident symptom, current evidence, cause investigation, change attribution, impact analysis, mitigation draft, creation, and lifecycle change distinct. Incident creation remains an Incident draft for the existing deterministic confirmation flow. Do not invent an incident id.
+  Use query.resource_current_state for exact current state, query.resource_change_activity for actor or time attribution, query.resource_event_history with resource_event.resource_health for bounded Resource Health history, query.subscription_service_health for current subscription platform events, query.incident_evidence for exact incident evidence, and query.contextual_resources for one named resource-group collection.
+  Copy every target and forbidden action from the current utterance with exact Python code-point source_start and source_end. Set canonical_value only when capabilities supply that exact identity. Put explicitly prohibited operations in forbidden_actions; they are not requested actions or secondary intents. A separate reviewable mitigation draft may remain draft_only while execution is forbidden.
+  Clarify only when no safe read plan can be fixed or an action target is unclear. Keep ambiguous, alternatives, unresolved_terms, and one concise question ending in ? consistent. Return only one schema-valid JSON object.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Initial shadow candidate for Azure and Incident intent.

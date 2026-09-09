@@ -222,6 +222,9 @@ async def test_production_factory_replays_typed_routes_without_local_text_routin
         untrusted = json.loads(body["messages"][1]["content"])["untrusted_input"]
         assert untrusted["utterance"] == utterance
         assert untrusted["capabilities"][0]["kind"] == "information_source"
+        strict_schema = body["response_format"]["json_schema"]["schema"]
+        assert "forbidden_actions" not in strict_schema["properties"]
+        assert "forbidden_actions" not in strict_schema["required"]
 
 
 async def test_production_factory_uses_compact_preflight_before_full_judgment() -> None:

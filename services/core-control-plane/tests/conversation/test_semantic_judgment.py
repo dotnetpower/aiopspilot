@@ -140,12 +140,15 @@ def _binding(tier: SemanticJudgmentTier, model: _Model) -> SemanticJudgmentBindi
 def _boundary(
     primary: _Model | None,
     escalation: _Model | None = None,
+    *,
+    strict_intent_grounding: bool = False,
 ) -> SemanticJudgmentBoundary:
     return SemanticJudgmentBoundary(
         profile_id="conversation.routing",
         profile_version="1.0.0",
         primary=_binding(SemanticJudgmentTier.T1, primary) if primary else None,
         escalation=_binding(SemanticJudgmentTier.T2, escalation) if escalation else None,
+        strict_intent_grounding=strict_intent_grounding,
     )
 
 
@@ -690,6 +693,127 @@ def test_non_capability_primary_intent_remains_valid() -> None:
     assert result.accepted is True
     assert result.proposal is not None
     assert result.proposal.primary_intent == "cost_breakdown"
+
+
+def test_strict_candidate_rejects_unsupplied_intent_identity_and_span() -> None:
+    invalid_cases = (
+        (
+            _proposal(primary_intent="invented_query", targets=[]),
+            "Show the current state.",
+            ({"kind": "function_type", "name": "query.resource_current_state"},),
+        ),
+        (
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource_type",
+                        "value": "VM",
+                        "canonical_value": "invented.vm",
+                        "source_start": 0,
+                        "source_end": 2,
+                    }
+                ],
+            ),
+            "VM 상태를 보여줘",
+            (
+                {"kind": "function_type", "name": "query.resource_current_state"},
+                {"kind": "resource_type", "name": "compute.vm"},
+            ),
+        ),
+        (
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[
+                    {
+                        "kind": "resource",
+                        "value": "vm01",
+                        "source_start": 1,
+                        "source_end": 5,
+                    }
+                ],
+            ),
+            "vm01 상태를 보여줘",
+            ({"kind": "function_type", "name": "query.resource_current_state"},),
+        ),
+    )
+    for proposal, utterance, capabilities in invalid_cases:
+        result = _boundary(
+            _Model(proposal),
+            strict_intent_grounding=True,
+        ).judge(
+            utterance=utterance,
+            context=(),
+            capabilities=capabilities,
+            allow_escalation=False,
+        )
+        assert result.accepted is False
+        assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+
+
+def test_forbidden_action_is_grounded_and_never_repaired_from_context() -> None:
+    utterance = "prod-api가 느려. 재시작하지 말고 원인만 조사해줘"
+    accepted = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_error_activity_correlation",
+                targets=[],
+                forbidden_actions=[
+                    {
+                        "kind": "action_type",
+                        "value": "재시작",
+                        "canonical_value": "ops.restart-service",
+                        "source_start": utterance.index("재시작"),
+                        "source_end": utterance.index("재시작") + len("재시작"),
+                    }
+                ],
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {
+                "kind": "function_type",
+                "name": "query.resource_error_activity_correlation",
+            },
+            {"kind": "action_type", "name": "ops.restart-service"},
+        ),
+        allow_escalation=False,
+    )
+    rejected = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.resource_error_activity_correlation",
+                targets=[],
+                forbidden_actions=[
+                    {
+                        "kind": "action",
+                        "value": "재시작",
+                        "source_start": 0,
+                        "source_end": 3,
+                    }
+                ],
+            )
+        ),
+        strict_intent_grounding=True,
+    ).judge(
+        utterance="원인만 조사해줘",
+        context=("재시작하지 마",),
+        capabilities=(
+            {
+                "kind": "function_type",
+                "name": "query.resource_error_activity_correlation",
+            },
+        ),
+        allow_escalation=False,
+    )
+
+    assert accepted.accepted is True
+    assert accepted.proposal is not None
+    assert accepted.proposal.action_posture == "advise_only"
+    assert rejected.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
 
 
 def test_low_confidence_retains_schema_valid_candidate_without_accepting_it() -> None:

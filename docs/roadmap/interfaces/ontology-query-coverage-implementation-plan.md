@@ -183,6 +183,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Azure and Incident semantic judgment | implemented | `semantic_judgment.py`; `semantic_planning_judgment.py`; shadow prompts v9, v10, and v41; focused golden replay | The additive candidate preserves explicit prohibited operations, supplied intent and identity, reviewed FunctionType measures, and exact spans. The first live v9 cohort remained safe but missed accuracy gates, so v10 remains shadow and production validation is open. |
 | Provenance-bound operational preflight | implemented | `conversation-preflight.v2.yaml`; `conversation_preflight.py`; `semantic_planning.py`; 238 focused tests, targeted Ruff, strict mypy, and Browser Entra variants | Exact F1-F4 shapes can remove one serial full-judgment call. Low-confidence, contextual, stale, malformed, unsupported, identity-mismatched, or generic-category proposals retain full judgment or return Resource identity clarification before frame/provider I/O. |
 | Semantic wire and Core processing | implemented | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`; focused semantic tests passed 88 cases | Version 1.2 requests are bounded to 90 seconds, results are idempotent, claims are recoverable, and Rule results remain candidate-only with no execution authority. |
 | Operator persistence and Rule projection | implemented | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`; focused semantic tests and a rollback-only PostgreSQL transaction probe | A valid caller-supplied request UUID is preserved through the semantic envelope and correlation identity while the idempotency key remains separate. The Kafka partition key uses the server-derived opaque session reference, so same-session turns retain order and different sessions remain independently schedulable without exposing the raw session id. An omitted request UUID uses the retry-stable deterministic fallback. Outbox and result leases are recoverable, malformed ownership fails closed, replay ordering is timestamp-aware, and exact Rule reads are isolated by principal and query digest. `SemanticTurnBridge` remains gated on the authoritative store and semantic transport, while the local narrator's periodic refresh remains an independent Operator lifecycle service when that narrator is configured. |
@@ -212,6 +213,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-09 | implemented | Added the 16-case Korean Azure and Incident contract cohort, typed forbidden actions, bounded capability semantics, strict shadow validation, and a v10 correction after the exploratory v9 live cohort missed accuracy gates. | `current change`; focused contracts, prompts, incident confirmation, composition, and content-free local v8 or v9 aggregate evidence. | Run v10 on one exact-source bilingual cohort and require both unsafe false-positive rates plus invented identity count to remain zero before promotion. |
 | 2026-09-09 | implemented | Bound semantic Kafka records to the opaque session partition key and kept the request UUID for idempotency and correlation only. | `current change`; focused Operator semantic transport tests. | Retain the governed authenticated subscription receipt required by issue #151. |
 | 2026-09-08 | implemented | Restored the `check-file-loc` and strict-mypy CI gates for `semantic_planning.py` (813 LOC) and `semantic_runtime.py` (913 LOC, over the 871 baseline) by extracting `PreflightDirectResponseRouter` into `semantic_planning_preflight_router.py` and the thread-cancellation bridge into `semantic_runtime_cancellation.py`, and fixed two strict-mypy `union-attr` errors (the optional cancellation event and optional `SemanticPlanningService` planner call) by narrowing to a local variable and an explicit `is not None` guard. No behavior change. | `current change`; `semantic_planning.py` (734 LOC), `semantic_runtime.py` (805 LOC), Ruff, targeted strict mypy on all four touched modules, `check-file-loc.sh` (enforce mode, 0 failed), and 1703 focused `tests/conversation/` cases passed. | None; both files are now below their respective ceilings. |
 | 2026-09-08 | implemented | Bound streamed semantic answer segments to the verified receipt and evidence set, added segment-specific replay, and made the Console reject a conflicting confirmation or terminal answer. | `current change`; `semantic_turn_runtime.py`, `backend-stream.ts`, focused Operator, Console, and cross-service stream tests. | Retain authenticated runtime evidence separately; local stream checks do not establish production readiness. |
@@ -395,6 +397,11 @@ No new agent is introduced.
 - temporal and comparison windows pinned to trusted time;
 - requested answer shape and evidence requirements;
 - unresolved concepts and competing interpretations.
+
+The preceding `SemanticJudgmentProposal` can additionally preserve explicit prohibited operations
+as exact current-utterance spans. The hardened candidate accepts only supplied intent, canonical
+identity, and reviewed FunctionType measure names, and rejects span repair. This candidate remains a
+shadow pack; the active v8 prompt and strict output schema omit the additive field until promotion.
 
 It contains no provider query, raw SQL/KQL, object claim, or execution authority.
 

@@ -60,6 +60,7 @@ class AzureOpenAISemanticJudgmentModelConfig:
     timeout_seconds: float = 30.0
     social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
+    forbidden_actions_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
@@ -164,7 +165,9 @@ class AzureOpenAISemanticJudgmentModel:
             self._complete(
                 encoded,
                 input_digest=input_digest,
-                proposal_schema=SemanticJudgmentProposal.model_json_schema(),
+                proposal_schema=_semantic_judgment_proposal_schema(
+                    forbidden_actions_enabled=self._config.forbidden_actions_enabled
+                ),
                 system_prompt=self._config.system_prompt,
                 call_kind="semantic-judgment",
                 max_tokens=self._config.max_tokens,
@@ -508,6 +511,22 @@ def _strict_response_format(
             "schema": _strict_schema_node(proposal_schema),
         },
     }
+
+
+def _semantic_judgment_proposal_schema(
+    *,
+    forbidden_actions_enabled: bool,
+) -> dict[str, Any]:
+    """Expose additive forbidden-action output only to an explicit shadow candidate."""
+
+    schema = SemanticJudgmentProposal.model_json_schema()
+    if forbidden_actions_enabled:
+        return schema
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        raise ValueError("semantic judgment proposal schema has no properties")
+    properties.pop("forbidden_actions", None)
+    return schema
 
 
 def _strict_schema_node(value: object) -> object:

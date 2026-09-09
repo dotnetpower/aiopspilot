@@ -186,7 +186,7 @@ def _is_temporal_comparison(frame: SemanticProblemFrame | None) -> bool:
 def _semantic_judgment_capabilities(
     descriptors: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], ...]:
-    """Project principal-scoped ontology descriptors without authority or schemas."""
+    """Project principal-scoped identity and reviewed intent semantics without authority."""
 
     kind_map = {
         "action": "action_type",
@@ -201,10 +201,31 @@ def _semantic_judgment_capabilities(
         name = descriptor.get("name")
         if kind not in kind_map or not isinstance(name, str):
             continue
-        capability = {"kind": kind_map[kind], "name": name}
+        capability: dict[str, Any] = {"kind": kind_map[kind], "name": name}
         operation = descriptor.get("operation")
         if kind == "action" and isinstance(operation, str):
             capability["operation"] = operation
+        if kind == "function":
+            output_schema = descriptor.get("output_schema")
+            measure_concepts = (
+                output_schema.get("x-fdai-measure-concepts")
+                if isinstance(output_schema, Mapping)
+                else None
+            )
+            if (
+                isinstance(measure_concepts, list)
+                and measure_concepts
+                and len(measure_concepts) <= 32
+                and all(isinstance(item, str) and 0 < len(item) <= 128 for item in measure_concepts)
+            ):
+                capability["measure_concepts"] = sorted(set(measure_concepts))
+        if kind == "object":
+            properties = descriptor.get("properties")
+            if isinstance(properties, Mapping) and len(properties) <= 32:
+                capability["canonical_values"] = [
+                    name,
+                    *(f"{name}.{property_name}" for property_name in sorted(properties)),
+                ]
         capabilities.append(capability)
     return tuple(capabilities)
 

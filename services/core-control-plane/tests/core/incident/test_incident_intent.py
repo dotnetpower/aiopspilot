@@ -42,3 +42,15 @@ def test_non_incident_command_is_not_misclassified() -> None:
 
     assert turn.status == "not_incident"
     assert turn.proposal is None
+
+
+def test_semantic_incident_create_wording_keeps_deterministic_confirmation() -> None:
+    turn = prepare_incident_chat(
+        "SEV2 인시던트를 prod-api 대상으로 생성해줘",
+        requested_by="operator@example.com",
+    )
+
+    assert turn.status == "awaiting_confirmation"
+    assert turn.proposal is not None
+    assert turn.proposal.severity is IncidentSeverity.SEV2
+    assert turn.proposal.correlation_keys == ("resource:prod-api",)

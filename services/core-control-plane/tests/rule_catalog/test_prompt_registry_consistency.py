@@ -239,10 +239,25 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     operational_frame = prompts.get_base("semantic.query.frame.operational")
     judgment = prompts.get_base("semantic.judgment")
     plan = prompts.get_base("semantic.query.plan")
+    judgment_shadow = next(
+        artifact
+        for artifact in prompts.get_packs("semantic.judgment")
+        if artifact.id == "semantic-judgment"
+    )
+    frame_shadow = next(
+        artifact
+        for artifact in prompts.get_packs("semantic.query.frame")
+        if artifact.id == "semantic-query-frame"
+    )
 
     assert frame.version == 40
     assert judgment.version == 8
     assert operational_frame.version == 1
+    assert judgment_shadow.version == 10
+    assert frame_shadow.version == 41
+    assert judgment_shadow.default_mode.value == frame_shadow.default_mode.value == "shadow"
+    assert "utterance[source_start:source_end] MUST equal value exactly" in judgment_shadow.body
+    assert "Never convert advise_only into action_draft" in frame_shadow.body
     assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
     assert "gateway status, backend status, and model status" in operational_frame.body
     assert "Capacity units, current capacity, authoritative TPM" in operational_frame.body

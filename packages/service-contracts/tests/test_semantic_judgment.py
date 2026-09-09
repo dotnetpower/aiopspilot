@@ -66,6 +66,7 @@ def test_default_document_mode_is_omitted_from_legacy_digest_material() -> None:
     payload = _proposal().model_dump(mode="json")
 
     assert "document_evidence_mode" not in payload
+    assert "forbidden_actions" not in payload
 
 
 def test_target_accepts_canonical_ontology_identity_case() -> None:
@@ -78,6 +79,27 @@ def test_target_accepts_canonical_ontology_identity_case() -> None:
     )
 
     assert target.canonical_value == "Change"
+
+
+def test_proposal_preserves_typed_forbidden_action_without_action_authority() -> None:
+    proposal = _proposal().model_copy(
+        update={
+            "forbidden_actions": (
+                SemanticTarget(
+                    kind="action_type",
+                    value="재시작",
+                    canonical_value="ops.restart-service",
+                    source_start=14,
+                    source_end=17,
+                ),
+            )
+        }
+    )
+
+    assert proposal.forbidden_actions[0].value == "재시작"
+    assert proposal.action_posture == "advise_only"
+    assert proposal.action_subject == "none"
+    assert proposal.execution_authority is False
 
 
 def test_ambiguous_proposal_requires_one_question() -> None:

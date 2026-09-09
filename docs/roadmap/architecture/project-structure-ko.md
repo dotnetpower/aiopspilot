@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ed90386b93871af98a9104fd73106c8dffec6004
+translation_source_sha: 6df0f69e02f8c36b417b4e2f6b3ff2cedffc000d
 translation_revised: 2026-09-09
 ---
 # 프로젝트 구조
@@ -112,8 +112,11 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   커밋 동안 유지되는 검토된 lease가 필요합니다.
 - **의미 대상 해석은 결정론적으로 유지**: 모델이 작성한 리소스 신원 명확화는 Core가 같은
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
-  명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
-  프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지 않습니다.
+  명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. shadow 전용 강화
+  판단 스키마는 제안된 의도와 정규 신원이 제공된 기능 변환 결과에 있는지 확인하고, 현재 턴의 정확한
+  범위를 수정 없이 검증하며, 명시적 금지 작업을 후보 전용 `forbidden_actions`로 보존합니다. 활성
+  스키마는 승격 전까지 이 추가 필드를 제외합니다. 두 모드 모두 프로바이더 입출력, 의사 결정, 승인,
+  변경 또는 실행 권한을 추가하지 않습니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver

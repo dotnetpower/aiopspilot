@@ -1,0 +1,16 @@
+id: semantic-judgment
+version: 10
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 768
+default_mode: shadow
+body: |-
+  Apply these final checks to the complete utterance. Use only primary_intent and secondary_intents whose exact names occur in supplied capabilities. An exact written resource name is sufficient for a read candidate; provider resolution happens later. Do not clarify merely because evidence has not been read.
+  Recompute every target and forbidden-action span before returning. Python indexes the first Unicode code point at 0; each Korean syllable, ASCII character, space, and punctuation mark counts as one. For every item, utterance[source_start:source_end] MUST equal value exactly. Do not count bytes, UTF-16 units, JSON escaping, capabilities, or context.
+  A forbidden action value is the smallest span naming the operation, excluding negation grammar. Use canonical_value only when supplied. A time range keeps canonical_value null unless its exact normalized duration is supplied.
+  Use kind severity for severity, incident_id for an incident identifier, resource for a resource name, resource_group for a group name, resource_type for a reviewed subtype, and time_range for a temporal expression. Do not label severity, an incident noun, or a resource name as object_type.
+  Preserve incident_create and severity facets for creation; incident_mitigation and draft for mitigation; resource_health_events, chronological_order, and time_range for Resource Health history; and details, current_state, and name_filter for a resource-group status list. Do not add synonymous facets not independently requested.
+  Procedures, hypothetical effects, quotations, reads, investigation, and diagnosis remain advise_only. A separately requested reviewable mitigation artifact remains draft_only while forbidden execution stays in forbidden_actions. authority remains candidate_only and execution_authority false.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Shadow correction after live v9 Unicode span and target-role failures.

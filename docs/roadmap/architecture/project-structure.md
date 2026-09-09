@@ -116,8 +116,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **semantic target resolution is deterministic**: a model-authored resource-identity
   clarification is removed only when Core verifies one exact runtime identifier from the same
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
-  clarification. This validation adds no provider I/O, decision, approval, mutation, or execution
-  authority.
+  clarification. A shadow-only hardened judgment schema also requires every proposed intent and
+  canonical identity to occur in the supplied capability projection, validates exact current-turn
+  spans without repair, and preserves explicit prohibitions as candidate-only `forbidden_actions`.
+  The active schema excludes that additive field until promotion. Neither mode adds provider I/O,
+  decision, approval, mutation, or execution authority.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
