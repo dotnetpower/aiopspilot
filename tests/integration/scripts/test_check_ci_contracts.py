@@ -304,8 +304,21 @@ def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
 
 
 def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
-    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    workflow_path = _REPO_ROOT / ".github/workflows/ci.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    jobs = yaml.safe_load(workflow)["jobs"]
+    freeze_steps = jobs["freeze-scenarios"]["steps"]
+    checkout = next(step for step in freeze_steps if step["name"] == "Checkout")
+    detection = next(
+        step
+        for step in freeze_steps
+        if step["name"] == "Detect modifications / deletions in frozen versions"
+    )
 
+    assert checkout["with"]["fetch-depth"] == 0
+    assert all(step["name"] != "Fetch base ref" for step in freeze_steps)
+    assert detection["env"] == {"PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}"}
+    assert 'base_sha="$PR_BASE_SHA"' in detection["run"]
     assert "'services/core-control-plane/tests/scenarios/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/manifests/v*.json'" in workflow
