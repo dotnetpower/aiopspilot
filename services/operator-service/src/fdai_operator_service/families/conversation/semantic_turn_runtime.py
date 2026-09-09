@@ -6,8 +6,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import sys
 from collections import OrderedDict, deque
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
@@ -71,6 +72,7 @@ from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipProof,
     AdaptiveRelationshipUnknownReason,
 )
+from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 from pydantic import TypeAdapter, ValidationError
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
@@ -85,8 +87,14 @@ _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
 _MAX_ANSWER_CHUNK_CHARS = 64
 _MAX_TRACKED_PROGRESS_REQUESTS = 256
 _MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
+_RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
 _LOGGER = logging.getLogger(__name__)
 _RELATIONSHIP_REASON = TypeAdapter(AdaptiveRelationshipUnknownReason)
+
+
+def _emit_runtime_call_record(record: str) -> None:
+    sys.stdout.write(f"{record}\n")
+    sys.stdout.flush()
 
 
 class DialogueRelationshipResolver(Protocol):
@@ -703,6 +711,53 @@ class SemanticTurnProjectionConsumer:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeCallEndpointObserver:
+    """Emit one authority-free exact-endpoint witness after broker acceptance."""
+
+    caller_resource_id: str
+    target_resource_id: str
+    clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    emit: Callable[[str], None] = _emit_runtime_call_record
+
+    def __post_init__(self) -> None:
+        _container_app_name(self.caller_resource_id, field_name="caller_resource_id")
+        _container_app_name(self.target_resource_id, field_name="target_resource_id")
+        if self.caller_resource_id.casefold() == self.target_resource_id.casefold():
+            raise ValueError("runtime call caller and target Resource IDs MUST be distinct")
+
+    def record(self, request: Mapping[str, object]) -> str:
+        """Build a replay-stable witness without request content or authority."""
+
+        request_id = request.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip() or len(request_id) > 512:
+            raise ValueError("runtime call request_id MUST be bounded non-empty text")
+        observed_at = self.clock()
+        if observed_at.tzinfo is None:
+            raise ValueError("runtime call observation clock MUST be timezone-aware")
+        payload = {
+            "schema_version": _RUNTIME_CALL_LOG_SCHEMA,
+            "message": "runtime_call_endpoint_observed",
+            "endpoint_role": "caller",
+            "observation_id": _runtime_call_observation_id(
+                request_id=request_id,
+                caller_resource_id=self.caller_resource_id,
+                target_resource_id=self.target_resource_id,
+            ),
+            "caller_resource_id": self.caller_resource_id,
+            "target_resource_id": self.target_resource_id,
+            "observed_at": observed_at.astimezone(UTC).isoformat(),
+            "execution_authority": False,
+            "mutation_authority": False,
+        }
+        return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+    def emit_record(self, record: str) -> None:
+        """Write one prevalidated record to the container log stream."""
+
+        self.emit(record)
+
+
+@dataclass(frozen=True, slots=True)
 class SemanticTurnOutboxDrainer:
     """Lease and publish persisted requests with retry-safe compare-and-set closure."""
 
@@ -711,6 +766,7 @@ class SemanticTurnOutboxDrainer:
     worker_id: str
     request_topic: str = SEMANTIC_REQUEST_TOPIC
     lease_seconds: int = 120
+    runtime_call_observer: RuntimeCallEndpointObserver | None = None
 
     async def run_once(self) -> bool:
         """Publish at most one leased request and release transport failures for retry."""
@@ -720,6 +776,11 @@ class SemanticTurnOutboxDrainer:
         )
         if claim is None:
             return False
+        runtime_call_record = (
+            self.runtime_call_observer.record(claim.envelope)
+            if self.runtime_call_observer is not None
+            else None
+        )
         try:
             partition_key = claim.envelope.get("resource_ref")
             if not isinstance(partition_key, str) or not partition_key.startswith(
@@ -737,6 +798,8 @@ class SemanticTurnOutboxDrainer:
                 claim_id=claim.claim_id,
             )
             return False
+        if self.runtime_call_observer is not None and runtime_call_record is not None:
+            self.runtime_call_observer.emit_record(runtime_call_record)
         closed = await self.store.mark_semantic_turn_published(
             key=claim.key,
             claim_id=claim.claim_id,
@@ -764,6 +827,7 @@ class SemanticTurnBridge:
         progress_topic: str = SEMANTIC_PROGRESS_TOPIC,
         progress_group: str = SEMANTIC_PROGRESS_GROUP,
         retry_seconds: float = 1.0,
+        runtime_call_observer: RuntimeCallEndpointObserver | None = None,
     ) -> None:
         if (publisher is None) != (result_source is None):
             raise ValueError("semantic publisher and result source MUST be bound together")
@@ -782,7 +846,13 @@ class SemanticTurnBridge:
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._progress_relay = _SemanticProgressRelay()
         self._drainer = (
-            SemanticTurnOutboxDrainer(store, publisher, worker_id, request_topic)
+            SemanticTurnOutboxDrainer(
+                store,
+                publisher,
+                worker_id,
+                request_topic,
+                runtime_call_observer=runtime_call_observer,
+            )
             if publisher is not None
             else None
         )
@@ -1866,12 +1936,70 @@ def _mapping_int(value: Mapping[str, Any], key: str) -> int:
     return item
 
 
+def runtime_call_endpoint_observer_from_config(
+    config: Mapping[str, str],
+) -> RuntimeCallEndpointObserver | None:
+    """Bind exact endpoint evidence only in the deployed Operator producer."""
+
+    caller = config.get("FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", "").strip()
+    target = config.get("FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", "").strip()
+    if bool(caller) != bool(target):
+        raise RuntimeError(
+            "runtime call caller and target Resource IDs MUST be configured together"
+        )
+    if not caller:
+        return None
+    if resolve_execution_venue(config) is not ExecutionVenue.DEPLOYED:
+        raise RuntimeError("runtime call Resource IDs are valid only in the deployed venue")
+    return RuntimeCallEndpointObserver(
+        caller_resource_id=caller,
+        target_resource_id=target,
+    )
+
+
+def _runtime_call_observation_id(
+    *,
+    request_id: str,
+    caller_resource_id: str,
+    target_resource_id: str,
+) -> str:
+    body = json.dumps(
+        {
+            "caller_resource_id": caller_resource_id,
+            "request_id": request_id,
+            "schema_version": _RUNTIME_CALL_LOG_SCHEMA,
+            "target_resource_id": target_resource_id,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(body).hexdigest()
+
+
+def _container_app_name(value: str, *, field_name: str) -> str:
+    segments = value.split("/")
+    if (
+        len(segments) != 9
+        or segments[0] != ""
+        or segments[1].casefold() != "subscriptions"
+        or not segments[2]
+        or segments[3].casefold() != "resourcegroups"
+        or not segments[4]
+        or segments[5].casefold() != "providers"
+        or f"{segments[6]}/{segments[7]}".casefold() != "microsoft.app/containerapps"
+        or not segments[8]
+    ):
+        raise ValueError(f"runtime call {field_name} MUST identify a Container App")
+    return segments[8]
+
+
 __all__ = [
     "SEMANTIC_REQUEST_TOPIC",
     "SEMANTIC_PROGRESS_TOPIC",
     "SEMANTIC_PROGRESS_GROUP",
     "SEMANTIC_RESULT_GROUP",
     "SEMANTIC_RESULT_TOPIC",
+    "RuntimeCallEndpointObserver",
     "SemanticTurnBridge",
     "SemanticTurnConversationAdapters",
     "SemanticTurnEventPublisher",
@@ -1880,4 +2008,5 @@ __all__ = [
     "SemanticTurnResultSource",
     "SemanticTurnStore",
     "T1ModelHealthReader",
+    "runtime_call_endpoint_observer_from_config",
 ]

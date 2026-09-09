@@ -33,7 +33,11 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Platform-to-service bindings:** Root Terraform exports reviewed targets and Key Vault references.
   Protected deployment validates them, and its bot wrapper accepts only exact service plans. For
   public development, `azd-up.sh` composes an image-free platform stage, deployment-owned ACR digest,
-  migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. Private, shared, staging, and production paths retain their protected runner and sealed approval controls.
+  migrations, catalogs, sensitive Core handoff, exact Core plan, and bounded verification. The
+  runtime-call handoff carries the same exact Operator and Core Container App Resource IDs into both
+  endpoint services; the inventory Job independently joins their platform logs before the single writer can
+  project a relationship. Private, shared, staging, and production paths retain their protected
+  runner and sealed approval controls.
 - **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access and key authentication disabled by default. The root module and protected dev workflow expose one explicit public-access opt-in only for environments that independently retain deny-by-default trusted-source ACLs.
 - **Console data modes:** The Console defaults to authoritative Live data. Reviewed Overview and
   Operations routes can opt into explicit Sample projections that remain read-only, generic, and

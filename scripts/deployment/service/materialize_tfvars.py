@@ -199,6 +199,65 @@ def _channel_edge_name(operator_name: object) -> str:
     raise TfvarsError("operator service name cannot derive a valid channel edge name")
 
 
+def _container_app_resource_id(value: object, *, label: str) -> tuple[str, str]:
+    if not isinstance(value, str) or value != value.strip():
+        raise TfvarsError(f"{label} must be an exact Container App Resource ID")
+    segments = value.split("/")
+    if (
+        len(segments) != 9
+        or segments[0] != ""
+        or segments[1].lower() != "subscriptions"
+        or _AZURE_GUID.fullmatch(segments[2]) is None
+        or segments[3].lower() != "resourcegroups"
+        or not segments[4]
+        or segments[5].lower() != "providers"
+        or f"{segments[6]}/{segments[7]}".lower() != "microsoft.app/containerapps"
+        or not segments[8]
+    ):
+        raise TfvarsError(f"{label} must be an exact Container App Resource ID")
+    return value, segments[8]
+
+
+def _runtime_call_evidence_binding(
+    binding: dict[str, Any],
+    *,
+    service: str,
+    service_name: object,
+) -> dict[str, str]:
+    if set(binding) != {"caller_resource_id", "target_resource_id"}:
+        raise TfvarsError("runtime call evidence binding has unexpected fields")
+    caller, caller_name = _container_app_resource_id(
+        binding.get("caller_resource_id"),
+        label="runtime call caller",
+    )
+    target, target_name = _container_app_resource_id(
+        binding.get("target_resource_id"),
+        label="runtime call target",
+    )
+    if caller.lower() == target.lower():
+        raise TfvarsError("runtime call caller and target Resource IDs must be distinct")
+    if not isinstance(service_name, str):
+        raise TfvarsError("runtime call service name is missing")
+    if service == "operator-service":
+        if caller_name.lower() != service_name.lower():
+            raise TfvarsError("runtime call caller Resource ID does not match the Operator service")
+        if not target_name.endswith("-core"):
+            raise TfvarsError("runtime call target Resource ID does not identify the Core service")
+    elif service == "core-control-plane":
+        if target_name.lower() != service_name.lower():
+            raise TfvarsError("runtime call target Resource ID does not match the Core service")
+        if not caller_name.endswith(("-operator-api", "-readapi")):
+            raise TfvarsError(
+                "runtime call caller Resource ID does not identify the Operator service"
+            )
+    else:  # pragma: no cover - guarded by the caller
+        raise TfvarsError("runtime call evidence service is unsupported")
+    return {
+        "caller_resource_id": caller,
+        "target_resource_id": target,
+    }
+
+
 def _channel_edge_secret_id(value: object, *, expected_name: str) -> tuple[str, str]:
     if not isinstance(value, str) or not value.isprintable() or value != value.strip():
         raise TfvarsError("operator channel edge secret ids must be non-empty strings")
@@ -369,6 +428,7 @@ def select_tfvars(
     web_search_allowed_domains: list[str] | None = None,
     stewardship_gitops: dict[str, Any] | None = None,
     decision_evidence_container_url: str = "",
+    runtime_call_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -383,6 +443,10 @@ def select_tfvars(
         raise TfvarsError(f"tfvars payload has no non-empty entry for {service}")
     if "image" in selected:
         raise TfvarsError("tfvars payload must not set image; the attested workflow input owns it")
+    if "runtime_call_evidence" in selected:
+        raise TfvarsError(
+            "tfvars payload must not set runtime_call_evidence; platform state owns it"
+        )
     materialized = copy.deepcopy(selected)
     if operator_channel_edge_enabled is not None:
         if service != "operator-service":
@@ -433,6 +497,14 @@ def select_tfvars(
         materialized["decision_evidence_container_url"] = _https_container_url(
             decision_evidence_container_url
         )
+    if service in {"core-control-plane", "operator-service"} and runtime_call_evidence is not None:
+        materialized["runtime_call_evidence"] = _runtime_call_evidence_binding(
+            runtime_call_evidence,
+            service=service,
+            service_name=materialized.get("name"),
+        )
+    elif runtime_call_evidence is not None:
+        raise TfvarsError("runtime call evidence binding is valid only for operator-service")
     return materialized
 
 
@@ -530,6 +602,7 @@ def main() -> int:
                 "DECISION_EVIDENCE_CONTAINER_URL",
                 "",
             ),
+            runtime_call_evidence=_optional_object_environment("RUNTIME_CALL_EVIDENCE_JSON"),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:

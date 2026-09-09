@@ -58,6 +58,9 @@ module "container_app" {
     { name = "FDAI_RBAC_BREAK_GLASS_GROUP_ID", value = var.rbac.break_glass_group_id },
     { name = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS", value = var.cors_allow_origins },
     { name = "FDAI_OPERATOR_SERVICE_PORT", value = tostring(var.health.port) },
+    ], trimspace(var.runtime_call_evidence.caller_resource_id) == "" ? [] : [
+    { name = "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", value = var.runtime_call_evidence.caller_resource_id },
+    { name = "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", value = var.runtime_call_evidence.target_resource_id },
     ], var.notification_receipt_secret_id == "" ? [] : [
     { name = "FDAI_NOTIFICATION_RECEIPT_SECRET", secret_name = "notification-receipt-secret" },
     ], var.hil_callback.enabled ? concat([

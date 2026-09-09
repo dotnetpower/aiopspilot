@@ -52,6 +52,20 @@ resource "azurerm_container_app_job" "inventory" {
           value = env.value
         }
       }
+      dynamic "env" {
+        for_each = var.monitor_workspace_customer_id == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_MONITOR_WORKSPACE_ID"
+          value = var.monitor_workspace_customer_id
+        }
+      }
+      dynamic "env" {
+        for_each = var.runtime_call_evidence_enabled ? toset(["1"]) : toset([])
+        content {
+          name  = "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED"
+          value = "1"
+        }
+      }
 
       env {
         name        = "FDAI_INVENTORY_DSN"

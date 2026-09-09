@@ -20,6 +20,14 @@ _WORKFLOW = (
 ).read_text(encoding="utf-8")
 _PRIMARY_ENDPOINT = "https://oai-fdai.openai.azure.com"
 _MODEL_ENDPOINTS = {"azure-openai:oai-fdai": _PRIMARY_ENDPOINT}
+_CALLER_RESOURCE_ID = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+    "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-operator-api"
+)
+_TARGET_RESOURCE_ID = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+    "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
+)
 sys.path.insert(0, str(_SCRIPTS))
 
 
@@ -150,6 +158,132 @@ def test_binds_private_decision_evidence_container_for_core(tfvars: ModuleType) 
     assert selected["decision_evidence_container_url"] == (
         "https://example.com/operational-history"
     )
+
+
+def test_binds_exact_runtime_call_resource_ids_for_operator(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "ca-example-operator-api",
+                    "platform": {},
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+        runtime_call_evidence={
+            "caller_resource_id": _CALLER_RESOURCE_ID,
+            "target_resource_id": _TARGET_RESOURCE_ID,
+        },
+    )
+
+    assert selected["runtime_call_evidence"] == {
+        "caller_resource_id": _CALLER_RESOURCE_ID,
+        "target_resource_id": _TARGET_RESOURCE_ID,
+    }
+    without_platform_binding = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+    )
+    assert "runtime_call_evidence" not in without_platform_binding
+
+
+def test_binds_the_same_exact_runtime_call_resource_ids_for_core(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "ca-example-core",
+                    "platform": {},
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        runtime_call_evidence={
+            "caller_resource_id": _CALLER_RESOURCE_ID,
+            "target_resource_id": _TARGET_RESOURCE_ID,
+        },
+    )
+
+    assert selected["runtime_call_evidence"] == {
+        "caller_resource_id": _CALLER_RESOURCE_ID,
+        "target_resource_id": _TARGET_RESOURCE_ID,
+    }
+
+
+def test_rejects_secret_owned_runtime_call_resource_ids(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "ca-example-operator-api",
+                    "runtime_call_evidence": {
+                        "caller_resource_id": _CALLER_RESOURCE_ID,
+                        "target_resource_id": _TARGET_RESOURCE_ID,
+                    },
+                }
+            }
+        }
+    }
+
+    with pytest.raises(tfvars.TfvarsError, match="platform state owns it"):
+        tfvars.select_tfvars(
+            payload,
+            service="operator-service",
+            environment="dev",
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        {
+            "caller_resource_id": _TARGET_RESOURCE_ID,
+            "target_resource_id": _TARGET_RESOURCE_ID,
+        },
+        {
+            "caller_resource_id": _CALLER_RESOURCE_ID,
+            "target_resource_id": _CALLER_RESOURCE_ID,
+        },
+        {
+            "caller_resource_id": "ca-example-operator-api",
+            "target_resource_id": _TARGET_RESOURCE_ID,
+        },
+    ],
+)
+def test_rejects_untrusted_runtime_call_resource_binding(
+    tfvars: ModuleType,
+    binding: dict[str, str],
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "ca-example-operator-api",
+                    "platform": {},
+                }
+            }
+        }
+    }
+
+    with pytest.raises(tfvars.TfvarsError, match="runtime call"):
+        tfvars.select_tfvars(
+            payload,
+            service="operator-service",
+            environment="dev",
+            runtime_call_evidence=binding,
+        )
 
 
 def test_rejects_decision_evidence_container_for_other_service(tfvars: ModuleType) -> None:
@@ -850,6 +984,13 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in _WORKFLOW
     assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "Core service tfvars has no LLM configuration" not in _WORKFLOW
+
+
+def test_workflow_materializes_platform_owned_runtime_call_resource_ids() -> None:
+    assert _WORKFLOW.count("output -json runtime_call_evidence_binding") == 2
+    assert "runtime_call_evidence_binding 2>/dev/null || printf 'null" in _WORKFLOW
+    assert _WORKFLOW.count('RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding"') == 2
+    assert "invalid runtime-call evidence binding" in _WORKFLOW
     assert "output -json ohl_observation_context_binding" in _WORKFLOW
     assert "hydrate_observation_context.py" in _WORKFLOW
 
