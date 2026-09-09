@@ -28,6 +28,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
+from fdai.core.conversation.semantic_manifest_planning import build_ontology_schema_frame
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_cascade import (
     AGGRESSIVE_T2_ESCALATION_POLICY,
@@ -11163,19 +11164,135 @@ def test_accepted_schema_judgment_builds_frame_and_plan_without_model_fallback(
 
 
 @pytest.mark.parametrize(
+    "schema_intent",
+    ("query.ontology_declaration", "query.ontology_relationships"),
+)
+def test_typed_declaration_count_repairs_adjacent_schema_intents_without_frame_model(
+    schema_intent: str,
+) -> None:
+    class _AdjacentSchemaIntentModel:
+        def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+            target = "FunctionType"
+            source_start = utterance.index(target)
+            return {
+                "primary_intent": schema_intent,
+                "targets": [
+                    {
+                        "kind": "object_type",
+                        "value": target,
+                        "canonical_value": target,
+                        "source_start": source_start,
+                        "source_end": source_start + len(target),
+                    }
+                ],
+                "requested_facets": ["function_type_count", "scope"],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "action_subject": "none",
+                "execution_authority": False,
+            }
+
+    manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
+    frame_model = _Model(frame=None, plan=None)
+    fallback_model = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_AdjacentSchemaIntentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=frame_model,
+        escalation_model=fallback_model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.AGGREGATE),
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="Report the FunctionType count in the active ontology release.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("function",)
+    assert outcome.frame.measure_concepts == ("count",)
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["function"]
+    assert outcome.plan.output_node_ids == ("declaration-count",)
+    assert (frame_model.frame_calls, frame_model.plan_calls) == (0, 0)
+    assert (fallback_model.frame_calls, fallback_model.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "target", "facets"),
+    (
+        ("query.resource_state_inventory", "FunctionType", ("count",)),
+        ("query.ontology_declaration", "Resource", ("count",)),
+        ("query.ontology_declaration", "FunctionType", ("declaration_detail",)),
+    ),
+)
+def test_schema_count_fast_path_rejects_non_schema_count_contracts(
+    primary_intent: str,
+    target: str,
+    facets: tuple[str, ...],
+) -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": primary_intent,
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": target,
+                    "canonical_value": target,
+                    "source_start": 0,
+                    "source_end": len(target),
+                }
+            ],
+            "requested_facets": facets,
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+    )
+    manifest, _definition = _fixture(function_types=(ontology_manifest_function_type(),))
+
+    result = build_ontology_schema_frame(
+        judgment,
+        utterance=target,
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+
+    assert result is None
+
+
+@pytest.mark.parametrize(
     (
         "judgment_target",
         "include_domain_target",
         "frame_subjects",
         "primary_intent",
         "count_facet",
+        "expected_frame_calls",
     ),
     (
-        (None, False, ("ActionType", "Ontology"), "query.ontology_declaration", "count"),
-        ("ActionTypes", False, ("LinkType",), "query.ontology_declaration", "count"),
-        ("ActionTypes", True, ("LinkType",), "query.ontology_declaration", "count"),
-        (None, False, ("ActionType",), "query.ontology_declaration", "action_type_count"),
-        (None, False, ("ActionType",), "query.ontology_relationships", "actiontype"),
+        (None, False, ("ActionType", "Ontology"), "query.ontology_declaration", "count", 1),
+        ("ActionTypes", False, ("LinkType",), "query.ontology_declaration", "count", 0),
+        ("ActionTypes", True, ("LinkType",), "query.ontology_declaration", "count", 0),
+        (None, False, ("ActionType",), "query.ontology_declaration", "action_type_count", 1),
+        (None, False, ("ActionType",), "query.ontology_relationships", "actiontype", 1),
     ),
 )
 def test_manifest_count_normalizes_the_validated_declaration_intent(
@@ -11184,6 +11301,7 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
     frame_subjects: tuple[str, ...],
     primary_intent: str,
     count_facet: str,
+    expected_frame_calls: int,
 ) -> None:
     class _DeclarationCountJudgmentModel:
         def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
@@ -11269,7 +11387,7 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
     assert outcome.frame.measure_concepts == ("count",)
     assert outcome.plan is not None
     assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["action"]
-    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t1.frame_calls, t1.plan_calls) == (expected_frame_calls, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 

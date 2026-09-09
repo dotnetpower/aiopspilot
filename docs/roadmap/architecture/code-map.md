@@ -621,7 +621,10 @@ execution handler.
 Interactive conversation planning uses one schema-validated semantic judgment before capability
 selection. When that boundary accepts an unambiguous collection-level Resource state,
 Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
-builds the frame without a second model request. `semantic_judgment_rejections.py` owns the stable
+builds the frame without a second model request. A schema read that identifies one canonical
+declaration type and a count facet also converges adjacent manifest, declaration, and relationship
+intents on the server-owned principal-manifest count plan without another model request.
+`semantic_judgment_rejections.py` owns the stable
 content-free rejection vocabulary and keeps the boundary below its limit. The Operator bridge persists the request before accepting its projection. A missing request
 can retry as a bounded visibility race, while a permanent projection identity conflict is
 quarantined once without churning the consumer group. Model timing includes completed judgment,

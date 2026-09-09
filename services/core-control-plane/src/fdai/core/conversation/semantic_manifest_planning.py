@@ -18,6 +18,9 @@ from fdai.core.ontology_platform.declaration_queries import (
     ONTOLOGY_DECLARATION_FUNCTION_NAME,
 )
 from fdai.core.ontology_platform.manifest_queries import ONTOLOGY_MANIFEST_FUNCTION_NAME
+from fdai.core.ontology_platform.relationship_queries import (
+    ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
+)
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
 from .semantic_planning_alignment import (
@@ -55,11 +58,15 @@ def build_ontology_schema_frame(
     available_functions = {
         descriptor.get("name") for descriptor in descriptors if descriptor.get("kind") == "function"
     }
-    if judgment.primary_intent == ONTOLOGY_MANIFEST_FUNCTION_NAME:
-        if not any(
-            facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
-        ):
-            return None
+    requests_declaration_count = any(
+        facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
+    )
+    schema_read_intent = (
+        judgment.primary_intent == ONTOLOGY_MANIFEST_FUNCTION_NAME
+        or judgment.primary_intent == ONTOLOGY_DECLARATION_FUNCTION_NAME
+        or judgment.primary_intent == ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME
+    )
+    if requests_declaration_count and schema_read_intent:
         declaration_kinds = {
             declaration_kind
             for target in judgment.targets
