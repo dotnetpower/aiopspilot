@@ -222,6 +222,30 @@ def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
     }
 
 
+async def test_persisted_receipt_uses_the_exact_operational_report_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _Store:
+        async def record(self, **values: object) -> None:
+            captured.update(values)
+
+    monkeypatch.setenv("FDAI_ANALYZER_RUN_ID", "test-run-1")
+    monkeypatch.setenv("FDAI_MONITOR_WORKSPACE_ID", "configured")
+    monkeypatch.setenv("FDAI_PROMETHEUS_ENDPOINT", "https://metrics.example")
+    monkeypatch.setattr(analyzer_tick_cli_module, "build_run_receipt_store", lambda: _Store())
+    report = _job_report()
+
+    await analyzer_tick_cli_module._record_run_receipt(report, scheduling="local_loop")
+
+    assert captured["run_id"] == "test-run-1"
+    assert captured["report"] == analyzer_tick_cli_module._report_body(
+        report,
+        scheduling="local_loop",
+    )
+
+
 async def test_local_loop_runs_serial_ticks_and_stops_after_the_bound(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

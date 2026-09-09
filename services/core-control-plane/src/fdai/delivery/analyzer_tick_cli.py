@@ -541,7 +541,6 @@ async def run_once() -> AnalyzerJobReport:
             trace_continuity=_empty_trace_report(),
             target_resolution=resolution,
         )
-        await _record_run_receipt(report)
         return report
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -613,13 +612,12 @@ async def run_once() -> AnalyzerJobReport:
                 trace_continuity=trace_report,
                 target_resolution=resolution,
             )
-            await _record_run_receipt(report)
             return report
         finally:
             await bus.close()
 
 
-async def _record_run_receipt(report: AnalyzerJobReport) -> None:
+async def _record_run_receipt(report: AnalyzerJobReport, *, scheduling: str) -> None:
     run_id = resolve_analyzer_run_id(os.environ)
     if run_id is None:
         _LOGGER.info(
@@ -631,8 +629,7 @@ async def _record_run_receipt(report: AnalyzerJobReport) -> None:
     if store is None:
         return
     recorded_at = datetime.now(tz=UTC)
-    scheduling = resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", ""))
-    body = report.to_dict(scheduling=scheduling)
+    body = _report_body(report, scheduling=scheduling)
     await store.record(run_id=run_id, recorded_at=recorded_at, report=body)
 
 
@@ -717,6 +714,7 @@ async def run_loop(
         except TimeoutError:
             print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
             return 1
+        await _record_run_receipt(report, scheduling="local_loop")
         _emit_report(report, scheduling="local_loop")
         completed += 1
         if report.failed:
@@ -731,12 +729,24 @@ async def run_loop(
 
 
 def _emit_report(report: AnalyzerJobReport, *, scheduling: str) -> None:
-    summary: dict[str, Any] = report.to_dict(
+    summary = _report_body(report, scheduling=scheduling)
+    _LOGGER.info("analyzer_tick_complete", extra=summary)
+    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
+def _report_body(report: AnalyzerJobReport, *, scheduling: str) -> dict[str, Any]:
+    """Build the one report body shared by persistence, logs, and stdout."""
+
+    return report.to_dict(
         scheduling=scheduling,
         metric_delays=metric_source_delays(os.environ),
     )
-    _LOGGER.info("analyzer_tick_complete", extra=summary)
-    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
+async def _run_once_with_receipt(*, timeout_seconds: float, scheduling: str) -> AnalyzerJobReport:
+    report = await asyncio.wait_for(run_once(), timeout=timeout_seconds)
+    await _record_run_receipt(report, scheduling=scheduling)
+    return report
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -769,12 +779,18 @@ def main(argv: list[str] | None = None) -> int:
                     tick_timeout_seconds=tick_budget,
                 )
             )
-        report = asyncio.run(asyncio.wait_for(run_once(), timeout=tick_budget))
+        scheduling = resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", ""))
+        report = asyncio.run(
+            _run_once_with_receipt(
+                timeout_seconds=tick_budget,
+                scheduling=scheduling,
+            )
+        )
     except KeyboardInterrupt:
         return 130
     _emit_report(
         report,
-        scheduling=resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", "")),
+        scheduling=scheduling,
     )
     return 1 if report.failed else 0
 
