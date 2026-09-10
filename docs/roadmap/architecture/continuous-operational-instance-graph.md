@@ -90,6 +90,13 @@ scope, freshness budget, and exact ontology release before it can project `runti
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
 
+Protected service deployment first consumes the platform-owned runtime-call binding. After an
+Operator state migration disables the legacy platform module, that output can be absent while both
+Container Apps remain deployed. In that case, the VNet runner uses the state-owned app names,
+resource group, and pinned subscription to read both exact Resource IDs from Azure. The same closed
+validation then requires two distinct Container App IDs before either service receives the binding.
+A failed or ambiguous provider read blocks the plan and never falls back to a constructed identity.
+
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete

@@ -635,6 +635,16 @@ jobs:
           runtime_call_evidence_binding="null"
           stewardship_gitops_binding="null"
           operator_channel_edge_identity_binding="null"
+          runtime_call_binding_is_exact() {
+            jq -e '
+              type == "object" and
+              keys == ["caller_resource_id", "target_resource_id"] and
+              all(.[]; type == "string" and startswith("/subscriptions/")) and
+              (.caller_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
+              (.target_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
+              (.caller_resource_id | ascii_downcase) != (.target_resource_id | ascii_downcase)
+            ' >/dev/null
+          }
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             observation_context_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
@@ -677,14 +687,45 @@ jobs:
                 output -json runtime_call_evidence_binding 2>/dev/null || printf 'null\n'
             )"
             if [[ -n "$operator_api_name" ]]; then
-              jq -e '
-                type == "object" and
-                keys == ["caller_resource_id", "target_resource_id"] and
-                all(.[]; type == "string" and startswith("/subscriptions/")) and
-                (.caller_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
-                (.target_resource_id | ascii_downcase | contains("/providers/microsoft.app/containerapps/")) and
-                (.caller_resource_id | ascii_downcase) != (.target_resource_id | ascii_downcase)
-              ' <<<"$runtime_call_evidence_binding" >/dev/null || {
+              if ! runtime_call_binding_is_exact <<<"$runtime_call_evidence_binding"; then
+                platform_resource_group="$(
+                  terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw resource_group_name
+                )"
+                core_app_name="$(
+                  terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw core_app_name
+                )"
+                if ! caller_resource_id="$(
+                  timeout 60s az containerapp show \
+                    --subscription "$ARM_SUBSCRIPTION_ID" \
+                    --resource-group "$platform_resource_group" \
+                    --name "$operator_api_name" \
+                    --query id \
+                    --output tsv \
+                    --only-show-errors
+                )"; then
+                  echo "Unable to read the deployed Operator runtime-call identity." >&2
+                  exit 1
+                fi
+                if ! target_resource_id="$(
+                  timeout 60s az containerapp show \
+                    --subscription "$ARM_SUBSCRIPTION_ID" \
+                    --resource-group "$platform_resource_group" \
+                    --name "$core_app_name" \
+                    --query id \
+                    --output tsv \
+                    --only-show-errors
+                )"; then
+                  echo "Unable to read the deployed Core runtime-call identity." >&2
+                  exit 1
+                fi
+                runtime_call_evidence_binding="$(
+                  jq -cn \
+                    --arg caller_resource_id "$caller_resource_id" \
+                    --arg target_resource_id "$target_resource_id" \
+                    '{caller_resource_id: $caller_resource_id, target_resource_id: $target_resource_id}'
+                )"
+              fi
+              runtime_call_binding_is_exact <<<"$runtime_call_evidence_binding" || {
                 echo "Platform state returned an invalid runtime-call evidence binding." >&2
                 exit 1
               }
