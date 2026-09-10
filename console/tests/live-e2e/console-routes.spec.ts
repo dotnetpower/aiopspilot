@@ -109,10 +109,13 @@ function parseDoneFrame(body: string): Record<string, unknown> {
   throw new Error("chat stream did not contain a valid done frame");
 }
 
-async function waitForPanel(page: Page): Promise<void> {
-  await expect(page.locator("main")).toBeVisible();
-  await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator("main h1, main h2").first()).toBeVisible();
+async function waitForPanel(page: Page, routePath = page.url()): Promise<void> {
+  const root = routePath.includes("/settings/")
+    ? page.locator(".settings-overlay-content")
+    : page.locator("main");
+  await expect(root).toBeVisible();
+  await expect(root.locator("[aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+  await expect(root.locator("h1, h2").first()).toBeVisible();
   await page.waitForTimeout(250);
 }
 
@@ -132,10 +135,13 @@ for (const routePath of ROUTES) {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     await page.goto(routePath, { waitUntil: "domcontentloaded" });
-    await waitForPanel(page);
+    await waitForPanel(page, routePath);
 
     await expect(page.locator(
-      "main .empty.error, main .panel-error-boundary, main .state-block.state-error",
+      "main .empty.error, main .panel-error-boundary, main .state-block.state-error, "
+      + ".settings-overlay-content .empty.error, "
+      + ".settings-overlay-content .panel-error-boundary, "
+      + ".settings-overlay-content .state-block.state-error",
     )).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(failedResponses).toEqual([]);

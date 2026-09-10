@@ -1806,6 +1806,8 @@
       "review": "Proposer / reviewer"
     },
     "open": "Open settings",
+    "close": "Close settings",
+    "menuLabel": "Settings sections",
     "switchLight": "Switch to light theme",
     "switchDark": "Switch to dark theme",
     "theme": "Theme",
