@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 1b769c3f83774baaee3204904c5faeb933f6e122
+translation_source_sha: ed1b0d40bab1905894b5d0e3506c2a596d918d5b
 translation_revised: 2026-09-11
 ---
 # 기록된 리소스 상태
@@ -25,6 +25,7 @@ Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상�
 `scope_digest` 값으로 한정된 경우에만 이름이 같은 출처 여러 개를 보존합니다.
 현재 인스턴스 상세 응답은 `runtime_call_graph` 및 `postgres_role_evidence` 원본 상태를 항상
 명시합니다. Console 디코더는 둘 중 하나가 없으면 누락을 가용성이나 측정된 0으로 표시하지 않고
+거부합니다. Operator 판독기는 포함된 인벤토리 세대가 선택한 스냅샷과 다른 런타임 호출 링크도
 거부합니다.
 스키마 이행 중에 버전이 지정된 신원 필드를 모두 갖추지 못한 기존 Kubernetes 레코드도 Resource
 행으로 유지합니다. 완전한 버전 관측으로 교체될 때까지 정확한 Kubernetes 신원과 진단은 보류합니다.

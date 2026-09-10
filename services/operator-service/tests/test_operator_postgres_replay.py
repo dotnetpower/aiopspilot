@@ -491,7 +491,10 @@ async def test_postgres_inventory_impact_rejects_malformed_relationship_coverage
 
 def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:
     metadata = _runtime_call_observation_metadata()
-    evidence = _instance_relationship_evidence({"link_observation_metadata": metadata})
+    evidence = _instance_relationship_evidence(
+        {"link_observation_metadata": metadata},
+        inventory_generation="inventory:generation-one",
+    )
 
     assert evidence is not None
     assert evidence.evidence_kind == "observation"
@@ -505,7 +508,18 @@ def test_runtime_call_relationship_evidence_rejects_forged_authority() -> None:
     metadata["state_fact"]["authority"] = "execution_ledger"  # type: ignore[index]
 
     with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
-        _instance_relationship_evidence({"link_observation_metadata": metadata})
+        _instance_relationship_evidence(
+            {"link_observation_metadata": metadata},
+            inventory_generation="inventory:generation-one",
+        )
+
+
+def test_runtime_call_relationship_evidence_rejects_another_generation() -> None:
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
+        _instance_relationship_evidence(
+            {"link_observation_metadata": _runtime_call_observation_metadata()},
+            inventory_generation="inventory:generation-two",
+        )
 
 
 def _runtime_call_observation_metadata() -> dict[str, object]:

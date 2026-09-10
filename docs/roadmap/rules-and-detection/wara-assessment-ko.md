@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 2a427cc0da014e287731a97c500768db831c6508
-translation_revised: 2026-09-10
+translation_source_sha: 4d5b58660227156fe79ba2abc87c10e42e3720b0
+translation_revised: 2026-09-11
 ---
 # WARA 근거 기반 평가
 
@@ -31,7 +31,8 @@ Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가�
 공유 Operator PostgreSQL 조회기는 다른 읽기 계열을 위해 개수가 제한된 범위별 출처 상태를
 해석할 수 있습니다. WARA는 AKS fleet 상태를 사용하지 않으며 이 공유 기능은 WARA 범위, 근거
 수락 또는 평가 결과를 변경하지 않습니다. 같은 경계는 조회기의 내용 주소 기반 AKS 진단 증적
-조회에도 적용되며 WARA는 이러한 증적을 결합하거나 해석하지 않습니다.
+조회와 세대 경계를 확인하는 런타임 호출 관계 디코더에도 적용됩니다. WARA는 두 근거 계열을
+결합하거나 해석하지 않습니다.
 
 ## 교차워크와 적용 가능성
 
