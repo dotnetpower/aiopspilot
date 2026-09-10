@@ -129,7 +129,9 @@ jobs:
       - name: Resolve exact certification jobs
         run: |
           set -euo pipefail
-          resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
+          resource_group="$(
+            terraform -chdir=infra output -raw resource_group_name 2>/dev/null || true
+          )"
           inventory_job_name="$(
             terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
           )"
@@ -141,12 +143,17 @@ jobs:
             terraform -chdir=infra output -raw operational_history_container_url \
               2>/dev/null || true
           )"
-          if [[ -z "$inventory_job_name" ||
+          if [[ -z "$resource_group" ||
+                -z "$inventory_job_name" ||
                 -z "$history_job_id" ||
                 -z "$container_url" ]]; then
+            job_scope=()
+            if [[ -n "$resource_group" ]]; then
+              job_scope=(--resource-group "$resource_group")
+            fi
             mapfile -t certification_job_ids < <(
               az resource list \
-                --resource-group "$resource_group" \
+                "${job_scope[@]}" \
                 --resource-type Microsoft.App/jobs \
                 --query '[].id' \
                 --output tsv \
@@ -158,8 +165,10 @@ jobs:
               exit 1
             }
             inventory_job_candidates=()
+            inventory_resource_group_candidates=()
             history_job_candidates=()
             history_container_candidates=()
+            history_resource_group_candidates=()
             for certification_job_id in "${certification_job_ids[@]}"; do
               certification_job_json="$(
                 timeout 30s az resource show \
@@ -183,6 +192,9 @@ jobs:
               ' <<<"$certification_job_json" >/dev/null; then
                 inventory_job_candidates+=(
                   "$(jq -er '.name' <<<"$certification_job_json")"
+                )
+                inventory_resource_group_candidates+=(
+                  "$(jq -er '.resourceGroup' <<<"$certification_job_json")"
                 )
               fi
               if jq -e '
@@ -228,9 +240,13 @@ jobs:
                     ' <<<"$certification_job_json"
                   )"
                 )
+                history_resource_group_candidates+=(
+                  "$(jq -er '.resourceGroup' <<<"$certification_job_json")"
+                )
               fi
             done
-            [[ ${#inventory_job_candidates[@]} -eq 1 ]] || {
+            [[ ${#inventory_job_candidates[@]} -eq 1 &&
+              ${#inventory_resource_group_candidates[@]} -eq 1 ]] || {
               echo "expected exactly one inventory job matching the reviewed runtime contract" >&2
               exit 1
             }
@@ -241,7 +257,8 @@ jobs:
             fi
             inventory_job_name="${inventory_job_candidates[0]}"
             [[ ${#history_job_candidates[@]} -eq 1 &&
-              ${#history_container_candidates[@]} -eq 1 ]] || {
+              ${#history_container_candidates[@]} -eq 1 &&
+              ${#history_resource_group_candidates[@]} -eq 1 ]] || {
               echo "expected exactly one history job matching the reviewed runtime contract" >&2
               exit 1
             }
@@ -255,6 +272,17 @@ jobs:
               echo "history container output does not match the reviewed ARM runtime" >&2
               exit 1
             fi
+            if [[ "${inventory_resource_group_candidates[0]}" !=
+                  "${history_resource_group_candidates[0]}" ]]; then
+              echo "certification jobs do not share one resource group" >&2
+              exit 1
+            fi
+            if [[ -n "$resource_group" &&
+                  "$resource_group" != "${history_resource_group_candidates[0]}" ]]; then
+              echo "resource group output does not match the reviewed ARM runtimes" >&2
+              exit 1
+            fi
+            resource_group="${history_resource_group_candidates[0]}"
             history_job_id="${history_job_candidates[0]}"
             container_url="${history_container_candidates[0]}"
           fi
