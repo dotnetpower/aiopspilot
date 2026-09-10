@@ -166,8 +166,13 @@ def test_registry_credentials_are_not_process_arguments() -> None:
     binder = (_ROOT / "scripts/deployment/azure/bind_core_runtime_image.sh").read_text(
         encoding="utf-8"
     )
-    assert "--password" not in binder
-    assert "--user" not in binder
+    assert "--password " not in binder
+    assert "--password=" not in binder
+    assert "--password-stdin" in binder
+    assert '"$GHCR_TOKEN" |' in binder
+    assert 'DOCKER_CONFIG="$docker_config" docker login ghcr.io' in binder
+    assert 'DOCKER_CONFIG="$docker_config" timeout 60s gh attestation verify' in binder
+    assert 'rm -rf -- "$docker_config"' in binder
     assert 'echo "::add-mask::$registry_token"' in binder
 
 
