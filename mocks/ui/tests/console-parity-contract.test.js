@@ -12,6 +12,18 @@ const navigation = readFileSync(join(uiRoot, "assets", "calm-slate.js"), "utf8")
 const parityScript = readFileSync(join(uiRoot, "assets", "console-parity.js"), "utf8");
 const parityStyles = readFileSync(join(uiRoot, "assets", "console-parity.css"), "utf8");
 const sharedStyles = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
+const materialStudyStyles = readFileSync(
+  join(uiRoot, "assets", "material-glass-studies.css"),
+  "utf8",
+);
+const materialStudyRenderer = readFileSync(
+  join(uiRoot, "assets", "material-glass-renderer.js"),
+  "utf8",
+);
+const dashboardEssentialStyles = readFileSync(
+  join(uiRoot, "assets", "dashboard-essential.css"),
+  "utf8",
+);
 const governanceEvidenceStyles = readFileSync(
   join(uiRoot, "assets", "governance-evidence-workspace.css"),
   "utf8",
@@ -148,9 +160,9 @@ test("master mock navigation follows the Console group hierarchy", () => {
 test("master navigation exposes every local design mock without duplicate destinations", () => {
   const masterMarkup = masterLanding.slice(0, masterLanding.indexOf("<script>"));
   const paths = Array.from(masterMarkup.matchAll(/data-page="([^"]+)"/g), (match) => match[1]);
-  assert.equal(paths.length, 96);
-  assert.equal(new Set(paths).size, 96);
-  assert.equal(paths.length - consoleMockPaths.length, 38);
+  assert.equal(paths.length, 102);
+  assert.equal(new Set(paths).size, 102);
+  assert.equal(paths.length - consoleMockPaths.length, 44);
   paths.forEach((path) => {
     assert.ok(existsSync(join(repoRoot, path)), `missing design mock: ${path}`);
   });
@@ -169,7 +181,7 @@ test("nested and direct mock navigation expose the same Console destinations", (
     assert.ok(nestedPaths.includes(path), `nested index missing ${path}`);
     assert.ok(directPaths.includes(path), `direct mock navigation missing ${path}`);
   });
-  assert.equal(new Set(directPaths).size, 80);
+  assert.equal(new Set(directPaths).size, 86);
 });
 
 test("every parity wrapper resolves to a rendered specification", () => {
@@ -230,6 +242,81 @@ test("master navigation uses a Console-like collapsible Activity Bar and Explore
   assert.match(masterLanding, /side\.inert = !open/);
   assert.match(masterLanding, /aria-controls="master-nav"/);
   assert.match(masterLanding, /prefers-reduced-motion: reduce/);
+});
+
+test("material studies stay separate from the decision-focused Dashboard", () => {
+  const dashboard = readFileSync(join(uiRoot, "dashboard.html"), "utf8");
+  const essential = readFileSync(join(uiRoot, "material-glass-essential.html"), "utf8");
+  assert.match(dashboard, /class="cs-operator-neutral cs-dashboard-essential"/);
+  assert.match(dashboard, /assets\/dashboard-essential\.css/);
+  assert.doesNotMatch(dashboard, /material-glass-renderer|cs-calacatta-dashboard|glass-slide/);
+  assert.match(dashboard, /class="de-card de-attention"/);
+  assert.match(dashboard, /class="de-card de-posture"/);
+  assert.ok(
+    dashboard.indexOf('class="de-card de-attention"')
+      < dashboard.indexOf("<h2>Routing and control</h2>"),
+  );
+  assert.match(essential, /class="cs-material-study is-essential"/);
+  assert.match(essential, /assets\/material-glass-renderer\.js/);
+  assert.equal((essential.match(/class="glass-slide/g) || []).length, 4);
+  assert.doesNotMatch(essential, /Material variants|glass-mount/);
+  const grid = readFileSync(join(uiRoot, "material-glass-grid.html"), "utf8");
+  const marble = readFileSync(join(uiRoot, "material-glass-marble.html"), "utf8");
+  assert.match(grid, /class="cs-material-study is-essential-grid"/);
+  assert.equal((grid.match(/class="glass-slide/g) || []).length, 4);
+  assert.match(marble, /class="cs-material-study is-essential-marble"/);
+  assert.equal((marble.match(/class="glass-slide/g) || []).length, 3);
+  assert.doesNotMatch(marble, /essential-topbar/);
+  [
+    ["material-glass-clear.html", "is-clear-aggregate"],
+    ["material-glass-frosted.html", "is-soft-frost"],
+    ["material-glass-laminate.html", "is-structural-laminate"],
+  ].forEach(([file, variant]) => {
+    const html = readFileSync(join(uiRoot, file), "utf8");
+    assert.match(html, new RegExp(`class="cs-material-study ${variant}"`));
+    assert.match(html, /assets\/material-glass-studies\.css/);
+    assert.match(html, /assets\/material-glass-renderer\.js/);
+    assert.equal((html.match(/class="glass-slide/g) || []).length, 4);
+  });
+  assert.match(materialStudyStyles, /\.is-clear-aggregate/);
+  assert.match(materialStudyStyles, /\.is-soft-frost/);
+  assert.match(materialStudyStyles, /\.is-structural-laminate/);
+  assert.match(materialStudyStyles, /\.is-essential/);
+  assert.match(materialStudyStyles, /--concrete-color: #dedfdc/);
+  assert.match(materialStudyStyles, /--glass-surface: rgba\(255, 255, 255, 0\.88\)/);
+  assert.match(materialStudyStyles, /\.glass-slide::before/);
+  assert.match(materialStudyStyles, /filter: url\("#physical-glass-refraction"\)/);
+  assert.match(materialStudyStyles, /\.glass-mount/);
+  assert.match(materialStudyStyles, /@supports not/);
+  assert.match(materialStudyStyles, /prefers-reduced-transparency: reduce/);
+  assert.match(materialStudyRenderer, /canvas\.toDataURL\("image\/jpeg", 0\.9\)/);
+  assert.match(materialStudyRenderer, /feDisplacementMap/);
+  assert.match(materialStudyRenderer, /drawFormwork/);
+  assert.match(materialStudyRenderer, /"is-essential"/);
+  assert.match(materialStudyRenderer, /base: \[222, 224, 220\]/);
+  assert.match(materialStudyRenderer, /pattern: "grid"/);
+  assert.match(materialStudyRenderer, /pattern: "calacatta-gold"/);
+  assert.match(materialStudyRenderer, /\[170, 139, 84\]/);
+  assert.match(materialStudyRenderer, /drawMarbleCloud/);
+  assert.match(materialStudyRenderer, /drawMineralPocket/);
+  assert.match(materialStudyRenderer, /secondaryFamilies/);
+  const profileBlock = materialStudyRenderer.slice(
+    materialStudyRenderer.indexOf("var calacattaProfiles ="),
+    materialStudyRenderer.indexOf("var variantName ="),
+  );
+  assert.equal((profileBlock.match(/\{ angle:/g) || []).length, 10);
+  assert.match(materialStudyRenderer, /getRandomValues/);
+  assert.match(materialStudyRenderer, /Calacatta pattern MUST be an integer from 1 through 10/);
+  assert.match(dashboardEssentialStyles, /\.de-attention-grid/);
+  assert.match(dashboardEssentialStyles, /\.de-posture-grid/);
+  assert.match(dashboardEssentialStyles, /width: min\(100%, 1180px\)/);
+  assert.match(dashboardEssentialStyles, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(dashboardEssentialStyles, /translateY\(-1px\)/);
+  assert.match(
+    dashboardEssentialStyles,
+    /body\.cs-dashboard-essential \.de-attention-grid > a:first-child:hover/,
+  );
+  assert.match(dashboardEssentialStyles, /background-color: #f5ede2/);
 });
 
 test("knowledge graph renders every generated ontology node kind", () => {

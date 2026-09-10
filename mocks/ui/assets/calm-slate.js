@@ -94,6 +94,12 @@
       ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"]
     ]],
     ["Design studies", [
+      ["material-glass-essential.html", "Material final / Concrete", "is-navy"],
+      ["material-glass-grid.html", "Material final / Grid", "is-steel"],
+      ["material-glass-marble.html", "Material final / Calacatta Gold", "is-plum"],
+      ["material-glass-clear.html", "Material A / Clear aggregate", "is-steel"],
+      ["material-glass-frosted.html", "Material B / Soft frost", "is-sage"],
+      ["material-glass-laminate.html", "Material C / Structural laminate", "is-teal"],
       ["components.html", "Components", ""],
       ["finops-resource-efficiency.html", "Resource efficiency study", "is-steel"],
       ["typography.html", "Typography", "is-steel"],
