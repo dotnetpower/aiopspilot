@@ -92,8 +92,10 @@ def _requirement() -> LiveEvidenceClaimRequirement:
 def _bundle(
     receipt: DecisionCriticalEvidenceReceipt,
     *,
+    verified_at: datetime | None = None,
     valid_until: datetime | None = None,
 ) -> DecisionEvidenceVerificationBundle:
+    issued_at = verified_at or _NOW + timedelta(minutes=2)
     expires_at = valid_until or _NOW + timedelta(minutes=8)
     subjects = expected_verification_subjects(
         authentication_evidence_digest=receipt.authentication_evidence_digest,
@@ -111,7 +113,7 @@ def _bundle(
             verifier_id="azure.readback",
             verifier_version="1.0.0",
             trust_anchor_id="azure:managed-identity",
-            issued_at=_NOW + timedelta(minutes=2),
+            issued_at=issued_at,
             valid_until=expires_at,
         )
         for index, (kind, subject) in enumerate(subjects.items(), start=1)
@@ -121,7 +123,7 @@ def _bundle(
         verifier_id="azure.readback",
         verifier_version="1.0.0",
         trust_anchor_id="azure:managed-identity",
-        verified_at=_NOW + timedelta(minutes=2),
+        verified_at=issued_at,
         valid_until=expires_at,
         proofs=proofs,
     )
@@ -235,6 +237,24 @@ async def test_bundle_issued_before_verifier_binding_fails_closed() -> None:
     assert result.eligible is False
     assert result.admission is None
     assert result.reason is DecisionEvidenceReadinessReason.UNTRUSTED_VERIFIER
+
+
+async def test_bundle_verified_before_receipt_recording_fails_closed() -> None:
+    receipt = _receipt()
+    bundle = _bundle(
+        receipt,
+        verified_at=_NOW + timedelta(minutes=1),
+    )
+
+    result = await _gate(receipt, bundle=bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.BUNDLE_MISMATCH
 
 
 @pytest.mark.parametrize(

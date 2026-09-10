@@ -391,6 +391,8 @@ def _evaluate_bundle(
         or bundle.trust_anchor_id != binding.trust_anchor_id
     ):
         return _rejected(receipt, DecisionEvidenceReadinessReason.BUNDLE_MISMATCH)
+    if bundle.verified_at < receipt.recorded_at:
+        return _rejected(receipt, DecisionEvidenceReadinessReason.BUNDLE_MISMATCH)
     if bundle.verified_at < binding.valid_from:
         return _rejected(receipt, DecisionEvidenceReadinessReason.UNTRUSTED_VERIFIER)
     if not bundle.verified_at <= evaluated_at <= bundle.valid_until:
