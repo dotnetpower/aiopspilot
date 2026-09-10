@@ -377,6 +377,21 @@ def test_operator_runtime_call_evidence_uses_exact_platform_resource_ids() -> No
     )
     assert 'variable "runtime_call_evidence"' in _OPERATOR_VARIABLES
     assert 'variable "runtime_call_evidence"' in _CORE_VARIABLES
+    canonical_resource_id_pattern = (
+        r"(?i)^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+        r"[0-9a-f]{4}-[0-9a-f]{12}/resourceGroups/[^/[:space:]]+/"
+        r"providers/Microsoft\\.App/containerApps/[^/[:space:]]+$"
+    )
+    for variables in (_OPERATOR_VARIABLES, _CORE_VARIABLES):
+        assert variables.count(canonical_resource_id_pattern) == 2
+        assert (
+            "var.runtime_call_evidence.caller_resource_id == "
+            "trimspace(var.runtime_call_evidence.caller_resource_id)"
+        ) in variables
+        assert (
+            "var.runtime_call_evidence.target_resource_id == "
+            "trimspace(var.runtime_call_evidence.target_resource_id)"
+        ) in variables
     assert "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID" in _OPERATOR_TERRAFORM
     assert "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID" in _OPERATOR_TERRAFORM
     assert "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID" in _CORE_TERRAFORM
@@ -385,6 +400,10 @@ def test_operator_runtime_call_evidence_uses_exact_platform_resource_ids() -> No
     assert "output -raw operator_api_name" in materialize
     assert 'terraform -chdir="$TERRAFORM_ROOT" output -json service' in materialize
     assert 'select(test("-(operator-api|readapi)$"))' in materialize
+    assert "service-peer-state-before/operator-service-name" in materialize
+    assert "Independent Operator state did not provide a runtime-call identity." in materialize
+    assert 'peer_state.py" service-name' in _PEER_CAPTURE
+    assert 'chmod 600 "$operator_name_file"' in _PEER_CAPTURE
     assert "runtime_call_binding_is_exact()" in materialize
     assert materialize.count("timeout 60s az containerapp show") == 2
     assert "output -raw resource_group_name" in materialize
