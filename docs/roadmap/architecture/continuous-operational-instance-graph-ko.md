@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 837dfdd09ff8da98d65038c2cda668b4dd84b2f5
+translation_source_sha: 05d8a92fa29c8bed0a2ce38ce5dc7cf580c590b9
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -64,6 +64,8 @@ translation_revised: 2026-09-11
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
+비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
+오래된 커서 기한을 추가하지 않습니다.
 
 Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
 고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의

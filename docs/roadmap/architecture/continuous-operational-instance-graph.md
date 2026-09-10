@@ -61,6 +61,8 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
+Disabled resource-change and recovery accelerators do not require collection-policy entries and
+contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
