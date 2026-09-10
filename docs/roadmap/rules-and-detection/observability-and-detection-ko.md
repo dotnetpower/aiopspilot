@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e7902fe4018ef491cbeaf754f247219cd753343b
+translation_source_sha: 32e9cb83636f43bf1d22467f4dfee8c970ca17a3
 translation_revised: 2026-09-10
 ---
 
@@ -276,6 +276,9 @@ cross-format 동등성이 성립하지 않습니다.
 영역 기반 Application Insights 행을 읽고 시나리오 신원, 추적 신원, hop 이름,
 관측 시각, 변경 불가능한 근거 참조만 정규화합니다. 배포 값과 조회 자격 증명은
 리포지토리 밖에 유지합니다.
+60초 detection bucket은 900초 근거 lookback과 독립적으로 유지됩니다. 따라서 반복 멱등성과
+Incident 상관관계 범위를 보존하면서 문서화된 120-300초 Log Analytics ingestion 하한을
+포괄합니다.
 
 감지기는 완료된 각 시나리오 실행을 기대 토폴로지와 비교합니다.
 

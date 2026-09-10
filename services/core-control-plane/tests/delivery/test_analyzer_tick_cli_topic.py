@@ -22,6 +22,7 @@ from fdai.delivery.analyzer_tick_cli import (
     parse_tick_budget,
     resolve_finding_topic,
     resolve_scheduling_mode,
+    resolve_trace_lookback_seconds,
     resolve_trace_window_seconds,
     run_loop,
 )
@@ -104,6 +105,25 @@ def test_trace_window_can_be_shortened_independently() -> None:
 def test_non_positive_trace_window_fails_closed() -> None:
     with pytest.raises(ValueError):
         resolve_trace_window_seconds({TRACE_WINDOW_ENV: "0"}, 300)
+
+
+def test_trace_lookback_covers_the_ingestion_floor() -> None:
+    assert resolve_trace_lookback_seconds({}, 60) == 900
+    assert (
+        resolve_trace_lookback_seconds(
+            {"FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS": "1200"},
+            60,
+        )
+        == 1200
+    )
+
+
+def test_trace_lookback_cannot_shrink_below_detection_window() -> None:
+    with pytest.raises(ValueError, match="MUST be at least"):
+        resolve_trace_lookback_seconds(
+            {"FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS": "60"},
+            300,
+        )
 
 
 def _job_report(*, publish_failed: bool = False) -> AnalyzerJobReport:

@@ -45,6 +45,8 @@ def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
 
     assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in cli
     assert 'name  = "FDAI_TRACE_TOPOLOGIES_JSON"' in source
+    assert 'name  = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"' in source
+    assert 'value = "900"' in source
     assert 'variable "trace_topologies_json"' in root_variables
     assert 'variable "trace_topologies_json"' in module_variables
     assert "trace_topologies_json = var.trace_topologies_json" in normalized_main

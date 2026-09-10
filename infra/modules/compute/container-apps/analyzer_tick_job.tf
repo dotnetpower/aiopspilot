@@ -141,6 +141,11 @@ resource "azurerm_container_app_job" "analyzer_tick" {
         }
       }
 
+      env {
+        name  = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"
+        value = "900"
+      }
+
       dynamic "env" {
         for_each = var.analyzer_budget_seconds == "" ? toset([]) : toset(["1"])
         content {

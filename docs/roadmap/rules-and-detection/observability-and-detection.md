@@ -286,6 +286,9 @@ expected hop names. The Azure delivery adapter reads bounded workspace-based
 Application Insights rows and normalizes only scenario identity, trace identity,
 hop name, observation time, and immutable evidence references. Deployment values
 and query credentials remain outside the repository.
+The 60-second detection bucket is independent from a 900-second evidence
+lookback. This preserves repeat idempotency and Incident correlation bounds
+while covering the documented 120-300-second Log Analytics ingestion floor.
 
 The detector compares each completed scenario run with the expected topology:
 

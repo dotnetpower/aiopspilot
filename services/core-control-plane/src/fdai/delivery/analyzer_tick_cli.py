@@ -96,6 +96,8 @@ _REPO_ROOT = repo_asset_root()
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TRACE_WINDOW_ENV = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
+TRACE_LOOKBACK_ENV = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"
+DEFAULT_TRACE_LOOKBACK_SECONDS = 900
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
@@ -312,6 +314,24 @@ def resolve_trace_window_seconds(environ: Mapping[str, str], analyzer_window: in
     return window
 
 
+def resolve_trace_lookback_seconds(
+    environ: Mapping[str, str],
+    detection_window: int,
+) -> int:
+    """Resolve evidence lookback independently from the idempotency bucket."""
+
+    text = environ.get(TRACE_LOOKBACK_ENV, "").strip()
+    if not text:
+        return max(DEFAULT_TRACE_LOOKBACK_SECONDS, detection_window)
+    try:
+        lookback = int(text)
+    except ValueError as exc:
+        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be a positive integer") from exc
+    if lookback < detection_window:
+        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be at least {TRACE_WINDOW_ENV}")
+    return lookback
+
+
 def parse_max_discovered(raw: str) -> int:
     """Parse the optional inventory-backed target bound; malformed fails closed.
 
@@ -506,6 +526,10 @@ async def run_once() -> AnalyzerJobReport:
     trace_topologies = parse_trace_topologies(os.environ.get(TRACE_TOPOLOGIES_ENV, ""))
     window_seconds = parse_window_seconds(os.environ.get(WINDOW_ENV, ""))
     trace_window_seconds = resolve_trace_window_seconds(os.environ, window_seconds)
+    trace_lookback_seconds = resolve_trace_lookback_seconds(
+        os.environ,
+        trace_window_seconds,
+    )
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
     resolution = await resolve_analyzer_targets(
@@ -586,6 +610,7 @@ async def run_once() -> AnalyzerJobReport:
                     ),
                     event_bus=bus,
                     window_seconds=trace_window_seconds,
+                    lookback_seconds=trace_lookback_seconds,
                     topic=topic,
                 ).run_once(trace_topologies)
             else:
