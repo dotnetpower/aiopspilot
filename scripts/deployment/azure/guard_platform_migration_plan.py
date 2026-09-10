@@ -138,9 +138,6 @@ def _exact_role_replacement(
         and before.get(stable_field) == after.get(stable_field)
         and _nonempty(before.get(replacement_field))
         and before.get(replacement_field) != after.get(replacement_field)
-        and before.get("condition") == after.get("condition")
-        and before.get("delegated_managed_identity_resource_id")
-        == after.get("delegated_managed_identity_resource_id")
     )
 
 
