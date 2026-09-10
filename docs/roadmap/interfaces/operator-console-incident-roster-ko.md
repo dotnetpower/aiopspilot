@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: d1c755739b4687324218eb2a80b0e468dffff8c0
-translation_revised: 2026-08-25
+translation_source_sha: 0ba35288573c408e5d82d9e021f7cb4f13afb1cd
+translation_revised: 2026-09-11
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -22,14 +22,26 @@ API 계약은 다음과 같습니다.
 | 경로 | 목적 |
 |-------|------|
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | 최근 활동 순으로 인시던트 요약을 반환합니다. |
+| `POST /incidents/{correlation_id}/interventions` | 관리 리소스 실행 권한 없이 인증된 정확한 상태의 Incident 개입 요청 하나를 대기열에 넣습니다. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
 | `GET /audit/{correlation_id}/trace` | 순서가 지정된 연관 감사 활동과 기록된 파이프라인 단계를 재구성합니다. |
 | `POST /chat/stream` | 레코드를 생성하지 않고 자연어에서 타입이 지정된 인시던트 초안을 만듭니다. |
 | `POST /chat/action/confirm` | 타입이 지정된 초안을 확인하고 감사되는 인시던트를 생성합니다. |
 
-인시던트 명단은 읽기 전용으로 유지됩니다. 인시던트 생성은 의미 초안 및
-타입이 지정된 확인 경로를 사용하며 패널에 변경 버튼을 추가하지 않습니다. 인식된
-incident-open 요청은 다음 순서로 처리됩니다.
+목록 조회는 읽기 전용으로 유지됩니다. 인증된 상세 패널에서는 범위가 제한된 개입 요청을
+제출할 수 있지만 관리 리소스에 대한 실행은 할 수 없습니다. 서버는 정본 `incident.open`
+기록에 `resource:` 상관관계 키가 정확히 하나 있을 때만 비가역 `target_ref`를 제공합니다.
+이 규칙은 열린 행이 표시 이력 범위를 벗어난 뒤에도 적용됩니다. 리소스 키가 없거나,
+형식이 잘못되었거나, 너무 길거나, 여러 대상을 가리키면 개입 기능을 사용할 수 없습니다.
+Operator API는 요청을 영속적으로 수락하기 전에 정확한 수명 주기 상태를 다시 확인합니다.
+Core는 요청을 적용하기 전에 정본 Incident에서 같은 대상 다이제스트를 독립적으로 다시
+계산합니다.
+Operator 수명 주기는 재시도 가능한 개입 보낼 편지함 작업자를 소유하며, 해당 작업자가 중지되면 준비 상태를 false로 유지합니다.
+허용 목록에 등록된 논리 요청 토픽은 물리 전송 계층을 통해 다중화되며 Core 런타임 토픽 집합에 등록됩니다.
+Core는 정본 Incident 레지스트리로 consumer를 감독하며, 게재 또는 적용이 대기 중이면 HTTP 수락을 최종 상태로 보지 않습니다.
+
+인시던트 생성은 의미 초안 및 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성 버튼을
+추가하지 않습니다. 인식된 incident-open 요청은 다음 순서로 처리됩니다.
 
 1. 기여자 기능, 심각도, 대상 상관관계 키를 요구합니다.
 2. 사람이 읽을 수 있는 요약과 10분 만료를 포함한

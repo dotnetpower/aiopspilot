@@ -17,6 +17,7 @@ INSTRUCTIONS_ROOT = REPO_ROOT / ".github/instructions"
 SKILLS_ROOT = REPO_ROOT / ".github/skills"
 PROMPTS_ROOT = REPO_ROOT / ".github/prompts"
 FRONTMATTER = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
+NAVIGATION_ONLY_DOCS = frozenset({"docs/roadmap/architecture/code-map.md"})
 
 
 def _tracked_paths() -> tuple[str, ...]:
@@ -118,6 +119,15 @@ def _matches(pattern: str, paths: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatchcase(path, pattern) for path in paths)
 
 
+def _navigation_only_update_error(route_id: str, relative: str) -> str | None:
+    if relative not in NAVIGATION_ONLY_DOCS:
+        return None
+    return (
+        f"{route_id}: navigation-only document cannot be a docs_update target: {relative}. "
+        "Route implementation changes to the owning design instead."
+    )
+
+
 def validate() -> list[str]:
     errors: list[str] = []
     manifest = _load_manifest()
@@ -177,6 +187,8 @@ def validate() -> list[str]:
 
         for field in ("docs_update",):
             for relative in route.get(field, []):
+                if update_error := _navigation_only_update_error(route_id, str(relative)):
+                    errors.append(update_error)
                 if not (REPO_ROOT / str(relative)).is_file():
                     errors.append(f"{route_id}: {field} file does not exist: {relative}")
 

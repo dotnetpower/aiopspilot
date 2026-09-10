@@ -14,6 +14,8 @@ from fdai_service_contracts.ontology_query import content_digest
 from fdai.shared.contracts.models import ExecutionPath
 from fdai.shared.providers.resource_lock import ResourceLockAcquisitionReceipt
 
+from .idempotency_reservation_identity import same_operation
+
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _FINGERPRINT = re.compile(r"^[a-f0-9]{64}$")
 _REVISION = re.compile(r"^commit:[a-f0-9]{40}(?:[a-f0-9]{24})?$")
@@ -34,8 +36,10 @@ class ReservationEvidenceKind(StrEnum):
 
     DISPATCH_NEVER_BEGAN = "dispatch_never_began"
     LEASE_EXPIRED = "lease_expired"
+    CONTINUITY_UNPROVEN = "continuity_unproven"
     SINK_TERMINAL_OUTCOME = "sink_terminal_outcome"
     IRREVOCABLE_NON_ACCEPTANCE = "irrevocable_non_acceptance"
+    INDEPENDENT_EFFECT_OUTCOME = "independent_effect_outcome"
 
 
 class ReservationMatch(StrEnum):
@@ -388,87 +392,6 @@ def classify_reservation(
     )
 
 
-def dispatch_permitted(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-) -> bool:
-    """Allow only the first current reservation to begin dispatch."""
-
-    from .idempotency_reservation_lifecycle import dispatch_permitted as permitted
-
-    return permitted(record, at=at)
-
-
-def begin_dispatch(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-) -> IdempotencyReservationRecord:
-    """Move a current reservation to in-flight before calling the sink."""
-
-    from .idempotency_reservation_lifecycle import begin_dispatch as begin
-
-    return begin(record, at=at)
-
-
-def expire_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    dispatch_never_began_digest: str | None = None,
-) -> IdempotencyReservationRecord:
-    """Expire without converting an ambiguous in-flight effect into retry."""
-
-    from .idempotency_reservation_lifecycle import expire_reservation as expire
-
-    return expire(
-        record,
-        at=at,
-        dispatch_never_began_digest=dispatch_never_began_digest,
-    )
-
-
-def complete_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    terminal_outcome_digest: str,
-    authoritative_status_digest: str,
-    irrevocable_non_acceptance: bool = False,
-) -> IdempotencyReservationRecord:
-    """Resolve an in-flight or unknown reservation to one terminal outcome."""
-
-    from .idempotency_reservation_lifecycle import complete_reservation as complete
-
-    return complete(
-        record,
-        at=at,
-        terminal_outcome_digest=terminal_outcome_digest,
-        authoritative_status_digest=authoritative_status_digest,
-        irrevocable_non_acceptance=irrevocable_non_acceptance,
-    )
-
-
-def reopen_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    candidate_identity: IdempotencyReservationIdentity,
-    reserved_at: datetime,
-    lease_expires_at: datetime,
-) -> IdempotencyReservationRecord:
-    """Create a new attempt only after authoritative non-dispatch evidence."""
-
-    from .idempotency_reservation_lifecycle import reopen_reservation as reopen
-
-    return reopen(
-        record,
-        candidate_identity=candidate_identity,
-        reserved_at=reserved_at,
-        lease_expires_at=lease_expires_at,
-    )
-
-
 def _build_record(
     *,
     identity: IdempotencyReservationIdentity,
@@ -507,59 +430,9 @@ def _build_record(
 
 
 def _validate_state_shape(record: IdempotencyReservationRecord) -> None:
-    if record.state is ReservationState.RESERVED:
-        if record.state_changed_at != record.reserved_at:
-            raise ValueError("reserved idempotency state change time is invalid")
-        if any(
-            value is not None
-            for value in (
-                record.dispatch_started_at,
-                record.evidence_kind,
-                record.evidence_digest,
-                record.terminal_outcome_digest,
-            )
-        ):
-            raise ValueError("reserved idempotency state contains later-phase evidence")
-    elif record.state is ReservationState.IN_FLIGHT:
-        if (
-            record.dispatch_started_at is None
-            or record.state_changed_at != record.dispatch_started_at
-            or record.dispatch_started_at >= record.lease_expires_at
-            or record.evidence_kind is not None
-            or record.evidence_digest is not None
-            or record.terminal_outcome_digest is not None
-        ):
-            raise ValueError("in-flight idempotency state shape is invalid")
-    elif record.state is ReservationState.ABANDONED:
-        if (
-            record.dispatch_started_at is not None
-            or record.state_changed_at < record.lease_expires_at
-            or record.evidence_kind is not ReservationEvidenceKind.DISPATCH_NEVER_BEGAN
-            or record.evidence_digest is None
-            or record.terminal_outcome_digest is not None
-        ):
-            raise ValueError("abandoned idempotency state requires no-dispatch evidence")
-    elif record.state is ReservationState.OUTCOME_UNKNOWN:
-        if (
-            record.dispatch_started_at is None
-            or record.state_changed_at < record.lease_expires_at
-            or record.evidence_kind is not ReservationEvidenceKind.LEASE_EXPIRED
-            or record.evidence_digest is None
-            or record.terminal_outcome_digest is not None
-        ):
-            raise ValueError("unknown idempotency state requires expired in-flight evidence")
-    elif (
-        record.dispatch_started_at is None
-        or record.state_changed_at < record.dispatch_started_at
-        or record.evidence_kind
-        not in {
-            ReservationEvidenceKind.SINK_TERMINAL_OUTCOME,
-            ReservationEvidenceKind.IRREVOCABLE_NON_ACCEPTANCE,
-        }
-        or record.evidence_digest is None
-        or record.terminal_outcome_digest is None
-    ):
-        raise ValueError("terminal idempotency state requires authoritative sink evidence")
+    from .idempotency_reservation_validation import validate_reservation_state_shape
+
+    validate_reservation_state_shape(record)
 
 
 def _validate_state_revision(record: IdempotencyReservationRecord) -> None:
@@ -596,7 +469,7 @@ def _validate_transition(
     if current.state_changed_at < prior.state_changed_at:
         raise ValueError("idempotency reservation transition is backdated")
     if current.state is ReservationState.RESERVED:
-        if not _same_operation(prior.identity, current.identity):
+        if not same_operation(prior.identity, current.identity):
             raise ValueError("idempotency reservation recovery changes the stable operation")
         if (
             current.identity.acquisition_receipt.attempt
@@ -633,19 +506,13 @@ def _validate_transition(
         raise ValueError("idempotency reservation transition rewrote dispatch time")
 
 
-def _same_operation(
-    left: IdempotencyReservationIdentity,
-    right: IdempotencyReservationIdentity,
-) -> bool:
-    return bool(
-        left.idempotency_key == right.idempotency_key
-        and left.action_digest == right.action_digest
-        and left.execution_path is right.execution_path
-        and left.execution_fingerprint == right.execution_fingerprint
-        and left.source_revision == right.source_revision
-        and left.acquisition_receipt.lock_key == right.acquisition_receipt.lock_key
-        and left.acquisition_receipt.target_digest == right.acquisition_receipt.target_digest
-    )
+def validate_reservation_transition(
+    prior: IdempotencyReservationRecord,
+    current: IdempotencyReservationRecord,
+) -> None:
+    """Validate one exact monotonic reservation transition."""
+
+    _validate_transition(prior, current)
 
 
 def _validate_text(name: str, value: str) -> None:
@@ -724,6 +591,16 @@ def _normalize_digest_value(value: object) -> object:
     return value
 
 
+from .idempotency_reservation_lifecycle import (  # noqa: E402
+    begin_dispatch,
+    complete_reservation,
+    complete_reservation_from_verifier,
+    dispatch_permitted,
+    expire_reservation,
+    quarantine_reservation,
+    reopen_reservation,
+)
+
 __all__ = [
     "IdempotencyReservationIdentity",
     "IdempotencyReservationRecord",
@@ -736,9 +613,12 @@ __all__ = [
     "begin_dispatch",
     "classify_reservation",
     "complete_reservation",
+    "complete_reservation_from_verifier",
     "dispatch_permitted",
     "expire_reservation",
+    "quarantine_reservation",
     "reopen_reservation",
     "reservation_record_from_mapping",
     "reservation_record_to_mapping",
+    "validate_reservation_transition",
 ]

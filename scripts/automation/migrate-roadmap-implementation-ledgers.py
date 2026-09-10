@@ -123,7 +123,7 @@ def _is_exempt_owner(relative: str) -> bool:
     path = PurePosixPath(relative)
     name = path.name.lower()
     return (
-        name in {"readme.md", "index.md", "code-map.md", "code-map-implementation-ledger.md"}
+        name in {"readme.md", "index.md", "code-map.md"}
         or relative == "docs/roadmap/architecture/fdai-constitution.md"
         or "decisions" in path.parts
     )

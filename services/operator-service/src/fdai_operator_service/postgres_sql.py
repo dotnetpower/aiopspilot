@@ -225,8 +225,23 @@ WITH snapshot AS (
 ),
 selected AS (
   SELECT projection.*,
+           canonical_open.correlation_keys AS canonical_correlation_keys,
            COUNT(*) OVER () AS matched_groups
     FROM operator_incident_projection AS projection
+    LEFT JOIN LATERAL (
+        SELECT opened.entry->'correlation_keys' AS correlation_keys
+          FROM audit_log AS opened
+         WHERE opened.seq <= (SELECT snapshot_seq FROM snapshot)
+           AND opened.entry->>'kind' = 'incident.open'
+            AND NULLIF(BTRIM(opened.entry->>'incident_id'), '')
+                = projection.canonical_incident_id
+           AND COALESCE(
+               NULLIF(BTRIM(opened.correlation_id), ''),
+               NULLIF(BTRIM(opened.entry->>'correlation_id'), '')
+           ) = projection.correlation_id
+         ORDER BY opened.seq DESC
+         LIMIT 1
+    ) AS canonical_open ON TRUE
    WHERE projection.valid_from_seq <= (SELECT snapshot_seq FROM snapshot)
      AND (projection.valid_to_seq IS NULL
       OR projection.valid_to_seq > (SELECT snapshot_seq FROM snapshot))
@@ -269,6 +284,7 @@ SELECT (history_row->>'seq')::bigint AS seq,
     selected.canonical_incident_number,
     selected.canonical_ticket_id,
     selected.canonical_opened_at,
+    selected.canonical_correlation_keys,
     selected.projected_state AS canonical_lifecycle_state,
      selected.last_seq AS group_last_seq,
      selected.group_history_count,

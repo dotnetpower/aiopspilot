@@ -91,9 +91,16 @@ describe("navigation shell groups", () => {
     expect(source).not.toContain("navigate(workspacePath)");
   });
 
+  test("opens Settings as a modal layer instead of the navigation Explorer", () => {
+    expect(source).toContain('if (group === "settings")');
+    expect(source).toContain("onOpenSettings();");
+  });
+
   test("exposes Explorer disclosure state on Activity Bar group buttons", () => {
     expect(source).toContain('aria-expanded={expanded}');
-    expect(source).toContain('aria-controls="navigation-explorer"');
+    expect(source).toContain(
+      'aria-controls={opensSettings ? "settings-overlay" : "navigation-explorer"}',
+    );
     expect(source).toContain('id="navigation-explorer"');
     expect(source).toContain('aria-hidden={!explorerOpen}');
     expect(source).toContain('inert={!explorerOpen}');

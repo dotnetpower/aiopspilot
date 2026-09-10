@@ -874,6 +874,22 @@ def test_design_route_checker_counts_only_canonical_roadmap_context(
     )
 
 
+def test_design_route_checker_rejects_navigation_index_update_targets() -> None:
+    module = _load_design_route_checker()
+    code_map = "docs/roadmap/architecture/code-map.md"
+
+    assert module._navigation_only_update_error("example", code_map) == (
+        "example: navigation-only document cannot be a docs_update target: "
+        f"{code_map}. Route implementation changes to the owning design instead."
+    )
+    assert (
+        module._navigation_only_update_error(
+            "example", "docs/roadmap/architecture/project-structure.md"
+        )
+        is None
+    )
+
+
 def test_agent_customization_metadata_is_valid() -> None:
     assert _load_design_route_checker().validate() == []
 

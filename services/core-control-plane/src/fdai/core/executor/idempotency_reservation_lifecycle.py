@@ -12,10 +12,10 @@ from .idempotency_reservation import (
     ReservationEvidenceKind,
     ReservationState,
     _build_record,
-    _same_operation,
     _utc,
     _validate_digest,
 )
+from .idempotency_reservation_identity import same_operation
 
 
 def dispatch_permitted(
@@ -139,6 +139,70 @@ def complete_reservation(
     )
 
 
+def complete_reservation_from_verifier(
+    record: IdempotencyReservationRecord,
+    *,
+    at: datetime,
+    terminal_outcome_digest: str,
+    independent_effect_receipt_digest: str,
+) -> IdempotencyReservationRecord:
+    """Resolve an in-flight or unknown reservation from independent evidence."""
+
+    completed_at = _utc(at, "completed_at")
+    if record.state not in {ReservationState.IN_FLIGHT, ReservationState.OUTCOME_UNKNOWN}:
+        raise ValueError("idempotency reservation is not awaiting a terminal outcome")
+    if (
+        record.dispatch_started_at is None
+        or completed_at < record.dispatch_started_at
+        or completed_at < record.state_changed_at
+    ):
+        raise ValueError("idempotency terminal outcome predates current state")
+    _validate_digest("terminal_outcome_digest", terminal_outcome_digest)
+    _validate_digest(
+        "independent_effect_receipt_digest",
+        independent_effect_receipt_digest,
+    )
+    return _build_record(
+        identity=record.identity,
+        state=ReservationState.TERMINAL,
+        revision=record.revision + 1,
+        reserved_at=record.reserved_at,
+        lease_expires_at=record.lease_expires_at,
+        state_changed_at=completed_at,
+        dispatch_started_at=record.dispatch_started_at,
+        evidence_kind=ReservationEvidenceKind.INDEPENDENT_EFFECT_OUTCOME,
+        evidence_digest=independent_effect_receipt_digest,
+        terminal_outcome_digest=terminal_outcome_digest,
+    )
+
+
+def quarantine_reservation(
+    record: IdempotencyReservationRecord,
+    *,
+    at: datetime,
+    continuity_evidence_digest: str,
+) -> IdempotencyReservationRecord:
+    """Move an in-flight reservation to durable unknown-outcome quarantine."""
+
+    quarantined_at = _utc(at, "quarantined_at")
+    if record.state is not ReservationState.IN_FLIGHT:
+        raise ValueError("only an in-flight reservation can enter continuity quarantine")
+    if record.dispatch_started_at is None or quarantined_at < record.dispatch_started_at:
+        raise ValueError("idempotency quarantine predates dispatch")
+    _validate_digest("continuity_evidence_digest", continuity_evidence_digest)
+    return _build_record(
+        identity=record.identity,
+        state=ReservationState.OUTCOME_UNKNOWN,
+        revision=record.revision + 1,
+        reserved_at=record.reserved_at,
+        lease_expires_at=record.lease_expires_at,
+        state_changed_at=quarantined_at,
+        dispatch_started_at=record.dispatch_started_at,
+        evidence_kind=ReservationEvidenceKind.CONTINUITY_UNPROVEN,
+        evidence_digest=continuity_evidence_digest,
+    )
+
+
 def reopen_reservation(
     record: IdempotencyReservationRecord,
     *,
@@ -157,7 +221,7 @@ def reopen_reservation(
     )
     if not recoverable:
         raise ValueError("idempotency reservation has no safe recovery evidence")
-    if not _same_operation(record.identity, candidate_identity):
+    if not same_operation(record.identity, candidate_identity):
         raise ValueError("idempotency reservation recovery changes the stable operation")
     if (
         candidate_identity.acquisition_receipt.attempt
@@ -185,7 +249,9 @@ def reopen_reservation(
 __all__ = [
     "begin_dispatch",
     "complete_reservation",
+    "complete_reservation_from_verifier",
     "dispatch_permitted",
     "expire_reservation",
+    "quarantine_reservation",
     "reopen_reservation",
 ]

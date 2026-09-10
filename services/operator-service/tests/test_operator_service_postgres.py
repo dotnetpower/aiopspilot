@@ -85,6 +85,7 @@ from fdai_service_contracts import (
     ModelBindingPolicy,
     OperatorRole,
 )
+from fdai_service_contracts.incident_intervention import incident_target_ref
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
 _GRANT_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
@@ -1922,6 +1923,7 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
         "deduplication_key": "inventory:example-app",
     }
     assert page.items[0]["status"] == "open"
+    assert page.items[0]["target_ref"] == incident_target_ref("example-app")
     assert initial is not None
     assert initial.sequence == 7
     assert initial.to_dict()["incidents"][0]["incident_id"] == "INC-1"

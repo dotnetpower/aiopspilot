@@ -14,10 +14,7 @@ This design replaces the single-tool semantic turn plan with one bounded intent 
 
 The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to the current principal and deployment. The validator blocks unknown capabilities, cycles, unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only when the T1 model or provider is unavailable and the active typed policy permits that exact stage. Schema, build, manifest, and frame-plan verification failures terminate as clarification, unsupported, or held without T2. A valid T1 clarification, action draft, scope denial, or evidence-execution hold also never spends T2 capacity. Golden campaign requests select the separate `golden_campaign_no_t2` profile, so provider unavailability cannot trigger a campaign fallback.
 
-Schema repair is a separate bounded T1 binding, not a global prompt replacement or T2 escalation.
-Core invokes it at most once only after the primary T1 proposal has selected a supplied ontology
-schema intent but lacks the typed count or unique subject needed for a deterministic frame. The
-repair must remain read-only, preserve the schema family, pass the same capability/span validation,
+Schema repair is a separate bounded T1 binding, not a global prompt replacement or T2 escalation. Core invokes it at most once only after the primary T1 proposal has selected a supplied ontology schema intent but lacks the typed count or unique subject needed for a deterministic frame. The repair must remain read-only, preserve the schema family, pass the same capability/span validation,
 and add one attributable model observation. Invalid or unavailable repair retains the primary
 fail-closed outcome. No utterance phrase or keyword selects this binding.
 
@@ -184,6 +181,9 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Extended deterministic manifest normalization to a sixth schema-valid typed judgment shape: one plural declaration kind with explicit visible and current-scope facets. Plurality supplies the list cardinality while the existing principal visibility and current-scope requirements remain mandatory. | `current change`; sixth bounded authenticated Browser Entra observation; positive and singular-without-list-or-queryable negative regressions. | Publish and merge the corrected exact source before one final authenticated 5273/8010 evidence attempt. |
+| 2026-09-10 | implemented | Extended deterministic manifest normalization to a fifth schema-valid typed judgment shape: one singular declaration kind with explicit visible, current-scope, and list facets. The exact form preserves the principal-scoped `query.manifest` path without weakening the existing visibility, scope, or list-and-queryable requirements. | `current change`; fifth bounded authenticated Browser Entra observation; parameterized positive and missing-scope, missing-visibility, or missing-list-and-queryable regressions. | Publish the exact source, then run one focused authenticated 5273/8010 retry. Treat another unmodeled typed shape as a contract gap rather than starting a live retry loop. |
+| 2026-09-10 | implemented | Normalized four schema-valid typed judgment shapes for a no-target, operator-visible ObjectType manifest list into one deterministic `query.manifest` path. Exact queryable/visible, declaration visibility/list, plural kind/operator visibility, and combined visible-current-scope facets all require a current scope and bypass frame/plan model budgets without reading raw utterance tokens. | `current change`; four bounded authenticated Browser Entra observations; parameterized positive and missing-scope or missing-visibility regressions. | Run one focused authenticated 5273/8010 retry and stop on any new unmodeled typed shape. |
 | 2026-09-10 | implemented | Separated targetless review-only incident mitigation requirements from an actual mitigation draft. The accepted advisory intent returns bounded bilingual guidance, while a targetless `draft_only` request asks for the exact incident ID. | `current change`; semantic judgment, planning, `done` presentation, bilingual original-plus-three, prompt-profile, CQAS, Ruff, and mypy checks. | Retain authenticated runtime evidence separately before making a live-readiness claim. |
 | 2026-09-10 | validated | Conditional schema-repair prompt v2 passed five distinct schema cohorts at 50/50 while leaving non-schema turns on the primary model only. | Local live schema and legacy artifacts; focused boundary and production wiring tests. | Keep global primary profiles unchanged; investigate provider/model variance independently from schema repair. |
 | 2026-09-10 | implemented | Added one conditional schema-repair T1 binding after the active primary has selected an incomplete typed schema family. Invalid repair retains the primary fail-closed proposal; non-schema turns never call it. | `current change`; boundary fallback, no-call, wiring, prompt-profile, Ruff, and mypy checks. | Validate new schema answers end to end and confirm non-schema model-call counts remain unchanged. |
@@ -316,11 +316,11 @@ capability, relationship path, or answer shape in the target state.
 ## Ontology query coverage contract
 
 FDAI targets 100% **structural query coverage**, not a guarantee that every question has enough
-evidence for a complete answer. Structural coverage means every declaration readable by the
-current principal in the active ontology release is represented in the planner's query surface or
-has a typed unavailable reason. The covered declarations are ObjectTypes, queryable Properties,
-both query sides of LinkTypes, Interfaces, read-only FunctionTypes, and ActionTypes as draft-only
-targets.
+evidence for a complete answer. Structural coverage means every declaration readable by the current
+principal in the active ontology release is represented in the planner's query surface or has a typed
+unavailable reason. The covered declarations are ObjectTypes, queryable Properties, both query sides
+of LinkTypes, Interfaces, read-only FunctionTypes, and ActionTypes as draft-only targets. A validated
+current-scope visibility request compiles directly to the principal-bound manifest without model planning.
 
 The release gate measures three separate outcomes:
 

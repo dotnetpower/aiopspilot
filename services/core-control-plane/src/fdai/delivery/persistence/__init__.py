@@ -126,6 +126,11 @@ from fdai.delivery.persistence.postgres_outbox import (
     PostgresOutboxStore,
     PostgresOutboxStoreConfig,
 )
+from fdai.delivery.persistence.postgres_post_release_closure import (
+    PostgresPostReleaseClosureStore,
+    PostgresPostReleaseClosureStoreConfig,
+    PostReleaseClosureCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_post_turn_review import (
     PostgresPostTurnReviewLedger,
     PostgresPostTurnReviewLedgerConfig,
@@ -163,6 +168,11 @@ from fdai.delivery.persistence.postgres_rpc_idempotency import (
     PostgresRpcIdempotencyStoreConfig,
     RpcClaimConflictError,
 )
+from fdai.delivery.persistence.postgres_safeguard_dispatch import (
+    PostgresSafeguardDispatchEvidenceStore,
+    PostgresSafeguardDispatchEvidenceStoreConfig,
+    SafeguardDispatchCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_schedule_run_ledger import (
     PostgresScheduleRunLedger,
     PostgresScheduleRunLedgerConfig,
@@ -198,6 +208,11 @@ from fdai.delivery.persistence.postgres_t2_cache import (
     T2CacheEntry,
     T2CacheLifecycleError,
     T2CacheRotationReceipt,
+)
+from fdai.delivery.persistence.postgres_target_dispatch_fence import (
+    PostgresTargetDispatchFenceStore,
+    PostgresTargetDispatchFenceStoreConfig,
+    TargetDispatchFenceCompareAndSetError,
 )
 from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
@@ -305,6 +320,10 @@ __all__ = [
     "PostgresIdempotencyStoreConfig",
     "PostgresIdempotencyReservationStore",
     "PostgresIdempotencyReservationStoreConfig",
+    "PostgresSafeguardDispatchEvidenceStore",
+    "PostgresSafeguardDispatchEvidenceStoreConfig",
+    "PostgresTargetDispatchFenceStore",
+    "PostgresTargetDispatchFenceStoreConfig",
     "PostgresIncidentProposalStore",
     "PostgresJiraLedger",
     "PostgresMeteringStore",
@@ -323,6 +342,8 @@ __all__ = [
     "PostgresOntologyInstanceStoreConfig",
     "PostgresOutboxStore",
     "PostgresOutboxStoreConfig",
+    "PostgresPostReleaseClosureStore",
+    "PostgresPostReleaseClosureStoreConfig",
     "PostgresProcessRuntimeStore",
     "PostgresProcessRuntimeStoreConfig",
     "PostgresProgrammaticPipelineStore",
@@ -376,6 +397,8 @@ __all__ = [
     "PostgresWorkflowDefinitionStore",
     "PostgresWorkflowDefinitionStoreConfig",
     "ReservationCompareAndSetError",
+    "PostReleaseClosureCompareAndSetError",
+    "TargetDispatchFenceCompareAndSetError",
     "RpcClaimConflictError",
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
@@ -391,6 +414,7 @@ __all__ = [
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",
     "StateStoreSemanticFeedbackCandidateStore",
+    "SafeguardDispatchCompareAndSetError",
     "T2CacheCatalogState",
     "T2CacheCatalogTransitionReceipt",
     "T2CacheEntry",

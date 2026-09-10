@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 7064d6b9ec31d6e7ce5ff32f48e9d747ae5a2070
-translation_revised: 2026-09-10
+translation_source_sha: 1ead69fe772bf079b5cff2c58fb0a304e04aa785
+translation_revised: 2026-09-11
 ---
 
 # 보안과 아이덴티티
@@ -22,16 +22,22 @@ translation_revised: 2026-09-10
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
-| 실행기 안전조건과 독립 효과 종결 | in-progress | `packages/service-contracts/src/fdai_service_contracts/execution_safeguards.py`; `core/executor/{safeguards,safeguard_proofs,lock,lock_continuity,idempotency_reservation*,audit_intent}.py`; `delivery/persistence/postgres_{resource_lock,idempotency_reservation,audit_intent}.py`; `shared/providers/resource_lock.py`; 집중 안전조건, 잠금, 영속성, 이행 테스트; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81`, `#627`, `#628`, `#633`, `#681`; 완료된 이슈 `#620`, `#660`, `#664`, `#669`-`#672`, `#674`, `#678`-`#680` | 증명 묶음, 잠금 근거와 운영 PostgreSQL 공급자, 최종 처리기, 소유권 연속성 모델, 장애에 안전한 예약 및 감사 의도 PostgreSQL 저장소를 권한이나 효과 검증 주장 없이 구현했습니다. 공유 조정, 실제 생성기, Isolated 실행기 검증, 통제된 효과 근거는 열린 작업으로 남아 있습니다. |
+| 실행기 안전조건과 독립 효과 종결 | in-progress | `packages/service-contracts/src/fdai_service_contracts/execution_safeguards.py`; `core/executor/{safeguards,safeguard_proofs,lock,lock_continuity,idempotency_reservation*,audit_intent,target_dispatch_fence*,safeguard_dispatch*,post_release_closure*}.py`; `delivery/persistence/postgres_{resource_lock,idempotency_reservation,audit_intent,target_dispatch_fence,safeguard_dispatch,post_release_closure}.py`; 집중 안전조건, 잠금, fence, 영속성, 이행 테스트; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81`, `#627`, `#628`, `#633`, `#681`; 완료된 이슈 `#620`, `#660`, `#664`, `#669`-`#672`, `#674`, `#678`-`#680`, `#692`-`#694` | 증명 묶음, 운영 잠금 근거, 최종 처리기, 소유권 연속성 모델, 예약 및 감사 저장소, 대상 전체 fence, 영속화된 디스패치 checkpoint, 원자적 해제 후 종결을 권한이나 효과 검증 주장 없이 구현했습니다. 공유 조정, 실제 생성기, Isolated 실행기 검증, 통제된 효과 근거는 열린 작업으로 남아 있습니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
 | 자동화 보류 복구 승인 강화 | in-progress | `core/workflow/{recovery_admission,automation_hold}.py`; 보호 조건을 적용한 메모리 내 및 PostgreSQL 상태 어댑터; [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630`, `#640` | 정확한 승인과 원자적 보류 해제 기본 연산을 구현했지만 운영 보상은 여전히 기존 해제 호출을 사용합니다. `#630`이 해당 통합, `#640`이 최종 실행 경로 fence를 담당합니다. FDAI-CONST-009는 `implemented`를 유지합니다. |
 | 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로; 이슈 `#371` | 주요 경계는 이제 공유 최소화와 민감정보 제거를 구현했지만 배포 privacy 승인과 보존된 운영 근거는 계속 열려 있습니다. |
-| 사전 사람 권한 부여(A3-E) | in-progress | `config/constitution-traceability.json`의 `FDAI-CONST-008` 요구 사항; [에스컬레이션과 사전 권한](../decisioning/escalation-and-standing-authority-ko.md); 완료된 이슈 `#331`; 이슈 `#621`, `#629`, `#631`, `#632` | 스키마, 평가기, 변경할 수 없는 수명 주기, 읽기 시점 fence가 있지만 의도적으로 연결하지 않은 상태입니다. 효과 전체 구간 fence, 비활성 승격 검토, 범위가 제한된 로컬 shadow 근거, 별도 승인된 통제된 승격이 남아 있습니다. |
+| 사전 사람 권한 부여(A3-E) | in-progress | `config/constitution-traceability.json`의 `FDAI-CONST-008` 요구 사항; [에스컬레이션과 사전 권한](../decisioning/escalation-and-standing-authority-ko.md); `core/standing_authority/{lease,promotion_candidate*,shadow_cohort_runner}.py`; 완료된 이슈 `#331`, `#621`, `#629`, `#631`; 이슈 `#632` | 스키마, 평가기, 변경할 수 없는 수명 주기, 읽기 시점 fence, 효과 전체 구간 lease, 비활성 승격 후보 수명 주기, 로컬 합성 shadow 집단이 있지만 의도적으로 연결하지 않은 상태입니다. 통제된 런타임 근거와 별도 승인된 승격이 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 정확한 매니페스트, 완전한 분모 계산, 콘텐츠에 결속된 자료 집합과 증적, 고정 로컬 제한 시간, 레지스트리 전후 무결성, 심볼릭 링크에 안전한 명시적 산출물 작성기를 갖춘 결정론적 로컬 합성 A3-E shadow 집단을 추가했습니다. 개발 근거만 기록하며 실행 또는 승격 권한을 부여하지 않습니다. | `current change`; `core/standing_authority/shadow_cohort_runner.py`; 최종 회귀 테스트 2개 전 집중 standing-authority 테스트 174개 통과 후 40개 집단 테스트 구간 재실행; Ruff, strict mypy 통과; 독립 TOCTOU 및 자료 집합 결속 문제를 수정했고 재비평에서 Medium 이상 발견된 문제가 없습니다. | #631의 로컬 구현 잔여 작업은 없습니다. #632에는 별도 승인된 통제된 런타임 근거와 독립 승격 검토가 필요합니다. |
+| 2026-09-10 | implemented | 비활성 shadow 전용 A3-E 승격 후보 수명 주기를 추가했습니다. 정확한 권한 및 lease 개정, 검토자 허용 목록, 근거 요구 사항, 인증된 생성자와 검토자 분리, 콘텐츠에 결속된 취소, 결정적 거부, 2단계 감사, 변경 불가 재실행, 정적 비가져오기 검사는 실행 또는 승격 권한을 부여하지 않고 권한 있는 레지스트리를 변경하지 않습니다. | `current change`; `core/standing_authority/promotion_candidate*.py`; 집중 테스트 52개 통과; Ruff, format, strict mypy, 모든 파일 크기 제한 통과; 검토자 권한과 취소 다이제스트 결속에 대한 독립 비평 발견을 수정했으며 재비평에서 Medium 이상 발견된 문제가 없습니다. | #629의 로컬 구현 잔여 작업은 없습니다. 별도 승인된 #632 승격 전에 범위가 제한된 #631 shadow 집단을 보존합니다. |
+| 2026-09-10 | implemented | 비활성 효과 전체 구간 A3-E lease와 공급자 커밋 fence 계약을 추가했습니다. 정확한 수명 주기 개정, 작업, 대상, 실행기 신원, 소스 개정, 제한된 유효 기간, fence 세대, 안정된 공급자 멱등성, checkpoint, 최종 해제, 권위 있는 재시작 조정은 모두 권한 없는 레코드로 유지됩니다. 원자적 lease 검증, fence, 멱등성, 상태 조정을 제공하지 않는 공급자는 부적합하며 운영 권한 경로는 lease를 가져오지 않습니다. | `current change`; `core/standing_authority/lease.py`; `shared/providers/standing_authority.py`; 집중 테스트 82개 통과; Ruff, format, strict mypy 통과; 수정된 정적 gate가 권한 경로 파일 208개 검사; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #621의 로컬 구현 잔여 작업은 없습니다. #629 검토와 #631 shadow 근거를 마칠 때까지 lease를 비활성으로 유지한 뒤 #632 승격을 별도로 승인합니다. |
+| 2026-09-10 | implemented | 정확한 해제 후 종결 계획, 엄격한 레코드, Core 소유 PostgreSQL 트랜잭션을 추가했습니다. 안정된 예약 시도마다 해제 전 근거, 예약, 대상 fence의 이전 상태를 잠그고, 최종 또는 격리 예약 상태, 변경 불가 감사 종결, 현재 조정 상태, 결정적 outbox, 정확한 fence 상태를 원자적으로 기록합니다. 격리는 동일 세대의 권위 있는 상태 또는 독립 검증기 근거로만 해제합니다. 동일 작업 재실행은 누락된 최종 근거를 복구하지 않고 검증하며 독립 효과 상태는 `pending`을 유지합니다. | `current change`; `post_release_closure*.py`; `postgres_post_release_closure.py`; Core 서비스 이행 파일 및 소유권 매니페스트; 집중 모델, 영속성, 이행 테스트 모음 통과; 새로운 pgvector/PostgreSQL 16 이행과 병렬 종결, 재시작 읽기, 격리 조정, outbox 중복 제거 시나리오 통과; Ruff, strict mypy 통과. | #694의 로컬 구현 잔여 작업은 없습니다. #681에서 공유 근거 수명 주기 조정기를 구현합니다. |
+| 2026-09-10 | implemented | 정확한 묶음, 디스패치 시작, 전송 및 권위 있는 대상 시스템 관측, 새로운 해제 전 잠금 연속성 checkpoint를 영속화하는 단조 안전조건 디스패치 근거 수명 주기를 추가했습니다. 엄격한 codec, compare-and-set 저장, 재시작 복구를 제공하며 권한이나 효과 검증 주장을 부여하지 않습니다. | `current change`; `safeguard_dispatch*.py`; `postgres_safeguard_dispatch.py`; 서비스 이행 파일; 집중 모델, 영속성, 이행 테스트 86개 통과, DSN 미구성으로 live PostgreSQL 테스트 1개 건너뜀; Ruff 통과. | #693의 로컬 구현 잔여 작업은 없습니다. #694에서 해제 후 원자적 종결을 완료한 뒤 #681에서 공유 조정을 구현합니다. |
+| 2026-09-10 | implemented | 예약 직후이면서 감사, 묶음, 대상 시스템 작업 전에 대상별 고유 generation fence 디스패치 레코드를 추가했습니다. 정확한 레코드 CAS와 읽기는 감사 및 묶음 근거를 보존하고, 해결될 때까지 대상의 모든 변경을 차단하며, 해제 뒤에도 격리를 유지합니다. 격리 해제에는 새로운 조정 근거가 필요하고 새 generation에는 더 늦은 획득이 필요합니다. | `current change`; `target_dispatch_fence.py`; 엄격한 코덱; PostgreSQL 저장소 및 이행 파일; 로컬 모델 및 영속성 검사 18개, 이행 inventory 검사 64개, live PostgreSQL 경쟁 및 재시작 시나리오 1개 통과; Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #692의 잔여 작업은 없습니다. #693에서 묶음, 디스패치, 해제 전 checkpoint를 저장하고, #681 조정 전에 #694에서 해제 후 종결을 완료합니다. |
 | 2026-09-10 | implemented | 운영 PostgreSQL 근거 리소스 잠금을 구현했습니다. 하나의 전용 세션이 advisory key를 획득하면서 데이터베이스 및 backend 신원을 원자적으로 확보하고, 모든 평가에서 PostgreSQL 시각과 정확한 세션 및 키를 다시 검사합니다. 상실, 대체, 잘못된 근거, 취소는 핸들을 사용할 수 없게 만들고 다른 세션을 unlock하지 않은 채 알 수 없는 해제를 기록합니다. 확인된 unlock은 최종 무권한 해제 근거를 생성하며 격리 조정 전략만 운영에 적합합니다. | `current change`; `postgres_resource_lock.py`; `resource_lock.py`; 집중 잠금 테스트; 로컬 검사 80개와 live PostgreSQL 세션 및 읽기 및 해제 및 재획득 시나리오 1개 통과; Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #678의 잔여 작업은 없습니다. #681에서 공유 근거 수명 주기 조정기를 구현합니다. |
 | 2026-09-10 | implemented | 이행 파일이 소유하는 추가 전용 PostgreSQL 감사 의도 저장소를 구현했습니다. 원자적 삽입은 별도의 정확한 읽기 트랜잭션보다 먼저 커밋합니다. 예약 lease 안에서 다이제스트와 정식 콘텐츠가 일치할 때만 추가됨 또는 동일 중복 근거를 생성하며, 차이는 증적 없는 충돌을 반환합니다. | `current change`; `postgres_audit_intent.py`; 서비스 이행 파일 및 소유권 매니페스트; 로컬 계약 및 어댑터 검사 10개, 이행 inventory 검사 64개, live PostgreSQL 동시 추가 및 재시작 시나리오 1개 통과; Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #680의 잔여 작업은 없습니다. #681 조정을 시작하기 전에 #678의 PostgreSQL 근거 잠금 공급자를 완료합니다. |
 | 2026-09-10 | implemented | 별도 이행 파일이 소유하는 PostgreSQL 예약 테이블과 어댑터를 구현했습니다. 원자적 삽입은 획득자를 동일 중복 및 충돌과 구분합니다. 전체 레코드 compare-and-set과 `SELECT ... FOR UPDATE` 읽기는 정확한 이전 상태를 결속합니다. 런타임 DDL과 공유 키 공간 대체 경로는 없습니다. | `current change`; `postgres_idempotency_reservation.py`; 서비스 이행 파일 및 소유권 매니페스트; 로컬 모델 및 어댑터 검사 23개, 이행 inventory 검사 64개, live PostgreSQL 경쟁 및 재시작 및 오래된 CAS 시나리오 1개 통과; Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #679의 잔여 작업은 없습니다. #680에서 감사 의도 저장소를, #678에서 근거 잠금 공급자를 구현합니다. |
@@ -70,7 +76,10 @@ translation_revised: 2026-09-10
 - [x] 이슈 `#678`에서 운영 PostgreSQL 근거 리소스 잠금을 구현했습니다. 근거: 로컬 검사 80개, live PostgreSQL 세션 및 읽기 및 해제 및 재획득 시나리오 1개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [x] 이슈 `#679`에서 영구 PostgreSQL 예약 저장소를 구현했습니다. 근거: 로컬 검사 23개, 이행 inventory 검사 64개, live PostgreSQL 경쟁 및 재시작 및 CAS 시나리오 1개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [x] 이슈 `#680`에서 영구 PostgreSQL 감사 의도 저장소를 구현했습니다. 근거: 로컬 검사 10개, 이행 inventory 검사 64개, live PostgreSQL 추가 경쟁 및 재시작 시나리오 1개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
-- [ ] #678-#680 다음에 이슈 `#681`에서 공유 근거 수명 주기 조정기를 구현합니다.
+- [x] 이슈 `#692`에서 대상 전체 준비 디스패치 fence를 영속화했습니다. 근거: 로컬 검사 18개, 이행 inventory 검사 64개, live PostgreSQL 경쟁 및 재시작 시나리오 1개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
+- [x] 이슈 `#693`에서 안전조건 묶음, 디스패치, 해제 전 checkpoint를 영속화했습니다. 근거: 집중 모델, 영속성, 이행 테스트 86개 통과, DSN 미구성으로 live PostgreSQL 테스트 1개 건너뜀, Ruff 통과.
+- [x] 이슈 `#694`에서 해제 후 안전조건 상태를 원자적으로 종결하거나 격리했습니다. 근거: 집중 모델, 영속성, 이행 테스트 모음 통과, 새로운 pgvector/PostgreSQL 16 이행과 live 병렬 종결, 재시작, 조정, outbox 중복 제거 시나리오 통과, Ruff, strict mypy 통과.
+- [ ] #692-#694 다음에 이슈 `#681`에서 공유 근거 수명 주기 조정기를 구현합니다.
 - [ ] #669-#672 선행 작업을 닫은 뒤 이슈 `#627`에서 실제 Core 및 작업 흐름 실행이 공유 묶음을 생성하게 합니다.
 - [x] 하위 이슈 `#660`에서 순수 전체 액션 안전조건 증명 최종 처리기가 정확한 현재 `LiveLockOwnershipAssessment`를 사용하게 합니다. 근거: 통과한 안전조건 및 리소스 잠금 집중 검사 52개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [ ] 이슈 `#628`에서 Core 검증기를 가져오지 않고 Isolated 실행기가 공유 묶음을 다시 검증하게 합니다.
@@ -82,7 +91,10 @@ translation_revised: 2026-09-10
 - [ ] 이슈 `#640`에서 각 실행 경로의 기존 논리 대상 잠금 안에서 해제 증적과 더 최신 보류가 없음을 다시 검사합니다. 이 강화 중에도 FDAI-CONST-009는 `implemented`를 유지합니다.
 - [ ] 하나의 고정된 배포 개정에서 통제된 kill switch, break-glass, 롤백, 신원 재인증 및 감사 앵커 예행 연습 증적을 보존합니다. 이 작업은 이슈 `#372`에서 추적합니다.
 - [ ] Privacy 검증을 주장하기 전에 데이터 거버넌스 운영 게이트를 완료합니다. 이 작업은 이슈 `#371`에서 추적합니다.
-- [ ] 이슈 `#621`, `#629`, `#631`, `#632`에서 효과 전체 구간 fence, 비활성 승격 검토, 범위가 제한된 로컬 shadow 근거, 별도 승인된 통제된 승격을 완료합니다. 완료된 이슈 `#331`은 수명 주기 영속성 근거로 유지합니다.
+- [x] 이슈 `#621`에서 비활성 효과 전체 구간 lease와 공급자 커밋 fence를 정의했습니다. 근거: 집중 테스트 82개, Ruff, strict mypy, 권한 경로 파일 208개 정적 검사, Medium 이상 독립 비평 발견 0건.
+- [x] 이슈 `#629`에서 비활성 승격 후보 수명 주기를 구현했습니다. 근거: 집중 테스트 52개, Ruff, strict mypy, 파일 크기 제한, 검토자 권한과 취소 다이제스트 결속 강화 후 Medium 이상 발견 0건.
+- [x] 이슈 `#631`에서 범위가 제한된 로컬 합성 shadow 집단을 보존했습니다. 근거: 정규 매니페스트와 증적, 로컬 제한 시간 및 레지스트리 무결성 검사, 심볼릭 링크에 안전한 산출물, 집중 테스트, 강화 후 Medium 이상 발견 0건.
+- [ ] 이슈 `#632`에서 별도 승인된 통제된 런타임 근거와 승격을 완료합니다. 완료된 이슈 `#331`, `#621`, `#629`, `#631`은 개발 근거로만 유지합니다.
 
 ## 심각도 어휘
 

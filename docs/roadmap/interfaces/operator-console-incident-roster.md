@@ -19,13 +19,26 @@ The API contract is:
 | Route | Purpose |
 |-------|---------|
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | Return incident summaries newest activity first. |
+| `POST /incidents/{correlation_id}/interventions` | Queue one authenticated, exact-state Incident intervention without managed-resource execution authority. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
 | `GET /audit/{correlation_id}/trace` | Reconstruct ordered correlated audit activity and any recorded pipeline stages. |
 | `POST /chat/stream` | Produce a typed incident draft from natural language without creating a record. |
 | `POST /chat/action/confirm` | Confirm the typed draft and create the audited Incident. |
 
-The incident roster stays read-only. Incident creation uses semantic draft plus
-typed confirmation routes and never adds a mutation button to the panel.
+The roster query stays read-only. The authenticated detail panel can submit a bounded intervention
+request, but it can never execute against a managed resource. The server exposes a non-reversible
+`target_ref` only when the canonical `incident.open` record contains exactly one `resource:`
+correlation key, even after that opening row leaves the bounded display history. A missing,
+malformed, oversized, or ambiguous resource key keeps the intervention unavailable. The Operator
+API re-resolves the exact lifecycle state before durable acceptance, and Core independently
+recomputes the same target digest from its canonical Incident before it applies the request.
+The Operator lifecycle owns a retry-safe intervention outbox worker, and readiness stays false if that worker stops.
+Its allowlisted logical request topic is multiplexed through the physical transport and registered in the Core runtime topic set.
+Core supervises the canonical consumer with its Incident registry; HTTP acceptance isn't terminal while publication or application is pending.
+
+Incident creation uses semantic draft plus typed confirmation routes and never adds a creation
+button to the roster panel.
+
 For a recognized incident-open request, the route behaves as follows:
 
 1. It requires Contributor capability, severity, and a target correlation key.

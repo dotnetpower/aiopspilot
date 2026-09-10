@@ -87,6 +87,26 @@ def test_translation_gate_excludes_english_only_implementation_ledgers(
     assert "0 English docs, 0 translations verified" in result.stdout
 
 
+def test_translation_gate_accepts_a_deleted_document_pair(git_repo: Path) -> None:
+    source = git_repo / "docs" / "guide.md"
+    translation = git_repo / "docs" / "guide-ko.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Guide\n", encoding="utf-8")
+    source_sha = _run(git_repo, "git", "hash-object", "docs/guide.md").stdout.strip()
+    translation.write_text(
+        f"---\ntranslation_of: guide.md\ntranslation_source_sha: {source_sha}\n---\n# Guide\n",
+        encoding="utf-8",
+    )
+    assert _run(git_repo, "git", "add", "docs").returncode == 0
+    source.unlink()
+    translation.unlink()
+
+    result = _run(git_repo, "bash", str(_TRANSLATIONS))
+
+    assert result.returncode == 0, result.stderr
+    assert "0 English docs, 0 translations verified" in result.stdout
+
+
 def test_text_gates_limit_scans_to_supplied_paths(git_repo: Path) -> None:
     (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
     (git_repo / "bad-punctuation.txt").write_text("bad \u2014 punctuation\n", encoding="utf-8")

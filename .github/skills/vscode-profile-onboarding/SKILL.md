@@ -80,6 +80,17 @@ maintainer's local VS Code state.
   reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
   restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.
   Run only the affected preparation task when a migration, binding, or environment input changed.
+- Keep local stack and Browser investigation local-first. Use focused local checks and retained
+  local receipts for each hypothesis; do not push, watch, or rerun CI merely to test an iteration.
+  Run CI once for the final locally verified commit when a merge, protected deployment, or release
+  boundary requires a green pushed SHA. If the inherited main branch is red, diagnose and repair or
+  synchronize that baseline once instead of cycling CI for each local hypothesis.
+- If Vite exits with `FSWatcher` `ENOSPC` under WSL, measure
+  `fs.inotify.max_user_watches` and active `/proc/*/fdinfo` watch entries before restarting. When
+  VS Code file watchers own nearly the entire limit, do not kill editor processes or repeat the
+  same failing start. For one bounded agent-owned validation run, set
+  `CHOKIDAR_USEPOLLING=1` on the existing committed full-stack launcher. A persistent inotify limit
+  increase remains a user or administrator machine-setting change.
 - The local launcher sets `FDAI_EXECUTION_VENUE=local`; every stateful service uses the loopback
   Docker PostgreSQL DSN under its service-owned role. The Azure launcher sets
   `FDAI_EXECUTION_VENUE=deployed`; every deployed service uses its Azure Database for PostgreSQL
@@ -177,6 +188,13 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
 - Verify the destination with `stat` and a shape-only JSON check. Do not inspect or print token,
   cookie, or storage values. The resulting file can then be supplied through
   `FDAI_E2E_STORAGE_STATE` to the isolated Playwright context.
+- When authenticated evidence reaches a model-backed typed judgment boundary, do not repeatedly
+  rerun the same prompt or add raw phrase heuristics for each observed response. Collect the
+  distinct schema-valid intent, target, and facet shapes from bounded content-free logs, close the
+  equivalent forms in one deterministic predicate with parameterized regressions, and run one
+  focused browser retry. A new unmodeled shape after that retry is a contract gap to stop and
+  diagnose, not permission to continue an open-ended live loop. Resume only after the exact typed
+  form has a focused regression and the corrected source is published.
 
 The isolated runner waits for Vite's `ready in` stdout marker. This avoids an unused-loopback HTTP
 or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN networking. Do not

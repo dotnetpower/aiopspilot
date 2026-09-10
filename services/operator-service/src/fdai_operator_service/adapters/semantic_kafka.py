@@ -15,6 +15,9 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
+from fdai_service_contracts.incident_intervention import (
+    INCIDENT_INTERVENTION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
@@ -60,6 +63,7 @@ class OperatorSemanticKafkaConfig:
     event_topic: str | None = None
     hil_decision_topic: str | None = None
     notification_receipt_topic: str | None = None
+    incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -120,6 +124,11 @@ class OperatorSemanticKafkaConfig:
             self.notification_receipt_topic,
             occupied=configured_topics,
             error_message="notification receipt topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.incident_intervention_topic,
+            occupied=configured_topics,
+            error_message="Incident intervention topic MUST be distinct and valid",
         )
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
@@ -203,6 +212,7 @@ class OperatorSemanticKafkaBus:
             allowed.add(self._config.hil_decision_topic)
         if self._config.notification_receipt_topic is not None:
             allowed.add(self._config.notification_receipt_topic)
+        allowed.add(self._config.incident_intervention_topic)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()

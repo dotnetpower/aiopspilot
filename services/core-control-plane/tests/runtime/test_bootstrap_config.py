@@ -71,12 +71,16 @@ from fdai.runtime.bootstrap_pantheon import (
     _pantheon_enforce_enabled,
     _runtime_asset_root,
 )
+from fdai.runtime.bootstrap_tasks import schedule_incident_intervention_consumer
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.metric import MetricPoint, MetricQuery, NoopMetricProvider
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.incident_intervention import (
+    INCIDENT_INTERVENTION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.semantic_turn import (
     SEMANTIC_PROJECTION_TOPIC,
     SEMANTIC_REQUEST_TOPIC,
@@ -136,6 +140,10 @@ def test_runtime_multiplexes_startup_readiness_transitions() -> None:
 
 def test_runtime_multiplexes_semantic_turn_channels() -> None:
     assert {SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC}.issubset(_RUNTIME_LOGICAL_TOPICS)
+
+
+def test_runtime_multiplexes_incident_intervention_channel() -> None:
+    assert INCIDENT_INTERVENTION_REQUEST_TOPIC in _RUNTIME_LOGICAL_TOPICS
 
 
 def test_runtime_multiplexes_effect_reconciliation_channels() -> None:
@@ -640,6 +648,32 @@ async def test_semantic_turn_bootstrap_schedules_configured_binding() -> None:
 
     assert task is not None
     assert task.get_name() == "semantic-turn-consumer"
+    await task
+    assert calls == [(bus, stop)]
+
+
+async def test_incident_intervention_bootstrap_schedules_configured_binding() -> None:
+    calls: list[tuple[LocalEventBus, asyncio.Event]] = []
+
+    class _Binding:
+        async def run(self, *, bus: LocalEventBus, stop: asyncio.Event) -> None:
+            calls.append((bus, stop))
+
+    class _Ready:
+        async def run_when_ready(self, stop: asyncio.Event, operation: object) -> None:
+            await operation()  # type: ignore[operator]
+
+    bus = LocalEventBus()
+    stop = asyncio.Event()
+    task = schedule_incident_intervention_consumer(
+        binding=_Binding(),
+        readiness=_Ready(),  # type: ignore[arg-type]
+        bus=bus,
+        stop=stop,
+    )
+
+    assert task is not None
+    assert task.get_name() == "incident-intervention-consumer"
     await task
     assert calls == [(bus, stop)]
 

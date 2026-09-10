@@ -17,7 +17,6 @@ from fdai_service_contracts.venue import (
     uses_workload_identity,
 )
 
-from fdai_operator_service.action_confirmation_runtime import ActionConfirmationBridge
 from fdai_operator_service.adapters import (
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
@@ -93,6 +92,10 @@ from fdai_operator_service.model_lifecycle_composition import (
     AsyncResolvedModelsSource,
     OperatorResolvedModelsRevisionOwner,
     build_model_revision_owner,
+)
+from fdai_operator_service.outbox_runtime import (
+    ActionConfirmationBridge,
+    IncidentInterventionBridge,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -313,6 +316,14 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None
         )
+        incident_intervention_bridge = (
+            IncidentInterventionBridge(
+                store=family_store,
+                publisher=semantic_bus,
+            )
+            if family_store is not None and semantic_bus is not None
+            else None
+        )
         azure_monitor_webhook_bridge = (
             AzureMonitorWebhookBridge(
                 store=family_store,
@@ -396,6 +407,7 @@ class ProductionOperatorComposition:
                 framework_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
+                incident_intervention_bridge,
                 azure_monitor_webhook_bridge,
                 live_stage_relay,
                 hil_decision_outbox_bridge,
@@ -416,6 +428,7 @@ class ProductionOperatorComposition:
                 framework_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
+                incident_intervention_bridge,
                 azure_monitor_webhook_bridge,
                 semantic_bus,
                 live_stage_relay,
@@ -779,6 +792,7 @@ def _application_lifecycle(
     framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
+    incident_intervention_bridge: IncidentInterventionBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
@@ -799,6 +813,7 @@ def _application_lifecycle(
             framework_assessment_projection_bridge,
             read_investigation_completion_bridge,
             action_confirmation_bridge,
+            incident_intervention_bridge,
             azure_monitor_webhook_bridge,
             live_stage_relay,
             narrator_scheduler,
@@ -824,6 +839,7 @@ def _readiness_probe(
     framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
+    incident_intervention_bridge: IncidentInterventionBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
@@ -856,6 +872,9 @@ def _readiness_probe(
                 or read_investigation_completion_bridge.workers_ready()
             )
             and (action_confirmation_bridge is None or action_confirmation_bridge.workers_ready())
+            and (
+                incident_intervention_bridge is None or incident_intervention_bridge.workers_ready()
+            )
             and (
                 azure_monitor_webhook_bridge is None or azure_monitor_webhook_bridge.workers_ready()
             )

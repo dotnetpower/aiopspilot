@@ -29,9 +29,12 @@ import { t } from "./i18n";
 import { DEFAULT_PANEL_ID, panelForId, resolvePanels } from "./panels";
 import {
   currentRoute,
+  closeTransientRoute,
+  hasTransientRoute,
   installNavigationListener,
   migrateLegacyHash,
   navigate,
+  openTransientSettingsRoute,
   panelPath,
   shouldReplaceUnmatchedRoute,
 } from "./router";
@@ -54,9 +57,21 @@ interface AppState {
   readonly error?: string;
 }
 
+interface BackgroundRoute {
+  readonly panelId: string;
+  readonly routeKey: string;
+  readonly href: string;
+  readonly search: URLSearchParams;
+}
+
 const CommandDeck = lazy(async () => {
   const module = await import("./deck/command-deck");
   return { default: module.CommandDeck };
+});
+
+const SettingsOverlay = lazy(async () => {
+  const module = await import("./components/settings-overlay");
+  return { default: module.SettingsOverlay };
 });
 
 const LoginRoute = lazy(async () => {
@@ -94,11 +109,34 @@ function currentPanelId(): string {
   return currentRoute().panelId;
 }
 
+function routeKeyFor(route: ReturnType<typeof currentRoute>): string {
+  const query = route.search.toString();
+  return query ? `${route.canonicalPathname}?${query}` : route.canonicalPathname;
+}
+
+function initialBackgroundRoute(): BackgroundRoute {
+  const route = currentRoute();
+  if (panelForId(route.panelId).group !== "settings") {
+    const routeKey = routeKeyFor(route);
+    return { panelId: route.panelId, routeKey, href: routeKey, search: route.search };
+  }
+  const href = panelPath(DEFAULT_PANEL_ID);
+  return {
+    panelId: DEFAULT_PANEL_ID,
+    routeKey: href,
+    href,
+    search: new URLSearchParams(),
+  };
+}
+
 export function App() {
   const [state, setState] = useState<AppState>({ status: "loading" });
   const [panelId, setPanelId] = useState<string>(currentPanelId());
   const [routeKey, setRouteKey] = useState(() =>
-    typeof window === "undefined" ? "/overview" : `${window.location.pathname}${window.location.search}`,
+    routeKeyFor(currentRoute()),
+  );
+  const [backgroundRoute, setBackgroundRoute] = useState<BackgroundRoute>(
+    initialBackgroundRoute,
   );
   const [localDevBypass, setLocalDevBypass] = useState(readLocalAuthBypass);
   const preferredDataModeRef = useRef(readConsoleDataMode());
@@ -134,7 +172,16 @@ export function App() {
         }
       }
       setPanelId(route.panelId);
-      setRouteKey(`${window.location.pathname}${window.location.search}`);
+      const nextRouteKey = routeKeyFor(route);
+      setRouteKey(nextRouteKey);
+      if (panelForId(route.panelId).group !== "settings") {
+        setBackgroundRoute({
+          panelId: route.panelId,
+          routeKey: nextRouteKey,
+          href: nextRouteKey,
+          search: route.search,
+        });
+      }
     };
     syncRoute();
     return installNavigationListener(syncRoute);
@@ -365,6 +412,19 @@ export function App() {
   const PanelComponent = panel.component;
   const route = currentRoute();
   const dataMode = consoleDataMode(panel.id, route.search, preferredDataMode);
+  const settingsOpen = panel.group === "settings";
+  const backgroundPanel = settingsOpen ? panelForId(backgroundRoute.panelId) : panel;
+  const BackgroundPanelComponent = backgroundPanel.component;
+  const backgroundDataMode = settingsOpen
+    ? consoleDataMode(backgroundPanel.id, backgroundRoute.search, preferredDataMode)
+    : dataMode;
+  const closeSettings = () => {
+    if (hasTransientRoute()) {
+      closeTransientRoute();
+    } else {
+      navigate(backgroundRoute.href, true);
+    }
+  };
 
   return (
     <ViewContextProvider
@@ -379,7 +439,9 @@ export function App() {
         activePanelId={panel.id}
         auth={auth}
         client={client}
-        dataMode={dataMode}
+        dataMode={backgroundDataMode}
+        settingsOpen={settingsOpen}
+        onOpenSettings={() => openTransientSettingsRoute()}
         onDataModeChange={(mode) => {
           preferredDataModeRef.current = mode;
           writeConsoleDataMode(mode);
@@ -402,22 +464,44 @@ export function App() {
             : {}
         )}
       >
-        <PanelErrorBoundary key={routeKey}>
-          <Suspense fallback={<PanelLoading title={panel.label} subtitle={panel.subtitle} />}>
-            {dataMode === "sample" ? sampleClient === undefined ? (
-              <PanelLoading title={panel.label} subtitle={panel.subtitle} />
+        <PanelErrorBoundary key={settingsOpen ? backgroundRoute.routeKey : routeKey}>
+          <Suspense
+            fallback={(
+              <PanelLoading
+                title={backgroundPanel.label}
+                subtitle={backgroundPanel.subtitle}
+              />
+            )}
+          >
+            {backgroundDataMode === "sample" ? sampleClient === undefined ? (
+              <PanelLoading title={backgroundPanel.label} subtitle={backgroundPanel.subtitle} />
             ) : (
-              <PanelComponent
+              <BackgroundPanelComponent
                 client={sampleClient}
                 auth={auth}
-                dataMode={dataMode}
+                dataMode={backgroundDataMode}
               />
             ) : (
-              <PanelComponent client={client} auth={auth} dataMode={dataMode} />
+              <BackgroundPanelComponent
+                client={client}
+                auth={auth}
+                dataMode={backgroundDataMode}
+              />
             )}
           </Suspense>
         </PanelErrorBoundary>
       </Shell>
+      {settingsOpen ? (
+        <Suspense fallback={null}>
+          <SettingsOverlay activePanelId={panel.id} onClose={closeSettings}>
+            <PanelErrorBoundary key={routeKey}>
+              <Suspense fallback={<PanelLoading title={panel.label} subtitle={panel.subtitle} />}>
+                <PanelComponent client={client} auth={auth} dataMode={dataMode} />
+              </Suspense>
+            </PanelErrorBoundary>
+          </SettingsOverlay>
+        </Suspense>
+      ) : null}
       <Suspense fallback={null}>
         <CommandDeck client={client} />
       </Suspense>

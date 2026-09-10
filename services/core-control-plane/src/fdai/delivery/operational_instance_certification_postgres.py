@@ -146,6 +146,10 @@ LEFT JOIN latest_recovery ON TRUE
 """
 
 
+class OperationalCertificationGenerationPendingError(ValueError):
+    """Report that inventory and ontology projection have not converged yet."""
+
+
 @dataclass(frozen=True, slots=True)
 class PostgresOperationalCertificationSourceConfig:
     """Configure bounded read-only OI-12 aggregate collection."""
@@ -207,7 +211,7 @@ def _snapshot_from_row(row: Mapping[str, object]) -> OperationalCertificationSna
         or ontology_status.get("generation") != active_generation
         or ontology_status.get("status") != "available"
     ):
-        raise ValueError(
+        raise OperationalCertificationGenerationPendingError(
             "operational certification inventory and ontology generations do not match"
         )
     ontology_release_digest = ontology_status.get("ontology_release_digest")
@@ -277,6 +281,7 @@ def _required_int(value: object, name: str) -> int:
 
 
 __all__ = [
+    "OperationalCertificationGenerationPendingError",
     "PostgresOperationalCertificationSource",
     "PostgresOperationalCertificationSourceConfig",
 ]

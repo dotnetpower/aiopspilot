@@ -66,16 +66,23 @@
       ["context-selection-comparisons.html", "Context policy comparisons", "is-steel"],
       ["scope.html", "Scope", "is-navy"]
     ]],
+    ["Knowledge", [
+      ["knowledge.html", "Knowledge overview", "is-steel"],
+      ["documents.html", "Documents", "is-navy"],
+      ["github.html", "GitHub", "is-plum"],
+      ["gitlab.html", "GitLab", "is-teal"],
+      ["azure-devops.html", "Azure DevOps", "is-sage"]
+    ]],
     ["Evidence", [
       ["audit.html", "Audit log", "is-terracotta"],
       ["browser-evidence.html", "Browser evidence", "is-steel"],
       ["forecast-learning.html", "Forecast learning", "is-plum"],
+      ["assurance-twin.html", "Assurance Twin", "is-navy"],
       ["conversation-search.html", "Conversation search", "is-teal"],
       ["conversation-assurance.html", "Conversation assurance", "is-sage"],
       ["reports.html", "Reports", "is-terracotta"],
       ["rca.html", "RCA", "is-teal"],
-      ["rule-trace.html", "Trace", "is-teal"],
-      ["documents.html", "Documents", "is-navy"]
+      ["rule-trace.html", "Trace", "is-teal"]
     ]],
     ["Labs", [
       ["labs.html", "Labs", "is-steel"]
@@ -87,6 +94,12 @@
       ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"]
     ]],
     ["Design studies", [
+      ["material-glass-essential.html", "Material final / Concrete", "is-navy"],
+      ["material-glass-grid.html", "Material final / Grid", "is-steel"],
+      ["material-glass-marble.html", "Material final / Calacatta Gold", "is-plum"],
+      ["material-glass-clear.html", "Material A / Clear aggregate", "is-steel"],
+      ["material-glass-frosted.html", "Material B / Soft frost", "is-sage"],
+      ["material-glass-laminate.html", "Material C / Structural laminate", "is-teal"],
       ["components.html", "Components", ""],
       ["finops-resource-efficiency.html", "Resource efficiency study", "is-steel"],
       ["typography.html", "Typography", "is-steel"],

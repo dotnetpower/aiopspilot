@@ -76,6 +76,8 @@ class _DecisionCriticalEvidenceReceiptBody(ContractBase):
             raise ValueError("evidence event time MUST NOT exceed its cutoff")
         if self.evidence_cutoff > self.recorded_at:
             raise ValueError("evidence cutoff MUST NOT exceed recorded time")
+        if self.recorded_at > self.fresh_until:
+            raise ValueError("evidence MUST remain fresh when it is recorded")
         expected_fresh_until = self.evidence_cutoff + timedelta(
             seconds=self.freshness_ceiling_seconds
         )

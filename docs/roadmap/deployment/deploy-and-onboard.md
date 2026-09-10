@@ -32,7 +32,7 @@ The production deployer permission boundary is owned by
   access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
   login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
   registry deliberately stays public - closing it without a private path would break every
-  image pull. Prod already requires Premium.
+  image pull. Prod already requires Premium. Reviewed configuration baselines follow the same private runner boundary: the protected Core service plan carries only an exact content-addressed Blob binding, Core reads it through Managed Identity, and post-apply verification independently compares that immutable Blob with a fresh Azure Resource Graph observation.
 
 #### What Terraform does not create
 
@@ -163,7 +163,7 @@ subscription when an operator restores it out of band, then converges its Event 
 delivery identity, event filter, and retry policy on the next protected apply. Private-networking
 profiles do not create that unsupported Event Grid-to-private-Event-Hubs path. The VNet-integrated
 inventory Job instead forwards bounded Activity Log recovery deltas to the primary Event Bus after
-each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
+each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor. A disabled change accelerator neither reads its optional collection-policy entry nor contributes a cursor prefix or stale-cursor deadline.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule and runs

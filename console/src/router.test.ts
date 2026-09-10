@@ -1,6 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  closeTransientRoute,
+  currentRoute,
+  hasTransientRoute,
   legacyHashHref,
+  navigate,
+  openTransientSettingsRoute,
   panelPath,
   parseConsoleRoute,
   resetConsoleScroll,
@@ -106,6 +111,53 @@ describe("clean console routes", () => {
     expect(route.canonicalPathname).toBe("/settings/iam/users");
     expect(route.segments).toEqual(["users"]);
     expect(route.search.get("role")).toBe("Owner");
+  });
+
+  test("keeps transient Settings navigation off the browser URL", () => {
+    const pushState = vi.fn();
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://example.com",
+        pathname: "/overview",
+        search: "?window=30d",
+      },
+      history: { pushState, replaceState: vi.fn(), state: null },
+      dispatchEvent: vi.fn(),
+      scrollTo: vi.fn(),
+    });
+    try {
+      openTransientSettingsRoute();
+      expect(hasTransientRoute()).toBe(true);
+      expect(currentRoute().panelId).toBe("settings-general");
+      expect(window.location.pathname).toBe("/overview");
+
+      navigate("/settings/models");
+      expect(currentRoute().panelId).toBe("settings-models");
+      expect(window.location.pathname).toBe("/overview");
+      expect(pushState).not.toHaveBeenCalled();
+
+      closeTransientRoute();
+      expect(hasTransientRoute()).toBe(false);
+      expect(currentRoute().panelId).toBe("dashboard");
+      expect(currentRoute().search.get("window")).toBe("30d");
+    } finally {
+      closeTransientRoute();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("rejects a non-Settings transient route", () => {
+    vi.stubGlobal("window", {
+      location: { origin: "https://example.com", pathname: "/overview", search: "" },
+      dispatchEvent: vi.fn(),
+    });
+    try {
+      expect(() => openTransientSettingsRoute("/incidents")).toThrow(
+        "Transient Settings route MUST target a Settings panel",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   test("matches Knowledge and provider routes", () => {

@@ -46,6 +46,7 @@ class RuntimeTaskConfiguration:
     runtime_settings: RuntimeSettingsService
     discovery_activation: DiscoveryActivationRuntime | None
     semantic_turn_binding: Any
+    incident_intervention_binding: Any
     divergence_ledger: ShadowDivergenceLedger | None
     pantheon_runtime: PantheonRuntime | None
     pantheon_heartbeat: float | None
@@ -121,6 +122,26 @@ def schedule_semantic_turn_consumer(
     )
 
 
+def schedule_incident_intervention_consumer(
+    *,
+    binding: Any,
+    readiness: StartupReadinessRuntime,
+    bus: EventBus,
+    stop: asyncio.Event,
+) -> asyncio.Task[None] | None:
+    """Schedule the Incident intervention consumer only when its binding exists."""
+
+    if binding is None:
+        return None
+    return asyncio.create_task(
+        readiness.run_when_ready(
+            stop,
+            lambda: binding.run(bus=bus, stop=stop),
+        ),
+        name="incident-intervention-consumer",
+    )
+
+
 async def run_runtime_tasks(
     config: RuntimeTaskConfiguration,
     hooks: RuntimeTaskHooks,
@@ -188,6 +209,12 @@ async def run_runtime_tasks(
     hil_escalation_task: asyncio.Task[None] | None = None
     semantic_turn_task = hooks.schedule_semantic_turn_consumer(
         binding=config.semantic_turn_binding,
+        readiness=config.readiness,
+        bus=config.bus,
+        stop=config.stop,
+    )
+    incident_intervention_task = schedule_incident_intervention_consumer(
+        binding=config.incident_intervention_binding,
         readiness=config.readiness,
         bus=config.bus,
         stop=config.stop,
@@ -492,6 +519,7 @@ async def run_runtime_tasks(
             hil_escalation_task,
             case_history_retention_task,
             semantic_turn_task,
+            incident_intervention_task,
             read_investigation_task,
             operational_readiness_task,
             diagnostic_event_ingest_task,
@@ -534,5 +562,6 @@ __all__ = [
     "RuntimeTaskConfiguration",
     "RuntimeTaskHooks",
     "run_runtime_tasks",
+    "schedule_incident_intervention_consumer",
     "schedule_semantic_turn_consumer",
 ]

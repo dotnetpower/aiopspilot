@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 17ded25c9684c0d2af4a1c1442a59ef857f9e21f
-translation_revised: 2026-09-10
+translation_source_sha: 7e4ff66ba8d174d67a090e65e41c00923ac14fa6
+translation_revised: 2026-09-11
 ---
 # WARA 근거 기반 평가
 
@@ -31,7 +31,10 @@ Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가�
 공유 Operator PostgreSQL 조회기는 다른 읽기 계열을 위해 개수가 제한된 범위별 출처 상태를
 해석할 수 있습니다. WARA는 AKS fleet 상태를 사용하지 않으며 이 공유 기능은 WARA 범위, 근거
 수락 또는 평가 결과를 변경하지 않습니다. 같은 경계는 조회기의 내용 주소 기반 AKS 진단 증적
-조회에도 적용되며 WARA는 이러한 증적을 결합하거나 해석하지 않습니다.
+조회와 세대 경계를 확인하는 런타임 호출 관계 디코더에도 적용됩니다. WARA는 두 근거 계열을
+결합하거나 해석하지 않습니다.
+공유 원본 상태 디코더도 정식 기계 토큰 사유만 허용하므로 principal 텍스트와 프로바이더 세부
+정보가 해당 저장 경로를 통해 WARA에 들어올 수 없습니다.
 
 ## 교차워크와 적용 가능성
 
@@ -156,6 +159,9 @@ Operator 조립 루트는 검토된 fanout 상한을 유지하기 위해 하나�
 두 변환 bridge를 가져옵니다. 이 facade는 상태 또는 평가 권한을 공유하지 않습니다.
 공유 Operator 조립은 관련 없는 읽기 변환 결과를 `/system/data-sources`에 등록할 수 있습니다.
 이 등록은 WARA 출처를 추가하거나 WARA 범위를 넓히거나 shadow 전용 권한을 바꾸지 않습니다.
+보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 감독할 수 있습니다. 해당
+작업자의 논리 토픽은 명시적으로 허용 목록에 등록되며, 요청과 준비 상태는 WARA 근거,
+변환 결과 또는 평가 권한에 들어갈 수 없습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면

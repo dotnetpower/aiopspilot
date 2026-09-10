@@ -61,8 +61,8 @@ def build_ontology_schema_frame(
     requests_declaration_count = any(
         facet == "count" or facet.endswith("_count") for facet in judgment.requested_facets
     )
+    declaration_kinds = _declaration_kinds_from_judgment(judgment)
     if requests_declaration_count and _is_schema_read_intent(judgment.primary_intent):
-        declaration_kinds = _declaration_kinds_from_judgment(judgment)
         if (
             ONTOLOGY_MANIFEST_FUNCTION_NAME not in available_functions
             or len(declaration_kinds) != 1
@@ -75,6 +75,59 @@ def build_ontology_schema_frame(
             temporal_scope={},
             output_shape=SemanticOutputShape.AGGREGATION_TABLE,
             evidence_requirements=(),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    normalized_facets = {
+        facet.replace("_", "").replace("-", "").casefold() for facet in judgment.requested_facets
+    }
+    declaration_kind_facet_requested = any(
+        f"{declaration_kind.value}type" in normalized_facets
+        or f"{declaration_kind.value}types" in normalized_facets
+        for declaration_kind in declaration_kinds
+    )
+    plural_kind_requested = any(
+        f"{declaration_kind.value}types" in normalized_facets
+        for declaration_kind in declaration_kinds
+    )
+    requests_visible_manifest = (
+        {"queryable", "visible", "currentscope"} <= normalized_facets
+        or (
+            {"list", "currentscope"} <= normalized_facets
+            and any(facet.endswith("typevisibility") for facet in normalized_facets)
+        )
+        or (
+            declaration_kind_facet_requested
+            and {"list", "visible", "currentscope"} <= normalized_facets
+        )
+        or (plural_kind_requested and {"visible", "currentscope"} <= normalized_facets)
+        or (
+            plural_kind_requested
+            and (
+                {"visibletooperator", "currentscope"} <= normalized_facets
+                or "visibleincurrentscope" in normalized_facets
+            )
+        )
+    )
+    if (
+        _is_schema_read_intent(judgment.primary_intent)
+        and not judgment.targets
+        and len(declaration_kinds) == 1
+        and requests_visible_manifest
+    ):
+        if ONTOLOGY_MANIFEST_FUNCTION_NAME not in available_functions:
+            return None
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=(next(iter(declaration_kinds)).value,),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.ONTOLOGY_MANIFEST,
+            evidence_requirements=("principal_manifest_evidence",),
             unresolved_terms=(),
             clarification_requirements=(),
             clarification=None,
@@ -298,6 +351,53 @@ def compile_ontology_manifest_count_plan(
     )
     plan = _build_plan(
         proposal,
+        frame=frame,
+        manifest=manifest,
+        principal=principal,
+        purpose=purpose,
+        evaluation_time=evaluation_time,
+    )
+    verified = verifier.verify(plan, manifest=manifest)
+    verify_frame_plan_alignment(frame, verified, descriptors=manifest.descriptors)
+    return verified
+
+
+def compile_ontology_manifest_plan(
+    *,
+    frame: SemanticProblemFrame,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    principal: Principal,
+    purpose: str,
+    evaluation_time: datetime,
+) -> OntologyQueryPlan | None:
+    """Build a read-only principal manifest list without model plan fallback."""
+
+    if (
+        frame.operation is not SemanticOperation.SELECT
+        or frame.output_shape != SemanticOutputShape.ONTOLOGY_MANIFEST
+        or not frame.subject_constraints
+        or not _has_manifest_function(manifest)
+    ):
+        return None
+    canonical_kinds = tuple(_as_declaration_kind(value) for value in frame.subject_constraints)
+    if any(kind is None for kind in canonical_kinds):
+        return None
+    kinds = tuple(kind.value for kind in canonical_kinds if kind is not None)
+    if len(kinds) != len(set(kinds)):
+        return None
+    node = QueryNodeProposal(
+        node_id="manifest",
+        kind=QueryNodeKind.FUNCTION,
+        arguments={
+            "function_name": ONTOLOGY_MANIFEST_FUNCTION_NAME,
+            "arguments": {"kinds": list(kinds), "limit": 1000},
+            "dependency_arguments": {},
+        },
+        output_kind="query.table",
+    )
+    plan = _build_plan(
+        QueryPlanProposal(nodes=(node,), output_node_ids=(node.node_id,)),
         frame=frame,
         manifest=manifest,
         principal=principal,

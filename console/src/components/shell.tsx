@@ -34,6 +34,8 @@ interface ShellProps {
   readonly client: OperatorApiClient;
   readonly iamSelf?: IamSelfStatus;
   readonly dataMode: ConsoleDataMode;
+  readonly settingsOpen: boolean;
+  readonly onOpenSettings: () => void;
   readonly onDataModeChange: (mode: ConsoleDataMode) => void;
   readonly children: ComponentChildren;
   readonly onExitLocalSession?: () => void;
@@ -45,6 +47,8 @@ export function Shell({
   client,
   iamSelf,
   dataMode,
+  settingsOpen,
+  onOpenSettings,
   onDataModeChange,
   children,
   onExitLocalSession,
@@ -76,7 +80,10 @@ export function Shell({
   }, []);
 
   return (
-    <div class={`shell ${dataMode === "sample" ? "shell-sample-mode" : ""}`}>
+    <div
+      class={`shell ${dataMode === "sample" ? "shell-sample-mode" : ""}`}
+      inert={settingsOpen}
+    >
       <header class="topbar">
         <a class="brand-lockup" href={panelPath("dashboard")} aria-label={t("shell.home")}>
           <img
@@ -146,6 +153,8 @@ export function Shell({
             principalId={auth.account?.homeAccountId ?? null}
             devMode={auth.devMode}
             explorerOpen={navigationExplorerOpen}
+            settingsOpen={settingsOpen}
+            onOpenSettings={onOpenSettings}
             onExplorerOpenChange={setNavigationExplorerOpen}
           />
           <main>

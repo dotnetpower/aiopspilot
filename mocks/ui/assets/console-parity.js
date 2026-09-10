@@ -18,7 +18,107 @@
     asOf: "2026-08-27T10:15:00Z"
   };
 
+  function knowledgeSourcePage(title, identityModel) {
+    return {
+      group: "Knowledge",
+      title: title,
+      subtitle: "Read-only source readiness, repository coverage, and bounded synchronization evidence.",
+      note: "Source connectivity authorizes observation only. It grants no approval or execution authority.",
+      kpis: [["Repositories", "18", "authorized scope"], ["Ready", "16", "current evidence"], ["Needs review", "2", "stale or unavailable"], ["Identity", identityModel, "server owned"]],
+      sections: [
+        {
+          title: "Repository readiness",
+          description: "Each repository keeps authorization, freshness, and retrieval coverage distinct.",
+          type: "table",
+          columns: ["Repository", "Authorization", "Freshness", "Indexed refs", "Last observation"],
+          rows: [
+            [code("platform/runbooks"), status("Authorized", "success"), status("Fresh", "success"), "42", "4 min ago"],
+            [code("services/catalog"), status("Authorized", "success"), status("Stale", "warning"), "118", "47 min ago"],
+            [code("operations/reviews"), status("Unavailable", "neutral"), status("Unknown", "neutral"), "-", "No successful read"]
+          ]
+        },
+        {
+          title: "Selected source boundary",
+          type: "facts",
+          items: [
+            ["Provider", title],
+            ["Identity model", identityModel],
+            ["Content scope", "Authorized repositories and refs"],
+            ["Mutation authority", "None"],
+            ["Evidence retention", "Digest and retrieval receipt"],
+            ["Audit", link("Source observations", "audit.html?source=" + title.toLowerCase().replace(/\s+/g, "-"))]
+          ]
+        }
+      ]
+    };
+  }
+
   var pages = {
+    "knowledge": {
+      group: "Knowledge",
+      title: "Knowledge overview",
+      subtitle: "Governed documents and external sources available for evidence-grounded retrieval.",
+      note: "Availability, authorization, freshness, and completeness remain independent. Missing source evidence is never inferred.",
+      kpis: [["Sources", "4", "configured"], ["Ready", "3", "current evidence"], ["Needs review", "1", "stale observation"], ["Documents", "2", "protected and indexed"]],
+      sections: [
+        {
+          title: "Source readiness",
+          description: "The same source groups exposed by the Console Knowledge Explorer.",
+          type: "table",
+          columns: ["Source", "Connection", "Freshness", "Coverage", "Boundary"],
+          rows: [
+            [link("Documents", "documents.html"), status("Ready", "success"), status("Fresh", "success"), "2 indexed", "Collection ACL"],
+            [link("GitHub", "github.html"), status("Ready", "success"), status("Fresh", "success"), "18 repositories", "App installation"],
+            [link("GitLab", "gitlab.html"), status("Needs review", "warning"), status("Stale", "warning"), "9 projects", "Project token broker"],
+            [link("Azure DevOps", "azure-devops.html"), status("Ready", "success"), status("Fresh", "success"), "12 repositories", "Workload identity"]
+          ]
+        },
+        {
+          title: "Retrieval contract",
+          type: "facts",
+          items: [
+            ["Purpose", "Evidence-grounded operator answers"],
+            ["Authorization", "Source and collection scoped"],
+            ["Freshness", "Reported per observation"],
+            ["Incomplete coverage", "Explicitly unavailable"],
+            ["Execution authority", "None"],
+            ["Provenance", "Source revision and digest retained"]
+          ]
+        }
+      ]
+    },
+    "github": knowledgeSourcePage("GitHub", "App installation"),
+    "gitlab": knowledgeSourcePage("GitLab", "Project token broker"),
+    "azure-devops": knowledgeSourcePage("Azure DevOps", "Workload identity"),
+    "assurance-twin": {
+      group: "Evidence",
+      title: "Assurance Twin",
+      subtitle: "Posture reports, ambient change reviews, and evidence gaps from independent assessment.",
+      note: "Twin output is read-only evidence. A blocked or review verdict cannot approve, promote, or execute an action.",
+      kpis: [["Posture reports", "6", "current scope"], ["Blocked", "1", "critical finding"], ["Needs review", "2", "evidence gaps"], ["Ambient reviews", "14", "30-day window"]],
+      sections: [
+        {
+          title: "Posture reports",
+          description: "Independent assessment keeps verdict, scope, freshness, and action effect explicit.",
+          type: "table",
+          columns: ["Scope", "Verdict", "Mode", "Findings", "Freshness", "Generated"],
+          rows: [
+            [code("platform-production"), status("Blocked", "danger"), "Enforce", "3", status("Fresh", "success"), "10:12Z"],
+            [code("shared-services"), status("Needs review", "warning"), "Shadow", "2", status("Stale", "warning"), "09:48Z"],
+            [code("sandbox"), status("Clear", "success"), "Shadow", "0", status("Fresh", "success"), "09:31Z"]
+          ]
+        },
+        {
+          title: "Selected ambient review",
+          type: "workspace",
+          listTitle: "Recent reviews",
+          detailTitle: "owner/repository#42",
+          list: [["owner/repository#42", "Blocked - 2 findings"], ["owner/repository#41", "Clear - no findings"], ["owner/repository#39", "Needs review - stale evidence"]],
+          detail: "The independent review found a high-severity scope expansion and retained the exact evidence references used for the verdict.",
+          facts: [["Mode", "Enforce"], ["Verdict", status("Blocked", "danger")], ["Findings", "2"], ["Evidence freshness", status("Fresh", "success")], ["Action effect", "Change remains blocked"], ["Audit", link("Review evidence", "audit.html?kind=assurance-twin")]]
+        }
+      ]
+    },
     "detection-readiness": {
       group: "Operations",
       title: "Detection readiness",

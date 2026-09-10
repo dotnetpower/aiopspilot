@@ -3,7 +3,7 @@ title: Project Structure
 ---
 # Project Structure
 
-The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
+The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. When an owning design source changes without changing catalog records, post-integration regeneration updates only the source commitment and aggregate digest so they identify the final merged blobs and reachable protected-main revision. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 
 ## Design at a glance
 
@@ -21,7 +21,7 @@ the settling window. Tolerated negative age never creates suppression when the c
 only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
 closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
-as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason.
+as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply.
 
 ## Core domain navigation decision
 
@@ -52,8 +52,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
-  Focused sibling modules may own canonical identity projection and hashing while the established owner
-  module re-exports that public surface; the split must preserve serialized bytes and replay semantics.
+  Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
@@ -94,8 +93,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   receipt, verifier version, trust anchor, and validity window. Core selects a current non-revoked
   binding through the provider-neutral registry and fails closed on producer self-verification,
   timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
-  Cancellation remains a control-flow signal and is never converted into a verification result.
-  Cloud SDK use remains in delivery:
+  Unregistered or malformed verifier responses fail verification; Core revalidates returned bundles, readiness cannot retain an orphan digest, and eligible results cannot carry rejection details. Evidence expired at `recorded_at`, bundles predating recording or verifier activation, admissions beyond receipt or binding freshness, and timestamps without a defined UTC offset are invalid.
+  Cancellation remains a control-flow signal and is never converted into a verification result. Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.
@@ -178,8 +177,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   exact ontology release binding. Missing or mixed releases and dangling active links lower
   completeness rather than proving absence.
 - The inventory projection contract registers reviewed `runtime_calls` links alongside the other
-  Resource topology links. A verified telemetry edge therefore uses the declared Resource-to-Resource
-  direction and remains available to both current and historical read paths.
+  Resource topology links. Verified edges retain declared direction in current and historical reads. Only the authenticated producer converts an untrusted envelope under a finite deadline after exact digest and independent-context checks; its receipt binds endpoint IDs and active-generation types. Operator records caller time only after broker acceptance. Independent service roots require two distinct canonical Container App ARM IDs. PostgreSQL role evidence remains outside Resource topology, rejects runtime authority, and derives principal handles from opaque authenticated references plus scoped source context rather than role names.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
@@ -415,7 +413,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
-- **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles, independent review, shared provider budgets, and the verified evidence reader remain required. Verified semantic planning binds a cancellation-only model-call scope across its synchronous planner thread and asynchronous Azure provider tasks, so request cancellation stops and drains provider work without changing ordinary candidate failover; `semantic_runtime_cancellation.py` owns that thread-cancellation bridge and `semantic_planning_preflight_router.py` owns one `plan()` call's preflight direct-response routing, both kept below the enforced LOC ceiling without changing public imports or read-only authority. Full semantic judgment preserves selector order inside a 32 KiB candidate-only capability projection. Verified preflight Resource collection filters bind against reviewed value groups before descriptor narrowing or summary planning, so an unknown type with an optional state filter can only produce typed clarification. An unaccepted Resource event-history proposal may narrow only the next frame model's context; proposal acceptance, frame-plan verification, evidence admission, and read-only authority remain unchanged. Operational intent-map comparisons return explicit booleans at this boundary. Collection Resource-state planning and state-fact decoding remain deterministic Core ontology-platform responsibilities; presentation only consumes their verified rows.
+- **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles, independent review, shared provider budgets, and the verified evidence reader remain required. Verified semantic planning binds a cancellation-only model-call scope across its synchronous planner thread and asynchronous Azure provider tasks, so request cancellation stops and drains provider work without changing ordinary candidate failover; `semantic_runtime_cancellation.py` owns that thread-cancellation bridge and `semantic_planning_preflight_router.py` owns one `plan()` call's preflight direct-response routing, both kept below the enforced LOC ceiling without changing public imports or read-only authority. Full semantic judgment preserves selector order inside a 32 KiB candidate-only capability projection. Exact typed visibility and current-scope facet combinations for a targetless declaration-kind list, including a singular kind with explicit visible/current-scope/list facets and a plural kind with explicit visible/current-scope facets, compile the principal manifest deterministically; raw utterance tokens never select that route. Verified preflight Resource collection filters bind against reviewed value groups before descriptor narrowing or summary planning, so an unknown type with an optional state filter can only produce typed clarification. An unaccepted Resource event-history proposal may narrow only the next frame model's context; proposal acceptance, frame-plan verification, evidence admission, and read-only authority remain unchanged. Operational intent-map comparisons return explicit booleans at this boundary. Collection Resource-state planning and state-fact decoding remain deterministic Core ontology-platform responsibilities; presentation only consumes their verified rows.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
   freshness is evaluated against the current evaluation clock with bounded age and future skew,
@@ -433,8 +431,8 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
-  `operational-promotion` measurement job accepts only exact-digest batches and manifest-bound
-  causal and unit evidence, then stores a receipt without changing promotion state.
+  `operational-promotion` job stores exact-digest evidence without changing promotion state; `cohort_observation_import` accepts no artifact-declared arm, revision, protocol, admission, or authority.
+  Its protected workflow injects exact policy fields and persists idempotently; empty arm-specific exporter allowlists keep the path unavailable until a reviewed exporter and policy entry land together.
 - **Governed action and probe delivery**: `GovernedGovernancePrPublisher` binds the pure
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
@@ -553,7 +551,7 @@ clearing the quality-gate. Boundary hardening keeps that sequence fail-closed: i
 comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically, while per-resource locking serializes competing applies before any delivery adapter
 can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
-only when its rule id, action type, and fixed check reference still match.
+only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, and state-shape validation live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication.
 
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 

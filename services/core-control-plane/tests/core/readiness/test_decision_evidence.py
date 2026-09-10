@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta, tzinfo
 
 import pytest
 from fdai.core.readiness.decision_evidence import (
     DecisionEvidenceReadinessGate,
     DecisionEvidenceReadinessReason,
+    DecisionEvidenceReadinessResult,
 )
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceVerificationError,
@@ -89,7 +91,14 @@ def _requirement() -> LiveEvidenceClaimRequirement:
     )
 
 
-def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerificationBundle:
+def _bundle(
+    receipt: DecisionCriticalEvidenceReceipt,
+    *,
+    verified_at: datetime | None = None,
+    valid_until: datetime | None = None,
+) -> DecisionEvidenceVerificationBundle:
+    issued_at = verified_at or _NOW + timedelta(minutes=2)
+    expires_at = valid_until or _NOW + timedelta(minutes=8)
     subjects = expected_verification_subjects(
         authentication_evidence_digest=receipt.authentication_evidence_digest,
         evidence_digest=receipt.evidence_digest,
@@ -106,8 +115,8 @@ def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerific
             verifier_id="azure.readback",
             verifier_version="1.0.0",
             trust_anchor_id="azure:managed-identity",
-            issued_at=_NOW + timedelta(minutes=2),
-            valid_until=_NOW + timedelta(minutes=8),
+            issued_at=issued_at,
+            valid_until=expires_at,
         )
         for index, (kind, subject) in enumerate(subjects.items(), start=1)
     )
@@ -116,8 +125,8 @@ def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerific
         verifier_id="azure.readback",
         verifier_version="1.0.0",
         trust_anchor_id="azure:managed-identity",
-        verified_at=_NOW + timedelta(minutes=2),
-        valid_until=_NOW + timedelta(minutes=8),
+        verified_at=issued_at,
+        valid_until=expires_at,
         proofs=proofs,
     )
 
@@ -131,12 +140,20 @@ class _Verifier:
         return self.bundle
 
 
+class _IndeterminateTimezone(tzinfo):
+    def utcoffset(self, dt):
+        del dt
+        return None
+
+
 def _gate(
     receipt: DecisionCriticalEvidenceReceipt,
     *,
     bundle=None,
     verifier_id="azure.readback",
     revoked=False,
+    binding_valid_from: datetime | None = None,
+    binding_valid_until: datetime | None = None,
 ):
     selected = bundle or _bundle(receipt)
     return DecisionEvidenceReadinessGate(
@@ -149,6 +166,8 @@ def _gate(
                     verifier_version="1.0.0",
                     trust_anchor_id="azure:managed-identity",
                     verifier=_Verifier(selected),
+                    valid_from=binding_valid_from or datetime(1970, 1, 1, tzinfo=UTC),
+                    valid_until=binding_valid_until or datetime.max.replace(tzinfo=UTC),
                     revoked=revoked,
                 ),
             )
@@ -175,6 +194,118 @@ async def test_matching_independent_proofs_make_evidence_eligible_only() -> None
     assert result.admission.purpose_id == receipt.purpose_id
     assert result.admission.source_revision == receipt.source_revision
     assert result.execution_authority is result.promotion_authority is False
+
+
+async def test_admission_cannot_outlive_receipt_freshness() -> None:
+    receipt = _receipt()
+    bundle = _bundle(receipt, valid_until=_NOW + timedelta(minutes=12))
+
+    result = await _gate(receipt, bundle=bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is True
+    assert result.admission is not None
+    assert result.admission.valid_until == receipt.fresh_until
+    assert result.admission.valid_until < bundle.valid_until
+
+
+async def test_admission_cannot_outlive_verifier_binding() -> None:
+    receipt = _receipt()
+    binding_valid_until = _NOW + timedelta(minutes=5)
+
+    result = await _gate(
+        receipt,
+        binding_valid_until=binding_valid_until,
+    ).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is True
+    assert result.admission is not None
+    assert result.admission.valid_until == binding_valid_until
+
+
+async def test_bundle_issued_before_verifier_binding_fails_closed() -> None:
+    receipt = _receipt()
+
+    result = await _gate(
+        receipt,
+        binding_valid_from=_NOW + timedelta(minutes=3),
+    ).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=4),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.UNTRUSTED_VERIFIER
+
+
+async def test_bundle_verified_before_receipt_recording_fails_closed() -> None:
+    receipt = _receipt()
+    bundle = _bundle(
+        receipt,
+        verified_at=_NOW + timedelta(minutes=1),
+    )
+
+    result = await _gate(receipt, bundle=bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.BUNDLE_MISMATCH
+
+
+def test_verifier_binding_rejects_times_without_a_utc_offset() -> None:
+    receipt = _receipt()
+    indeterminate = _NOW.replace(tzinfo=_IndeterminateTimezone())
+
+    with pytest.raises(ValueError, match="binding times MUST be timezone-aware"):
+        _gate(receipt, binding_valid_from=indeterminate)
+
+    binding = DecisionEvidenceVerifierBinding(
+        authority_class=receipt.authority_class,
+        method_id=receipt.method_id,
+        verifier_id="azure.readback",
+        verifier_version="1.0.0",
+        trust_anchor_id="azure:managed-identity",
+        verifier=_Verifier(_bundle(receipt)),
+    )
+    with pytest.raises(ValueError, match="evaluation time MUST be timezone-aware"):
+        binding.active_at(indeterminate)
+
+
+def test_rejected_result_cannot_claim_an_orphan_bundle_digest() -> None:
+    receipt = _receipt()
+
+    with pytest.raises(ValueError, match="bundle digest mismatched bundle presence"):
+        DecisionEvidenceReadinessResult(
+            eligible=False,
+            reason=DecisionEvidenceReadinessReason.VERIFIER_UNAVAILABLE,
+            receipt_digest=receipt.receipt_digest,
+            verification_bundle_digest=_DIGESTS[0],
+        )
+
+
+async def test_eligible_result_cannot_include_rejection_details() -> None:
+    receipt = _receipt()
+    result = await _gate(receipt).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    with pytest.raises(ValueError, match="MUST NOT include rejections"):
+        replace(result, rejection_details=("contradictory_rejection",))
 
 
 @pytest.mark.parametrize(
@@ -297,6 +428,53 @@ async def test_expected_verifier_failure_is_a_bounded_rejection(failure: Excepti
         evaluated_at=_NOW + timedelta(minutes=3),
     )
 
+    assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
+
+
+async def test_malformed_verifier_return_is_a_bounded_rejection() -> None:
+    receipt = _receipt()
+
+    class _MalformedVerifier:
+        async def verify(self, receipt, *, trust_anchor_id):
+            del receipt, trust_anchor_id
+            return object()
+
+    registry = DecisionEvidenceVerifierRegistry(
+        (
+            DecisionEvidenceVerifierBinding(
+                authority_class=receipt.authority_class,
+                method_id=receipt.method_id,
+                verifier_id="azure.readback",
+                verifier_version="1.0.0",
+                trust_anchor_id="azure:managed-identity",
+                verifier=_MalformedVerifier(),
+            ),
+        )
+    )
+
+    result = await DecisionEvidenceReadinessGate(registry=registry).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
+
+
+async def test_unvalidated_bundle_copy_is_revalidated_at_the_boundary() -> None:
+    receipt = _receipt()
+    revoked_bundle = _bundle(receipt).model_copy(update={"revoked": True})
+
+    result = await _gate(receipt, bundle=revoked_bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
     assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
 
 

@@ -34,6 +34,8 @@ interface Props {
   readonly principalId?: string | null;
   readonly devMode: boolean;
   readonly explorerOpen: boolean;
+  readonly settingsOpen: boolean;
+  readonly onOpenSettings: () => void;
   readonly onExplorerOpenChange: (open: boolean) => void;
 }
 
@@ -62,6 +64,8 @@ export function NavigationShell({
   principalId,
   devMode,
   explorerOpen,
+  settingsOpen,
+  onOpenSettings,
   onExplorerOpenChange,
 }: Props) {
   const panelIds = useMemo(() => resolvePanels().map((panel) => panel.id), []);
@@ -227,6 +231,11 @@ export function NavigationShell({
   }
 
   function selectGroup(group: PanelGroup): void {
+    if (group === "settings") {
+      setExplorerOpen(false);
+      onOpenSettings();
+      return;
+    }
     const action = navigationGroupSelectionAction(
       selectedGroup,
       group,
@@ -393,7 +402,10 @@ export function NavigationShell({
   }
 
   const renderGroupButton = (group: (typeof PANEL_GROUPS)[number]) => {
-    const expanded = group.id === selectedGroup && explorerOpen;
+    const opensSettings = group.id === "settings";
+    const expanded = opensSettings
+      ? settingsOpen
+      : group.id === selectedGroup && explorerOpen;
     return (
       <li key={group.id}>
         <Tooltip content={group.label} placement="right">
@@ -403,7 +415,7 @@ export function NavigationShell({
             class={`activity-bar-button ${expanded ? "active" : ""}`}
             aria-label={group.label}
             aria-expanded={expanded}
-            aria-controls="navigation-explorer"
+            aria-controls={opensSettings ? "settings-overlay" : "navigation-explorer"}
             onClick={() => selectGroup(group.id)}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {

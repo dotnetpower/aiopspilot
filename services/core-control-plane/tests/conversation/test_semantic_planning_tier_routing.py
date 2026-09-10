@@ -11706,6 +11706,65 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_manifest_list_compiles_visible_declaration_kind_without_model_fallback() -> None:
+    class _DeclarationListJudgmentModel:
+        def judge(self, **_kwargs: Any) -> dict[str, object]:
+            return {
+                "primary_intent": "query.ontology_declaration",
+                "targets": [],
+                "requested_facets": [
+                    "queryable",
+                    "visible",
+                    "current_scope",
+                    "action_type_visibility",
+                ],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "action_subject": "none",
+                "execution_authority": False,
+            }
+
+    manifest, _definition = _fixture(function_types=(ontology_manifest_function_type(),))
+    t1 = _Model(frame=_frame(), plan=None)
+    t2 = _Model(frame=_frame(), plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=SemanticJudgmentBoundary(
+            profile_id="semantic-planning.test",
+            profile_version="1.0.0",
+            primary=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T1,
+                model=_DeclarationListJudgmentModel(),
+                model_config_digest=DIGEST,
+                prompt_digest=DIGEST,
+            ),
+        ),
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="List the ActionTypes visible in the current ontology scope.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.SELECT
+    assert outcome.frame.subject_constraints == ("action",)
+    assert outcome.frame.output_shape == SemanticOutputShape.ONTOLOGY_MANIFEST.value
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["arguments"] == {
+        "kinds": ["action"],
+        "limit": 1000,
+    }
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_manifest_aggregate_kinds_are_bound_to_frame_subjects() -> None:
     manifest, _definition = _fixture()
     frame = _frame(

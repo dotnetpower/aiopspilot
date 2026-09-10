@@ -161,7 +161,6 @@
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/rules-and-detection/observability-and-detection.md"
       ],
@@ -225,8 +224,7 @@
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
         "docs/roadmap-implementation/architecture/aks-diagnostic-evidence-plane.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/architecture/ontology-structural-model.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/architecture/ontology-structural-model.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_api_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_relationships.py services/core-control-plane/tests/delivery/test_kubernetes_lifecycle_collection.py services/core-control-plane/tests/delivery/test_kubernetes_pod_log_evidence.py services/core-control-plane/tests/core/ontology_platform/test_kubernetes_pod_diagnosis_evidence.py",
@@ -266,7 +264,6 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/ontology-structural-model.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
       ],
       "validate": [
@@ -400,7 +397,6 @@
       "docs_update": [
         "docs/roadmap/interfaces/benchmark-adapters.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -439,8 +435,7 @@
         "docs/roadmap/architecture/architecture-review-board.md",
         "docs/roadmap/architecture/architecture-review/ontology-agent-loop.md",
         "docs/roadmap/architecture/architecture-review/evidence-and-authority.md",
-        "docs/roadmap/architecture/architecture-review/delivery-plan.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/architecture/architecture-review/delivery-plan.md"
       ],
       "validate": [
         "python3 scripts/governance/check-arb-readiness.py",
@@ -464,7 +459,7 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/security-and-identity.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
       ],
       "validate": [
@@ -493,6 +488,32 @@
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py",
         "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "service-migration-ownership",
+      "paths": [
+        "service-migrations/ownership.json",
+        "tests/integration/services/test_service_migration_inventory.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/services/test_service_migration_inventory.py",
+        "uv run python service-migrations/migrate.py all validate",
+        "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
     },
     {
@@ -570,7 +591,6 @@
       "docs_update": [
         "docs/roadmap/rules-and-detection/document-ontology-distillation.md",
         "docs/roadmap/rules-and-detection/manual-distillation.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -600,7 +620,6 @@
       "docs_update": [
         "docs/roadmap/deployment/control-plane-disaster-recovery.md",
         "docs/roadmap/deployment/deployment.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -687,7 +706,6 @@
         "docs/roadmap/architecture/operating-ontology-metamodel.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/agents/agent-pantheon.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -716,7 +734,6 @@
       "docs_update": [
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/operating-ontology-metamodel.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -791,7 +808,6 @@
       "docs_update": [
         "docs/roadmap/decisioning/execution-authorization-ontology.md",
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
       ],
       "validate": [
@@ -828,7 +844,6 @@
         "docs/roadmap/rules-and-detection/root-cause-analysis.md",
         "docs/roadmap/rules-and-detection/causal-incident-graph.md",
         "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -864,7 +879,6 @@
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/operational-hypothesis-loop.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -917,7 +931,6 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/mscp-operational-profile.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -945,7 +958,6 @@
         "docs/roadmap/decisioning/context-selection-policy.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1006,7 +1018,6 @@
       "docs_update": [
         "docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1047,7 +1058,6 @@
         "docs/roadmap/operations/operating-and-verification.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/agents/agent-pantheon.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1071,7 +1081,6 @@
       ],
       "docs_update": [
         "docs/roadmap/agents/bounded-task-workers.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1093,7 +1102,6 @@
       ],
       "docs_update": [
         "docs/roadmap/interfaces/background-task-sessions.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1117,7 +1125,6 @@
       ],
       "docs_update": [
         "docs/roadmap/interfaces/busy-input-modes.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1132,8 +1139,6 @@
         "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
         "services/operator-service/tests/test_semantic_turn*.py",
         "service-migrations/branches/operator-service/versions/**",
-        "service-migrations/ownership.json",
-        "tests/integration/services/test_service_migration_inventory.py",
         ".vscode/launch.json",
         ".vscode/tasks.json",
         "infra/services/**"
@@ -1150,7 +1155,6 @@
         "docs/roadmap/interfaces/production-a3-channel-runtime.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/interfaces/durable-conversation-delivery.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
@@ -1212,7 +1216,6 @@
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/scheduled-result-continuations.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1244,7 +1247,6 @@
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1274,7 +1276,6 @@
         "docs/roadmap/decisioning/governed-skill-bundles.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1305,7 +1306,6 @@
         "docs/roadmap/interfaces/skill-source-management.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1332,7 +1332,6 @@
       "docs_update": [
         "docs/roadmap/interfaces/programmatic-tool-pipelines.md",
         "docs/roadmap/decisioning/prompt-composition.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1367,7 +1366,6 @@
         "docs/roadmap/interfaces/execution-backends.md",
         "docs/roadmap/decisioning/execution-model.md",
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
         "docs/roadmap/interfaces/operator-console.md"
       ],
@@ -1393,7 +1391,6 @@
         "docs/roadmap/decisioning/automation-blueprints.md",
         "docs/roadmap/decisioning/process-automation.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1420,7 +1417,6 @@
       "docs_update": [
         "docs/roadmap/interfaces/governed-trajectory-datasets.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1448,7 +1444,6 @@
         "docs/roadmap/interfaces/scheduled-result-continuations.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1487,7 +1482,6 @@
         "docs/roadmap/interfaces/document-ingestion-format-policy.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1589,7 +1583,6 @@
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1704,7 +1697,6 @@
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
       ],
       "validate": [
@@ -1766,8 +1758,7 @@
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
-        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_coverage_gate.py services/core-control-plane/tests/conversation/test_epistemic_coverage.py services/core-control-plane/tests/conversation/test_semantic_planning.py services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_kafka_adapter.py services/operator-service/tests/test_semantic_turn_bridge.py packages/service-contracts/tests/test_ontology_query.py",
@@ -1794,7 +1785,6 @@
       "docs_update": [
         "docs/roadmap/interfaces/browser-evidence.md",
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/architecture/security-and-identity.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
@@ -1816,8 +1806,7 @@
       ],
       "docs_update": [
         "docs/roadmap/interfaces/behavior-knowledge.md",
-        "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"
@@ -1852,7 +1841,6 @@
         "docs/roadmap/interfaces/system-knowledge-service.md",
         "docs/runbooks/system-knowledge-teams-onboarding.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
@@ -1916,7 +1904,6 @@
         "docs/roadmap/decisioning/process-automation.md",
         "docs/roadmap/agents/agent-pantheon.md",
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "validate": [
@@ -2033,24 +2020,18 @@
         "config/notifications-matrix.yaml",
         "console/src/api.ts",
         "console/src/api-cost-governance*",
-        "console/src/components/navigation-shell.tsx",
         "console/src/routes/cost-governance*",
         "console/src/routes/i18n/cost-governance*",
         "console/src/i18n/catalog-usage.test.ts",
         "console/src/i18n/index.test.ts",
-        "console/src/i18n/messages.en.json",
-        "console/src/i18n/messages.ko.json",
         "console/src/panels.tsx",
         "console/src/panels.test.ts",
         "console/src/panel-sources.ts",
         "console/src/panel-sources.test.ts",
-        "console/src/router.ts",
-        "console/src/router.test.ts",
         "infra/main.tf",
         "infra/variables.tf",
         "infra/outputs.tf",
         "infra/modules/compute/container-apps/*cost*",
-        "service-migrations/ownership.json",
         "service-migrations/branches/core-control-plane/versions/*cost*",
         "scripts/quality/architecture/check-cost-governance-package-inventory.py",
         "scripts/quality/architecture/check-cost-governance-package-convergence.py",
@@ -2065,7 +2046,6 @@
         "tests/integration/scripts/test_cost_governance_semantic_profile.py",
         "tests/integration/scripts/test_select_changed_images.py",
         "tests/integration/services/test_service_images.py",
-        "tests/integration/services/test_service_migration_inventory.py",
         "tests/integration/services/test_cost_governance_runtime_migration.py",
         "tests/integration/services/test_cost_governance_validation_migration.py",
         "services/core-control-plane/tests/agents/test_njord_cost_governance.py",
@@ -2093,7 +2073,6 @@
         "docs/roadmap/decisioning/action-ontology.md"
       ],
       "docs_update": [
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/finops-package-architecture.md",
         "docs/roadmap/architecture/finops-autonomous-operations.md",
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md"
@@ -2240,8 +2219,7 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/llm-strategy.md",
-        "docs/roadmap/deployment/deploy-and-onboard.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/deployment/deploy-and-onboard.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/integration/scripts/test_materialize_authoritative_settings.py tests/integration/scripts/test_model_settings_projection_workflow.py",
@@ -2393,7 +2371,6 @@
       "docs_update": [
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
         "docs/roadmap/rules-and-detection/rule-governance.md",
-        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
       ],
@@ -2561,8 +2538,7 @@
         "docs/roadmap/rules-and-detection/policy-abstraction-and-control-objectives.md",
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
         "docs/roadmap/rules-and-detection/rule-governance.md",
-        "docs/roadmap/architecture/operating-ontology.md",
-        "docs/roadmap/architecture/code-map.md"
+        "docs/roadmap/architecture/operating-ontology.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_retrieval.py services/core-control-plane/tests/core/ontology_platform/test_catalog_projection.py",

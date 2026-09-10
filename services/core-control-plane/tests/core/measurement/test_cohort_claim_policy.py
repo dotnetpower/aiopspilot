@@ -30,7 +30,8 @@ def _body() -> dict[str, Any]:
 
 
 def _written(tmp_path: Path, body: dict[str, Any]) -> Path:
-    path = tmp_path / "policy.json"
+    path = tmp_path / "config" / "policy.json"
+    path.parent.mkdir()
     path.write_text(json.dumps(body), encoding="utf-8")
     return path
 
@@ -54,6 +55,8 @@ def test_the_committed_policy_pins_every_metric_guard_and_the_sample_floor() -> 
     assert len(ZERO_THRESHOLD_GUARD_IDS) == 4
     assert policy.minimum_sample_size >= MINIMUM_COHORT_SAMPLE_SIZE == 30
     assert policy.minimum_completeness_basis_points == 10_000
+    assert policy.allowed_exporters("baseline") == ()
+    assert policy.allowed_exporters("treatment") == ()
 
 
 def test_the_requirement_takes_its_revision_from_the_trusted_caller() -> None:
@@ -165,6 +168,32 @@ def test_a_continuous_metric_cannot_switch_to_a_rate_interval(
 
     with pytest.raises(CohortClaimPolicyError, match="mttr_seconds"):
         load_cohort_claim_policy(_written(tmp_path, body))
+
+
+def test_an_exporter_cannot_be_authorized_before_its_workflow_exists(
+    tmp_path: Path,
+) -> None:
+    body = _body()
+    body["observation_import"]["allowed_exporter_workflow_paths"]["baseline"] = [
+        ".github/workflows/cohort-baseline-export.yml"
+    ]
+
+    with pytest.raises(CohortClaimPolicyError, match="MUST exist"):
+        load_cohort_claim_policy(_written(tmp_path, body))
+
+
+def test_an_existing_exporter_can_be_authorized_atomically(tmp_path: Path) -> None:
+    workflow = tmp_path / ".github/workflows/cohort-baseline-export.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: cohort-baseline-export\n", encoding="utf-8")
+    body = _body()
+    body["observation_import"]["allowed_exporter_workflow_paths"]["baseline"] = [
+        ".github/workflows/cohort-baseline-export.yml"
+    ]
+
+    policy = load_cohort_claim_policy(_written(tmp_path, body))
+
+    assert policy.allowed_exporters("baseline") == (".github/workflows/cohort-baseline-export.yml",)
 
 
 def test_an_incomplete_evidence_floor_is_refused(tmp_path: Path) -> None:

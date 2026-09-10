@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 087eccbbcb06c116224e575be478586deccf0839
+translation_source_sha: 9b7d95b33e7f70e1267a246c6c783e2a708eb750
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -36,7 +36,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
   data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
   레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
-  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
+  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다. 검토된 구성 기준선도 같은 private 러너 경계를 따릅니다. 보호된 Core 서비스 계획에는 정확한 콘텐츠 주소 기반 Blob 바인딩만 포함하고, Core는 Managed Identity로 읽으며, 적용 후 검증은 변경 불가능한 Blob과 새 Azure Resource Graph 관측값을 독립적으로 비교합니다.
 
 #### Terraform이 만들지 않는 것
 
@@ -166,7 +166,7 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 대상, 전달 신원, 이벤트 필터 및 재시도 정책을 수렴시킵니다. Private-networking
 프로파일은 지원되지 않는 Event Grid-to-private-Event-Hubs 경로를 만들지 않습니다. 대신 VNet-integrated
 인벤토리 작업은 각 조정 후 범위가 제한된 Activity Log 복구 delta를 기본 Event 버스로
-전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다.
+전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다. 비활성화된 변경 가속기는 선택적 수집 정책 항목을 읽지 않으며 해당 원본의 커서 접두사나 오래된 커서 기한도 추가하지 않습니다.
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
 Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다

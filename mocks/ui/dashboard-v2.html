@@ -192,13 +192,19 @@
   <script src="assets/dashboard-v2-workspace.js?v=2" defer></script>
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=3" />
+  <link rel="stylesheet" href="assets/dashboard-essential.css?v=11" />
+  <link rel="stylesheet" href="assets/dashboard-resource-essential.css?v=5" />
 </head>
-<body class="dashboard-preview cs-operator-neutral" data-chat-theme="clear-neutral">
+<body class="dashboard-preview cs-operator-neutral cs-dashboard-essential cs-resource-dashboard" data-chat-theme="clear-neutral">
   <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="dr-unknown-pattern" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#F5F5F5"></rect><path d="M-1,1 L1,-1 M0,6 L6,0 M5,7 L7,5" stroke="#A3A3A3" stroke-width="1"></path></pattern></defs></svg>
+  <div class="de-toast" role="status" aria-live="polite" aria-atomic="true">
+    <strong>Synthetic preview.</strong>
+    <span>Local deterministic resource records. No Azure query or resource action runs here.</span>
+  </div>
   <main class="cs-container cs-page dashboard-v2 ow-page">
     <div id="resource-hover-preview" class="dr-hover-preview" role="tooltip" hidden></div>
     <span id="resource-selection-status" class="dr-sr-only" role="status"></span>
-    <header class="cp-header">
+    <header class="cp-header rd-page-header">
       <div>
       <h1 class="cs-page-title">
         <span class="cs-page-domain">Overview</span>
@@ -207,20 +213,26 @@
       </h1>
       <p class="db-page-subtitle">Observation scope, resource state, and the exceptions that need your attention.</p>
       </div>
-      <div class="ow-tools"><a href="dashboard.html">Operating dashboard</a><button type="button" class="cs-control-button" id="resource-refresh">Reload fixture</button><span id="resource-refresh-status" role="status"></span></div>
+      <div class="ow-tools rd-page-actions">
+        <a href="dashboard.html">Operating dashboard</a>
+        <details class="dr-preview-controls rd-example-controls">
+          <summary class="cs-control-button">Example controls</summary>
+          <div class="rd-example-popover">
+            <div class="dr-example-options">
+              <div><label for="resource-example-size">Example resources</label><select id="resource-example-size"><option value="24">24</option><option value="100">100</option><option value="1000">1,000</option><option value="10000">10,000</option></select></div>
+              <div><label for="resource-example-state">Inventory example</label><select id="resource-example-state"><option value="complete">Complete</option><option value="partial">Partial</option><option value="stale">Stale</option><option value="loading">Loading</option><option value="error">Read error</option><option value="empty">Empty</option></select></div>
+              <p>Changing a scenario clears selection and filters. No server performance or real inventory is represented.</p>
+            </div>
+            <p>Known operating states require fresh operation or power evidence. Missing or stale observations remain unknown. Recorded provisioning is independent of operational success.</p>
+            <p>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code> / <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time></p>
+            <div class="rd-example-footer">
+              <button type="button" class="cs-control-button" id="resource-refresh">Reload fixture</button>
+              <span id="resource-refresh-status" class="dr-sr-only" role="status"></span>
+            </div>
+          </div>
+        </details>
+      </div>
     </header>
-
-    <details class="cs-readonly-banner dr-preview-controls">
-        <summary><strong>Synthetic preview.</strong> <span>Preview scenarios</span></summary>
-        <p>These records make no operational claim. No Azure query or resource action runs here.</p>
-        <div class="dr-example-options">
-          <div><label for="resource-example-size">Example resources</label><select id="resource-example-size"><option value="24">24</option><option value="100">100</option><option value="1000">1,000</option><option value="10000">10,000</option></select></div>
-          <div><label for="resource-example-state">Inventory example</label><select id="resource-example-state"><option value="complete">Complete</option><option value="partial">Partial</option><option value="stale">Stale</option><option value="loading">Loading</option><option value="error">Read error</option><option value="empty">Empty</option></select></div>
-          <p>Local, deterministic fixtures. Changing a scenario clears selection and filters. No server performance or real inventory is represented.</p>
-        </div>
-        <p>Known operating states require fresh operation or power evidence. Missing or stale observations remain unknown. Recorded provisioning is independent of operational success.</p>
-        <p>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code> / <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time></p>
-    </details>
 
     <section id="resource-read-state" class="dr-read-state" hidden aria-label="Inventory read">
       <div id="resource-loading" role="status"><h2>Loading example inventory</h2><p>Counts are not available yet. This is a paused loading specimen, not a network request.</p><div class="dr-loading-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div></div>
@@ -228,6 +240,7 @@
       <button id="resource-example-restore" type="button" class="cs-control-button">Show complete example</button>
     </section>
     <div id="resource-data">
+    <section class="rd-snapshot-card" aria-labelledby="resource-scope-name">
     <section class="dr-scope" aria-label="Observation scope">
       <div><h2 id="resource-scope-name">Example subscription</h2>
         <p id="resource-scope-description">3 observed resource groups / Inventory only, not execution authority</p></div>
@@ -239,8 +252,9 @@
       <div><dt>Operating state unknown</dt><dd id="count-unknown">-</dd></div>
       <div><dt>Provisioning recorded</dt><dd id="count-provisioning">-</dd><span id="count-na" hidden></span></div>
     </dl>
+    </section>
 
-    <div class="dr-workspace">
+    <div class="dr-workspace rd-primary-workspace">
       <section class="dr-resource-panel" aria-labelledby="resource-map-title">
         <header class="dr-panel-head">
           <div><h2 id="resource-map-title" tabindex="-1">Resource landscape</h2><p id="resource-view-note">One cell is one resource. Adjacency is not a dependency.</p></div>
@@ -318,7 +332,6 @@
         <p class="dr-boundary">Three authored highlights, not a complete queue or ranking. Inspect clears filters and opens the exact record, even outside the displayed page. No investigation or action starts.</p>
       </aside>
       </div>
-    </div>
 
     <div class="dr-lower-grid">
       <section class="dr-history-panel" aria-labelledby="changes-title">
@@ -336,6 +349,7 @@
         </dl>
         <p class="dr-boundary">Observation readiness is not resource health. Missing reads are not healthy resources or zero incidents.</p>
       </section>
+    </div>
     </div>
     </div>
 
