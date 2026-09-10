@@ -57,7 +57,9 @@ def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> Non
     assert "timeout 30s az resource show" in _WORKFLOW
     assert "--api-version 2024-03-01" in _WORKFLOW
     assert "inventory_job_candidates" in _WORKFLOW
+    assert "inventory_job_id_candidates" in _WORKFLOW
     assert "${#inventory_job_candidates[@]} -eq 1" in _WORKFLOW
+    assert "${#inventory_job_id_candidates[@]} -eq 1" in _WORKFLOW
     assert "history_job_candidates" in _WORKFLOW
     assert "history_container_candidates" in _WORKFLOW
     assert "inventory_resource_group_candidates" in _WORKFLOW
@@ -96,6 +98,25 @@ def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> Non
     assert 'job_json="$RUNNER_TEMP/operational-history-job.json"' in _WORKFLOW
     assert "umask 077" in _WORKFLOW
     assert 'rm -f -- "$job_json"' in _WORKFLOW
+
+
+def test_oi12_inventory_refresh_changes_only_the_reviewed_container_image() -> None:
+    refresh = _WORKFLOW.index("- name: Refresh authoritative inventory with exact runtime")
+    certify = _WORKFLOW.index("- name: Run protected seven-axis certification")
+    block = _WORKFLOW[refresh:certify]
+
+    assert "az containerapp job start" not in block
+    assert 'inventory_job_json="$RUNNER_TEMP/inventory-job.json"' in block
+    assert 'execution_body="$RUNNER_TEMP/inventory-execution.json"' in block
+    assert '--ids "$INVENTORY_JOB_ID"' in block
+    assert "--api-version 2024-03-01" in block
+    assert "materialize_inventory_execution.py" in block
+    assert '--job-json "$inventory_job_json"' in block
+    assert '--image "$TF_VAR_core_image"' in block
+    assert '--output "$execution_body"' in block
+    assert "https://management.azure.com${INVENTORY_JOB_ID}/start?api-version=2024-03-01" in block
+    assert '--body "@$execution_body"' in block
+    assert 'rm -f -- "$inventory_job_json" "$execution_body"' in block
 
 
 def test_oi12_workflow_retains_only_sanitized_no_authority_evidence() -> None:

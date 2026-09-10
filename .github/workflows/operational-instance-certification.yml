@@ -135,6 +135,7 @@ jobs:
           inventory_job_name="$(
             terraform -chdir=infra output -raw inventory_job_name 2>/dev/null || true
           )"
+          inventory_job_id=""
           history_job_id="$(
             terraform -chdir=infra output -raw operational_history_lifecycle_job_id \
               2>/dev/null || true
@@ -145,6 +146,7 @@ jobs:
           )"
           if [[ -z "$resource_group" ||
                 -z "$inventory_job_name" ||
+                -z "$inventory_job_id" ||
                 -z "$history_job_id" ||
                 -z "$container_url" ]]; then
             job_scope=()
@@ -165,6 +167,7 @@ jobs:
               exit 1
             }
             inventory_job_candidates=()
+            inventory_job_id_candidates=()
             inventory_resource_group_candidates=()
             history_job_candidates=()
             history_container_candidates=()
@@ -192,6 +195,9 @@ jobs:
               ' <<<"$certification_job_json" >/dev/null; then
                 inventory_job_candidates+=(
                   "$(jq -er '.name' <<<"$certification_job_json")"
+                )
+                inventory_job_id_candidates+=(
+                  "$(jq -er '.id' <<<"$certification_job_json")"
                 )
                 inventory_resource_group_candidates+=(
                   "$(jq -er '.resourceGroup' <<<"$certification_job_json")"
@@ -246,6 +252,7 @@ jobs:
               fi
             done
             [[ ${#inventory_job_candidates[@]} -eq 1 &&
+              ${#inventory_job_id_candidates[@]} -eq 1 &&
               ${#inventory_resource_group_candidates[@]} -eq 1 ]] || {
               echo "expected exactly one inventory job matching the reviewed runtime contract" >&2
               exit 1
@@ -282,10 +289,12 @@ jobs:
               exit 1
             fi
             resource_group="${history_resource_group_candidates[0]}"
+            inventory_job_id="${inventory_job_id_candidates[0]}"
             history_job_id="${history_job_candidates[0]}"
             container_url="${history_container_candidates[0]}"
           fi
           [[ -n "$resource_group" && -n "$inventory_job_name" ]]
+          [[ "$inventory_job_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.App/jobs/* ]]
           [[ "$history_job_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.App/jobs/* ]]
           [[ "$container_url" == https://*.blob.core.windows.net/* ]]
           history_job_name="${history_job_id##*/}"
@@ -311,6 +320,7 @@ jobs:
           {
             echo "CERTIFICATION_RESOURCE_GROUP=$resource_group"
             echo "INVENTORY_JOB_NAME=$inventory_job_name"
+            echo "INVENTORY_JOB_ID=$inventory_job_id"
             echo "CERTIFICATION_JOB_NAME=$history_job_name"
             echo "CERTIFICATION_CONTAINER_URL=$container_url"
             echo "CERTIFICATION_MI_CLIENT_ID=$mi_client_id"
@@ -335,12 +345,26 @@ jobs:
       - name: Refresh authoritative inventory with exact runtime
         run: |
           set -euo pipefail
+          inventory_job_json="$RUNNER_TEMP/inventory-job.json"
+          execution_body="$RUNNER_TEMP/inventory-execution.json"
+          umask 077
+          trap 'rm -f -- "$inventory_job_json" "$execution_body"' EXIT
+          az resource show \
+            --ids "$INVENTORY_JOB_ID" \
+            --api-version 2024-03-01 \
+            --output json \
+            --only-show-errors > "$inventory_job_json"
+          python3 scripts/deployment/azure/materialize_inventory_execution.py \
+            --job-json "$inventory_job_json" \
+            --image "$TF_VAR_core_image" \
+            --output "$execution_body"
           execution="$(
-            az containerapp job start \
-              --name "$INVENTORY_JOB_NAME" \
-              --resource-group "$CERTIFICATION_RESOURCE_GROUP" \
-              --image "$TF_VAR_core_image" \
-              --query name --output tsv
+            timeout 60s az rest \
+              --method post \
+              --uri "https://management.azure.com${INVENTORY_JOB_ID}/start?api-version=2024-03-01" \
+              --body "@$execution_body" \
+              --output json |
+              jq -er '.name | select(type == "string" and length > 0)'
           )"
           [[ -n "$execution" ]]
           deadline=$((SECONDS + 1200))
