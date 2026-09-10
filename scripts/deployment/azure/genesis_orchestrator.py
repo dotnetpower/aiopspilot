@@ -145,8 +145,8 @@ class GenesisOrchestrator:
             if route == "private-runner":
                 return self._finish_waiting(
                     "execution",
-                    "private_foundation_apply_unavailable",
-                    "review_and_approve_exact_foundation_plan",
+                    "private_foundation_external_artifacts_required",
+                    "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan",
                 )
             if route != "public-dev":
                 raise OrchestrationError("deployment_route_indeterminate")

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 760fb59a19243febb24419452e550c428fdcd39b }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 332955c6ed1a15301665c55f87a9065e1a7038a6 }]
 ---
 
 # Deploy Quickstart
@@ -29,8 +29,8 @@ Executor.
 Genesis displays eight numbered stages, exact progress, and remaining work without prompting. Its
 `--apply --allow-probe-resources` flags authorize only missing-provider registration and creation
 plus verified cleanup of the tagged Key Vault and Storage policy probe. A `public-dev` result stops
-after preview for an exact approved plan. A `private-runner` result stops for the separately
-reviewed Foundation plan. Neither route applies an unsealed plan or claims subscription readiness.
+after preview for an exact approved plan. A `private-runner` result reports `private_foundation_external_artifacts_required` and names the signed kit, exact runner image,
+Foundation profile, and exact plan generation. Neither route applies an unsealed plan or claims subscription readiness.
 
 If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
 public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by
