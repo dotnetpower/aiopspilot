@@ -678,6 +678,15 @@ def _validate_transition_evidence(
         raise ValueError("terminal target dispatch fence lacks resolution evidence")
 
 
+def validate_target_fence_transition(
+    prior: TargetDispatchFenceRecord,
+    current: TargetDispatchFenceRecord,
+) -> None:
+    """Validate one exact monotonic target-fence transition."""
+
+    _validate_transition(prior, current)
+
+
 def _validate_text(name: str, value: str) -> None:
     if type(value) is not str or not value.strip() or value != value.strip() or len(value) > 512:
         raise ValueError(f"target dispatch fence {name} MUST be canonical and bounded")
@@ -781,4 +790,5 @@ __all__ = [
     "mark_target_fence_release_pending",
     "resolve_target_fence_without_dispatch",
     "target_mutation_blocked",
+    "validate_target_fence_transition",
 ]

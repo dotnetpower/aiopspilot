@@ -80,7 +80,7 @@ class PostgresIdempotencyReservationStore:
             or record.revision != 1
         ):
             raise ValueError("PostgreSQL reservation insert requires revision-one reserved state")
-        key = _storage_key(record.identity.idempotency_key)
+        key = reservation_storage_key(record.identity.idempotency_key)
         encoded = json.dumps(
             reservation_record_to_mapping(record),
             ensure_ascii=True,
@@ -126,7 +126,7 @@ class PostgresIdempotencyReservationStore:
         expected_prior_revision: int,
         record: IdempotencyReservationRecord,
     ) -> IdempotencyReservationTransitionReceipt:
-        key = _storage_key(record.identity.idempotency_key)
+        key = reservation_storage_key(record.identity.idempotency_key)
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._prepare(connection)
@@ -181,7 +181,7 @@ class PostgresIdempotencyReservationStore:
         self,
         idempotency_key: str,
     ) -> IdempotencyReservationRecord | None:
-        key = _storage_key(idempotency_key)
+        key = reservation_storage_key(idempotency_key)
         async with await self._connect() as connection:
             await self._prepare(connection)
             cursor = await connection.execute(_SELECT_SQL, (key,))
@@ -222,7 +222,9 @@ class PostgresIdempotencyReservationStore:
         return _decode_row(row)
 
 
-def _storage_key(idempotency_key: str) -> str:
+def reservation_storage_key(idempotency_key: str) -> str:
+    """Return the canonical database key for one executor reservation."""
+
     if (
         type(idempotency_key) is not str
         or not idempotency_key.strip()
@@ -281,4 +283,5 @@ __all__ = [
     "PostgresIdempotencyReservationStore",
     "PostgresIdempotencyReservationStoreConfig",
     "ReservationCompareAndSetError",
+    "reservation_storage_key",
 ]
