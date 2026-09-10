@@ -256,7 +256,7 @@ class AzureArgConfigurationObservationSource:
 def _query(attribute_paths: tuple[str, ...]) -> str:
     projections = ["id", "type", "name", "location"]
     for index, path in enumerate(attribute_paths):
-        projections.append(f"attribute_{index}_present=isnotnull({path})")
+        projections.append(f'attribute_{index}_presence=iff(isnull({path}), "missing", "present")')
         projections.append(f"attribute_{index}=tostring({path})")
     return "Resources | project " + ", ".join(projections) + " | order by id asc"
 
@@ -273,12 +273,12 @@ def _resource(
     attributes: dict[str, object] = {}
     unknown: set[str] = set()
     for index, path in enumerate(attribute_paths):
-        present = row.get(f"attribute_{index}_present")
-        if not isinstance(present, bool):
+        presence = row.get(f"attribute_{index}_presence")
+        if presence not in {"present", "missing"}:
             raise AzureConfigurationObservationError(
                 f"ARG returned an invalid configuration presence marker for {path!r}"
             )
-        if not present:
+        if presence == "missing":
             unknown.add(path)
             continue
         value = row.get(f"attribute_{index}")

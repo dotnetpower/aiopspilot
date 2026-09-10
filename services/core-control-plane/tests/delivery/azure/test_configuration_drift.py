@@ -153,7 +153,7 @@ async def test_observation_projects_selected_attributes_and_unknowns() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal captured_query
         payload = request.read().decode("utf-8")
-        captured_query = payload
+        captured_query = json.loads(payload)["query"]
         return httpx.Response(
             200,
             json={
@@ -165,11 +165,11 @@ async def test_observation_projects_selected_attributes_and_unknowns() -> None:
                         "type": "Example/widgets",
                         "name": "widget-a",
                         "location": "koreacentral",
-                        "attribute_0_present": True,
-                        "attribute_0": "Disabled",
-                        "attribute_1_present": True,
+                        "attribute_0_presence": "present",
+                        "attribute_0": "",
+                        "attribute_1_presence": "present",
                         "attribute_1": "Standard",
-                        "attribute_2_present": False,
+                        "attribute_2_presence": "missing",
                         "attribute_2": "",
                     }
                 ]
@@ -191,12 +191,12 @@ async def test_observation_projects_selected_attributes_and_unknowns() -> None:
     assert observation.completeness.value == "complete"
     assert resource.local_name.startswith("widget-a#")
     assert resource.attributes == {
-        "properties.publicNetworkAccess": "Disabled",
+        "properties.publicNetworkAccess": "",
         "sku.name": "Standard",
     }
     assert resource.unknown_attributes == frozenset({"tags.owner"})
     assert "properties.publicNetworkAccess" in captured_query
-    assert "isnotnull(properties.publicNetworkAccess)" in captured_query
+    assert 'iff(isnull(properties.publicNetworkAccess), "missing", "present")' in captured_query
     assert "/subscriptions/example" not in captured_query
 
 
@@ -231,8 +231,8 @@ async def test_global_resource_normalizes_empty_location() -> None:
                         "type": "Example/widgets",
                         "name": "widget-a",
                         "location": "",
-                        "attribute_0_present": True,
-                        "attribute_0": "Disabled",
+                        "attribute_0_presence": "present",
+                        "attribute_0": "",
                     }
                 ]
             },
@@ -248,6 +248,7 @@ async def test_global_resource_normalizes_empty_location() -> None:
         observation = await source.observe(scope="scope:example-platform")
 
     assert observation.resources[0].region == "global"
+    assert observation.resources[0].attributes == {"properties.publicNetworkAccess": ""}
 
 
 async def test_truncated_result_fails_without_partial_observation() -> None:
@@ -278,14 +279,14 @@ async def test_truncated_result_fails_without_partial_observation() -> None:
             "type": "Example/widgets",
             "name": "widget-a",
             "location": "koreacentral",
-            "attribute_0_present": "true",
+            "attribute_0_presence": "true",
         },
         {
             "id": "/subscriptions/example/providers/Example/widgets/a",
             "type": "Example/widgets",
             "name": "widget-a",
             "location": "koreacentral",
-            "attribute_0_present": True,
+            "attribute_0_presence": "present",
             "attribute_0": "x" * 4_097,
         },
     ),
