@@ -7,8 +7,9 @@ suitable for production - mutations vanish on process restart.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
+from datetime import UTC, datetime
 from threading import Lock
 from typing import Any
 
@@ -19,10 +20,55 @@ from fdai.shared.providers.state_store import (
     StateStore,
     classify_incident_append,
     incident_number_for,
+    workflow_approval_decisions_from_state,
 )
 
 _GENESIS_HASH = GENESIS_HASH
 _next_hash = next_hash
+
+
+def _approval_guard_matches(
+    record: Mapping[str, Any] | None,
+    *,
+    expected_revision: int,
+    expected_process_id: str,
+    expected_step_id: str,
+    expected_attempt: int,
+    expected_requester: str,
+    expected_quorum: int,
+    expected_no_self_approval: bool,
+    expected_decisions: tuple[tuple[str, str, str], ...],
+    evaluated_at: datetime,
+) -> bool:
+    if record is None or record.get("revision") != expected_revision:
+        return False
+    if record.get("state") != "pending":
+        return False
+    if (
+        record.get("process_id") != expected_process_id
+        or record.get("step_id") != expected_step_id
+        or record.get("attempt") != expected_attempt
+        or record.get("requester_principal") != expected_requester
+        or record.get("quorum") != expected_quorum
+        or record.get("no_self_approval") is not expected_no_self_approval
+        or workflow_approval_decisions_from_state(record) != expected_decisions
+    ):
+        return False
+    raw_expires_at = record.get("expires_at")
+    raw_requested_at = record.get("requested_at")
+    if not isinstance(raw_requested_at, str) or not isinstance(raw_expires_at, str):
+        return False
+    try:
+        requested_at = datetime.fromisoformat(raw_requested_at)
+        expires_at = datetime.fromisoformat(raw_expires_at)
+    except ValueError:
+        return False
+    return (
+        evaluated_at.tzinfo is not None
+        and requested_at.tzinfo is not None
+        and expires_at.tzinfo is not None
+        and requested_at <= evaluated_at < expires_at
+    )
 
 
 class InMemoryStateStore(StateStore):
@@ -35,7 +81,12 @@ class InMemoryStateStore(StateStore):
     :meth:`verify_chain`.
     """
 
-    def __init__(self, *, max_audit_entries: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        max_audit_entries: int | None = None,
+        linearization_clock: Callable[[], datetime] | None = None,
+    ) -> None:
         """Create a new store.
 
         :param max_audit_entries: optional ring-buffer cap on the audit
@@ -50,6 +101,7 @@ class InMemoryStateStore(StateStore):
         if max_audit_entries is not None and max_audit_entries < 1:
             raise ValueError("max_audit_entries MUST be >= 1 when set")
         self._max_audit_entries = max_audit_entries
+        self._linearization_clock = linearization_clock or (lambda: datetime.now(tz=UTC))
         self._state: dict[str, Mapping[str, Any]] = {}
         self._audit: list[dict[str, Any]] = []
         self._incident_transitions: dict[str, dict[str, Any]] = {}
@@ -85,8 +137,15 @@ class InMemoryStateStore(StateStore):
         with self._lock:
             if key in self._state:
                 return False
-            self._write_locked(key, value)
-            self._append_audit_locked(audit_entry)
+            state_before = deepcopy(self._state)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._state = state_before
+                del self._audit[audit_length_before:]
+                raise
             return True
 
     async def compare_and_set_state_with_audit(
@@ -104,6 +163,60 @@ class InMemoryStateStore(StateStore):
                 return False
             self._write_locked(key, value)
             self._append_audit_locked(audit_entry)
+            return True
+
+    async def compare_and_set_state_with_approval_guard(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        approval_key: str,
+        expected_approval_revision: int,
+        expected_approval_process_id: str,
+        expected_approval_step_id: str,
+        expected_approval_attempt: int,
+        expected_approval_requester: str,
+        expected_approval_quorum: int,
+        expected_no_self_approval: bool,
+        expected_approval_decisions: tuple[tuple[str, str, str], ...],
+        evaluated_at: datetime,
+        admission_verified_at: datetime,
+        admission_valid_until: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            linearized_at = self._linearization_clock()
+            existing = self._state.get(key)
+            approval = self._state.get(approval_key)
+            if (
+                existing is None
+                or existing.get("revision", 0) != expected_revision
+                or not _approval_guard_matches(
+                    approval,
+                    expected_revision=expected_approval_revision,
+                    expected_process_id=expected_approval_process_id,
+                    expected_step_id=expected_approval_step_id,
+                    expected_attempt=expected_approval_attempt,
+                    expected_requester=expected_approval_requester,
+                    expected_quorum=expected_approval_quorum,
+                    expected_no_self_approval=expected_no_self_approval,
+                    expected_decisions=expected_approval_decisions,
+                    evaluated_at=linearized_at,
+                )
+                or admission_verified_at > linearized_at
+                or admission_valid_until <= linearized_at
+            ):
+                return False
+            state_before = deepcopy(self._state)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._state = state_before
+                del self._audit[audit_length_before:]
+                raise
             return True
 
     def _write_locked(self, key: str, value: Mapping[str, Any]) -> None:

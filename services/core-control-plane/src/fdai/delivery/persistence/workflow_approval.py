@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid5
 from fdai.core.workflow.workflow_runtime import (
     WorkflowApprovalDecision,
     WorkflowApprovalSnapshot,
+    workflow_approval_state_key,
 )
 from fdai.delivery.persistence.state_store_hil_registry import add_pending_approval
 from fdai.shared.providers.state_store import StateStore
@@ -342,11 +343,7 @@ class StateStoreWorkflowApprovalProvider:
 
 
 def _state_key(process_id: str, step_id: str, attempt: int = 1) -> str:
-    identity = f"{process_id}\0{step_id}"
-    if attempt > 1:
-        identity += f"\0{attempt}"
-    digest = hashlib.sha256(identity.encode()).hexdigest()
-    return f"{_STATE_PREFIX}{digest}"
+    return workflow_approval_state_key(process_id, step_id, attempt)
 
 
 def _slot(process_id: str, step_id: str, attempt: int, index: int) -> dict[str, object]:

@@ -49,6 +49,27 @@ def incident_number_for(prefix: str, sequence: int) -> str:
     return f"{prefix}-{sequence:04d}"
 
 
+def workflow_approval_decisions_from_state(
+    record: Mapping[str, Any],
+) -> tuple[tuple[str, str, str], ...] | None:
+    """Return canonical durable approval decisions or ``None`` when malformed."""
+
+    raw_claims = record.get("decision_claims")
+    if not isinstance(raw_claims, Mapping):
+        return None
+    decisions: list[tuple[str, str, str]] = []
+    for claim in raw_claims.values():
+        if not isinstance(claim, Mapping):
+            return None
+        principal = str(claim.get("principal") or "").strip().casefold()
+        decision = str(claim.get("decision") or "")
+        receipt_ref = str(claim.get("receipt_ref") or "")
+        if not principal or decision not in {"approved", "rejected"} or not receipt_ref:
+            return None
+        decisions.append((principal, decision, receipt_ref))
+    return tuple(sorted(decisions))
+
+
 @runtime_checkable
 class StateStore(Protocol):
     """Append-only audit + tracked state + KPI emission."""
@@ -345,4 +366,5 @@ __all__ = [
     "StateStore",
     "classify_incident_append",
     "incident_number_for",
+    "workflow_approval_decisions_from_state",
 ]

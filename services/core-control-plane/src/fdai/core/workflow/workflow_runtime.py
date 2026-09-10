@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -24,6 +25,15 @@ def normalize_workflow_principal(value: object) -> str:
     """Canonicalize a case-insensitive workflow principal for identity comparison."""
 
     return str(value or "").strip().casefold()
+
+
+def workflow_approval_state_key(process_id: str, step_id: str, attempt: int = 1) -> str:
+    """Return the durable approval state key for one exact Process step attempt."""
+
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    return f"workflow:approval:{hashlib.sha256(identity.encode()).hexdigest()}"
 
 
 def resolve_params(params: Mapping[str, object], context: Mapping[str, str]) -> dict[str, object]:
