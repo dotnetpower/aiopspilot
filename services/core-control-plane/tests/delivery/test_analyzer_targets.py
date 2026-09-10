@@ -224,15 +224,17 @@ async def test_a_resource_without_a_state_fact_is_still_selectable() -> None:
 
 
 @pytest.mark.asyncio
-async def test_identity_only_selection_without_admission_is_skipped() -> None:
-    """Identity and type alone still need their own admission before selection."""
+async def test_identity_only_selection_needs_no_state_admission() -> None:
+    """Read-only identity enumeration asserts no decision-critical state."""
 
     store = StubStore((_resource("res-apim", "api-gateway"),))
 
     resolution = await _resolve(store, decision_evidence=False)
 
-    assert resolution.targets == ()
-    assert resolution.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
+    assert resolution.targets == (
+        AnalyzerTarget(resource_ref="res-apim", resource_kind="api_management"),
+    )
+    assert resolution.skipped_reasons == ()
 
 
 @pytest.mark.asyncio

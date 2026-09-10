@@ -60,7 +60,6 @@ SKIP_UNUSABLE_STATE_FACT = "unusable_state_fact"
 SKIP_STALE_STATE_FACT = "stale_state_fact"
 SKIP_UNVERIFIED_STATE_FACT = "unverified_state_fact"
 ANALYZER_TARGET_EVIDENCE_PURPOSE = "analyzer-target-selection"
-ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE = "analyzer-target-identity"
 
 
 class AnalyzerTargetResolutionError(RuntimeError):
@@ -216,8 +215,28 @@ async def _eligible_target(
     if analyzer_kind is None:
         skipped.add(SKIP_UNMAPPED_RESOURCE_TYPE)
         return None
+    provider_properties = record.properties.get("properties")
+    raw = (
+        provider_properties.get(STATE_FACT_METADATA_PROPERTY)
+        if isinstance(provider_properties, Mapping)
+        else None
+    )
+    if raw is None:
+        return AnalyzerTarget(resource_ref=resource_id, resource_kind=analyzer_kind)
+    if not isinstance(raw, Mapping):
+        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        return None
+    if "lane" in raw:
+        metadata_value = raw
+    elif "state" not in raw:
+        return AnalyzerTarget(resource_ref=resource_id, resource_kind=analyzer_kind)
+    else:
+        metadata_value = raw["state"]
+        if not isinstance(metadata_value, Mapping):
+            skipped.add(SKIP_UNUSABLE_STATE_FACT)
+            return None
     if not await _state_fact_supports_selection(
-        record,
+        metadata_value,
         resource_id=resource_id,
         resource_type=resource_type,
         now=now,
@@ -229,7 +248,7 @@ async def _eligible_target(
 
 
 async def _state_fact_supports_selection(
-    record: OntologyObjectRecord,
+    raw: Mapping[str, object],
     *,
     resource_id: str,
     resource_type: str,
@@ -239,47 +258,14 @@ async def _state_fact_supports_selection(
 ) -> bool:
     """Report whether the recorded observation still supports selecting a target.
 
-    Selection is a positive decision boundary in both shapes, so each shape has
-    its own registered admission. A present state fact MUST be an unconflicted,
-    complete, non-synthetic provider observation with a timezone-aware evidence
-    cutoff inside its freshness ceiling, admitted under
-    ``ANALYZER_TARGET_EVIDENCE_PURPOSE``. An absent state fact asserts identity
-    and type only, and is delegated to the identity boundary so that no eligible
-    target can be selected without an admission.
+    A present state fact MUST be an unconflicted, complete, non-synthetic
+    provider observation with a timezone-aware evidence cutoff inside its
+    freshness ceiling, admitted under ``ANALYZER_TARGET_EVIDENCE_PURPOSE``.
+    Identity-and-type-only records are handled before this decision boundary
+    because enumerating a read-only analysis target makes no state claim.
     """
-    provider_properties = record.properties.get("properties")
-    raw = (
-        provider_properties.get(STATE_FACT_METADATA_PROPERTY)
-        if isinstance(provider_properties, Mapping)
-        else None
-    )
-    if raw is None:
-        return await _identity_supports_selection(
-            record,
-            resource_id=resource_id,
-            resource_type=resource_type,
-            now=now,
-            skipped=skipped,
-            decision_evidence=decision_evidence,
-        )
-    if not isinstance(raw, Mapping):
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
-        return False
-    if "lane" not in raw and "state" not in raw:
-        return await _identity_supports_selection(
-            record,
-            resource_id=resource_id,
-            resource_type=resource_type,
-            now=now,
-            skipped=skipped,
-            decision_evidence=decision_evidence,
-        )
-    metadata_value = raw if "lane" in raw else raw["state"]
-    if not isinstance(metadata_value, Mapping):
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
-        return False
     try:
-        metadata = StateFactMetadata.from_mapping(metadata_value)
+        metadata = StateFactMetadata.from_mapping(raw)
     except (ValueError, TypeError):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False
@@ -337,65 +323,6 @@ async def _state_fact_supports_selection(
     return True
 
 
-async def _identity_supports_selection(
-    record: OntologyObjectRecord,
-    *,
-    resource_id: str,
-    resource_type: str,
-    now: datetime,
-    skipped: set[str],
-    decision_evidence: DecisionEvidenceAdmissionProvider | None,
-) -> bool:
-    """Report whether identity-and-type-only observation may select a target.
-
-    The projection asserted no state, so the only evidence is the observed
-    identity, type, and projection revision. Selecting on that is still a
-    positive decision, so it requires its own current shared admission bound to
-    that exact triple. An unbound provider or a mismatched admission fails
-    closed and drops the candidate.
-    """
-
-    if decision_evidence is None:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
-        return False
-    evidence_digest = content_digest(
-        {
-            "resource_id": resource_id,
-            "resource_type": resource_type,
-            "object_type": record.object_type,
-            "revision": record.revision,
-        }
-    )
-    scope_digest = content_digest(
-        {
-            "resource_id": resource_id,
-            "resource_type": resource_type,
-        }
-    )
-    source_revision = f"ontology-object-revision:{record.revision}"
-    admission = await decision_evidence.admit(
-        evidence_digest=evidence_digest,
-        scope_digest=scope_digest,
-        purpose_id=ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE,
-        source_revision=source_revision,
-    )
-    if admission is None:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
-        return False
-    reasons = assess_decision_evidence_admission(
-        admission,
-        expected_evidence_digest=evidence_digest,
-        expected_scope_digest=scope_digest,
-        expected_purpose_id=ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE,
-        expected_source_revision=source_revision,
-        evaluated_at=now,
-    )
-    if reasons:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
-        return False
-    return True
-
-
 __all__ = [
     "DEFAULT_MAX_DISCOVERED",
     "MAX_DISCOVERED_CEILING",
@@ -406,7 +333,6 @@ __all__ = [
     "SKIP_UNUSABLE_STATE_FACT",
     "SKIP_UNVERIFIED_STATE_FACT",
     "ANALYZER_TARGET_EVIDENCE_PURPOSE",
-    "ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE",
     "AnalyzerTargetResolution",
     "AnalyzerTargetResolutionError",
     "resolve_analyzer_targets",
