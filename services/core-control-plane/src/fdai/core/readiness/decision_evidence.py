@@ -403,6 +403,9 @@ def _evaluate_bundle(
     actual = {proof.kind: proof.subject_digest for proof in bundle.proofs}
     if actual != expected:
         return _rejected(receipt, DecisionEvidenceReadinessReason.PROOF_MISMATCH)
+    admission_valid_until = min(bundle.valid_until, receipt.fresh_until)
+    if admission_valid_until <= bundle.verified_at:
+        return _rejected(receipt, DecisionEvidenceReadinessReason.PROOF_NOT_CURRENT)
     return DecisionEvidenceReadinessResult(
         eligible=True,
         reason=DecisionEvidenceReadinessReason.VERIFIED,
@@ -417,7 +420,7 @@ def _evaluate_bundle(
             purpose_id=receipt.purpose_id,
             source_revision=receipt.source_revision,
             verified_at=bundle.verified_at,
-            valid_until=bundle.valid_until,
+            valid_until=admission_valid_until,
         ),
     )
 

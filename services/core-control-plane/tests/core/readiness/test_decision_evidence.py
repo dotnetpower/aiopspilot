@@ -89,7 +89,12 @@ def _requirement() -> LiveEvidenceClaimRequirement:
     )
 
 
-def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerificationBundle:
+def _bundle(
+    receipt: DecisionCriticalEvidenceReceipt,
+    *,
+    valid_until: datetime | None = None,
+) -> DecisionEvidenceVerificationBundle:
+    expires_at = valid_until or _NOW + timedelta(minutes=8)
     subjects = expected_verification_subjects(
         authentication_evidence_digest=receipt.authentication_evidence_digest,
         evidence_digest=receipt.evidence_digest,
@@ -107,7 +112,7 @@ def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerific
             verifier_version="1.0.0",
             trust_anchor_id="azure:managed-identity",
             issued_at=_NOW + timedelta(minutes=2),
-            valid_until=_NOW + timedelta(minutes=8),
+            valid_until=expires_at,
         )
         for index, (kind, subject) in enumerate(subjects.items(), start=1)
     )
@@ -117,7 +122,7 @@ def _bundle(receipt: DecisionCriticalEvidenceReceipt) -> DecisionEvidenceVerific
         verifier_version="1.0.0",
         trust_anchor_id="azure:managed-identity",
         verified_at=_NOW + timedelta(minutes=2),
-        valid_until=_NOW + timedelta(minutes=8),
+        valid_until=expires_at,
         proofs=proofs,
     )
 
@@ -175,6 +180,22 @@ async def test_matching_independent_proofs_make_evidence_eligible_only() -> None
     assert result.admission.purpose_id == receipt.purpose_id
     assert result.admission.source_revision == receipt.source_revision
     assert result.execution_authority is result.promotion_authority is False
+
+
+async def test_admission_cannot_outlive_receipt_freshness() -> None:
+    receipt = _receipt()
+    bundle = _bundle(receipt, valid_until=_NOW + timedelta(minutes=12))
+
+    result = await _gate(receipt, bundle=bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is True
+    assert result.admission is not None
+    assert result.admission.valid_until == receipt.fresh_until
+    assert result.admission.valid_until < bundle.valid_until
 
 
 @pytest.mark.parametrize(
