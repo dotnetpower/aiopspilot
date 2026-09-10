@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 44aa33d793f9f91128d5a85b7ebaca1ecff72960
+translation_source_sha: d166096b806307a1508a416fe1436b1e8081942e
 translation_revised: 2026-09-10
 ---
 # 지속형 운영 인스턴스 그래프
@@ -93,6 +93,9 @@ edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 �
 ID를 다시 검사합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
+Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속
+Incident 개입 요청도 게시할 수 있습니다. 해당 작업자는 런타임 호출 증표, 그래프 edge,
+프로바이더 관측 또는 실행 권한을 만들지 않습니다.
 
 보호된 서비스 배포는 먼저 플랫폼이 소유한 런타임 호출 바인딩을 사용합니다. Operator 상태
 이행으로 기존 플랫폼 모듈이 비활성화되면 두 Container App이 계속 배포되어 있어도 해당 출력이

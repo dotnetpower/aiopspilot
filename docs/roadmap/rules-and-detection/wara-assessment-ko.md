@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 17ded25c9684c0d2af4a1c1442a59ef857f9e21f
+translation_source_sha: ea4315ea2605fceb4e2a6416b846b4da122255f2
 translation_revised: 2026-09-10
 ---
 # WARA 근거 기반 평가
@@ -156,6 +156,8 @@ Operator 조립 루트는 검토된 fanout 상한을 유지하기 위해 하나�
 두 변환 bridge를 가져옵니다. 이 facade는 상태 또는 평가 권한을 공유하지 않습니다.
 공유 Operator 조립은 관련 없는 읽기 변환 결과를 `/system/data-sources`에 등록할 수 있습니다.
 이 등록은 WARA 출처를 추가하거나 WARA 범위를 넓히거나 shadow 전용 권한을 바꾸지 않습니다.
+보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 감독할 수 있습니다. 해당
+작업자의 요청과 준비 상태는 WARA 근거, 변환 결과 또는 평가 권한에 들어갈 수 없습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면

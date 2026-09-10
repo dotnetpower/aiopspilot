@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 867bccdfecc873688f80cd73df7fb65d067462ff
+translation_source_sha: 32884adaf97c79906b7e71e6e5988d90417a84fc
 translation_revised: 2026-09-10
 ---
 
@@ -36,6 +36,9 @@ API 계약은 다음과 같습니다.
 Operator API는 요청을 영속적으로 수락하기 전에 정확한 수명 주기 상태를 다시 확인합니다.
 Core는 요청을 적용하기 전에 정본 Incident에서 같은 대상 다이제스트를 독립적으로 다시
 계산합니다.
+Operator 수명 주기는 재시도 가능한 개입 보낼 편지함 작업자를 소유하며, 해당 작업자가
+중지되면 준비 상태를 false로 유지합니다. 따라서 영속 HTTP 수락 뒤 타입이 지정된 요청이
+게시되지 않은 상태를 성공처럼 보이는 최종 상태로 표시하지 않습니다.
 
 인시던트 생성은 의미 초안 및 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성 버튼을
 추가하지 않습니다. 인식된 incident-open 요청은 다음 순서로 처리됩니다.
