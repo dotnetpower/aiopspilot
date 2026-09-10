@@ -970,8 +970,10 @@ def test_legacy_platform_imports_the_service_specific_core_image() -> None:
     assert '"https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}"' in (_IMAGE_BINDER)
     assert 'docker_config="$(mktemp -d "$RUNNER_TEMP/fdai-ghcr-docker.XXXXXX")"' in (_IMAGE_BINDER)
     assert 'chmod 0700 "$docker_config"' in _IMAGE_BINDER
-    assert "--password-stdin" in _IMAGE_BINDER
-    assert "temporary GHCR authentication failed." in _IMAGE_BINDER
+    assert 'DOCKER_AUTH_PATH="$docker_config/config.json"' in _IMAGE_BINDER
+    assert "base64.b64encode(credential)" in _IMAGE_BINDER
+    assert "docker login" not in _IMAGE_BINDER
+    assert "--password-stdin" not in _IMAGE_BINDER
     assert "verified runtime image attestation check failed." in _IMAGE_BINDER
     assert '"registryUri": "ghcr.io"' in _IMAGE_BINDER
     assert '"registryUri": "https://ghcr.io"' not in _IMAGE_BINDER

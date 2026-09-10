@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 17337cb352e3e41dfcaefee68d9c9c572c0da9db
+translation_source_sha: bbbcd4326daf59fe702976acf6fcbc5779343b23
 translation_revised: 2026-09-10
 ---
 
@@ -520,6 +520,8 @@ telemetry / metrics
 보호된 분리 서비스 배포는 다이제스트로 고정된 GHCR OCI 대상을 통해 provenance, SBOM, Core
 모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
 않습니다.
+런타임 이미지 검증은 모드가 `0600`인 임시 Docker 인증 구성을 작성한 다음, 재시도 횟수가 제한된
+GHCR token 교환으로 인증하며 별도의 실시간 `docker login`에 의존하지 않습니다.
 보호된 `plan-observability-*` 및 `apply-observability-*` 요청 계열은 analyzer Container Apps
 Job만 대상으로 합니다. 따라서 증명된 런타임 이미지를 갱신할 때 관련 없는 플랫폼 리소스를
 삭제하거나 교체할 수 없습니다.
