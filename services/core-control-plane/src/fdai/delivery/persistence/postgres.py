@@ -20,17 +20,30 @@ Notes on the wire choice:
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final
-from uuid import NAMESPACE_URL, UUID, uuid5
 
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.persistence.postgres_audit_fields import (
+    audit_action_kind as _audit_action_kind,
+)
+from fdai.delivery.persistence.postgres_audit_fields import (
+    audit_actor as _audit_actor,
+)
+from fdai.delivery.persistence.postgres_audit_fields import (
+    audit_event_id as _audit_event_id,
+)
+from fdai.delivery.persistence.postgres_audit_fields import (
+    incident_lock as _incident_lock,
+)
+from fdai.delivery.persistence.postgres_audit_fields import (
+    json_object as _json_object,
+)
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
@@ -755,56 +768,6 @@ class PostgresStateStore(StateStore):
                 entry_hash,
             ),
         )
-
-
-def _audit_event_id(payload: Mapping[str, Any]) -> str:
-    raw = payload.get("event_id")
-    if raw is not None:
-        try:
-            return str(UUID(str(raw)))
-        except ValueError:
-            pass
-    identity = next(
-        (
-            str(payload[key])
-            for key in ("idempotency_key", "correlation_id", "audit_id")
-            if payload.get(key)
-        ),
-        _canonical(payload),
-    )
-    return str(uuid5(NAMESPACE_URL, f"fdai.audit://{identity}"))
-
-
-def _audit_actor(payload: Mapping[str, Any]) -> str:
-    for key in ("actor", "actor_oid", "producer_principal"):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return "fdai.system"
-
-
-def _audit_action_kind(payload: Mapping[str, Any]) -> str:
-    for key in ("action_kind", "kind", "event_type"):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return "audit.record"
-
-
-def _incident_lock(incident_id: str) -> int:
-    """Return a stable positive 63-bit per-incident advisory-lock key."""
-    digest = hashlib.sha256(incident_id.encode()).digest()
-    return int.from_bytes(digest[:8], byteorder="big", signed=False) & ((1 << 63) - 1)
-
-
-def _json_object(value: object) -> Mapping[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    if isinstance(value, str):
-        decoded = json.loads(value)
-        if isinstance(decoded, dict):
-            return decoded
-    raise RuntimeError("incident lifecycle audit entry is not a JSON object")
 
 
 __all__ = ["PostgresStateStore", "PostgresStateStoreConfig"]
