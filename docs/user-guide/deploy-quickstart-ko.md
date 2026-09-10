@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 4f70cd9e527d103e31a55469c1708f57652029b4
+translation_source_sha: f09d86bc6bab08a6ffe5cbf590571fb586e4a888
 translation_revised: 2026-09-10
 ---
 
@@ -69,8 +69,9 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
   초기화나 ACR 명령 전에 보호된 플랫폼 계획은 정확한 출처 개정 번호, SLSA v1 조건식,
   서명자 workflow를 사용해 레지스트리에 저장된 GHCR OCI 묶음에서 Core 이미지를
   검증합니다. GitHub API 묶음 대체 경로는 없으며 소유자 전용 권한의 임시 Docker 인증은
-  종료할 때 삭제합니다. Exact 적용은 검증된 다이제스트를 연결하며 이미지를 승격하거나
-  재구축하지 않습니다.
+  종료할 때 삭제합니다. 연결은 가져오기 전에 ACR 리소스 ID를 검증하고 레지스트리 조회,
+  가져오기 수락, 다이제스트 확인에 대해 내용이 없는 진행 상태를 보고합니다. Exact 적용은
+  검증된 다이제스트를 연결하며 이미지를 승격하거나 재구축하지 않습니다.
 - 예약된 Inventory Job을 보호된 플랫폼 경로에서 유지합니다. 적용 후 작업 흐름은 Job을 다시
   읽고 인벤토리 컨테이너가 계획에서 선택한 정확한 다이제스트로 고정된 Core 이미지를 사용하지
   않으면 중단합니다.

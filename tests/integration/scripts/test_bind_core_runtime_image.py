@@ -159,3 +159,142 @@ def test_attestation_failure_stops_before_terraform_or_acr(tmp_path: Path) -> No
     )
     assert _GHCR_CREDENTIAL not in captured
     assert _REGISTRY_BEARER not in captured
+
+
+def _install_binding_fakes(bin_dir: Path) -> None:
+    forbidden = """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s %s\n' "$(basename "$0")" "$*" >> "$FAKE_FORBIDDEN_CALLS"
+exit 97
+"""
+    for name in ("curl", "docker", "gh", "terraform"):
+        _write_executable(bin_dir / name, forbidden)
+    _write_executable(
+        bin_dir / "az",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_AZ_CALLS"
+case "${1:-} ${2:-}" in
+  "acr show")
+    printf '%s\n' "$FAKE_ACR_ID"
+    ;;
+  "rest --method")
+    exit "$FAKE_IMPORT_EXIT"
+    ;;
+  "acr manifest")
+    printf '%s\n' "$FAKE_SOURCE_DIGEST"
+    ;;
+  *)
+    exit 96
+    ;;
+esac
+""",
+    )
+
+
+def _run_binding(
+    tmp_path: Path,
+    *,
+    acr_id: str = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example/providers/Microsoft.ContainerRegistry/registries/example"
+    ),
+    import_exit: int = 0,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, Path], str]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _install_binding_fakes(bin_dir)
+    runner_temp = tmp_path / "runner-temp"
+    runner_temp.mkdir()
+    github_env = tmp_path / "github-env"
+    github_env.write_text("", encoding="ascii")
+    az_calls = tmp_path / "az-calls"
+    forbidden_calls = tmp_path / "forbidden-calls"
+    git = shutil.which("git")
+    assert git is not None
+    revision = subprocess.run(  # noqa: S603 - resolved host Git reads this checkout only
+        [git, "rev-parse", "HEAD"],
+        cwd=_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    result = subprocess.run(  # noqa: S603 - controlled repository script and fake PATH
+        [str(_BINDER), "--bind-verified"],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FAKE_ACR_ID": acr_id,
+            "FAKE_AZ_CALLS": str(az_calls),
+            "FAKE_FORBIDDEN_CALLS": str(forbidden_calls),
+            "FAKE_GHCR_CREDENTIAL": _GHCR_CREDENTIAL,
+            "FAKE_IMPORT_EXIT": str(import_exit),
+            "FAKE_SOURCE_DIGEST": _SOURCE_DIGEST,
+            "FDAI_ACR_LOGIN_SERVER": "example.azurecr.io",
+            "FDAI_VERIFIED_RUNTIME_IMAGE_DIGEST": _SOURCE_DIGEST,
+            "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY": ("example/fdai/fdai-core-control-plane"),
+            "FDAI_VERIFIED_RUNTIME_IMAGE_REVISION": revision,
+            "GITHUB_ACTOR": "example-actor",
+            "GITHUB_ENV": str(github_env),
+            "GITHUB_REPOSITORY": "example/fdai",
+            "GHCR_TOKEN": _GHCR_CREDENTIAL,
+            "PROMOTE_RUNTIME_IMAGE": "true",
+            "RUNNER_TEMP": str(runner_temp),
+            "RUNTIME_IMAGE_REVISION": revision,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return (
+        result,
+        {
+            "az_calls": az_calls,
+            "forbidden_calls": forbidden_calls,
+            "github_env": github_env,
+            "runner_temp": runner_temp,
+        },
+        revision,
+    )
+
+
+def test_binds_verified_digest_after_exact_acr_import(tmp_path: Path) -> None:
+    result, paths, revision = _run_binding(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "Resolved the target ACR login host.",
+        "Resolved the target ACR resource.",
+        "Accepted the exact runtime image import request.",
+        "Verified the exact runtime image digest in ACR.",
+    ]
+    assert paths["github_env"].read_text(encoding="ascii").splitlines() == [
+        f"TF_VAR_core_image=example.azurecr.io/fdai@{_SOURCE_DIGEST}",
+        f"FDAI_RUNTIME_IMAGE_REVISION={revision}",
+        f"FDAI_RUNTIME_IMAGE_DIGEST={_SOURCE_DIGEST}",
+    ]
+    assert not paths["forbidden_calls"].exists()
+    assert not list(paths["runner_temp"].glob("fdai-core-image.*"))
+    assert not list(paths["runner_temp"].glob("fdai-ghcr-docker.*"))
+
+
+def test_invalid_acr_id_stops_before_import(tmp_path: Path) -> None:
+    result, paths, _revision = _run_binding(tmp_path, acr_id="invalid")
+
+    assert result.returncode == 1
+    assert "target ACR lookup returned an invalid resource id." in result.stderr
+    assert "rest --method" not in paths["az_calls"].read_text(encoding="ascii")
+    assert paths["github_env"].read_text(encoding="ascii") == ""
+    assert not paths["forbidden_calls"].exists()
+
+
+def test_import_failure_is_explicit_and_stops_before_readback(tmp_path: Path) -> None:
+    result, paths, _revision = _run_binding(tmp_path, import_exit=23)
+
+    assert result.returncode == 1
+    assert "exact runtime image import request failed." in result.stderr
+    assert "acr manifest" not in paths["az_calls"].read_text(encoding="ascii")
+    assert paths["github_env"].read_text(encoding="ascii") == ""
+    assert _GHCR_CREDENTIAL not in result.stdout + result.stderr
+    assert not paths["forbidden_calls"].exists()
