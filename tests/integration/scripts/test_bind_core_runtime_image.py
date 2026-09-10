@@ -33,17 +33,6 @@ fi
 """,
     )
     _write_executable(
-        bin_dir / "docker",
-        """#!/usr/bin/env bash
-set -euo pipefail
-credential="$(cat)"
-[[ "$credential" == "$FAKE_GHCR_CREDENTIAL" ]]
-printf '%s\n' "$*" > "$FAKE_DOCKER_ARGS"
-printf '{"auths":{"ghcr.io":{"auth":"synthetic"}}}\n' > "$DOCKER_CONFIG/config.json"
-chmod 0600 "$DOCKER_CONFIG/config.json"
-""",
-    )
-    _write_executable(
         bin_dir / "gh",
         """#!/usr/bin/env bash
 set -euo pipefail
@@ -64,6 +53,7 @@ exit 97
 """
     _write_executable(bin_dir / "terraform", forbidden)
     _write_executable(bin_dir / "az", forbidden)
+    _write_executable(bin_dir / "docker", forbidden)
 
 
 def _run_verification(
@@ -76,7 +66,6 @@ def _run_verification(
     runner_temp.mkdir()
     paths = {
         "curl_calls": tmp_path / "curl-calls",
-        "docker_args": tmp_path / "docker-args",
         "docker_metadata": tmp_path / "docker-metadata",
         "forbidden_calls": tmp_path / "forbidden-calls",
         "gh_args": tmp_path / "gh-args",
@@ -103,7 +92,6 @@ def _run_verification(
                 "example/fdai/.github/workflows/container-supply-chain.yml"
             ),
             "FAKE_CURL_CALLS": str(paths["curl_calls"]),
-            "FAKE_DOCKER_ARGS": str(paths["docker_args"]),
             "FAKE_DOCKER_METADATA": str(paths["docker_metadata"]),
             "FAKE_FORBIDDEN_CALLS": str(paths["forbidden_calls"]),
             "FAKE_GH_ARGS": str(paths["gh_args"]),
@@ -143,9 +131,6 @@ def test_verifies_registry_bundle_with_exact_provenance_contract(tmp_path: Path)
     assert paths["docker_metadata"].read_text(encoding="ascii") == (
         "directory=700\nconfig=600\nregistry=true\nauth=true\n"
     )
-    assert paths["docker_args"].read_text(encoding="ascii").strip() == (
-        "login ghcr.io -u example-actor --password-stdin"
-    )
     assert paths["github_env"].read_text(encoding="ascii").splitlines() == [
         "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY=example/fdai/fdai-core-control-plane",
         f"FDAI_VERIFIED_RUNTIME_IMAGE_REVISION={revision}",
@@ -170,7 +155,6 @@ def test_attestation_failure_stops_before_terraform_or_acr(tmp_path: Path) -> No
             result.stdout,
             result.stderr,
             paths["curl_calls"].read_text(encoding="ascii"),
-            paths["docker_args"].read_text(encoding="ascii"),
             paths["gh_args"].read_text(encoding="ascii"),
         )
     )
