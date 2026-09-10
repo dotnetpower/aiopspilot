@@ -29,6 +29,9 @@ from typing import Any, Final
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.persistence.postgres_approval_guard import (
+    compare_and_set_state_with_approval_guard as _compare_and_set_state_with_approval_guard,
+)
 from fdai.delivery.persistence.postgres_audit_fields import (
     audit_action_kind as _audit_action_kind,
 )
@@ -52,7 +55,6 @@ from fdai.shared.providers.state_store import (
     StateStore,
     classify_incident_append,
     incident_number_for,
-    workflow_approval_decisions_from_state,
 )
 
 _GENESIS_HASH: Final[str] = GENESIS_HASH
@@ -258,85 +260,28 @@ class PostgresStateStore(StateStore):
         admission_valid_until: datetime,
         audit_entry: Mapping[str, Any],
     ) -> bool:
-        if expected_revision < 0 or expected_approval_revision < 0:
-            raise ValueError("guarded expected revisions MUST be >= 0")
-        if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
-            raise ValueError("guarded CAS evaluation time MUST be timezone-aware")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
-            async with conn.transaction():
-                await self._set_statement_timeout(conn)
-                guard_cursor = await conn.execute(
-                    """
-                    SELECT value
-                      FROM state_kv
-                     WHERE key = %s
-                       AND COALESCE(value ->> 'revision', '0') = %s
-                       AND value ->> 'state' = 'pending'
-                     FOR UPDATE
-                    """,
-                    (approval_key, str(expected_approval_revision)),
-                )
-                guard_row = await guard_cursor.fetchone()
-                if guard_row is None:
-                    return False
-                guard_record = guard_row[0]
-                if (
-                    not isinstance(guard_record, Mapping)
-                    or workflow_approval_decisions_from_state(guard_record)
-                    != expected_approval_decisions
-                ):
-                    return False
-                cursor = await conn.execute(
-                    """
-                    UPDATE state_kv AS target
-                       SET value = %s::jsonb,
-                           updated_at = NOW()
-                     WHERE target.key = %s
-                       AND COALESCE(target.value ->> 'revision', '0') = %s
-                       AND %s <= clock_timestamp()
-                       AND %s > clock_timestamp()
-                       AND EXISTS (
-                           SELECT 1
-                             FROM state_kv AS approval
-                            WHERE approval.key = %s
-                              AND COALESCE(approval.value ->> 'revision', '0') = %s
-                              AND approval.value ->> 'state' = 'pending'
-                              AND approval.value ->> 'process_id' = %s
-                              AND approval.value ->> 'step_id' = %s
-                              AND COALESCE(approval.value ->> 'attempt', '1') = %s
-                              AND approval.value ->> 'requester_principal' = %s
-                              AND approval.value ->> 'quorum' = %s
-                              AND (approval.value ->> 'no_self_approval')::boolean = %s
-                              AND (approval.value ->> 'requested_at')::timestamptz
-                                  <= clock_timestamp()
-                              AND (approval.value ->> 'expires_at')::timestamptz
-                                  > clock_timestamp()
-                       )
-                    RETURNING target.key
-                    """,
-                    (
-                        json.dumps(dict(value), default=str),
-                        key,
-                        str(expected_revision),
-                        admission_verified_at,
-                        admission_valid_until,
-                        approval_key,
-                        str(expected_approval_revision),
-                        expected_approval_process_id,
-                        expected_approval_step_id,
-                        str(expected_approval_attempt),
-                        expected_approval_requester,
-                        str(expected_approval_quorum),
-                        expected_no_self_approval,
-                    ),
-                )
-                if await cursor.fetchone() is None:
-                    return False
-                await self._append_audit_in_transaction(conn, dict(audit_entry))
-        return True
+        return await _compare_and_set_state_with_approval_guard(
+            dsn=self._config.dsn,
+            connect_timeout_s=self._config.connect_timeout_s,
+            set_statement_timeout=self._set_statement_timeout,
+            append_audit_in_transaction=self._append_audit_in_transaction,
+            key=key,
+            value=value,
+            expected_revision=expected_revision,
+            approval_key=approval_key,
+            expected_approval_revision=expected_approval_revision,
+            expected_approval_process_id=expected_approval_process_id,
+            expected_approval_step_id=expected_approval_step_id,
+            expected_approval_attempt=expected_approval_attempt,
+            expected_approval_requester=expected_approval_requester,
+            expected_approval_quorum=expected_approval_quorum,
+            expected_no_self_approval=expected_no_self_approval,
+            expected_approval_decisions=expected_approval_decisions,
+            evaluated_at=evaluated_at,
+            admission_verified_at=admission_verified_at,
+            admission_valid_until=admission_valid_until,
+            audit_entry=audit_entry,
+        )
 
     async def find_state(
         self,
