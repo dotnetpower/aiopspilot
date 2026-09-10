@@ -316,11 +316,11 @@ capability, relationship path, or answer shape in the target state.
 ## Ontology query coverage contract
 
 FDAI targets 100% **structural query coverage**, not a guarantee that every question has enough
-evidence for a complete answer. Structural coverage means every declaration readable by the
-current principal in the active ontology release is represented in the planner's query surface or
-has a typed unavailable reason. The covered declarations are ObjectTypes, queryable Properties,
-both query sides of LinkTypes, Interfaces, read-only FunctionTypes, and ActionTypes as draft-only
-targets.
+evidence for a complete answer. Structural coverage means every declaration readable by the current
+principal in the active ontology release is represented in the planner's query surface or has a typed
+unavailable reason. The covered declarations are ObjectTypes, queryable Properties, both query sides
+of LinkTypes, Interfaces, read-only FunctionTypes, and ActionTypes as draft-only targets. A validated
+current-scope visibility request compiles directly to the principal-bound manifest without model planning.
 
 The release gate measures three separate outcomes:
 

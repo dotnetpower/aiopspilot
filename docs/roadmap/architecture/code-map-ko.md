@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c199ad5d55bd69a7816b9036bfbc2c952ac1cc4b
+translation_source_sha: cc1e9735f4c1f744c834f0df8a4cd504296e7647
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -226,7 +226,7 @@ Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는
-결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
+결정론적 명확화와 후보 복구를 소유합니다. 현재 범위의 선언 표시 목록 요청을 검증하면 모델 계획 없이 principal 범위 온톨로지 매니페스트로 직접 컴파일합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
 다중 pair 관계 계획 및 조회를 소유합니다. 장애 완화 요구사항 질문은 자문으로 유지하고 초안 요청은 타입이 지정된 초안을 만들기 전에 정확한 장애 ID를 요구합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과

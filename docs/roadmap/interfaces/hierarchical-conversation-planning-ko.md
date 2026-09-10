@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: f7540aed6dc6ce8adfe70ceff8b8ba748e057710
+translation_source_sha: b0930cd05623b0a5fd31b06720804b25558b21a7
 translation_revised: 2026-09-10
 ---
 
@@ -327,9 +327,9 @@ Operator 브리지는 근거가 결합된 결과를 기존 Console `done` 프레
 
 FDAI는 모든 질문에 완전한 답을 준다고 보장하는 대신 100% **구조적 조회 커버리지**를
 목표로 삼습니다. 구조적 커버리지란 현재 principal이 읽을 수 있는 활성 온톨로지 release의 모든
-선언이 플래너의 조회 표면에 드러나거나, 타입이 지정된 미지원 사유를 갖는다는 뜻입니다.
-대상 선언은 ObjectType, 조회 가능한 Property, LinkType의 양쪽 조회 방향, Interface, 읽기 전용
-FunctionType, 그리고 초안 작성 용도로만 쓰이는 ActionType입니다.
+선언이 플래너의 조회 표면에 드러나거나 타입이 지정된 미지원 사유를 갖는다는 뜻입니다. 대상 선언은
+ObjectType, 조회 가능한 Property, LinkType의 양쪽 조회 방향, Interface, 읽기 전용 FunctionType,
+그리고 초안 작성 용도로만 쓰이는 ActionType입니다. 현재 범위의 표시 가능 선언 목록 요청을 검증하면 모델 계획 없이 principal 범위 매니페스트로 직접 컴파일합니다.
 
 Release 게이트는 다음 세 결과를 따로 측정합니다.
 

@@ -85,11 +85,15 @@ def build_ontology_schema_frame(
     normalized_facets = {
         facet.replace("_", "").replace("-", "").casefold() for facet in judgment.requested_facets
     }
+    requests_visible_manifest = {"queryable", "visible", "currentscope"} <= normalized_facets or (
+        {"list", "currentscope"} <= normalized_facets
+        and any(facet.endswith("typevisibility") for facet in normalized_facets)
+    )
     if (
         _is_schema_read_intent(judgment.primary_intent)
         and not judgment.targets
         and len(declaration_kinds) == 1
-        and {"queryable", "visible", "currentscope"} <= normalized_facets
+        and requests_visible_manifest
     ):
         if ONTOLOGY_MANIFEST_FUNCTION_NAME not in available_functions:
             return None
