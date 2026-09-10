@@ -588,7 +588,7 @@ jobs:
         with:
           # PR and push runs scan their commit range. Manual exact-main
           # revalidation scans only the protected revision snapshot.
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 1 || 0 }}
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 2 || 0 }}
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
