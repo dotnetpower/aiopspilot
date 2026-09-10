@@ -31,6 +31,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import Action, ExecutionPath
 
 STOP_CONDITION = "stop_condition"
@@ -82,7 +84,10 @@ class SafeguardReceipt:
     """The pre-dispatch values a path must carry into its lock and audit calls."""
 
     execution_path: ExecutionPath
+    action_digest: str
     execution_fingerprint: str
+    plan_digest: str
+    plan_kind: str
     dry_run_receipt: str
     idempotency_key: str
     idempotency_lock_key: str
@@ -146,7 +151,10 @@ def evaluate_pre_dispatch(
     fingerprint = execution_fingerprint(action=action, execution_path=execution_path)
     return SafeguardReceipt(
         execution_path=execution_path,
+        action_digest=full_action_digest(action),
         execution_fingerprint=fingerprint,
+        plan_digest=plan_digest,
+        plan_kind=plan_kind,
         dry_run_receipt=dry_run_receipt(
             execution_fingerprint=fingerprint,
             plan_digest=plan_digest,
@@ -184,6 +192,12 @@ def execution_fingerprint(*, action: Action, execution_path: ExecutionPath) -> s
         "execution_path": execution_path.value,
     }
     return _sha256(payload)
+
+
+def full_action_digest(action: Action) -> str:
+    """Hash every serialized action field at pre-dispatch evaluation time."""
+
+    return content_digest(action.model_dump(mode="json", exclude_none=False))
 
 
 def dry_run_receipt(*, execution_fingerprint: str, plan_digest: str, plan_kind: str) -> str:
@@ -255,6 +269,7 @@ __all__ = [
     "dry_run_receipt",
     "evaluate_pre_dispatch",
     "execution_fingerprint",
+    "full_action_digest",
     "idempotency_lock_key",
     "missing_safety_invariant",
     "plan_digest_for_mapping",

@@ -78,7 +78,10 @@ def _risk(level: AxisLevel) -> UnifiedRiskDecision:
 def test_safeguard_receipt_and_expected_refusal_are_correct() -> None:
     receipt = SafeguardReceipt(
         execution_path=ExecutionPath.DIRECT_API,
+        action_digest="sha256:" + "0" * 64,
         execution_fingerprint="fingerprint",
+        plan_digest="plan",
+        plan_kind="test",
         dry_run_receipt="receipt",
         idempotency_key="idempotency",
         idempotency_lock_key="idempotency-lock",

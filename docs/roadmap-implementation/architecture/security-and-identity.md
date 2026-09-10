@@ -20,6 +20,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Added a pure Core finalizer that fixes the full-action digest at pre-dispatch evaluation, validates context-bound lock, durable idempotency-reservation, and persisted audit-intent proofs, and emits the #620 no-authority bundle. | `current change`; `safeguards.py`; `safeguard_proofs.py`; focused checks passed 63 cases; Ruff and strict mypy passed. | Connect real executor operation receipts and workflow pre-bundle commitments under #627. |
 | 2026-09-10 | in-progress | Replaced the unsafe same-proposal recovery plan with bounded owners for action-bound approved dispatch, authoritative effect evidence, and claim-fenced terminalization. | `current change`; issues `#652`, `#656`, and `#658`; parent `#630`. | Complete those packages in order, then finish #640. |
 | 2026-09-10 | in-progress | Added an approval-guarded atomic hold-release primitive that consumes one admitted recovery, increments the fence, and stores a content-addressed no-authority receipt with terminal audit. | `current change`; guarded hold and state-store code; 63 focused passing checks; Ruff and strict mypy. | Wire production compensation to the primitive under #630, then complete final execution-path fencing under #640. |
 | 2026-09-10 | in-progress | Separated atomic hold release from final forward-dispatch fencing to preserve executor-owned logical-target lock boundaries and remove a dependency cycle. | `current change`; issues `#630` and `#640`. | Complete `#630`, then integrate its action-bound release receipt under `#640` after `#627` and `#628`. |
@@ -34,6 +35,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 - [x] Define the provider-neutral seven-safeguard proof bundle under issue `#620`. Evidence: `execution_safeguards.py`, its versioned JSON Schema, and 4 focused passing contract tests.
 - [ ] Emit the shared bundle from Core and workflow execution after lock and audit intent under issue `#627`.
+- [x] Implement the pure full-action safeguard proof finalizer under child issue `#660`. Evidence: 63 focused passing checks.
 - [ ] Revalidate the shared bundle in the isolated Executor without importing Core validators under issue `#628`.
 - [ ] Retain separately authorized governed cross-path safeguard and independent effect evidence under issue `#633`.
 - [x] Bind separately approved recovery through existing approval and decision-evidence contracts without mutating the hold under issue `#622`. Evidence: `recovery_admission.py`, `test_recovery_admission.py`, and 46 focused passing checks.
