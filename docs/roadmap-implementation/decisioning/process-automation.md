@@ -19,6 +19,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Split atomic recovery-admission consumption and hold release from final cross-execution dispatch fencing so executor-owned target locks are not nested. | `current change`; parent issue `#81`; issues `#630` and `#640`. | Complete the action-bound release receipt under `#630`, then consume its exact revision and fencing generation inside existing execution-path locks under `#640`. |
 | 2026-09-10 | implemented | Added direct regression coverage for a future-dated approval request plus process-id and approval-revision digest substitution before closing issue `#622`. | `current change`; `test_recovery_admission.py`; focused recovery-admission tests passed 21 cases, and the combined approval, recovery, and compensation selector passed 46 cases. | No residual work remains for the pure admission boundary; atomic consumption and release remain under issue `#630`. |
 | 2026-09-10 | implemented | Added a pure fail-closed recovery-admission assessment over the existing workflow approval and decision-evidence contracts. It binds the complete quorum, hold, target, compensation receipts, distinct principals, and source revision, converts bounded provider failures to typed denial, and imports no hold store. | `current change`; `recovery_admission.py`; `test_recovery_admission.py`; focused approval, recovery, and compensation checks passed 45 cases; Ruff and strict mypy passed. | Atomically consume the admitted evidence and release the exact hold revision under issue `#630`. |
 | 2026-09-10 | implemented | Preserved the implemented FDAI-CONST-009 hold contract while separating additional recovery-approval admission and atomic consume-and-release hardening into bounded child issues. | `current change`; parent issue `#81`; issues `#622` and `#630`; existing focused hold and orchestrator evidence. | Complete the additional hardening without weakening the durable hold, matching verified recovery, or forward-dispatch denial already recorded as implemented. |
@@ -43,6 +44,8 @@ and resumable work while the roadmap owner remains focused on normative design.
   `test_recovery_admission.py`, and 46 focused passing checks.
 - [ ] Atomically consume the admitted evidence while releasing the exact hold revision under issue
   `#630`; this hardening does not reopen FDAI-CONST-009.
+- [ ] Recheck the action-bound release receipt and absence of a newer hold inside each execution
+  path's existing logical-target lock under issue `#640`.
 - [ ] Add a typed `SignalType` trigger reference and cross-check it at load. This is blocked on
   promoting a `SignalType` vocabulary that covers request and command triggers; the shipped
   registry declares observation semantics only, and widening it also changes T0 rule dispatch

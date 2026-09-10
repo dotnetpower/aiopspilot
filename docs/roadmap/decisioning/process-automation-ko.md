@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 5efc92727377732551cadc4c17e7f281d5e7c339
+translation_source_sha: d433d02f4d4f17e9398141ffba3ea41de4a79113
 translation_revised: 2026-09-10
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -228,7 +228,8 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 소스 개정을 하나의 최신 `DecisionEvidenceAdmission`에 별도로 결속합니다. 이 경계는 타입이
 지정된 적격성만 반환하며 보류를 해제하거나 권한을 부여할 수 없습니다. 이슈 #630이 승인의
 원자적 사용과 보류 해제를 담당하며, 해당 통합이 완료될 때까지 기존의 일치하는 검증된 복구
-경로는 바뀌지 않습니다.
+경로는 바뀌지 않습니다. 이후 이슈 #640이 각 실행 경로의 기존 논리 대상 잠금 안에서 최종
+디스패치 재검사를 담당합니다.
 
 업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과

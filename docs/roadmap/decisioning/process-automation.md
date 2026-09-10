@@ -233,7 +233,8 @@ exact hold revision, approval step and attempt, target digest, compensation rece
 distinct requester, approver, and executor identities, and source revision to one current
 `DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant
 authority. Issue #630 owns atomic admission consumption and hold release; until that integration
-lands, the existing matching verified-recovery path remains unchanged.
+lands, the existing matching verified-recovery path remains unchanged. Issue #640 then owns the
+final dispatch recheck inside each execution path's existing logical-target lock.
 
 The upstream headless runtime and production Operator API bind
 `StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
