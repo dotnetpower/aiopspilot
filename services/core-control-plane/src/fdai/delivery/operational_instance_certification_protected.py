@@ -17,9 +17,11 @@ from fdai.delivery.azure.operational_history_archive import (
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.operational_instance_certification import (
+    OperationalCertificationSnapshot,
     reduce_operational_instance_certification,
 )
 from fdai.delivery.operational_instance_certification_postgres import (
+    OperationalCertificationGenerationPendingError,
     PostgresOperationalCertificationSource,
     PostgresOperationalCertificationSourceConfig,
 )
@@ -27,6 +29,8 @@ from fdai.delivery.operational_instance_certification_records import receipt_rec
 
 _REQUEST_PATTERN = re.compile(r"certify-instance-[0-9a-f]{48}")
 _REVISION_PATTERN = re.compile(r"[0-9a-f]{40}")
+_GENERATION_CONVERGENCE_TIMEOUT_SECONDS = 120.0
+_GENERATION_CONVERGENCE_POLL_SECONDS = 10.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,9 +66,9 @@ async def run_protected_certification(
     source = PostgresOperationalCertificationSource(
         config=PostgresOperationalCertificationSourceConfig(dsn=dsn)
     )
-    start = await source.capture()
+    start = await _capture_generation_converged(source)
     await asyncio.sleep(options.window_seconds)
-    end = await source.capture()
+    end = await _capture_generation_converged(source)
     receipt = reduce_operational_instance_certification(
         start,
         end,
@@ -113,6 +117,23 @@ async def run_protected_certification(
         "mutation_authority": False,
         "execution_authority": False,
     }
+
+
+async def _capture_generation_converged(
+    source: PostgresOperationalCertificationSource,
+) -> OperationalCertificationSnapshot:
+    """Wait for the active inventory and ontology generations within a fixed deadline."""
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _GENERATION_CONVERGENCE_TIMEOUT_SECONDS
+    while True:
+        try:
+            return await source.capture()
+        except OperationalCertificationGenerationPendingError:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise
+            await asyncio.sleep(min(_GENERATION_CONVERGENCE_POLL_SECONDS, remaining))
 
 
 __all__ = ["ProtectedCertificationOptions", "run_protected_certification"]
