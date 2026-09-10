@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 5aa5b96566b958870e495a7c228bd5f57888960d
+translation_source_sha: b246ad24d1ca4ebef207b05c29a61ef971c8fd31
 translation_revised: 2026-09-10
 ---
 
@@ -506,9 +506,10 @@ telemetry / metrics
 상태 사실은 안정된 사유와 함께 건너뛰며, projection을 읽지 못하면 구성된 목록만으로 축소하지
 않고 예외를 올려 작업이 재시도합니다. Resolver는 이전 flat metadata 형식과 현재 속성별 collection
 형식에서 canonical generic `state` 사실만 허용하며 다른 속성별 사실로 대체하지 않습니다. Generic
-`state` 사실이 없는 metadata collection은 별도로 허용된 신원 및 유형 경로를 따르지만, 존재하는
-`state`가 잘못된 형식이면 계속 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 신원
-경로를 따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 이 작업들은 변경을 실행하지
+`state` 사실이 없는 metadata collection은 신원 및 유형 전용 열거 경로를 따릅니다. 이 읽기 전용
+선택은 상태를 주장하거나 권한을 부여하지 않습니다. 존재하는 generic `state`에는 admission이 계속
+필요하며 형식이 잘못되면 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 열거 경로를
+따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 이 작업들은 변경을 실행하지
 않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
 게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
 추적 상태와 재시도에도 유지되는 명시적 실행 신원 또는 Container Apps 작업 실행 신원이 구성된
