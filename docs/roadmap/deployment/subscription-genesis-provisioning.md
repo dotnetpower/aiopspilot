@@ -93,6 +93,7 @@ The router verifies tools, both Azure target axes, the region, clean source, and
 `required` check. It then inspects the declared Foundation and public-Core Resource Provider sets.
 Inspection is read-only. Mutation-enabled preflight registers only missing namespaces, reads every
 namespace back under one cumulative deadline, and retains registrations on rollback.
+Missing or malformed target axes return exit code `64` before the first Azure command.
 
 The explicitly authorized policy probe creates one deterministic, tagged Key Vault and Storage
 resource group, observes the effective post-policy network posture, and accepts a route only after
