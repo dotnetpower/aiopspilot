@@ -191,6 +191,34 @@ async def test_exact_cas_and_resolved_generation_advance(
 
 
 @pytest.mark.asyncio
+async def test_restart_read_preserves_unresolved_pre_dispatch_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection()
+    first_store = _store(monkeypatch, connection)
+    preparing = _preparing()
+    await first_store.acquire_generation(preparing)
+
+    restarted = _store(monkeypatch, connection)
+    assert await restarted.read(preparing.identity.target_digest) == preparing
+
+    prepared = attach_prepared_evidence(
+        preparing,
+        audit_append_receipt=_audit_receipt(_reservation_identity()),
+        safeguard_bundle_digest="sha256:" + "7" * 64,
+        changed_at=_NOW,
+    )
+    await restarted.compare_and_transition(
+        prior_record_digest=preparing.record_digest,
+        expected_revision=preparing.revision,
+        record=prepared,
+    )
+
+    restarted_again = _store(monkeypatch, connection)
+    assert await restarted_again.read(prepared.identity.target_digest) == prepared
+
+
+@pytest.mark.asyncio
 async def test_stale_cas_and_corrupt_readback_fail_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
