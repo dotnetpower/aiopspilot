@@ -694,7 +694,7 @@ jobs:
 
       - name: Terraform plan
         if: ${{ !inputs.apply }}
-        run:         env -u TF_CLI_ARGS terraform plan -no-color -input=false -lock-timeout=300s -out=dev.plan
+        run:         if [[ "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" ]]; then export TF_CLI_ARGS_plan='-target=module.compute.azurerm_container_app_job.analyzer_tick[0]'; fi; env -u TF_CLI_ARGS terraform plan -no-color -input=false -lock-timeout=300s -out=dev.plan
 
       - name: Guard migrated runtimes from legacy recreation
         if: ${{ !inputs.apply && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
@@ -723,7 +723,7 @@ jobs:
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true') }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-')) }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -742,8 +742,8 @@ jobs:
             mode=operational-history
             extra=()
           elif [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
-            mode=rca-reader-identity
-            extra=()
+            mode=rca-reader-identity; extra=()
+          elif [[ "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" ]]; then mode=observability-analyzer; extra=()
           else
             echo "bounded plan scope mode is unavailable" >&2
             exit 1

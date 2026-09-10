@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 618d46f5f75994e69f7e3c7804e2989af0ba3b0c
+translation_source_sha: 17337cb352e3e41dfcaefee68d9c9c572c0da9db
 translation_revised: 2026-09-10
 ---
 
@@ -520,6 +520,9 @@ telemetry / metrics
 보호된 분리 서비스 배포는 다이제스트로 고정된 GHCR OCI 대상을 통해 provenance, SBOM, Core
 모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
 않습니다.
+보호된 `plan-observability-*` 및 `apply-observability-*` 요청 계열은 analyzer Container Apps
+Job만 대상으로 합니다. 따라서 증명된 런타임 이미지를 갱신할 때 관련 없는 플랫폼 리소스를
+삭제하거나 교체할 수 없습니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,
