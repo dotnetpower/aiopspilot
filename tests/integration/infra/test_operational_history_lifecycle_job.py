@@ -26,6 +26,7 @@ def test_operational_history_job_is_scheduled_shadow_only() -> None:
 
 def test_operational_history_job_has_dedicated_private_storage() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    job = (_ROOT / "infra" / "operational_history_lifecycle_job.tf").read_text(encoding="utf-8")
     storage = (_ROOT / "infra" / "modules" / "storage" / "case-history" / "main.tf").read_text(
         encoding="utf-8"
     )
@@ -35,6 +36,8 @@ def test_operational_history_job_has_dedicated_private_storage() -> None:
     assert 'container_name                = "operational-history"' in root
     assert "runtime_principal_id          = module.inventory_identity.principal_id" in root
     assert 'resource "azurerm_private_endpoint" "operational_history_blob"' in root
+    assert 'resource "azurerm_private_dns_a_record" "operational_history_runner_blob"' in root
+    assert "depends_on = [azurerm_private_dns_a_record.operational_history_runner_blob]" in job
     assert "Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net" in root
     assert "Microsoft.Network/virtualNetworks/%s/subnets/snet-pe" in root
     assert (

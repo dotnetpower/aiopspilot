@@ -87,9 +87,10 @@ def test_cli_admits_observability_analyzer_scope() -> None:
 def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
     storage = "module.operational_history_storage[0].azurerm_storage_account.case_history"
     endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
+    history_runner_dns = "azurerm_private_dns_a_record.operational_history_runner_blob[0]"
     evidence_storage = "module.decision_evidence_storage[0].azurerm_storage_account.case_history"
     evidence_endpoint = "azurerm_private_endpoint.decision_evidence_blob[0]"
-    runner_dns = "azurerm_private_dns_a_record.decision_evidence_runner_blob[0]"
+    evidence_runner_dns = "azurerm_private_dns_a_record.decision_evidence_runner_blob[0]"
     evidence_reader = "azurerm_role_assignment.decision_evidence_inventory_reader[0]"
     job = "azurerm_container_app_job.operational_history_lifecycle[0]"
     ownership = "module.resource_group.terraform_data.ownership"
@@ -98,9 +99,10 @@ def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> No
         _plan(
             storage,
             endpoint,
+            history_runner_dns,
             evidence_storage,
             evidence_endpoint,
-            runner_dns,
+            evidence_runner_dns,
             evidence_reader,
             job,
             ownership,
@@ -110,9 +112,10 @@ def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> No
         {
             storage,
             endpoint,
+            history_runner_dns,
             evidence_storage,
             evidence_endpoint,
-            runner_dns,
+            evidence_runner_dns,
             evidence_reader,
             job,
             ownership,

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2ef307120ced217df472d730f583d84c0448bb77
+translation_source_sha: d6529d13767c4aa0ffd99dfffc93d9282f3822dc
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -286,8 +286,8 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 16 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
 | 17 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
-보호된 `history-` 요청 모드는 운영 이력 및 의사 결정 근거 저장소, 해당 비공개 endpoint, runner의 기존
-Blob DNS 영역에 대한 태그 없는 root 관리 A record, 읽기 전용 연결 및 독립 선언한 root Job만 대상으로 지정합니다. Exact apply는 bot-owned protected-operation workflow가 다시 전달하므로
+보호된 `history-` 요청 모드는 운영 이력 및 의사 결정 근거 저장소, 해당 비공개 endpoint,
+runner의 기존 Blob DNS 영역에 대한 계정별 태그 없는 A record, 읽기 전용 연결 및 독립 선언한 root Job만 대상으로 지정합니다. Job 종속성은 공용 접근이나 storage key 인증 없이 비공개 readback을 포함합니다. Exact apply는 bot-owned protected-operation workflow가 다시 전달하므로
 maintainer는 별도 Environment approver로 남습니다. 안정적인 resource ID와 versionless Key Vault secret
 URI는 관련 없는 compute drift를 제외합니다. 저장소에 바인딩된 deploy UAMI로 인계할 때는 동일 범위의
 archive `Storage Blob Data Owner` 역할을 먼저 만들고 이전 역할을 제거합니다. 정확히 같은 역할 할당이
