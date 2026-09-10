@@ -100,6 +100,10 @@ def _judgment(
             ("object_type_visibility", "current_scope", "list"),
         ),
         (
+            "query.ontology_declaration",
+            ("object_type", "visible", "current_scope", "list"),
+        ),
+        (
             "query.ontology_relationships",
             ("object_types", "visible_to_operator", "current_scope"),
         ),
@@ -151,6 +155,9 @@ def test_queryable_object_types_use_the_principal_manifest_without_model_fallbac
         ("object_type", "queryable"),
         ("object_types", "visible_to_operator"),
         ("object_types", "current_scope"),
+        ("object_type", "visible", "current_scope"),
+        ("object_type", "visible", "list"),
+        ("object_type", "current_scope", "list"),
     ),
 )
 def test_manifest_list_requires_current_visible_queryable_facets(

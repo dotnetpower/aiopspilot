@@ -80,6 +80,12 @@ maintainer's local VS Code state.
   reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
   restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.
   Run only the affected preparation task when a migration, binding, or environment input changed.
+- If Vite exits with `FSWatcher` `ENOSPC` under WSL, measure
+  `fs.inotify.max_user_watches` and active `/proc/*/fdinfo` watch entries before restarting. When
+  VS Code file watchers own nearly the entire limit, do not kill editor processes or repeat the
+  same failing start. For one bounded agent-owned validation run, set
+  `CHOKIDAR_USEPOLLING=1` on the existing committed full-stack launcher. A persistent inotify limit
+  increase remains a user or administrator machine-setting change.
 - The local launcher sets `FDAI_EXECUTION_VENUE=local`; every stateful service uses the loopback
   Docker PostgreSQL DSN under its service-owned role. The Azure launcher sets
   `FDAI_EXECUTION_VENUE=deployed`; every deployed service uses its Azure Database for PostgreSQL

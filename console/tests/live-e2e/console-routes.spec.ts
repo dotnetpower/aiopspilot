@@ -153,7 +153,7 @@ test("the live route inventory stays synchronized with the production registry",
 });
 
 async function openCommandDeck(page: Page) {
-  await page.goto("/settings/diagnostics", { waitUntil: "domcontentloaded" });
+  await page.goto("/overview", { waitUntil: "domcontentloaded" });
   await waitForPanel(page);
   const deck = page.getByRole("complementary", { name: "Command deck" }).or(
     page.getByRole("dialog", { name: "Command deck" }),
