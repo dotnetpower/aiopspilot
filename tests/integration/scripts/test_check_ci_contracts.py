@@ -477,6 +477,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
 
     assert privileged == {
         "automatic-version.yml",
+        "cohort-observation-import.yml",
         "container-supply-chain.yml",
         "deploy-dev.yml",
         "deploy-channel-edge-secrets.yml",
