@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 27aadc462de5a7a654afd33ce0d99acd86603f66
+translation_source_sha: c8b2341348acdff6527356110279ab7b91d929ba
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -62,7 +62,7 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
 Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
-검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
+검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다.
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
 
@@ -81,7 +81,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 ## 대화 품질 보증 스코어카드
 
 `uv run python scripts/automation/build_semantic_intent_coverage.py`를 실행하면
-`eval/golden-dataset/semantic-intent-coverage.json`이 생성됩니다. 생성된 FDAI 대화 품질
+`eval/golden-dataset/semantic-intent-coverage.json`이 생성되며 계약 테스트는 오래된 질문은행 원본 다이제스트를 거부합니다. 생성된 FDAI 대화 품질
 보증 스코어카드(CQAS)는 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
 
 - **운영 모델:** SRE 운영, 복원력 엔지니어링, 변경 및 아키텍처 거버넌스, FinOps입니다.
