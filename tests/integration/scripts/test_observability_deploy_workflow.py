@@ -8,15 +8,12 @@ _WORKFLOW = (
 ).read_text(encoding="utf-8")
 
 
-def test_observability_request_includes_only_the_required_move_closure() -> None:
+def test_observability_request_reconciles_state_then_targets_only_analyzer() -> None:
     assert "plan-observability-" in _WORKFLOW
     assignment = re.search(r"export TF_CLI_ARGS_plan='([^']+)'", _WORKFLOW)
     assert assignment is not None
-    assert frozenset(assignment.group(1).split()) == frozenset(
-        {
-            "-target=module.compute.azurerm_container_app_job.analyzer_tick[0]",
-            "-target=module.compute.azurerm_container_app_job.oob",
-            "-target=module.compute.azurerm_container_app_job.rule_watcher",
-        }
-    )
+    assert assignment.group(1).split() == [
+        "-target=module.compute.azurerm_container_app_job.analyzer_tick[0]"
+    ]
+    assert "reconcile_rca_bootstrap_state.sh observability" in _WORKFLOW
     assert "mode=observability-analyzer" in _WORKFLOW
