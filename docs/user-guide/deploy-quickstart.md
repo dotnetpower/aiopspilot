@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: cb10c412f9712bf8a09d7e18ca959c01d569df6e }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 2b5eca828728b9192d48c6a257da76c7c0309fc3 }]
 ---
 
 # Deploy Quickstart
@@ -28,9 +28,13 @@ Executor.
 
 Genesis displays eight numbered stages, exact progress, and remaining work without prompting. Its
 `--apply --allow-probe-resources` flags authorize only missing-provider registration and creation
-plus verified cleanup of the tagged Key Vault and Storage policy probe, including exact deleted-vault purge and absence readback. A `public-dev` result stops
-after preview for an exact approved plan. A `private-runner` result reports `private_foundation_external_artifacts_required` and names the signed kit, exact runner image,
-Foundation profile, and exact plan generation. Neither route applies an unsealed plan or claims subscription readiness.
+plus verified cleanup of the tagged Key Vault and Storage policy probe, including exact
+deleted-vault purge and absence readback. Long commands print a dot to stderr every 10 seconds, while
+stdout JSON stays unchanged. A `public-dev` result stops after preview for an exact approved plan.
+A `private-runner` result can create the exact saved Foundation plan when all signed artifact and
+private input paths are supplied, but it still waits for current human approval. Without them, it
+reports `private_foundation_external_artifacts_required`. Neither route applies an unsealed plan or
+claims subscription readiness.
 
 If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
 public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by

@@ -71,6 +71,7 @@ class StatusStore:
         self.route = str(prior.get("route", "undetermined")) if continuing else "undetermined"
         self.provider_report = _prior_report(prior, "provider_report") if continuing else None
         self.policy_report = prior_policy if continuing else None
+        self.foundation_report = _prior_report(prior, "foundation_report") if continuing else None
         self.payload: dict[str, object] = {}
 
     def update(
@@ -118,6 +119,7 @@ class StatusStore:
             "subscription_ready": False,
             "provider_report": self.provider_report,
             "policy_report": self.policy_report,
+            "foundation_report": self.foundation_report,
         }
         self._write()
         render_progress(self.payload)
@@ -183,6 +185,7 @@ class StatusStore:
             raise StatusStoreError("invalid_existing_status_file")
         _prior_report(value, "provider_report")
         _prior_report(value, "policy_report")
+        _prior_report(value, "foundation_report")
         expected = (self.source_commit, self.target_binding, self.mode)
         actual = (value.get("source_commit"), value.get("target_binding"), value.get("mode"))
         if actual != expected:

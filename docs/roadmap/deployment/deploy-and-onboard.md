@@ -186,8 +186,12 @@ These customer-agnostic helpers keep both deployment routes repeatable:
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs eight noninteractive
   stages with exact progress and remaining counts. Inspection reports missing Resource Providers
   without mutation. Explicit mutation mode registers only those providers, runs a tagged policy
-  probe with exact group and tagged deleted-vault cleanup, and selects `public-dev` or `private-runner`. The private wait reports
-  `private_foundation_external_artifacts_required`, names the signed kit, exact runner image, Foundation profile, and exact plan generation, and keeps exit `2` as waiting rather than readiness or apply.
+  probe with exact group and tagged deleted-vault cleanup, and selects `public-dev` or
+  `private-runner`. Long external commands print a dot to stderr every 10 seconds without changing
+  stdout JSON. The private route can run exact signed-kit Foundation planning when all five
+  absolute artifact and input paths are supplied. It otherwise reports
+  `private_foundation_external_artifacts_required`, names the missing boundary, and keeps exit `2`
+  as waiting rather than readiness or apply.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
@@ -196,10 +200,10 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   apply -> prints the GitHub Actions config (idempotent).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
   Variables + Secrets from the bootstrap outputs (password generated + piped, never printed).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) mints a runner token and
-  registers the VNet runner over `run-command`. Re-running it stops and uninstalls an existing
-  service, removes the stale local and GitHub registration with a short-lived removal token, and
-  then installs the fresh service. This recovers broker-session corruption without keeping a token.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) is a legacy manual recovery
+  helper that sends short-lived registration material through `run-command`. Genesis does not call
+  it. New unattended enrollment remains blocked until a provider-hosted protected input channel
+  keeps registration material out of Terraform, process arguments, Run Command payloads, and logs.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 

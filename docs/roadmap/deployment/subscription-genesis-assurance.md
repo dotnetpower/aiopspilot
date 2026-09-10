@@ -57,6 +57,14 @@ The target implementation uses provider-hosted authorization and a protected inp
 selected transport cannot meet that condition, the run pauses for an approved existing host rather
 than weakening secret handling.
 
+The local router may automate signed-kit Foundation planning only when all artifact, trust, profile,
+and variables paths are complete and absolute. It saves a private exact plan and exposes only its
+review digest, plan digest, expiry, and no-authority flags. It doesn't enroll a host or apply that
+plan. Every bounded child command runs in a separate process group. A presentation-only dot goes to
+stderr every 10 seconds while the command is still running, and timeout cleanup terminates the
+complete group before the router records failure. Captured stdout and diagnostics aren't rewritten
+or copied into portable status.
+
 Repository settings are compiled from the manifest and applied idempotently. The operation reports
 the names of missing variables and secret references but never their values. Database credentials
 are generated on the private execution host, stored in the approved secret provider, and consumed

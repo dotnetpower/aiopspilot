@@ -108,10 +108,20 @@ When private artifacts aren't supplied, the stable stop reason is
 runner image, Foundation profile, and exact plan generation instead of suggesting an apply that
 the current workflow cannot execute.
 
+If all five Foundation inputs are supplied as absolute paths, the same private route runs the
+existing signed-kit `fdaictl provision plan --stage foundation --save-plan` boundary. The inputs
+are the offline kit, release public key, bundle public key, private Foundation profile, and private
+Foundation variables file. A partial set stops before Terraform. A complete set produces a private
+binary plan and a sanitized digest-bound review record, then still waits for current human approval.
+It does not add a local Foundation apply or use the legacy Run Command token transport.
+
 Each transition prints an ASCII progress bar, percentage, completed-stage count, and remaining
 stage count. The same identifier-free state is replaced atomically in a mode-`0600` JSON file under
-a mode-`0700` work directory. Retries and long commands share the persisted total deadline. Exit
-code `2` means that the safe automated portion completed and a
+a mode-`0700` work directory. An external command that remains running prints one `.` to stderr every 10 seconds
+and ends the heartbeat line when the command finishes. Captured stdout remains unchanged, so JSON
+output stays machine-readable. A timeout terminates the command's process group before the stable
+failure is recorded. Retries and long commands share the persisted total deadline. Exit code `2`
+means that the safe automated portion completed and a
 documented approval or prerequisite remains; it does not mean the subscription is ready.
 
 ```bash

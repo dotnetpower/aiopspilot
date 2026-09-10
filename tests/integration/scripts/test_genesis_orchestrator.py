@@ -19,6 +19,7 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 
 import genesis_orchestrator as orchestrator  # noqa: E402
 from genesis_checks import CheckError, GenesisChecks  # noqa: E402
+from genesis_foundation import FoundationPlanError, FoundationPlanInputs  # noqa: E402
 from genesis_status import StatusStore, StatusStoreError, render_plan  # noqa: E402
 from resource_provider_reconcile import (  # noqa: E402
     APPLICATION_PROVIDERS,
@@ -32,7 +33,9 @@ _TENANT = "00000000-0000-0000-0000-000000000002"
 _GENESIS_PYTHON = (
     _SCRIPT_DIR / "genesis_orchestrator.py",
     _SCRIPT_DIR / "genesis_checks.py",
+    _SCRIPT_DIR / "genesis_foundation.py",
     _SCRIPT_DIR / "genesis_status.py",
+    _SCRIPT_DIR / "genesis_subprocess.py",
     _SCRIPT_DIR / "resource_provider_reconcile.py",
 )
 
@@ -420,6 +423,7 @@ def _config(tmp_path: Path) -> orchestrator.RunConfig:
         execution_timeout_seconds=3600,
         output="json",
         work_dir=tmp_path / "run",
+        foundation_inputs=None,
     )
 
 
@@ -429,14 +433,17 @@ def test_apply_requires_the_full_policy_cleanup_deadline(tmp_path: Path) -> None
 
 
 def _new_orchestrator(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    config: orchestrator.RunConfig | None = None,
 ) -> orchestrator.GenesisOrchestrator:
     monkeypatch.setattr(
         orchestrator.GenesisChecks,
         "capture",
         lambda _self, _arguments, _reason, **_kwargs: "a" * 40,
     )
-    instance = orchestrator.GenesisOrchestrator(_config(tmp_path))
+    instance = orchestrator.GenesisOrchestrator(config or _config(tmp_path))
     monkeypatch.setattr(instance, "_acquire_lock", lambda: None)
     monkeypatch.setattr(instance, "_verify_toolchain", lambda: None)
     monkeypatch.setattr(instance, "_verify_target", lambda: None)
@@ -572,6 +579,90 @@ def test_private_policy_route_never_invokes_the_public_executor(
     assert payload["next_action"] == (
         "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan"
     )
+    foundation = payload["foundation_report"]
+    assert foundation["required_count"] == 5
+    assert foundation["supplied_count"] == 0
+    assert foundation["apply_authorized"] is False
+
+
+def test_private_route_generates_a_plan_but_still_waits_for_current_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inputs = FoundationPlanInputs(
+        offline_kit=tmp_path / "kit",
+        release_root=tmp_path / "release.pem",
+        bundle_public_key=tmp_path / "bundle.pem",
+        profile=tmp_path / "profile.json",
+        variables_file=tmp_path / "variables.json",
+    )
+    instance = _new_orchestrator(
+        tmp_path,
+        monkeypatch,
+        config=replace(_config(tmp_path), foundation_inputs=inputs),
+    )
+    monkeypatch.setattr(
+        instance, "_reconcile_providers", lambda: _complete_provider_stage(instance)
+    )
+    monkeypatch.setattr(
+        instance,
+        "_probe_policy_route",
+        lambda: _complete_policy_stage(instance, "private-runner"),
+    )
+    plan_report = {
+        "schema_version": "fdai.genesis-foundation-plan.v1",
+        "state": "review",
+        "plan_ref": "foundation-plan-attempt-1",
+        "attempt": 1,
+        "review_digest": "c" * 64,
+        "plan_digest": "d" * 64,
+        "expires_at": "2999-09-10T12:00:00+00:00",
+        "integrity_verified": True,
+        "apply_authorized": False,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+    calls: list[dict[str, object]] = []
+
+    def prepare(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return plan_report
+
+    monkeypatch.setattr(orchestrator, "prepare_foundation_plan", prepare)
+
+    result = instance.run()
+
+    assert result == 2
+    assert len(calls) == 1
+    assert calls[0]["inputs"] == inputs
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["reason_code"] == "foundation_exact_plan_approval_required"
+    assert payload["foundation_report"] == plan_report
+    assert payload["subscription_ready"] is False
+
+
+def test_foundation_cli_inputs_are_all_or_none_and_absolute(tmp_path: Path) -> None:
+    partial = orchestrator._parser().parse_args(["--foundation-offline-kit", str(tmp_path / "kit")])
+    with pytest.raises(orchestrator.OrchestrationError, match="foundation_input_set_incomplete"):
+        orchestrator._foundation_inputs(partial)
+
+    relative = orchestrator._parser().parse_args(
+        [
+            "--foundation-offline-kit",
+            "kit",
+            "--foundation-release-root",
+            "release.pem",
+            "--foundation-bundle-public-key",
+            "bundle.pem",
+            "--foundation-profile",
+            "profile.json",
+            "--foundation-variables-file",
+            "variables.json",
+        ]
+    )
+    complete = orchestrator._foundation_inputs(relative)
+    assert complete is not None
+    with pytest.raises(FoundationPlanError, match="absolute"):
+        replace(_config(tmp_path), foundation_inputs=complete).validate()
 
 
 def test_public_policy_route_stops_at_the_exact_plan_approval_boundary(

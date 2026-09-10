@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from genesis_subprocess import run_with_heartbeat
+
 _GITHUB_REMOTE = re.compile(
     r"^(?:git@github\.com:|https://github\.com/|ssh://git@github\.com/)"
     r"(?P<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$"
@@ -150,17 +152,16 @@ class GenesisChecks:
     ) -> None:
         """Run one bounded command and map all nonzero results to a stable reason."""
 
-        completed = subprocess.run(  # noqa: S603 - fixed repository and tool commands
-            arguments,
-            cwd=self.repository_root,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE if capture else None,
-            stderr=subprocess.PIPE if capture else None,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
+        try:
+            completed = run_with_heartbeat(
+                arguments,
+                cwd=self.repository_root,
+                env=env,
+                capture_output=capture,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise CheckError(reason_code) from exc
         if completed.returncode != 0:
             raise CheckError(reason_code)
 
@@ -170,18 +171,21 @@ class GenesisChecks:
         reason_code: str,
         *,
         strip: bool = True,
+        timeout: int = 60,
+        env: dict[str, str] | None = None,
     ) -> str:
         """Capture bounded command output or raise one stable error."""
 
-        completed = subprocess.run(  # noqa: S603 - fixed repository and tool commands
-            arguments,
-            cwd=self.repository_root,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60,
-        )
+        try:
+            completed = run_with_heartbeat(
+                arguments,
+                cwd=self.repository_root,
+                env=env,
+                capture_output=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise CheckError(reason_code) from exc
         if completed.returncode != 0:
             raise CheckError(reason_code)
         return completed.stdout.strip() if strip else completed.stdout

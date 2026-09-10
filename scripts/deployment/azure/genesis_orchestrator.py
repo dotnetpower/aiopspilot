@@ -16,9 +16,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, cast
 
 from genesis_checks import CheckError, GenesisChecks
+from genesis_foundation import (
+    FoundationPlanError,
+    FoundationPlanInputs,
+    missing_foundation_report,
+    prepare_foundation_plan,
+)
 from genesis_status import StatusStore, StatusStoreError, render_plan
 from resource_provider_reconcile import ProviderReconcileError, reconcile_resource_providers
 
@@ -55,6 +61,7 @@ class RunConfig:
     execution_timeout_seconds: int
     output: str
     work_dir: Path | None
+    foundation_inputs: FoundationPlanInputs | None
 
     def validate(self) -> None:
         """Reject ambiguous targets and implicit mutation authority."""
@@ -79,6 +86,8 @@ class RunConfig:
             raise OrchestrationError("apply_execution_timeout_too_short", 64)
         if self.work_dir is not None and not self.work_dir.is_absolute():
             raise OrchestrationError("work_dir_must_be_absolute", 64)
+        if self.foundation_inputs is not None:
+            self.foundation_inputs.validate()
 
 
 class GenesisOrchestrator:
@@ -143,11 +152,7 @@ class GenesisOrchestrator:
             self.store.route = route
             self._stage("route", lambda: None)
             if route == "private-runner":
-                return self._finish_waiting(
-                    "execution",
-                    "private_foundation_external_artifacts_required",
-                    "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan",
-                )
+                return self._run_private_foundation_plan()
             if route != "public-dev":
                 raise OrchestrationError("deployment_route_indeterminate")
             if self.config.environment != "dev":
@@ -158,7 +163,7 @@ class GenesisOrchestrator:
                 "public_exact_plan_approval_required",
                 "review_preview_and_create_an_exact_approved_plan",
             )
-        except (OrchestrationError, CheckError) as exc:
+        except (OrchestrationError, CheckError, FoundationPlanError) as exc:
             exit_code = exc.exit_code
             self.store.update(
                 stage=self.current_stage,
@@ -327,6 +332,43 @@ class GenesisOrchestrator:
         )
         self.checks.verify_checkout_unchanged()
 
+    def _run_private_foundation_plan(self) -> int:
+        """Generate the exact private plan when all external trust inputs exist."""
+
+        self.current_stage = "execution"
+        inputs = self.config.foundation_inputs
+        if inputs is None:
+            self.store.foundation_report = missing_foundation_report()
+            return self._finish_waiting(
+                "execution",
+                "private_foundation_external_artifacts_required",
+                "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan",
+            )
+        self.store.update(stage="execution", state="running")
+        prior = self.store.foundation_report
+        if prior is not None:
+            schema = prior.get("schema_version")
+            if schema == "fdai.genesis-foundation-prerequisites.v1":
+                prior = None
+            elif schema != "fdai.genesis-foundation-plan.v1":
+                raise OrchestrationError("foundation_plan_report_invalid")
+        report = prepare_foundation_plan(
+            inputs=inputs,
+            repository_root=self.config.repository_root,
+            orchestration_work_dir=self.work_dir,
+            attempt=self.store.attempt,
+            prior_report=prior,
+            timeout=self._bounded_timeout(self.config.execution_timeout_seconds, minimum=300),
+            capture=self.checks.capture,
+        )
+        self.store.foundation_report = report
+        self.checks.verify_checkout_unchanged()
+        return self._finish_waiting(
+            "execution",
+            "foundation_exact_plan_approval_required",
+            "review_foundation_plan_and_obtain_current_approval_before_separate_apply",
+        )
+
     def _bounded_timeout(self, maximum: int, *, minimum: int = 1) -> int:
         remaining = self.store.remaining_seconds()
         if remaining < minimum:
@@ -394,8 +436,38 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--provider-timeout-seconds", type=int, default=900)
     parser.add_argument("--execution-timeout-seconds", type=int, default=10800)
     parser.add_argument("--work-dir", type=Path)
+    foundation = parser.add_argument_group(
+        "exact private Foundation planning",
+        "Provide all five absolute paths together; planning never authorizes apply.",
+    )
+    foundation.add_argument("--foundation-offline-kit", type=Path)
+    foundation.add_argument("--foundation-release-root", type=Path)
+    foundation.add_argument("--foundation-bundle-public-key", type=Path)
+    foundation.add_argument("--foundation-profile", type=Path)
+    foundation.add_argument("--foundation-variables-file", type=Path)
     parser.add_argument("--output", choices=("text", "json"), default="text")
     return parser
+
+
+def _foundation_inputs(args: argparse.Namespace) -> FoundationPlanInputs | None:
+    values = (
+        args.foundation_offline_kit,
+        args.foundation_release_root,
+        args.foundation_bundle_public_key,
+        args.foundation_profile,
+        args.foundation_variables_file,
+    )
+    if not any(value is not None for value in values):
+        return None
+    if not all(value is not None for value in values):
+        raise OrchestrationError("foundation_input_set_incomplete", 64)
+    return FoundationPlanInputs(
+        offline_kit=cast(Path, values[0]),
+        release_root=cast(Path, values[1]),
+        bundle_public_key=cast(Path, values[2]),
+        profile=cast(Path, values[3]),
+        variables_file=cast(Path, values[4]),
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -403,25 +475,34 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args = _parser().parse_args(argv)
     repository_root = Path(__file__).resolve().parents[3]
-    config = RunConfig(
-        repository_root=repository_root,
-        subscription_id=os.environ.get("AZURE_SUBSCRIPTION_ID", ""),
-        tenant_id=os.environ.get("AZURE_TENANT_ID", ""),
-        region=args.region,
-        environment=args.environment,
-        repository=args.repository,
-        apply=args.apply,
-        allow_probe_resources=args.allow_probe_resources,
-        provider_timeout_seconds=args.provider_timeout_seconds,
-        execution_timeout_seconds=args.execution_timeout_seconds,
-        output=args.output,
-        work_dir=args.work_dir,
-    )
     try:
+        config = RunConfig(
+            repository_root=repository_root,
+            subscription_id=os.environ.get("AZURE_SUBSCRIPTION_ID", ""),
+            tenant_id=os.environ.get("AZURE_TENANT_ID", ""),
+            region=args.region,
+            environment=args.environment,
+            repository=args.repository,
+            apply=args.apply,
+            allow_probe_resources=args.allow_probe_resources,
+            provider_timeout_seconds=args.provider_timeout_seconds,
+            execution_timeout_seconds=args.execution_timeout_seconds,
+            output=args.output,
+            work_dir=args.work_dir,
+            foundation_inputs=_foundation_inputs(args),
+        )
         return GenesisOrchestrator(config).run()
-    except (OrchestrationError, CheckError, StatusStoreError) as exc:
-        reason = exc.reason_code if isinstance(exc, (OrchestrationError, CheckError)) else str(exc)
-        code = exc.exit_code if isinstance(exc, (OrchestrationError, CheckError)) else 4
+    except (OrchestrationError, CheckError, FoundationPlanError, StatusStoreError) as exc:
+        reason = (
+            exc.reason_code
+            if isinstance(exc, (OrchestrationError, CheckError, FoundationPlanError))
+            else str(exc)
+        )
+        code = (
+            exc.exit_code
+            if isinstance(exc, (OrchestrationError, CheckError, FoundationPlanError))
+            else 4
+        )
         print(f"genesis-up: {reason}", file=sys.stderr)
         return code
 

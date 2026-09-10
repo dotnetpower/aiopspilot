@@ -11,7 +11,12 @@ import sys
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
+
+from genesis_subprocess import run_with_heartbeat
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 FOUNDATION_PROVIDERS = (
     "Microsoft.Authorization",
@@ -110,12 +115,10 @@ def run_azure_cli(
 ) -> subprocess.CompletedProcess[str]:
     """Run Azure CLI with bounded output and no interactive input."""
 
-    return subprocess.run(  # noqa: S603 - fixed Azure CLI executable and allowlisted arguments
-        ["az", *arguments],
-        check=False,
+    return run_with_heartbeat(
+        ("az", *arguments),
+        cwd=_REPOSITORY_ROOT,
         capture_output=True,
-        text=True,
-        stdin=subprocess.DEVNULL,
         timeout=timeout_seconds,
     )
 

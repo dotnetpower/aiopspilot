@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: cb10c412f9712bf8a09d7e18ca959c01d569df6e
+translation_source_sha: 2b5eca828728b9192d48c6a257da76c7c0309fc3
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -188,8 +188,12 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 정확한 진행률과 남은 단계
   수를 표시하는 8개의 비대화형 단계를 실행합니다. 검사 모드는 Azure를 변경하지 않고 누락된
   Resource Provider를 보고합니다. 명시적 변경 모드는 해당 Provider만 등록하고, 태그가 지정된
-  정책 프로브의 그룹 및 태그 기반 삭제 Vault 정리를 검증한 뒤 `public-dev` 또는 `private-runner`를 선택합니다. 비공개 대기는
-  `private_foundation_external_artifacts_required`와 서명된 키트, 정확한 실행기 이미지, 기반 계층 프로필, 정확한 계획 생성을 보고하며 종료 코드 `2`는 준비나 적용이 아닌 대기 상태입니다.
+  정책 프로브의 그룹 및 태그 기반 삭제 Vault 정리를 검증한 뒤 `public-dev` 또는
+  `private-runner`를 선택합니다. 장시간 외부 명령은 stdout JSON을 변경하지 않고 10초마다
+  stderr에 점을 출력합니다. 5개의 절대 아티팩트 및 입력 경로가 모두 있으면 비공개 경로가
+  서명된 키트로 정확한 기반 계층 계획을 실행할 수 있습니다. 그렇지 않으면
+  `private_foundation_external_artifacts_required`와 누락된 경계를 보고하며 종료 코드 `2`는
+  준비나 적용이 아닌 대기 상태입니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
   Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
@@ -198,10 +202,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 초기화 출력에서
   repo Variables + Secrets를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 러너 토큰을 발급하고
-  `run-command`로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
-  뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
-  설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 수명이 짧은 등록 자료를
+  `run-command`로 전달하는 기존 수동 복구 도구입니다. Genesis는 이 도구를 호출하지 않습니다.
+  새로운 비대화형 등록은 공급자가 호스팅하는 보호된 입력 채널이 등록 자료를 Terraform,
+  프로세스 인자, Run Command 페이로드, 로그에 남기지 않는다는 근거가 생길 때까지 차단됩니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 
