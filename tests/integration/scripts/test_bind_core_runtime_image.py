@@ -36,11 +36,8 @@ fi
         bin_dir / "docker",
         """#!/usr/bin/env bash
 set -euo pipefail
-credential="$(cat)"
-[[ "$credential" == "$FAKE_GHCR_CREDENTIAL" ]]
 printf '%s\n' "$*" > "$FAKE_DOCKER_ARGS"
-printf '{"auths":{"ghcr.io":{"auth":"synthetic"}}}\n' > "$DOCKER_CONFIG/config.json"
-chmod 0600 "$DOCKER_CONFIG/config.json"
+exit 97
 """,
     )
     _write_executable(
@@ -143,9 +140,7 @@ def test_verifies_registry_bundle_with_exact_provenance_contract(tmp_path: Path)
     assert paths["docker_metadata"].read_text(encoding="ascii") == (
         "directory=700\nconfig=600\nregistry=true\nauth=true\n"
     )
-    assert paths["docker_args"].read_text(encoding="ascii").strip() == (
-        "login ghcr.io -u example-actor --password-stdin"
-    )
+    assert not paths["docker_args"].exists()
     assert paths["github_env"].read_text(encoding="ascii").splitlines() == [
         "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY=example/fdai/fdai-core-control-plane",
         f"FDAI_VERIFIED_RUNTIME_IMAGE_REVISION={revision}",
@@ -170,7 +165,11 @@ def test_attestation_failure_stops_before_terraform_or_acr(tmp_path: Path) -> No
             result.stdout,
             result.stderr,
             paths["curl_calls"].read_text(encoding="ascii"),
-            paths["docker_args"].read_text(encoding="ascii"),
+            (
+                paths["docker_args"].read_text(encoding="ascii")
+                if paths["docker_args"].exists()
+                else ""
+            ),
             paths["gh_args"].read_text(encoding="ascii"),
         )
     )

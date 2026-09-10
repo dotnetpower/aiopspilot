@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 7827039374f1bf4905c86c700fc4ccb31de07fd2
+translation_source_sha: c004867a0b5f473ac348cbc3d10402db458d2d8e
 translation_revised: 2026-09-10
 ---
 # 운영 배포 강화
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Core 런타임 검증에서 중복된 실시간 `docker login`을 제거했습니다. Binder는 모드 `0600`인 임시 Docker 인증 구성을 작성한 다음, 재시도 횟수가 제한된 GHCR token 교환과 OCI 증명 검증으로 정확한 digest를 인증하고 권한을 확인합니다. | `current change`, 집중 런타임 이미지 binder 테스트 및 자격 증명 비공개 assertion | 반복된 계획 전 로그인 실패 이후 성공한 보호 analyzer 계획을 하나 보존합니다. |
 | 2026-09-10 | implemented | 증명된 런타임 이미지를 결속하면서 관련 없는 플랫폼 리소스를 계획에 노출하지 않는 analyzer 전용 보호 계획 경로를 추가했습니다. | `current change`, 범위가 제한된 계획 범위 및 workflow 계약 테스트 | 삭제가 없는 보호 계획, 정확한 적용 및 성공한 실시간 analyzer receipt를 하나 보존합니다. |
 | 2026-09-09 | implemented | 일반 역할 관리 권한을 부여하지 않고 플랫폼 인벤토리 및 RCA 서비스 주체에 필요한 구독 읽기와 조건부 역할 위임을 추가했습니다. | `current change`; bootstrap Terraform 검증 및 집중 신원 계약 테스트. | 승인된 기반 계층 적용에서 유효 역할과 privileged 역할 거부 관측을 보존합니다. |
 | 2026-09-08 | implemented | 후보 self-hosted 실행기에 Helm이 없어 SRE demo plan 선행 검사가 실패한 문제를 수정했습니다. Workflow는 공식 배포 위치에서 Helm v3.18.6을 내려받고 고정된 SHA-256을 확인한 뒤 실행기 임시 저장소에만 설치하며 요청 선행 조건 전에 바이너리를 검증합니다. | `current change`, scenario-lab 검사 7개, CI/workflow 계약 검사 54개, actionlint 통과, 공개 고정 archive checksum 일치, 전체 Operator surface CI 명령에서 Console 테스트 2,827개와 타입 검사 및 빌드 통과 | 공유 branch를 조정하고 작업 소유 변경을 커밋한 뒤에만 push합니다. 이후 apply를 제출하지 않고 새 plan-only 실행을 관찰합니다. |

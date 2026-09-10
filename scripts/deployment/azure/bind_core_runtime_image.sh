@@ -76,12 +76,20 @@ verify_runtime_image() {
 
   printf 'machine ghcr.io\nlogin %s\npassword %s\n' \
     "$GITHUB_ACTOR" "$GHCR_TOKEN" > "$netrc_file"
-  if ! printf '%s' "$GHCR_TOKEN" |
-    DOCKER_CONFIG="$docker_config" docker login ghcr.io \
-      -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1; then
-    echo "temporary GHCR authentication failed." >&2
-    exit 1
-  fi
+  GHCR_USERNAME="$GITHUB_ACTOR" GHCR_PASSWORD="$GHCR_TOKEN" \
+    DOCKER_AUTH_PATH="$docker_config/config.json" python3 - <<'PY'
+import base64
+import json
+import os
+from pathlib import Path
+
+credential = f"{os.environ['GHCR_USERNAME']}:{os.environ['GHCR_PASSWORD']}".encode()
+auth = base64.b64encode(credential).decode("ascii")
+Path(os.environ["DOCKER_AUTH_PATH"]).write_text(
+    json.dumps({"auths": {"ghcr.io": {"auth": auth}}}, separators=(",", ":")),
+    encoding="ascii",
+)
+PY
   chmod 0600 "$netrc_file" "$docker_config/config.json"
 
   registry_token="$(
