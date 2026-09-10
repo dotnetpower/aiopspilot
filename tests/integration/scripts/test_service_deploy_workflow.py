@@ -1277,6 +1277,7 @@ def test_service_apply_selects_current_or_exact_last_ready_rollback_baseline() -
 
 
 def test_core_evidence_transition_freezes_and_verifies_private_configuration_baseline() -> None:
+    assert "inputs.apply || inputs.service == 'core-control-plane'" in _WORKFLOW
     assert "CONFIGURATION_BASELINE_BINDING_JSON" in _WORKFLOW
     assert "CONFIGURATION_BASELINE_GZIP_BASE64" in _WORKFLOW
     assert "Freeze reviewed configuration baseline in private Blob" in _WORKFLOW
