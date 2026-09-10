@@ -89,6 +89,7 @@ def _evidence_fixture(
     action_name: str = "example",
     attempt: int = 1,
     now: datetime = _NOW,
+    target_ref: str = "resource/example",
 ) -> tuple[
     SafeguardDispatchEvidenceRecord,
     IdempotencyReservationIdentity,
@@ -99,6 +100,7 @@ def _evidence_fixture(
     action = _action(
         created_at=now,
         params={"name": action_name},
+        target_resource_ref=target_ref,
     )
     safeguard_receipt = evaluate_pre_dispatch(
         action,
