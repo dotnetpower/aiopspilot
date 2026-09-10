@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:1a79b88eacb7add463d4ca42b26045ae7df756103ea2498570a0ce3b255fd930",
+  "inventory_digest": "sha256:39e38b63ce2d5e6de4aa915cf327f9ccbc8a4cf9bf7db3e161adee0b4ad62bc9",
   "metric_contract": {
     "ambiguity": [
       {

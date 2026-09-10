@@ -5,7 +5,8 @@ title: Project Structure
 
 The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 When an owning design source changes without changing catalog records, regeneration updates only
-the source commitment and aggregate digest.
+the source commitment and aggregate digest. Regeneration runs after upstream integration so those
+commitments identify the final merged source blobs.
 
 ## Design at a glance
 

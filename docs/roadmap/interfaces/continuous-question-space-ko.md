@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: c8b2341348acdff6527356110279ab7b91d929ba
+translation_source_sha: a3ea781c5e4bf0a4905f5a1375cff1c8a3e00d35
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -64,7 +64,8 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
 검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다.
 원본 다이제스트만 변경된 경우 다시 생성해도 모든 논리 질문 신원, 검토 상태 및 분모를
-유지합니다.
+유지합니다. 파생 약속값이 최종 병합 원본 집합을 결속하도록 upstream 통합 뒤에 다시
+생성합니다.
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
 

@@ -64,7 +64,8 @@ and validation states.
 Any change to a joined source, including a Console starter catalog, regenerates both the machine
 inventory and human review catalog; the generated-artifact test rejects any stale source digest.
 When only source digests change, regeneration preserves every logical question identity, review
-state, and denominator.
+state, and denominator. Regeneration runs after upstream integration so derived commitments bind
+the final merged source set.
 Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
 hand isn't supported.
 
@@ -174,6 +175,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Regenerated semantic coverage commitments after upstream integration so the derived inventory binds the final merged source set without changing question identities or denominators. | `current change`; generated semantic-intent coverage; focused artifact parity checks. | No remaining work for this post-integration refresh. |
 | 2026-09-11 | implemented | Regenerated the derived semantic-intent coverage inventory after the question-bank synchronization exposed its stale coverage denominators. | `current change`; `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run python scripts/automation/build_semantic_intent_coverage.py`; 12 focused generated-artifact checks passed. | No remaining work for the derived coverage synchronization. |
 | 2026-09-11 | implemented | Regenerated the federated question-bank JSON and review catalog from the current 11-source inventory, restoring exact source-digest and readiness-field parity without changing the 400-question boundary or granting execution authority. | `current change`; `uv run python scripts/automation/build_question_bank.py`; focused question-bank checks passed. | No remaining work for this generated-artifact synchronization. |
 | 2026-09-11 | implemented | Refreshed question-bank and semantic-intent source digests after issue #260 design and generated-catalog updates without changing any question identity, review state, or denominator. | `current change`; generated question bank, review catalog, and semantic-intent coverage; focused artifact parity checks. | No remaining work for this generated-source refresh. |
