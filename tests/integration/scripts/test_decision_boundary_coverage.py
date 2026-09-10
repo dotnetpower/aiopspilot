@@ -51,9 +51,14 @@ def test_the_inventory_registers_every_boundary_and_purpose_in_the_source_tree(
 ) -> None:
     registered = {boundary["id"] for boundary in inventory["boundaries"]}
     assert len(registered) == len(inventory["boundaries"])
-    assert {"causal-closure", "effect-model-activation", "workflow-gate", "workflow-outcome"} <= (
-        registered
-    )
+    assert {
+        "causal-closure",
+        "effect-model-activation",
+        "workflow-automation-hold-release",
+        "workflow-gate",
+        "workflow-outcome",
+        "workflow-recovery-admission",
+    } <= registered
     for boundary in inventory["boundaries"]:
         assert (REPO_ROOT / boundary["module"]).is_file()
         assert boundary["tests"]
