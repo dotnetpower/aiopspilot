@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -69,6 +70,17 @@ def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
                 _plan(analyzer, outside_address),
                 mode="observability-analyzer",
             )
+
+
+def test_cli_admits_observability_analyzer_scope() -> None:
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
+        [sys.executable, str(_PATH), "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "observability-analyzer" in result.stdout
 
 
 def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
