@@ -3949,8 +3949,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
             if (
                 observed_at is not None
                 or not isinstance(reason, str)
-                or not reason.strip()
-                or len(reason) > 128
+                or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", reason) is None
             ):
                 raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
             parsed_at = None

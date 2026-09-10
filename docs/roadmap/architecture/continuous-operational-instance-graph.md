@@ -104,7 +104,9 @@ principal handle derives from opaque authenticated evidence references and scope
 it never hashes the low-entropy role name. Current Operator and Console instance-detail responses
 must carry explicit runtime-call and PostgreSQL-role source states; omission is invalid rather than
 available or measured zero. The Operator persistence reader accepts runtime-call link metadata only
-when its embedded inventory generation equals the exact selected snapshot.
+when its embedded inventory generation equals the exact selected snapshot. Unavailable source
+reasons must be canonical machine tokens and cannot carry principal text, endpoints, or provider
+details.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.

@@ -26,6 +26,8 @@ Every current instance-detail response includes explicit `runtime_call_graph` an
 `postgres_role_evidence` source states. The Console decoder rejects either missing source instead
 of presenting omission as availability or measured zero. The Operator reader also rejects a
 runtime-call link whose embedded inventory generation differs from the selected snapshot.
+Unavailable source reasons use canonical machine tokens only, so principal text and provider
+details cannot cross the read boundary.
 During schema rollout, a legacy Kubernetes record without every versioned identity field remains a
 Resource row. Exact Kubernetes identity and diagnostics stay withheld until a complete versioned
 observation replaces it.

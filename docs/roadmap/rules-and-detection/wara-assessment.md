@@ -32,6 +32,8 @@ families. WARA does not consume AKS fleet states, and this shared capability doe
 scope, evidence admission, or assessment results. The same boundary applies to the reader's
 content-addressed AKS diagnostic receipt lookup and generation-fenced runtime-call relationship
 decoder; WARA never joins or interprets either evidence family.
+The shared source-state decoder also accepts only canonical machine-token reasons, so principal
+text and provider details cannot enter WARA through that storage path.
 
 ## Crosswalk and applicability
 

@@ -28,6 +28,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
     _instance_relationship_evidence,
+    _projection_source_states,
 )
 from fdai_service_contracts import OperatorRole
 
@@ -519,6 +520,20 @@ def test_runtime_call_relationship_evidence_rejects_another_generation() -> None
         _instance_relationship_evidence(
             {"link_observation_metadata": _runtime_call_observation_metadata()},
             inventory_generation="inventory:generation-two",
+        )
+
+
+def test_projection_source_reason_rejects_principal_text() -> None:
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="source state is malformed"):
+        _projection_source_states(
+            [
+                {
+                    "source": "postgres_role_evidence",
+                    "status": "unavailable",
+                    "observed_at": None,
+                    "reason": "user@example.com",
+                }
+            ]
         )
 
 
