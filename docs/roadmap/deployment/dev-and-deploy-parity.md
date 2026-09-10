@@ -11,6 +11,14 @@ Inventory invalidation uses the same read path in both profiles. Core commits no
 The shared Operator data-source manifest also assigns the three Assurance Twin read routes to the same service-local projection in both profiles. This ownership reports an explicit unavailable reason when PostgreSQL isn't configured and doesn't change WARA, cost-governance, or other route authority. Both profiles use the focused outbox lifecycle facade to start the retry-safe Incident intervention worker only when PostgreSQL and the event bus are configured; the same readiness check blocks service readiness if that worker stops, without granting the Console or Operator API execution authority.
 The WAF and CAF assessment consumer follows the same parity rule. Local and deployed Operator profiles consume the same logical topic, validate the same immutable snapshot, and write the same PostgreSQL projection. The protected live-validation workflow is deliberately audit-only because the deploy runner has no assessment sender role; its artifact never substitutes for an Operator projection.
 AKS fleet inventory uses the same exact managed-cluster ARM identities and Core-owned lifecycle coverage migration in both profiles; deployment grants its read identity only at those managed-cluster resources. Its review list verifies each durable key against the body's exact opaque review identity, and the Console renders every usable posture scope while labeling withheld rows as unavailable rather than as an empty ledger. Governed cohort import follows the same parity rule: tests use normalized synthetic fixtures, while deployment alone imports into private PostgreSQL; the artifact cannot choose arm, revision, protocol, origin, admission, or authority, and empty arm allowlists trust no exporter until its workflow and policy entry land together.
+Configuration drift follows the same boundary. Tests use synthetic files and fake transports.
+Deployment reconstructs an explicitly reviewed snapshot on the VNet-integrated runner, accepts it
+only when its canonical digest and complete resource count match, and stores the content in a
+private content-addressed Blob. The independently deployed Core service receives only the exact
+Blob URL, version, digest, scope, subscriptions, and scalar attribute paths through its protected
+plan. Core reads the Blob with Managed Identity. Post-apply verification reads the deployed
+binding and Blob independently, compares a fresh Azure Resource Graph observation, and retains a
+sanitized receipt without resource names or provider identifiers.
 ## Audit - What Works Local, What Needs Azure
 Local preparation writes `LLM_RESOLVED_MODELS_SHA256` from the exact selected model artifact, not a stale Console value, and carries the pin into the Operator environment. Startup still rejects a missing pin or changed artifact before serving requests.
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the

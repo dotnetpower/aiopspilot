@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 from fdai.delivery.azure.configuration_drift import (
     AzureArgConfigurationObservationSource,
+    AzureBlobConfigurationBaselineConfig,
+    AzureBlobConfigurationBaselineSource,
+    AzureConfigurationBaselineError,
     AzureConfigurationObservationConfig,
     AzureConfigurationObservationError,
 )
@@ -16,6 +21,7 @@ from pydantic import TypeAdapter
 
 _NOW = datetime(2026, 8, 28, 12, tzinfo=UTC)
 _AUDIENCE = "https://management.azure.com/.default"
+_STORAGE_AUDIENCE = "https://storage.azure.com/"
 
 
 def _config(**overrides: object) -> AzureConfigurationObservationConfig:
@@ -37,6 +43,108 @@ def _identity() -> StaticWorkloadIdentity:
         audience=_AUDIENCE,
         token="test-token",  # noqa: S106 - inert test credential
     )
+
+
+def _baseline_payload() -> tuple[bytes, str]:
+    payload = json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "version": "example-v1",
+            "created_at": "2026-08-28T12:00:00+00:00",
+            "scope": "scope:example-platform",
+            "source": "reviewed snapshot",
+            "document_sha256": "a" * 64,
+            "resources": [],
+            "links": [],
+            "allowed_exceptions": [],
+            "unknown_items": [],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return payload, hashlib.sha256(payload).hexdigest()
+
+
+async def test_blob_baseline_source_requires_managed_identity_and_exact_digest() -> None:
+    payload, digest = _baseline_payload()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer test-token"
+        return httpx.Response(
+            200,
+            headers={"x-ms-meta-fdai-sha256": digest},
+            content=payload,
+        )
+
+    identity = StaticWorkloadIdentity(
+        audience=_STORAGE_AUDIENCE,
+        token="test-token",  # noqa: S106 - inert test credential
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureBlobConfigurationBaselineSource(
+            identity=identity,
+            http_client=client,
+            config=AzureBlobConfigurationBaselineConfig(
+                blob_url=(
+                    "https://example.blob.core.windows.net/decision-evidence/"
+                    f"configuration-baselines/{digest}.json"
+                ),
+                expected_sha256=digest,
+            ),
+        )
+
+        baseline = await source.load()
+
+    assert baseline.version == "example-v1"
+    assert baseline.sha256 == digest
+
+
+async def test_blob_baseline_source_rejects_metadata_or_content_mismatch() -> None:
+    payload, digest = _baseline_payload()
+    identity = StaticWorkloadIdentity(
+        audience=_STORAGE_AUDIENCE,
+        token="test-token",  # noqa: S106 - inert test credential
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"x-ms-meta-fdai-sha256": "b" * 64},
+            content=payload,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureBlobConfigurationBaselineSource(
+            identity=identity,
+            http_client=client,
+            config=AzureBlobConfigurationBaselineConfig(
+                blob_url=(
+                    "https://example.blob.core.windows.net/decision-evidence/"
+                    f"configuration-baselines/{digest}.json"
+                ),
+                expected_sha256=digest,
+            ),
+        )
+        with pytest.raises(AzureConfigurationBaselineError, match="metadata"):
+            await source.load()
+
+
+@pytest.mark.parametrize(
+    "blob_url",
+    (
+        "http://example.blob.core.windows.net/container/configuration-baselines/"
+        + "a" * 64
+        + ".json",
+        "https://example.com/container/configuration-baselines/" + "a" * 64 + ".json",
+        "https://example.blob.core.windows.net/container/other/" + "a" * 64 + ".json",
+    ),
+)
+def test_blob_baseline_config_rejects_non_azure_or_unpinned_urls(blob_url: str) -> None:
+    with pytest.raises(ValueError, match="content-addressed Azure Blob"):
+        AzureBlobConfigurationBaselineConfig(
+            blob_url=blob_url,
+            expected_sha256="a" * 64,
+        )
 
 
 async def test_observation_projects_selected_attributes_and_unknowns() -> None:
