@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bb745b535bbc6eb648454ba701d59b247f056412
+translation_source_sha: 0f0f1a54e8cd5de01502f1ea58e146d32748d048
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -41,7 +41,7 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 |------|------|--------|-----------|
 | 컨트롤 루프와 판단 사례 | [control_loop](../../../services/core-control-plane/src/fdai/core/control_loop/) 및 [decision_case](../../../services/core-control-plane/src/fdai/core/decision_case/) | [Core 테스트](../../../services/core-control-plane/tests/core/) | [실행 모델](../decisioning/execution-model-ko.md) |
 | 에이전트 런타임 | [agents](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
-| 대화와 의미 조회 | [conversation](../../../services/core-control-plane/src/fdai/core/conversation/) 및 [knowledge](../../../services/core-control-plane/src/fdai/core/knowledge/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) | [계층형 대화 계획](../interfaces/hierarchical-conversation-planning-ko.md) |
+| 대화, typed 판단 정규화 및 의미 조회 | [conversation](../../../services/core-control-plane/src/fdai/core/conversation/) 및 [knowledge](../../../services/core-control-plane/src/fdai/core/knowledge/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) | [계층형 대화 계획](../interfaces/hierarchical-conversation-planning-ko.md) |
 | 운영 온톨로지와 인스턴스 그래프 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) | [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) |
 | 운영 맥락 | [operational_context](../../../services/core-control-plane/src/fdai/core/operational_context/) | [운영 맥락 테스트](../../../services/core-control-plane/tests/core/operational_context/) | [운영 의도 원본](operating-intent-source-ko.md) |
 | 감지와 조사 | [detection](../../../services/core-control-plane/src/fdai/core/detection/) 및 [investigation](../../../services/core-control-plane/src/fdai/core/investigation/) | [감지 테스트](../../../services/core-control-plane/tests/core/detection/) 및 [조사 테스트](../../../services/core-control-plane/tests/core/investigation/) | [관측성과 감지](../rules-and-detection/observability-and-detection-ko.md) |
