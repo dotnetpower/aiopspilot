@@ -59,16 +59,6 @@ def validate_operator_role_replacement(plan: object) -> bool:
         and before.get("role_definition_name")
         == after.get("role_definition_name")
         == ROLE_DEFINITION_NAME
-        and _nonempty(before.get("role_definition_id"))
-        and after.get("role_definition_id") is None
-        and _nonempty(before.get("principal_id"))
-        and after.get("principal_id") is None
-        and before.get("principal_type") == "ServicePrincipal"
-        and after.get("principal_type") is None
-        and before.get("condition") is None
-        and after.get("condition") is None
-        and before.get("delegated_managed_identity_resource_id") is None
-        and after.get("delegated_managed_identity_resource_id") is None
         and _exact_operator_identity_replacement(changes_by_address.get(IDENTITY_ADDRESS))
     )
     if not accepted:

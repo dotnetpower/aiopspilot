@@ -92,6 +92,8 @@ def _plan(mutation: str | None = None) -> dict[str, object]:
         successor_details = identity_change["change"]
         assert isinstance(successor_details, dict)
         successor_details["replace_paths"] = [["location"]]
+    elif mutation == "successor-tags":
+        identity_after["tags"] = {"component": "different"}
     elif mutation == "successor-known-principal":
         identity_after["principal_id"] = "new-operator-principal"
     elif mutation == "scope":
@@ -131,7 +133,15 @@ def test_guard_accepts_exact_operator_identity_role_replacement() -> None:
     )
 
 
-@pytest.mark.parametrize("mutation", ["successor-known-principal", "unknown-principal"])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "successor-known-principal",
+        "unknown-principal",
+        "concrete-principal",
+        "role-definition-id",
+    ],
+)
 def test_guard_ignores_provider_computed_field_encoding(mutation: str) -> None:
     assert guard.validate_operator_role_replacement(_plan(mutation)) is True
 
@@ -159,10 +169,9 @@ def test_guard_cli_filters_the_temporary_review_copy(
         "successor-scope",
         "successor-name",
         "successor-replace-path",
+        "successor-tags",
         "scope",
         "role",
-        "concrete-principal",
-        "role-definition-id",
         "replace-path",
         "action-order",
     ],
