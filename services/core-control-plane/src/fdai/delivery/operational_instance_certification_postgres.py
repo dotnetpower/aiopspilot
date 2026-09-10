@@ -22,7 +22,10 @@ WITH observed AS (
     SELECT clock_timestamp() AS measured_at
 ),
 active AS (
-    SELECT snapshot.id
+    SELECT
+        snapshot.id,
+        snapshot.source,
+        snapshot.observation_kind
     FROM inventory_active AS active_pointer
     JOIN inventory_snapshot AS snapshot
         ON snapshot.id = active_pointer.snapshot_id
@@ -90,6 +93,9 @@ latest_failure AS (
         failed.resource_types,
         failed.completed_at
     FROM inventory_snapshot AS failed
+    JOIN active AS current
+        ON current.source = failed.source
+        AND current.observation_kind = failed.observation_kind
     WHERE failed.status = 'failed'
         AND failed.completed_at IS NOT NULL
         AND failed.failure_code <> 'invalid_data'
