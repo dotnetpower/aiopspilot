@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c44901df9eca0bf6fa91b99df64b7e002d3d1f45
+translation_source_sha: 4e8d403d6027f868b5f4fce1e25cae65a4e091d2
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -62,7 +62,7 @@ catalog 값 필터를 추가하지 않습니다.
 있습니다. ObjectSet 실패는 기존 예외와 범위가 제한된 단계 진단을 유지합니다. 불완전한 읽기 전용 Resource 및 상태 전이 결과는 검증된 범위의 행과 제한 사항 및 재시도 안내를 제시합니다.
 신원, 권한, 충돌 또는 안전한 부분 집합이 없는 결과는 계속 판단을 보류합니다.
 수락된 구독 신원 및 Service Health 판단은 정확한 입력 없는 FunctionType에서 결정론적 프레임과 서버 계획을 구성하므로 전체 온톨로지 스키마가 프레임 모델 경계를 통과하지 않습니다.
-수락된 매니페스트 개수, 정확한 선언 상세 정보, 단일 ObjectType 스키마 관계 judgment도
+수락된 대상 없는 queryable 선언 목록, 매니페스트 개수, 정확한 선언 상세 정보, 단일 ObjectType 스키마 관계 judgment도
 결정론적 frame과 닫힌 FunctionType 인자로 compile됩니다. 이 경로는 lexical route를 추가하거나
 권한을 부여하지 않습니다.
 매니페스트 개수 judgment가 메타타입 target을 누락하면 Core는 이미 typed된 count facet에서 선언

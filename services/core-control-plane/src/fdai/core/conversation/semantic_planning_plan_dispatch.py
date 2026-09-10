@@ -47,6 +47,7 @@ from .semantic_latency_recovery_planning import (
 from .semantic_manifest_planning import (
     compile_ontology_declaration_plan,
     compile_ontology_manifest_count_plan,
+    compile_ontology_manifest_plan,
 )
 from .semantic_mysql_pressure_planning import compile_mysql_pressure_plan
 from .semantic_planning_cascade import SemanticPlanningCascade, SemanticPlanningEscalationPolicy
@@ -209,6 +210,17 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_inventory_document"
+    if plan is None:
+        plan = compile_ontology_manifest_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        if plan is not None:
+            plan_source = "server_ontology_manifest"
     if plan is None:
         plan = compile_ontology_manifest_count_plan(
             frame=frame,

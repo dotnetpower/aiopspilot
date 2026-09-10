@@ -45,7 +45,7 @@ model planning. Unbound catalog filters clarify instead of widening to all Resou
 identities remain `Resource.id` predicates, and role-assignment objects stay available only to
 their dedicated IAM evidence paths. ObjectSet failures retain their exception and bounded stage diagnostic. Incomplete read-only Resource and state-transition results present verified scoped rows with limitation and retry guidance; identity, authority, conflict, and no-safe-subset outcomes remain held. Object-only non-pushable predicates may use one connection-scoped candidate snapshot under the operating-ontology owner's 50,000-object ceiling; relationship reads retain the 1,000-object limit.
 Accepted subscription identity and Service Health judgments build deterministic frames and server plans from their exact no-input FunctionTypes, so the complete ontology schema never crosses a frame-model boundary.
-Accepted manifest-count, exact declaration-detail, and single-ObjectType schema-relationship
+Accepted no-target queryable declaration-list, manifest-count, exact declaration-detail, and single-ObjectType schema-relationship
 judgments likewise compile deterministic frames and closed FunctionType arguments. They do not
 introduce a lexical route or grant authority.
 When a manifest-count judgment omits its metatype target, Core can recover only one declaration
