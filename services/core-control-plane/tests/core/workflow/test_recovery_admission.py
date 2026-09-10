@@ -196,6 +196,13 @@ async def test_matching_approval_and_decision_evidence_admits_recovery_only() ->
             WorkflowRecoveryAdmissionRejectionReason.APPROVAL_EXPIRED,
         ),
         (
+            _snapshot(requested_at=_NOW + timedelta(seconds=1)),
+            1,
+            True,
+            "executor@example.com",
+            WorkflowRecoveryAdmissionRejectionReason.APPROVAL_NOT_YET_REQUESTED,
+        ),
+        (
             _snapshot(),
             2,
             True,
@@ -379,6 +386,16 @@ def test_recovery_digest_changes_for_every_replay_sensitive_input() -> None:
     )
     variants = (
         workflow_recovery_evidence_digest(
+            replace(_snapshot(), process_id="process-other"),
+            quorum=1,
+            no_self_approval=True,
+            hold_revision=4,
+            target_digest=_TARGET_DIGEST,
+            compensation_receipt_digests=_RECEIPTS,
+            executor_identity="executor@example.com",
+            source_revision=_SOURCE_REVISION,
+        ),
+        workflow_recovery_evidence_digest(
             replace(_snapshot(), step_id="approve_other"),
             quorum=1,
             no_self_approval=True,
@@ -390,6 +407,16 @@ def test_recovery_digest_changes_for_every_replay_sensitive_input() -> None:
         ),
         workflow_recovery_evidence_digest(
             replace(_snapshot(), attempt=3),
+            quorum=1,
+            no_self_approval=True,
+            hold_revision=4,
+            target_digest=_TARGET_DIGEST,
+            compensation_receipt_digests=_RECEIPTS,
+            executor_identity="executor@example.com",
+            source_revision=_SOURCE_REVISION,
+        ),
+        workflow_recovery_evidence_digest(
+            replace(_snapshot(), revision=4),
             quorum=1,
             no_self_approval=True,
             hold_revision=4,

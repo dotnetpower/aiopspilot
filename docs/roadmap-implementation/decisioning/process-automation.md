@@ -19,6 +19,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Added direct regression coverage for a future-dated approval request plus process-id and approval-revision digest substitution before closing issue `#622`. | `current change`; `test_recovery_admission.py`; focused recovery-admission tests passed 21 cases, and the combined approval, recovery, and compensation selector passed 46 cases. | No residual work remains for the pure admission boundary; atomic consumption and release remain under issue `#630`. |
 | 2026-09-10 | implemented | Added a pure fail-closed recovery-admission assessment over the existing workflow approval and decision-evidence contracts. It binds the complete quorum, hold, target, compensation receipts, distinct principals, and source revision, converts bounded provider failures to typed denial, and imports no hold store. | `current change`; `recovery_admission.py`; `test_recovery_admission.py`; focused approval, recovery, and compensation checks passed 45 cases; Ruff and strict mypy passed. | Atomically consume the admitted evidence and release the exact hold revision under issue `#630`. |
 | 2026-09-10 | implemented | Preserved the implemented FDAI-CONST-009 hold contract while separating additional recovery-approval admission and atomic consume-and-release hardening into bounded child issues. | `current change`; parent issue `#81`; issues `#622` and `#630`; existing focused hold and orchestrator evidence. | Complete the additional hardening without weakening the durable hold, matching verified recovery, or forward-dispatch denial already recorded as implemented. |
 | 2026-09-09 | implemented | Kept workflow action delivery separate while binding explicit Teams and Slack shadow notifications to the runtime StateStore. Shadow rendering cannot select, advance, approve, or execute a workflow step and performs no provider transport. | `current change`; `runtime/delivery.py`, `runtime/notification_registry.py`, and focused notification checks passed 69 cases. | Keep provider promotion and governed live delivery evidence outside workflow authority. |
@@ -39,7 +40,7 @@ and resumable work while the roadmap owner remains focused on normative design.
   recovery, as proven by the focused hold, orchestrator, control-loop, and risk-gate tests.
 - [x] Bind matching recovery to existing human approval and decision-evidence admission without
   mutating the hold under issue `#622`. Evidence: `recovery_admission.py`,
-  `test_recovery_admission.py`, and 45 focused passing checks.
+  `test_recovery_admission.py`, and 46 focused passing checks.
 - [ ] Atomically consume the admitted evidence while releasing the exact hold revision under issue
   `#630`; this hardening does not reopen FDAI-CONST-009.
 - [ ] Add a typed `SignalType` trigger reference and cross-check it at load. This is blocked on
