@@ -153,6 +153,45 @@ async def test_supported_inventory_resources_join_the_tick() -> None:
 
 
 @pytest.mark.asyncio
+async def test_property_keyed_inventory_state_selects_the_canonical_state_fact() -> None:
+    state_fact = _state_fact()
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact={"availabilityState": {"malformed": True}, "state": state_fact},
+            ),
+        )
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == (
+        AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),
+    )
+    assert resolution.skipped_reasons == ()
+
+
+@pytest.mark.asyncio
+async def test_property_keyed_inventory_state_without_canonical_state_is_unusable() -> None:
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact={"availabilityState": _state_fact()},
+            ),
+        )
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == ()
+    assert resolution.skipped_reasons == (SKIP_UNUSABLE_STATE_FACT,)
+
+
+@pytest.mark.asyncio
 async def test_a_resource_without_a_state_fact_is_still_selectable() -> None:
     store = StubStore((_resource("res-apim", "api-gateway"),))
 
