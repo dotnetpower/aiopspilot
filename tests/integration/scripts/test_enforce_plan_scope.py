@@ -56,11 +56,12 @@ def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
 
 
 def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
-    analyzer = "module.compute.azurerm_container_app_job.analyzer_tick[0]"
+    analyzer = "terraform_data.observability_analyzer_image_update"
 
     assert enforce(_plan(analyzer), mode="observability-analyzer") == frozenset({analyzer})
     assert enforce({"resource_changes": []}, mode="observability-analyzer") == frozenset()
     for outside_address in (
+        "module.compute.azurerm_container_app_job.analyzer_tick[0]",
         "module.compute.azurerm_container_app_job.oob",
         "module.compute.azurerm_container_app_job.rule_watcher",
         "module.measurement_runners[0].job",
