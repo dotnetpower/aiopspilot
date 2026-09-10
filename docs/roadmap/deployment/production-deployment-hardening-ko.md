@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 9cc1e3e26b316bac1125317f66f25b4c35b482af
+translation_source_sha: d1447d86661c95f097731b786b834357f6bcff11
 translation_revised: 2026-09-10
 ---
 # 운영 배포 강화
@@ -23,7 +23,7 @@ translation_revised: 2026-09-10
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. 구독 역할 위임은 서비스 주체용 읽기 역할 3개로 제한됩니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-security` 작업은 하나의 필수 CI 결과 아래에서 고정 버전 Checkov 및 Trivy 검사를 실행합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
-| 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, 집중 state, 범위 및 workflow 계약 테스트 | `plan-observability-*` 요청이 analyzer Container Apps Job만 대상으로 지정하기 전에 state 조정이 알려진 두 legacy Job 주소만 인덱스 destination으로 이동하고 전후 state digest를 기록합니다. 범위 guard는 analyzer Job 외부의 모든 리소스 변경을 거부합니다. |
+| 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `observability-analyzer-image.tf`, `update_analyzer_job_image.sh`, 집중 updater, rollback, 범위 및 workflow 테스트 | 보호된 계획은 state 전용 Terraform updater 하나만 대상으로 합니다. Apply는 기존 analyzer container image만 검증된 ACR digest로 변경하고 독립적으로 다시 읽으며, effect 검증이 실패하면 이전 digest로 rollback합니다. 원래 Container Apps Job 리소스가 모든 Job 구성의 선언적 소유자로 유지됩니다. |
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | Scenario-lab 실행기 도구 준비 | implemented | `sre-demo-lab.yml`, `test_scenario_lab.py`, CI 계약 검사, actionlint, 다운로드한 checksum 검증 | 보호된 workflow는 요청 선행 조건을 확인하기 전에 checksum으로 고정된 Helm과 kubelogin을 실행기 임시 저장소에 설치합니다. 후보 실행기에 Helm이 미리 설치됐다고 가정하지 않으며 설치는 Azure 리소스나 실행기 이미지를 변경하지 않습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Root compute module의 선행 조건 그래프가 관련 없는 구성 drift를 포함했으므로 analyzer 리소스 직접 지정을 state 전용 Terraform updater로 교체했습니다. Updater는 두 image를 digest로 고정된 ACR 참조로 검증하고, 이름이 지정된 container 하나를 갱신하며, 권위 있는 readback을 검증하고, 실패 시 이전 digest를 복원합니다. | `current change`, 성공, no-op, 거부, effect 실패 및 rollback 집중 테스트, state 조정 후에도 직접 대상 지정이 관련 없는 dependency를 포함했고 올바르게 차단되었음을 보호 실행 `34435938544`에서 확인 | 생성 전용 보호 updater 계획, 정확한 적용 및 성공한 analyzer tick receipt를 하나 보존합니다. |
 | 2026-09-10 | implemented | 안전하지 않은 legacy 대상 확장을 analyzer 계획 전 state 전용 주소 조정으로 교체했습니다. 이 마이그레이션은 이전 주소와 현재 주소가 공존하면 실패하고 state digest를 기록하며, Terraform 대상과 허용된 변경 집합을 analyzer Job으로 제한합니다. | `current change`, 집중 조정, 정확한 대상 및 부정 범위 테스트, 보호 실행 `34432091729`에서 대상 확장이 관련 없는 dependency를 허용했고 guard가 이를 올바르게 차단함 | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | 함수 수준 guard가 있었지만 parser가 workflow 호출을 거부한 문제를 수정하기 위해 실행 가능한 계획 범위 CLI 경계에 범위가 제한된 analyzer 모드를 등록했습니다. | `current change`, CLI 허용 및 부정 범위 계약 테스트, 실패한 보호 실행 `34430430009` | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | Analyzer 전용 계획 중 기록된 state 이동을 마무리하도록 Terraform이 요구하는 두 legacy Container Apps Job 주소를 허용된 변경 집합에는 추가하지 않고 대상 closure에 포함했습니다. | `current change`, workflow 대상 및 부정 범위 계약 테스트, 실패한 보호 계획 `34428877985`에서 필요한 closure 확인 | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |

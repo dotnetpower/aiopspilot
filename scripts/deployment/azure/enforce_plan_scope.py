@@ -29,7 +29,7 @@ _RCA_READER_IDENTITY = frozenset(
         "azurerm_role_assignment.rca_monitoring_reader",
     }
 )
-_OBSERVABILITY_ANALYZER = frozenset({"module.compute.azurerm_container_app_job.analyzer_tick[0]"})
+_OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",

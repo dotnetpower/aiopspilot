@@ -546,11 +546,12 @@ Local runs without a stable execution identity do not create an operational rece
 Protected split-service deployment verifies provenance, SBOM, and Core model-material attestations
 from the digest-pinned GHCR OCI subject, avoiding unrelated public Blob DNS dependencies on the
 private deployment runner.
-The protected `plan-observability-*` and `apply-observability-*` request family admits changes only
-to the analyzer Container Apps Job. Before planning, a state-only reconciliation moves only the two
-known legacy Job addresses to their indexed destinations, fails on conflicting addresses, and
-records before/after state digests. The plan continues to target only the analyzer Job, and the
-bounded scope guard rejects every other resource change.
+The protected `plan-observability-*` and `apply-observability-*` request family targets one
+state-only Terraform updater rather than the analyzer resource's broad prerequisite graph. It
+accepts only digest-pinned ACR images and one fixed Job/container name. Apply updates that image,
+verifies authoritative readback, and restores the prior digest when verification fails. The
+original Container Apps Job resource remains the declarative owner, so the updater converges to the
+same configured image without taking ownership of any other Job property.
 
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,
