@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 99508a4ceaa3228782d10d91f85293f6f5efaa4a
+translation_source_sha: 5b9dd601f51400fcb08975fd8230b5c184f6c3c5
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -183,7 +183,11 @@ Terraform이 stack을 직접 생성하도록 합니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와
-수명 주기 도우미는 OS와 GitHub 등록을 초기화하는 할당 해제를 모두 거부합니다.
+수명 주기 도우미는 OS와 GitHub 등록을 초기화하는 할당 해제를 모두 거부합니다. 전체 범위 drift는
+안정 deploy principal의 직접 Azure 역할을 Bootstrap 및 플랫폼 Terraform 상태의 정확한 합집합과
+비교합니다. 누락된 역할과 상태 밖 권한을 모두 실패로 처리하고 정제된 매니페스트 증적을 보존합니다.
+같은 실행은 일회용 시나리오 상태가 없거나 관리 리소스 인스턴스를 소유하지 않도록 요구하고 별도
+종료 증적을 보존합니다.
 모니터링을 활성화하면 PostgreSQL, Key Vault, Event Hubs 및 Container Apps용 action group과
 metric alert, Log Analytics diagnostic setting을 프로비저닝합니다. 경보는 사람 신호일 뿐 자율
 작업이 아닙니다.
