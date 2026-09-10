@@ -8,10 +8,12 @@ from datetime import datetime
 from typing import Any, Final, cast
 
 from fdai_service_contracts import JsonObject, JsonValue
+from fdai_service_contracts.incident_intervention import incident_target_ref
 
 from fdai_operator_service.projection_logic import audit_item
 
 INCIDENT_TITLE_LIMIT: Final = 160
+_MAX_INCIDENT_RESOURCE_ID_CHARS: Final = 2_048
 _CANONICAL_INCIDENT_STATES: Final = frozenset(
     {"open", "triaging", "mitigated", "resolved", "closed"}
 )
@@ -65,6 +67,7 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
             "title_source": title_source,
             "source": _incident_source_context(newest),
             "response_plan": _incident_response_plan(newest),
+            "target_ref": _incident_target_ref(rows, items),
             "independent_outcome_verified": bool(
                 _first_entry_typed_value(newest, "independent_outcome_verified", bool)
             ),
@@ -352,6 +355,44 @@ def _correlation_subjects(items: Sequence[JsonObject]) -> tuple[str | None, str 
             elif resource is None and value.startswith("resource:") and value[9:]:
                 resource = value[9:]
     return signal, resource
+
+
+def _incident_target_ref(
+    rows: Sequence[Mapping[str, Any]],
+    items: Sequence[JsonObject],
+) -> str | None:
+    """Digest one exact recorded resource target without exposing its identifier."""
+    if "canonical_correlation_keys" in rows[-1]:
+        return _target_ref_from_correlation_keys(rows[-1].get("canonical_correlation_keys"))
+    resources: set[str] = set()
+    for item in items:
+        keys = _mapping(item.get("entry")).get("correlation_keys")
+        resource = _resource_from_correlation_keys(keys)
+        if resource is None and any(value.startswith("resource:") for value in _strings(keys)):
+            return None
+        if resource is not None:
+            resources.add(resource)
+    if len(resources) != 1:
+        return None
+    return incident_target_ref(resources.pop())
+
+
+def _target_ref_from_correlation_keys(keys: object) -> str | None:
+    resource = _resource_from_correlation_keys(keys)
+    if resource is None:
+        return None
+    return incident_target_ref(resource)
+
+
+def _resource_from_correlation_keys(keys: object) -> str | None:
+    resources = tuple(
+        value[9:].strip()
+        for value in _strings(keys)
+        if value.startswith("resource:") and value[9:].strip()
+    )
+    if len(resources) != 1 or len(resources[0]) > _MAX_INCIDENT_RESOURCE_ID_CHARS:
+        return None
+    return resources[0]
 
 
 def _resource_subject(value: str) -> str:

@@ -12,6 +12,7 @@ import psycopg
 import pytest
 from fdai_operator_service.incident_projection import incident_summary
 from fdai_operator_service.postgres_sql import INCIDENT_CURRENT_PAGE_SQL, INCIDENT_PAGE_SQL
+from fdai_service_contracts.incident_intervention import incident_target_ref
 from psycopg import sql
 from psycopg.rows import dict_row
 
@@ -139,7 +140,10 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
                     "incident_id":"incident-1",
                     "incident_number":"INC-202608-0001",
                     "opened_at":"2026-08-25T00:00:00+00:00",
-                    "state":"open"
+                    "state":"open",
+                    "correlation_keys":[
+                        "resource:/subscriptions/example/resourceGroups/example"
+                    ]
                 }'::jsonb
             )
             """
@@ -253,6 +257,9 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
     assert summary["status"] == "in_progress"
     assert summary["status_source"] == "incident_lifecycle"
     assert summary["lifecycle_state"] == "triaging"
+    assert summary["target_ref"] == incident_target_ref(
+        "/subscriptions/example/resourceGroups/example"
+    )
 
 
 def test_canonical_projection_backfill_is_set_based_and_historical(
