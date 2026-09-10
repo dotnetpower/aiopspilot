@@ -199,6 +199,11 @@ from fdai.delivery.persistence.postgres_t2_cache import (
     T2CacheLifecycleError,
     T2CacheRotationReceipt,
 )
+from fdai.delivery.persistence.postgres_target_dispatch_fence import (
+    PostgresTargetDispatchFenceStore,
+    PostgresTargetDispatchFenceStoreConfig,
+    TargetDispatchFenceCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
@@ -305,6 +310,8 @@ __all__ = [
     "PostgresIdempotencyStoreConfig",
     "PostgresIdempotencyReservationStore",
     "PostgresIdempotencyReservationStoreConfig",
+    "PostgresTargetDispatchFenceStore",
+    "PostgresTargetDispatchFenceStoreConfig",
     "PostgresIncidentProposalStore",
     "PostgresJiraLedger",
     "PostgresMeteringStore",
@@ -376,6 +383,7 @@ __all__ = [
     "PostgresWorkflowDefinitionStore",
     "PostgresWorkflowDefinitionStoreConfig",
     "ReservationCompareAndSetError",
+    "TargetDispatchFenceCompareAndSetError",
     "RpcClaimConflictError",
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
