@@ -79,6 +79,11 @@ from fdai.delivery.persistence.postgres_idempotency import (
     PostgresIdempotencyStore,
     PostgresIdempotencyStoreConfig,
 )
+from fdai.delivery.persistence.postgres_idempotency_reservation import (
+    PostgresIdempotencyReservationStore,
+    PostgresIdempotencyReservationStoreConfig,
+    ReservationCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_incident_notification import (
     PostgresIncidentNotificationDeliveryStore,
 )
@@ -292,6 +297,8 @@ __all__ = [
     "PostgresExecutionSubmissionLedgerConfig",
     "PostgresIdempotencyStore",
     "PostgresIdempotencyStoreConfig",
+    "PostgresIdempotencyReservationStore",
+    "PostgresIdempotencyReservationStoreConfig",
     "PostgresIncidentProposalStore",
     "PostgresJiraLedger",
     "PostgresMeteringStore",
@@ -362,6 +369,7 @@ __all__ = [
     "PostgresWorkflowBindingStore",
     "PostgresWorkflowDefinitionStore",
     "PostgresWorkflowDefinitionStoreConfig",
+    "ReservationCompareAndSetError",
     "RpcClaimConflictError",
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
