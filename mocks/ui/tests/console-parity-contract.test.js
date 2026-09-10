@@ -24,6 +24,10 @@ const dashboardEssentialStyles = readFileSync(
   join(uiRoot, "assets", "dashboard-essential.css"),
   "utf8",
 );
+const dashboardResourceEssentialStyles = readFileSync(
+  join(uiRoot, "assets", "dashboard-resource-essential.css"),
+  "utf8",
+);
 const governanceEvidenceStyles = readFileSync(
   join(uiRoot, "assets", "governance-evidence-workspace.css"),
   "utf8",
@@ -252,6 +256,8 @@ test("material studies stay separate from the decision-focused Dashboard", () =>
   assert.doesNotMatch(dashboard, /material-glass-renderer|cs-calacatta-dashboard|glass-slide/);
   assert.match(dashboard, /class="de-card de-attention"/);
   assert.match(dashboard, /class="de-card de-posture"/);
+  assert.match(dashboard, /class="de-toast" role="status"/);
+  assert.doesNotMatch(dashboard, /class="de-boundary"/);
   assert.ok(
     dashboard.indexOf('class="de-card de-attention"')
       < dashboard.indexOf("<h2>Routing and control</h2>"),
@@ -311,12 +317,47 @@ test("material studies stay separate from the decision-focused Dashboard", () =>
   assert.match(dashboardEssentialStyles, /\.de-posture-grid/);
   assert.match(dashboardEssentialStyles, /width: min\(100%, 1180px\)/);
   assert.match(dashboardEssentialStyles, /prefers-reduced-motion: reduce/);
+  assert.match(dashboardEssentialStyles, /animation: de-toast-lifecycle 6s ease forwards/);
+  assert.match(dashboardEssentialStyles, /@keyframes de-toast-dismiss/);
+  assert.match(dashboardEssentialStyles, /pointer-events: none/);
   assert.doesNotMatch(dashboardEssentialStyles, /translateY\(-1px\)/);
   assert.match(
     dashboardEssentialStyles,
     /body\.cs-dashboard-essential \.de-attention-grid > a:first-child:hover/,
   );
   assert.match(dashboardEssentialStyles, /background-color: #f5ede2/);
+});
+
+test("Resource Dashboard uses the decision-first resource workspace", () => {
+  const dashboard = readFileSync(join(uiRoot, "dashboard-v2.html"), "utf8");
+  assert.match(
+    dashboard,
+    /class="dashboard-preview cs-operator-neutral cs-dashboard-essential cs-resource-dashboard"/,
+  );
+  assert.match(dashboard, /assets\/dashboard-essential\.css/);
+  assert.match(dashboard, /assets\/dashboard-resource-essential\.css/);
+  assert.match(dashboard, /class="de-toast" role="status" aria-live="polite"/);
+  assert.match(dashboard, /class="dr-preview-controls rd-example-controls"/);
+  assert.match(dashboard, /class="rd-snapshot-card"/);
+  assert.match(dashboard, /class="dr-workspace rd-primary-workspace"/);
+  assert.doesNotMatch(dashboard, /class="cs-readonly-banner dr-preview-controls"/);
+  assert.doesNotMatch(dashboard, /material-glass-renderer|cs-calacatta-dashboard|glass-slide/);
+  assert.ok(
+    dashboard.indexOf('class="rd-snapshot-card"')
+      < dashboard.indexOf('class="dr-workspace rd-primary-workspace"'),
+  );
+  assert.ok(
+    dashboard.indexOf('class="dr-resource-panel"')
+      < dashboard.indexOf('class="dr-lower-grid"'),
+  );
+  assert.match(dashboardResourceEssentialStyles, /width: min\(100%, 1400px\)/);
+  assert.match(
+    dashboardResourceEssentialStyles,
+    /\.rd-primary-workspace > \.dr-lower-grid \{\s+grid-column: 1;/,
+  );
+  assert.match(dashboardResourceEssentialStyles, /\.dr-attention \{\s+background: #fffdf9;/);
+  assert.match(dashboardResourceEssentialStyles, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(dashboardResourceEssentialStyles, /translateY\(/);
 });
 
 test("knowledge graph renders every generated ontology node kind", () => {

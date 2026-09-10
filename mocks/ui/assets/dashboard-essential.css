@@ -1,4 +1,4 @@
-/* Dashboard decision-compression surface. Material experiments remain separate studies. */
+/* Decision-first Quiet Operations dashboard. Material experiments remain separate studies. */
 body.cs-dashboard-essential[data-chat-theme="clear-neutral"] {
   --cs-bg: #f2f4f3;
   --cs-card: #ffffff;
@@ -16,34 +16,34 @@ body.cs-dashboard-essential[data-chat-theme="clear-neutral"] {
 
 body.cs-dashboard-essential > main {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   width: min(100%, 1180px);
   max-width: 1180px;
   margin: 0 auto;
-  padding: 36px 24px 80px;
+  padding: 20px 24px 72px;
 }
 
 .cs-dashboard-essential .de-page-header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 0 4px 8px;
+  padding: 0 4px;
 }
 
 .cs-dashboard-essential .de-page-header h1 {
   margin: 0;
   font-family: "Segoe UI Variable Display", var(--cs-font);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 600;
   line-height: 1.15;
 }
 
 .cs-dashboard-essential .de-page-header p {
   max-width: 72ch;
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--cs-text-soft);
-  font-size: 14px;
+  font-size: var(--cs-type-compact-size);
 }
 
 .cs-dashboard-essential .de-page-header .cs-control-button {
@@ -57,20 +57,50 @@ body.cs-dashboard-essential > main {
   background: #fbfcfb;
 }
 
-.cs-dashboard-essential .de-boundary {
+.cs-dashboard-essential .de-toast {
+  position: fixed;
+  z-index: 80;
+  right: 16px;
+  bottom: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin: -4px 4px 0;
-  padding: 9px 12px;
-  border-radius: 6px;
-  background: #eef1ef;
+  width: min(420px, calc(100% - 32px));
+  padding: 12px 14px;
+  border: 1px solid #dfe4e1;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.97);
   color: var(--cs-text-soft);
   font-size: var(--cs-type-compact-size);
+  box-shadow:
+    0 2px 6px rgba(37, 46, 42, 0.08),
+    0 16px 40px rgba(37, 46, 42, 0.12);
+  pointer-events: none;
+  animation: de-toast-lifecycle 6s ease forwards;
 }
 
-.cs-dashboard-essential .de-boundary strong {
+.cs-dashboard-essential .de-toast strong {
   color: var(--cs-text);
+}
+
+@keyframes de-toast-lifecycle {
+  0%,
+  72% {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  100% {
+    visibility: hidden;
+    opacity: 0;
+  }
+}
+
+@keyframes de-toast-dismiss {
+  to {
+    visibility: hidden;
+    opacity: 0;
+  }
 }
 
 .cs-dashboard-essential .de-card {
@@ -342,8 +372,8 @@ body.cs-dashboard-essential .de-attention-grid > a:first-child:hover {
 
 @media (max-width: 620px) {
   body.cs-dashboard-essential > main {
-    gap: 12px;
-    padding: 20px 16px 48px;
+    gap: 10px;
+    padding: 12px 16px 48px;
   }
 
   .cs-dashboard-essential .de-page-header,
@@ -354,11 +384,44 @@ body.cs-dashboard-essential .de-attention-grid > a:first-child:hover {
   }
 
   .cs-dashboard-essential .de-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 4px 12px;
     padding-inline: 0;
   }
 
-  .cs-dashboard-essential .de-boundary {
-    margin-inline: 0;
+  .cs-dashboard-essential .de-page-header > div {
+    display: contents;
+  }
+
+  .cs-dashboard-essential .de-page-header h1 {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .cs-dashboard-essential .de-page-header h1 :is(
+    .cs-page-domain,
+    .cs-page-separator
+  ) {
+    display: none;
+  }
+
+  .cs-dashboard-essential .de-page-header p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .cs-dashboard-essential .de-page-header .cs-control-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .cs-dashboard-essential .de-toast {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100% - 24px);
   }
 
   .cs-dashboard-essential .de-card {
@@ -390,6 +453,10 @@ body.cs-dashboard-essential .de-attention-grid > a:first-child:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cs-dashboard-essential .de-toast {
+    animation: de-toast-dismiss 1ms linear 6s forwards;
+  }
+
   .cs-dashboard-essential :is(
     .de-attention-grid > a,
     .de-primary-metric,
