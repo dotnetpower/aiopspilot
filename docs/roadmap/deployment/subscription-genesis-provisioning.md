@@ -45,7 +45,7 @@ subscription-onboarding product:
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
 | Operator entry point | `fdaictl` provides bootstrap reconciliation plus protected application plan, exact apply, status, and verification-only resume | Approved foundation apply, remote-state handoff, and one complete ready receipt remain open. |
-| Genesis progress | `genesis-up.sh` now runs an eight-stage local router with private JSON status, exact completed and remaining counts, provider reconciliation, and an effective-policy probe | The router stops at the exact application or foundation approval boundary. No durable Blob-to-Operator mirror or complete readiness producer exists. |
+| Genesis progress | `genesis-up.sh` now runs an eight-stage local router with private JSON status, exact completed and remaining counts, provider reconciliation, and an effective-policy probe. One exact-green live run registered three missing baseline namespaces, read back 16 of 16, selected `private-runner`, verified probe cleanup, and left zero deployment-owned resources. | The private route still requires a signed offline kit, exact managed runner image, Foundation profile and variables, exact plan review, and an approved apply executor. No durable Blob-to-Operator mirror or complete readiness producer exists. |
 | Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
@@ -101,6 +101,11 @@ exact ownership cleanup is verified. A public-compatible result runs a nonintera
 preview and waits for an exact approved plan. A private result waits for the separately reviewed
 Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
 preview, or sets subscription readiness.
+
+When private artifacts aren't supplied, the stable stop reason is
+`private_foundation_external_artifacts_required`. The next action names the signed kit, exact
+runner image, Foundation profile, and exact plan generation instead of suggesting an apply that
+the current workflow cannot execute.
 
 Each transition prints an ASCII progress bar, percentage, completed-stage count, and remaining
 stage count. The same identifier-free state is replaced atomically in a mode-`0600` JSON file under

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 1d43cf4d343adbe932ea7f4381baa6fce5bacdcb
+translation_source_sha: 416752969e15222fabf338f7758a8ccd0cbd9031
 translation_revised: 2026-09-10
 ---
 
@@ -29,8 +29,8 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 Genesis는 사용자 입력 없이 번호가 지정된 8개 단계, 정확한 진행률, 남은 작업을 표시합니다.
 `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및
 Storage 정책 프로브의 생성 및 검증된 정리만 승인합니다. `public-dev` 결과는 정확히 승인된
-계획을 위해 미리 보기 후 대기합니다. `private-runner` 결과는 별도로 검토한 기반 계층 계획을
-기다립니다. 어느 경로도 봉인되지 않은 계획을 적용하거나 구독 준비 상태를 주장하지 않습니다.
+계획을 위해 미리 보기 후 대기합니다. `private-runner` 결과는 `private_foundation_external_artifacts_required`를 보고하고 서명된 키트, 정확한 실행기 이미지,
+기반 계층 프로필, 정확한 계획 생성을 명시합니다. 어느 경로도 봉인되지 않은 계획을 적용하거나 구독 준비 상태를 주장하지 않습니다.
 
 소유자 전용 `secrets/license-signing-key.pem`이 패키지 공개 키와 일치하면 확인된 공개 경로가
 정확한 이미지와 배포에 연결된 최대 30일 토큰을 발급하고 전체 토큰 다이제스트 이름의 Key Vault

@@ -568,7 +568,10 @@ def test_private_policy_route_never_invokes_the_public_executor(
     assert payload["state"] == "waiting"
     assert payload["route"] == "private-runner"
     assert payload["progress_percent"] == 75
-    assert payload["reason_code"] == "private_foundation_apply_unavailable"
+    assert payload["reason_code"] == "private_foundation_external_artifacts_required"
+    assert payload["next_action"] == (
+        "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan"
+    )
 
 
 def test_public_policy_route_stops_at_the_exact_plan_approval_boundary(
