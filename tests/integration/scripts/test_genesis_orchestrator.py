@@ -598,22 +598,24 @@ def test_mutation_enabled_toolchain_prepares_access_tools_first(
         reason: str,
         *,
         timeout: int,
+        capture: bool = False,
         **_kwargs: object,
     ) -> None:
-        calls.append(("run", (arguments, reason, timeout)))
+        calls.append(("run", (arguments, reason, timeout, capture)))
 
     monkeypatch.setattr(instance.checks, "run_required", run_required)
 
     orchestrator.GenesisOrchestrator._verify_toolchain(instance)
 
     assert calls[0] == ("verify", True)
-    arguments, reason, timeout = calls[1][1]
+    arguments, reason, timeout, capture = calls[1][1]
     assert arguments == (
         "bash",
         str(_ROOT / "scripts/deployment/azure/prepare-genesis-access-tools.sh"),
     )
     assert reason == "azure_access_tool_preparation_failed"
     assert timeout == 600
+    assert capture is True
 
 
 def test_inspection_toolchain_does_not_change_access_tool_configuration(
@@ -921,7 +923,8 @@ def test_policy_route_is_rejected_without_verified_probe_cleanup(
         env: dict[str, str] | None = None,
         capture: bool = False,
     ) -> None:
-        del timeout, env, capture
+        del timeout, env
+        assert capture is True
         output = Path(arguments[arguments.index("--output-file") + 1])
         output.write_text(
             json.dumps(

@@ -357,6 +357,7 @@ class GenesisOrchestrator:
             "policy_probe_failed",
             timeout=self._bounded_timeout(1800, minimum=1800),
             env=environment,
+            capture=True,
         )
         report = json.loads(policy_file.read_text(encoding="utf-8"))
         if (

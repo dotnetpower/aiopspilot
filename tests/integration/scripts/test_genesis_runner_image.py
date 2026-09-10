@@ -132,9 +132,17 @@ def test_inputs_pin_reviewed_toolchain_and_exact_source_image(tmp_path: Path) ->
     assert values["source_image_version"] == "24.04.202608270"
     assert values["github_runner_version"] == "2.337.0"
     assert values["terraform_version"] == "1.9.8"
+    assert values["terraform_sha256"] == (
+        "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8"
+    )
+    assert values["terraform_binary_sha256"] == (
+        "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223"
+    )
     assert values["opa_version"] == "0.68.0"
     assert inputs.source_commit == SOURCE
-    assert len(inputs.toolchain_digest) == 64
+    assert inputs.toolchain_digest == (
+        "572345bb84e151841fe8506121f9d4e246046cdf39936309aac6acd1e10ab7c8"
+    )
     assert destination.stat().st_mode & 0o777 == 0o600
     assert "runner_source_image_id" not in values
 

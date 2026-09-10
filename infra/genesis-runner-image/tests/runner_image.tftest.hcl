@@ -2,14 +2,14 @@ mock_provider "azapi" {
   override_resource {
     target = azapi_resource.template
     values = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-ac86e9904343/providers/Microsoft.VirtualMachineImages/imageTemplates/it-example-runner-krc-ac86e9904343"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.VirtualMachineImages/imageTemplates/it-example-runner-krc-2e17f214622f"
     }
   }
   override_data {
     target = data.azapi_resource.runner_image
     values = {
       output = {
-        id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-ac86e9904343/providers/Microsoft.Compute/images/img-runner-example-dev-krc-ac86e9904343"
+        id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.Compute/images/img-runner-example-dev-krc-2e17f214622f"
         location = "koreacentral"
         properties = {
           provisioningState = "Succeeded"
@@ -21,7 +21,7 @@ mock_provider "azapi" {
         }
         tags = {
           "fdai:source-commit"    = "0000000000000000000000000000000000000000"
-          "fdai:toolchain-digest" = "ac86e99043437fe4ee7efb96d8886190baa7def5ce8d2704eb95f3693a7cfe9c"
+          "fdai:toolchain-digest" = "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1"
         }
       }
     }
@@ -31,19 +31,19 @@ mock_provider "azurerm" {
   override_resource {
     target = azurerm_resource_group.image
     values = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-ac86e9904343"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f"
     }
   }
   override_resource {
     target = azurerm_resource_group.staging
     values = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-ac86e9904343"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f"
     }
   }
   override_resource {
     target = azurerm_user_assigned_identity.builder
     values = {
-      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-ac86e9904343/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-runner-build-krc-ac86e9904343"
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-runner-build-krc-2e17f214622f"
       principal_id = "00000000-0000-0000-0000-000000000001"
     }
   }
@@ -63,6 +63,7 @@ variables {
   azure_cli_package_version         = "2.88.0-1~noble"
   microsoft_package_key_fingerprint = "BC528686B50D79E339D3721CEB3E94ADBE1229CF"
   terraform_version                 = "1.9.8"
+  terraform_binary_sha256           = "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223"
   terraform_sha256                  = "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8"
   opa_version                       = "0.68.0"
   opa_sha256                        = "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
@@ -105,7 +106,9 @@ run "exact_image_builder_contract" {
       strcontains(file("${path.module}/enroll-runner.sh"), "ACTIONS_RUNNER_INPUT_TOKEN") &&
       strcontains(local.customizer, "/usr/local/sbin/fdai-attest-runner") &&
       strcontains(local.customizer, "/usr/local/sbin/fdai-migrate-foundation-state") &&
+      strcontains(local.customizer, var.terraform_binary_sha256) &&
       !strcontains(file("${path.module}/enroll-runner.sh"), "--token") &&
+      local.toolchain_digest == "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1" &&
       azapi_resource.template.body.properties.distribute[0].type == "ManagedImage" &&
       azapi_resource.template.body.properties.distribute[0].imageId == local.image_id &&
       azapi_resource.template.body.properties.distribute[0].artifactTags["fdai:toolchain-digest"] == local.toolchain_digest &&
@@ -144,4 +147,14 @@ run "reject_malformed_tool_digest" {
   }
 
   expect_failures = [var.terraform_sha256]
+}
+
+run "reject_malformed_terraform_binary_digest" {
+  command = plan
+
+  variables {
+    terraform_binary_sha256 = "not-a-digest"
+  }
+
+  expect_failures = [var.terraform_binary_sha256]
 }

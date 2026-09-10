@@ -18,6 +18,9 @@ The image customization installs the versions and SHA-256 values declared in `to
 - GitHub Actions runner
 - the enrollment, attestation, and Foundation state-handoff helpers
 
+Terraform's official ZIP and the executable extracted from it have separate SHA-256 fields. Local
+planning authenticates the executable, while image customization authenticates both artifacts.
+
 The image remains unregistered. `genesis-runner-enrollment.sh` later sends a short-lived GitHub
 registration token only through SSH standard input over an exact Azure Bastion tunnel.
 

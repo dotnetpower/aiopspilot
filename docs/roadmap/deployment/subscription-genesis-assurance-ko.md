@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: e0bc4be68a542032b4a043d532e8ab4522704d35
+translation_source_sha: a91e2090175daec073570ebebd03200b849384af
 translation_revised: 2026-09-11
 ---
 # 구독 초기 구성 보증
@@ -127,6 +127,8 @@ Command, 로그, 상태, 증적에 넣지 않습니다. 이식 가능한 상태�
 - 대상 Azure 클라우드의 유효 경로, 방화벽, 네트워크 보안 그룹, 서비스 태그, 프록시 신뢰,
   비공개 DNS 응답
 - 검증된 실행에서 확인되지 않은 `latest` 다운로드를 사용하지 않는 체크섬 고정 도구와 이미지
+- 패키징으로 바이트가 바뀌는 경우 각각 인증된 아카이브 및 추출 실행 파일 다이제스트와 계획,
+  이미지 태그, 증명이 공유하는 스키마 버전 지정 도구 체인 다이제스트
 - 범위가 제한된 송신 또는 완전한 서명 오프라인 키트
 - 디스크 모델에 맞는 재부팅 또는 할당 해제 후 정상 실행기 신호
 

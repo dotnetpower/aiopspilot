@@ -7,6 +7,7 @@ locals {
     azure_cli_package_version         = var.azure_cli_package_version
     microsoft_package_key_fingerprint = var.microsoft_package_key_fingerprint
     terraform_version                 = var.terraform_version
+    terraform_binary_sha256           = var.terraform_binary_sha256
     terraform_sha256                  = var.terraform_sha256
     opa_version                       = var.opa_version
     opa_sha256                        = var.opa_sha256
@@ -23,6 +24,7 @@ locals {
     azure_cli_package_version         = var.azure_cli_package_version
     microsoft_package_key_fingerprint = var.microsoft_package_key_fingerprint
     terraform_version                 = var.terraform_version
+    terraform_binary_sha256           = var.terraform_binary_sha256
     terraform_sha256                  = var.terraform_sha256
     opa_version                       = var.opa_version
     opa_sha256                        = var.opa_sha256

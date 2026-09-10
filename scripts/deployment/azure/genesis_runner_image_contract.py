@@ -36,6 +36,7 @@ _TOOLCHAIN_FIELDS = {
     "microsoft_package_key_fingerprint",
     "opa_sha256",
     "opa_version",
+    "terraform_binary_sha256",
     "terraform_sha256",
     "terraform_version",
 }
@@ -126,6 +127,7 @@ def add_source_image_version(
                 "microsoft_package_key_fingerprint",
                 "opa_sha256",
                 "opa_version",
+                "terraform_binary_sha256",
                 "terraform_sha256",
                 "terraform_version",
             }

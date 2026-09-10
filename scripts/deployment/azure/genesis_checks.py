@@ -54,6 +54,7 @@ class GenesisChecks:
             ),
             "azure_access_tool_preparation_failed",
             timeout=timeout,
+            capture=True,
         )
 
     def verify_target(self, *, subscription_id: str, tenant_id: str, region: str) -> None:

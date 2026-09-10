@@ -42,6 +42,7 @@ test "$(jq -r .source_commit /etc/fdai-runner-image.json)" = "$source_commit"
 test "$(jq -r .toolchain_digest /etc/fdai-runner-image.json)" = "$toolchain_digest"
 test "$(az version --query '"azure-cli"' --output tsv)" = "$(jq -r .azure_cli_version /etc/fdai-runner-image.json)"
 test "$(terraform version -json | jq -r .terraform_version)" = "$(jq -r .terraform_version /etc/fdai-runner-image.json)"
+printf '%s  %s\n' "$(jq -r .terraform_binary_sha256 /etc/fdai-runner-image.json)" /usr/local/bin/terraform | sha256sum -c - >/dev/null
 opa version | grep -F "Version: $(jq -r .opa_version /etc/fdai-runner-image.json)" >/dev/null
 
 azure_config="$(mktemp -d)"

@@ -125,7 +125,7 @@ def _plan(args: argparse.Namespace) -> int:
     root_digest = snapshot_terraform_root(root / "infra/genesis-runner-image", terraform_root)
     terraform = _trusted_terraform(_absolute(args.terraform))
     terraform_digest = _file_digest(terraform)
-    if terraform_digest != inputs.terraform_values.get("terraform_sha256"):
+    if terraform_digest != inputs.terraform_values.get("terraform_binary_sha256"):
         raise ValueError("runner image Terraform executable does not match the pinned toolchain")
     environment = _terraform_environment(
         work_dir,

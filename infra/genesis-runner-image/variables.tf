@@ -152,6 +152,17 @@ variable "terraform_sha256" {
   }
 }
 
+variable "terraform_binary_sha256" {
+  description = "SHA-256 of the Terraform executable extracted from the authenticated archive."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.terraform_binary_sha256))
+    error_message = "terraform_binary_sha256 must be a lowercase SHA-256 digest."
+  }
+}
+
 variable "opa_version" {
   description = "Exact OPA version installed from its checksum-pinned static binary."
   type        = string

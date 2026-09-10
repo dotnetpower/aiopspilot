@@ -28,6 +28,7 @@ curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
   -o "$work_dir/terraform.zip"
 printf '%s  %s\n' '${terraform_sha256}' "$work_dir/terraform.zip" | sha256sum -c -
 unzip -q "$work_dir/terraform.zip" -d "$work_dir/terraform"
+printf '%s  %s\n' '${terraform_binary_sha256}' "$work_dir/terraform/terraform" | sha256sum -c -
 install -m 0755 "$work_dir/terraform/terraform" /usr/local/bin/terraform
 
 curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
@@ -45,7 +46,7 @@ printf '%s  %s\n' '${github_runner_sha256}' "$runner_archive" | sha256sum -c -
 tar -tzf "$runner_archive" >/dev/null
 
 cat >/etc/fdai-runner-image.json <<'JSON'
-{"azure_cli_version":"${azure_cli_version}","github_runner_sha256":"${github_runner_sha256}","github_runner_version":"${github_runner_version}","opa_sha256":"${opa_sha256}","opa_version":"${opa_version}","schema_version":"fdai.genesis-runner-image.v1","source_commit":"${source_commit}","source_image_version":"${source_image_version}","terraform_sha256":"${terraform_sha256}","terraform_version":"${terraform_version}","toolchain_digest":"${toolchain_digest}"}
+{"azure_cli_version":"${azure_cli_version}","github_runner_sha256":"${github_runner_sha256}","github_runner_version":"${github_runner_version}","opa_sha256":"${opa_sha256}","opa_version":"${opa_version}","schema_version":"fdai.genesis-runner-image.v1","source_commit":"${source_commit}","source_image_version":"${source_image_version}","terraform_binary_sha256":"${terraform_binary_sha256}","terraform_sha256":"${terraform_sha256}","terraform_version":"${terraform_version}","toolchain_digest":"${toolchain_digest}"}
 JSON
 chmod 0644 /etc/fdai-runner-image.json
 printf '%s' '${enrollment_script}' | base64 -d >/usr/local/sbin/fdai-enroll-runner
