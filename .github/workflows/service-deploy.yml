@@ -682,6 +682,12 @@ jobs:
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
                 output -raw operator_api_name 2>/dev/null || true
             )"
+            if [[ -z "$operator_api_name" && "$SERVICE" == "operator-service" ]]; then
+              operator_api_name="$(
+                terraform -chdir="$TERRAFORM_ROOT" output -json service \
+                  | jq -er '.name | strings | select(test("-(operator-api|readapi)$"))'
+              )"
+            fi
             runtime_call_evidence_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
                 output -json runtime_call_evidence_binding 2>/dev/null || printf 'null\n'
