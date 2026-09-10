@@ -98,8 +98,9 @@ file digest alone does not establish cross-format equivalence.
   provider property bags. Runtime bootstrap binds the source only when
   `FDAI_CONFIGURATION_DRIFT_ENABLED` is explicit and every scope, baseline, subscription, and
   attribute prerequisite is valid. A protected Core service transition reconstructs the reviewed
-  snapshot on the VNet-integrated deployment runner, checks the exact canonical digest and expected
-  resource count, and stores the content only as an immutable, content-addressed private Blob. The
+  snapshot from a bounded protected secret envelope on the VNet-integrated deployment runner,
+  checks the exact canonical digest and expected resource count, and stores the content only as an
+  immutable, content-addressed private Blob. The
   repository and service plan contain only the binding metadata. Core reads that Blob through its
   Managed Identity, and post-apply verification reads the deployed binding and Blob independently
   before comparing a fresh Azure Resource Graph observation. The retained receipt includes only
