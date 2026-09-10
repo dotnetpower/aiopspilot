@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c66ff8d171539297e9ad38de0b7f90429f492a4f
+translation_source_sha: 30913e44c3ab72067802fe852b18f6b0af360d47
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -231,8 +231,7 @@ attestation, 배포 근거 및 별도 사람 승인에 결속하고 독립적인
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
 
-의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
-`semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는
+의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는
 결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된

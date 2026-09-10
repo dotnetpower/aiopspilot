@@ -225,8 +225,7 @@ including the Dashboard v2 catalog, so a new route cannot hide a missing English
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. `semantic_planning_fallbacks.py` owns
-deterministic clarification and candidate recovery. Focused sibling modules own frame checks,
-plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
+deterministic clarification and candidate recovery. Focused sibling modules own frame checks, plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, typed multi-pair
 relationship planning, and queries while preserving public imports, deterministic gate order, and
 read-only authority. Incident mitigation requirement questions remain advisory, while draft requests require an exact incident identity before producing a typed draft. `semantic_planning_judgment.py` and `semantic_planning_frame_gate.py` isolate judgment consumption and ordered frame gates, while `semantic_query_runtime_composition.py` owns runtime availability. `conversation_preflight_answer_safety.py` and `conversation_preflight_targets.py` isolate model-answer safety from exact target, time, and subscription-scope validation; `semantic_planning_preflight.py` and `semantic_target_candidate_constants.py` own compact descriptor selection and typed target-candidate sets; gateway plans collect authorized same-family names and `semantic_target_suggestions.py` ranks them without rebinding.

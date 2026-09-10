@@ -221,23 +221,12 @@ reverses it. The compensation contract is:
   affected targets. Only reads and separately approved Vidar recovery may cross that hold. A
   verified full compensation may use `status=compensated`; no partial outcome becomes `succeeded`.
 
-The process orchestrator now dispatches declared compensation through typed ingress. It writes a
-compensation intent before dispatch, records the proposal reference separately, and resumes the
+The process orchestrator now dispatches declared compensation through typed ingress. It writes a compensation intent before dispatch, records the proposal reference separately, and resumes the
 same Process after a crash. A proposal reference proves dispatch only. `WorkflowOutcomeVerifier`
-must independently validate each action and compensation receipt before a forward step completes or
-the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
+must independently validate each action and compensation receipt before a forward step completes or the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
-The recovery-admission boundary separately binds the complete `WorkflowApprovalSnapshot` quorum,
-exact hold revision, approval step and attempt, target digest, compensation receipt digests,
-distinct requester, approver, and executor identities, and source revision to one current
-`DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant
-authority. The hold ledger exposes an atomic release operation that guards the current durable approval policy
-and admission window, consumes that admission, increments the fencing generation, and stores a
-content-addressed no-authority release receipt with terminal audit. The production compensation
-coordinator still uses the legacy verified-recovery release and must adopt the guarded operation
-under issue #630. Issue #640 then owns the final dispatch recheck inside each execution path's
-existing logical-target lock.
+The recovery-admission boundary separately binds the complete `WorkflowApprovalSnapshot` quorum, exact hold revision, approval step and attempt, target digest, compensation receipt digests, distinct requester, approver, and executor identities, and source revision to one current `DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant authority. The hold ledger exposes an atomic release operation that guards the current durable approval policy and admission window, consumes that admission, increments the fencing generation, and stores a content-addressed no-authority release receipt with terminal audit. The production compensation coordinator still uses the legacy verified-recovery release and must adopt the guarded operation under issue #630. Issue #640 then owns the final dispatch recheck inside each execution path's existing logical-target lock.
 
 The upstream headless runtime and production Operator API bind
 `StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
