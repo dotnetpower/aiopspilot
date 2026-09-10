@@ -94,18 +94,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   receipt, verifier version, trust anchor, and validity window. Core selects a current non-revoked
   binding through the provider-neutral registry and fails closed on producer self-verification,
   timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
-  A verifier response that is not the registered bundle contract is a bounded verification failure.
-  Core revalidates a returned bundle instead of trusting an in-memory model instance.
-  Readiness results cannot retain a verification-bundle digest without the matching validated bundle.
-  An eligible result cannot carry rejection details.
-  A receipt is invalid when its evidence has already expired at `recorded_at`, so no decision can
-  admit an evidence window that was never usable after recording. A successful admission expires
-  no later than the receipt's own freshness window or the selected verifier binding.
-  A verification bundle issued before that binding became active is not trusted.
-  A bundle also cannot claim verification before the receipt was recorded.
-  Binding and evaluation timestamps require a defined UTC offset, not only a `tzinfo` object.
-  Cancellation remains a control-flow signal and is never converted into a verification result.
-  Cloud SDK use remains in delivery:
+  Unregistered or malformed verifier responses fail verification; Core revalidates returned bundles, readiness cannot retain an orphan digest, and eligible results cannot carry rejection details. Evidence expired at `recorded_at`, bundles predating recording or verifier activation, admissions beyond receipt or binding freshness, and timestamps without a defined UTC offset are invalid.
+  Cancellation remains a control-flow signal and is never converted into a verification result. Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.
