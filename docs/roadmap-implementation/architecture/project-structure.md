@@ -64,6 +64,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Revalidated returned verification bundles at the trust boundary instead of trusting preconstructed model instances. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Converted a verifier response outside the registered bundle contract into a bounded fail-closed result. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Rejected verification bundles that predate the evidence receipt's recorded time. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Rejected verification bundles issued before the selected verifier binding became active. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |

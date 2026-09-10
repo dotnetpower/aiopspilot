@@ -412,6 +412,21 @@ async def test_malformed_verifier_return_is_a_bounded_rejection() -> None:
     assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
 
 
+async def test_unvalidated_bundle_copy_is_revalidated_at_the_boundary() -> None:
+    receipt = _receipt()
+    revoked_bundle = _bundle(receipt).model_copy(update={"revoked": True})
+
+    result = await _gate(receipt, bundle=revoked_bundle).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
+
+
 async def test_verifier_cancellation_is_not_converted_to_rejection() -> None:
     receipt = _receipt()
 

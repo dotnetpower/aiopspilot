@@ -153,6 +153,12 @@ class DecisionEvidenceReadinessGate:
             return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
         if not isinstance(bundle, DecisionEvidenceVerificationBundle):
             return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
+        try:
+            bundle = DecisionEvidenceVerificationBundle.model_validate(
+                bundle.model_dump(mode="json")
+            )
+        except (PydanticValidationError, TypeError, ValueError):
+            return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
         return _evaluate_bundle(
             receipt,
             bundle=bundle,

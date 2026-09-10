@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 435cba5ae8f5eb4fc6db441893e72fc5d931dede
+translation_source_sha: e1cac2f88ac6eb151d50ffc43149b19cb5baf3d2
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -93,6 +93,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   Core는 공급자 중립 레지스트리에서 현재 유효하고 폐기되지 않은 결속을 선택하며 생성기 자체 검증,
   시간 초과, 프로바이더 또는 전송 실패, 불일치, 만료, 폐기 또는 합성 근거가 있으면 검증을
   차단합니다. 등록된 묶음 계약이 아닌 검증기 응답은 범위가 제한된 검증 실패로 처리합니다.
+  Core는 메모리의 모델 인스턴스를 그대로 신뢰하지 않고 반환된 묶음을 다시 검증합니다.
   근거가 `recorded_at` 시점에 이미 만료된 증적은 유효하지 않으므로, 기록 후에 사용할
   수 있었던 시점이 없는 근거 구간은 의사 결정에 허용되지 않습니다. 취소는 제어 흐름 신호로
   유지하며 검증 결과로 변환하지 않습니다. 허용된 admission은 증적 자체의 최신성 구간보다 늦게
