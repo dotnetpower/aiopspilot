@@ -176,7 +176,7 @@ Control-loop end-to-end tests count published actions and unresolved graph-deriv
 abstentions separately.
 Azure semantic query construction lives in `semantic_query_azure_composition.py`.
 `wire_semantic_query.py` directly re-exports that constructor while retaining the established
-public import, and the general wiring module stays below the enforced 800-line ceiling.
+public import and stays below 800 lines; `semantic_query_current_evidence.py` binds its exact registry, secured graph-first Resource scope, invocation authority, and principal digest to readiness probes.
 Governed conversational document retrieval spans the semantic judgment and planning modules,
 `core/knowledge/governed_document_reader.py`, the read-only
 `query.governed_documents` FunctionType, Operator identity projection, and Console evidence

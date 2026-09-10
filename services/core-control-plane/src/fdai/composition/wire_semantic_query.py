@@ -22,7 +22,6 @@ from fdai.core.conversation.semantic_planning_models import (
     CompleteManifestSelector,
     SemanticPlanningModel,
 )
-from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
@@ -167,11 +166,7 @@ from fdai.core.ontology_platform.resource_health_assessment_queries import (
     TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME,
     target_health_assessment_function,
 )
-from fdai.core.ontology_platform.resource_health_queries import (
-    RESOURCE_HEALTH_FUNCTION_NAME,
-    ResourceHealthCollectionReader,
-    resource_health_inventory_function,
-)
+from fdai.core.ontology_platform.resource_health_queries import ResourceHealthCollectionReader
 from fdai.core.ontology_platform.resource_ingress_queries import (
     RESOURCE_INGRESS_FUNCTION_NAME,
 )
@@ -181,14 +176,8 @@ from fdai.core.ontology_platform.resource_metric_queries import (
     resource_metric_inventory_function,
     resource_metric_series_function,
 )
-from fdai.core.ontology_platform.resource_state_queries import (
-    RESOURCE_STATE_FUNCTION_NAME,
-    resource_state_inventory_function,
-)
 from fdai.core.ontology_platform.service_health_queries import (
-    SERVICE_HEALTH_FUNCTION_NAME,
     ServiceHealthReader,
-    service_health_function,
 )
 from fdai.core.ontology_platform.state_transitions import (
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
@@ -225,8 +214,9 @@ from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 
 from .semantic_query_azure_composition import compose_azure_semantic_query_runtime
-from .semantic_query_health_values import (
-    resource_health_state_values as _resource_health_state_values,
+from .semantic_query_current_evidence import (
+    SemanticQueryConversationRuntime,
+    bind_semantic_current_evidence,
 )
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 
@@ -265,7 +255,7 @@ def build_semantic_query_runtime(
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
     adaptive_service: AdaptiveConversationService | None = None,
     governed_document_reader: GovernedDocumentReader | None = None,
-) -> SemanticConversationRuntime:
+) -> SemanticQueryConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
     if not purpose:
@@ -390,11 +380,18 @@ def build_semantic_query_runtime(
         semantic_resource_ingress_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    resource_state_declaration = declarations[RESOURCE_STATE_FUNCTION_NAME]
-    function_registry.register_contextual(
-        resource_state_declaration,
-        resource_state_inventory_function(ontology_release),
-        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+    current_evidence_probe = bind_semantic_current_evidence(
+        registry=function_registry,
+        declarations=declarations,
+        ontology_release=ontology_release,
+        gateway=gateway,
+        graph_refresher=graph_refresher,
+        resource_health_reader=resource_health_reader,
+        service_health_reader=service_health_reader,
+        inventory_query_language=inventory_query_language,
+        purpose=purpose,
+        now=evaluation_cutoff,
+        resource_freshness_seconds=resource_freshness_seconds,
     )
     if resource_event_reader is not None:
         resource_event_declaration = declarations[RESOURCE_EVENT_FUNCTION_NAME]
@@ -404,26 +401,6 @@ def build_semantic_query_runtime(
                 ontology_release,
                 reader=resource_event_reader,
             ),
-        )
-    if resource_health_reader is not None and inventory_query_language is not None:
-        resource_health_declaration = declarations[RESOURCE_HEALTH_FUNCTION_NAME]
-        function_registry.register_contextual(
-            resource_health_declaration,
-            resource_health_inventory_function(
-                ontology_release,
-                reader=resource_health_reader,
-                health_state_values=_resource_health_state_values(
-                    inventory_query_language,
-                ),
-            ),
-            authority=EvidenceAuthority.SERVER_RESOURCE_HEALTH,
-        )
-    if service_health_reader is not None:
-        service_health_declaration = declarations[SERVICE_HEALTH_FUNCTION_NAME]
-        function_registry.register_contextual(
-            service_health_declaration,
-            service_health_function(ontology_release, reader=service_health_reader),
-            authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
     if subscription_scope_reader is not None:
         subscription_scope_declaration = declarations[SUBSCRIPTION_SCOPE_FUNCTION_NAME]
@@ -782,11 +759,12 @@ def build_semantic_query_runtime(
             }
         )
 
-    return SemanticConversationRuntime(
+    return SemanticQueryConversationRuntime(
         planner=planner,
         executor_factory=executor_for,
         purpose=purpose,
         function_bindings=function_registry.binding_authorities,
+        current_evidence_probe=current_evidence_probe,
         adaptive_service=adaptive_service,
     )
 

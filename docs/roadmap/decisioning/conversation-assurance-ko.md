@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 3a9a1f94115e821781a3fc6a36f8d33c61d7c3f6
-translation_revised: 2026-09-09
+translation_source_sha: 3238c696dafda6e83eae339670190dbfc9d3c9dc
+translation_revised: 2026-09-10
 ---
 # 대화 품질 보증
 
@@ -362,7 +362,9 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 2. `build_semantic_query_runtime()`은 조합 의존성이 존재하는 콜백만 등록합니다. 레지스트리는
    함수와 권한의 변경할 수 없는 스냅샷을 런타임에 노출하고, 동일한 등록 집합이 principal 범위
    조회 매니페스트에 들어갑니다.
-3. 런타임 소유 probe는 현재 신원과 범위로 구체적인 공급자를 호출합니다. 모드가 `0600`인 비공개
+3. 런타임 소유 프로브는 측정되는 턴과 동일하게 인증된 로컬 사람 principal, 역할, 목적 및
+   principal 범위 다이제스트를 사용합니다. Graph-first 새로 고침 정책을 통해 보호된 현재
+   Resource 집합을 구체화하고 정확히 등록된 FunctionType을 호출합니다. 모드가 `0600`인 비공개
    증적에는 범위가 제한된 준비 상태 필드만 기록합니다.
 4. 준비 상태 축약기는 질문의 예상 권한과 성공한 probe가 실제로 제공한 권한을 비교합니다.
 5. watchdog은 요청한 포커스에서 근거가 준비된 질문만 선택합니다.
@@ -373,8 +375,16 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 |------|-------------|-----------|
 | `declared` | 활성 릴리스에 검토된 `FunctionType`이 있습니다. | unavailable backlog |
 | `bound` | 임시 조합이 구체적인 콜백과 필요한 어댑터를 모두 등록했습니다. | unavailable backlog |
-| `reachable` | 공급자가 런타임 신원과 구성된 범위를 통해 응답했습니다. | unavailable backlog |
+| `reachable` | 연결된 근거 소스가 런타임 신원과 구성된 범위를 통해 응답했습니다. | unavailable backlog |
 | `evidence_ready` | 범위가 제한된 결과가 완전하고 질문에 필요한 만큼 최신이며 예상 권한을 포함합니다. | 선택 가능 |
+
+현재 근거 프로브 집합은 구독 Service Health, Resource 상태 및 Resource Health를
+다룹니다. Resource Health에는 비어 있지 않은 보호된 Resource 분모와 리소스별 완전한 범위가
+필요하므로 빈 범위로는 공급자 연결 가능성을 주장할 수 없습니다. 스키마 전용 매니페스트, 선언
+및 관계 함수는 정확한 메모리 내 릴리스에서 근거 준비 상태를 유지합니다. 이 스키마 계약은
+정확한 중복 및 유사 중복 거부를 약화하지 않으면서 서로 다른 SRE 질문을 10개 이상 제공합니다.
+계측 질문은 `query.chat_token_usage`의 선언되고 연결되며 프로브를 거친 구현이 제공될 때까지
+비활성 상태로 유지합니다.
 
 환경 변수는 공급자 또는 신원 모드를 선택할 수 있지만 그 자체로 준비 상태를 높일 수 없습니다.
 데이터 누락, 공급자 실패 또는 접근할 수 없는 권한은 평가 점수 없이 `challenge_unavailable`로

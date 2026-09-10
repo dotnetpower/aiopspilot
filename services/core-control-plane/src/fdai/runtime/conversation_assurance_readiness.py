@@ -8,12 +8,24 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
+from fdai.core.conversation.semantic_current_evidence import SemanticCurrentEvidenceProbe
+from fdai.core.conversation.semantic_manifest import semantic_principal_scope_digest
+from fdai.core.conversation.session import Principal, Role
+
+CONVERSATION_ASSURANCE_PRINCIPAL_ID = "watchdog-local"
 _MANIFEST_FUNCTION = "query.manifest"
 _RESOURCE_HEALTH_FUNCTION = "query.resource_health_inventory"
 _RESOURCE_STATE_FUNCTION = "query.resource_state_inventory"
 _SERVICE_HEALTH_FUNCTION = "query.subscription_service_health"
+_CURRENT_EVIDENCE_FUNCTIONS = frozenset(
+    {
+        _RESOURCE_HEALTH_FUNCTION,
+        _RESOURCE_STATE_FUNCTION,
+        _SERVICE_HEALTH_FUNCTION,
+    }
+)
 _SCHEMA_EVIDENCE_FUNCTIONS = frozenset(
     {
         _MANIFEST_FUNCTION,
@@ -21,14 +33,6 @@ _SCHEMA_EVIDENCE_FUNCTIONS = frozenset(
         "query.ontology_relationships",
     }
 )
-
-
-class _EvidenceCollection(Protocol):
-    complete: bool
-
-
-class _ServiceHealthReader(Protocol):
-    async def read_active(self) -> _EvidenceCollection: ...
 
 
 class ReadinessStage(StrEnum):
@@ -160,7 +164,8 @@ async def observe_runtime_readiness(
     *,
     declared_function_names: tuple[str, ...],
     function_bindings: Mapping[str, str],
-    service_health_reader: _ServiceHealthReader | None,
+    current_evidence_probe: SemanticCurrentEvidenceProbe | None,
+    principal: Principal,
 ) -> RuntimeReadinessInventory:
     """Observe bindings and evidence through the providers owned by this runtime."""
 
@@ -195,52 +200,75 @@ async def observe_runtime_readiness(
             evidence_ready=True,
             provided_authority=function_bindings[function_name],
         )
-    if _RESOURCE_STATE_FUNCTION in function_bindings:
-        capabilities[_RESOURCE_STATE_FUNCTION] = RuntimeCapabilityReadiness(
-            function_name=_RESOURCE_STATE_FUNCTION,
-            declared=True,
-            bound=True,
-            reachable=False,
-            evidence_ready=False,
-            unavailable_reason="current_evidence_probe_unavailable",
+    if current_evidence_probe is None:
+        return RuntimeReadinessInventory(
+            capabilities=tuple(capabilities[name] for name in sorted(capabilities))
         )
-    if _RESOURCE_HEALTH_FUNCTION in function_bindings:
-        capabilities[_RESOURCE_HEALTH_FUNCTION] = RuntimeCapabilityReadiness(
-            function_name=_RESOURCE_HEALTH_FUNCTION,
-            declared=True,
-            bound=True,
-            reachable=False,
-            evidence_ready=False,
-            unavailable_reason="evidence_scope_unavailable",
-        )
-    if _SERVICE_HEALTH_FUNCTION in function_bindings and service_health_reader is not None:
+    expected_scope_digest = semantic_principal_scope_digest(
+        principal=principal,
+        purpose="operations-review",
+    )
+    for function_name in sorted(_CURRENT_EVIDENCE_FUNCTIONS & set(function_bindings)):
         try:
-            collection = await service_health_reader.read_active()
+            observation = await current_evidence_probe.observe(
+                function_name=function_name,
+                principal=principal,
+            )
         except (OSError, RuntimeError):
-            capabilities[_SERVICE_HEALTH_FUNCTION] = RuntimeCapabilityReadiness(
-                function_name=_SERVICE_HEALTH_FUNCTION,
+            capabilities[function_name] = RuntimeCapabilityReadiness(
+                function_name=function_name,
                 declared=True,
                 bound=True,
                 reachable=False,
                 evidence_ready=False,
                 unavailable_reason="authority_or_source_unavailable",
             )
-        else:
-            capabilities[_SERVICE_HEALTH_FUNCTION] = RuntimeCapabilityReadiness(
-                function_name=_SERVICE_HEALTH_FUNCTION,
+            continue
+        if observation.function_name != function_name:
+            raise ValueError("current-evidence probe returned a different function")
+        provided_authority = observation.authority.value
+        if observation.principal_scope_digest != expected_scope_digest:
+            capabilities[function_name] = RuntimeCapabilityReadiness(
+                function_name=function_name,
                 declared=True,
                 bound=True,
                 reachable=True,
-                evidence_ready=collection.complete,
-                provided_authority=(
-                    function_bindings[_SERVICE_HEALTH_FUNCTION] if collection.complete else None
-                ),
-                unavailable_reason=(
-                    None if collection.complete else "authority_or_source_unavailable"
-                ),
+                evidence_ready=False,
+                provided_authority=provided_authority,
+                unavailable_reason="principal_scope_mismatch",
             )
+            continue
+        if provided_authority != function_bindings[function_name]:
+            capabilities[function_name] = RuntimeCapabilityReadiness(
+                function_name=function_name,
+                declared=True,
+                bound=True,
+                reachable=True,
+                evidence_ready=False,
+                provided_authority=provided_authority,
+                unavailable_reason="runtime_authority_mismatch",
+            )
+            continue
+        capabilities[function_name] = RuntimeCapabilityReadiness(
+            function_name=function_name,
+            declared=True,
+            bound=True,
+            reachable=True,
+            evidence_ready=observation.complete,
+            provided_authority=provided_authority,
+            unavailable_reason=None if observation.complete else "current_evidence_incomplete",
+        )
     return RuntimeReadinessInventory(
         capabilities=tuple(capabilities[name] for name in sorted(capabilities))
+    )
+
+
+def conversation_assurance_probe_principal() -> Principal:
+    """Return the fixed local human principal authenticated by the watchdog Operator."""
+
+    return Principal(
+        id=CONVERSATION_ASSURANCE_PRINCIPAL_ID,
+        role=Role.CONTRIBUTOR,
     )
 
 
@@ -425,11 +453,13 @@ def _required_bool(value: dict[str, Any], key: str) -> bool:
 
 
 __all__ = [
+    "CONVERSATION_ASSURANCE_PRINCIPAL_ID",
     "CapabilitySelectionReadiness",
     "ReadinessStage",
     "RuntimeCapabilityReadiness",
     "RuntimeReadinessInventory",
     "assess_capability_readiness",
+    "conversation_assurance_probe_principal",
     "observe_runtime_readiness",
     "write_runtime_readiness_receipt",
 ]
