@@ -11,9 +11,13 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/deployment/azure/reconcile_rca_bootstrap_state.sh"
 OLD = "module.measurement_runners[0].azurerm_container_app_job.baseline_regression"
 NEW = "module.measurement_runners[0].azurerm_container_app_job.baseline_regression[0]"
+OBSERVABILITY_OLD = "module.compute.azurerm_container_app_job.oob"
+OBSERVABILITY_NEW = "module.compute.azurerm_container_app_job.oob[0]"
+RULE_WATCHER_OLD = "module.compute.azurerm_container_app_job.rule_watcher"
+RULE_WATCHER_NEW = "module.compute.azurerm_container_app_job.rule_watcher[0]"
 
 
-def _run(tmp_path: Path, state: str) -> subprocess.CompletedProcess[str]:
+def _run(tmp_path: Path, state: str, *, scope: str = "rca") -> subprocess.CompletedProcess[str]:
     state_path = tmp_path / "state"
     state_path.write_text(state, encoding="utf-8")
     log_path = tmp_path / "moves"
@@ -42,7 +46,7 @@ esac
     bash = shutil.which("bash")
     assert bash is not None
     return subprocess.run(  # noqa: S603 - resolved Bash runs a repository-owned script.
-        [bash, str(SCRIPT)],
+        [bash, str(SCRIPT), scope],
         check=False,
         capture_output=True,
         text=True,
@@ -77,3 +81,37 @@ def test_rejects_coexisting_legacy_and_current_addresses(tmp_path: Path) -> None
 
     assert result.returncode == 1
     assert "legacy and current measurement state addresses conflict" in result.stderr
+
+
+def test_reconciles_observability_job_addresses_without_touching_resources(
+    tmp_path: Path,
+) -> None:
+    state = f"{OBSERVABILITY_OLD}\n{RULE_WATCHER_OLD}\nunrelated.resource\n"
+
+    result = _run(tmp_path, state, scope="observability")
+
+    assert result.returncode == 0
+    assert (tmp_path / "moves").read_text(encoding="utf-8") == (
+        f"{OBSERVABILITY_OLD} -> {OBSERVABILITY_NEW}\n{RULE_WATCHER_OLD} -> {RULE_WATCHER_NEW}\n"
+    )
+    assert "Observability targeted-plan state reconciliation completed." in (
+        tmp_path / "summary"
+    ).read_text(encoding="utf-8")
+
+
+def test_rejects_unknown_reconciliation_scope_before_reading_state(tmp_path: Path) -> None:
+    result = _run(tmp_path, "", scope="unknown")
+
+    assert result.returncode == 2
+    assert "usage:" in result.stderr
+    assert not (tmp_path / "moves").exists()
+
+
+def test_validates_every_observability_address_before_moving_state(tmp_path: Path) -> None:
+    state = f"{OBSERVABILITY_OLD}\n{RULE_WATCHER_OLD}\n{RULE_WATCHER_NEW}\n"
+
+    result = _run(tmp_path, state, scope="observability")
+
+    assert result.returncode == 1
+    assert "legacy and current observability state addresses conflict" in result.stderr
+    assert not (tmp_path / "moves").exists()
