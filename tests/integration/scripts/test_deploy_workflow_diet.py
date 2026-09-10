@@ -6,6 +6,9 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW_PATH = _ROOT / ".github/workflows/deploy-dev.yml"
 _WORKFLOW = _WORKFLOW_PATH.read_text(encoding="utf-8")
+_CONVERGENCE = (_ROOT / "scripts/deployment/azure/verify_deploy_convergence.sh").read_text(
+    encoding="utf-8"
+)
 
 
 def _step_names() -> tuple[str, ...]:
@@ -78,7 +81,7 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
         "validate_deploy_request.py",
         "bind-production-terraform-inputs.sh",
         "bind_core_runtime_image.sh",
-        "verify_job_image.py",
+        "verify_deploy_convergence.sh",
         "publish-console.sh",
         "build_dev_gateway_artifact.py",
         "run_runner_preflight.py",
@@ -88,6 +91,8 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
     for helper in helpers:
         assert f"scripts/deployment/azure/{helper}" in _WORKFLOW
         assert (_ROOT / "scripts/deployment/azure" / helper).is_file()
+    assert "verify_job_image.py" in _CONVERGENCE
+    assert (_ROOT / "scripts/deployment/azure/verify_job_image.py").is_file()
 
 
 def test_production_input_helper_preserves_hardening_contract() -> None:
@@ -194,27 +199,16 @@ def test_registry_credentials_are_private_file_backed_and_cleaned() -> None:
 
 
 def test_post_apply_verifies_inventory_job_image() -> None:
-    start = _WORKFLOW.index("- name: Verify Terraform convergence")
-    end = _WORKFLOW.index("- name: Verify model deployment readback")
-    block = _WORKFLOW[start:end]
-
-    assert "verify_job_image.py" in block
-    assert '--expected-image "$TF_VAR_core_image"' in block
-    assert 'inventory_job="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"' in block
-    assert (
-        'az containerapp job show --resource-group "$(terraform output -raw resource_group_name)"'
-        in block
-    )
-    assert 'if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in block
+    assert "verify_job_image.py" in _CONVERGENCE
+    assert '--expected-image "$TF_VAR_core_image"' in _CONVERGENCE
+    assert 'job_name="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"' in _CONVERGENCE
+    assert 'resource_group="$(terraform output -raw resource_group_name)"' in _CONVERGENCE
+    assert 'elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in _CONVERGENCE
 
 
 def test_operational_history_apply_ignores_unrelated_inventory_image_drift() -> None:
-    start = _WORKFLOW.index("- name: Verify Terraform convergence")
-    end = _WORKFLOW.index("- name: Verify model deployment readback")
-    block = _WORKFLOW[start:end]
-
-    guard = block.index('if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then')
-    inventory_readback = block.index('inventory_job="ca-fdai-')
-    guard_end = block.index("\n          fi", inventory_readback)
+    guard = _CONVERGENCE.index('elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then')
+    inventory_readback = _CONVERGENCE.index('job_name="ca-fdai-', guard)
+    guard_end = _CONVERGENCE.index("\nelse", inventory_readback)
 
     assert guard < inventory_readback < guard_end
