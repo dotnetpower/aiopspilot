@@ -1262,7 +1262,7 @@ def test_core_evidence_transition_freezes_and_verifies_private_configuration_bas
     assert "CONFIGURATION_BASELINE_GZIP_BASE64" in _WORKFLOW
     assert "Freeze reviewed configuration baseline in private Blob" in _WORKFLOW
     assert "configuration_baseline_evidence.py" in _WORKFLOW
-    assert '--metadata "fdai-sha256=$baseline_sha256"' in _WORKFLOW
+    assert '--metadata "fdai_sha256=$baseline_sha256"' in _WORKFLOW
     assert "Verify deployed configuration baseline and current state" in _WORKFLOW
     assert "configuration-drift-live-receipt.json" in _WORKFLOW
     assert 'shred -u -- "$sensitive_file"' in _WORKFLOW
