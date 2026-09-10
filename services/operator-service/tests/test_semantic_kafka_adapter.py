@@ -12,6 +12,9 @@ from fdai_operator_service.adapters.semantic_kafka import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_service_contracts.incident_intervention import (
+    INCIDENT_INTERVENTION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
@@ -318,6 +321,39 @@ async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
     assert encode_calls == 1
 
 
+async def test_incident_intervention_topic_is_multiplexed_on_the_physical_topic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic="fdai.pantheon.objects",
+        ),
+        credential=Credential(),  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        INCIDENT_INTERVENTION_REQUEST_TOPIC,
+        "incident-1",
+        {
+            "schema_version": "1.0.0",
+            "incident_id": "incident-1",
+            "execution_authority": False,
+        },
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "fdai.pantheon.objects"
+    assert json.loads(producer.sent[0][2]) == {
+        LOGICAL_TOPIC_FIELD: INCIDENT_INTERVENTION_REQUEST_TOPIC,
+        "execution_authority": False,
+        "incident_id": "incident-1",
+        "schema_version": "1.0.0",
+    }
+
+
 @pytest.mark.parametrize(
     ("physical_topic", "overrides"),
     [
@@ -342,6 +378,7 @@ async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
             "fdai.notifications.delivery-receipts",
             {"notification_receipt_topic": "fdai.notifications.delivery-receipts"},
         ),
+        (INCIDENT_INTERVENTION_REQUEST_TOPIC, {}),
         (WARA_ASSESSMENT_TOPIC, {}),
     ],
 )

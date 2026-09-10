@@ -157,8 +157,8 @@ facade to preserve its reviewed fanout ceiling. The facade shares no state or as
 The shared Operator composition may register unrelated read projections in `/system/data-sources`;
 those registrations don't add a WARA source, widen WARA scope, or change its shadow-only authority.
 Its outbox lifecycle facade may also supervise the unrelated Incident intervention worker. That
-worker's requests and readiness state cannot enter WARA evidence, projections, or assessment
-authority.
+worker's explicitly allowlisted logical topic, requests, and readiness state cannot enter WARA
+evidence, projections, or assessment authority.
 
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
