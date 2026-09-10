@@ -21,9 +21,11 @@ fi
 
 source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"
 netrc_file="$(mktemp "$RUNNER_TEMP/fdai-ghcr-netrc.XXXXXX")"
+docker_config="$(mktemp -d "$RUNNER_TEMP/fdai-ghcr-docker.XXXXXX")"
 import_body="$(mktemp "$RUNNER_TEMP/fdai-acr-import.XXXXXX.json")"
 chmod 0600 "$netrc_file" "$import_body"
-trap 'rm -f -- "$netrc_file" "$import_body"' EXIT
+chmod 0700 "$docker_config"
+trap 'rm -f -- "$netrc_file" "$import_body"; rm -rf -- "$docker_config"' EXIT
 printf 'machine ghcr.io\nlogin %s\npassword %s\n' \
   "$GITHUB_ACTOR" "$GHCR_TOKEN" > "$netrc_file"
 registry_token="$(
@@ -48,9 +50,18 @@ if [[ ! "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   echo "verified runtime image tag did not resolve to one manifest digest." >&2
   exit 1
 fi
-timeout 60s gh attestation verify \
+if ! printf '%s' "$GHCR_TOKEN" |
+  DOCKER_CONFIG="$docker_config" docker login ghcr.io \
+    -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1; then
+  echo "temporary GHCR authentication failed." >&2
+  exit 1
+fi
+if ! DOCKER_CONFIG="$docker_config" timeout 60s gh attestation verify \
   "oci://ghcr.io/${source_repository}@${source_digest}" \
-  --repo "$GITHUB_REPOSITORY" >/dev/null
+  --repo "$GITHUB_REPOSITORY" >/dev/null; then
+  echo "verified runtime image attestation check failed." >&2
+  exit 1
+fi
 
 login_server="$(terraform -chdir="$terraform_dir" output -raw container_registry_login_server)"
 if [[ -z "$login_server" && -n "${FDAI_ACR_LOGIN_SERVER:-}" ]]; then
