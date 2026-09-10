@@ -228,6 +228,11 @@ closes as `recovery_incomplete`; it never becomes success.
 
 The recovery-admission boundary separately binds the complete `WorkflowApprovalSnapshot` quorum, exact hold revision, approval step and attempt, target digest, compensation receipt digests, distinct requester, approver, and executor identities, and source revision to one current `DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant authority. The hold ledger exposes an atomic release operation that guards the current durable approval policy and admission window, consumes that admission, increments the fencing generation, and stores a content-addressed no-authority release receipt with terminal audit. The production compensation coordinator still uses the legacy verified-recovery release and must adopt the guarded operation under issue #630. Issue #640 then owns the final dispatch recheck inside each execution path's existing logical-target lock.
 
+The production integration is split into #652 for a distinct approval-before-dispatch recovery
+attempt, #656 for authoritative post-effect completion claims, and #658 for claim-fenced release
+and crash-safe Process and Saga terminalization. A failed immutable compensation proposal is never
+relabelled as a later successful recovery.
+
 The upstream headless runtime and production Operator API bind
 `StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
 immutable receipt only for an enforce Action whose execution identity matches its

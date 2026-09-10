@@ -20,6 +20,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Replaced the unsafe same-proposal recovery plan with bounded owners for action-bound approved dispatch, authoritative effect evidence, and claim-fenced terminalization. | `current change`; issues `#652`, `#656`, and `#658`; parent `#630`. | Complete those packages in order, then finish #640. |
 | 2026-09-10 | in-progress | Added an approval-guarded atomic hold-release primitive that consumes one admitted recovery, increments the fence, and stores a content-addressed no-authority receipt with terminal audit. | `current change`; guarded hold and state-store code; 63 focused passing checks; Ruff and strict mypy. | Wire production compensation to the primitive under #630, then complete final execution-path fencing under #640. |
 | 2026-09-10 | in-progress | Separated atomic hold release from final forward-dispatch fencing to preserve executor-owned logical-target lock boundaries and remove a dependency cycle. | `current change`; issues `#630` and `#640`. | Complete `#630`, then integrate its action-bound release receipt under `#640` after `#627` and `#628`. |
 | 2026-09-10 | implemented | Added future-request-time and process and approval-revision digest substitution regressions before closing the pure recovery-admission boundary. | `current change`; `test_recovery_admission.py`; 21 focused recovery-admission tests and 46 combined approval, recovery, and compensation checks passed. | No residual work remains for issue `#622`; complete atomic admission consumption and exact hold release under issue `#630`. |
@@ -38,6 +39,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Bind separately approved recovery through existing approval and decision-evidence contracts without mutating the hold under issue `#622`. Evidence: `recovery_admission.py`, `test_recovery_admission.py`, and 46 focused passing checks.
 - [x] Implement the approval-guarded atomic release primitive and no-authority receipt. Evidence: 63 focused passing checks.
 - [ ] Route production compensation through that primitive and retain the exact release receipt under issue `#630`.
+- [ ] Complete the #630 production chain under #652, #656, and #658 without reusing a failed immutable proposal or weakening effect evidence.
 - [ ] Recheck the release receipt and absence of a newer hold inside each execution path's existing logical-target lock under issue `#640`; FDAI-CONST-009 remains implemented during this hardening.
 - [ ] Retain governed kill-switch, break-glass, rollback, identity-recertification, and audit-anchor drill receipts on one pinned deployment revision. Tracked by issue `#372`.
 - [ ] Complete the data-governance production gate before claiming privacy validation. Tracked by issue `#371`.

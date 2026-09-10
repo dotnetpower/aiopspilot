@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f9dbdc9ba7b3e9c158daccb845178ce4233bc49f
+translation_source_sha: ce53b6cc7681c76bcece060a423c4740849b853a
 translation_revised: 2026-09-10
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -222,6 +222,11 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 `recovery_incomplete`로 끝나며 성공이 되지 않습니다.
 
 복구 승인 경계는 완전한 `WorkflowApprovalSnapshot` 정족수, 정확한 보류 개정, 승인 단계와 시도 번호, 대상 다이제스트, 보상 증적 다이제스트, 서로 다른 요청자, 승인자, 실행기 신원, 소스 개정을 하나의 최신 `DecisionEvidenceAdmission`에 별도로 결속합니다. 이 경계는 타입이 지정된 적격성만 반환하며 보류를 해제하거나 권한을 부여할 수 없습니다. 이슈 #630이 승인의 원자적 사용과 보류 해제를 담당합니다. 이제 보류 원장은 최신 영구 승인 정책과 승인 유효 구간을 같은 트랜잭션에서 확인하고, 승인을 사용하며, fence 세대를 증가시키고, 내용 주소 기반 무권한 해제 증적과 최종 감사를 저장하는 원자적 연산을 제공합니다. 운영 보상 조정기는 아직 기존의 검증된 복구 해제를 사용하므로 이슈 #630에서 새 연산을 연결해야 합니다. 이후 이슈 #640이 각 실행 경로의 기존 논리 대상 잠금 안에서 최종 디스패치 재검사를 담당합니다.
+
+운영 통합은 별도의 승인 후 디스패치 복구 시도를 담당하는 #652, 권위 있는 사후 효과 완료
+주장을 담당하는 #656, 주장 fence가 적용된 보류 해제와 비정상 종료에 안전한 Process 및 Saga
+최종 처리를 담당하는 #658로 나뉩니다. 변경할 수 없는 실패 보상 제안을 이후 성공한 복구로
+다시 표시하지 않습니다.
 
 업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과
