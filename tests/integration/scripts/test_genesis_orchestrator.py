@@ -452,6 +452,67 @@ def _new_orchestrator(
     return instance
 
 
+def test_mutation_enabled_toolchain_prepares_access_tools_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    instance = _new_orchestrator(tmp_path, monkeypatch)
+    calls: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        instance.checks,
+        "verify_toolchain",
+        lambda *, apply: calls.append(("verify", apply)),
+    )
+
+    def run_required(
+        arguments: tuple[str, ...],
+        reason: str,
+        *,
+        timeout: int,
+        **_kwargs: object,
+    ) -> None:
+        calls.append(("run", (arguments, reason, timeout)))
+
+    monkeypatch.setattr(instance.checks, "run_required", run_required)
+
+    orchestrator.GenesisOrchestrator._verify_toolchain(instance)
+
+    assert calls[0] == ("verify", True)
+    arguments, reason, timeout = calls[1][1]
+    assert arguments == (
+        "bash",
+        str(_ROOT / "scripts/deployment/azure/prepare-genesis-access-tools.sh"),
+    )
+    assert reason == "azure_access_tool_preparation_failed"
+    assert timeout == 600
+
+
+def test_inspection_toolchain_does_not_change_access_tool_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = replace(
+        _config(tmp_path),
+        apply=False,
+        repository=None,
+        allow_probe_resources=False,
+    )
+    instance = _new_orchestrator(tmp_path, monkeypatch, config=config)
+    calls: list[bool] = []
+    monkeypatch.setattr(
+        instance.checks,
+        "verify_toolchain",
+        lambda *, apply: calls.append(apply),
+    )
+    monkeypatch.setattr(
+        instance.checks,
+        "run_required",
+        lambda *_args, **_kwargs: pytest.fail("inspection changed access-tool configuration"),
+    )
+
+    orchestrator.GenesisOrchestrator._verify_toolchain(instance)
+
+    assert calls == [False]
+
+
 def test_status_context_binding_changes_with_deployment_request(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

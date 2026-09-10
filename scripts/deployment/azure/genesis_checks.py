@@ -41,6 +41,21 @@ class GenesisChecks:
         if any(shutil.which(command) is None for command in required):
             raise CheckError("required_tool_unavailable")
 
+    def prepare_access_tools(self, *, timeout: int) -> None:
+        """Pin and verify connected-access CLI extensions without creating Azure resources."""
+
+        self.run_required(
+            (
+                "bash",
+                str(
+                    self.repository_root
+                    / "scripts/deployment/azure/prepare-genesis-access-tools.sh"
+                ),
+            ),
+            "azure_access_tool_preparation_failed",
+            timeout=timeout,
+        )
+
     def verify_target(self, *, subscription_id: str, tenant_id: str, region: str) -> None:
         """Verify both Azure identity axes and region availability without mutation."""
 

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 43936ff94e365fcecac14886ff211ccaa66e5c8a
+translation_source_sha: 08a7d1452a7cdb2546f0ec6e414e76ebd16766e1
 translation_revised: 2026-09-10
 ---
 
@@ -27,10 +27,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
 
 Genesis는 사용자 입력 없이 번호가 지정된 8개 단계, 정확한 진행률, 남은 작업을 표시합니다.
-`--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및
-Storage 정책 프로브의 생성 및 검증된 정리만 승인하며, 정확한 삭제 Vault 영구 삭제와 부재
-재확인도 포함합니다. 장시간 명령은 10초마다 stderr에 점을 출력하지만 stdout JSON은 변경하지
-않습니다. `public-dev` 결과는 정확히 승인된 계획을 위해 미리 보기 후 대기합니다.
+`--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책
+프로브 생성 및 검증된 정리만 승인하며, 정확한 삭제 Vault 영구 삭제와 부재 재확인도 포함합니다. 변경 허용
+Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra SSH 확장을 고정하고 검증하며 검사 모드는
+로컬 CLI 구성을 바꾸지 않습니다. 장시간 명령은 10초마다 stderr에 점을 출력하지만 stdout JSON은 변경하지 않습니다. `public-dev` 결과는 정확히 승인된 계획을 위해 미리 보기 후 대기합니다.
 `private-runner` 결과는 서명된 아티팩트와 비공개 입력 경로가 모두 있으면 저장된 기반 계층
 계획을 만들 수 있지만 현재 사람 승인을 계속 기다립니다. 입력이 없으면
 `private_foundation_external_artifacts_required`를 보고합니다. 어느 경로도 봉인되지 않은 계획을
@@ -44,8 +44,8 @@ Storage 정책 프로브의 생성 및 검증된 정리만 승인하며, 정확�
 ## 시작하기 전에
 
 - 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된 경로에는 GitHub CLI(`gh`)가 필요하며
-  직접 개발 경로에는 **Azure Developer CLI**(`azd`), Terraform, `uv`, `curl`, `tar`가 필요합니다. Bastion 또는
-  Microsoft Entra SSH 점검 전에 `scripts/deployment/azure/prepare-genesis-access-tools.sh`를 실행해 안정 버전 확장을 고정하고 검증합니다.
+  직접 개발 경로에는 **Azure Developer CLI**(`azd`), Terraform, `uv`, `curl`, `tar`가 필요합니다. 변경 허용 Genesis는 안정적인 Bastion 및 Microsoft Entra SSH 확장을 자동으로 준비합니다.
+  로컬 CLI를 미리 준비하거나 복구할 때만 `scripts/deployment/azure/prepare-genesis-access-tools.sh`를 직접 실행합니다.
 - 직접 경로에서는 Azure 퍼블릭 클라우드와 리소스 공급자 등록, 플랫폼 리소스 생성 및 구독
   범위 역할 할당이 가능한 대화형 신원을 사용하세요. 스크립트는 정확한 역할이 없을 때
   `Cognitive Services Contributor`를 임시로 부여하고 성공 전에 제거합니다. 또한 스키마 및

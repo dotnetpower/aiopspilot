@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: f493121e20bfee23af12efb0e82a174a7a47ab37
+translation_source_sha: b479c1e1330fca576679fd590de576525206e540
 translation_revised: 2026-09-10
 ---
 # 구독 초기 프로비저닝
@@ -91,9 +91,11 @@ scripts/deployment/azure/genesis-up.sh \
   --apply --allow-probe-resources --output json
 ```
 
-연결된 기반 계층 접근을 확인하기 전에 `prepare-genesis-access-tools.sh`를 실행합니다. 이 명령은
-미리 보기 확장의 암시적 설치를 비활성화하고 안정 버전 Bastion `1.4.3`과 SSH `2.0.9`를 고정한
-뒤 Azure 리소스를 만들지 않고 Bastion 생성, Bastion SSH, Microsoft Entra SSH 명령 파서를 검증합니다.
+변경 허용 모드에서 라우터는 공급자 등록이나 정책 프로브 변경 전에 도구 체인 단계에서
+`prepare-genesis-access-tools.sh`를 자동으로 실행합니다. 이 명령은 미리 보기 확장의 암시적
+설치를 비활성화하고 안정 버전 Bastion `1.4.3`과 SSH `2.0.9`를 고정한 뒤 Azure 리소스를
+만들지 않고 Bastion 생성, Bastion SSH, Microsoft Entra SSH 명령 파서를 검증합니다. 로컬 CLI를
+미리 준비하거나 복구할 때만 도우미를 직접 실행합니다. 검사 모드는 로컬 확장 구성을 바꾸지 않습니다.
 
 라우터는 도구, Azure 대상의 두 축, 리전, 깨끗한 소스, 정확한 최신 `required` 검사를
 확인합니다. 그런 다음 선언된 기반 계층 및 공개 Core Resource Provider 집합을

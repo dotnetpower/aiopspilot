@@ -193,6 +193,8 @@ class GenesisOrchestrator:
 
     def _verify_toolchain(self) -> None:
         self.checks.verify_toolchain(apply=self.config.apply)
+        if self.config.apply:
+            self.checks.prepare_access_tools(timeout=self._bounded_timeout(600, minimum=30))
 
     def _verify_target(self) -> None:
         self.checks.verify_target(

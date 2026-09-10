@@ -89,9 +89,12 @@ scripts/deployment/azure/genesis-up.sh \
   --apply --allow-probe-resources --output json
 ```
 
-Before a connected Foundation access check, run `prepare-genesis-access-tools.sh`. It disables
-implicit preview installation, pins stable Bastion `1.4.3` and SSH `2.0.9` extensions, and verifies
-the Bastion create, Bastion SSH, and Microsoft Entra SSH command parsers without creating Azure resources.
+In mutation-enabled mode, the router runs `prepare-genesis-access-tools.sh` during the toolchain
+stage, before provider registration or policy-probe mutation. It disables implicit preview
+installation, pins stable Bastion `1.4.3` and SSH `2.0.9` extensions, and verifies the Bastion
+create, Bastion SSH, and Microsoft Entra SSH command parsers without creating Azure resources.
+Run the helper directly only to prewarm or repair the local CLI; inspection mode does not change
+the local extension configuration.
 
 The router verifies tools, both Azure target axes, the region, clean source, and the latest exact
 `required` check. It then inspects the declared Foundation and public-Core Resource Provider sets.

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 947d7e80badb71b0d1877ec532e2ecbb5e4c2021 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 80ac84361f033ed2b566d31e7d7c7edfb409482f }]
 ---
 
 # Deploy Quickstart
@@ -27,10 +27,11 @@ in observation mode and does not deploy Console, Operator API, document services
 Executor.
 
 Genesis displays eight numbered stages, exact progress, and remaining work without prompting. Its
-`--apply --allow-probe-resources` flags authorize only missing-provider registration and creation
-plus verified cleanup of the tagged Key Vault and Storage policy probe, including exact
-deleted-vault purge and absence readback. Long commands print a dot to stderr every 10 seconds, while
-stdout JSON stays unchanged. A `public-dev` result stops after preview for an exact approved plan.
+`--apply --allow-probe-resources` flags authorize only missing-provider registration and tagged Key Vault
+and Storage policy-probe creation with verified cleanup, including exact deleted-vault purge and absence readback.
+Mutation-enabled Genesis also pins and verifies stable Bastion and Microsoft Entra SSH extensions during
+toolchain setup; inspection leaves local CLI configuration unchanged. Long commands print a dot to stderr
+every 10 seconds while stdout JSON stays unchanged. A `public-dev` result stops after preview for an exact approved plan.
 A `private-runner` result can create the exact saved Foundation plan when all signed artifact and
 private input paths are supplied, but it still waits for current human approval. Without them, it
 reports `private_foundation_external_artifacts_required`. Neither route applies an unsealed plan or
@@ -43,10 +44,9 @@ key, Core starts in observation-only Trial and denies acting paths.
 
 ## Before you start
 
-- An **Azure subscription** you can create resources in, and the **Azure CLI** (`az`). The
-  protected path also needs GitHub CLI (`gh`); direct development needs Azure Developer CLI
-  (`azd`), Terraform, `uv`, `curl`, and `tar`. Before Bastion or Microsoft Entra SSH checks, run
-  `scripts/deployment/azure/prepare-genesis-access-tools.sh` to pin and verify their stable extensions.
+- An **Azure subscription** you can create resources in, and the **Azure CLI** (`az`). The protected path also needs
+  GitHub CLI (`gh`); direct development needs Azure Developer CLI (`azd`), Terraform, `uv`, `curl`, and `tar`. Mutation-enabled Genesis prepares stable Bastion and Microsoft Entra SSH extensions automatically.
+  Run `scripts/deployment/azure/prepare-genesis-access-tools.sh` directly only to prewarm or repair the local CLI.
 - For the direct path, use Azure public cloud and an interactive identity that can register resource
   providers, create the platform resources, and assign roles at subscription scope. The script
   temporarily grants `Cognitive Services Contributor` when the exact role is absent and removes
