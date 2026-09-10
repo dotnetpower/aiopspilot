@@ -361,8 +361,16 @@ async def _record_import_summary(
         }
     )
     key = f"measurement:cohort:import:{identity.removeprefix('sha256:')}"
-    value = report.to_mapping()
-    await store.write_state_with_audit_if_absent(
+    result = report.to_mapping()
+    value = {
+        "arm": report.arm.value,
+        "batch_digest": report.batch_digest,
+        "metric_count": report.metric_count,
+        "guard_count": report.guard_count,
+        "execution_authority": False,
+        "claim_eligibility_authority": False,
+    }
+    created = await store.write_state_with_audit_if_absent(
         key,
         value,
         {
@@ -373,9 +381,13 @@ async def _record_import_summary(
             "source_workflow_path": context.source_workflow_path,
             "source_run_id": context.source_run_id,
             "source_run_attempt": context.source_run_attempt,
-            **value,
+            **result,
         },
     )
+    if not created and await store.read_state(key) != value:
+        raise CohortObservationConflictError(
+            "cohort import summary identity was reused with different content"
+        )
 
 
 def _observation_key(

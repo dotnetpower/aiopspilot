@@ -19,12 +19,15 @@ from fdai.delivery.measurement.cohort_observation_import import (
     CohortObservationBatch,
     CohortObservationConflictError,
     CohortObservationImportContext,
+    CohortObservationImportReport,
+    _record_import_summary,
     cohort_observation_batch_digest,
     import_cohort_observation_batch,
     load_cohort_observation_batch,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.baseline_cohort import CohortArm
+from fdai_service_contracts.ontology_query import content_digest
 from pydantic import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -158,6 +161,38 @@ async def test_same_measure_cluster_with_changed_value_conflicts() -> None:
     with pytest.raises(CohortObservationConflictError, match="different content"):
         await import_cohort_observation_batch(
             _batch(value=1.0),
+            context=context,
+            policy=policy,
+            store=store,
+        )
+
+
+async def test_import_summary_rejects_conflicting_stored_content() -> None:
+    store = InMemoryStateStore()
+    report = CohortObservationImportReport(
+        arm=CohortArm.TREATMENT,
+        batch_digest=_batch().batch_digest,
+        accepted_count=2,
+        duplicate_count=0,
+        metric_count=1,
+        guard_count=1,
+    )
+    context = _context()
+    policy = _authorized_policy()
+    identity = content_digest(
+        {
+            "arm": context.arm.value,
+            "batch_digest": report.batch_digest,
+            "fdai_revision": context.fdai_revision,
+            "measurement_protocol_digest": policy.measurement_protocol_digest,
+        }
+    )
+    key = f"measurement:cohort:import:{identity.removeprefix('sha256:')}"
+    await store.write_state(key, {"batch_digest": _digest("f")})
+
+    with pytest.raises(CohortObservationConflictError, match="summary identity"):
+        await _record_import_summary(
+            report,
             context=context,
             policy=policy,
             store=store,

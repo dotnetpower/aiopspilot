@@ -434,7 +434,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
   `operational-promotion` job stores exact-digest evidence without changing promotion state; `cohort_observation_import` accepts no artifact-declared arm, revision, protocol, admission, or authority.
-  Its protected workflow caps a batch at 1,000 observations, rejects duplicate JSON keys, injects strict arm, revision, run, path, and time context, and persists idempotently; arm-specific exporter allowlists accept only regular in-repository workflows and otherwise keep the path unavailable.
+  Its protected workflow caps a batch at 1,000 observations, rejects duplicate JSON keys, injects strict context, and verifies idempotent observation and batch-summary replay; arm-specific exporter allowlists accept only regular in-repository workflows and otherwise keep the path unavailable.
 - **Governed action and probe delivery**: `GovernedGovernancePrPublisher` binds the pure
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
