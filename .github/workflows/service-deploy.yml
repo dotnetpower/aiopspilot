@@ -394,12 +394,14 @@ jobs:
           }
           timeout 60s gh attestation verify \
             "oci://${IMAGE_REF}" \
+            --bundle-from-oci \
             --repo "$GITHUB_REPOSITORY" \
             --source-digest "$COMMIT_SHA" \
             --predicate-type "https://slsa.dev/provenance/v1" \
             --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" >/dev/null
           timeout 60s gh attestation verify \
             "oci://${IMAGE_REF}" \
+            --bundle-from-oci \
             --repo "$GITHUB_REPOSITORY" \
             --source-digest "$COMMIT_SHA" \
             --predicate-type "https://spdx.dev/Document/v2.3" \
@@ -409,6 +411,7 @@ jobs:
             model_attestations="$RUNNER_TEMP/resolved-models-attestations.json"
             timeout 60s gh attestation verify \
               "oci://${IMAGE_REF}" \
+              --bundle-from-oci \
               --repo "$GITHUB_REPOSITORY" \
               --source-digest "$COMMIT_SHA" \
               --predicate-type "$MODEL_PREDICATE_TYPE" \

@@ -78,10 +78,10 @@ def _boundary(expected: Mapping[str, Any]) -> SemanticJudgmentBoundary:
     )
 
 
-def test_required_korean_cases_pass_the_existing_typed_judgment_boundary() -> None:
+def test_required_bilingual_cases_pass_the_existing_typed_judgment_boundary() -> None:
     artifact = _load()
     cases = artifact["cases"]
-    assert len(cases) == 16
+    assert len(cases) == 24
     assert artifact["evidence_kind"] == "expected_contract_cases"
     assert artifact["operational_validation"] is False
 
@@ -92,7 +92,9 @@ def test_required_korean_cases_pass_the_existing_typed_judgment_boundary() -> No
             context=(),
             capabilities=artifact["capabilities"],
             allow_escalation=False,
-            locale="ko",
+            locale=(
+                "ko" if any("가" <= character <= "힣" for character in case["utterance"]) else "en"
+            ),
         )
         assert result.proposal is not None, case["id"]
         proposal = result.proposal
@@ -153,7 +155,9 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
     )
 
     assert "forbidden_actions" not in default_prompt.system_text
+    assert "Keep incident mitigation requirements separate" in default_prompt.system_text
     assert "forbidden_actions" in shadow_prompt.system_text
+    assert "Keep incident mitigation requirements separate" in shadow_prompt.system_text
     assert "use only the supplied query.manifest FunctionType" in shadow_prompt.system_text
     assert "source_end - source_start MUST equal" in shadow_prompt.system_text
 

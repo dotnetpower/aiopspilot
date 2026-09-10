@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 168347079848446b699a964f6e0a5d43f4328860
-translation_revised: 2026-09-09
+translation_source_sha: 1f80a3ece01453f7b55d7e6dd26583b84be1281c
+translation_revised: 2026-09-10
 ---
 # 지속형 질문 공간
 
@@ -88,7 +88,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 - **질문은행:** 도메인 7개, 범주 13개, 질문 400개입니다.
 - **에이전트 책임:** 고정 에이전트 15개와 Pantheon 질문 도메인 47개 전체입니다.
 - **온톨로지 계획:** 선언된 `query.*` FunctionType 36개 전체입니다.
-- **검토된 보증:** Golden 범주 12개 전체와 Azure 및 인시던트 의도 계약 사례 16개입니다.
+- **검토된 보증:** Golden 범주 12개 전체와 Azure 및 인시던트 의도 계약 사례 24개입니다.
 
 CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니다. 모델을 바꿀 때는 각 필수
 영역과 가장 낮은 세부 구간이 모두 통과해야 하며, 한 영역의 높은 점수로 다른 영역의 실패를
@@ -119,6 +119,11 @@ Core는 정확한 매니페스트 개수, 선언 상세 정보 또는 단일 Obj
 구성하고 닫힌 FunctionType 인자를 compile합니다. 따라서 phrase 또는 keyword 경로를 추가하지
 않으면서 두 번째 모델 의존 frame 또는 plan 판정을 피합니다.
 
+Azure 및 인시던트 의도 계약에는 대상 없는 검토 전용 장애 완화 요구사항의 영어와 한국어 원문 및
+유사 질문 3개씩이 포함됩니다. 모든 사례는 `action_requirements`, 원문에 근거한 `Incident` 유형,
+`advise_only`, 장애 신원 없음, 권한 없음을 요구합니다. 별도의 대상 없는 초안 대조 사례는 형식화된
+장애 신원 명확화로 유지됩니다.
+
 지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지 않습니다. 승격하려면 필요한
 모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세, 표현 시나리오에 채점 사례가 있어야 합니다.
 안전 위반, 근거 없는 주장, 만들어 낸 값, 모델 회귀는 계속 hard-zero 지표입니다.
@@ -129,7 +134,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 0/47입니다. 생성기는 이름을 근거로 추측하지 않고 0으로 보고합니다. 이 값은 범위
 측정이며 모델 정확도 또는 운영 답변 근거가 아닙니다. Golden 답변 기대값은 35/35를 다루고
 표현 블록 13개 전체가 Console에 등록되어 있습니다. 질문별 표현 기대값과 저장소가 소유한
-모델 쌍 비교 사례는 모두 0/400입니다. 따라서 기존 의도 사례 16개의 측정값은 질문 이해에만
+모델 쌍 비교 사례는 모두 0/400입니다. 따라서 의도 사례 24개의 측정값은 질문 이해에만
 적용됩니다. 답변 충실도, 표현 품질, 모델 불변성은 통제된 근거를 확보할 때까지
 `not_scored`로 유지됩니다.
 
@@ -139,7 +144,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 대화 품질 보증 스코어카드 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`, `scripts/automation/conversation_quality_sources.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 집중 drift 및 불변식 검사 | CQAS는 질문, 답변, 표현, 모델 불변성에 걸친 지표 93개를 정의합니다. 현재 답변 적정성 및 표현 계약에서 평가 축을 도출하고, 지원되지 않는 구간을 채점하지 않으며, 어떤 권한도 부여하지 않습니다. |
+| 대화 품질 보증 스코어카드 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 이중 언어 Azure/인시던트 재생 및 집중 불변식 검사 | CQAS는 지표 93개를 정의하며 대상 없는 완화 요구사항 집단을 포함한 Azure/인시던트 의도 사례 24개를 다룹니다. 지원되지 않는 구간은 채점하지 않으며 어떤 결과도 권한을 부여하지 않습니다. |
 | 통합 질문은행 인벤토리 | implemented | `eval/golden-dataset/question-bank/`, 공식 질문은행 생성기, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 생성된 인벤토리는 원본 파일 11개에서 논리 질문 400개를 구성합니다. 현재 리소스 SRE 후보 50개는 일반 Azure 리소스 유형 19개를 다루고 서버 소유 범위를 요구하며 읽기 전용 및 `execution_authority=false`를 유지합니다. 후보 등록은 런타임 연결이나 실제 운영 근거를 인증하지 않습니다. |
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
@@ -166,6 +171,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 대상 없는 완화 요구사항에 대해 영어와 한국어 원문 및 유사 질문 3개씩을 추가하여 Azure/인시던트 의도 계약을 16개에서 24개 사례로 확장하고 CQAS 소스 digest를 다시 생성했습니다. | `current change`, 집중 Golden 재생, 의미 계획, 최종 표현, 생성 산출물 drift, Ruff 및 mypy 검사 | 승격하거나 실제 품질을 주장하기 전에 인증된 exact-source 모델 근거를 별도로 실행합니다. |
 | 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
 | 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |
 | 2026-09-10 | validated | Conditional schema-repair v2가 서로 다른 10문항 스키마 cohort 5개를 각각 100%로 통과했습니다. Trigger는 non-schema family에서 실행되지 않습니다. 반복한 v14 legacy primary accuracy는 81.25%~93.75%로 변동하여 전역 primary를 승격하지 않았습니다. | 로컬 live 스키마 artifact 50/50 5개, legacy artifact 5개, 모든 legacy 실행에서 read/action 오탐과 만들어 낸 신원 0 | 불변 generator에 새로운 non-duplicate 공간이 생기면 새 질문으로 전체 답변 rendering을 검증하고 primary-model 변동은 별도로 처리합니다. |

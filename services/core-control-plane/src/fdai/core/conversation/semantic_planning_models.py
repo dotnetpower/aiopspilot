@@ -42,6 +42,12 @@ class SemanticPlanningDisposition(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class SemanticAdvisoryResponseIntent(StrEnum):
+    """Typed no-authority guidance selected after semantic judgment."""
+
+    INCIDENT_MITIGATION_REQUIREMENTS = "incident_mitigation_requirements"
+
+
 @dataclass(frozen=True, slots=True)
 class BoundIncident:
     """Trusted incident identity carried by the conversation, never proposed by a model."""
@@ -389,6 +395,8 @@ class SemanticPlanningOutcome:
     clarification: str | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
     direct_response_answer: str | None = None
+    advisory_response_intent: SemanticAdvisoryResponseIntent | None = None
+    advisory_response_answer: str | None = None
     social_act: SocialAct = SocialAct.NONE
     model_observations: tuple[SemanticJudgmentObservation, ...] = ()
     execution_authority: Literal[False] = False
@@ -416,6 +424,17 @@ class SemanticPlanningOutcome:
             )
         if not direct_response and self.direct_response_answer is not None:
             raise ValueError("non-direct semantic outcome MUST NOT carry a direct response answer")
+        advisory_response = self.disposition is SemanticPlanningDisposition.ADVISORY_RESPONSE
+        advisory_fields = (
+            self.advisory_response_intent is not None,
+            self.advisory_response_answer is not None,
+        )
+        if advisory_response and advisory_fields[0] != advisory_fields[1]:
+            raise ValueError("typed advisory response fields MUST be present together")
+        if not advisory_response and any(advisory_fields):
+            raise ValueError(
+                "non-advisory semantic outcome MUST NOT carry advisory response fields"
+            )
 
 
 __all__ = [
@@ -427,6 +446,7 @@ __all__ = [
     "QueryManifestProvider",
     "QueryNodeProposal",
     "QueryPlanProposal",
+    "SemanticAdvisoryResponseIntent",
     "SemanticDescriptorSelector",
     "SemanticDirectResponseIntent",
     "SemanticFrameProposal",
