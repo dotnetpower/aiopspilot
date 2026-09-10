@@ -71,17 +71,21 @@ class TraceContinuityTickRunner:
         event_bus: EventBus,
         detector: TraceContinuityDetector | None = None,
         window_seconds: int = DEFAULT_WINDOW_SECONDS,
+        lookback_seconds: int | None = None,
         topic: str = ANALYZER_EVENT_TOPIC,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if window_seconds < 1:
             raise ValueError("trace continuity window_seconds MUST be positive")
+        if lookback_seconds is not None and lookback_seconds < window_seconds:
+            raise ValueError("trace continuity lookback_seconds MUST be at least window_seconds")
         if not topic:
             raise ValueError("trace continuity topic MUST be non-empty")
         self._source = source
         self._bus = event_bus
         self._detector = detector or TraceContinuityDetector()
         self._window_seconds = window_seconds
+        self._lookback_seconds = lookback_seconds or window_seconds
         self._topic = topic
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
@@ -105,7 +109,7 @@ class TraceContinuityTickRunner:
         window_bucket = str(int(now.timestamp() // self._window_seconds))
         observations = await self._source.collect(
             targets,
-            window_seconds=self._window_seconds,
+            window_seconds=self._lookback_seconds,
             window_bucket=window_bucket,
         )
 

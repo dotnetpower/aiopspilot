@@ -134,6 +134,32 @@ async def test_retry_reuses_the_same_idempotency_key() -> None:
 
 
 @pytest.mark.asyncio
+async def test_evidence_lookback_is_independent_from_the_detection_bucket() -> None:
+    source = _Source((_observation(("trace-a",) * len(_HOPS)),))
+    runner = TraceContinuityTickRunner(
+        source=source,
+        event_bus=_Bus(),  # type: ignore[arg-type]
+        window_seconds=60,
+        lookback_seconds=900,
+        clock=lambda: _NOW,
+    )
+
+    await runner.run_once((_target(),))
+
+    assert source.calls == [(900, str(int(_NOW.timestamp() // 60)))]
+
+
+def test_evidence_lookback_cannot_be_shorter_than_the_detection_bucket() -> None:
+    with pytest.raises(ValueError, match="at least window_seconds"):
+        TraceContinuityTickRunner(
+            source=_Source(()),
+            event_bus=_Bus(),  # type: ignore[arg-type]
+            window_seconds=300,
+            lookback_seconds=60,
+        )
+
+
+@pytest.mark.asyncio
 async def test_publish_failure_is_reported_for_job_retry() -> None:
     source = _Source((_observation(("trace-front", "trace-front", "trace-back", "trace-back")),))
     runner = TraceContinuityTickRunner(
