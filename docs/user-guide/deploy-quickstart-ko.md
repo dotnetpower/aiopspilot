@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 08a7d1452a7cdb2546f0ec6e414e76ebd16766e1
+translation_source_sha: aed1778f17c336b126a7a4ca79aa540dbac72126
 translation_revised: 2026-09-10
 ---
 
@@ -18,7 +18,7 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 
 | 환경 | 사용할 경로 | 결과 |
 |------|-------------|------|
-| 정책 경로를 알 수 없는 신규 또는 일부 구성된 구독 | 명시적 대상 축, 저장소, 변경 권한과 함께 `genesis-up.sh` 실행 | 정확한 대상 및 CI 검사, 기준 Resource Provider 조정, 유효 정책 경로 선택 후 공개 미리 보기 또는 비공개 기반 계층 승인 대기 |
+| 정책 경로를 알 수 없는 신규 또는 일부 구성된 구독 | 명시적 대상 축, 저장소, 변경 권한과 함께 `genesis-up.sh` 실행 | 정확한 대상 및 CI 검사, 기준 Resource Provider 조정, 유효 정책 경로 선택 후 공개 미리 보기 또는 승인된 비공개 기반 계층 순서 |
 | 개인 Azure 퍼블릭 클라우드 개발 구독 | `az login` 실행 후 `make azd-up`을 실행하고 표시된 리전을 승인 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
 | 비공개 네트워크, 공유, 스테이징 또는 운영 환경 | 보호된 `fdaictl` 계획 및 exact 적용 | 비공개 상태, VNet runner, 승인 정책, 선택한 모든 독립 서비스 및 보호된 증거 |
 | 기존 사용자 지정 Terraform 자동화 | Terraform 직접 실행 | 배포 소유 상태, 이미지, 마이그레이션 및 검증 오케스트레이션을 사용하는 전문가 통합 |
@@ -26,15 +26,18 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 공개 경로는 개발 부트스트랩이며 운영 우회 경로가 아닙니다. 자율 작업은 관찰 모드로 유지되며
 Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
 
-Genesis는 사용자 입력 없이 번호가 지정된 8개 단계, 정확한 진행률, 남은 작업을 표시합니다.
+Genesis는 사용자 입력 없이 번호가 지정된 15개 단계, 정확한 진행률, 건너뛴 단계 수, 남은 작업을 표시합니다.
 `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책
 프로브 생성 및 검증된 정리만 승인하며, 정확한 삭제 Vault 영구 삭제와 부재 재확인도 포함합니다. 변경 허용
 Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra SSH 확장을 고정하고 검증하며 검사 모드는
 로컬 CLI 구성을 바꾸지 않습니다. 장시간 명령은 10초마다 stderr에 점을 출력하지만 stdout JSON은 변경하지 않습니다. `public-dev` 결과는 정확히 승인된 계획을 위해 미리 보기 후 대기합니다.
-`private-runner` 결과는 서명된 아티팩트와 비공개 입력 경로가 모두 있으면 저장된 기반 계층
-계획을 만들 수 있지만 현재 사람 승인을 계속 기다립니다. 입력이 없으면
-`private_foundation_external_artifacts_required`를 보고합니다. 어느 경로도 봉인되지 않은 계획을
-적용하거나 구독 준비 상태를 주장하지 않습니다.
+`private-runner` 결과는 서명된 아티팩트와 비공개 입력 경로가 모두 있으면 정확한 실행기
+이미지를 빌드하고, 기반 계층을 적용하며, Bastion을 통해 실행기를 등록 및 증명하고, 상태를
+비공개 백엔드로 인계할 수 있습니다. 새 효과마다 현재의 정확한 승인이 각각 필요하며 로컬 승인
+파일 방식은 일치하는 수동 단일 승인자 `dev` 프로필로 제한됩니다. 이미 점유한 효과는 검증만
+재개합니다. 입력이 완전하지 않으면 `private_foundation_external_artifacts_required`를 보고합니다.
+로컬 경로는 보호된 애플리케이션 계획 전에 중단하며 어느 경로도 봉인되지 않은 계획을 적용하거나
+구독 준비 상태를 주장하지 않습니다.
 
 소유자 전용 `secrets/license-signing-key.pem`이 패키지 공개 키와 일치하면 확인된 공개 경로가
 정확한 이미지와 배포에 연결된 최대 30일 토큰을 발급하고 전체 토큰 다이제스트 이름의 Key Vault
@@ -71,10 +74,10 @@ Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra S
   범위가 제한된 점검은 수동 `scope=runner`를 사용하며 예약 및 기본 실행은 모든 루트를 검증합니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지
   참조를 보존합니다.
 - **새 오프라인 구독:** 독립 Bootstrap은 기존 상태 계정과 애플리케이션 그룹을 요구합니다.
-  별도 Genesis 루트는 ARM 전용 기반 계층 계획과 참조 전용 애플리케이션 그룹 소유권을
-  제공합니다. 패키지 실행 흐름은 아직 승인된 생성, 호스트 등록, 상태 이전을 자동화하지
-  않습니다. [오프라인 준비 범위](../roadmap/deployment/disconnected-deployment-ko.md)를 확인하세요.
-  준비된 산출물이나 저장된 계획이 설치 준비 완료를 뜻하지는 않습니다.
+  별도 Genesis 루트와 로컬 조정기는 정확한 ARM 전용 이미지 및 기반 계층 계획, 승인된 생성,
+  Bastion 등록 및 증명, 비공개 상태 이전을 제공합니다. 보호된 애플리케이션 배포와 최종 준비도는
+  별도로 유지됩니다. [오프라인 준비 범위](../roadmap/deployment/disconnected-deployment-ko.md)를
+  확인하세요. 준비된 산출물, 저장된 계획, 완료된 기반 계층만으로는 설치 준비가 끝나지 않습니다.
 - `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Terraform

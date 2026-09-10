@@ -229,7 +229,7 @@ def test_status_preserves_exact_plan_report_for_retry(tmp_path: Path) -> None:
         deadline_at="2999-09-10T12:00:00Z",
     )
     first.foundation_report = report
-    first.update(stage="execution", state="waiting")
+    first.update(stage="foundation-plan", state="waiting")
 
     retry = StatusStore(
         path=work / "status.json",

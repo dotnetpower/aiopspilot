@@ -46,7 +46,9 @@ For a fresh database, supply its administrator password through the protected in
 
 [The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
-`fdaictl provision plan --stage foundation` provides a dry run with optional private `--save-plan` capture. Approval, host enrollment, and remote-state migration remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
+`fdaictl provision plan --stage foundation` provides a private dry run. The local Genesis
+coordinator adds approved image and Foundation apply, Bastion enrollment, and verified state
+migration. Protected application deployment and readiness remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
 matching capability-mode toggle before the plan can converge
@@ -183,12 +185,11 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 These customer-agnostic helpers keep both deployment routes repeatable:
 
-- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs eight noninteractive stages
-  with exact progress, reports missing Resource Providers without mutation, registers only missing
-  providers when authorized, and selects `public-dev` or `private-runner` after exact probe cleanup.
-  Long commands print a dot to stderr every 10 seconds without changing stdout JSON. With all five
-  absolute artifact and input paths, the private route runs exact signed-kit Foundation planning;
-  otherwise it reports `private_foundation_external_artifacts_required` and waits without applying.
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs 15 stages and routes after
+  provider reconciliation and exact cleanup. The private path
+  can build the pinned image, apply Foundation, attest Bastion-enrolled slots, and migrate state
+  after separate current approvals. Claims resume verification only. The command stops before the
+  protected application plan and never reports readiness from Foundation completion.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
@@ -197,9 +198,8 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   apply -> prints the GitHub Actions config (idempotent).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
   Variables + Secrets from the bootstrap outputs (password generated + piped, never printed).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) is a legacy manual recovery
-  helper that sends short-lived registration material through `run-command`. Genesis never calls it;
-  unattended enrollment stays blocked until registration material avoids Terraform, arguments, Run Command, and logs.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) is legacy `run-command`
+  recovery. Genesis instead sends registration material through SSH standard input over Bastion.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 

@@ -27,6 +27,7 @@ FOUNDATION_PROVIDERS = (
     "Microsoft.Network",
     "Microsoft.Resources",
     "Microsoft.Storage",
+    "Microsoft.VirtualMachineImages",
 )
 APPLICATION_PROVIDERS = (
     "Microsoft.App",

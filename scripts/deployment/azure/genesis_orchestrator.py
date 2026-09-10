@@ -18,14 +18,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TextIO, cast
 
+from fdai_deployment_cli.profile import load_profile
+from fdai_deployment_cli.target import compute_target_binding
+from genesis_approval import GenesisApprovalExpiredError, load_genesis_approval
 from genesis_checks import CheckError, GenesisChecks
-from genesis_foundation import (
-    FoundationPlanError,
-    FoundationPlanInputs,
-    missing_foundation_report,
-    prepare_foundation_plan,
+from genesis_foundation import FoundationPlanError, FoundationPlanInputs
+from genesis_private_errors import PrivateExecutionError, PrivateExecutionWaitError
+from genesis_private_execution import PrivateExecutionConfig, PrivateExecutionCoordinator
+from genesis_status import (
+    PRIVATE_FOUNDATION_STAGES,
+    StatusStore,
+    StatusStoreError,
+    render_plan,
 )
-from genesis_status import StatusStore, StatusStoreError, render_plan
 from resource_provider_reconcile import ProviderReconcileError, reconcile_resource_providers
 
 _GUID = re.compile(
@@ -62,6 +67,10 @@ class RunConfig:
     output: str
     work_dir: Path | None
     foundation_inputs: FoundationPlanInputs | None
+    approval_file: Path | None = None
+    create_runner_image: bool = False
+    runner_image_terraform: Path | None = None
+    runner_ssh_private_key: Path | None = None
 
     def validate(self) -> None:
         """Reject ambiguous targets and implicit mutation authority."""
@@ -88,6 +97,44 @@ class RunConfig:
             raise OrchestrationError("work_dir_must_be_absolute", 64)
         if self.foundation_inputs is not None:
             self.foundation_inputs.validate()
+            try:
+                profile = load_profile(self.foundation_inputs.profile)
+            except (OSError, ValueError) as exc:
+                raise OrchestrationError("foundation_profile_invalid", 64) from exc
+            expected_target = compute_target_binding(
+                tenant_id=self.tenant_id,
+                subscription_id=self.subscription_id,
+            )
+            if (
+                profile.target_binding != expected_target
+                or profile.region != self.region
+                or profile.environment != self.environment
+            ):
+                raise OrchestrationError("foundation_profile_context_mismatch", 64)
+            if self.approval_file is not None and (
+                profile.transport != "manual" or profile.approval_quorum != 1
+            ):
+                raise OrchestrationError("local_private_approval_cannot_satisfy_profile", 64)
+        private_paths = (
+            self.approval_file,
+            self.runner_image_terraform,
+            self.runner_ssh_private_key,
+        )
+        if any(path is not None and not path.is_absolute() for path in private_paths):
+            raise OrchestrationError("private_input_paths_must_be_absolute", 64)
+        if self.create_runner_image and not self.apply:
+            raise OrchestrationError("runner_image_creation_requires_apply", 64)
+        if self.create_runner_image and self.runner_image_terraform is None:
+            raise OrchestrationError("runner_image_terraform_required", 64)
+        if self.runner_image_terraform is not None and not self.create_runner_image:
+            raise OrchestrationError("runner_image_terraform_requires_image_creation", 64)
+        if self.approval_file is not None and self.environment != "dev":
+            raise OrchestrationError("local_private_approval_supports_dev_only", 64)
+        has_private_execution_input = (
+            self.approval_file is not None or self.runner_ssh_private_key is not None
+        )
+        if has_private_execution_input and not self.apply:
+            raise OrchestrationError("private_execution_inputs_require_apply", 64)
 
 
 class GenesisOrchestrator:
@@ -100,12 +147,23 @@ class GenesisOrchestrator:
         self.source_commit = self.checks.capture(("git", "rev-parse", "HEAD"), "source_revision")
         if re.fullmatch(r"[0-9a-f]{40}", self.source_commit) is None:
             raise OrchestrationError("invalid_source_revision")
-        self.target_binding = hashlib.sha256(
-            (
-                f"{config.tenant_id.lower()}:{config.subscription_id.lower()}:"
-                f"{config.region}:{config.environment}:{config.repository or ''}"
-            ).encode()
-        ).hexdigest()
+        run_context = (
+            f"{config.tenant_id.lower()}:{config.subscription_id.lower()}:"
+            f"{config.region}:{config.environment}:{config.repository or ''}"
+        )
+        if config.create_runner_image:
+            run_context += ":runner-image=true"
+        self.target_binding = hashlib.sha256(run_context.encode()).hexdigest()
+        try:
+            self.approval = load_genesis_approval(
+                config.approval_file,
+                run_binding=self.target_binding,
+                source_commit=self.source_commit,
+            )
+        except GenesisApprovalExpiredError:
+            self.approval = None
+        except (OSError, ValueError) as exc:
+            raise OrchestrationError("genesis_approval_invalid", 64) from exc
         mode = "apply" if config.apply else "inspect"
         work_dir = config.work_dir or (
             config.repository_root
@@ -152,36 +210,42 @@ class GenesisOrchestrator:
             self.store.route = route
             self._stage("route", lambda: None)
             if route == "private-runner":
-                return self._run_private_foundation_plan()
+                self._run_private_execution()
+                raise OrchestrationError("private_execution_boundary_missing")
             if route != "public-dev":
                 raise OrchestrationError("deployment_route_indeterminate")
             if self.config.environment != "dev":
                 raise OrchestrationError("public_route_supports_dev_only", 3)
+            self.store.mark_skipped(*PRIVATE_FOUNDATION_STAGES)
+            self.current_stage = "application-plan"
+            self.store.update(stage="application-plan", state="running")
             self._run_public_preview()
             return self._finish_waiting(
-                "execution",
+                "application-plan",
                 "public_exact_plan_approval_required",
                 "review_preview_and_create_an_exact_approved_plan",
             )
+        except PrivateExecutionWaitError as exc:
+            return self._finish_waiting(exc.stage, exc.reason_code, exc.next_action)
+        except PrivateExecutionError as exc:
+            self.current_stage = exc.stage
+            self._record_failure(exc.exit_code, exc.reason_code)
+            return exc.exit_code
         except (OrchestrationError, CheckError, FoundationPlanError) as exc:
-            exit_code = exc.exit_code
-            self.store.update(
-                stage=self.current_stage,
-                state="failed" if exit_code == 4 else "blocked",
-                reason_code=exc.reason_code,
-                next_action="review_failed_stage_and_resume",
-            )
-            self._print_final()
-            return exit_code
+            self._record_failure(exc.exit_code, exc.reason_code)
+            return exc.exit_code
         except (OSError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired):
-            self.store.update(
-                stage=self.current_stage,
-                state="failed",
-                reason_code="unexpected_orchestration_failure",
-                next_action="review_failed_stage_and_resume",
-            )
-            self._print_final()
+            self._record_failure(4, "unexpected_orchestration_failure")
             return 4
+
+    def _record_failure(self, exit_code: int, reason_code: str) -> None:
+        self.store.update(
+            stage=self.current_stage,
+            state="failed" if exit_code == 4 else "blocked",
+            reason_code=reason_code,
+            next_action="review_failed_stage_and_resume",
+        )
+        self._print_final()
 
     def _stage(self, stage: str, operation: Callable[[], None]) -> None:
         self.current_stage = stage
@@ -334,42 +398,31 @@ class GenesisOrchestrator:
         )
         self.checks.verify_checkout_unchanged()
 
-    def _run_private_foundation_plan(self) -> int:
-        """Generate the exact private plan when all external trust inputs exist."""
+    def _run_private_execution(self) -> None:
+        """Delegate exact private checkpoints to the resumable coordinator."""
 
-        self.current_stage = "execution"
-        inputs = self.config.foundation_inputs
-        if inputs is None:
-            self.store.foundation_report = missing_foundation_report()
-            return self._finish_waiting(
-                "execution",
-                "private_foundation_external_artifacts_required",
-                "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan",
-            )
-        self.store.update(stage="execution", state="running")
-        prior = self.store.foundation_report
-        if prior is not None:
-            schema = prior.get("schema_version")
-            if schema == "fdai.genesis-foundation-prerequisites.v1":
-                prior = None
-            elif schema != "fdai.genesis-foundation-plan.v1":
-                raise OrchestrationError("foundation_plan_report_invalid")
-        report = prepare_foundation_plan(
-            inputs=inputs,
-            repository_root=self.config.repository_root,
-            orchestration_work_dir=self.work_dir,
-            attempt=self.store.attempt,
-            prior_report=prior,
-            timeout=self._bounded_timeout(self.config.execution_timeout_seconds, minimum=300),
-            capture=self.checks.capture,
+        repository = self.config.repository
+        if repository is None:
+            raise OrchestrationError("repository_required_for_apply", 64)
+        coordinator = PrivateExecutionCoordinator(
+            config=PrivateExecutionConfig(
+                repository_root=self.config.repository_root,
+                repository=repository,
+                subscription_id=self.config.subscription_id,
+                tenant_id=self.config.tenant_id,
+                source_commit=self.source_commit,
+                work_dir=self.work_dir,
+                foundation_inputs=self.config.foundation_inputs,
+                approval=self.approval,
+                create_runner_image=self.config.create_runner_image,
+                runner_image_terraform=self.config.runner_image_terraform,
+                runner_ssh_private_key=self.config.runner_ssh_private_key,
+                execution_timeout_seconds=self.config.execution_timeout_seconds,
+            ),
+            store=self.store,
+            checks=self.checks,
         )
-        self.store.foundation_report = report
-        self.checks.verify_checkout_unchanged()
-        return self._finish_waiting(
-            "execution",
-            "foundation_exact_plan_approval_required",
-            "review_foundation_plan_and_obtain_current_approval_before_separate_apply",
-        )
+        coordinator.run()
 
     def _bounded_timeout(self, maximum: int, *, minimum: int = 1) -> int:
         remaining = self.store.remaining_seconds()
@@ -425,7 +478,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="authorize provider registration and routing probe, not an unsealed plan apply",
+        help=(
+            "authorize prerequisite mutation; every exact private effect also requires its "
+            "current checkpoint approval"
+        ),
     )
     parser.add_argument(
         "--allow-probe-resources",
@@ -447,6 +503,14 @@ def _parser() -> argparse.ArgumentParser:
     foundation.add_argument("--foundation-bundle-public-key", type=Path)
     foundation.add_argument("--foundation-profile", type=Path)
     foundation.add_argument("--foundation-variables-file", type=Path)
+    private_execution = parser.add_argument_group(
+        "resumable private execution",
+        "Each exact mutation requires a mode-0600 approval file for its current checkpoint.",
+    )
+    private_execution.add_argument("--approval-file", type=Path)
+    private_execution.add_argument("--create-runner-image", action="store_true")
+    private_execution.add_argument("--runner-image-terraform", type=Path)
+    private_execution.add_argument("--runner-ssh-private-key", type=Path)
     parser.add_argument("--output", choices=("text", "json"), default="text")
     return parser
 
@@ -492,6 +556,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             output=args.output,
             work_dir=args.work_dir,
             foundation_inputs=_foundation_inputs(args),
+            approval_file=args.approval_file,
+            create_runner_image=args.create_runner_image,
+            runner_image_terraform=args.runner_image_terraform,
+            runner_ssh_private_key=args.runner_ssh_private_key,
         )
         return GenesisOrchestrator(config).run()
     except (OrchestrationError, CheckError, FoundationPlanError, StatusStoreError) as exc:

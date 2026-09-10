@@ -5,4 +5,10 @@ set -euo pipefail
 umask 077
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec python3 "$HERE/genesis_orchestrator.py" "$@"
+ROOT="$(cd "$HERE/../../.." && pwd)"
+export PYTHONPATH="$ROOT/packages/deployment-cli/src:$HERE${PYTHONPATH:+:$PYTHONPATH}"
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+	exec "$ROOT/.venv/bin/python" "$HERE/genesis_orchestrator.py" "$@"
+fi
+exec uv run --frozen --project "$ROOT/packages/deployment-cli" \
+	python "$HERE/genesis_orchestrator.py" "$@"

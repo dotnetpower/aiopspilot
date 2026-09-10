@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 80ac84361f033ed2b566d31e7d7c7edfb409482f
-translation_revised: 2026-09-10
+translation_source_sha: 087eccbbcb06c116224e575be478586deccf0839
+translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -50,7 +50,9 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
-`fdaictl provision plan --stage foundation`은 선택적 비공개 `--save-plan` 저장을 지원하는 모의 실행입니다. 승인, 호스트 등록, 원격 상태 이전은 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
+`fdaictl provision plan --stage foundation`은 비공개 모의 실행을 제공합니다. 로컬 Genesis
+조정기는 승인된 이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전을 추가합니다. 보호된
+애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
@@ -185,12 +187,11 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 정확한 진행률을 표시하는 8개
-  비대화형 단계를 실행하고, 변경 없이 누락된 Resource Provider를 보고하며, 승인된 경우에만
-  누락된 Provider를 등록하고 정확한 프로브 정리 후 `public-dev` 또는 `private-runner`를 선택합니다.
-  장시간 명령은 stdout JSON을 바꾸지 않고 10초마다 stderr에 점을 출력합니다. 5개의 절대
-  아티팩트 및 입력 경로가 모두 있으면 비공개 경로가 서명된 키트로 정확한 기반 계층 계획을
-  실행하며, 그렇지 않으면 `private_foundation_external_artifacts_required`를 보고하고 적용 없이 기다립니다.
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 15개 단계를 실행하고 Provider
+  조정과 정확한 정리 뒤 경로를 선택합니다. 비공개 경로는 별도의 현재 승인 후 고정된 이미지를
+  빌드하고, 기반 계층을 적용하고, Bastion으로 등록된 슬롯을 증명하고, 상태를 이전할 수 있습니다.
+  점유가 있으면 검증만 재개합니다. 보호된 애플리케이션 계획 전에 중단하며 기반 계층 완료만으로
+  준비 상태를 보고하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
   Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
@@ -199,9 +200,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 초기화 출력에서
   repo Variables + Secrets를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 수명이 짧은 등록 자료를
-  `run-command`로 전달하는 기존 수동 복구 도구입니다. Genesis는 이 도구를 호출하지 않으며,
-  등록 자료가 Terraform, 인자, Run Command, 로그를 피하는 경로가 검증될 때까지 비대화형 등록을 차단합니다.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 기존 `run-command` 복구
+  도구입니다. Genesis는 대신 Bastion을 통한 SSH 표준 입력으로만 등록 자료를 전달합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 

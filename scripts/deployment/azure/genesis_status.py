@@ -12,6 +12,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+_SCHEMA_VERSION = "fdai.genesis-orchestration-status.v2"
+_LEGACY_SCHEMA_VERSION = "fdai.genesis-orchestration-status.v1"
+_LEGACY_STAGES = frozenset(
+    {"toolchain", "target", "source", "providers", "policy", "route", "execution", "verification"}
+)
+PRIVATE_FOUNDATION_STAGES = (
+    "runner-image-plan",
+    "runner-image-apply",
+    "foundation-plan",
+    "foundation-apply",
+    "runner-enrollment",
+    "foundation-state",
+)
 STAGES = (
     ("toolchain", "Toolchain prerequisites"),
     ("target", "Azure target verification"),
@@ -19,7 +32,14 @@ STAGES = (
     ("providers", "Azure resource providers"),
     ("policy", "Tenant policy route"),
     ("route", "Deployment route selection"),
-    ("execution", "Plan and guarded apply"),
+    ("runner-image-plan", "Runner image exact plan"),
+    ("runner-image-apply", "Runner image exact apply"),
+    ("foundation-plan", "Foundation exact plan"),
+    ("foundation-apply", "Foundation exact apply"),
+    ("runner-enrollment", "Runner enrollment and attestation"),
+    ("foundation-state", "Foundation private state handoff"),
+    ("application-plan", "Protected application exact plan"),
+    ("application-apply", "Protected application exact apply"),
     ("verification", "Post-deployment verification"),
 )
 
@@ -53,10 +73,15 @@ class StatusStore:
             and prior_policy.get("state") == "probing"
             and prior.get("mutation_performed") is True
         )
+        private_checkpoint_resume = bool(
+            prior
+            and prior.get("route") == "private-runner"
+            and _prior_report(prior, "foundation_report") is not None
+        )
         continuing = (
             bool(prior)
             and prior.get("state") != "complete"
-            and (prior_deadline_is_current or unresolved_policy_probe)
+            and (prior_deadline_is_current or unresolved_policy_probe or private_checkpoint_resume)
         )
         self.deadline_at = (
             str(prior["deadline_at"]) if continuing and prior_deadline_is_current else deadline_at
@@ -65,6 +90,7 @@ class StatusStore:
         self.sequence = int(prior.get("sequence", 0)) if continuing else 0
         self.started_at = str(prior.get("started_at", _timestamp())) if continuing else _timestamp()
         self.completed = set(prior.get("completed_stages", ())) if continuing else set()
+        self.skipped = set(prior.get("skipped_stages", ())) if continuing else set()
         self.mutation_performed = (
             bool(prior.get("mutation_performed", False)) if continuing else False
         )
@@ -73,6 +99,15 @@ class StatusStore:
         self.policy_report = prior_policy if continuing else None
         self.foundation_report = _prior_report(prior, "foundation_report") if continuing else None
         self.payload: dict[str, object] = {}
+
+    def mark_skipped(self, *stages: str) -> None:
+        """Mark route-inapplicable stages terminal without claiming their effects occurred."""
+
+        stage_ids = {item[0] for item in STAGES}
+        if not stages or any(stage not in stage_ids for stage in stages):
+            raise ValueError("unknown orchestration stage")
+        self.skipped.update(stages)
+        self.completed.update(stages)
 
     def update(
         self,
@@ -92,10 +127,11 @@ class StatusStore:
             self.completed.add(stage)
         self.sequence += 1
         completed_stages = [value for value in stage_ids if value in self.completed]
+        skipped_stages = [value for value in stage_ids if value in self.skipped]
         remaining = [value for value in stage_ids if value not in self.completed]
         percent = len(completed_stages) * 100 // len(stage_ids)
         self.payload = {
-            "schema_version": "fdai.genesis-orchestration-status.v1",
+            "schema_version": _SCHEMA_VERSION,
             "run_id": _run_id(self.target_binding, self.source_commit, self.mode),
             "attempt": self.attempt,
             "sequence": self.sequence,
@@ -107,6 +143,8 @@ class StatusStore:
             "stages_total": len(stage_ids),
             "progress_percent": percent,
             "completed_stages": completed_stages,
+            "skipped_stages": skipped_stages,
+            "stages_skipped": len(skipped_stages),
             "remaining_stages": remaining,
             "reason_code": reason_code,
             "next_action": next_action,
@@ -158,7 +196,8 @@ class StatusStore:
                 os.close(descriptor)
         if not isinstance(value, dict):
             raise StatusStoreError("invalid_existing_status_file")
-        if value.get("schema_version") != "fdai.genesis-orchestration-status.v1":
+        schema_version = value.get("schema_version")
+        if schema_version not in {_SCHEMA_VERSION, _LEGACY_SCHEMA_VERSION}:
             raise StatusStoreError("invalid_existing_status_file")
         for field in ("attempt", "sequence"):
             item = value.get(field)
@@ -177,7 +216,21 @@ class StatusStore:
             isinstance(item, str) for item in completed_stages
         ):
             raise StatusStoreError("invalid_existing_status_file")
-        if not set(completed_stages).issubset({item[0] for item in STAGES}):
+        accepted_stages = (
+            _LEGACY_STAGES
+            if schema_version == _LEGACY_SCHEMA_VERSION
+            else {item[0] for item in STAGES}
+        )
+        if not set(completed_stages).issubset(accepted_stages):
+            raise StatusStoreError("invalid_existing_status_file")
+        skipped_stages = value.get("skipped_stages", [])
+        if not isinstance(skipped_stages, list) or not all(
+            isinstance(item, str) for item in skipped_stages
+        ):
+            raise StatusStoreError("invalid_existing_status_file")
+        if schema_version == _SCHEMA_VERSION and not set(skipped_stages).issubset(
+            {item[0] for item in STAGES}
+        ):
             raise StatusStoreError("invalid_existing_status_file")
         if not isinstance(value.get("mutation_performed"), bool):
             raise StatusStoreError("invalid_existing_status_file")
@@ -190,6 +243,13 @@ class StatusStore:
         actual = (value.get("source_commit"), value.get("target_binding"), value.get("mode"))
         if actual != expected:
             raise StatusStoreError("status_context_mismatch")
+        if schema_version == _LEGACY_SCHEMA_VERSION:
+            value = dict(value)
+            value["schema_version"] = _SCHEMA_VERSION
+            value["completed_stages"] = [
+                stage for stage in completed_stages if stage in {item[0] for item in STAGES}
+            ]
+            value["skipped_stages"] = []
         return value
 
     def _write(self) -> None:
@@ -245,6 +305,7 @@ def render_progress(payload: dict[str, object]) -> None:
 
     total = int(payload["stages_total"])
     completed = int(payload["stages_completed"])
+    skipped = int(payload["stages_skipped"])
     percent = int(payload["progress_percent"])
     width = 24
     filled = width * completed // total
@@ -256,7 +317,7 @@ def render_progress(payload: dict[str, object]) -> None:
     remaining = total - completed
     print(
         f"[{bar}] {percent:3d}%  done {completed}/{total} | stage {stage_number}/{total} "
-        f"{label} - {state} | remaining {remaining}",
+        f"{label} - {state} | skipped {skipped} | remaining {remaining}",
         file=sys.stderr,
     )
 
@@ -272,7 +333,7 @@ def render_plan(mode: str) -> None:
         print(f"  {number}. {label}", file=sys.stderr)
     print(
         "Routes: public-dev -> preview and exact-plan wait; "
-        "private-runner -> Foundation approval wait",
+        "private-runner -> image, Foundation, enrollment, and state checkpoints",
         file=sys.stderr,
     )
     print("Safety: no route fallback, unsealed apply, or readiness claim", file=sys.stderr)

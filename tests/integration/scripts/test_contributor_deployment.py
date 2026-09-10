@@ -98,7 +98,10 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
 
     assert "secrets/" in gitignore
     assert "secrets/" in dockerignore
-    assert genesis_wrapper.index("umask 077") < genesis_wrapper.index("exec python3")
+    assert genesis_wrapper.index("umask 077") < genesis_wrapper.index(
+        'exec "$ROOT/.venv/bin/python"'
+    )
+    assert "exec uv run --frozen --project" in genesis_wrapper
     assert 'resource_provider_registrations = "none"' in (_ROOT / "infra/versions.tf").read_text(
         encoding="utf-8"
     )

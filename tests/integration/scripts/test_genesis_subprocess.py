@@ -114,3 +114,38 @@ time.sleep(30)
 def test_invalid_budget_is_rejected_before_process_start() -> None:
     with pytest.raises(ValueError, match="timeout"):
         run_with_heartbeat((sys.executable, "-c", "pass"), cwd=_ROOT, timeout=0)
+
+
+def test_private_umask_applies_to_child_outputs(tmp_path: Path) -> None:
+    output = tmp_path / "private-output"
+
+    result = run_with_heartbeat(
+        (sys.executable, "-c", f"open({str(output)!r}, 'w').write('private')"),
+        cwd=_ROOT,
+        timeout=1,
+        capture_output=True,
+        umask=0o077,
+    )
+
+    assert result.returncode == 0
+    assert output.stat().st_mode & 0o777 == 0o600
+
+
+def test_private_stdin_reaches_child_without_joining_output() -> None:
+    private_input = "short-lived-registration-material"
+
+    result = run_with_heartbeat(
+        (
+            sys.executable,
+            "-c",
+            "import sys; value=sys.stdin.read(); print(len(value))",
+        ),
+        cwd=_ROOT,
+        timeout=1,
+        capture_output=True,
+        input_text=private_input,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == str(len(private_input))
+    assert private_input not in result.stdout + result.stderr

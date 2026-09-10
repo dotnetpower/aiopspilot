@@ -18,9 +18,18 @@ _SCRIPT_DIR = _ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(_SCRIPT_DIR))
 
 import genesis_orchestrator as orchestrator  # noqa: E402
+import genesis_private_execution as private_execution  # noqa: E402
+from fdai_deployment_cli.contracts import ProvisionProfile  # noqa: E402
+from fdai_deployment_cli.profile import write_profile  # noqa: E402
+from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
 from genesis_checks import CheckError, GenesisChecks  # noqa: E402
 from genesis_foundation import FoundationPlanError, FoundationPlanInputs  # noqa: E402
-from genesis_status import StatusStore, StatusStoreError, render_plan  # noqa: E402
+from genesis_status import (  # noqa: E402
+    PRIVATE_FOUNDATION_STAGES,
+    StatusStore,
+    StatusStoreError,
+    render_plan,
+)
 from resource_provider_reconcile import (  # noqa: E402
     APPLICATION_PROVIDERS,
     FOUNDATION_PROVIDERS,
@@ -31,9 +40,22 @@ from resource_provider_reconcile import (  # noqa: E402
 _SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 _TENANT = "00000000-0000-0000-0000-000000000002"
 _GENESIS_PYTHON = (
+    _SCRIPT_DIR / "genesis_bastion.py",
     _SCRIPT_DIR / "genesis_orchestrator.py",
+    _SCRIPT_DIR / "genesis_approval.py",
     _SCRIPT_DIR / "genesis_checks.py",
+    _SCRIPT_DIR / "genesis_foundation_apply.py",
+    _SCRIPT_DIR / "genesis_foundation_apply_contract.py",
+    _SCRIPT_DIR / "genesis_foundation_state.py",
+    _SCRIPT_DIR / "genesis_foundation_state_archive.py",
+    _SCRIPT_DIR / "genesis_foundation_state_contract.py",
     _SCRIPT_DIR / "genesis_foundation.py",
+    _SCRIPT_DIR / "genesis_private_command.py",
+    _SCRIPT_DIR / "genesis_private_errors.py",
+    _SCRIPT_DIR / "genesis_private_execution.py",
+    _SCRIPT_DIR / "genesis_runner_image.py",
+    _SCRIPT_DIR / "genesis_runner_image_contract.py",
+    _SCRIPT_DIR / "genesis_runner_enrollment.py",
     _SCRIPT_DIR / "genesis_status.py",
     _SCRIPT_DIR / "genesis_subprocess.py",
     _SCRIPT_DIR / "resource_provider_reconcile.py",
@@ -90,9 +112,11 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
         "Microsoft.OperationalInsights",
         "Microsoft.Resources",
         "Microsoft.Storage",
+        "Microsoft.VirtualMachineImages",
     }
 
     assert expected == set((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS))
+    assert len(expected) == 17
     assert {
         "Microsoft.ApiManagement",
         "Microsoft.BotService",
@@ -246,8 +270,10 @@ def test_status_is_private_identifier_free_and_reports_exact_remaining_work(
     store.update(stage="target", state="waiting", reason_code="review_required")
 
     payload = json.loads((work_dir / "status.json").read_text(encoding="utf-8"))
-    assert payload["progress_percent"] == 12
+    assert payload["progress_percent"] == 6
     assert payload["stages_completed"] == 1
+    assert payload["stages_total"] == 15
+    assert payload["stages_skipped"] == 0
     assert payload["remaining_stages"][0] == "target"
     assert payload["subscription_ready"] is False
     assert (work_dir / "status.json").stat().st_mode & 0o777 == 0o600
@@ -264,9 +290,9 @@ def test_procedure_banner_numbers_every_stage_and_explains_both_routes(
     output = capsys.readouterr().err
     assert "Mode: mutation-enabled preflight; prompts: none" in output
     assert "1. Toolchain prerequisites" in output
-    assert "8. Post-deployment verification" in output
+    assert "15. Post-deployment verification" in output
     assert "public-dev -> preview and exact-plan wait" in output
-    assert "private-runner -> Foundation approval wait" in output
+    assert "private-runner -> image, Foundation, enrollment, and state checkpoints" in output
     assert "no route fallback, unsealed apply, or readiness claim" in output
 
 
@@ -322,6 +348,41 @@ def test_status_preserves_an_incomplete_policy_probe_binding_across_retry(
 
     assert retry.policy_report == first.policy_report
     assert retry.mutation_performed is True
+    assert retry.attempt == 2
+    assert retry.deadline_at == "2999-09-10T13:00:00Z"
+
+
+def test_status_preserves_private_checkpoint_references_after_deadline(
+    tmp_path: Path,
+) -> None:
+    work_dir = tmp_path / "status"
+    work_dir.mkdir(mode=0o700)
+    first = StatusStore(
+        path=work_dir / "status.json",
+        source_commit="a" * 40,
+        target_binding="b" * 64,
+        mode="apply",
+        deadline_at="2000-09-10T12:00:00Z",
+    )
+    first.route = "private-runner"
+    first.foundation_report = {
+        "schema_version": "fdai.genesis-private-foundation.v1",
+        "state": "waiting",
+        "current_checkpoint": "foundation-apply",
+        "foundation_plan": {"plan_ref": "foundation-plan-attempt-1"},
+        "subscription_ready": False,
+    }
+    first.update(stage="foundation-apply", state="waiting")
+
+    retry = StatusStore(
+        path=work_dir / "status.json",
+        source_commit="a" * 40,
+        target_binding="b" * 64,
+        mode="apply",
+        deadline_at="2999-09-10T13:00:00Z",
+    )
+
+    assert retry.foundation_report == first.foundation_report
     assert retry.attempt == 2
     assert retry.deadline_at == "2999-09-10T13:00:00Z"
 
@@ -430,6 +491,75 @@ def _config(tmp_path: Path) -> orchestrator.RunConfig:
 def test_apply_requires_the_full_policy_cleanup_deadline(tmp_path: Path) -> None:
     with pytest.raises(orchestrator.OrchestrationError, match="apply_execution_timeout_too_short"):
         replace(_config(tmp_path), execution_timeout_seconds=1799).validate()
+
+
+def test_local_private_approval_is_dev_only(tmp_path: Path) -> None:
+    approval = tmp_path / "approval.json"
+
+    with pytest.raises(
+        orchestrator.OrchestrationError,
+        match="local_private_approval_supports_dev_only",
+    ):
+        replace(
+            _config(tmp_path),
+            environment="staging",
+            approval_file=approval,
+        ).validate()
+
+
+def _foundation_inputs(
+    tmp_path: Path, *, environment: str = "dev", quorum: int = 1
+) -> FoundationPlanInputs:
+    profile = tmp_path / "profile.json"
+    write_profile(
+        profile,
+        ProvisionProfile(
+            environment=environment,
+            region="koreacentral",
+            target_binding=compute_target_binding(
+                tenant_id=_TENANT,
+                subscription_id=_SUBSCRIPTION,
+            ),
+            connectivity="online",
+            host="managed-vm",
+            transport="manual",
+            access_method="bastion",
+            shadow_only=True,
+            approval_quorum=quorum,
+            monthly_cost_ceiling=500,
+        ),
+    )
+    return FoundationPlanInputs(
+        offline_kit=tmp_path / "kit",
+        release_root=tmp_path / "release.pem",
+        bundle_public_key=tmp_path / "bundle.pem",
+        profile=profile,
+        variables_file=tmp_path / "variables.json",
+    )
+
+
+def test_foundation_profile_must_match_the_router_environment(tmp_path: Path) -> None:
+    inputs = _foundation_inputs(tmp_path, environment="prod")
+
+    with pytest.raises(
+        orchestrator.OrchestrationError,
+        match="foundation_profile_context_mismatch",
+    ):
+        replace(_config(tmp_path), foundation_inputs=inputs).validate()
+
+
+def test_local_private_approval_cannot_bypass_profile_quorum(tmp_path: Path) -> None:
+    inputs = _foundation_inputs(tmp_path, quorum=2)
+
+    with pytest.raises(
+        orchestrator.OrchestrationError,
+        match="local_private_approval_cannot_satisfy_profile",
+    ):
+        replace(
+            _config(tmp_path),
+            foundation_inputs=inputs,
+            approval_file=tmp_path / "approval.json",
+        ).validate()
 
 
 def _new_orchestrator(
@@ -599,7 +729,7 @@ def test_retry_reuses_verified_policy_evidence_without_another_probe(
 ) -> None:
     first = _new_orchestrator(tmp_path, monkeypatch)
     _complete_policy_stage(first, "private-runner")
-    first.store.update(stage="execution", state="waiting")
+    first.store.update(stage="foundation-plan", state="waiting")
     retry = _new_orchestrator(tmp_path, monkeypatch)
     monkeypatch.setattr(
         retry.checks,
@@ -635,12 +765,12 @@ def test_private_policy_route_never_invokes_the_public_executor(
     payload = json.loads(capsys.readouterr().out)
     assert payload["state"] == "waiting"
     assert payload["route"] == "private-runner"
-    assert payload["progress_percent"] == 75
+    assert payload["progress_percent"] == 40
     assert payload["reason_code"] == "private_foundation_external_artifacts_required"
     assert payload["next_action"] == (
         "provide_signed_offline_kit_exact_runner_image_and_foundation_profile_then_generate_exact_plan"
     )
-    foundation = payload["foundation_report"]
+    foundation = payload["foundation_report"]["prerequisites"]
     assert foundation["required_count"] == 5
     assert foundation["supplied_count"] == 0
     assert foundation["apply_authorized"] is False
@@ -649,13 +779,7 @@ def test_private_policy_route_never_invokes_the_public_executor(
 def test_private_route_generates_a_plan_but_still_waits_for_current_approval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    inputs = FoundationPlanInputs(
-        offline_kit=tmp_path / "kit",
-        release_root=tmp_path / "release.pem",
-        bundle_public_key=tmp_path / "bundle.pem",
-        profile=tmp_path / "profile.json",
-        variables_file=tmp_path / "variables.json",
-    )
+    inputs = _foundation_inputs(tmp_path)
     instance = _new_orchestrator(
         tmp_path,
         monkeypatch,
@@ -688,7 +812,7 @@ def test_private_route_generates_a_plan_but_still_waits_for_current_approval(
         calls.append(kwargs)
         return plan_report
 
-    monkeypatch.setattr(orchestrator, "prepare_foundation_plan", prepare)
+    monkeypatch.setattr(private_execution, "prepare_foundation_plan", prepare)
 
     result = instance.run()
 
@@ -697,7 +821,8 @@ def test_private_route_generates_a_plan_but_still_waits_for_current_approval(
     assert calls[0]["inputs"] == inputs
     payload = json.loads(capsys.readouterr().out)
     assert payload["reason_code"] == "foundation_exact_plan_approval_required"
-    assert payload["foundation_report"] == plan_report
+    assert payload["foundation_report"]["foundation_plan"] == plan_report
+    assert payload["foundation_report"]["current_checkpoint"] == "foundation-plan"
     assert payload["subscription_ready"] is False
 
 
@@ -747,7 +872,9 @@ def test_public_policy_route_stops_at_the_exact_plan_approval_boundary(
     assert calls == ["preview"]
     payload = json.loads(capsys.readouterr().out)
     assert payload["state"] == "waiting"
-    assert payload["progress_percent"] == 75
+    assert payload["progress_percent"] == 80
+    assert payload["skipped_stages"] == list(PRIVATE_FOUNDATION_STAGES)
+    assert payload["stages_skipped"] == len(PRIVATE_FOUNDATION_STAGES)
     assert payload["reason_code"] == "public_exact_plan_approval_required"
     assert payload["subscription_ready"] is False
 

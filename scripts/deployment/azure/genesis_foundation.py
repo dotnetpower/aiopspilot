@@ -9,6 +9,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
+from fdai_deployment_cli.foundation_input import snapshot_foundation_input
+from fdai_deployment_cli.foundation_plan import REVIEW_NAME
+from fdai_deployment_cli.plan_input import read_plan_input
+from fdai_deployment_cli.private_output import read_private_bytes
+from fdai_deployment_cli.profile import load_profile
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _REQUIRED_INPUT_COUNT = 5
@@ -97,6 +105,7 @@ def prepare_foundation_plan(
     prior_report: dict[str, object] | None,
     timeout: int,
     capture: CaptureCommand,
+    allow_expired_after_claim: bool = False,
 ) -> dict[str, object]:
     """Create or reverify one exact plan, then return only sanitized review metadata."""
 
@@ -111,6 +120,7 @@ def prepare_foundation_plan(
             prior_report=prior_report,
             timeout=timeout,
             capture=capture,
+            allow_expired_after_claim=allow_expired_after_claim,
         )
         if verified is not None:
             return verified
@@ -180,13 +190,32 @@ def _reverify_current_plan(
     prior_report: dict[str, object],
     timeout: int,
     capture: CaptureCommand,
+    allow_expired_after_claim: bool,
 ) -> dict[str, object] | None:
     _validate_report(prior_report)
-    if _parse_utc(str(prior_report["expires_at"])) <= datetime.now(
-        timezone.utc  # noqa: UP017 - Python 3.10 entrypoint
-    ):
-        return None
     plan_ref = str(prior_report["plan_ref"])
+    plan_directory = orchestration_work_dir / plan_ref
+    expires_at = _parse_utc(str(prior_report["expires_at"]))
+    now = datetime.now(timezone.utc)  # noqa: UP017 - Python 3.10 entrypoint
+    if not allow_expired_after_claim and expires_at <= now:
+        return None
+    if plan_directory.exists():
+        review = load_json_object(
+            read_private_bytes(plan_directory / REVIEW_NAME, max_bytes=65_536),
+            label="Foundation review",
+        )
+        context = review.get("context")
+        current_variables_digest = _current_variables_digest(
+            inputs=inputs,
+            orchestration_work_dir=orchestration_work_dir,
+        )
+        if (
+            not isinstance(context, dict)
+            or context.get("variables_digest") != current_variables_digest
+        ):
+            if allow_expired_after_claim:
+                raise FoundationPlanError("foundation_plan_input_changed_after_claim", 3)
+            return None
     command = (
         "uv",
         "run",
@@ -205,6 +234,8 @@ def _reverify_current_plan(
         "--output",
         "json",
     )
+    if allow_expired_after_claim:
+        command = (*command, "--allow-expired-after-claim")
     raw = capture(
         command,
         "foundation_plan_verification_failed",
@@ -228,6 +259,22 @@ def _reverify_current_plan(
     ):
         raise FoundationPlanError("foundation_plan_verification_invalid")
     return prior_report
+
+
+def _current_variables_digest(*, inputs: FoundationPlanInputs, orchestration_work_dir: Path) -> str:
+    profile = load_profile(inputs.profile)
+    with TemporaryDirectory(
+        prefix="foundation-plan-input-", dir=orchestration_work_dir
+    ) as temporary:
+        normalized = Path(temporary) / "variables.json"
+        snapshot_foundation_input(
+            inputs.variables_file,
+            normalized,
+            expected_target_binding=profile.target_binding,
+            expected_region=profile.region,
+            expected_environment=profile.environment,
+        )
+        return canonical_digest(read_plan_input(normalized))
 
 
 def _report_from_saved_plan(

@@ -25,6 +25,8 @@ def run_with_heartbeat(
     capture_output: bool = False,
     heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS,
     heartbeat_stream: TextIO | None = None,
+    umask: int = -1,
+    input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run one command and emit dots without mixing them into captured output.
 
@@ -40,6 +42,10 @@ def run_with_heartbeat(
         raise ValueError("Genesis command timeout must be positive")
     if heartbeat_seconds <= 0:
         raise ValueError("Genesis heartbeat interval must be positive")
+    if umask != -1 and not 0 <= umask <= 0o777:
+        raise ValueError("Genesis command umask must be -1 or a valid permission mask")
+    if input_text is not None and (not isinstance(input_text, str) or len(input_text) > 8192):
+        raise ValueError("Genesis command input must be text within 8192 characters")
 
     stream = heartbeat_stream if heartbeat_stream is not None else sys.stderr
     command = tuple(arguments)
@@ -47,14 +53,16 @@ def run_with_heartbeat(
         command,
         cwd=cwd,
         env=env,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
         stdout=subprocess.PIPE if capture_output else None,
         stderr=subprocess.PIPE if capture_output else None,
         text=True,
         start_new_session=True,
+        umask=umask,
     )
     deadline = time.monotonic() + timeout
     heartbeat_emitted = False
+    pending_input = input_text
     try:
         while True:
             remaining = deadline - time.monotonic()
@@ -67,8 +75,13 @@ def run_with_heartbeat(
                     stderr=stderr,
                 )
             try:
-                stdout, stderr = process.communicate(timeout=min(heartbeat_seconds, remaining))
+                stdout, stderr = process.communicate(
+                    input=pending_input,
+                    timeout=min(heartbeat_seconds, remaining),
+                )
+                pending_input = None
             except subprocess.TimeoutExpired:
+                pending_input = None
                 stream.write(".")
                 stream.flush()
                 heartbeat_emitted = True

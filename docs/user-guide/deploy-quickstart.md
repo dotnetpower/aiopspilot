@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 80ac84361f033ed2b566d31e7d7c7edfb409482f }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 087eccbbcb06c116224e575be478586deccf0839 }]
 ---
 
 # Deploy Quickstart
@@ -17,7 +17,7 @@ Use the noninteractive Genesis router first when the effective network-policy ro
 
 | Your environment | Use | Result |
 |------------------|-----|--------|
-| New or partially configured subscription with an unknown policy route | Run `genesis-up.sh` with explicit target axes, repository, and mutation authorization | Exact target and CI checks, baseline Resource Provider reconciliation, effective policy routing, then a public preview or private Foundation approval wait |
+| New or partially configured subscription with an unknown policy route | Run `genesis-up.sh` with explicit target axes, repository, and mutation authorization | Exact target and CI checks, baseline Resource Provider reconciliation, effective policy routing, then a public preview or the approved private Foundation sequence |
 | Personal Azure public-cloud subscription for development | Run `az login`, then `make azd-up` and approve the displayed region | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
 | Private-network, shared, staging, or production environment | Protected `fdaictl` plan and exact apply | Private state, VNet runner, approval policy, all selected independent services, and protected evidence |
 | Existing custom Terraform automation | Direct Terraform | Expert integration with deployment-owned state, image, migration, and verification orchestration |
@@ -26,16 +26,19 @@ The public path is a development bootstrap, not a production shortcut. It keeps 
 in observation mode and does not deploy Console, Operator API, document services, or the isolated
 Executor.
 
-Genesis displays eight numbered stages, exact progress, and remaining work without prompting. Its
+Genesis displays 15 numbered stages, exact progress, skipped-stage counts, and remaining work without prompting. Its
 `--apply --allow-probe-resources` flags authorize only missing-provider registration and tagged Key Vault
 and Storage policy-probe creation with verified cleanup, including exact deleted-vault purge and absence readback.
 Mutation-enabled Genesis also pins and verifies stable Bastion and Microsoft Entra SSH extensions during
 toolchain setup; inspection leaves local CLI configuration unchanged. Long commands print a dot to stderr
 every 10 seconds while stdout JSON stays unchanged. A `public-dev` result stops after preview for an exact approved plan.
-A `private-runner` result can create the exact saved Foundation plan when all signed artifact and
-private input paths are supplied, but it still waits for current human approval. Without them, it
-reports `private_foundation_external_artifacts_required`. Neither route applies an unsealed plan or
-claims subscription readiness.
+A `private-runner` result can build an exact runner image, apply the Foundation, enroll and attest
+the runner through Bastion, and hand state to the private backend when all signed artifact and
+private input paths are supplied. Each new effect requires its own current exact approval; the
+local approval-file mechanism is limited to a matching manual, single-approver `dev` profile.
+Claimed effects resume verification only. Without complete inputs, Genesis reports
+`private_foundation_external_artifacts_required`. The local route stops before protected
+application planning, and neither route applies an unsealed plan or claims subscription readiness.
 
 If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
 public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by
@@ -77,10 +80,11 @@ key, Core starts in observation-only Trial and denies acting paths.
   scheduled and default runs still verify all roots. Bootstrap preserves the adopted image
   reference until you explicitly review a replacement.
 - **Fresh offline subscriptions:** Standalone bootstrap still expects an existing state account
-  and application group. The separate genesis root provides ARM-only foundation planning and
-  reference-only application-group ownership. The packaged flow does not yet automate approved
-  creation, enrollment, or state migration. Follow the [offline preparation boundary](../roadmap/deployment/disconnected-deployment.md);
-  a prepared artifact or saved plan is not installation readiness.
+  and application group. The separate genesis root and local coordinator provide exact ARM-only
+  image and Foundation planning, approved creation, Bastion enrollment and attestation, and
+  private-state migration. Protected application deployment and final readiness remain separate.
+  Follow the [offline preparation boundary](../roadmap/deployment/disconnected-deployment.md); a
+  prepared artifact, saved plan, or completed Foundation is not installation readiness.
 - Attested FDAI service images from `container-supply-chain.yml`. Protected
   service plans verify the exact Core, Operator, Document Ingestion API,
   Document Processing Worker, and Isolated Executor image attestations for the
