@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 Teams 봇 온보딩
 translation_of: system-knowledge-teams-onboarding.md
-translation_source_sha: 6a8a9409e76c4eab3c93412b9a00b1cd965b18b4
+translation_source_sha: fc6f2feb22a8790f873070f0be96f31c0aa06db5
 translation_revised: 2026-09-10
 ---
 # 시스템 지식 Teams 봇 온보딩
@@ -23,6 +23,7 @@ OIDC(OpenID Connect) 신원을 사용하며 런타임 신원에는 app catalog �
 다음 항목이 필요합니다.
 
 - 승인된 표준 Team과 channel
+- 전용 Team을 만들어야 할 때 유지관리자에게 활성화된 Teams service plan
 - 안정적인 FDAI 지식 principal 이름에 매핑할 Entra 사용자 한 명 이상
 - 필수 CI를 통과하고 attestation을 받은 `fdai-system-knowledge-service` 이미지가 있는 clean
   protected-main 개정
