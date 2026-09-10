@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 578b4a611fef10d31faf2df1c77c4c7f2d70a656
+translation_source_sha: 274f2bc49bbeaab7980ddcdef9b6c1e74a5bda2e
 translation_revised: 2026-09-10
 ---
 # 구독 초기 프로비저닝
@@ -103,6 +103,11 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
   `--approve-application`이 필요합니다.
 - `status`는 정제된 변환 결과를 읽습니다. Terraform 상태, 비밀 값, DSN, 토큰, 모델 요청
   내용, 공급자 페이로드를 내려받지 않습니다.
+
+보호된 실행 `34436576350`은 필수 CI를 통과한 소스와 증명된 런타임 이미지에 대해 이
+애플리케이션 plan-only 전송을 검증합니다. 정제된 준비 상태 메타데이터와 전체 계획 검토는
+apply 권한을 부여하지 않고 보호된 계획 경계를 입증합니다. 이 증적은 foundation apply,
+원격 상태 인계 또는 전체 zero-to-ready 수명 주기를 검증하지 않습니다.
 
 정확한 dev 계획에서 비공개 리소스 운영 Function 게이트웨이를 유지하거나 프로비저닝해야 할
 때는 `--deploy-dev-operations-gateway`를 사용합니다. 이 선택은 plan, apply, status가 공유하는
