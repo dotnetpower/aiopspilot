@@ -266,3 +266,14 @@ def test_load_round_trips_a_valid_batch(tmp_path: Path) -> None:
     path.write_text(json.dumps(_batch().model_dump(mode="json")), encoding="utf-8")
 
     assert load_cohort_observation_batch(path) == _batch()
+
+
+def test_load_rejects_duplicate_json_keys(tmp_path: Path) -> None:
+    path = tmp_path / "cohort-observation-batch.json"
+    path.write_text(
+        '{"schema_version":"1.0.0","schema_version":"2.0.0","observations":[]}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="repeats JSON key"):
+        load_cohort_observation_batch(path)

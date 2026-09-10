@@ -130,7 +130,7 @@ def load_cohort_observation_batch(path: Path) -> CohortObservationBatch:
             payload = stream.read(MAX_COHORT_OBSERVATION_BATCH_BYTES + 1)
         if len(payload) > MAX_COHORT_OBSERVATION_BATCH_BYTES:
             raise ValueError("cohort observation batch exceeds the 8 MiB limit")
-        raw = json.loads(payload)
+        raw = json.loads(payload, object_pairs_hook=_unique_json_object)
         return CohortObservationBatch.model_validate(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise ValueError(f"invalid cohort observation batch: {error}") from error
@@ -393,6 +393,15 @@ def _aware_utc(value: datetime, name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} MUST include a timezone")
     return value.astimezone(UTC)
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"cohort observation batch repeats JSON key: {key}")
+        result[key] = value
+    return result
 
 
 __all__ = [
