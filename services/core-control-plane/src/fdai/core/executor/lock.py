@@ -41,6 +41,8 @@ from fdai.shared.providers.resource_lock import (
     LockOwnershipRejectionReason,
     ResourceLockAcquisitionReceipt,
     ResourceLockAcquisitionRequest,
+    ResourceLockReleaseReceipt,
+    ResourceLockReleaseState,
 )
 
 _LOCAL_PROVIDER_ID = "fdai-in-memory-resource-lock"
@@ -75,6 +77,7 @@ class _HeldLocalResourceLock:
         self._entry = entry
         self._acquisition_id = acquisition_id
         self._lifecycle = lifecycle
+        self._release_receipt: ResourceLockReleaseReceipt | None = None
 
     @property
     def acquisition_request(self) -> ResourceLockAcquisitionRequest:
@@ -87,8 +90,30 @@ class _HeldLocalResourceLock:
     def require_active(self) -> None:
         self._lifecycle.require_active()
 
+    @property
+    def release_receipt(self) -> ResourceLockReleaseReceipt | None:
+        return self._release_receipt
+
     def deactivate(self) -> None:
         self._lifecycle.deactivate()
+
+    def record_release(self, released_at: datetime) -> None:
+        if self._lifecycle.active:
+            raise RuntimeError("local resource lock release recorded while active")
+        self._release_receipt = ResourceLockReleaseReceipt.create(
+            acquisition_receipt=self.acquisition_receipt,
+            state=ResourceLockReleaseState.RELEASED,
+            provider_attestation_digest=content_digest(
+                {
+                    "domain": "local-resource-lock-release",
+                    "request_digest": self.acquisition_request.request_digest,
+                    "owner_reference_digest": (self.acquisition_receipt.owner_token_digest),
+                    "released_at": released_at.isoformat(),
+                }
+            ),
+            observed_at=released_at,
+            recorded_at=released_at,
+        )
 
     async def assess_ownership(self) -> LiveLockOwnershipAssessment:
         evaluated_at = self._manager.clock()
@@ -240,6 +265,7 @@ class ResourceLockManager:
         if type(request) is not ResourceLockAcquisitionRequest:
             raise ValueError("local evidenced lock requires a canonical acquisition request")
         entry = await self._checkout(request.lock_key)
+        handle: _HeldLocalResourceLock | None = None
         try:
             async with entry.lock:
                 acquisition_id = await self._new_acquisition_id()
@@ -303,6 +329,8 @@ class ResourceLockManager:
                         acquisition_id,
                     )
         finally:
+            if handle is not None and handle.release_receipt is None:
+                handle.record_release(self.clock())
             await self._checkin(request.lock_key)
 
     def snapshot(self) -> dict[str, bool]:

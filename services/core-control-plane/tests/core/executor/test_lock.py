@@ -11,6 +11,7 @@ from fdai.shared.providers.resource_lock import (
     MAX_LOCK_ASSESSMENT_TTL,
     LockOwnershipRejectionReason,
     ResourceLockAcquisitionRequest,
+    ResourceLockReleaseState,
 )
 
 _NOW = datetime(2026, 9, 10, 6, 0, tzinfo=UTC)
@@ -118,6 +119,10 @@ async def test_local_evidenced_lock_emits_current_no_authority_assessment() -> N
 
     with pytest.raises(RuntimeError, match="no longer active"):
         held.require_active()
+    assert held.release_receipt is not None
+    assert held.release_receipt.state is ResourceLockReleaseState.RELEASED
+    assert held.release_receipt.execution_authority is False
+    assert held.release_receipt.effect_verified is False
     inactive = await held.assess_ownership()
     assert inactive.eligible is False
     assert set(inactive.rejection_reasons) == {

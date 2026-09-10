@@ -199,6 +199,14 @@ class LockOwnershipRejectionReason(StrEnum):
     VALIDITY_EXCEEDS_LOCK = "validity_exceeds_lock"
 
 
+class ResourceLockReleaseState(StrEnum):
+    """Terminal knowledge about release of one exact acquisition."""
+
+    RELEASED = "released"
+    LOST = "lost"
+    UNKNOWN = "unknown"
+
+
 _INDEPENDENT_LOCK_REJECTIONS = frozenset(
     {
         LockOwnershipRejectionReason.ATTESTATION_INVALID,
@@ -374,6 +382,92 @@ class LiveLockOwnershipAssessment:
         return cls(**payload)  # type: ignore[arg-type]
 
 
+@dataclass(frozen=True, slots=True)
+class ResourceLockReleaseReceipt:
+    """No-authority terminal release evidence for one acquisition."""
+
+    schema_version: Literal["1.0.0"]
+    acquisition_receipt: ResourceLockAcquisitionReceipt
+    state: ResourceLockReleaseState
+    provider_attestation_digest: str
+    observed_at: datetime | None
+    recorded_at: datetime
+    receipt_digest: str
+    execution_authority: Literal[False] = False
+    effect_verified: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if type(self.schema_version) is not str or self.schema_version != "1.0.0":
+            raise ValueError("unsupported resource lock release receipt schema")
+        if self.execution_authority is not False or self.effect_verified is not False:
+            raise ValueError("resource lock release receipt MUST NOT grant authority")
+        if type(self.acquisition_receipt) is not ResourceLockAcquisitionReceipt:
+            raise ValueError("resource lock release requires an exact acquisition receipt")
+        if type(self.state) is not ResourceLockReleaseState:
+            raise ValueError("resource lock release state is invalid")
+        if (
+            type(self.provider_attestation_digest) is not str
+            or _DIGEST.fullmatch(self.provider_attestation_digest) is None
+        ):
+            raise ValueError("resource lock release attestation MUST be SHA-256")
+        if self.observed_at is not None:
+            _validate_utc("observed_at", self.observed_at)
+        if (
+            self.state
+            in {
+                ResourceLockReleaseState.RELEASED,
+                ResourceLockReleaseState.LOST,
+            }
+            and self.observed_at is None
+        ):
+            raise ValueError("known resource lock release state requires observation time")
+        _validate_utc("recorded_at", self.recorded_at)
+        if self.observed_at is not None and (
+            self.observed_at < self.acquisition_receipt.acquired_at
+            or self.observed_at > self.recorded_at
+        ):
+            raise ValueError("resource lock release chronology is invalid")
+        if (
+            self.state is not ResourceLockReleaseState.UNKNOWN
+            and self.recorded_at < self.acquisition_receipt.acquired_at
+        ):
+            raise ValueError("resource lock release chronology is invalid")
+        if type(self.receipt_digest) is not str or _DIGEST.fullmatch(self.receipt_digest) is None:
+            raise ValueError("resource lock release receipt digest MUST be SHA-256")
+        if self.receipt_digest != _content_digest(self, "resource-lock-release"):
+            raise ValueError("resource lock release receipt digest mismatched")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        acquisition_receipt: ResourceLockAcquisitionReceipt,
+        state: ResourceLockReleaseState,
+        provider_attestation_digest: str,
+        observed_at: datetime | None,
+        recorded_at: datetime,
+    ) -> Self:
+        """Create immutable terminal release evidence."""
+
+        if cls is not ResourceLockReleaseReceipt:
+            raise TypeError("resource lock release receipt does not support subclasses")
+        values: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "acquisition_receipt": acquisition_receipt,
+            "state": state,
+            "provider_attestation_digest": provider_attestation_digest,
+            "observed_at": (_utc(observed_at, "observed_at") if observed_at is not None else None),
+            "recorded_at": _utc(recorded_at, "recorded_at"),
+            "execution_authority": False,
+            "effect_verified": False,
+        }
+        values["receipt_digest"] = _payload_digest(
+            values,
+            "resource-lock-release",
+        )
+        return cls(**values)  # type: ignore[arg-type]
+
+
 def require_current_lock_ownership(
     evidence: object,
     *,
@@ -472,6 +566,11 @@ class HeldResourceLock(Protocol):
 
     def require_active(self) -> None:
         """Fail closed when this exact acquisition is no longer active."""
+        ...
+
+    @property
+    def release_receipt(self) -> ResourceLockReleaseReceipt | None:
+        """Return terminal release evidence after context exit."""
         ...
 
     async def assess_ownership(self) -> LiveLockOwnershipAssessment:
@@ -628,6 +727,7 @@ def _normalize_digest_value(value: object) -> object:
             ResourceLockAcquisitionRequest,
             ResourceLockAcquisitionReceipt,
             LiveLockOwnershipAssessment,
+            ResourceLockReleaseReceipt,
         ),
     ):
         return _normalize_digest_value(asdict(value))
@@ -643,6 +743,7 @@ def _content_digest(
         ResourceLockAcquisitionRequest
         | ResourceLockAcquisitionReceipt
         | LiveLockOwnershipAssessment
+        | ResourceLockReleaseReceipt
     ),
     domain: str,
 ) -> str:
@@ -659,6 +760,8 @@ __all__ = [
     "ResourceLock",
     "ResourceLockAcquisitionRequest",
     "ResourceLockAcquisitionReceipt",
+    "ResourceLockReleaseReceipt",
+    "ResourceLockReleaseState",
     "require_evidence_resource_lock",
     "require_current_lock_ownership",
     "resource_lock_key",
