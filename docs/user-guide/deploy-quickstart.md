@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5d8fc43b2775d3a2fde1d204d6b50391b9d0bf12 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 947d7e80badb71b0d1877ec532e2ecbb5e4c2021 }]
 ---
 
 # Deploy Quickstart
@@ -43,10 +43,10 @@ key, Core starts in observation-only Trial and denies acting paths.
 
 ## Before you start
 
-- An **Azure subscription** you can create resources in, and the **Azure CLI**
-  (`az`). The protected path also needs the GitHub CLI (`gh`); the direct
-  development path needs the Azure Developer CLI (`azd`), Terraform, `uv`,
-  `curl`, and `tar`.
+- An **Azure subscription** you can create resources in, and the **Azure CLI** (`az`). The
+  protected path also needs GitHub CLI (`gh`); direct development needs Azure Developer CLI
+  (`azd`), Terraform, `uv`, `curl`, and `tar`. Before Bastion or Microsoft Entra SSH checks, run
+  `scripts/deployment/azure/prepare-genesis-access-tools.sh` to pin and verify their stable extensions.
 - For the direct path, use Azure public cloud and an interactive identity that can register resource
   providers, create the platform resources, and assign roles at subscription scope. The script
   temporarily grants `Cognitive Services Contributor` when the exact role is absent and removes

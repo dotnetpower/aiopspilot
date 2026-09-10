@@ -2134,6 +2134,7 @@
         "scripts/deployment/azure/genesis_orchestrator.py",
         "scripts/deployment/azure/genesis_status.py",
         "scripts/deployment/azure/genesis_subprocess.py",
+        "scripts/deployment/azure/prepare-genesis-access-tools.sh",
         "scripts/deployment/azure/resource_provider_reconcile.py",
         "scripts/deployment/azure/bootstrap-service-migrations.sh",
         "scripts/deployment/release/build-offline-kit.py",
@@ -2145,6 +2146,7 @@
         "tests/integration/scripts/test_genesis_foundation.py",
         "tests/integration/scripts/test_genesis_orchestrator.py",
         "tests/integration/scripts/test_genesis_subprocess.py",
+        "tests/integration/scripts/test_genesis_access_tools.py",
         "tests/integration/scripts/test_genesis_up.py",
         "docs/roadmap/deployment/subscription-genesis-*.md",
         "docs/roadmap-implementation/deployment/subscription-genesis-*.md"
@@ -2170,7 +2172,7 @@
         "docs/roadmap/deployment/provisioning-execution-profiles.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_foundation.py tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_genesis_subprocess.py tests/integration/scripts/test_genesis_up.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_access_tools.py tests/integration/scripts/test_genesis_foundation.py tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_genesis_subprocess.py tests/integration/scripts/test_genesis_up.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
         "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests tests/integration/scripts/test_deployment_cli_productization.py",
         "uv run ruff check packages/deployment-cli",
         "uv run mypy --strict packages/deployment-cli/src",

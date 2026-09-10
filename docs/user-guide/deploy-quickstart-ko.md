@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: f8bb4182c5fc5d1fff0031639309b3927001b331
+translation_source_sha: 43936ff94e365fcecac14886ff211ccaa66e5c8a
 translation_revised: 2026-09-10
 ---
 
@@ -43,9 +43,9 @@ Storage 정책 프로브의 생성 및 검증된 정리만 승인하며, 정확�
 
 ## 시작하기 전에
 
-- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된
-  경로에는 GitHub CLI(`gh`)가 필요하며 직접 개발 경로에는 **Azure Developer CLI**(`azd`)가
-  필요합니다. 직접 개발 경로에는 Terraform, `uv`, `curl`, `tar`도 필요합니다.
+- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된 경로에는 GitHub CLI(`gh`)가 필요하며
+  직접 개발 경로에는 **Azure Developer CLI**(`azd`), Terraform, `uv`, `curl`, `tar`가 필요합니다. Bastion 또는
+  Microsoft Entra SSH 점검 전에 `scripts/deployment/azure/prepare-genesis-access-tools.sh`를 실행해 안정 버전 확장을 고정하고 검증합니다.
 - 직접 경로에서는 Azure 퍼블릭 클라우드와 리소스 공급자 등록, 플랫폼 리소스 생성 및 구독
   범위 역할 할당이 가능한 대화형 신원을 사용하세요. 스크립트는 정확한 역할이 없을 때
   `Cognitive Services Contributor`를 임시로 부여하고 성공 전에 제거합니다. 또한 스키마 및
