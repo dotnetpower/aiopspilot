@@ -117,7 +117,8 @@ the mode is blocked. Older states should first record their existing managed mod
 tag never authorizes adoption or replaces a reviewed state handoff.
 
 The Foundation root creates both private containers through Azure Resource Manager and can add an
-explicit Bastion Standard tunnel. `genesis-foundation-apply.sh` independently reads back the
+explicit Bastion Standard tunnel. Its dedicated subnet uses the complete Azure-required inbound
+and outbound Network Security Group rule set. `genesis-foundation-apply.sh` independently reads back the
 control-plane effect, `genesis-runner-enrollment.sh` enrolls and attests the exact VM, and
 `genesis-foundation-state.sh` migrates state through that VM before deleting the local recovery
 copy. Protected application deployment and final Console/discovery verification remain separate.

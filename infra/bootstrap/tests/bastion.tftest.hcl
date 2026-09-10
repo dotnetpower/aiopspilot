@@ -37,6 +37,8 @@ run "default_omits_bastion_and_public_ip" {
       !var.enable_bastion &&
       var.bastion_subnet_prefix == null &&
       length(azurerm_subnet.bastion) == 0 &&
+      length(azurerm_network_security_group.bastion) == 0 &&
+      length(azurerm_subnet_network_security_group_association.bastion) == 0 &&
       length(azurerm_public_ip.bastion) == 0 &&
       length(azurerm_bastion_host.runner) == 0 &&
       output.bastion_id == null
@@ -58,6 +60,18 @@ run "explicit_bastion_enables_native_tunnel_only" {
       azurerm_subnet.bastion[0].name == "AzureBastionSubnet" &&
       length(azurerm_subnet.bastion[0].address_prefixes) == 1 &&
       azurerm_subnet.bastion[0].address_prefixes[0] == var.bastion_subnet_prefix &&
+      length(azurerm_network_security_group.bastion) == 1 &&
+      length(azurerm_subnet_network_security_group_association.bastion) == 1 &&
+      toset([for rule in azurerm_network_security_group.bastion[0].security_rule : rule.name]) == toset([
+        "AllowHttpsInbound",
+        "AllowGatewayManagerInbound",
+        "AllowAzureLoadBalancerInbound",
+        "AllowBastionCommunicationInbound",
+        "AllowSshRdpOutbound",
+        "AllowAzureCloudOutbound",
+        "AllowBastionCommunicationOutbound",
+        "AllowHttpOutbound",
+      ]) &&
       azurerm_public_ip.bastion[0].allocation_method == "Static" &&
       azurerm_public_ip.bastion[0].sku == "Standard" &&
       azurerm_bastion_host.runner[0].sku == "Standard" &&

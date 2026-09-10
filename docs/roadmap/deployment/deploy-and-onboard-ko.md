@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9b7d95b33e7f70e1267a246c6c783e2a708eb750
+translation_source_sha: 79efa29ca5fe37e4b80c4cd2cfe7c7f6e215d675
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -49,6 +49,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 - **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 변경 허용 Genesis는 공급자나 정책을 변경하기 전에 `prepare-genesis-access-tools.sh`를 실행해 Azure 리소스를 만들지 않고 안정적인 Bastion 및 Microsoft Entra SSH CLI 확장을 고정합니다. 로컬 CLI를 미리 준비하거나 복구할 때만 직접 실행하며 검사 모드는 읽기 전용입니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
 
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
+선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network
+Security Group 규칙을 연결합니다. 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
 `fdaictl provision plan --stage foundation`은 비공개 모의 실행을 제공합니다. 로컬 Genesis
 조정기는 승인된 이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전을 추가합니다. 보호된
