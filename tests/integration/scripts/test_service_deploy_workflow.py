@@ -204,15 +204,22 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     assert (
         "-target=azurerm_container_app_job.operational_history_lifecycle[0]"
     ) in target_expression
+    assert (
+        'resource "azurerm_private_dns_a_record" "operational_history_runner_blob"' in _LEGACY_ROOT
+    )
     assert 'resource "azurerm_private_dns_a_record" "decision_evidence_runner_blob"' in _LEGACY_ROOT
     assert 'zone_name           = "privatelink.blob.core.windows.net"' in _LEGACY_ROOT
     assert "resource_group_name = var.ops_resource_group_name" in _LEGACY_ROOT
     assert "private_service_connection[0].private_ip_address" in _LEGACY_ROOT
-    record_start = _LEGACY_ROOT.index(
-        'resource "azurerm_private_dns_a_record" "decision_evidence_runner_blob"'
-    )
-    record_end = _LEGACY_ROOT.index("\n}\n", record_start)
-    assert "tags" not in _LEGACY_ROOT[record_start:record_end]
+    for resource_name in (
+        "operational_history_runner_blob",
+        "decision_evidence_runner_blob",
+    ):
+        record_start = _LEGACY_ROOT.index(
+            f'resource "azurerm_private_dns_a_record" "{resource_name}"'
+        )
+        record_end = _LEGACY_ROOT.index("\n}\n", record_start)
+        assert "tags" not in _LEGACY_ROOT[record_start:record_end]
     assert "OPERATIONAL_HISTORY_ONLY:" in _LEGACY_WORKFLOW
     assert "mode=operational-history" in _LEGACY_WORKFLOW
 

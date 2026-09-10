@@ -1550,6 +1550,24 @@ resource "azurerm_private_endpoint" "decision_evidence_blob" {
   }
 }
 
+resource "azurerm_private_dns_a_record" "operational_history_runner_blob" {
+  count = (
+    var.enable_operational_history
+    && var.enable_private_networking
+    && var.runner_vnet_id != ""
+    && var.ops_resource_group_name != ""
+  ) ? 1 : 0
+
+  name                = module.operational_history_storage[0].name
+  zone_name           = "privatelink.blob.core.windows.net"
+  resource_group_name = var.ops_resource_group_name
+  ttl                 = 300
+  records = [
+    azurerm_private_endpoint.operational_history_blob[0]
+    .private_service_connection[0].private_ip_address
+  ]
+}
+
 resource "azurerm_private_dns_a_record" "decision_evidence_runner_blob" {
   count = (
     var.enable_operational_history

@@ -33,6 +33,7 @@ _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_imag
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
+    "azurerm_private_dns_a_record.operational_history_runner_blob[0]",
     "module.decision_evidence_storage[0].",
     "azurerm_private_endpoint.decision_evidence_blob[0]",
     "azurerm_private_dns_a_record.decision_evidence_runner_blob[0]",

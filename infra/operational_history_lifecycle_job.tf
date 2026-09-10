@@ -75,6 +75,8 @@ resource "azurerm_container_app_job" "operational_history_lifecycle" {
 
   tags = merge(local.tags, { "fdai:component" = "operational-history-lifecycle" })
 
+  depends_on = [azurerm_private_dns_a_record.operational_history_runner_blob]
+
   lifecycle {
     precondition {
       condition     = module.operational_history_storage[0].container_url != ""
