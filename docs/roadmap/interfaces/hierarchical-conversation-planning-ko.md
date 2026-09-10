@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 291d7f6859dec2332a01a5f3b5e57ffc2275f89c
+translation_source_sha: 5407143bbd38167ce8c5f044283875ffc5fa5fd4
 translation_revised: 2026-09-10
 ---
 
@@ -27,8 +27,7 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
-Schema repair는 전역 prompt 교체나 T2 escalation이 아닌 별도의 bounded T1 binding입니다. Primary T1 제안이 제공된 온톨로지 스키마 intent를 선택했지만 결정론적 frame에 필요한 typed count 또는 고유 subject가 없을 때만 Core가 최대 한 번 호출합니다. Repair는 읽기 전용을 유지하고 스키마
-family를 보존하며 같은 capability/span 검증을 통과하고 귀속 가능한 model observation 하나를
+Schema repair는 전역 prompt 교체나 T2 escalation이 아닌 별도의 bounded T1 binding입니다. Primary T1 제안이 제공된 온톨로지 스키마 intent를 선택했지만 결정론적 frame에 필요한 typed count 또는 고유 subject가 없을 때만 Core가 최대 한 번 호출합니다. Repair는 읽기 전용을 유지하고 스키마 family를 보존하며 같은 capability/span 검증을 통과하고 귀속 가능한 model observation 하나를
 추가해야 합니다. 유효하지 않거나 사용할 수 없는 repair는 primary의 fail-closed outcome을
 유지합니다. Utterance phrase나 keyword로 이 binding을 선택하지 않습니다.
 
@@ -198,6 +197,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 복수 선언 종류와 명시적인 가시성 및 현재 범위 특성을 지정한 여섯 번째 스키마 유효 타입 지정 판단 형식을 결정론적 매니페스트 정규화에 추가했습니다. 복수형이 목록 수량을 제공하며 기존 principal 가시성과 현재 범위 요구사항은 그대로 유지됩니다. | `current change`, 범위가 제한된 여섯 번째 인증 Browser Entra 관측, 성공 사례와 list 또는 queryable이 없는 단수 형태를 거부하는 회귀 검사 | 수정한 정확한 소스를 게시하고 병합한 다음 최종 인증 5273/8010 근거 시도를 한 번 실행합니다. |
 | 2026-09-10 | implemented | 단수 선언 종류와 명시적인 가시성, 현재 범위 및 목록 특성을 지정한 다섯 번째 스키마 유효 타입 지정 판단 형식을 결정론적 매니페스트 정규화에 추가했습니다. 기존 가시성, 범위 또는 목록과 queryable 요구사항을 약화하지 않고 principal 범위 `query.manifest` 경로를 보존합니다. | `current change`, 범위가 제한된 다섯 번째 인증 Browser Entra 관측, 매개 변수화한 성공 사례와 범위 누락, 가시성 누락 또는 목록과 queryable 동시 누락 회귀 검사 | 정확한 소스를 게시한 다음 인증된 5273/8010 집중 재시도를 한 번 실행합니다. 새로운 미정의 타입 지정 형식은 실제 재시도 반복을 시작하지 않고 계약 공백으로 처리합니다. |
 | 2026-09-10 | implemented | 대상이 없고 operator에 visible한 ObjectType 매니페스트 목록을 위한 schema-valid typed 판단 형식 4개를 하나의 결정론적 `query.manifest` 경로로 정규화했습니다. 정확한 queryable 및 visible, 선언 visibility 및 list, 복수 종류 및 operator visibility, 결합된 visible-current-scope facet은 모두 current scope를 요구하며 원시 발화 token을 읽지 않고 frame 및 plan 모델 budget을 우회합니다. | `current change`, 범위가 제한된 인증 Browser Entra 관측 4개, parameterized positive 및 scope 또는 visibility 누락 회귀 검사 | 인증된 5273/8010 집중 재시도를 한 번 실행하고 새로운 미정의 typed 형식이 나오면 중단합니다. |
 | 2026-09-10 | implemented | 대상 없는 검토 전용 장애 완화 요구사항을 실제 완화 초안 요청과 분리했습니다. 수락된 자문 의도는 범위가 제한된 이중 언어 안내를 반환하고, 대상 없는 `draft_only` 요청은 정확한 장애 ID를 묻습니다. | `current change`, 의미 판단, 계획, `done` 표현, 이중 언어 원문 및 유사 질문 3개, prompt-profile, CQAS, Ruff 및 mypy 검사 | 실제 환경 준비 상태를 주장하기 전에 인증된 런타임 근거를 별도로 보존합니다. |

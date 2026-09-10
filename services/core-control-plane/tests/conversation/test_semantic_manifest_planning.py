@@ -104,6 +104,10 @@ def _judgment(
             ("object_type", "visible", "current_scope", "list"),
         ),
         (
+            "query.ontology_declaration",
+            ("object_types", "visible", "current_scope"),
+        ),
+        (
             "query.ontology_relationships",
             ("object_types", "visible_to_operator", "current_scope"),
         ),

@@ -104,6 +104,7 @@ def build_ontology_schema_frame(
             declaration_kind_facet_requested
             and {"list", "visible", "currentscope"} <= normalized_facets
         )
+        or (plural_kind_requested and {"visible", "currentscope"} <= normalized_facets)
         or (
             plural_kind_requested
             and (

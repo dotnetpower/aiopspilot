@@ -188,7 +188,8 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
   distinct schema-valid intent, target, and facet shapes from bounded content-free logs, close the
   equivalent forms in one deterministic predicate with parameterized regressions, and run one
   focused browser retry. A new unmodeled shape after that retry is a contract gap to stop and
-  diagnose, not permission to continue an open-ended live loop.
+  diagnose, not permission to continue an open-ended live loop. Resume only after the exact typed
+  form has a focused regression and the corrected source is published.
 
 The isolated runner waits for Vite's `ready in` stdout marker. This avoids an unused-loopback HTTP
 or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN networking. Do not
