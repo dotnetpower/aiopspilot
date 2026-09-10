@@ -55,13 +55,20 @@ class NormalizedCohortGuardObservation(ContractBase):
     guard_id: Annotated[str, Field(pattern=_MEASURE_ID)]
     source_cluster_digest: Digest
     observed_at: datetime
-    observed_basis_points: Literal[0, 10_000]
-    breached: bool
+    observed_basis_points: int = Field(strict=True)
+    breached: bool = Field(strict=True)
 
     @field_validator("observed_at")
     @classmethod
     def _normalize_observed_at(cls, value: datetime) -> datetime:
         return _aware_utc(value, "cohort observation time")
+
+    @field_validator("observed_basis_points")
+    @classmethod
+    def _validate_basis_points(cls, value: int) -> int:
+        if value not in {0, 10_000}:
+            raise ValueError("cohort guard observation MUST be zero or 10000 basis points")
+        return value
 
     @model_validator(mode="after")
     def _validate_breach(self) -> NormalizedCohortGuardObservation:

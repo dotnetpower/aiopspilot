@@ -204,6 +204,23 @@ def test_metric_value_must_be_a_strict_json_number(value: object) -> None:
         CohortObservationBatch.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("breached", 0),
+        ("breached", "false"),
+        ("observed_basis_points", False),
+        ("observed_basis_points", "0"),
+    ],
+)
+def test_guard_values_must_use_strict_json_types(field: str, value: object) -> None:
+    payload = _batch().model_dump(mode="json")
+    payload["observations"][0][field] = value
+
+    with pytest.raises(ValidationError):
+        CohortObservationBatch.model_validate(payload)
+
+
 def test_batch_digest_and_canonical_order_are_enforced() -> None:
     payload = _batch().model_dump(mode="json")
     payload["batch_digest"] = _digest("f")
