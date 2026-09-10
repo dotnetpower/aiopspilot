@@ -10,6 +10,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NEW_DOC_MAX_LINES = 400
 LEGACY_GROWTH_FLOOR = 650
+FOCUSED_DOCUMENT_MAX_BYTES = {
+    "docs/roadmap/architecture/code-map.md": 32 * 1024,
+    "docs/roadmap/architecture/code-map-ko.md": 32 * 1024,
+}
 
 
 def _run_git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -62,6 +66,14 @@ def _current_line_count(relative: str, diff_range: str | None) -> int | None:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.is_file() else None
 
 
+def _current_byte_count(relative: str, diff_range: str | None) -> int | None:
+    if diff_range == "--cached":
+        result = _run_git("show", f":{relative}", check=False)
+        return len(result.stdout.encode("utf-8")) if result.returncode == 0 else None
+    path = REPO_ROOT / relative
+    return len(path.read_bytes()) if path.is_file() else None
+
+
 def size_violations(documents: tuple[tuple[str, int, int | None], ...]) -> list[str]:
     errors: list[str] = []
     for path, current_lines, old_lines in documents:
@@ -81,6 +93,17 @@ def size_violations(documents: tuple[tuple[str, int, int | None], ...]) -> list[
     return errors
 
 
+def byte_size_violations(documents: tuple[tuple[str, int], ...]) -> list[str]:
+    errors: list[str] = []
+    for path, current_bytes in documents:
+        maximum = FOCUSED_DOCUMENT_MAX_BYTES.get(path)
+        if maximum is not None and current_bytes > maximum:
+            errors.append(
+                f"{path}: navigation index is {current_bytes} bytes; maximum is {maximum}"
+            )
+    return errors
+
+
 def main(argv: list[str]) -> int:
     if len(argv) > 2 or (len(argv) == 2 and argv[1].startswith("-") and argv[1] != "--cached"):
         print("usage: check-document-size.py [--cached | <git-diff-range>]", file=sys.stderr)
@@ -88,9 +111,11 @@ def main(argv: list[str]) -> int:
     diff_range = argv[1] if len(argv) == 2 else None
     base_ref = _base_ref(diff_range)
     documents = []
+    byte_documents = []
     for relative in _changed_docs(diff_range):
         current_lines = _current_line_count(relative, diff_range)
-        if current_lines is None:
+        current_bytes = _current_byte_count(relative, diff_range)
+        if current_lines is None or current_bytes is None:
             continue
         documents.append(
             (
@@ -99,7 +124,9 @@ def main(argv: list[str]) -> int:
                 _old_line_count(base_ref, relative),
             )
         )
+        byte_documents.append((relative, current_bytes))
     errors = size_violations(tuple(documents))
+    errors.extend(byte_size_violations(tuple(byte_documents)))
     if errors:
         for error in errors:
             print(f"document-size: ERROR: {error}", file=sys.stderr)

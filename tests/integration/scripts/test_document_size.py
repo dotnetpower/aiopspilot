@@ -39,6 +39,16 @@ def test_legacy_oversized_document_may_shrink() -> None:
     assert module.size_violations((("docs/roadmap/legacy.md", 699, 700),)) == []
 
 
+def test_code_map_has_a_focused_byte_limit() -> None:
+    module = _load_module()
+    path = "docs/roadmap/architecture/code-map.md"
+
+    errors = module.byte_size_violations(((path, 32 * 1024 + 1),))
+
+    assert errors == [f"{path}: navigation index is 32769 bytes; maximum is 32768"]
+    assert module.byte_size_violations((("docs/roadmap/architecture/owner.md", 100_000),)) == []
+
+
 def test_cached_mode_compares_index_snapshot_to_head(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     module = _load_module()
     calls: list[tuple[str, ...]] = []

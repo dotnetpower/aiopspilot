@@ -45,12 +45,19 @@ mapfile -t english_docs < <(
     | grep -Ev '(^|/)[^/]+-ko\.md$' \
     | grep -Ev '^docs/internals/' \
     | grep -Ev '^docs/roadmap-implementation/' \
+    | while IFS= read -r path; do
+        [[ -f "$path" ]] && printf '%s\n' "$path"
+      done \
     | sort -u
 )
 
 # Enumerate all -ko.md files (to catch orphans).
 mapfile -t korean_docs < <(
-  git ls-files '*-ko.md' | sort -u
+  git ls-files '*-ko.md' \
+    | while IFS= read -r path; do
+        [[ -f "$path" ]] && printf '%s\n' "$path"
+      done \
+    | sort -u
 )
 
 # Rule 1 + 2 + 3: every English doc has a valid, up-to-date -ko.md.

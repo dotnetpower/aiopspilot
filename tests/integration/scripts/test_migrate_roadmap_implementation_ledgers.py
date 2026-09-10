@@ -112,6 +112,15 @@ translation_revised: 2026-08-01
     return owner
 
 
+def test_code_map_archive_name_is_not_an_exempt_owner() -> None:
+    module = _load_module()
+
+    assert module._is_exempt_owner("docs/roadmap/architecture/code-map.md")
+    assert not module._is_exempt_owner(
+        "docs/roadmap/architecture/code-map-implementation-ledger.md"
+    )
+
+
 def test_plan_moves_status_rebases_links_and_updates_korean(tmp_path: Path) -> None:
     module = _load_module()
     owner = _write_pair(tmp_path)
