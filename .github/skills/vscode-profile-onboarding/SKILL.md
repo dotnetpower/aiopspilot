@@ -80,6 +80,11 @@ maintainer's local VS Code state.
   reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
   restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.
   Run only the affected preparation task when a migration, binding, or environment input changed.
+- Keep local stack and Browser investigation local-first. Use focused local checks and retained
+  local receipts for each hypothesis; do not push, watch, or rerun CI merely to test an iteration.
+  Run CI once for the final locally verified commit when a merge, protected deployment, or release
+  boundary requires a green pushed SHA. If the inherited main branch is red, diagnose and repair or
+  synchronize that baseline once instead of cycling CI for each local hypothesis.
 - If Vite exits with `FSWatcher` `ENOSPC` under WSL, measure
   `fs.inotify.max_user_watches` and active `/proc/*/fdinfo` watch entries before restarting. When
   VS Code file watchers own nearly the entire limit, do not kill editor processes or repeat the
