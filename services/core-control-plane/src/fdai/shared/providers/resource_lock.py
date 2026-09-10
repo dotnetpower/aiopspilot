@@ -438,6 +438,12 @@ class HeldResourceLockLifecycle:
 
         return self.__receipt
 
+    @property
+    def active(self) -> bool:
+        """Whether this exact acquisition handle remains usable."""
+
+        return self.__deactivated is False
+
     def deactivate(self) -> None:
         """Permanently invalidate this acquisition handle."""
 

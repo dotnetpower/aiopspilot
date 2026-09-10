@@ -260,8 +260,12 @@ def test_evidenced_lock_resolution_has_no_legacy_or_production_fallback() -> Non
     assert require_evidence_resource_lock(local, production=False) is local
     with pytest.raises(RuntimeError, match="not production eligible"):
         require_evidence_resource_lock(local, production=True)
+    manager = ResourceLockManager()
+    assert require_evidence_resource_lock(manager, production=False) is manager
+    with pytest.raises(RuntimeError, match="not production eligible"):
+        require_evidence_resource_lock(manager, production=True)
     with pytest.raises(RuntimeError, match="unavailable"):
-        require_evidence_resource_lock(ResourceLockManager(), production=False)
+        require_evidence_resource_lock(object(), production=False)
 
 
 def test_held_lock_lifecycle_rejects_request_receipt_substitution() -> None:
