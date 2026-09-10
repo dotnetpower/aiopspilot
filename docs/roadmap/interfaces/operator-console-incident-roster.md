@@ -33,8 +33,8 @@ malformed, oversized, or ambiguous resource key keeps the intervention unavailab
 API re-resolves the exact lifecycle state before durable acceptance, and Core independently
 recomputes the same target digest from its canonical Incident before it applies the request.
 The Operator lifecycle owns a retry-safe intervention outbox worker, and readiness stays false if that worker stops.
-Its logical request topic is explicitly allowlisted and multiplexed through the configured physical event transport.
-Durable HTTP acceptance cannot become a success-shaped terminal state while the typed request remains unpublished.
+Its allowlisted logical request topic is multiplexed through the physical transport and registered in the Core runtime topic set.
+Core supervises the canonical consumer with its Incident registry; HTTP acceptance isn't terminal while publication or application is pending.
 
 Incident creation uses semantic draft plus typed confirmation routes and never adds a creation
 button to the roster panel.
