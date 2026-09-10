@@ -477,6 +477,7 @@
   }
 
   .cs-resource-dashboard .rd-page-header {
+    position: relative;
     padding-inline: 2px;
   }
 
@@ -485,8 +486,14 @@
   }
 
   .cs-resource-dashboard .rd-page-actions {
+    position: static;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-resource-dashboard .rd-page-actions > .rd-example-controls,
+  .cs-resource-dashboard .rd-page-actions > .rd-example-controls[open] {
+    position: static;
   }
 
   .cs-resource-dashboard .rd-page-actions > a,
@@ -500,12 +507,11 @@
 
   .cs-resource-dashboard .rd-example-popover {
     top: calc(100% + 8px);
-    right: auto;
-    left: 50%;
-    width: calc(100vw - 24px);
+    right: 0;
+    left: 0;
+    width: auto;
     max-height: calc(100dvh - 176px);
     overflow: auto;
-    transform: translateX(-50%);
   }
 
   .cs-resource-dashboard .rd-example-popover .dr-example-options {
@@ -552,8 +558,7 @@
   }
 
   .cs-resource-dashboard .rd-snapshot-card .dr-summary > div {
-    display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) auto;
+    display: flex;
     min-height: 64px;
     align-items: center;
     gap: 8px;
@@ -561,24 +566,18 @@
   }
 
   .cs-resource-dashboard .rd-snapshot-card .dr-summary dt {
-    grid-column: 2;
-    grid-row: 1;
+    flex: 1 1 auto;
     align-self: center;
   }
 
   .cs-resource-dashboard .rd-snapshot-card .dr-summary dd {
-    grid-column: 1;
-    grid-row: 1;
+    flex: 0 0 42px;
     align-self: center;
-  }
-
-  .cs-resource-dashboard .rd-snapshot-card .dr-summary dd {
     font-size: 24px;
   }
 
   .cs-resource-dashboard .rd-snapshot-card .dr-summary .ow-row-action {
-    grid-column: 3;
-    grid-row: 1;
+    flex: 0 0 auto;
     min-height: 44px;
     padding-inline: 4px;
     font-size: var(--cs-type-label-size);
