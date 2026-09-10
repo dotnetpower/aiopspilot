@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: d1447d86661c95f097731b786b834357f6bcff11
+translation_source_sha: 353e18ccde36b502aea52842f00520eef86f0686
 translation_revised: 2026-09-10
 ---
 # 운영 배포 강화
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 관측성 요청의 적용 후 수렴 검사를 같은 state 전용 updater로 제한하고 독립 analyzer Job image readback을 추가했습니다. 다른 apply는 전체 root 수렴과 inventory image 검사를 유지합니다. | `current change`, 집중 수렴 routing 테스트, 보호 apply `34438595436`에서 updater와 image effect는 완료됐지만 이전 전체 root 수렴 불일치를 확인 | 성공한 재개 검증 또는 새로운 정확한 apply receipt를 하나 보존합니다. |
 | 2026-09-10 | implemented | Root compute module의 선행 조건 그래프가 관련 없는 구성 drift를 포함했으므로 analyzer 리소스 직접 지정을 state 전용 Terraform updater로 교체했습니다. Updater는 두 image를 digest로 고정된 ACR 참조로 검증하고, 이름이 지정된 container 하나를 갱신하며, 권위 있는 readback을 검증하고, 실패 시 이전 digest를 복원합니다. | `current change`, 성공, no-op, 거부, effect 실패 및 rollback 집중 테스트, state 조정 후에도 직접 대상 지정이 관련 없는 dependency를 포함했고 올바르게 차단되었음을 보호 실행 `34435938544`에서 확인 | 생성 전용 보호 updater 계획, 정확한 적용 및 성공한 analyzer tick receipt를 하나 보존합니다. |
 | 2026-09-10 | implemented | 안전하지 않은 legacy 대상 확장을 analyzer 계획 전 state 전용 주소 조정으로 교체했습니다. 이 마이그레이션은 이전 주소와 현재 주소가 공존하면 실패하고 state digest를 기록하며, Terraform 대상과 허용된 변경 집합을 analyzer Job으로 제한합니다. | `current change`, 집중 조정, 정확한 대상 및 부정 범위 테스트, 보호 실행 `34432091729`에서 대상 확장이 관련 없는 dependency를 허용했고 guard가 이를 올바르게 차단함 | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | 함수 수준 guard가 있었지만 parser가 workflow 호출을 거부한 문제를 수정하기 위해 실행 가능한 계획 범위 CLI 경계에 범위가 제한된 analyzer 모드를 등록했습니다. | `current change`, CLI 허용 및 부정 범위 계약 테스트, 실패한 보호 실행 `34430430009` | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |

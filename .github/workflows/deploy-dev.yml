@@ -1554,30 +1554,7 @@ jobs:
 
       - name: Verify Terraform convergence
         if: ${{ inputs.apply }}
-        run: |
-          set +e
-          terraform plan -input=false -lock-timeout=300s -detailed-exitcode \
-            -out=post-apply.plan
-          plan_exit=$?
-          set -e
-          rm -f post-apply.plan
-          if [ "$plan_exit" -eq 1 ]; then
-            echo "post-apply Terraform convergence check failed." >&2
-            exit 1
-          fi
-          if [ "$plan_exit" -eq 2 ]; then
-            echo "post-apply Terraform state is not converged." >&2
-            exit 1
-          fi
-          if [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then
-            inventory_job="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"
-            az containerapp job show --resource-group "$(terraform output -raw resource_group_name)" \
-              --name "$inventory_job" --output json > "$RUNNER_TEMP/inventory-job.json"
-            uv run --frozen --package fdai-core-control-plane python \
-              ../scripts/deployment/azure/verify_job_image.py \
-              --job "$RUNNER_TEMP/inventory-job.json" --container inventory \
-              --expected-image "$TF_VAR_core_image"
-          fi
+        run: bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         env:

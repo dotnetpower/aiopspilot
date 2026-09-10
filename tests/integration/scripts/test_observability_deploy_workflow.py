@@ -22,3 +22,4 @@ def test_observability_request_targets_only_the_stateful_image_updater() -> None
         in _WORKFLOW
     )
     assert "state-only analyzer updater replacement" in _WORKFLOW
+    assert 'verify_deploy_convergence.sh "${{ inputs.request_id }}"' in _WORKFLOW
