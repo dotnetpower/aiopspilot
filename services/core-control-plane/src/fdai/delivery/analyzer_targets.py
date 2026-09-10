@@ -265,7 +265,16 @@ async def _state_fact_supports_selection(
     if not isinstance(raw, Mapping):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False
-    metadata_value = raw if "lane" in raw else raw.get("state")
+    if "lane" not in raw and "state" not in raw:
+        return await _identity_supports_selection(
+            record,
+            resource_id=resource_id,
+            resource_type=resource_type,
+            now=now,
+            skipped=skipped,
+            decision_evidence=decision_evidence,
+        )
+    metadata_value = raw if "lane" in raw else raw["state"]
     if not isinstance(metadata_value, Mapping):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False

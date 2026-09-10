@@ -533,8 +533,10 @@ synthetic is skipped with a stable reason, and an unreadable projection raises i
 to the configured list alone, so the Job retries rather than silently narrowing coverage. The
 resolver accepts the canonical generic `state` fact from either the legacy flat metadata shape or
 the current property-keyed collection and never substitutes another property-specific fact. A
-resource projected without a state fact carries identity and type only, which is what target
-selection needs, so it stays eligible. Discovered targets are bounded and deterministically ordered. These
+resource whose metadata collection has no generic `state` fact follows the separately admitted
+identity-and-type path; a present but malformed `state` remains unusable. A resource projected
+without any state fact follows the same identity path. Discovered targets are bounded and
+deterministically ordered. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
 check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
 When tracked state and a retry-stable explicit or Container Apps Job execution identity are
