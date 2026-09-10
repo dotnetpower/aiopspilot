@@ -1,6 +1,6 @@
-"""A3-E standing-authorization records and their deterministic evaluator.
+"""A3-E standing-authorization records, lifecycle, fence, and inert lease.
 
-Nothing in this package is wired into a decision path. See
+Nothing in this package is wired into a decision or dispatch path. See
 [escalation-and-standing-authority.md](../../../../../../docs/roadmap/decisioning/escalation-and-standing-authority.md).
 """
 
@@ -15,6 +15,22 @@ from fdai.core.standing_authority.fence import (
     LifecycleFenceReason,
     LifecycleFenceResult,
     StandingAuthorizationFenceGuard,
+)
+from fdai.core.standing_authority.lease import (
+    EffectStatus,
+    LeaseAcquisitionRequest,
+    LeaseAcquisitionResult,
+    LeaseCheckpoint,
+    LeaseOutcome,
+    ProviderCommitFenceRequest,
+    ProviderCommitFenceResult,
+    StandingAuthorizationLease,
+    TerminalLeaseRecord,
+    build_acquisition_request,
+    build_checkpoint,
+    build_provider_commit_fence_request,
+    build_terminal_record,
+    provider_idempotency_key,
 )
 from fdai.core.standing_authority.lifecycle import (
     AuthenticatedAuthorizationCommand,
@@ -55,19 +71,33 @@ __all__ = [
     "AuthorizationTransition",
     "AuthorizationWriteStatus",
     "AutonomyClass",
+    "EffectStatus",
     "Eligibility",
+    "LeaseAcquisitionRequest",
+    "LeaseAcquisitionResult",
+    "LeaseCheckpoint",
+    "LeaseOutcome",
     "LifecycleFence",
     "LifecycleFenceReason",
     "LifecycleFenceResult",
+    "ProviderCommitFenceRequest",
+    "ProviderCommitFenceResult",
     "StandingAuthorization",
     "StandingAuthorizationDecision",
     "StandingAuthorizationError",
     "StandingAuthorizationFenceGuard",
+    "StandingAuthorizationLease",
     "StandingAuthorizationLifecycleWriter",
+    "TerminalLeaseRecord",
     "authorization_revision_id",
+    "build_acquisition_request",
+    "build_checkpoint",
+    "build_provider_commit_fence_request",
+    "build_terminal_record",
     "evaluate_standing_authorization",
     "fence_matches",
     "load_schema",
     "plan_lifecycle_transition",
+    "provider_idempotency_key",
     "replay_lifecycle",
 ]
