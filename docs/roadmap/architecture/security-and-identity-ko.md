@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: f7707ef325fbc79ca6aa77d9c21eca827a7af9f6
+translation_source_sha: ed9d14e2216245fc68e69435a6bf369d879c9981
 translation_revised: 2026-09-10
 ---
 
@@ -22,7 +22,7 @@ translation_revised: 2026-09-10
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
-| 실행기 안전조건과 독립 효과 종결 | in-progress | `packages/service-contracts/src/fdai_service_contracts/execution_safeguards.py`; `schemas/execution-safeguard-proof-bundle/1.0.0.json`; `test_execution_safeguards.py`; `core/executor/{safeguards,safeguard_proofs,lock,lock_continuity,idempotency_reservation}.py`; `shared/providers/resource_lock.py`; 집중 안전조건 및 리소스 잠금 테스트; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81`, `#627`, `#628`, `#633`, `#672`; 완료된 이슈 `#620`, `#660`, `#664`, `#669`-`#671`, `#674` | 공급자 중립 7개 증명 wire 묶음, 공급자가 증명한 과거 및 현재 잠금 근거, 순수 Core 최종 처리기, 근거 잠금 수명 주기 및 이행 계약, 로컬 테스트 전용 공급자, 효과 커밋까지의 소유권 모델, 장애에 안전한 예약 계약을 구현했습니다. 이 계약은 권한이나 효과 검증 주장을 부여하지 않습니다. 권위 있는 감사 의도 읽기, 영구 PostgreSQL 공급자, 실제 Core 및 작업 흐름 생성기, Isolated 실행기 검증, 통제된 교차 경로 효과 근거는 열린 작업으로 남아 있습니다. |
+| 실행기 안전조건과 독립 효과 종결 | in-progress | `packages/service-contracts/src/fdai_service_contracts/execution_safeguards.py`; `schemas/execution-safeguard-proof-bundle/1.0.0.json`; `test_execution_safeguards.py`; `core/executor/{safeguards,safeguard_proofs,lock,lock_continuity,idempotency_reservation,audit_intent}.py`; `shared/providers/resource_lock.py`; 집중 안전조건 및 리소스 잠금 테스트; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81`, `#627`, `#628`, `#633`; 완료된 이슈 `#620`, `#660`, `#664`, `#669`-`#672`, `#674` | 공급자 중립 증명 묶음, 공급자가 증명한 잠금 근거, 순수 최종 처리기, 잠금 수명 주기, 로컬 테스트 공급자, 소유권 연속성 모델, 장애에 안전한 예약, 권위 있는 감사 의도 계약을 권한이나 효과 검증 주장 없이 구현했습니다. 영구 PostgreSQL 공급자, 실제 Core 및 작업 흐름 생성기, Isolated 실행기 검증, 통제된 교차 경로 효과 근거는 열린 작업으로 남아 있습니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
 | 자동화 보류 복구 승인 강화 | in-progress | `core/workflow/{recovery_admission,automation_hold}.py`; 보호 조건을 적용한 메모리 내 및 PostgreSQL 상태 어댑터; [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630`, `#640` | 정확한 승인과 원자적 보류 해제 기본 연산을 구현했지만 운영 보상은 여전히 기존 해제 호출을 사용합니다. `#630`이 해당 통합, `#640`이 최종 실행 경로 fence를 담당합니다. FDAI-CONST-009는 `implemented`를 유지합니다. |
 | 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로; 이슈 `#371` | 주요 경계는 이제 공유 최소화와 민감정보 제거를 구현했지만 배포 privacy 승인과 보존된 운영 근거는 계속 열려 있습니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 정확한 영구 예약 전환 증적을 포함하는 효과 전 감사 의도와 후보에 결속된 추가 및 읽기 결과를 정의했습니다. 성공 근거에는 영속화, 권위 있는 정확한 읽기, 예약 읽기 뒤이면서 lease 만료 전인 시각이 필요합니다. API 확인이나 호출자가 계산한 다이제스트만으로는 충분하지 않습니다. | `current change`; `core/executor/audit_intent.py`; `test_audit_intent.py`; 집중 테스트 7개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #672 계약 작업은 완료했습니다. 이후 #627 공급자 패키지에서 영구 감사 저장소와 재시작 및 부분 쓰기 근거를 구현합니다. |
 | 2026-09-10 | implemented | 장애에 안전한 예약 신원, 단조 상태 기계, 원자적 예약 결과, 정확한 이전 상태를 포함하는 CAS 및 읽기 증적, 공급자 경계를 정의했습니다. 만료된 실행 중 시도는 영구 결과 불명 격리가 되며, 중단에는 디스패치가 시작되지 않았다는 권위 있는 근거가 필요합니다. 입증된 미수락 뒤의 복구에는 더 늦은 잠금 획득과 더 높은 시도가 필요합니다. | `current change`; `core/executor/idempotency_reservation.py`; `test_idempotency_reservation.py`; 집중 테스트 16개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #671 계약 작업은 완료했습니다. 이후 #627 공급자 패키지에서 재시작 및 경쟁 근거를 갖춘 영구 공급자를 구현하고, 다음으로 #672에서 권위 있는 감사 의도 근거를 정의합니다. |
 | 2026-09-10 | implemented | 검토된 효과 커밋까지의 소유권 전략과 정확한 정책, 획득, 현재 소유권 평가를 포함하는 최종 무권한 증적을 정의했습니다. 디스패치, 대상 시스템 커밋, 독립 효과 검증을 별도 축으로 유지합니다. 모호한 디스패치, 알 수 없는 커밋, 상실되거나 알 수 없는 해제는 격리가 필요하며 권위 있는 취소 불가능한 미수락 근거만 격리를 해제할 수 있습니다. | `current change`; `core/executor/lock_continuity.py`; `test_lock_continuity.py`; 집중 테스트 17개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #670의 잔여 작업은 없습니다. PostgreSQL 근거 공급자와 공유 생성기 조정을 구현하기 전에 #671에서 장애에 안전한 예약을 정의합니다. |
 | 2026-09-10 | implemented | 고유한 획득별 신원, 레지스트리의 정확한 보유자 읽기, 어댑터 소유 UTC 시각, 범위가 제한된 평가 유효 기간, 요청에 결속된 무권한 증적, 해제 전 취소에 안전한 비활성화를 갖춘 로컬 테스트 전용 근거 리소스 잠금을 구현했습니다. 수명이 끝난 이전 핸들은 이후 획득 중에도 부적합 상태를 유지하며 이 어댑터는 운영 준비 상태를 충족할 수 없습니다. | `current change`; `core/executor/lock.py`; `shared/providers/resource_lock.py`; `test_lock.py`; `test_resource_lock_receipt.py`; 집중 검사 65개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #674의 잔여 작업은 없습니다. PostgreSQL 근거 공급자를 구현하기 전에 #670에서 운영 효과 커밋까지의 소유권을 정의합니다. |
@@ -59,7 +60,7 @@ translation_revised: 2026-09-10
 - [x] 이슈 `#674`에서 정확한 획득별 신원과 운영 차단 조건을 갖춘 로컬 테스트 전용 근거 공급자를 구현했습니다. 근거: 집중 검사 65개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [x] 이슈 `#670`에서 효과 커밋까지의 소유권, 대상 시스템 fence 또는 권위 있는 조정, 영구 `outcome_unknown` 격리를 정의했습니다. 근거: `lock_continuity.py`, 집중 테스트 17개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [x] 이슈 `#671`에서 장애에 안전한 영구 멱등성 예약 및 복구 근거를 정의했습니다. 근거: `idempotency_reservation.py`, 집중 테스트 16개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
-- [ ] #669와 #671 다음에 이슈 `#672`에서 권위 있는 감사 의도 추가 및 읽기 근거를 정의합니다.
+- [x] 이슈 `#672`에서 권위 있는 감사 의도 추가 및 읽기 근거를 정의했습니다. 근거: `audit_intent.py`, 집중 테스트 7개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [ ] #669-#672 선행 작업을 닫은 뒤 이슈 `#627`에서 실제 Core 및 작업 흐름 실행이 공유 묶음을 생성하게 합니다.
 - [x] 하위 이슈 `#660`에서 순수 전체 액션 안전조건 증명 최종 처리기가 정확한 현재 `LiveLockOwnershipAssessment`를 사용하게 합니다. 근거: 통과한 안전조건 및 리소스 잠금 집중 검사 52개, Ruff, strict mypy, Medium 이상 독립 비평 발견 0건.
 - [ ] 이슈 `#628`에서 Core 검증기를 가져오지 않고 Isolated 실행기가 공유 묶음을 다시 검증하게 합니다.
