@@ -128,7 +128,8 @@ def test_guard_accepts_exact_operator_identity_role_replacement() -> None:
 
     assert accepted is True
     assert all(
-        not isinstance(change, dict) or change.get("address") != guard.ROLE_ADDRESS
+        not isinstance(change, dict)
+        or change.get("address") not in {guard.ROLE_ADDRESS, guard.IDENTITY_ADDRESS}
         for change in filtered["resource_changes"]
     )
 
@@ -157,7 +158,8 @@ def test_guard_cli_filters_the_temporary_review_copy(
     assert guard.main() == 0
     filtered = json.loads(plan_path.read_text(encoding="utf-8"))
     assert all(
-        change.get("address") != guard.ROLE_ADDRESS for change in filtered["resource_changes"]
+        change.get("address") not in {guard.ROLE_ADDRESS, guard.IDENTITY_ADDRESS}
+        for change in filtered["resource_changes"]
     )
 
 

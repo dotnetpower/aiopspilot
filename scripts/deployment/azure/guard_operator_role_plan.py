@@ -80,10 +80,11 @@ def filter_validated_operator_role_replacement(
     raw_changes = plan.get("resource_changes")
     if not isinstance(raw_changes, list):
         raise ValueError("protected Terraform plan resource_changes MUST be an array")
+    validated_addresses = {ROLE_ADDRESS, IDENTITY_ADDRESS}
     copied["resource_changes"] = [
         change
         for change in raw_changes
-        if not isinstance(change, Mapping) or change.get("address") != ROLE_ADDRESS
+        if not isinstance(change, Mapping) or change.get("address") not in validated_addresses
     ]
     return copied, True
 

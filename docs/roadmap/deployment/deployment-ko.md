@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 0ea0552b0b1ac4b817b25363dbd0946d6f7168b0
+translation_source_sha: 909c5705f35b05521508d39d32a6ca01e5ffae43
 translation_revised: 2026-09-10
 ---
 
@@ -55,6 +55,7 @@ translation_revised: 2026-09-10
 | 2026-09-09 | implemented | 실제 계획을 바탕으로 초기 가정을 수정했습니다. 함께 처리하는 Operator API UAMI는 신규 생성이 아니라 이름만 바꾸는 교체입니다. 이제 guard는 위치, 리소스 그룹, 태그가 바뀌지 않고 계산되는 신원 필드만 apply 전까지 알 수 없는 상태인지 확인합니다. | 실패한 보호 계획 `34411374082`; 정제한 교체 경로 검토; 확대된 positive 및 negative guard 테스트. | Plan-only를 다시 실행하고 보존된 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 정확한 역할 및 UAMI 교체 경로와 모든 안정 값 동일성 검사는 유지하면서 프로바이더가 계산하는 `after_unknown` 인코딩을 권한 판단에서 제거했습니다. | 실패한 보호 계획 `34420153874`; 정제한 Terraform 블록 비교; 집중 인코딩 변형 및 negative guard 테스트. | Plan-only를 다시 실행하고 보존된 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | Operator 역할 guard를 권한에 영향을 주는 안정 필드로 제한했습니다. 정확한 주소와 작업, 유일한 교체 경로, 바뀌지 않은 역할 범위와 이름, 바뀌지 않은 UAMI 위치, 리소스 그룹, 태그를 확인합니다. 선택적 프로바이더 상태는 더 이상 잘못된 거부를 만들지 않습니다. | 실패한 보호 계획 `34421874225`; 정제한 교체 구조; 확대된 안정 필드 및 프로바이더 변형 테스트. | Plan-only를 다시 실행하고 보존된 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
+| 2026-09-10 | implemented | 검증된 Operator 역할/UAMI 교체 쌍에서 역할 할당만 제거해 이미 검증한 UAMI를 다시 거부하지 않도록, 임시 파괴적 검토 복사본에서 두 구성원을 모두 제거했습니다. 그 밖의 파괴적 변경은 일반 guard에서 계속 확인합니다. | 실패한 보호 계획 `34424719829`; 집중 pair-filter 및 negative guard 테스트. | 런타임 이미지에 결속된 계획을 다시 실행하고 보존된 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-09 | implemented | 암시적 상태 렌더링에서 일치하는 리소스를 찾지 못한 뒤 OI-12 기존 인벤토리 Job 조회를 mode 0600의 특정 시점 Terraform 상태 스냅샷에 결속했습니다. 실행기는 단계가 끝날 때 스냅샷을 삭제하며 추적된 주소가 정확히 하나여야 한다는 조건을 유지합니다. | `current change`; 실패한 보호 인증 `34400981555`; 실제 비공개 상태 주소 진단; 집중 작업 흐름 계약 검사. | 스냅샷 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 보호된 OI-12 인벤토리 새로 고침이 최상위 인벤토리 Job 출력보다 먼저 배포된 플랫폼 상태와 호환되도록 수정했습니다. 작업 흐름은 최상위 출력을 우선 사용하고, 이름에서 신원을 유추하지 않은 채 상태에 추적된 인벤토리 Job 리소스 하나만 정확히 확인합니다. | `current change`; 실패한 보호 인증 `34389423964`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 호환성 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기존 out-of-band Job과 rule-watcher Job을 개발 운영 게이트웨이 대상 의존성 집합에 추가했습니다. 이제 Terraform은 선언되지 않은 의존성 대상을 요구하지 않고 이미 선택한 게이트웨이 및 측정 리소스의 계획을 만들 수 있습니다. | `current change`; 실패한 보호 계획 `34316856951`; `.github/workflows/deploy-dev.yml`; 집중 workflow 대상 검사. | workflow 수정 사항을 게시하고 적용 전에 정확한 런타임 이미지 승격 계획을 다시 실행합니다. |
