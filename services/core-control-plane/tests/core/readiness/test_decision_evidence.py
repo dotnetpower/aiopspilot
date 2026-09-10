@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 
 import pytest
 from fdai.core.readiness.decision_evidence import (
@@ -138,6 +138,12 @@ class _Verifier:
         return self.bundle
 
 
+class _IndeterminateTimezone(tzinfo):
+    def utcoffset(self, dt):
+        del dt
+        return None
+
+
 def _gate(
     receipt: DecisionCriticalEvidenceReceipt,
     *,
@@ -255,6 +261,25 @@ async def test_bundle_verified_before_receipt_recording_fails_closed() -> None:
     assert result.eligible is False
     assert result.admission is None
     assert result.reason is DecisionEvidenceReadinessReason.BUNDLE_MISMATCH
+
+
+def test_verifier_binding_rejects_times_without_a_utc_offset() -> None:
+    receipt = _receipt()
+    indeterminate = _NOW.replace(tzinfo=_IndeterminateTimezone())
+
+    with pytest.raises(ValueError, match="binding times MUST be timezone-aware"):
+        _gate(receipt, binding_valid_from=indeterminate)
+
+    binding = DecisionEvidenceVerifierBinding(
+        authority_class=receipt.authority_class,
+        method_id=receipt.method_id,
+        verifier_id="azure.readback",
+        verifier_version="1.0.0",
+        trust_anchor_id="azure:managed-identity",
+        verifier=_Verifier(_bundle(receipt)),
+    )
+    with pytest.raises(ValueError, match="evaluation time MUST be timezone-aware"):
+        binding.active_at(indeterminate)
 
 
 @pytest.mark.parametrize(

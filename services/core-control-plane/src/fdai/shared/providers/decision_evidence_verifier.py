@@ -204,7 +204,12 @@ class DecisionEvidenceVerifierBinding:
                 raise ValueError(
                     f"DecisionEvidenceVerifierBinding.{name} MUST be bounded non-empty text"
                 )
-        if self.valid_from.tzinfo is None or self.valid_until.tzinfo is None:
+        if (
+            self.valid_from.tzinfo is None
+            or self.valid_from.utcoffset() is None
+            or self.valid_until.tzinfo is None
+            or self.valid_until.utcoffset() is None
+        ):
             raise ValueError("decision evidence verifier binding times MUST be timezone-aware")
         if self.valid_until <= self.valid_from:
             raise ValueError("decision evidence verifier binding expiry MUST follow activation")
@@ -214,7 +219,7 @@ class DecisionEvidenceVerifierBinding:
     def active_at(self, evaluated_at: datetime) -> bool:
         """Return whether the reviewed trust binding is current and not revoked."""
 
-        if evaluated_at.tzinfo is None:
+        if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
             raise ValueError("decision evidence verifier evaluation time MUST be timezone-aware")
         return not self.revoked and self.valid_from <= evaluated_at <= self.valid_until
 

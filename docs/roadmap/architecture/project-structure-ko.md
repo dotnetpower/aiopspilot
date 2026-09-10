@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e1cac2f88ac6eb151d50ffc43149b19cb5baf3d2
+translation_source_sha: 2441359c5c1602b11f1c51b5cce158b2cf03fd0d
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -99,7 +99,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   유지하며 검증 결과로 변환하지 않습니다. 허용된 admission은 증적 자체의 최신성 구간보다 늦게
   만료될 수 없고, 선택된 검증기 결속보다 오래 유지될 수도 없습니다. 해당 결속이 활성화되기 전에
   발급된 검증 묶음은 신뢰하지 않습니다. 증적이 기록되기 전에 검증했다고 주장하는 묶음도
-  허용되지 않습니다. 클라우드 SDK
+  허용되지 않습니다. 결속 및 평가 타임스탬프는 `tzinfo` 객체만이 아니라 정의된 UTC 오프셋을
+  포함해야 합니다. 클라우드 SDK
   사용은 delivery에 남습니다. Azure 어댑터는 수명이 짧은 Managed Identity 토큰으로 권위 있는 원본을
   다시 읽고 자격 증명을 보존하지 않습니다. 성공적인 묶음은 근거 자격만 입증하며 실행, 승인 또는
   승격 권한을 선언할 수 없습니다.

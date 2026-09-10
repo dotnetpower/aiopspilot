@@ -101,6 +101,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   no later than the receipt's own freshness window or the selected verifier binding.
   A verification bundle issued before that binding became active is not trusted.
   A bundle also cannot claim verification before the receipt was recorded.
+  Binding and evaluation timestamps require a defined UTC offset, not only a `tzinfo` object.
   Cancellation remains a control-flow signal and is never converted into a verification result.
   Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
