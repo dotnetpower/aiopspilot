@@ -2141,6 +2141,7 @@
         "services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver*.py",
         "tests/integration/scripts/test_deployment_cli_productization.py",
         "tests/integration/scripts/test_genesis_orchestrator.py",
+        "tests/integration/scripts/test_genesis_up.py",
         "docs/roadmap/deployment/subscription-genesis-*.md",
         "docs/roadmap-implementation/deployment/subscription-genesis-*.md"
       ],
@@ -2165,7 +2166,7 @@
         "docs/roadmap/deployment/provisioning-execution-profiles.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_genesis_up.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
         "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests tests/integration/scripts/test_deployment_cli_productization.py",
         "uv run ruff check packages/deployment-cli",
         "uv run mypy --strict packages/deployment-cli/src",

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: cf3e64da30dfe8859e4c99049b8bc8bb93260c37
+translation_source_sha: 92b5809c608d9e639848df86c81f0d8b43195f33
 translation_revised: 2026-09-10
 ---
 # 구독 초기 프로비저닝
@@ -96,6 +96,7 @@ scripts/deployment/azure/genesis-up.sh \
 검사합니다. 검사 모드는 읽기 전용입니다. 변경 허용 사전 점검은 누락된 네임스페이스만
 등록하고 하나의 누적 제한 시간 안에 모든 네임스페이스를 다시 확인합니다. 롤백해도 등록은
 유지합니다.
+대상 축이 없거나 잘못된 경우 첫 Azure 명령 전에 종료 코드 `64`를 반환합니다.
 
 명시적으로 승인된 정책 프로브는 결정적 이름과 태그가 있는 Key Vault 및 Storage 리소스
 그룹 하나를 만들고 정책 적용 후의 실제 네트워크 상태를 관측합니다. 정확한 소유권 정리가
