@@ -58,11 +58,12 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-judgment
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: active
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
@@ -71,12 +72,13 @@ profiles:
     promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-v14
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
       - {id: semantic-judgment, version: 14, layer: pack}
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
@@ -85,12 +87,13 @@ profiles:
     promotion_evidence: [a5d3627b3]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-v15
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
       - {id: semantic-judgment, version: 15, layer: pack}
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
@@ -99,12 +102,13 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-v16
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
       - {id: semantic-judgment, version: 16, layer: pack}
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
@@ -113,12 +117,13 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-v17
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
       - {id: semantic-judgment, version: 17, layer: pack}
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
@@ -127,11 +132,12 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-schema-v1
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
       - {id: semantic-ontology-schema, version: 1, layer: pack}
@@ -141,11 +147,12 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-schema-v2
-    version: 1
+    version: 2
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
       - {id: semantic-ontology-schema, version: 2, layer: pack}
