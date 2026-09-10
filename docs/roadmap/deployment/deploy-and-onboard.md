@@ -42,11 +42,13 @@ For a fresh database, supply its administrator password through the protected in
 - **Deployer identity:** Role assignment needs User Access Administrator; Contributor alone is insufficient.
 - **State storage:** Standalone bootstrap reads the existing account created by `infra/bootstrap/create-state-account.sh`. Its AzureRM lookup can read account keys, so protect that local state as secret-bearing.
 - **Application resource group:** Standalone bootstrap expects the group to exist before assigning the runner's roles.
-- **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Offline bootstrap also requires an exact prebuilt image.
+- **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Mutation-enabled Genesis runs `prepare-genesis-access-tools.sh` before provider or policy mutation, pinning stable Bastion and Microsoft Entra SSH CLI extensions without creating Azure resources. Run it directly only to prewarm or repair the local CLI; inspection mode remains read-only. Offline bootstrap also requires an exact prebuilt image.
 
-[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
+[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup. The optional Standard Bastion subnet uses the complete Azure-required inbound and outbound Network Security Group rule set; a missing platform rule blocks tunnel creation.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
-`fdaictl provision plan --stage foundation` provides a dry run with optional private `--save-plan` capture. Approval, host enrollment, and remote-state migration remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
+`fdaictl provision plan --stage foundation` provides a private dry run. The local Genesis
+coordinator authenticates distinct Terraform archive and executable digests, then adds approved
+image and Foundation apply, Bastion enrollment, and verified state migration. Protected application deployment and readiness remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
 matching capability-mode toggle before the plan can converge
@@ -180,25 +182,23 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 #### Onboarding automation
 
-These customer-agnostic, parameterized helpers make both deployment paths repeatable:
-Protected and non-interactive callers set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` explicitly.
-Interactive `azd-up.sh` reads the active `az login` pair and requires `y` or another verified region before deployment.
-[`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) still proves both axes and fails before mutation when the identity cannot access the exact pair.
+These customer-agnostic helpers keep both deployment routes repeatable:
 
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs 15 stages and routes after
+  provider reconciliation and exact cleanup. The private path
+  can build the pinned image, apply Foundation, attest Bastion-enrolled slots, and migrate state
+  after separate current approvals. Claims resume verification only. The command stops before the
+  protected application plan and never reports readiness from Foundation completion.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
-  CLI and `azd` entry points to the approved subscription and tenant pair.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) reads an interactive Azure CLI target, confirms or replaces the `koreacentral` region, then previews and stages the public `dev` platform, exact Core image, migrations, catalogs, independent Core, canary, and initial inventory in one command. Empty input never approves deployment. When the fixed owner-only license key exists and matches the packaged public key, it also issues a maximum-30-day token, uploads it through the Key Vault file-input boundary under a per-token digest-derived name, and forces a Core revision with that non-secret digest. Without the key it deploys the same image in observation-only Trial. It is not a private or production path.
-- [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) probes a
-  throwaway KV + storage to tell you up front whether the tenant forces private-everything
-  (and thus mandates the runner path).
+  CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
+  `dev` path. It is not a private, shared, staging, or production deployment path.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) runs create-state-account -> bootstrap
   apply -> prints the GitHub Actions config (idempotent).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
   Variables + Secrets from the bootstrap outputs (password generated + piped, never printed).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) mints a runner token and
-  registers the VNet runner over `run-command`. Re-running it stops and uninstalls an existing
-  service, removes the stale local and GitHub registration with a short-lived removal token, and
-  then installs the fresh service. This recovers broker-session corruption without keeping a token.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) is legacy `run-command`
+  recovery. Genesis instead sends registration material through SSH standard input over Bastion.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 
