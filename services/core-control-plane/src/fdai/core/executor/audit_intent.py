@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal, Protocol, Self, runtime_checkable
+from typing import Literal, Protocol, Self, cast, runtime_checkable
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -203,6 +203,19 @@ class AuditIntentStore(Protocol):
         ...
 
 
+def audit_intent_to_mapping(
+    intent: PreEffectAuditIntent,
+) -> dict[str, object]:
+    """Serialize one validated intent for exact durable JSON readback."""
+
+    if type(intent) is not PreEffectAuditIntent:
+        raise ValueError("audit intent serializer requires an exact intent")
+    normalized = _normalize_digest_value(asdict(intent))
+    if type(normalized) is not dict:
+        raise ValueError("audit intent serialization is not an object")
+    return cast(dict[str, object], normalized)
+
+
 def _validate_text(name: str, value: str) -> None:
     if type(value) is not str or not value.strip() or value != value.strip() or len(value) > 512:
         raise ValueError(f"audit intent {name} MUST be canonical and bounded")
@@ -251,6 +264,8 @@ def _content_digest(
 def _normalize_digest_value(value: object) -> object:
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat()
+    if isinstance(value, StrEnum):
+        return value.value
     if isinstance(
         value,
         (
@@ -273,4 +288,5 @@ __all__ = [
     "AuditIntentAppendResult",
     "AuditIntentStore",
     "PreEffectAuditIntent",
+    "audit_intent_to_mapping",
 ]

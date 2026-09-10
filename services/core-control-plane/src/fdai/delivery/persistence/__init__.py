@@ -19,6 +19,10 @@ from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_audit_intent import (
+    PostgresAuditIntentStore,
+    PostgresAuditIntentStoreConfig,
+)
 from fdai.delivery.persistence.postgres_automation_blueprint import (
     PostgresAutomationBlueprintStore,
     PostgresAutomationBlueprintStoreConfig,
@@ -274,6 +278,8 @@ __all__ = [
     "StateStoreReadLatencyProfileStore",
     "PostgresAutomationBlueprintStore",
     "PostgresAutomationBlueprintStoreConfig",
+    "PostgresAuditIntentStore",
+    "PostgresAuditIntentStoreConfig",
     "PostgresBusyInputStore",
     "PostgresBusyInputStoreConfig",
     "PostgresCaseHistoryMetadataStore",
