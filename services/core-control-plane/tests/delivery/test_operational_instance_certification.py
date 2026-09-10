@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from dataclasses import replace
@@ -9,8 +10,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import MethodType
-from typing import Any
+from typing import Any, cast
 
+import httpx
 import pytest
 from fdai.core.ontology_platform.operational_instance_certification import (
     OperationalCertificationAxis,
@@ -30,6 +32,7 @@ from fdai.delivery.operational_instance_certification_cli import (
     snapshot_record,
 )
 from fdai.delivery.operational_instance_certification_postgres import (
+    OperationalCertificationGenerationPendingError,
     PostgresOperationalCertificationSource,
     PostgresOperationalCertificationSourceConfig,
 )
@@ -403,8 +406,8 @@ async def test_protected_certification_persists_exact_complete_receipt(
         "PostgresOperationalCertificationSource",
         lambda **_: _Source(),
     )
-    monkeypatch.setattr(protected.asyncio, "sleep", _no_sleep)
-    monkeypatch.setattr(protected.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(httpx, "AsyncClient", _Client)
     monkeypatch.setattr(protected, "ManagedIdentityWorkloadIdentity", _Identity)
     monkeypatch.setattr(protected, "AzureBlobOperationalHistoryArtifactStore", _Artifacts)
 
@@ -427,6 +430,51 @@ async def test_protected_certification_persists_exact_complete_receipt(
     assert summary["mutation_authority"] is False
     assert summary["execution_authority"] is False
     assert summary["storage_ref"] in stored
+
+
+async def test_protected_certification_waits_for_generation_convergence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = _snapshot(measured_at=_START)
+    sleeps: list[float] = []
+
+    class _Source:
+        calls = 0
+
+        async def capture(self) -> OperationalCertificationSnapshot:
+            self.calls += 1
+            if self.calls == 1:
+                raise OperationalCertificationGenerationPendingError("projection pending")
+            return expected
+
+    async def _record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    source = _Source()
+    monkeypatch.setattr(asyncio, "sleep", _record_sleep)
+
+    captured = await protected._capture_generation_converged(
+        cast(PostgresOperationalCertificationSource, source)
+    )
+
+    assert captured is expected
+    assert source.calls == 2
+    assert sleeps == [10.0]
+
+
+async def test_protected_certification_generation_convergence_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Source:
+        async def capture(self) -> OperationalCertificationSnapshot:
+            raise OperationalCertificationGenerationPendingError("projection pending")
+
+    monkeypatch.setattr(protected, "_GENERATION_CONVERGENCE_TIMEOUT_SECONDS", 0.0)
+
+    with pytest.raises(OperationalCertificationGenerationPendingError, match="projection pending"):
+        await protected._capture_generation_converged(
+            cast(PostgresOperationalCertificationSource, _Source())
+        )
 
 
 def test_protected_certification_options_reject_unbounded_window() -> None:
