@@ -546,6 +546,9 @@ Local runs without a stable execution identity do not create an operational rece
 Protected split-service deployment verifies provenance, SBOM, and Core model-material attestations
 from the digest-pinned GHCR OCI subject, avoiding unrelated public Blob DNS dependencies on the
 private deployment runner.
+The protected `plan-observability-*` and `apply-observability-*` request family targets only the
+analyzer Container Apps Job, so updating its attested runtime image cannot delete or replace
+unrelated platform resources.
 
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,

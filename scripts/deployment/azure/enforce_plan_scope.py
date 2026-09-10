@@ -29,6 +29,7 @@ _RCA_READER_IDENTITY = frozenset(
         "azurerm_role_assignment.rca_monitoring_reader",
     }
 )
+_OBSERVABILITY_ANALYZER = frozenset({"module.compute.azurerm_container_app_job.analyzer_tick[0]"})
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
@@ -173,6 +174,14 @@ def enforce(
         if unexpected:
             raise ValueError(
                 "RCA-reader-identity plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
+    elif mode == "observability-analyzer":
+        unexpected = sorted(changed.difference(_OBSERVABILITY_ANALYZER))
+        if unexpected:
+            raise ValueError(
+                "Observability-analyzer plan contains changes outside its bounded scope: "
                 + ", ".join(unexpected)
             )
         return changed

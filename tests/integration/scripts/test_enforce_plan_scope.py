@@ -54,6 +54,18 @@ def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
         )
 
 
+def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
+    analyzer = "module.compute.azurerm_container_app_job.analyzer_tick[0]"
+
+    assert enforce(_plan(analyzer), mode="observability-analyzer") == frozenset({analyzer})
+    assert enforce({"resource_changes": []}, mode="observability-analyzer") == frozenset()
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(analyzer, "module.measurement_runners[0].job"),
+            mode="observability-analyzer",
+        )
+
+
 def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
     storage = "module.operational_history_storage[0].azurerm_storage_account.case_history"
     endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
