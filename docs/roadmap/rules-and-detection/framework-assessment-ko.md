@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: c6223ff42c67321f602991e34ffb99780a3c80f5
+translation_source_sha: a2b989306a30641e5cac29bf020945c90cdafed1
 translation_revised: 2026-09-10
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -33,6 +33,8 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 공유 Operator PostgreSQL 조회기는 관련 없는 다른 운영 기능에도 사용됩니다. 범위가 지정된 AKS
 출처 상태와 내용 주소 기반 진단 증적 조회는 WAF 또는 CAF 범위, 근거 수락, 재현, 결과에 들어가지
 않습니다.
+공유 Operator 보낼 편지함 수명 주기 facade는 Incident 개입 작업자도 감독할 수 있습니다. 해당
+요청과 준비 상태는 WAF 또는 CAF 범위, 근거 수락, 재현, 결과에 들어가지 않습니다.
 
 ## 설계 결정 및 비판
 
