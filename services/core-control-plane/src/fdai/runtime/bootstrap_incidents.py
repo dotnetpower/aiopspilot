@@ -10,6 +10,13 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
+from fdai_core_service.incident_intervention_consumer import (
+    IncidentInterventionConsumerBinding,
+)
+from fdai_service_contracts.incident_intervention import (
+    INCIDENT_INTERVENTION_CONSUMER_GROUP,
+    INCIDENT_INTERVENTION_REQUEST_TOPIC,
+)
 from psycopg import OperationalError
 
 from fdai.core.incident import (
@@ -22,6 +29,10 @@ from fdai.core.incident import (
     incident_severity,
     link_ticket_receipt,
     open_detected_incident_candidate,
+)
+from fdai.core.incident.intervention import (
+    IncidentInterventionService,
+    StateStoreIncidentIntakeExceptionRegistry,
 )
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
@@ -103,6 +114,7 @@ class IncidentRuntime:
     registry: IncidentRegistry
     entries: tuple[Mapping[str, Any], ...]
     notification_replay_worker: IncidentNotificationReplayWorker
+    intervention_binding: IncidentInterventionConsumerBinding
     open_incident_candidate: OpenIncidentCandidate
     observe_tool_receipt: ObserveToolReceipt
     notification_receipt_applier: NotificationDeliveryReceiptApplier
@@ -155,6 +167,15 @@ async def build_incident_runtime(
         notifier=notifier,
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
+    intervention_binding = IncidentInterventionConsumerBinding(
+        request_topic=INCIDENT_INTERVENTION_REQUEST_TOPIC,
+        group_id=INCIDENT_INTERVENTION_CONSUMER_GROUP,
+        service=IncidentInterventionService(
+            registry=registry,
+            exceptions=StateStoreIncidentIntakeExceptionRegistry(state_store),
+            state_store=state_store,
+        ),
+    )
 
     async def open_incident_candidate(candidate: dict[str, Any]) -> bool:
         result = await open_detected_incident_candidate(
@@ -185,6 +206,7 @@ async def build_incident_runtime(
         registry=registry,
         entries=entries,
         notification_replay_worker=notification_replay_worker,
+        intervention_binding=intervention_binding,
         open_incident_candidate=open_incident_candidate,
         observe_tool_receipt=observe_tool_receipt,
         notification_receipt_applier=NotificationDeliveryReceiptApplier(
@@ -198,6 +220,7 @@ __all__ = [
     "IncidentNotifierBuilder",
     "IncidentNotificationReplayWorker",
     "IncidentRuntime",
+    "IncidentInterventionConsumerBinding",
     "ObserveToolReceipt",
     "OpenIncidentCandidate",
     "ReplayIncidentNotifier",

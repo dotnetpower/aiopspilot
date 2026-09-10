@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: f0b8267eabebdde8b7787b88e2098fb54ff7a40a
-translation_revised: 2026-09-10
+translation_source_sha: 0ba35288573c408e5d82d9e021f7cb4f13afb1cd
+translation_revised: 2026-09-11
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -37,8 +37,8 @@ Operator API는 요청을 영속적으로 수락하기 전에 정확한 수명 �
 Core는 요청을 적용하기 전에 정본 Incident에서 같은 대상 다이제스트를 독립적으로 다시
 계산합니다.
 Operator 수명 주기는 재시도 가능한 개입 보낼 편지함 작업자를 소유하며, 해당 작업자가 중지되면 준비 상태를 false로 유지합니다.
-논리 요청 토픽은 명시적으로 허용 목록에 등록되며 설정된 물리 이벤트 전송 계층을 통해 다중화됩니다.
-따라서 영속 HTTP 수락 뒤 타입이 지정된 요청이 게시되지 않은 상태를 성공처럼 보이는 최종 상태로 표시하지 않습니다.
+허용 목록에 등록된 논리 요청 토픽은 물리 전송 계층을 통해 다중화되며 Core 런타임 토픽 집합에 등록됩니다.
+Core는 정본 Incident 레지스트리로 consumer를 감독하며, 게재 또는 적용이 대기 중이면 HTTP 수락을 최종 상태로 보지 않습니다.
 
 인시던트 생성은 의미 초안 및 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성 버튼을
 추가하지 않습니다. 인식된 incident-open 요청은 다음 순서로 처리됩니다.

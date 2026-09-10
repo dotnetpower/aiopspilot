@@ -45,6 +45,7 @@ from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
 from fdai.runtime.bootstrap_incidents import (
+    IncidentInterventionConsumerBinding,
     IncidentNotificationReplayWorker,
     build_incident_runtime,
 )
@@ -146,6 +147,7 @@ class CoreRuntime:
     operational_readiness_handler: OperationalReadinessEventHandler | None
     continuous_operating_model_worker: Any
     operating_intent_revalidation_worker: OperatingIntentSourceRevalidationWorker | None
+    incident_intervention_binding: IncidentInterventionConsumerBinding
     incident_notification_replay_worker: IncidentNotificationReplayWorker
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
@@ -187,6 +189,7 @@ class CoreRuntime:
             environment=self.environment,
             read_investigation_binding=self.semantic.read_investigation_binding,
             operational_readiness_handler=self.operational_readiness_handler,
+            incident_intervention_binding=self.incident_intervention_binding,
             incident_notification_replay_worker=self.incident_notification_replay_worker,
             notification_receipt_applier=self.notification_receipt_applier,
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
@@ -683,6 +686,7 @@ async def build_core_runtime(
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
         operating_intent_revalidation_worker=operating_intent_revalidation_worker,
+        incident_intervention_binding=incident_runtime.intervention_binding,
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         notification_receipt_applier=incident_runtime.notification_receipt_applier,
         environment=environment,

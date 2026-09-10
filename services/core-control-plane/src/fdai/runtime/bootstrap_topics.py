@@ -3,6 +3,9 @@
 from fdai_service_contracts.background_task_projection import (
     BACKGROUND_TASK_PROJECTION_TOPIC,
 )
+from fdai_service_contracts.incident_intervention import (
+    INCIDENT_INTERVENTION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
@@ -28,6 +31,7 @@ RUNTIME_LOGICAL_TOPICS = (
         {
             _TRANSITION_TOPIC,
             BACKGROUND_TASK_PROJECTION_TOPIC,
+            INCIDENT_INTERVENTION_REQUEST_TOPIC,
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
