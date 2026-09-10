@@ -85,9 +85,33 @@ def build_ontology_schema_frame(
     normalized_facets = {
         facet.replace("_", "").replace("-", "").casefold() for facet in judgment.requested_facets
     }
-    requests_visible_manifest = {"queryable", "visible", "currentscope"} <= normalized_facets or (
-        {"list", "currentscope"} <= normalized_facets
-        and any(facet.endswith("typevisibility") for facet in normalized_facets)
+    declaration_kind_facet_requested = any(
+        f"{declaration_kind.value}type" in normalized_facets
+        or f"{declaration_kind.value}types" in normalized_facets
+        for declaration_kind in declaration_kinds
+    )
+    plural_kind_requested = any(
+        f"{declaration_kind.value}types" in normalized_facets
+        for declaration_kind in declaration_kinds
+    )
+    requests_visible_manifest = (
+        {"queryable", "visible", "currentscope"} <= normalized_facets
+        or (
+            {"list", "currentscope"} <= normalized_facets
+            and any(facet.endswith("typevisibility") for facet in normalized_facets)
+        )
+        or (
+            declaration_kind_facet_requested
+            and {"list", "visible", "currentscope"} <= normalized_facets
+        )
+        or (plural_kind_requested and {"visible", "currentscope"} <= normalized_facets)
+        or (
+            plural_kind_requested
+            and (
+                {"visibletooperator", "currentscope"} <= normalized_facets
+                or "visibleincurrentscope" in normalized_facets
+            )
+        )
     )
     if (
         _is_schema_read_intent(judgment.primary_intent)

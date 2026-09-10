@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from fdai.core.conversation.semantic_manifest_planning import (
     build_ontology_schema_frame,
     compile_ontology_manifest_plan,
@@ -63,12 +64,21 @@ def _manifest() -> QueryManifest:
     )
 
 
-def _judgment() -> SemanticJudgmentProposal:
+def _judgment(
+    requested_facets: tuple[str, ...] = (
+        "object_type",
+        "queryable",
+        "visible",
+        "current_scope",
+    ),
+    *,
+    primary_intent: str = "query.ontology_declaration",
+) -> SemanticJudgmentProposal:
     return SemanticJudgmentProposal.model_validate(
         {
-            "primary_intent": "query.ontology_declaration",
+            "primary_intent": primary_intent,
             "targets": [],
-            "requested_facets": ["object_type", "queryable", "visible", "current_scope"],
+            "requested_facets": requested_facets,
             "confidence": 0.95,
             "ambiguous": False,
             "action_posture": "advise_only",
@@ -78,10 +88,42 @@ def _judgment() -> SemanticJudgmentProposal:
     )
 
 
-def test_queryable_object_types_use_the_principal_manifest_without_model_fallback() -> None:
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    (
+        (
+            "query.ontology_declaration",
+            ("object_type", "queryable", "visible", "current_scope"),
+        ),
+        (
+            "query.ontology_declaration",
+            ("object_type_visibility", "current_scope", "list"),
+        ),
+        (
+            "query.ontology_declaration",
+            ("object_type", "visible", "current_scope", "list"),
+        ),
+        (
+            "query.ontology_declaration",
+            ("object_types", "visible", "current_scope"),
+        ),
+        (
+            "query.ontology_relationships",
+            ("object_types", "visible_to_operator", "current_scope"),
+        ),
+        (
+            "query.ontology_relationships",
+            ("object_types", "visible_in_current_scope"),
+        ),
+    ),
+)
+def test_queryable_object_types_use_the_principal_manifest_without_model_fallback(
+    primary_intent: str,
+    requested_facets: tuple[str, ...],
+) -> None:
     manifest = _manifest()
     selected = deterministic_pre_frame_selection(
-        judgment=_judgment(),
+        judgment=_judgment(requested_facets, primary_intent=primary_intent),
         judgment_accepted=True,
         utterance=_UTTERANCE,
         context=(),
@@ -111,9 +153,22 @@ def test_queryable_object_types_use_the_principal_manifest_without_model_fallbac
     assert plan.nodes[0].arguments["arguments"] == {"kinds": ["object"], "limit": 1000}
 
 
-def test_manifest_list_requires_current_visible_queryable_facets() -> None:
+@pytest.mark.parametrize(
+    "requested_facets",
+    (
+        ("object_type", "queryable"),
+        ("object_types", "visible_to_operator"),
+        ("object_types", "current_scope"),
+        ("object_type", "visible", "current_scope"),
+        ("object_type", "visible", "list"),
+        ("object_type", "current_scope", "list"),
+    ),
+)
+def test_manifest_list_requires_current_visible_queryable_facets(
+    requested_facets: tuple[str, ...],
+) -> None:
     manifest = _manifest()
-    judgment = _judgment().model_copy(update={"requested_facets": ("object_type", "queryable")})
+    judgment = _judgment(requested_facets)
 
     assert (
         build_ontology_schema_frame(
