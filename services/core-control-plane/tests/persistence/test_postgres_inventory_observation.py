@@ -563,6 +563,57 @@ def test_snapshot_recovery_rebuilds_generation_before_journal_append() -> None:
     assert observation.state_base_generation_checked is True
 
 
+def test_snapshot_recovery_quarantines_relationship_without_observation_metadata() -> None:
+    observation = _snapshot_recovery_observation(
+        generation="snapshot-1",
+        recorded_at=NOW,
+        metadata={
+            "state_base_generation": "snapshot-0",
+            "relationship_drop_classifications": [],
+            "relationship_coverage": {
+                "total_candidates": 1,
+                "materialized": 1,
+                "reviewed_unavailable": 0,
+                "unclassified": 0,
+                "complete": True,
+            },
+        },
+        prior_manifest={"object_content": [], "dropped_reasons": []},
+        resource_rows=(
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {},
+                "provider_ref": None,
+                "last_seen": NOW,
+            },
+            {
+                "resource_id": "resource-b",
+                "resource_type": "compute.vm",
+                "props": {},
+                "provider_ref": None,
+                "last_seen": NOW,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-a",
+                "from_type": "compute.vm",
+                "link_type": "depends_on",
+                "to_id": "resource-b",
+                "to_type": "compute.vm",
+                "props": {},
+            },
+        ),
+    )
+
+    assert observation.links == ()
+    assert tuple(drop.reason for drop in observation.relationship_drops) == (
+        RelationshipDropReason.UNVERIFIED_METADATA,
+    )
+    assert observation.complete is True
+
+
 def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None:
     generation = "snapshot-bootstrap"
     state_fact = StateFactMetadata(
