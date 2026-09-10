@@ -62,7 +62,7 @@ The inventory preserves stable ids, bilingual wording, source digests, explicit 
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a Console starter catalog, regenerates both the machine
-inventory and human review catalog so their source-file digests stay exact.
+inventory and human review catalog; the generated-artifact test rejects any stale source digest.
 Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
 hand isn't supported.
 
@@ -81,7 +81,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`. The generated FDAI Conversation Quality
+`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale question-bank source digests. The generated FDAI Conversation Quality
 Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
