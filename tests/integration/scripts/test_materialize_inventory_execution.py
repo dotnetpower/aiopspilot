@@ -28,6 +28,7 @@ def _job() -> dict[str, Any]:
                         "args": [],
                         "cpu": 0.5,
                         "memory": "1Gi",
+                        "volumeMounts": [{"volumeName": "scratch", "mountPath": "/scratch"}],
                         "env": [
                             {"name": "FDAI_INVENTORY_DSN", "secretRef": "inventory-dsn"},
                             {"name": "FDAI_INVENTORY_SOURCES", "value": "azure"},
@@ -47,16 +48,28 @@ def _job() -> dict[str, Any]:
     }
 
 
-def test_changes_only_the_inventory_image() -> None:
+def test_preserves_supported_execution_fields_and_changes_image() -> None:
     job = _job()
     original = copy.deepcopy(job["properties"]["template"])
 
     execution = materialize_inventory_execution(job, image=_TARGET_IMAGE)
 
-    expected = copy.deepcopy(original)
+    expected = {
+        "containers": copy.deepcopy(original["containers"]),
+        "initContainers": copy.deepcopy(original["initContainers"]),
+    }
     expected["containers"][0]["image"] = _TARGET_IMAGE
     assert execution == expected
     assert job["properties"]["template"] == original
+
+
+def test_omits_job_owned_fields_that_the_start_api_inherits() -> None:
+    execution = materialize_inventory_execution(_job(), image=_TARGET_IMAGE)
+
+    assert "volumes" not in execution
+    assert execution["containers"][0]["volumeMounts"] == [
+        {"volumeName": "scratch", "mountPath": "/scratch"}
+    ]
 
 
 @pytest.mark.parametrize(
@@ -82,3 +95,11 @@ def test_rejects_a_noncanonical_inventory_template(
 def test_rejects_a_non_digest_image() -> None:
     with pytest.raises(ValueError, match="digest-pinned"):
         materialize_inventory_execution(_job(), image="example.azurecr.io/fdai:latest")
+
+
+def test_rejects_malformed_init_containers() -> None:
+    job = _job()
+    job["properties"]["template"]["initContainers"] = {}
+
+    with pytest.raises(ValueError, match="init containers"):
+        materialize_inventory_execution(job, image=_TARGET_IMAGE)
