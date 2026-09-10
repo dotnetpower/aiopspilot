@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 154c3a72aad36b57d4f9ea8e5b7171c86157ce21
+translation_source_sha: c64aeda175f7e39e0f31c626c5ee57707384a46a
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 비활성화된 측정 기능이 unindexed 후속 항목을 만들지 않고 이전 indexed Job 두 개를 삭제한다는 보호 계획 결과에 맞춰 검토된 측정 제거 계약을 정정했습니다. 허용되는 각 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 삭제 전용 작업, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. | 실패한 보호 계획 `34435072691`; `guard_platform_migration_plan.py`; 집중 positive 및 negative 제거 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 검토된 플랫폼 역할 이행 검증을 권한에 영향을 주는 안정 필드로 제한하고 선택적 프로바이더 메타데이터 비교를 중단했습니다. 정확한 주소, 작업, 유일한 교체 경로, 역할 이름, 바뀌지 않은 범위 또는 principal은 계속 필수입니다. | 실패한 보호 계획 `34431365390`; 집중 프로바이더 변형 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 여섯 역할 principal 또는 범위 교체, unindexed create 후속 항목이 있는 indexed 측정 Job 제거 두 건, 검토된 `t1.embedding` 제품군, SKU, 용량 교체를 위한 별도의 정확한 이행 검증기를 추가했습니다. 검증된 파괴적 레코드만 임시 검토 복사본에서 제거하며 apply 권한은 바뀌지 않습니다. | 보호 계획 `34430417852`; Terraform 정의; 집중 positive 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | OI-12 Job 해석, 정확한 OCI 출처 증명 검증, ACR 연결을 별도의 보호된 단계로 분리했습니다. 검증된 저장소, 개정 번호, 다이제스트만 `GITHUB_ENV`를 통해 단계 경계를 넘으며 각 단계는 자체 실패 경계를 보고합니다. | `current change`; 실패한 보호 인증 `34429999806`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 분리된 작업 흐름을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |

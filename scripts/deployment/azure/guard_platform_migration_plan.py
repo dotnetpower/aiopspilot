@@ -48,11 +48,9 @@ _ROLE_REPLACEMENTS = {
 }
 _MEASUREMENT_RETIREMENTS = {
     "module.measurement_runners[0].azurerm_container_app_job.baseline_regression[0]": (
-        "module.measurement_runners.azurerm_container_app_job.baseline_regression"
+        "baseline_regression"
     ),
-    "module.measurement_runners[0].azurerm_container_app_job.pattern_growth[0]": (
-        "module.measurement_runners.azurerm_container_app_job.pattern_growth"
-    ),
+    "module.measurement_runners[0].azurerm_container_app_job.pattern_growth[0]": "pattern_growth",
 }
 _EMBEDDING_ADDRESS = (
     'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]'
@@ -95,11 +93,11 @@ def filter_reviewed_platform_migrations(
             raise ValueError(f"unapproved platform role replacement: {address}")
         validated.add(address)
 
-    for retired, successor in _MEASUREMENT_RETIREMENTS.items():
+    for retired, resource_name in _MEASUREMENT_RETIREMENTS.items():
         change = by_address.get(retired)
         if change is None:
             continue
-        if _actions(change) != ("delete",) or _actions(by_address.get(successor)) != ("create",):
+        if not _exact_measurement_retirement(change, resource_name=resource_name):
             raise ValueError(f"unapproved measurement runner retirement: {retired}")
         validated.add(retired)
 
@@ -170,6 +168,27 @@ def _exact_embedding_replacement(change: Mapping[str, object]) -> bool:
         and before_sku.get("capacity") == 803
         and after_sku.get("name") == "Standard"
         and after_sku.get("capacity") == 200
+    )
+
+
+def _exact_measurement_retirement(
+    change: Mapping[str, object],
+    *,
+    resource_name: str,
+) -> bool:
+    details = change.get("change")
+    if not isinstance(details, Mapping):
+        return False
+    before = details.get("before")
+    return (
+        change.get("mode") == "managed"
+        and change.get("type") == "azurerm_container_app_job"
+        and change.get("name") == resource_name
+        and change.get("index") == 0
+        and _actions(change) == ("delete",)
+        and isinstance(before, Mapping)
+        and details.get("after") is None
+        and not details.get("replace_paths")
     )
 
 

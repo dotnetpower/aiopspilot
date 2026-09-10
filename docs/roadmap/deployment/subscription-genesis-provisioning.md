@@ -104,8 +104,9 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 Use `--deploy-dev-operations-gateway` when the exact dev plan must preserve or provision the
 private-resource operations Function gateway. The selection is sealed into the context digest
 shared by plan, apply, and status, and it remains subject to the existing cutover, executor-effect,
-and OHL safeguards. The bounded gateway target set includes both moved measurement-runner job
-addresses so Terraform can complete state-address migration before planning dependent resources.
+and OHL safeguards. The bounded gateway target set includes both indexed measurement-runner Job
+addresses so Terraform can plan their exact delete-only retirement when every measurement
+capability is disabled. No successor resource or state-address migration is inferred.
 
 ```bash
 fdaictl deploy plan \
