@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3686346b97a19b4130e5ca2a35334f0a6537b3f0
+translation_source_sha: e5e2384f79c8ffd0c681f565844f7a301c0fc74b
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -554,6 +554,8 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다.
+멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기 및 상태 형태
+검증은 권한 없이 인접한 단일 책임 모듈로 분리합니다.
 
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
