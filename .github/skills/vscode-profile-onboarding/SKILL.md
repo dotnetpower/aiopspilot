@@ -162,12 +162,16 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
   the POST against the shared origin while writing the bootstrap local storage for the target
   origin.
 - In one browser evaluation, POST an object containing `location.origin`,
-  `Object.entries(localStorage)`, and `Object.entries(sessionStorage)` to the receiver as
-  `text/plain;charset=UTF-8`. Keep this a CORS simple request: adding JSON content type or custom
-  headers introduces an `OPTIONS` preflight that consumes the one-request receiver. Return only the
-  HTTP status and item counts; never return or log the serialized authentication values.
+  `Object.entries(localStorage)`, `Object.entries(sessionStorage)`, and only the
+  `msal.cache.encryption` name/value pair from `document.cookie` to the receiver as
+  `text/plain;charset=UTF-8`. Current MSAL local-storage entries are bound to that session cookie;
+  omitting it makes an isolated browser discard the transferred cache. Keep this a CORS simple
+  request: adding JSON content type or custom headers introduces an `OPTIONS` preflight that
+  consumes the one-request receiver. Return only the HTTP status and item counts; never return or
+  log the serialized authentication or cookie values.
 - The receiver accepts only the configured Console origin, validates the payload shape and size,
-  serializes `fdai:e2e:browser-entra-session` in the Playwright bootstrap shape used by
+  accepts no cookie other than the exact MSAL encryption cookie, serializes
+  `fdai:e2e:browser-entra-session` in the Playwright bootstrap shape used by
   `console/tests/live-e2e/browser-entra-state.ts`, writes beneath ignored `.fdai/live-validation/`
   with mode `0600`, and exits.
 - Verify the destination with `stat` and a shape-only JSON check. Do not inspect or print token,

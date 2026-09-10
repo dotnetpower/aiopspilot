@@ -681,7 +681,7 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Replay tests cover JSON, SSE, and cross-transport idempotency.
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
-- Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling.
+- Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling. Browser Entra state transfer accepts only the exact MSAL cache-encryption cookie, keeps its value out of logs, and binds it to the target loopback origin; live Command Deck evidence follows the accessible `complementary` or full-workspace `dialog` role and creates a new conversation through the history panel.
 
 ## Related docs
 
