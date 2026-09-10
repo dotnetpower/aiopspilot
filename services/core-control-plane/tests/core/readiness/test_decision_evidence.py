@@ -142,6 +142,7 @@ def _gate(
     bundle=None,
     verifier_id="azure.readback",
     revoked=False,
+    binding_valid_until: datetime | None = None,
 ):
     selected = bundle or _bundle(receipt)
     return DecisionEvidenceReadinessGate(
@@ -154,6 +155,7 @@ def _gate(
                     verifier_version="1.0.0",
                     trust_anchor_id="azure:managed-identity",
                     verifier=_Verifier(selected),
+                    valid_until=binding_valid_until or datetime.max.replace(tzinfo=UTC),
                     revoked=revoked,
                 ),
             )
@@ -196,6 +198,24 @@ async def test_admission_cannot_outlive_receipt_freshness() -> None:
     assert result.admission is not None
     assert result.admission.valid_until == receipt.fresh_until
     assert result.admission.valid_until < bundle.valid_until
+
+
+async def test_admission_cannot_outlive_verifier_binding() -> None:
+    receipt = _receipt()
+    binding_valid_until = _NOW + timedelta(minutes=5)
+
+    result = await _gate(
+        receipt,
+        binding_valid_until=binding_valid_until,
+    ).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is True
+    assert result.admission is not None
+    assert result.admission.valid_until == binding_valid_until
 
 
 @pytest.mark.parametrize(

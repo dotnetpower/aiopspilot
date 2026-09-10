@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c2fa2fa69be92265db66d1e59adca65fd7e2f927
+translation_source_sha: 5d4c64efbb642ca5eb9b56613ace1dab1e3b59fb
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -95,7 +95,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   차단합니다. 근거가 `recorded_at` 시점에 이미 만료된 증적은 유효하지 않으므로, 기록 후에 사용할
   수 있었던 시점이 없는 근거 구간은 의사 결정에 허용되지 않습니다. 취소는 제어 흐름 신호로
   유지하며 검증 결과로 변환하지 않습니다. 허용된 admission은 증적 자체의 최신성 구간보다 늦게
-  만료될 수 없습니다. 클라우드 SDK
+  만료될 수 없고, 선택된 검증기 결속보다 오래 유지될 수도 없습니다. 클라우드 SDK
   사용은 delivery에 남습니다. Azure 어댑터는 수명이 짧은 Managed Identity 토큰으로 권위 있는 원본을
   다시 읽고 자격 증명을 보존하지 않습니다. 성공적인 묶음은 근거 자격만 입증하며 실행, 승인 또는
   승격 권한을 선언할 수 없습니다.

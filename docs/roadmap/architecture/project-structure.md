@@ -96,7 +96,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
   A receipt is invalid when its evidence has already expired at `recorded_at`, so no decision can
   admit an evidence window that was never usable after recording. A successful admission expires
-  no later than the receipt's own freshness window.
+  no later than the receipt's own freshness window or the selected verifier binding.
   Cancellation remains a control-flow signal and is never converted into a verification result.
   Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
