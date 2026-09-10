@@ -35,6 +35,7 @@ POLICY = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
 REVISION = "0123456789abcdef0123456789abcdef01234567"
 NOW = datetime(2026, 9, 11, tzinfo=UTC)
 SOURCE_WORKFLOW = ".github/workflows/cohort-treatment-export.yml"
+OTHER_SOURCE_WORKFLOW = ".github/workflows/cohort-treatment-export-secondary.yml"
 ARTIFACT_NAME = "cohort-observations-treatment"
 
 
@@ -163,6 +164,31 @@ async def test_same_measure_cluster_with_changed_value_conflicts() -> None:
         await import_cohort_observation_batch(
             _batch(value=1.0),
             context=context,
+            policy=policy,
+            store=store,
+        )
+
+
+async def test_same_measure_cluster_from_another_exporter_conflicts() -> None:
+    store = InMemoryStateStore()
+    policy = dataclasses.replace(
+        _authorized_policy(),
+        allowed_exporter_workflow_paths=(
+            ("baseline", ()),
+            ("treatment", (OTHER_SOURCE_WORKFLOW, SOURCE_WORKFLOW)),
+        ),
+    )
+    await import_cohort_observation_batch(
+        _batch(),
+        context=_context(),
+        policy=policy,
+        store=store,
+    )
+
+    with pytest.raises(CohortObservationConflictError, match="different content"):
+        await import_cohort_observation_batch(
+            _batch(),
+            context=_context(source_workflow_path=OTHER_SOURCE_WORKFLOW),
             policy=policy,
             store=store,
         )

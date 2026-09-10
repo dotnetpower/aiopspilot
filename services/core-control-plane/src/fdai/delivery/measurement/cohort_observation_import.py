@@ -320,6 +320,7 @@ def _record(
         "fdai_revision": context.fdai_revision,
         "measurement_protocol_version": policy.measurement_protocol_version,
         "measurement_protocol_digest": policy.measurement_protocol_digest,
+        "source_workflow_path": context.source_workflow_path,
         "source_cluster_digest": observation.source_cluster_digest,
         "observed_at": observed_at.isoformat(),
         "synthetic": False,
