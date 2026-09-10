@@ -87,44 +87,70 @@ class KubernetesInventoryEnricher:
         *,
         source: KubernetesRuntimeInventorySource,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog,
+        scope_digest: str | None = None,
     ) -> None:
         self._source = source
         self._relationship_mapping_catalog = relationship_mapping_catalog
+        self._scope_digest = scope_digest
 
     async def enrich(
         self,
         observation: PromotedInventoryObservation,
     ) -> PromotedInventoryObservation:
         if not observation.complete:
-            return _unavailable(observation, reason="inventory_generation_incomplete")
+            return _unavailable(
+                observation,
+                reason="inventory_generation_incomplete",
+                scope_digest=self._scope_digest,
+            )
         cluster_ids = {
             resource.resource_id
             for resource in observation.resources
             if resource.type == "kubernetes-cluster"
         }
         if not cluster_ids:
-            return _unavailable(observation, reason="cluster_identity_unavailable")
+            return _unavailable(
+                observation,
+                reason="cluster_identity_unavailable",
+                scope_digest=self._scope_digest,
+            )
         try:
             snapshot = await self._source.collect()
         except Exception:  # noqa: BLE001 - source details never enter generation metadata
-            return _unavailable(observation, reason="kubernetes_source_unavailable")
+            return _unavailable(
+                observation,
+                reason="kubernetes_source_unavailable",
+                scope_digest=self._scope_digest,
+            )
         cluster_refs = {
             resource.props.get("cluster_ref")
             for resource in snapshot.resources
             if isinstance(resource.props.get("cluster_ref"), str)
         }
         if len(cluster_refs) != 1 or not cluster_refs <= cluster_ids:
-            return _unavailable(observation, reason="cluster_identity_mismatch")
+            return _unavailable(
+                observation,
+                reason="cluster_identity_mismatch",
+                scope_digest=self._scope_digest,
+            )
 
         combined_resources = (*observation.resources, *snapshot.resources)
+        projection_resources = (
+            *(
+                resource
+                for resource in observation.resources
+                if not resource.type.startswith("kubernetes.")
+            ),
+            *snapshot.resources,
+        )
         projected = project_kubernetes_relationships(
-            combined_resources,
+            projection_resources,
             catalog=self._relationship_mapping_catalog,
             complete=True,
         )
         verified = verify_inventory_relationships(
             generation=observation.generation,
-            resources=combined_resources,
+            resources=projection_resources,
             links=projected.links,
             complete=True,
             recorded_at=snapshot.observed_at,
@@ -132,7 +158,11 @@ class KubernetesInventoryEnricher:
         )
         existing_resource_ids = {resource.resource_id for resource in observation.resources}
         if any(resource.resource_id in existing_resource_ids for resource in snapshot.resources):
-            return _unavailable(observation, reason="kubernetes_resource_identity_conflict")
+            return _unavailable(
+                observation,
+                reason="kubernetes_resource_identity_conflict",
+                scope_digest=self._scope_digest,
+            )
         existing_link_ids = {
             (link.from_id, link.link_type, link.to_id) for link in observation.links
         }
@@ -140,7 +170,16 @@ class KubernetesInventoryEnricher:
             (link.from_id, link.link_type, link.to_id) in existing_link_ids
             for link in verified.links
         ):
-            return _unavailable(observation, reason="kubernetes_relationship_identity_conflict")
+            return _unavailable(
+                observation,
+                reason="kubernetes_relationship_identity_conflict",
+                scope_digest=self._scope_digest,
+            )
+        recorded_at = max(
+            timestamp
+            for timestamp in (observation.recorded_at, snapshot.observed_at)
+            if timestamp is not None
+        )
         relationship_drops = (*observation.relationship_drops, *verified.dropped)
         if verified.dropped:
             # Keep independently verified records that are usable while making
@@ -150,6 +189,7 @@ class KubernetesInventoryEnricher:
                 resources=combined_resources,
                 links=(*observation.links, *verified.links),
                 relationship_drops=relationship_drops,
+                recorded_at=recorded_at,
                 source_states=(
                     *observation.source_states,
                     InventoryProjectionSourceState(
@@ -157,6 +197,7 @@ class KubernetesInventoryEnricher:
                         status=InventoryProjectionSourceStatus.UNAVAILABLE,
                         observed_at=None,
                         reason="kubernetes_relationship_incomplete",
+                        scope_digest=self._scope_digest,
                     ),
                 ),
             )
@@ -164,6 +205,7 @@ class KubernetesInventoryEnricher:
             observation,
             resources=combined_resources,
             links=(*observation.links, *verified.links),
+            recorded_at=recorded_at,
             source_states=(
                 *observation.source_states,
                 InventoryProjectionSourceState(
@@ -171,6 +213,7 @@ class KubernetesInventoryEnricher:
                     status=InventoryProjectionSourceStatus.AVAILABLE,
                     observed_at=snapshot.observed_at,
                     reason=None,
+                    scope_digest=self._scope_digest,
                 ),
             ),
         )
@@ -180,6 +223,7 @@ def _unavailable(
     observation: PromotedInventoryObservation,
     *,
     reason: str,
+    scope_digest: str | None = None,
 ) -> PromotedInventoryObservation:
     return replace(
         observation,
@@ -190,6 +234,7 @@ def _unavailable(
                 status=InventoryProjectionSourceStatus.UNAVAILABLE,
                 observed_at=None,
                 reason=reason,
+                scope_digest=scope_digest,
             ),
         ),
     )

@@ -93,6 +93,61 @@ function payload(): Record<string, unknown> {
   };
 }
 
+function aksPayload(): Record<string, unknown> {
+  const value = payload();
+  const resources = value.resources as Record<string, unknown>[];
+  const root = resources[0]!;
+  root.resource_type = "kubernetes.pod";
+  root.kubernetes_identity = {
+    api_version: "v1",
+    kind: "Pod",
+    name: "api",
+    namespace: "default",
+    resource_version: "20",
+    uid: "uid-api",
+  };
+  root.aks_diagnostic_receipt = {
+    schema_version: "1.0.0",
+    owner_agent: "Forseti",
+    principal_class: "system",
+    purpose: "operations-review",
+    producer_version: "aks-diagnostic-evidence-v1",
+    method_version: "deterministic-t0-v1",
+    target_resource_id: "root",
+    target_uid: "uid-api",
+    target_resource_version: "20",
+    ontology_release: `sha256:${"a".repeat(64)}`,
+    cutoff: "2026-08-22T00:00:00+00:00",
+    source_cutoffs: {
+      inventory_snapshot: "2026-08-22T00:00:00+00:00",
+      kubernetes_runtime_inventory: "2026-08-21T23:59:00+00:00",
+    },
+    source_revisions: {
+      inventory_snapshot: `sha256:${"c".repeat(64)}`,
+      kubernetes_runtime_inventory: `sha256:${"b".repeat(64)}`,
+    },
+    status: "image_pull_failed",
+    signals: ["image_pull_failed"],
+    complete: false,
+    evidence_gaps: ["kubernetes_metric_evidence_unavailable"],
+    conflicts: [],
+    evidence_refs: [`inventory-generation:sha256:${"d".repeat(64)}`],
+    synthetic: false,
+    cause_claim_supported: false,
+    execution_authority: false,
+    audit_correlation_id: `sha256:${"e".repeat(64)}`,
+  };
+  const sources = value.sources as Record<string, unknown>[];
+  const kubernetes = sources.find(
+    (source) => source.source === "kubernetes_runtime_inventory",
+  )!;
+  kubernetes.status = "available";
+  kubernetes.observed_at = "2026-08-21T23:59:00+00:00";
+  kubernetes.reason = null;
+  kubernetes.scope_digest = `sha256:${"b".repeat(64)}`;
+  return value;
+}
+
 describe("decodeOntologyInstanceExploration", () => {
   it("accepts one bounded root neighborhood with durable activity", () => {
     const decoded = decodeOntologyInstanceExploration(payload());
@@ -103,6 +158,56 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.relationship_coverage).toBeNull();
     expect(decoded.resources[0]?.capacity).toBeNull();
     expect(decoded.resources[0]?.model_deployment).toBeNull();
+  });
+
+  it("accepts a deterministic AKS networking signal", () => {
+    const value = aksPayload();
+    const resources = value.resources as Record<string, unknown>[];
+    const receipt = resources[0]!.aks_diagnostic_receipt as Record<string, unknown>;
+    receipt.status = "networking_unavailable";
+    receipt.signals = ["networking_unavailable"];
+
+    expect(
+      decodeOntologyInstanceExploration(value).resources[0]?.aks_diagnostic_receipt?.status,
+    ).toBe("networking_unavailable");
+  });
+
+  it("accepts fleet source states with the same source and distinct scope digests", () => {
+    const value = payload();
+    const sources = value.sources as Record<string, unknown>[];
+    const kubernetes = sources.find(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    )!;
+    kubernetes.scope_digest = `sha256:${"a".repeat(64)}`;
+    sources.push({
+      ...kubernetes,
+      status: "available",
+      observed_at: "2026-08-22T00:01:00+00:00",
+      reason: null,
+      scope_digest: `sha256:${"b".repeat(64)}`,
+    });
+
+    const decoded = decodeOntologyInstanceExploration(value);
+    expect(decoded.sources.filter(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    ).map((source) => source.scope_digest)).toEqual([
+      `sha256:${"a".repeat(64)}`,
+      `sha256:${"b".repeat(64)}`,
+    ]);
+  });
+
+  it("rejects an exact duplicate fleet source state", () => {
+    const value = payload();
+    const sources = value.sources as Record<string, unknown>[];
+    const kubernetes = sources.find(
+      (source) => source.source === "kubernetes_runtime_inventory",
+    )!;
+    kubernetes.scope_digest = `sha256:${"a".repeat(64)}`;
+    sources.push({ ...kubernetes });
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "instance sources MUST be unique",
+    );
   });
 
   it("accepts bounded model deployment details", () => {
@@ -118,6 +223,101 @@ describe("decodeOntologyInstanceExploration", () => {
 
     expect(decodeOntologyInstanceExploration(value).resources[1]?.model_deployment).toEqual(
       resources[1]!.model_deployment,
+    );
+  });
+
+  it("accepts exact Kubernetes identity and allowlisted diagnostic facts", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.pod";
+    resources[1]!.kubernetes_identity = {
+      api_version: "v1",
+      kind: "Pod",
+      name: "api",
+      namespace: "default",
+      resource_version: "20",
+      uid: "uid-api",
+    };
+    resources[1]!.kubernetes_diagnostics = {
+      phase: "Pending",
+      container_waiting_reasons: ["ImagePullBackOff"],
+    };
+
+    const decoded = decodeOntologyInstanceExploration(value).resources[1]!;
+    expect(decoded.kubernetes_identity?.uid).toBe("uid-api");
+    expect(decoded.kubernetes_diagnostics?.phase).toBe("Pending");
+  });
+
+  it("decodes a bounded exact-target persisted AKS diagnostic receipt", () => {
+    const decoded = decodeOntologyInstanceExploration(aksPayload());
+    const receipt = decoded.resources[0]?.aks_diagnostic_receipt;
+
+    expect(receipt?.status).toBe("image_pull_failed");
+    expect(receipt?.source_revisions.kubernetes_runtime_inventory).toBe(
+      `sha256:${"b".repeat(64)}`,
+    );
+    expect(receipt?.cause_claim_supported).toBe(false);
+    expect(receipt?.execution_authority).toBe(false);
+  });
+
+  it.each([
+    ["execution authority", (receipt: Record<string, unknown>) => {
+      receipt.execution_authority = true;
+    }],
+    ["UID mismatch", (receipt: Record<string, unknown>) => {
+      receipt.target_uid = "other";
+    }],
+    ["stale cutoff", (receipt: Record<string, unknown>) => {
+      receipt.cutoff = "2026-08-21T23:58:00+00:00";
+      receipt.source_cutoffs = { inventory_snapshot: "2026-08-21T23:58:00+00:00" };
+      receipt.source_revisions = { inventory_snapshot: `sha256:${"f".repeat(64)}` };
+    }],
+    ["source identity mismatch", (receipt: Record<string, unknown>) => {
+      receipt.source_revisions = { inventory_snapshot: `sha256:${"c".repeat(64)}` };
+    }],
+  ])("rejects an AKS diagnostic receipt with %s", (_label, mutate) => {
+    const value = aksPayload();
+    const resources = value.resources as Record<string, unknown>[];
+    mutate(resources[0]!.aks_diagnostic_receipt as Record<string, unknown>);
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow();
+  });
+
+  it("accepts collected rollout, storage, policy, and ephemeral diagnostics", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.deployment";
+    resources[1]!.kubernetes_identity = {
+      api_version: "apps/v1",
+      kind: "Deployment",
+      name: "api",
+      namespace: "default",
+      resource_version: "20",
+      uid: "uid-api",
+    };
+    resources[1]!.kubernetes_diagnostics = {
+      desired_replicas: 3,
+      unavailable_replicas: 2,
+      progressing_status: "False",
+      requested_storage: "10Gi",
+      selector: {},
+      selector_matches_all: true,
+      ephemeral_container_count: 1,
+    };
+
+    expect(
+      decodeOntologyInstanceExploration(value).resources[1]?.kubernetes_diagnostics,
+    ).toEqual(resources[1]!.kubernetes_diagnostics);
+  });
+
+  it("rejects browser-only or unsupported Kubernetes diagnostic facts", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes.pod";
+    resources[1]!.kubernetes_diagnostics = { inferred_cause: "node" };
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "Kubernetes diagnostics contain an unsupported key",
     );
   });
 

@@ -134,6 +134,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "operational_state_transition",
         "operational_state_transition_batch",
         "operational_state_transition_coverage",
+        "kubernetes_lifecycle_coverage_segment",
         "kubernetes_lifecycle_cursor",
         "kubernetes_lifecycle_observation",
         "operational_archive_manifest",
@@ -1498,6 +1499,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260906_core_operational_history_lifecycle.py"
     )
     history_lifecycle_migration = inventory_module.load_revision_metadata(history_lifecycle_path)
+    kubernetes_lifecycle_coverage_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260910_core_kubernetes_lifecycle_coverage.py"
+    )
+    kubernetes_lifecycle_coverage_migration = inventory_module.load_revision_metadata(
+        kubernetes_lifecycle_coverage_path
+    )
     certification_support_path = (
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20260907_core_oi16_certification_support.py"
@@ -1529,6 +1537,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(state_transition_migration.owned_tables)
         | set(observation_journal_migration.owned_tables)
         | set(history_lifecycle_migration.owned_tables)
+        | set(kubernetes_lifecycle_coverage_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
     )
     assert granted_tables == expected_tables

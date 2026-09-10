@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 09a075542ed420697272ed6ba7ff544d4ce9af87
+translation_source_sha: 7557f3d64f1474b2de92ee9755246f93debee2c9
 translation_revised: 2026-09-10
 ---
 
@@ -27,6 +27,8 @@ translation_revised: 2026-09-10
 > Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
 > 에이전트가 아닌 런타임 관찰 소비자도 재생 및 상태 근거만 기록하며 Njord 소유권, 패키지 활성화
 > 또는 작업 권한을 바꾸지 않습니다.
+> 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
+> 할당은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화할 수 없습니다.
 > Live-authoritative 수명 주기,
 > 관찰 cohort 및 독립 승격 근거는 아직
 > 없습니다. 첫 protected exact-revision plan은 Azure context를 검증했지만 Terraform 전에

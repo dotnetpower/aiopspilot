@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from dataclasses import FrozenInstanceError
+from datetime import UTC, datetime, timedelta, timezone
 
+import pytest
 from fdai.core.ontology_platform.kubernetes_lifecycle import (
     KubernetesLifecycleBatch,
+    KubernetesLifecycleCoverageSegment,
     KubernetesLifecycleCursor,
     KubernetesLifecycleObservation,
     advance_lifecycle_cursor,
@@ -103,3 +106,36 @@ def test_delete_recreate_uids_remain_distinct() -> None:
 
     assert deleted.object_uid != recreated.object_uid
     assert deleted.owner_uid == recreated.owner_uid
+
+
+def test_incomplete_coverage_segment_is_bounded_immutable_and_replay_stable() -> None:
+    segment = KubernetesLifecycleCoverageSegment(
+        cluster_ref=CLUSTER,
+        started_at=NOW,
+        ended_at=NOW + timedelta(minutes=1),
+        limitation="cursor_expired",
+    )
+    equivalent = KubernetesLifecycleCoverageSegment(
+        cluster_ref=CLUSTER,
+        started_at=NOW.astimezone(timezone(timedelta(hours=9))),
+        ended_at=(NOW + timedelta(minutes=1)).astimezone(timezone(timedelta(hours=9))),
+        limitation="cursor_expired",
+    )
+
+    assert segment.coverage_segment_id == equivalent.coverage_segment_id
+    with pytest.raises(FrozenInstanceError):
+        segment.limitation = "source_unavailable"  # type: ignore[misc]
+    with pytest.raises(ValueError, match="interval MUST be positive"):
+        KubernetesLifecycleCoverageSegment(
+            cluster_ref=CLUSTER,
+            started_at=NOW,
+            ended_at=NOW,
+            limitation="cursor_expired",
+        )
+    with pytest.raises(ValueError, match="limitation is not declared"):
+        KubernetesLifecycleCoverageSegment(
+            cluster_ref=CLUSTER,
+            started_at=NOW,
+            ended_at=NOW + timedelta(minutes=1),
+            limitation="provider message",  # type: ignore[arg-type]
+        )

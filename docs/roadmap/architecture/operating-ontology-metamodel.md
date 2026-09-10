@@ -93,6 +93,8 @@ File Share to its top-level storage account.
 Source-specific mappings for the same endpoint pair remain distinct. Adding the ARM model-deployment
 mapping regenerates the content-addressed provider-schema relationship review, advances its catalog
 digest and overlap count, and grants no semantic promotion or graph mutation authority.
+The review pins the complete mapping catalog, so Kubernetes-only mapping changes regenerate its
+digest without changing Azure candidate counts or granting authority.
 Top-level resources and malformed provider paths produce no provider-parent or provider-root
 candidate.
 If this exact mapping and a wildcard containment mapping claim the same child, the exact mapping

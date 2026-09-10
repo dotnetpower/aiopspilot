@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 72560039b99b22a10cab8160eb668a03b98205ed
-translation_revised: 2026-09-04
+translation_source_sha: a459c6f55d54b0f64f4c305e6a94d139f269e5f1
+translation_revised: 2026-09-10
 ---
 # 네트워크 토폴로지 시각화
 
@@ -24,6 +24,8 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 만듭니다. 두 화면은 같은 정본 네트워크 역할과 연결 의미를 가져오지만 별도 계약을 사용합니다.
 작성된 다이어그램은 `expected`이고 Console 토폴로지는 인벤토리 증적에 따라 `observed`, `stale`,
 `partial` 또는 `unknown`입니다.
+모든 정본 Kubernetes ResourceType에는 명시적인 런타임 계층, AKS 색상 토큰 및 안정적인 약어가
+있습니다. 아키텍처 지도는 새로 카탈로그에 추가된 유형을 일반 시각화 대체 경로로 숨기지 않습니다.
 
 ## 구현 상태
 
@@ -41,6 +43,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota 및 LimitRange에 명시적인 계층, 색상 및 약어 매핑을 추가했습니다. | `current change`, 전체 정본 ResourceType 시각 매핑 테스트 및 전체 Console 테스트 표면입니다. | Console 범위를 `validated`로 높이기 전에 정확한 출처에 연결된 관리되는 시각 근거를 보존합니다. |
 | 2026-09-04 | implemented | 관측된 `runtime_calls` 관계를 일반 직접 에지에서 온톨로지 인스턴스 Inspector와 기본 밀집 범례의 일급 런타임 그룹으로 승격했습니다. 화면 맥락 변환 결과도 관계 방향이나 권한을 바꾸지 않고 근거 기반 후속 작업에 필요한 검증된 관계를 보존합니다. | `current change`; 집중 온톨로지 인스턴스 모델 및 화면 검사, Console 타입 검사, 운영 빌드입니다. | 런타임 검증을 주장하기 전에 정확한 출처에 연결된 관리되는 runtime-call 및 반응형 Console 근거를 보존합니다. |
 | 2026-08-22 | not-started | 런타임 동작을 변경하지 않고 네트워크 토폴로지 시각화를 위한 집중 소유 경계를 채택했습니다. | `current change`; 이 소유 문서입니다. | 각 범위 행을 구현하고 포커스 테스트를 통과한 뒤 상태를 높입니다. |
 | 2026-08-22 | implemented | 공유 프로바이더 중립 어휘, 작성된 네트워크 프로필과 주석, 검토된 공식 Azure 아이콘 매핑, 압축 네트워크 배치와 무결성 검사, 정본 이중 언어 hub-spoke 참조, 그리고 필터, 타입 지정 경로 추적, 키보드 상호 작용, 정제된 SVG 및 PNG 내보내기를 제공하는 관측 전용 Console 2D 포커스를 추가했습니다. | `current change`; 공유 패키지 테스트 통과, 정적 컴파일러 테스트 107개와 타입 검사, 렌더링 및 산출물 376개 검사 통과, 정본 출력은 정확히 `1600x900`이고 잘린 텍스트가 없음, Console 포커스 검사 23개 통과, 합성 Playwright가 `1440x900`, `993x641`, `390x844`에서 통과, 카탈로그 동등성 17쌍 통과. | Console 범위를 `validated`로 바꾸기 전에 정확한 소스에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |

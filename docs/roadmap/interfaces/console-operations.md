@@ -85,7 +85,7 @@ resource and legend overlays, and Inspector-owned collapse state are presentatio
 they do not create links, change query scope, or grant mutation authority.
 For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
 model name, version, deployment SKU, and normalized TPM object. Missing values remain Not reported,
-and `Succeeded` describes provisioning completion rather than inference health or caller access.
+and `Succeeded` describes provisioning completion rather than inference health or caller access. For a Kubernetes runtime Resource, the server can add one exact identity object and one allowlisted diagnostic-facts object. The Inspector renders those values as evidence details and never derives a diagnosis, Resource, relationship, or state in the browser.
 The relationship legend shows `contains`, `attached_to`, and `depends_on` by default and exposes
 the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
 legend does not remove links, change counts, or narrow the Inspector.

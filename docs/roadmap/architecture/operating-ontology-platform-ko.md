@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8a9ddbf8dd27b6fa53c092b4a4d9fca920d89376
-translation_revised: 2026-09-09
+translation_source_sha: 304456b0d8e3767d6023e73a9a82ec3939cd6cff
+translation_revised: 2026-09-10
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -47,6 +47,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
 최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
 principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
+생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
+오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
@@ -133,6 +135,20 @@ Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 �
 않습니다. 별도의 완전 세대 검증기가 변경할 수 없는 관측 메타데이터를 첨부한 뒤에만 인벤토리
 변환 결과가 두 관계를 노출할 수 있습니다. Production Kubernetes 인벤토리 연결과 보존된 조립
 증적은 아직 남아 있습니다.
+
+AKS 진단 근거 플레인은 정식 ResourceType 레지스트리에 PVC, PV, StorageClass, HPA, PDB,
+NetworkPolicy, ResourceQuota 및 LimitRange 신원을 추가합니다. 출처 스키마 v2는 검토된
+클러스터, 네임스페이스, 스토리지, 선택기 및 종류로 한정된 자동 확장 관계를 추가합니다. 이러한
+객체와 링크는 관측된 인벤토리 사실로 유지되며 진단, 정책, 승인 또는 실행 권한을 만들지 않습니다.
+EndpointSlice 변환 결과는 backend 수, 조건 및 정확한 대상 Pod UID만 보존합니다. 엔드포인트
+주소는 저장하지 않으며 검토된 `routes_to` 링크는 트래픽 도착 증명이 아니라 구성 근거로
+유지됩니다.
+내용 없는 Pod 로그 근거는 반환된 레코드와 프로바이더 구간 범위를 분리합니다. 점 전용
+프로바이더는 레코드 다이제스트를 제공할 수 있지만 출처 revision, 프로바이더 기준 시점 및 독립
+범위 증적 없이는 진단을 완전하게 만들 수 없습니다.
+AKS 진단 축약기는 정확한 대상의 타입 지정 사실과 독립적으로 검증된 메트릭 구간만 결합합니다.
+동시에 발생한 모든 신호와 공백을 보존하고 인과관계와 실행 권한을 거짓으로 고정한 Forseti 소유
+T0 근거 증적을 생성합니다. Forseti는 근본 원인 결정의 최종 책임자로 유지됩니다.
 
 Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
 사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된
@@ -489,7 +505,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 | Dynamic 권한 | Prediction, 모델 agreement 또는 모델 승격 근거가 액션을 승인하거나 실행할 수 없습니다. |
 | Dynamic 종결 | 완전한 독립적인 관측만 trajectory fidelity를 점수하거나 challenger를 갱신합니다. |
 | Pod 텔레메트리 | 용도 범위가 지정된 secured 그래프와 상태 근거가 프로바이더 I/O 또는 상태 inference 없이 결정론적 `verified`, `unverified`, `stale`, `missing` 구간을 만듭니다. |
-| Pod 진단 | 하나의 정확한 secured Pod UID는 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합할 수 있습니다. 행 0개, 불완전한 출처 및 범위 충돌은 명시적으로 유지하며 원인 또는 실행 권한을 부여할 수 없습니다. |
+| Pod 진단 | 정확하게 보호된 Pod UID 하나는 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합할 수 있습니다. 인벤토리 승격은 내용 주소 기반 Forseti 증적도 영속화하며 Operator는 UID, resourceVersion, 세대, release, 기준 시점 및 fleet 출처가 일치할 때만 이를 노출합니다. 행 0개, 불완전한 출처, 보존된 범위 공백 및 범위 충돌은 명시적으로 유지하며 원인 또는 실행 권한을 부여할 수 없습니다. |
 | Historical topology | PostgreSQL replay는 선택된 각 revision batch에 exact ontology release와 source receipt binding을 보존하며, dangling active link는 completeness를 낮춥니다. |
 | Projection reload | Inventory status marker와 manifest는 content digest를 공유하므로 재시작 후 혼합 generation이 노출되지 않습니다. |
 

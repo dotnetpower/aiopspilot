@@ -555,7 +555,9 @@ def _validate_enrichment(
         for link in added
     ):
         raise ValueError("inventory enrichment MUST add only verified links")
-    if len({state.source for state in enriched.source_states}) != len(enriched.source_states):
+    if len({(state.source, state.scope_digest) for state in enriched.source_states}) != len(
+        enriched.source_states
+    ):
         raise ValueError("inventory enrichment source states MUST be unique")
     return (
         tuple(sorted(changed_resources, key=lambda resource: resource.resource_id)),

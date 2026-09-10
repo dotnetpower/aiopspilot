@@ -20,6 +20,10 @@ from fdai.delivery.inventory_sync import (
     DEFAULT_PROGRESS_DEADLINE_SECONDS,
     MAX_ATTEMPT_DEADLINE_SECONDS,
 )
+from fdai.delivery.kubernetes_cluster_binding import (
+    KubernetesClusterBinding,
+    parse_kubernetes_cluster_bindings,
+)
 from fdai.delivery.repo_assets import repo_asset_root
 
 _DEFAULT_LOOP_SECONDS = 60
@@ -61,6 +65,7 @@ class InventoryJobConfig:
     kubernetes_ca_pem: str | None = None
     kubernetes_auth_mode: str | None = None
     kubernetes_audience: str | None = None
+    kubernetes_bindings: tuple[KubernetesClusterBinding, ...] = ()
     monitor_workspace_id: str | None = None
     runtime_call_evidence_enabled: bool = False
     collection_policy: InventoryCollectionPolicy | None = None
@@ -145,6 +150,10 @@ class InventoryJobConfig:
             "FDAI_KUBERNETES_AUDIENCE",
             "",
         ).strip()
+        kubernetes_bindings_json = source.get(
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON",
+            "",
+        ).strip()
         monitor_workspace_id = source.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
         runtime_call_evidence_enabled = read_bool_env(
             source,
@@ -196,6 +205,16 @@ class InventoryJobConfig:
             kubernetes_auth_mode,
             kubernetes_ca_value or kubernetes_ca_pem,
         )
+        if kubernetes_bindings_json and any(
+            (
+                *kubernetes_values,
+                kubernetes_token_value,
+                kubernetes_audience,
+            )
+        ):
+            raise ValueError(
+                "Kubernetes fleet bindings MUST NOT be combined with legacy single-cluster values"
+            )
         if any(kubernetes_values) and not all(kubernetes_values):
             raise ValueError(
                 "Kubernetes inventory requires API server, cluster ref, auth mode, and CA"
@@ -221,6 +240,31 @@ class InventoryJobConfig:
                 or parsed_kubernetes.fragment
             ):
                 raise ValueError("FDAI_KUBERNETES_API_SERVER MUST be credential-free HTTPS")
+        kubernetes_bindings = (
+            parse_kubernetes_cluster_bindings(kubernetes_bindings_json)
+            if kubernetes_bindings_json
+            else (
+                (
+                    KubernetesClusterBinding(
+                        api_server=kubernetes_api_server,
+                        cluster_ref=kubernetes_cluster_ref or "",
+                        auth_mode=kubernetes_auth_mode or "",
+                        ca_path=Path(kubernetes_ca_value) if kubernetes_ca_value else None,
+                        ca_pem=kubernetes_ca_pem,
+                        token_path=(
+                            Path(kubernetes_token_value) if kubernetes_token_value else None
+                        ),
+                        audience=(
+                            kubernetes_audience
+                            if kubernetes_auth_mode == "workload-identity"
+                            else None
+                        ),
+                    ),
+                )
+                if kubernetes_api_server is not None
+                else ()
+            )
+        )
         if monitor_workspace_id is not None and (
             len(monitor_workspace_id) > 128
             or not monitor_workspace_id.isprintable()
@@ -273,6 +317,7 @@ class InventoryJobConfig:
             kubernetes_audience=(
                 kubernetes_audience if kubernetes_auth_mode == "workload-identity" else None
             ),
+            kubernetes_bindings=kubernetes_bindings,
             monitor_workspace_id=monitor_workspace_id,
             runtime_call_evidence_enabled=runtime_call_evidence_enabled,
             collection_policy=collection_policy,

@@ -1,8 +1,8 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: fb2de9b9e99629f902bbffaf6bd705e5ec9f57b9
-translation_revised: 2026-08-25
+translation_source_sha: 26cff99a131cb49ab5f20b755cf3ccc7c143a528
+translation_revised: 2026-09-10
 ---
 # 제한된 네트워크의 Azure 인벤토리
 
@@ -31,11 +31,13 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 제한된 네트워크 발견 및 순서가 지정된 출처 대체 경로 | in-progress | `delivery/azure/` 아래 Azure 인벤토리 어댑터, 배포 preflight 및 연결 계약 | 범위가 제한된 어댑터와 실패 분류가 있습니다. 이 문서는 모든 대체 단계를 입증하는 exact-revision 보호 배포를 하나로 보존하지 않습니다. |
 | 스냅샷 권위 및 stale 상태 처리 | implemented | [CSP-중립성 계약](csp-neutrality-ko.md#구현-상태)이 인용하는 인벤토리 동기화, 프로젝션 및 재조정 테스트 | 부분 수집은 마지막 완전 승격 세대를 교체하거나 부재 주장을 승인할 수 없습니다. |
 | 서브넷별 네트워크 제어 | implemented | `infra/modules/network/main.tf`, `infra/bootstrap/main.tf`, 집중 네트워크 강화 테스트 | VM이 있는 서브넷은 명시적인 NSG로 Internet inbound를 거부합니다. Azure 관리형 delegated 및 private-endpoint 서브넷은 서비스 소유 네트워크 정책 계약을 유지합니다. |
+| AKS fleet 관측 연결 | implemented | `infra/main.tf`, Container Apps Inventory Job, 집중 AKS 신원 검사 | 민감한 JSON 값 하나가 정확한 workload-identity 연결 1-32개를 제공합니다. Terraform은 정확한 클러스터별 AKS RBAC Reader만 부여하고 bearer token을 전달하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 기존 및 fleet AKS 관측 연결을 상호 배타적으로 추가하고 정확한 클러스터별 Reader를 부여했습니다. | `current change`, Terraform 형식 검사 및 집중 신원 검사 | 보호된 배포 근거는 별도로 보존합니다. |
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 제한 네트워크 인벤토리 설계를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 실제 네트워크 경로와 하나 이상의 대체 및 복구 전환에 대한 exact-revision 보호 근거를 보존합니다. |
 | 2026-08-25 | implemented | OHL 근거 VM 서브넷에 명시적인 NSG 보호를 추가하고 기존 배포 runner 서브넷 연결을 검증하면서 Azure 관리형 delegated 서브넷 제약을 유지했습니다. | `current change`; `tests/integration/infra/test_network_hardening.py`, `tests/integration/infra/test_bootstrap_network_hardening.py`, Checkov와 Trivy의 Low 초과 활성 점검 결과 0건. | 실제 NSG와 route 정책이 필수 관리 경로를 계속 허용한다는 배포 근거를 보존합니다. |
 | 2026-08-24 | implemented | 일회용 시나리오 경로가 사용하는 양방향 게이트웨이 전송 피어링의 생성 순서를 직렬화했습니다. | 실패한 보호 apply `32773217323`, `32774040807`, 비대칭 피어링 조회 결과, `infra/scenario-lab/main.tf`, 집중 시나리오 랩 계약. | 워크스테이션 경로 검증 전에 두 피어링이 모두 Connected 상태임을 보여 주는 보호 증적을 보존합니다. |

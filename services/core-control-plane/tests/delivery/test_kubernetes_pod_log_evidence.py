@@ -32,6 +32,9 @@ async def test_collector_hashes_exact_pod_logs_without_retaining_body() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=provider,
         source_identity="azure-monitor",
+        source_revision="v1",
+        provider_cutoff=_END,
+        coverage_receipt_ref="log-coverage:example",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is True
@@ -40,6 +43,27 @@ async def test_collector_hashes_exact_pod_logs_without_retaining_body() -> None:
     assert len(result.record_digests) == 1
     assert body not in result.record_digests[0]
     assert body not in repr(result)
+
+
+async def test_point_only_log_provider_does_not_claim_complete_window() -> None:
+    result = await KubernetesPodLogEvidenceCollector(
+        provider=StaticLogQueryProvider(
+            (
+                LogRecord(
+                    at=_END - timedelta(minutes=2),
+                    body="content",
+                    severity="information",
+                    labels={"pod_uid": "pod-uid-a"},
+                ),
+            )
+        ),
+        source_identity="azure-monitor",
+        source_revision="v1",
+    ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
+
+    assert result.total_records == 1
+    assert result.complete is False
+    assert result.limitation == "provider_coverage_unverified"
 
 
 class _UnavailableProvider:
@@ -62,6 +86,7 @@ async def test_collector_surfaces_provider_unavailability() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=_UnavailableProvider(),
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is False
@@ -73,6 +98,7 @@ async def test_collector_rejects_provider_scope_widening() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=_WideningProvider(),
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is False
@@ -84,6 +110,7 @@ async def test_collector_does_not_treat_zero_rows_as_historical_absence() -> Non
     result = await KubernetesPodLogEvidenceCollector(
         provider=StaticLogQueryProvider(()),
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is False
@@ -101,12 +128,15 @@ async def test_collector_preserves_duplicate_rows_as_replayable_multiplicity() -
     result = await KubernetesPodLogEvidenceCollector(
         provider=StaticLogQueryProvider((duplicate, duplicate)),
         source_identity="azure-monitor",
+        source_revision="v1",
+        provider_cutoff=_END,
+        coverage_receipt_ref="log-coverage:example",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is True
     assert result.total_records == 2
     assert result.record_digests[0] == result.record_digests[1]
-    assert len(result.evidence_refs) == 2
+    assert len(result.evidence_refs) == 3
 
 
 async def test_collector_rejects_records_outside_the_requested_window() -> None:
@@ -122,6 +152,7 @@ async def test_collector_rejects_records_outside_the_requested_window() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=_OutOfWindowProvider(),
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is False
@@ -148,6 +179,7 @@ async def test_collector_stops_after_the_truncation_sentinel() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=provider,
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert provider.yielded == 129
@@ -171,6 +203,7 @@ async def test_collector_rejects_an_oversized_log_body() -> None:
     result = await KubernetesPodLogEvidenceCollector(
         provider=provider,
         source_identity="azure-monitor",
+        source_revision="v1",
     ).collect(pod_uid="pod-uid-a", start=_START, end=_END)
 
     assert result.complete is False

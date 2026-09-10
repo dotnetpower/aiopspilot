@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import hashlib
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
     UNSELECTABLE_INSTANCE_DIRECTORY_TYPES,
+    InventoryAksDiagnosticReceipt,
     InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceReader,
@@ -38,6 +40,7 @@ MAX_INSTANCE_RESOURCES = 200
 MAX_INSTANCE_ACTIVITIES = 100
 MAX_INSTANCE_SEARCH_CHARS = 256
 MAX_MODEL_DEPLOYMENT_TPM = 2_147_483_647
+MAX_KUBERNETES_DIAGNOSTIC_SEQUENCE = 384
 MODEL_DEPLOYMENT_RESOURCE_TYPE = "llm-model-deployment"
 _DEFAULT_LINK_TYPES = (
     "contains",
@@ -65,6 +68,92 @@ _ACTIVITY_FACTS = (
     "verdict",
 )
 _READY_STATUS_TEXT = {"True": "Ready", "False": "NotReady", "Unknown": "Ready unknown"}
+_KUBERNETES_DIAGNOSTIC_KEYS = frozenset(
+    {
+        "access_modes",
+        "address_type",
+        "affinity_kinds",
+        "allow_volume_expansion",
+        "available_replicas",
+        "capacity_storage",
+        "claim_name",
+        "claim_namespace",
+        "claim_uid",
+        "container_count",
+        "container_resources",
+        "container_terminations",
+        "container_waiting_reasons",
+        "current_healthy",
+        "current_replicas",
+        "diagnostic_conditions",
+        "disruptions_allowed",
+        "desired_healthy",
+        "desired_replicas",
+        "egress_rule_count",
+        "endpoint_count",
+        "ephemeral_container_count",
+        "ephemeral_container_ready_count",
+        "ephemeral_container_restart_count",
+        "ephemeral_container_termination_reasons",
+        "ephemeral_container_waiting_reasons",
+        "expected_pods",
+        "init_container_count",
+        "init_container_ready_count",
+        "init_container_restart_count",
+        "init_container_termination_reasons",
+        "init_container_waiting_reasons",
+        "ingress_rule_count",
+        "limit_summaries",
+        "max_replicas",
+        "max_unavailable",
+        "min_available",
+        "min_replicas",
+        "node_selector",
+        "observed_generation",
+        "phase",
+        "policy_types",
+        "port_count",
+        "priority_class_name",
+        "probe_kinds",
+        "progressing_reason",
+        "progressing_status",
+        "provisioner",
+        "pvc_claim_names",
+        "qos_class",
+        "quota_hard",
+        "quota_used",
+        "ready",
+        "ready_container_count",
+        "ready_replicas",
+        "ready_status",
+        "ready_unknown",
+        "reason",
+        "reclaim_policy",
+        "restart_count",
+        "restart_policy",
+        "requested_storage",
+        "scale_target_api_version",
+        "scale_target_kind",
+        "scale_target_name",
+        "scheduler_name",
+        "selector",
+        "selector_matches_all",
+        "serving",
+        "serving_unknown",
+        "service_account_name",
+        "status_counts",
+        "storage_class_name",
+        "target_uids",
+        "terminating",
+        "terminating_unknown",
+        "tolerations",
+        "unavailable_replicas",
+        "updated_replicas",
+        "volume_binding_mode",
+        "volume_mode",
+        "volume_name",
+    }
+)
 
 
 async def project_inventory_instances(
@@ -155,6 +244,12 @@ async def project_inventory_instance(
     by_id = {resource.resource_id: resource for resource in neighborhood.resources}
     if root_id not in by_id:
         raise ProjectionNotFoundError(root_id)
+    root_resource = by_id[root_id]
+    diagnostic_receipt = (
+        await reader.read_latest_aks_diagnostic_receipt(resource_id=root_id)
+        if root_resource.resource_type.startswith("kubernetes.")
+        else None
+    )
     activity = await reader.read_inventory_instance_activity(
         resource_id=root_id,
         limit=activity_limit,
@@ -180,6 +275,21 @@ async def project_inventory_instance(
                 root_id=root_id,
                 now=evaluated_at,
                 state_observation=_state_observation(resource, context),
+                aks_diagnostic_receipt=(
+                    _current_aks_diagnostic_receipt(
+                        diagnostic_receipt,
+                        resource=root_resource,
+                        context=context,
+                        ontology_release=release_digest,
+                    )
+                    if resource.resource_id == root_id
+                    and root_resource.resource_type.startswith("kubernetes.")
+                    else None
+                ),
+                include_aks_diagnostic_receipt=(
+                    resource.resource_id == root_id
+                    and root_resource.resource_type.startswith("kubernetes.")
+                ),
             )
             for resource in sorted(
                 neighborhood.resources,
@@ -245,27 +355,27 @@ async def project_inventory_instance(
                 "observed_at": _latest_activity_time(activity.activities),
                 "reason": None,
             },
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="runtime_call_graph",
                 unavailable_reason="endpoint_identity_projection_unavailable",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="kubernetes_runtime_inventory",
                 unavailable_reason="kubernetes_source_unconfigured",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="postgres_role_evidence",
                 unavailable_reason="projection_not_bound",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="azure_resource_health",
                 unavailable_reason="projection_not_bound",
             ),
-            _projection_source(
+            *_projection_sources(
                 context,
                 source="azure_activity_log",
                 unavailable_reason="projection_not_bound",
@@ -300,29 +410,36 @@ async def project_inventory_instance(
     }
 
 
-def _projection_source(
+def _projection_sources(
     context: InventoryImpactContext,
     *,
     source: str,
     unavailable_reason: str,
-) -> dict[str, str | None]:
-    state = next(
-        (item for item in context.projection_source_states if item.source == source),
-        None,
-    )
-    if state is None:
-        return {
-            "source": source,
-            "status": "unavailable",
-            "observed_at": None,
-            "reason": unavailable_reason,
+) -> list[dict[str, str | None]]:
+    states = [item for item in context.projection_source_states if item.source == source]
+    if not states:
+        return [
+            {
+                "source": source,
+                "status": "unavailable",
+                "observed_at": None,
+                "reason": unavailable_reason,
+            }
+        ]
+    projected: list[dict[str, str | None]] = []
+    for state in states:
+        item = {
+            "source": state.source,
+            "status": state.status,
+            "observed_at": (
+                state.observed_at.isoformat() if state.observed_at is not None else None
+            ),
+            "reason": state.reason,
         }
-    return {
-        "source": state.source,
-        "status": state.status,
-        "observed_at": state.observed_at.isoformat() if state.observed_at is not None else None,
-        "reason": state.reason,
-    }
+        if state.scope_digest is not None:
+            item["scope_digest"] = state.scope_digest
+        projected.append(item)
+    return projected
 
 
 def _relationship_coverage_projection(
@@ -512,6 +629,8 @@ def _resource_projection(
     root_id: str | None,
     now: datetime | None = None,
     state_observation: RecordedStateObservation | None = None,
+    aks_diagnostic_receipt: dict[str, object] | None = None,
+    include_aks_diagnostic_receipt: bool = False,
 ) -> dict[str, object]:
     properties = resource.properties
     if (
@@ -550,7 +669,143 @@ def _resource_projection(
     model_deployment = _model_deployment_projection(resource.resource_type, properties)
     if model_deployment is not None:
         projection["model_deployment"] = model_deployment
+    kubernetes_identity = _kubernetes_identity_projection(resource.resource_type, properties)
+    if kubernetes_identity is not None:
+        projection["kubernetes_identity"] = kubernetes_identity
+        projection["kubernetes_diagnostics"] = _kubernetes_diagnostic_projection(properties)
+        if include_aks_diagnostic_receipt:
+            projection["aks_diagnostic_receipt"] = aks_diagnostic_receipt
     return projection
+
+
+def _current_aks_diagnostic_receipt(
+    receipt: InventoryAksDiagnosticReceipt | None,
+    *,
+    resource: InventoryInstanceResource,
+    context: InventoryImpactContext,
+    ontology_release: str,
+) -> dict[str, object] | None:
+    if receipt is None:
+        return None
+    uid = resource.properties.get("uid")
+    resource_version = resource.properties.get("resource_version")
+    inventory_revision = "sha256:" + hashlib.sha256(context.snapshot_id.encode()).hexdigest()
+    if (
+        receipt.target_resource_id != resource.resource_id
+        or receipt.target_uid != uid
+        or receipt.target_resource_version != resource_version
+        or receipt.ontology_release != ontology_release
+        or receipt.cutoff != context.observed_at
+        or receipt.source_cutoffs.get("inventory_snapshot") != context.observed_at
+        or receipt.source_revisions.get("inventory_snapshot") != inventory_revision
+        or set(receipt.source_cutoffs)
+        - {
+            "inventory_snapshot",
+            "kubernetes_runtime_inventory",
+        }
+    ):
+        return None
+    kubernetes_cutoff = receipt.source_cutoffs.get("kubernetes_runtime_inventory")
+    kubernetes_revision = receipt.source_revisions.get("kubernetes_runtime_inventory")
+    if kubernetes_cutoff is None or kubernetes_revision is None:
+        if "kubernetes_runtime_inventory_unavailable" not in receipt.evidence_gaps:
+            return None
+    elif not any(
+        state.source == "kubernetes_runtime_inventory"
+        and state.status == "available"
+        and state.observed_at == kubernetes_cutoff
+        and state.scope_digest == kubernetes_revision
+        for state in context.projection_source_states
+    ):
+        return None
+    return {
+        "schema_version": "1.0.0",
+        "owner_agent": "Forseti",
+        "principal_class": receipt.principal_class,
+        "purpose": "operations-review",
+        "producer_version": receipt.producer_version,
+        "method_version": receipt.method_version,
+        "target_resource_id": receipt.target_resource_id,
+        "target_uid": receipt.target_uid,
+        "target_resource_version": receipt.target_resource_version,
+        "ontology_release": receipt.ontology_release,
+        "cutoff": receipt.cutoff.isoformat(),
+        "source_cutoffs": {
+            key: value.isoformat() for key, value in sorted(receipt.source_cutoffs.items())
+        },
+        "source_revisions": dict(sorted(receipt.source_revisions.items())),
+        "status": receipt.status,
+        "signals": list(receipt.signals),
+        "complete": receipt.complete,
+        "evidence_gaps": list(receipt.evidence_gaps),
+        "conflicts": list(receipt.conflicts),
+        "evidence_refs": list(receipt.evidence_refs),
+        "synthetic": False,
+        "cause_claim_supported": False,
+        "execution_authority": False,
+        "audit_correlation_id": receipt.audit_correlation_id,
+    }
+
+
+def _kubernetes_identity_projection(
+    resource_type: str,
+    properties: Mapping[str, object],
+) -> dict[str, object] | None:
+    if not resource_type.startswith("kubernetes."):
+        return None
+    fields = {
+        key: properties.get(key)
+        for key in ("api_version", "kind", "name", "resource_version", "uid")
+    }
+    if all(fields[key] is None for key in ("api_version", "kind", "resource_version")):
+        return None
+    if all(value is None for value in fields.values()):
+        return None
+    if any(not isinstance(value, str) or not value.strip() for value in fields.values()):
+        raise ProjectionUnavailableError("Kubernetes Resource identity is incomplete")
+    namespace = properties.get("namespace")
+    if namespace is not None and (not isinstance(namespace, str) or not namespace.strip()):
+        raise ProjectionUnavailableError("Kubernetes Resource namespace is malformed")
+    return {
+        **fields,
+        "namespace": namespace,
+    }
+
+
+def _kubernetes_diagnostic_projection(
+    properties: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        key: _bounded_diagnostic_value(properties[key], depth=0)
+        for key in sorted(_KUBERNETES_DIAGNOSTIC_KEYS & properties.keys())
+    }
+
+
+def _bounded_diagnostic_value(value: object, *, depth: int) -> object:
+    if depth > 4:
+        raise ProjectionUnavailableError("Kubernetes diagnostic fact nesting exceeds its bound")
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        if abs(value) > 2_147_483_647:
+            raise ProjectionUnavailableError("Kubernetes diagnostic integer exceeds its bound")
+        return value
+    if isinstance(value, str):
+        if len(value) > 512:
+            raise ProjectionUnavailableError("Kubernetes diagnostic text exceeds its bound")
+        return value
+    if isinstance(value, Mapping):
+        if len(value) > 128 or any(not isinstance(key, str) or not key for key in value):
+            raise ProjectionUnavailableError("Kubernetes diagnostic object exceeds its bound")
+        return {
+            str(key): _bounded_diagnostic_value(item, depth=depth + 1)
+            for key, item in sorted(value.items())
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        if len(value) > MAX_KUBERNETES_DIAGNOSTIC_SEQUENCE:
+            raise ProjectionUnavailableError("Kubernetes diagnostic array exceeds its bound")
+        return [_bounded_diagnostic_value(item, depth=depth + 1) for item in value]
+    raise ProjectionUnavailableError("Kubernetes diagnostic fact has an unsupported value")
 
 
 def _state_observation(

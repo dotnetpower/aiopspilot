@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from datetime import UTC, datetime
 import pytest
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
+    InventoryAksDiagnosticReceipt,
     InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceActivityPage,
@@ -21,6 +23,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
     ProjectionQuery,
+    ProjectionUnavailableError,
 )
 from fdai_operator_service.families.operations.instance_explorer import (
     _model_deployment_projection,
@@ -38,6 +41,8 @@ from fdai_operator_service.families.operations.recorded_state import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    PostgresFamilyStoreUnavailable,
+    _projection_source_states,
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorRole
@@ -182,6 +187,281 @@ class _Reader:
             ),
             truncated=False,
         )
+
+
+_AKS_RESOURCE_ID = "cluster/kubernetes/kubernetes.pod/default/api"
+_AKS_CUTOFF = datetime(2026, 8, 22, 1, 0, tzinfo=UTC)
+_AKS_SOURCE_CUTOFF = datetime(2026, 8, 22, 0, 59, tzinfo=UTC)
+_AKS_SCOPE = f"sha256:{'b' * 64}"
+_AKS_RELEASE = f"sha256:{'a' * 64}"
+
+
+def _aks_receipt(**changes: object) -> InventoryAksDiagnosticReceipt:
+    values: dict[str, object] = {
+        "principal_class": "system",
+        "producer_version": "aks-diagnostic-evidence-v1",
+        "method_version": "deterministic-t0-v1",
+        "target_resource_id": _AKS_RESOURCE_ID,
+        "target_uid": "uid-api",
+        "target_resource_version": "20",
+        "ontology_release": _AKS_RELEASE,
+        "cutoff": _AKS_CUTOFF,
+        "source_cutoffs": {
+            "inventory_snapshot": _AKS_CUTOFF,
+            "kubernetes_runtime_inventory": _AKS_SOURCE_CUTOFF,
+        },
+        "source_revisions": {
+            "inventory_snapshot": ("sha256:" + hashlib.sha256(b"generation-1").hexdigest()),
+            "kubernetes_runtime_inventory": _AKS_SCOPE,
+        },
+        "status": "image_pull_failed",
+        "signals": ("image_pull_failed",),
+        "complete": False,
+        "evidence_gaps": ("kubernetes_metric_evidence_unavailable",),
+        "conflicts": (),
+        "evidence_refs": (f"inventory-generation:sha256:{'d' * 64}",),
+        "audit_correlation_id": f"sha256:{'e' * 64}",
+    }
+    values.update(changes)
+    return InventoryAksDiagnosticReceipt(**values)  # type: ignore[arg-type]
+
+
+class _AksReader(_Reader):
+    def __init__(self, receipt: InventoryAksDiagnosticReceipt | None) -> None:
+        self.receipt = receipt
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext:
+        return InventoryImpactContext(
+            snapshot_id="generation-1",
+            observed_at=_AKS_CUTOFF,
+            projection_source_states=(
+                InventoryProjectionSourceState(
+                    source="kubernetes_runtime_inventory",
+                    status="available",
+                    observed_at=_AKS_SOURCE_CUTOFF,
+                    reason=None,
+                    scope_digest=_AKS_SCOPE,
+                ),
+            ),
+        )
+
+    async def read_inventory_instance_neighborhood(
+        self,
+        **_kwargs: object,
+    ) -> InventoryInstanceNeighborhood:
+        return InventoryInstanceNeighborhood(
+            resources=(
+                InventoryInstanceResource(
+                    resource_id=_AKS_RESOURCE_ID,
+                    resource_type="kubernetes.pod",
+                    properties={
+                        "api_version": "v1",
+                        "cluster_ref": "cluster",
+                        "kind": "Pod",
+                        "name": "api",
+                        "namespace": "default",
+                        "resource_version": "20",
+                        "uid": "uid-api",
+                    },
+                    last_seen=_AKS_SOURCE_CUTOFF,
+                ),
+            ),
+            edges=(),
+            truncated=False,
+        )
+
+    async def read_inventory_instance_activity(
+        self,
+        *,
+        resource_id: str,
+        limit: int,
+    ) -> InventoryInstanceActivityPage:
+        assert resource_id == _AKS_RESOURCE_ID
+        assert limit == 20
+        return InventoryInstanceActivityPage(activities=(), truncated=False)
+
+    async def read_latest_aks_diagnostic_receipt(
+        self,
+        *,
+        resource_id: str,
+    ) -> InventoryAksDiagnosticReceipt | None:
+        assert resource_id == _AKS_RESOURCE_ID
+        return self.receipt
+
+
+def _aks_query() -> ProjectionQuery:
+    return ProjectionQuery(
+        operation="ontology.instance.get",
+        principal_id="reader",
+        path={},
+        params={"root": (_AKS_RESOURCE_ID,), "link_types": ("contains",)},
+        limit=25,
+        cursor=None,
+        roles=frozenset({OperatorRole.READER}),
+    )
+
+
+async def test_instance_projection_joins_only_the_current_aks_diagnostic_receipt() -> None:
+    result = await project_inventory_instance(
+        query=_aks_query(),
+        reader=_AksReader(_aks_receipt()),
+        ontology_projection={
+            "ontology_release_digest": _AKS_RELEASE,
+            "link_types": ["contains"],
+        },
+    )
+
+    resources = result["resources"]
+    assert isinstance(resources, list)
+    receipt = resources[0]["aks_diagnostic_receipt"]
+    assert receipt["target_uid"] == "uid-api"
+    assert receipt["source_cutoffs"]["inventory_snapshot"] == _AKS_CUTOFF.isoformat()
+    assert receipt["cause_claim_supported"] is False
+    assert receipt["execution_authority"] is False
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    (
+        _aks_receipt(target_uid="stale-uid"),
+        _aks_receipt(target_resource_version="19"),
+        _aks_receipt(
+            cutoff=datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            source_cutoffs={
+                "inventory_snapshot": datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            },
+            source_revisions={
+                "inventory_snapshot": "sha256:" + hashlib.sha256(b"older").hexdigest(),
+            },
+        ),
+        _aks_receipt(
+            source_cutoffs={
+                "inventory_snapshot": _AKS_CUTOFF,
+                "kubernetes_runtime_inventory": datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+            },
+        ),
+    ),
+)
+async def test_instance_projection_withholds_stale_or_mismatched_aks_receipts(
+    receipt: InventoryAksDiagnosticReceipt,
+) -> None:
+    result = await project_inventory_instance(
+        query=_aks_query(),
+        reader=_AksReader(receipt),
+        ontology_projection={
+            "ontology_release_digest": _AKS_RELEASE,
+            "link_types": ["contains"],
+        },
+    )
+
+    resources = result["resources"]
+    assert isinstance(resources, list)
+    assert resources[0]["aks_diagnostic_receipt"] is None
+
+
+def _stored_aks_receipt_row() -> dict[str, object]:
+    receipt: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "owner_agent": "Forseti",
+        "principal_class": "system",
+        "purpose": "operations-review",
+        "producer_version": "aks-diagnostic-evidence-v1",
+        "method_version": "deterministic-t0-v1",
+        "target_resource_id": _AKS_RESOURCE_ID,
+        "target_uid": "uid-api",
+        "target_resource_version": "20",
+        "ontology_release": _AKS_RELEASE,
+        "cutoff": _AKS_CUTOFF.isoformat().replace("+00:00", "Z"),
+        "source_cutoffs": {
+            "inventory_snapshot": _AKS_CUTOFF.isoformat().replace("+00:00", "Z"),
+            "kubernetes_runtime_inventory": _AKS_SOURCE_CUTOFF.isoformat().replace("+00:00", "Z"),
+        },
+        "source_revisions": {
+            "inventory_snapshot": "sha256:" + hashlib.sha256(b"generation-1").hexdigest(),
+            "kubernetes_runtime_inventory": _AKS_SCOPE,
+        },
+        "status": "image_pull_failed",
+        "signals": ["image_pull_failed"],
+        "complete": False,
+        "evidence_gaps": ["kubernetes_metric_evidence_unavailable"],
+        "conflicts": [],
+        "evidence_refs": [f"inventory-generation:sha256:{'d' * 64}"],
+        "synthetic": False,
+        "cause_claim_supported": False,
+        "execution_authority": False,
+        "audit_correlation_id": f"sha256:{'e' * 64}",
+    }
+    resource_digest = hashlib.sha256(_AKS_RESOURCE_ID.encode()).hexdigest()
+    identity = {
+        "target_resource_id": receipt["target_resource_id"],
+        "target_uid": receipt["target_uid"],
+        "target_resource_version": receipt["target_resource_version"],
+        "ontology_release": receipt["ontology_release"],
+        "cutoff": receipt["cutoff"],
+        "source_cutoffs": receipt["source_cutoffs"],
+        "source_revisions": receipt["source_revisions"],
+    }
+    return {
+        "key": (
+            f"aks-diagnostic-receipt:v1:{resource_digest}:"
+            f"20260822T010000000000Z:{content_digest(identity)[7:]}"
+        ),
+        "value": {
+            "record_type": "aks_diagnostic_evidence_receipt",
+            "record_digest": content_digest(receipt),
+            "receipt": receipt,
+        },
+    }
+
+
+async def test_postgres_reader_queries_and_decodes_latest_aks_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        calls.append((statement, parameters))
+        return [_stored_aks_receipt_row()]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    receipt = await store.read_latest_aks_diagnostic_receipt(resource_id=_AKS_RESOURCE_ID)
+
+    assert receipt is not None
+    assert receipt.target_uid == "uid-api"
+    statement, parameters = calls[0]
+    assert "ORDER BY key DESC LIMIT 1" in statement
+    assert parameters["key_prefix"] == (
+        "aks-diagnostic-receipt:v1:" + hashlib.sha256(_AKS_RESOURCE_ID.encode()).hexdigest() + ":%"
+    )
+
+
+async def test_postgres_reader_withholds_a_malformed_aks_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _stored_aks_receipt_row()
+    envelope = row["value"]
+    assert isinstance(envelope, dict)
+    envelope["record_digest"] = f"sha256:{'0' * 64}"
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [row]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    assert await store.read_latest_aks_diagnostic_receipt(resource_id=_AKS_RESOURCE_ID) is None
 
 
 async def test_instance_directory_uses_the_active_detail_generation() -> None:
@@ -514,6 +794,93 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
     ]
 
 
+async def test_instance_projection_preserves_scoped_fleet_source_states() -> None:
+    class _FleetReader(_Reader):
+        async def read_inventory_impact_context(self) -> InventoryImpactContext:
+            context = await super().read_inventory_impact_context()
+            return replace(
+                context,
+                projection_source_states=(
+                    InventoryProjectionSourceState(
+                        source="kubernetes_runtime_inventory",
+                        status="available",
+                        observed_at=datetime(2026, 8, 22, 0, 58, tzinfo=UTC),
+                        reason=None,
+                        scope_digest="sha256:" + "a" * 64,
+                    ),
+                    InventoryProjectionSourceState(
+                        source="kubernetes_runtime_inventory",
+                        status="unavailable",
+                        observed_at=None,
+                        reason="kubernetes_source_unavailable",
+                        scope_digest="sha256:" + "b" * 64,
+                    ),
+                    *(
+                        state
+                        for state in context.projection_source_states
+                        if state.source != "kubernetes_runtime_inventory"
+                    ),
+                ),
+            )
+
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_FleetReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains", "attached_to", "depends_on"],
+        },
+    )
+
+    sources = [
+        source for source in result["sources"] if source["source"] == "kubernetes_runtime_inventory"
+    ]
+    assert [source["scope_digest"] for source in sources] == [
+        "sha256:" + "a" * 64,
+        "sha256:" + "b" * 64,
+    ]
+    assert [source["status"] for source in sources] == ["available", "unavailable"]
+
+
+def test_projection_source_states_accepts_a_bounded_aks_fleet() -> None:
+    states = _projection_source_states(
+        [
+            {
+                "source": "kubernetes_runtime_inventory",
+                "status": "available",
+                "observed_at": "2026-08-22T00:58:00+00:00",
+                "reason": None,
+                "scope_digest": f"sha256:{index:064x}",
+            }
+            for index in range(32)
+        ]
+    )
+
+    assert len(states) == 32
+    assert len({state.scope_digest for state in states}) == 32
+
+
+def test_projection_source_states_rejects_an_exact_duplicate_scope() -> None:
+    state = {
+        "source": "kubernetes_runtime_inventory",
+        "status": "unavailable",
+        "observed_at": None,
+        "reason": "kubernetes_source_unavailable",
+        "scope_digest": "sha256:" + "a" * 64,
+    }
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="duplicated"):
+        _projection_source_states([state, state])
+
+
 class _FullCoverageReader(_Reader):
     """Extend ``_Reader`` with every derived source state and a coverage count."""
 
@@ -752,6 +1119,223 @@ def test_model_deployment_projection_allowlists_identity_sku_and_tpm() -> None:
     assert "capacity_tpm_source" not in projected
     assert "properties" not in projected
     assert _model_deployment_projection("llm-endpoint", properties) is None
+
+
+def test_kubernetes_projection_exposes_exact_identity_and_allowlisted_diagnostics() -> None:
+    now = datetime(2026, 9, 10, 0, 0, tzinfo=UTC)
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/example",
+            resource_type="kubernetes.pod",
+            properties={
+                "api_version": "v1",
+                "kind": "Pod",
+                "name": "api",
+                "namespace": "default",
+                "resource_version": "20",
+                "uid": "uid-api",
+                "phase": "Pending",
+                "container_waiting_reasons": ("ImagePullBackOff",),
+                "message": "must not project",
+            },
+            last_seen=now,
+        ),
+        root_id=None,
+        now=now,
+    )
+
+    assert projected["kubernetes_identity"] == {
+        "api_version": "v1",
+        "kind": "Pod",
+        "name": "api",
+        "namespace": "default",
+        "resource_version": "20",
+        "uid": "uid-api",
+    }
+    assert projected["kubernetes_diagnostics"] == {
+        "container_waiting_reasons": ["ImagePullBackOff"],
+        "phase": "Pending",
+    }
+
+
+def test_kubernetes_projection_tolerates_a_legacy_identity() -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+            resource_type="kubernetes.pod",
+            properties={
+                "name": "api",
+                "namespace": "default",
+                "uid": "uid-api",
+                "phase": "Running",
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    assert "kubernetes_identity" not in projected
+    assert "kubernetes_diagnostics" not in projected
+    assert projected["name"] == "api"
+
+
+def test_kubernetes_projection_rejects_a_partial_versioned_identity() -> None:
+    with pytest.raises(ProjectionUnavailableError, match="identity is incomplete"):
+        _resource_projection(
+            InventoryInstanceResource(
+                resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                resource_type="kubernetes.pod",
+                properties={
+                    "api_version": "v1",
+                    "name": "api",
+                    "resource_version": "20",
+                    "uid": "uid-api",
+                },
+                last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+            ),
+            root_id=None,
+        )
+
+
+def test_kubernetes_projection_accepts_the_producer_sequence_bounds() -> None:
+    probe_kinds = [
+        {"container_name": f"container-{index // 3}", "probe_kind": f"probe-{index % 3}"}
+        for index in range(384)
+    ]
+    terminations = [
+        {
+            "container_name": f"container-{index // 2}",
+            "observation_kind": f"state-{index % 2}",
+        }
+        for index in range(256)
+    ]
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+            resource_type="kubernetes.pod",
+            properties={
+                "api_version": "v1",
+                "kind": "Pod",
+                "name": "api",
+                "resource_version": "20",
+                "uid": "uid-api",
+                "probe_kinds": probe_kinds,
+                "container_terminations": terminations,
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    diagnostics = projected["kubernetes_diagnostics"]
+    assert isinstance(diagnostics, dict)
+    assert len(diagnostics["probe_kinds"]) == 384
+    assert len(diagnostics["container_terminations"]) == 256
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "kind", "diagnostics"),
+    [
+        (
+            "kubernetes.pod",
+            "Pod",
+            {
+                "ephemeral_container_count": 1,
+                "ephemeral_container_ready_count": 0,
+                "ephemeral_container_restart_count": 2,
+                "ephemeral_container_termination_reasons": ("OOMKilled",),
+                "ephemeral_container_waiting_reasons": ("ContainerCreating",),
+            },
+        ),
+        (
+            "kubernetes.deployment",
+            "Deployment",
+            {
+                "available_replicas": 1,
+                "desired_replicas": 3,
+                "observed_generation": 7,
+                "progressing_reason": "ProgressDeadlineExceeded",
+                "progressing_status": "False",
+                "ready_replicas": 1,
+                "unavailable_replicas": 2,
+                "updated_replicas": 1,
+            },
+        ),
+        (
+            "kubernetes.persistent-volume-claim",
+            "PersistentVolumeClaim",
+            {"requested_storage": "10Gi"},
+        ),
+        (
+            "kubernetes.storage-class",
+            "StorageClass",
+            {
+                "provisioner": "disk.csi.azure.com",
+                "volume_binding_mode": "WaitForFirstConsumer",
+            },
+        ),
+        (
+            "kubernetes.network-policy",
+            "NetworkPolicy",
+            {"selector": {}, "selector_matches_all": True},
+        ),
+        (
+            "kubernetes.pod-disruption-budget",
+            "PodDisruptionBudget",
+            {
+                "current_healthy": 1,
+                "desired_healthy": 2,
+                "ready_status": "False",
+            },
+        ),
+    ],
+)
+def test_kubernetes_projection_retains_collected_diagnostic_families(
+    resource_type: str,
+    kind: str,
+    diagnostics: dict[str, object],
+) -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id=f"cluster/kubernetes/{resource_type}/default/example",
+            resource_type=resource_type,
+            properties={
+                "api_version": "v1",
+                "kind": kind,
+                "name": "example",
+                "resource_version": "20",
+                "uid": "uid-example",
+                **diagnostics,
+            },
+            last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+        ),
+        root_id=None,
+    )
+
+    assert projected["kubernetes_diagnostics"] == {
+        key: list(value) if isinstance(value, tuple) else value
+        for key, value in diagnostics.items()
+    }
+
+
+def test_kubernetes_projection_rejects_a_sequence_above_the_producer_bound() -> None:
+    with pytest.raises(ProjectionUnavailableError, match="array exceeds its bound"):
+        _resource_projection(
+            InventoryInstanceResource(
+                resource_id="cluster/kubernetes/kubernetes.pod/default/api",
+                resource_type="kubernetes.pod",
+                properties={
+                    "api_version": "v1",
+                    "kind": "Pod",
+                    "name": "api",
+                    "resource_version": "20",
+                    "uid": "uid-api",
+                    "probe_kinds": ["readiness"] * 385,
+                },
+                last_seen=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+            ),
+            root_id=None,
+        )
 
 
 @pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])

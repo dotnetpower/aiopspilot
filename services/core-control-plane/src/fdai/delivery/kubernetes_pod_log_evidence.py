@@ -25,11 +25,31 @@ _MAX_RECORD_BODY_BYTES: Final[int] = 32_768
 class KubernetesPodLogEvidenceCollector:
     """Query an exact Pod UID and discard every raw log body after hashing."""
 
-    def __init__(self, *, provider: LogQueryProvider, source_identity: str) -> None:
-        if not source_identity.strip() or len(source_identity) > 512:
-            raise ValueError("Pod log source_identity MUST be bounded non-empty text")
+    def __init__(
+        self,
+        *,
+        provider: LogQueryProvider,
+        source_identity: str,
+        source_revision: str,
+        provider_cutoff: datetime | None = None,
+        coverage_receipt_ref: str | None = None,
+    ) -> None:
+        if (
+            not source_identity.strip()
+            or len(source_identity) > 512
+            or not source_revision.strip()
+            or len(source_revision) > 512
+        ):
+            raise ValueError("Pod log source identity and revision MUST be bounded")
+        if (provider_cutoff is None) != (coverage_receipt_ref is None):
+            raise ValueError("Pod log provider cutoff and coverage receipt MUST be paired")
+        if provider_cutoff is not None and provider_cutoff.tzinfo is None:
+            raise ValueError("Pod log provider cutoff MUST be timezone-aware")
         self._provider = provider
         self._source_identity = source_identity
+        self._source_revision = source_revision
+        self._provider_cutoff = provider_cutoff
+        self._coverage_receipt_ref = coverage_receipt_ref
 
     async def collect(
         self,
@@ -72,6 +92,7 @@ class KubernetesPodLogEvidenceCollector:
                 last_recorded_at=None,
                 record_digests=(),
                 evidence_refs=(f"pod-log-source:{self._source_identity}",),
+                source_revision=self._source_revision,
             )
         if any(record.labels.get("pod_uid") != pod_uid for record in records):
             return self._unavailable(
@@ -118,13 +139,26 @@ class KubernetesPodLogEvidenceCollector:
                 )
             )
         )
+        limitation = (
+            "result_truncated"
+            if truncated
+            else ("provider_coverage_unverified" if self._coverage_receipt_ref is None else None)
+        )
+        evidence_refs = tuple(
+            dict.fromkeys(
+                (
+                    *evidence_refs,
+                    *((self._coverage_receipt_ref,) if self._coverage_receipt_ref else ()),
+                )
+            )
+        )
         return KubernetesPodLogEvidence(
             pod_uid=pod_uid,
             start=start,
             end=end,
             source_identity=self._source_identity,
-            complete=not truncated,
-            limitation="result_truncated" if truncated else None,
+            complete=limitation is None,
+            limitation=limitation,
             total_records=len(bounded),
             error_records=sum(
                 record.severity.casefold() in {"error", "critical"} for record in bounded
@@ -133,6 +167,9 @@ class KubernetesPodLogEvidenceCollector:
             last_recorded_at=max(timestamps) if timestamps else None,
             record_digests=digests,
             evidence_refs=evidence_refs,
+            source_revision=self._source_revision,
+            provider_cutoff=self._provider_cutoff,
+            coverage_receipt_ref=self._coverage_receipt_ref,
         )
 
     def _unavailable(
@@ -156,6 +193,7 @@ class KubernetesPodLogEvidenceCollector:
             last_recorded_at=None,
             record_digests=(),
             evidence_refs=(f"pod-log-source:{self._source_identity}",),
+            source_revision=self._source_revision,
         )
 
 

@@ -17,6 +17,26 @@ The instance directory and detail merge ordered realtime changes over one active
 Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
 Resource properties into three independent axes that both Console screens consume.
 
+Kubernetes identity and diagnostic facts remain a separate allowlisted detail object. They do not
+become an operational, availability, or provisioning state axis, and missing diagnostic facts do
+not become a state value.
+Fleet source availability is also separate from Resource state. The instance detail retains
+several same-name sources only when distinct opaque `scope_digest` values qualify them.
+During schema rollout, a legacy Kubernetes record without every versioned identity field remains a
+Resource row. Exact Kubernetes identity and diagnostics stay withheld until a complete versioned
+observation replaces it.
+Diagnostic arrays retain the collector's maximum sequence of 384 records. This bound applies to the
+separate Kubernetes detail and does not widen any recorded-state fact.
+That separate detail retains the reviewed rollout, storage, policy, and ephemeral-container facts
+that the inventory collector actually produced.
+For NetworkPolicy, `selector_matches_all: true` records an explicitly empty `podSelector`. Missing
+selector data remains unavailable and does not receive the same meaning.
+The persisted AKS assessment receipt is another separate read detail, not a Resource state axis.
+Operator joins it only when its immutable target and source identities match the current generation;
+otherwise Console renders the receipt as unavailable.
+Its gaps, conflicts, and evidence references use visible section headings. They are not hidden in
+native title attributes or interpreted as recorded Resource state.
+
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
 | Operational | Explicit service, power, phase, readiness, running, attachment, access, link, or Static Web App default-environment state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, Completed, and Ready keep their recorded meaning. |

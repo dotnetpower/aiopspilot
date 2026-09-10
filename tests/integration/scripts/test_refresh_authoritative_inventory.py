@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,8 +23,13 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
 
     assert "ontology_release_digest=ontology.build_release().digest" in source
     assert "resource_type_mappings=resource_type_mapping_digests(resource_types)" in source
-    assert "promotion_enricher=UnavailableKubernetesInventoryEnricher()" in source
-    assert "relationship_mapping_catalog=load_provider_relationship_mapping_catalog(" in source
+    assert "build_kubernetes_inventory_enricher(" in source
+    assert "promotion_enricher=kubernetes_enricher" in source
+    assert "UnavailableKubernetesInventoryEnricher" not in source
+    assert "AsyncAzureCliWorkloadIdentity.from_env()" in source
+    assert "class AsyncAzureCliIdentity" not in source
+    assert "relationship_catalog = load_provider_relationship_mapping_catalog(" in source
+    assert "relationship_mapping_catalog=relationship_catalog" in source
     assert "scope_coverage=query_factory.build_scope_coverage_fn()" in source
     assert "unmapped_resources=query_factory.build_unmapped_resource_query_fn()" in source
     assert "scopes=(subscription_id,)" in source
@@ -35,6 +41,39 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "active_scope_watermark = journal_append.active_scope_projection_watermark" in source
     assert "active_scope_projection_watermark=active_scope_watermark" in source
     assert "active_scope_refs=journal_append.active_scope_refs" in source
+
+
+def test_refresh_keeps_provider_clients_open_through_inventory_promotion() -> None:
+    tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
+    refresh = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "refresh"
+    )
+    stack_scope = next(
+        node
+        for node in ast.walk(refresh)
+        if isinstance(node, ast.AsyncWith)
+        and any(
+            isinstance(item.context_expr, ast.Call)
+            and isinstance(item.context_expr.func, ast.Name)
+            and item.context_expr.func.id == "AsyncExitStack"
+            for item in node.items
+        )
+    )
+    calls = tuple(node for node in ast.walk(stack_scope) if isinstance(node, ast.Call))
+
+    assert any(
+        isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name)
+        and call.func.value.id == "httpx"
+        and call.func.attr == "AsyncClient"
+        for call in calls
+    )
+    assert any(
+        isinstance(call.func, ast.Name) and call.func.id == "InventorySyncCoordinator"
+        for call in calls
+    )
 
 
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:

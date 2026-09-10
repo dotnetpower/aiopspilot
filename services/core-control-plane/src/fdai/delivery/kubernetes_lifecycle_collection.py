@@ -11,6 +11,8 @@ import httpx
 
 from fdai.core.ontology_platform.kubernetes_lifecycle import (
     KubernetesLifecycleBatch,
+    KubernetesLifecycleCoverageLimitation,
+    KubernetesLifecycleCoverageSegment,
     KubernetesLifecycleCursor,
     KubernetesLifecycleObservation,
     lifecycle_digest,
@@ -23,8 +25,12 @@ _MAX_LINE_BYTES: Final = 65_536
 _WATCH_SECONDS: Final = 20
 _LIFECYCLE_KIND = {
     "backoff": "backoff",
+    "dnsconfigforming": "networking",
     "failed": "failed",
+    "failedcreatepodsandbox": "networking",
+    "failedpodnetworksetup": "networking",
     "killing": "terminating",
+    "networknotready": "networking",
     "scheduled": "scheduled",
     "started": "started",
     "successfulcreate": "created",
@@ -187,6 +193,11 @@ class KubernetesLifecycleCollector:
                         coverage_through_at=observed_at,
                         observations=tuple(observations[key] for key in sorted(observations)),
                         limitation="result_limit",
+                        incomplete_coverage_segment=_incomplete_coverage_segment(
+                            cursor,
+                            observed_at=observed_at,
+                            limitation="result_limit",
+                        ),
                     )
                 observations[observation.observation_id] = observation
             if isinstance(current, str) and current:
@@ -199,28 +210,61 @@ class KubernetesLifecycleCollector:
             coverage_through_at=observed_at,
             observations=tuple(observations[key] for key in sorted(observations)),
             limitation="result_limit" if content_limited else None,
+            incomplete_coverage_segment=(
+                _incomplete_coverage_segment(
+                    cursor,
+                    observed_at=observed_at,
+                    limitation="result_limit",
+                )
+                if content_limited
+                else None
+            ),
         )
 
     def _limited(
         self,
         cursor: KubernetesLifecycleCursor,
         observed_at: datetime,
-        limitation: str,
+        limitation: KubernetesLifecycleCoverageLimitation,
         *,
         reset: bool = False,
     ) -> KubernetesLifecycleBatch:
+        coverage_through_at = max(cursor.coverage_through_at, observed_at)
         return KubernetesLifecycleBatch(
             cluster_ref=self._cluster_ref,
             expected_sequence=cursor.sequence,
             next_resume_token=None if reset else cursor.resume_token,
             coverage_started_at=observed_at if reset else cursor.coverage_started_at,
-            coverage_through_at=max(cursor.coverage_through_at, observed_at),
+            coverage_through_at=coverage_through_at,
             observations=(),
             limitation=limitation,
+            incomplete_coverage_segment=_incomplete_coverage_segment(
+                cursor,
+                observed_at=coverage_through_at,
+                limitation=limitation,
+            ),
         )
 
 
-def _http_limitation(response: httpx.Response) -> str | None:
+def _incomplete_coverage_segment(
+    cursor: KubernetesLifecycleCursor,
+    *,
+    observed_at: datetime,
+    limitation: KubernetesLifecycleCoverageLimitation,
+) -> KubernetesLifecycleCoverageSegment | None:
+    if observed_at <= cursor.coverage_through_at:
+        return None
+    return KubernetesLifecycleCoverageSegment(
+        cluster_ref=cursor.cluster_ref,
+        started_at=cursor.coverage_through_at,
+        ended_at=observed_at,
+        limitation=limitation,
+    )
+
+
+def _http_limitation(
+    response: httpx.Response,
+) -> KubernetesLifecycleCoverageLimitation | None:
     if response.status_code == 410:
         return "cursor_expired"
     if response.status_code in {401, 403}:

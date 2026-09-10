@@ -26,6 +26,23 @@ or a second source of provider truth.
 The model separates exact identity, aggregation, behavior, language, topology hints, query
 execution, and presentation. Each concern has one canonical representation and one bounded
 consumer contract.
+Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
+metadata for one collection scope and does not replace Resource or link identity.
+Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
+but consumers cannot project a new exact identity until every field required by that identity is
+present.
+Bounded structural details keep producer and consumer maxima aligned. A consumer rejects an
+oversized sequence rather than converting it into a complete-looking subset.
+Reviewed producer and consumer key allowlists also stay aligned. A complete projection cannot
+discard a collected field merely because a downstream decoder omitted its key.
+Selector semantics distinguish an explicit typed match-all marker from missing or empty generic
+data. Match-all relationship projection remains constrained by exact cluster, namespace, source
+type, and reviewed mapping.
+An AKS diagnostic receipt is typed evidence attached to the selected Resource read response. It does
+not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
+or relationship identity.
+Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
+never converted into a generic healthy value.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
@@ -141,6 +158,11 @@ creating another ontology identity. For `llm-model-deployment`, the Operator pro
 object to the exact ResourceType and allows only model name, model version, deployment SKU, and
 normalized TPM. Other ResourceTypes cannot carry it, and raw provider properties remain outside the
 Console and conversational screen context.
+
+Kubernetes runtime Resources can carry a separate allowlisted identity and diagnostic detail
+object. The Operator validates stable UID and observation revision fields, and the Console renders
+only that response. This detail object creates no new ontology identity, relationship, state axis,
+diagnosis, or browser authority.
 
 ## LinkType semantics
 
@@ -400,7 +422,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
-| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 80 neutral ResourceTypes through 80 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
+| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 88 neutral ResourceTypes through 88 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Lifecycle-free declarations and authority carriers | implemented | `object-type-lifecycle-classification.yaml`; `CapacityGraduationRecommendation`, `EvidenceConflict`, and `ProspectiveLineage`; strict catalog and parity checks | Every lifecycle-free ObjectType has one reviewable classification. The three additive carriers preserve fixed agent ownership and grant no execution authority. |
@@ -411,13 +433,16 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Durable instance invalidation delivery | validated | Operator inventory observation replay, `/ontology/instances/stream`, Console SSE consumer, monotonic polling countdown, and authenticated AKS transition evidence | SSE remained connected while an AKS start added VM and NIC topology and moved the cluster from `Stopped` to `Running`; each committed watermark caused an authoritative re-read. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments, exemptions, and rule retirements are validated catalog-as-code inputs. Merged retirements are projected out of the active rule index; none grant query, approval, or execution authority. |
 | Governance expiry action binding | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; focused lifecycle and ActionType catalog checks | The exact assignment binding and exemption revisions are runtime evidence for one registered ActionType. They do not create a new LinkType, infer a relationship, or grant mutation authority. |
-| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Ninety-five reviewed mappings cover Azure containment and traffic configuration plus UID-grounded Kubernetes runtime topology, exact Node provider identity, Ingress backend Services, and EndpointSlice exposure. An unconfigured Kubernetes source is retained as explicit unavailable generation evidence. Live Kubernetes evidence remains separate validation work. |
-| Adversarial hardening | implemented | Forty-two cumulative rounds below, including 14 current source, identity-bridge, taxonomy, projection, compatibility, and presentation lenses; focused Python, Operator, Console, and PostgreSQL checks | Every verified Critical, High, and Medium finding was resolved. Operational source unavailability and unverified external ingress remain explicit evidence gaps rather than code claims. |
+| Provider-observed topology production | in-progress | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; `refresh-authoritative-inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, strict mypy, and Issue #278 exact-cluster evidence | One hundred eight reviewed mappings add storage, policy, kind-qualified autoscale, and exact EndpointSlice-to-Pod relationships to the previously validated topology. The earlier exact-cluster receipt remains valid for its release; the expanded release requires new live evidence under Issue #578. |
+| Adversarial hardening | implemented | Forty-six cumulative rounds below, including 18 current source, identity-bridge, taxonomy, projection, compatibility, preparation, time, and presentation lenses; focused Python, Operator, Console, and PostgreSQL checks | Every verified Critical, High, and Medium finding was resolved. Verified absence and unverified external ingress remain explicit evidence states rather than code claims. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added one reviewed exact EndpointSlice-to-Pod UID route with content-safe backend health facts. | `current change`; focused EndpointSlice fact, source-schema, relationship, and catalog checks. | Retain a complete live generation for the expanded release under Issue #578. |
+| 2026-09-10 | in-progress | Added eight diagnostic Kubernetes ResourceTypes and ten reviewed storage, policy, kind-qualified autoscale, and containment mappings. | `current change`; focused resource registry, class closure, source-schema, collection, and relationship checks. | Retain a complete live generation for the expanded release under Issue #578. |
+| 2026-09-09 | validated | Retained one complete exact-cluster Kubernetes generation, made the authoritative local preparation path compose the configured Kubernetes source instead of temporarily recording it as unconfigured, and advanced the generation cutoff to the latest accepted Kubernetes observation. | `current change`; `kubernetes_inventory.py`; `refresh-authoritative-inventory.py`; focused AKS inventory and refresh checks passed 88 cases; Ruff and strict mypy passed; Issue #278 records the sanitized per-hop runtime evidence. | External ingress remains explicitly absent or unknown when the complete source has no Ingress or load-balancer path; no browser edge is inferred. |
 | 2026-09-09 | validated | Added a bounded one-snapshot candidate scan for object-only predicates that cannot execute in the store, without changing relationship or graph authority. | `current change`; 872 focused Core checks, strict mypy, Ruff, paired-doc gates, authenticated Console replay, and focused re-review with no Medium-or-higher finding. | Continuous transition coverage remains an explicit evidence limitation outside this structural query contract. |
 | 2026-09-06 | validated | Added a closed operational-state applicability classification for all 80 canonical ResourceTypes and made graph and Inspector presentation use the same reason-aware value labels. | `current change`; focused backend and Console checks, typecheck, production build, live ARG promotion, and authenticated Application Insights, Log Analytics, disk, and Resource Group browser checks. | Downstream custom ResourceTypes remain explicitly unreviewed until their own catalog change. |
 | 2026-09-06 | validated | Extended the closed operational-state classification to the newly merged `llm-model-deployment` ResourceType without weakening exact catalog parity. | `current change`; the merged main snapshot passed exact classification-set equality and 268 focused backend checks. | Each future canonical ResourceType must add its reviewed outcome in the same change. |
@@ -498,6 +523,8 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 42 | EndpointSlice label boundary | Resolved a Medium source-validation gap by rejecting an overlong standard Service label before relationship projection. | The malformed EndpointSlice fixture fails closed at collection. |
 | 43 | Presentation-accounting independence | Resolved a Medium defect where derived partition arithmetic made the coverage status always complete. | The UI now reports graph-to-response consistency instead of manufacturing a second completeness claim. The helper independently rejects stale, duplicate, or non-presentation graph keys, and a negative stale-relationship fixture exercises the inconsistent branch. |
 | 44 | Compound provider-state tone | Resolved a Medium defect where `NotAvailable` could match the positive `available` substring and render as success. | Negative ready, available, healthy, active, running, and succeeded forms are evaluated before positive tokens, with focused status-tone regressions. |
+| 45 | Local preparation source parity | Resolved a Medium defect where Kubernetes-enabled full-stack preparation still promoted `kubernetes_source_unconfigured` until the scheduled inventory writer repaired it. | The authoritative refresh now reuses the validated inventory composition helper, and focused wiring tests reject a hard-coded unavailable enricher. |
+| 46 | Enrichment cutoff monotonicity | Resolved a Medium time-ordering defect where accepted Kubernetes evidence could have an `observed_at` later than the promoted generation cutoff. | Successful enrichment advances `recorded_at` to the latest accepted source observation without moving it backward, and a focused regression fixes the one-second boundary case. |
 
 ### Remaining work
 
@@ -521,10 +548,11 @@ major version or explicit graph migration. No rollout rewrites historical contex
   above Low severity.
 - [x] Complete this document's bounded scope with the focused implementation, static, Console,
   translation, roadmap, punctuation, design-route, document-size, link, and diff gates cited above.
-- [ ] Retain one complete exact-cluster Kubernetes generation for
+- [x] Retain one complete exact-cluster Kubernetes generation for
   [Issue #278](https://github.com/dotnetpower/fdai/issues/278), including an independently verified
   Node-to-VMSS-VM bridge and Service, Pod, Endpoints, and EndpointSlice paths. An unconfigured or
-  unreachable source remains unavailable and never proves runtime absence.
+  unreachable source remains unavailable and never proves runtime absence. The retained generation
+  contains 103 Kubernetes Resources and 208 independently verified Kubernetes relationships.
 
 ## Related docs
 

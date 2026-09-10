@@ -12,6 +12,17 @@ from fdai.shared.contracts.models import ContractBase
 _MAX_ID_LENGTH = 512
 _MAX_REASONS = 32
 _MAX_REFS = 256
+_LOG_LIMITATIONS = frozenset(
+    {
+        "pod_uid_scope_unverified",
+        "provider_coverage_unverified",
+        "record_body_oversized",
+        "record_time_scope_invalid",
+        "result_truncated",
+        "source_unavailable",
+        "zero_records_unverified",
+    }
+)
 
 
 class KubernetesPodDiagnosisStatus(StrEnum):
@@ -75,6 +86,9 @@ class KubernetesPodLogEvidence:
     last_recorded_at: datetime | None
     record_digests: tuple[str, ...]
     evidence_refs: tuple[str, ...]
+    source_revision: str | None = None
+    provider_cutoff: datetime | None = None
+    coverage_receipt_ref: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("pod_uid", "source_identity"):
@@ -85,6 +99,18 @@ class KubernetesPodLogEvidence:
             raise ValueError("Pod log evidence MUST have an aware positive interval")
         if self.complete != (self.limitation is None):
             raise ValueError("Pod log evidence completeness and limitation are inconsistent")
+        if self.limitation is not None and self.limitation not in _LOG_LIMITATIONS:
+            raise ValueError("Pod log evidence limitation is not reviewed")
+        if self.source_revision is None or not self.source_revision.strip():
+            raise ValueError("Pod log evidence source_revision is required")
+        if (self.provider_cutoff is None) != (self.coverage_receipt_ref is None):
+            raise ValueError("Pod log provider cutoff and coverage receipt MUST be paired")
+        if self.provider_cutoff is not None and (
+            self.provider_cutoff.tzinfo is None or self.provider_cutoff < self.end
+        ):
+            raise ValueError("Pod log provider cutoff MUST cover the requested end")
+        if self.complete and self.coverage_receipt_ref is None:
+            raise ValueError("complete Pod log evidence requires provider coverage")
         if self.total_records < 0 or not 0 <= self.error_records <= self.total_records:
             raise ValueError("Pod log evidence counts are inconsistent")
         if len(self.record_digests) != self.total_records:

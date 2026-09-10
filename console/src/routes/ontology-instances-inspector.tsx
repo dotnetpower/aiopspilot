@@ -5,6 +5,7 @@ import { RecordedStateFacts } from "../components/recorded-state-facts";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
+  OntologyInstanceAksDiagnosticReceipt,
   OntologyInstanceActivity,
   OntologyInstanceExploration,
   OntologyInstanceLink,
@@ -98,6 +99,14 @@ function InstanceOverview({
       </div>}
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
+        {root.kubernetes_identity ? (
+          <>
+            <div><dt>{t("ontology.instances.kubernetesKind")}</dt><dd><code>{root.kubernetes_identity.kind}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesNamespace")}</dt><dd><code>{root.kubernetes_identity.namespace ?? t("ontology.instances.notReported")}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesUid")}</dt><dd><code>{root.kubernetes_identity.uid}</code></dd></div>
+            <div><dt>{t("ontology.instances.kubernetesResourceVersion")}</dt><dd><code>{root.kubernetes_identity.resource_version}</code></dd></div>
+          </>
+        ) : null}
         {!isModelDeployment ? null : (
           <>
             <div>
@@ -141,6 +150,19 @@ function InstanceOverview({
         <div><dt>{t("ontology.instances.snapshot")}</dt><dd><code>{data.source_generation}</code></dd></div>
         <div><dt>{t("ontology.instances.cutoff")}</dt><dd>{formatDateTime(data.source_cutoff)}</dd></div>
       </dl>
+      {root.kubernetes_identity ? (
+        <AksDiagnosticEvidence receipt={root.aks_diagnostic_receipt ?? null} />
+      ) : null}
+      {root.kubernetes_diagnostics && Object.keys(root.kubernetes_diagnostics).length > 0 ? (
+        <details class="ontology-instance-technical">
+          <summary>{t("ontology.instances.kubernetesDiagnostics")}</summary>
+          <dl class="ontology-instance-facts">
+            {Object.entries(root.kubernetes_diagnostics).map(([key, value]) => (
+              <div><dt><code>{key}</code></dt><dd><code>{formatDiagnosticValue(value)}</code></dd></div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
       <details class="ontology-instance-technical">
         <summary>{t("ontology.instances.technicalDetails")}</summary>
         <code>{root.id}</code>
@@ -151,6 +173,103 @@ function InstanceOverview({
       </a>
     </section>
   );
+}
+
+function AksDiagnosticEvidence({
+  receipt,
+}: {
+  readonly receipt: OntologyInstanceAksDiagnosticReceipt | null;
+}) {
+  if (receipt === null) {
+    return (
+      <section class="ontology-instance-diagnostic-receipt">
+        <h4>{t("ontology.instances.diagnosticReceiptTitle")}</h4>
+        <StatusPill kind="neutral" label={t("ontology.instances.diagnosticUnavailable")} />
+        <p>{t("ontology.instances.diagnosticUnavailableHint")}</p>
+      </section>
+    );
+  }
+  const sources = Object.keys(receipt.source_cutoffs).sort();
+  const statusTone = receipt.status === "no_failure_signal"
+    ? "success"
+    : receipt.status === "held"
+    ? "warning"
+    : "danger";
+  return (
+    <section class="ontology-instance-diagnostic-receipt">
+      <h4>{t("ontology.instances.diagnosticReceiptTitle")}</h4>
+      <StatusPill
+        kind={statusTone}
+        label={t(`ontology.instances.diagnosticStatus.${receipt.status}`)}
+      />
+      <dl class="ontology-instance-facts">
+        <div>
+          <dt>{t("ontology.instances.diagnosticCompleteness")}</dt>
+          <dd>{t(receipt.complete
+            ? "ontology.instances.diagnosticComplete"
+            : "ontology.instances.diagnosticIncomplete")}</dd>
+        </div>
+        <div>
+          <dt>{t("ontology.instances.diagnosticCutoff")}</dt>
+          <dd>{formatDateTime(receipt.cutoff)}</dd>
+        </div>
+        <div>
+          <dt>{t("ontology.instances.diagnosticSignals")}</dt>
+          <dd>{receipt.signals.length === 0
+            ? t("ontology.instances.diagnosticNone")
+            : receipt.signals.map((signal) =>
+              t(`ontology.instances.diagnosticStatus.${signal}`)).join(", ")}</dd>
+        </div>
+      </dl>
+      <h5>{t("ontology.instances.diagnosticSources")}</h5>
+      <dl class="ontology-instance-facts">
+        {sources.map((source) => (
+          <div>
+            <dt><code>{source}</code></dt>
+            <dd>
+              {formatDateTime(receipt.source_cutoffs[source]!)}
+              {" - "}
+              <code>{receipt.source_revisions[source]}</code>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <DiagnosticCodeList
+        heading={t("ontology.instances.diagnosticGaps")}
+        values={receipt.evidence_gaps}
+      />
+      <DiagnosticCodeList
+        heading={t("ontology.instances.diagnosticConflicts")}
+        values={receipt.conflicts}
+      />
+      <DiagnosticCodeList
+        heading={t("ontology.instances.diagnosticEvidenceRefs")}
+        values={receipt.evidence_refs}
+      />
+      <p>{t("ontology.instances.diagnosticNoAuthority")}</p>
+    </section>
+  );
+}
+
+function DiagnosticCodeList({
+  heading,
+  values,
+}: {
+  readonly heading: string;
+  readonly values: readonly string[];
+}) {
+  return (
+    <>
+      <h5>{heading}</h5>
+      {values.length === 0
+        ? <p>{t("ontology.instances.diagnosticNone")}</p>
+        : <ul>{values.map((value) => <li><code>{value}</code></li>)}</ul>}
+    </>
+  );
+}
+
+function formatDiagnosticValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 function InstanceRelationships({
@@ -460,9 +579,10 @@ function InstanceSources({ data }: { readonly data: OntologyInstanceExploration 
       )}
       <ul class="ontology-instance-source-list">
         {data.sources.map((source) => (
-          <li key={source.source}>
+          <li key={`${source.source}\u0000${source.scope_digest ?? ""}`}>
             <div><strong>{sourceLabel(source.source)}</strong><span>{source.status === "available" ? t("ontology.instances.available") : t("ontology.instances.unavailable")}</span></div>
             <p>
+              {source.scope_digest ? <><code>{source.scope_digest}</code>{" - "}</> : null}
               {source.observed_at ? formatDateTime(source.observed_at) : t("ontology.instances.notObserved")}
               {source.reason ? ` - ${source.reason}` : null}
             </p>

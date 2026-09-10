@@ -257,6 +257,13 @@ variable "inventory_kubernetes_audience" {
   default     = ""
 }
 
+variable "inventory_kubernetes_cluster_bindings_json" {
+  description = "Sensitive JSON array of exact AKS workload-identity observation bindings."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "browser_evidence_cleanup_cron_expression" {
   description = "Cron for browser-evidence retention cleanup. Empty disables the Job."
   type        = string

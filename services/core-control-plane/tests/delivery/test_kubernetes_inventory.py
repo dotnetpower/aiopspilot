@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -132,6 +132,73 @@ async def test_adds_runtime_resources_and_verified_relationships() -> None:
         for link in result.links
     )
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.AVAILABLE
+
+
+async def test_scopes_source_state_without_exposing_cluster_identity() -> None:
+    scope_digest = "sha256:" + "a" * 64
+    result = await KubernetesInventoryEnricher(
+        source=_Source(_snapshot()),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        scope_digest=scope_digest,
+    ).enrich(_observation())
+
+    assert result.source_states[-1].scope_digest == scope_digest
+    assert result.source_states[-1].to_metadata()["scope_digest"] == scope_digest
+    assert CLUSTER_ID not in str(result.source_states[-1].to_metadata())
+
+
+async def test_advances_generation_cutoff_to_accepted_kubernetes_observation() -> None:
+    provider_observation = replace(
+        _observation(),
+        recorded_at=OBSERVED_AT - timedelta(seconds=1),
+    )
+
+    result = await KubernetesInventoryEnricher(
+        source=_Source(_snapshot()),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+    ).enrich(provider_observation)
+
+    assert result.recorded_at == OBSERVED_AT
+
+
+async def test_sequential_enrichment_projects_each_cluster_once() -> None:
+    second_cluster_id = CLUSTER_ID.replace("aks-example", "aks-two")
+    fleet_observation = replace(
+        _observation(),
+        resources=(
+            *_observation().resources,
+            _resource(
+                second_cluster_id,
+                "kubernetes-cluster",
+                {"cluster_ref": second_cluster_id, "name": "aks-two"},
+            ),
+            _resource(
+                f"{second_cluster_id}/agent-pools/system",
+                "kubernetes-node-pool",
+                {"cluster_ref": second_cluster_id, "name": "system"},
+            ),
+        ),
+    )
+
+    result = await SequentialInventoryPromotionEnricher(
+        KubernetesInventoryEnricher(
+            source=_Source(_snapshot()),
+            relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+            scope_digest="sha256:" + "a" * 64,
+        ),
+        KubernetesInventoryEnricher(
+            source=_Source(_snapshot(cluster_ref=second_cluster_id)),
+            relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+            scope_digest="sha256:" + "b" * 64,
+        ),
+    ).enrich(fleet_observation)
+
+    assert len(result.resources) == 10
+    assert len(result.links) == 8
+    assert [state.status for state in result.source_states] == [
+        InventoryProjectionSourceStatus.AVAILABLE,
+        InventoryProjectionSourceStatus.AVAILABLE,
+    ]
 
 
 async def test_retains_observed_resources_when_one_relationship_endpoint_is_unavailable() -> None:

@@ -459,13 +459,21 @@ def test_azure_arm_type_present_or_explicitly_null() -> None:
         "kubernetes.endpoints",
         "kubernetes.ingress",
         "kubernetes.ingress-class",
+        "kubernetes.horizontal-pod-autoscaler",
         "kubernetes.job",
+        "kubernetes.limit-range",
         "kubernetes.namespace",
+        "kubernetes.network-policy",
         "kubernetes.node",
+        "kubernetes.persistent-volume",
+        "kubernetes.persistent-volume-claim",
         "kubernetes.pod",
+        "kubernetes.pod-disruption-budget",
         "kubernetes.replica-set",
+        "kubernetes.resource-quota",
         "kubernetes.service",
         "kubernetes.stateful-set",
+        "kubernetes.storage-class",
     }
     assert registry.get(UNCLASSIFIED_RESOURCE_TYPE).query_terms == ()
 
