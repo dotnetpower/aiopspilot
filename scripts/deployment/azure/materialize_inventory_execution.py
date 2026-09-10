@@ -15,7 +15,7 @@ _COMMAND = ["python", "-m", "fdai.delivery.inventory_sync_cli"]
 
 
 def materialize_inventory_execution(job: object, *, image: str) -> dict[str, Any]:
-    """Return the live execution template after changing only the inventory image."""
+    """Return the supported execution override with the reviewed inventory image."""
     if not _IMAGE_PATTERN.fullmatch(image):
         raise ValueError("inventory execution image must be one digest-pinned fdai image")
     if not isinstance(job, dict):
@@ -41,7 +41,12 @@ def materialize_inventory_execution(job: object, *, image: str) -> dict[str, Any
     ):
         raise ValueError("inventory Job no longer matches the reviewed runtime contract")
 
-    execution = copy.deepcopy(template)
+    execution = {"containers": copy.deepcopy(containers)}
+    init_containers = template.get("initContainers")
+    if init_containers is not None:
+        if not isinstance(init_containers, list):
+            raise ValueError("inventory Job init containers must be an array")
+        execution["initContainers"] = copy.deepcopy(init_containers)
     execution["containers"][0]["image"] = image
     return execution
 

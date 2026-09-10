@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 5935abe26e6e9b76ef732192f4ecf69f2355b676
+translation_source_sha: f8fa03f22243c268497043427bfdfe51c4f4a4e3
 translation_revised: 2026-09-10
 ---
 
@@ -47,6 +47,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 실제 endpoint가 Job 소유의 `volumes`를 거부한 뒤 인벤토리 ARM 시작 본문을 안정 `JobExecutionTemplate` schema로 제한했습니다. Materializer는 검토된 전체 Job을 계속 검증하고 컨테이너 명령, 인자, 환경, 리소스, 시크릿 참조, 볼륨 mount와 초기화 컨테이너를 보존하지만 `containers`와 `initContainers`만 내보냅니다. 구성된 볼륨은 Job에서 제공합니다. | `current change`; 실패한 보호 인증 `34442888325`; 안정 Container Apps `2024-03-01` OpenAPI schema; 집중 materializer 및 작업 흐름 검사. | Schema에 맞는 시작 본문을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 인벤토리 새로 고침 CLI 이미지 override를 검토된 실제 실행 템플릿을 복사하고 정식 `inventory` 컨테이너 이미지만 바꾸는 안정 ARM 시작 요청으로 교체했습니다. 이 요청은 mode 0600의 일시적 본문에서 명령, 인자, 환경, 리소스, 볼륨, 시크릿 참조를 보존합니다. | `current change`; 실패한 보호 인증 `34440577232`; 정제한 실패 execution 템플릿에서 CLI override가 정식 이름, 명령, 환경을 제거함을 확인; 집중 작업 흐름 검사. | 템플릿을 보존하는 시작 경로를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 보호된 실행기가 `!=` 뒤의 줄바꿈을 거부한 뒤 리소스 그룹 동등성 guard를 유효한 Bash 이항 조건식 하나로 수정했습니다. 공급자가 관측한 값의 정확한 동등성 요구 사항은 바뀌지 않습니다. | `current change`; 실패한 보호 인증 `34439221020`; 집중 작업 흐름 계약 검사; actionlint. | 구문 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | validated | 선택한 애플리케이션 범위의 보호된 구독 생성 plan-only 검증을 완료했습니다. 검토한 계획에는 추가 26건, 제자리 변경 11건, 삭제 14건이 있습니다. 모든 삭제는 정확한 교체 12건과 비활성화된 측정 Job 제거 2건으로 설명되며, 일반 파괴 가드에서 검토되지 않은 삭제가 발견되지 않았습니다. 비용 검토에는 embedding 교체, ontology council 배포 3건, 파트너 AI 계정 1건, PostgreSQL SKU 하향이 포함되었습니다. | 보호된 실행 `34436576350`, 준비된 계획 `plan-34436576350-1`, 소스 개정 번호 `8a3bfc3b560034f564b0648c8ff10cb80e8bdfa8`, 검증된 런타임 이미지 개정 번호 `5eb80b2b5e74868dd9ccf7a0dcfeac8d8de1b630`, 정제된 계획 및 사전 점검 다이제스트. | Apply는 실행하지 않았습니다. Apply하려면 만료되지 않은 정확한 계획 ID와 다이제스트에 연결된 별도의 현재 사람 승인이 필요합니다. |
