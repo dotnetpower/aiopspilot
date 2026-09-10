@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.delivery.persistence.postgres_wara_scope import (
+    PostgresWaraScopeSource,
     PostgresWaraScopeSourceConfig,
     WaraScopeUnavailableError,
     _resolve_resources,
@@ -17,6 +18,26 @@ PROVIDER_ID = (
     "/subscriptions/00000000-0000-0000-0000-000000000001/"
     "resourceGroups/rg-example/providers/Microsoft.ContainerRegistry/registries/example"
 )
+
+
+class _Cursor:
+    def __init__(self, row: object) -> None:
+        self._row = row
+
+    async def fetchone(self) -> object:
+        return self._row
+
+
+class _StableGenerationConnection:
+    def __init__(self, *, pending_scope_change: bool) -> None:
+        self._pending_scope_change = pending_scope_change
+        self.calls: list[tuple[str, object | None]] = []
+
+    async def execute(self, statement: str, params: object | None = None) -> _Cursor:
+        self.calls.append((statement, params))
+        if "inventory_realtime_resource" in statement:
+            return _Cursor({"pending": 1} if self._pending_scope_change else None)
+        return _Cursor(None)
 
 
 def test_scope_config_enforces_freshness_and_resource_ceilings() -> None:
@@ -78,6 +99,40 @@ def test_snapshot_requires_current_observed_generation() -> None:
             },
             now=AT,
             freshness_budget_seconds=600,
+        )
+
+
+async def test_stable_generation_ignores_realtime_changes_outside_workload_scope() -> None:
+    source = PostgresWaraScopeSource(
+        config=PostgresWaraScopeSourceConfig(dsn="postgresql://localhost/fdai")
+    )
+    connection = _StableGenerationConnection(pending_scope_change=False)
+
+    await source._require_stable_generation(  # noqa: SLF001 - focused persistence contract
+        connection,
+        snapshot_id="generation-1",
+        completed_at=AT,
+        workload_id="workload:example",
+    )
+
+    overlay_statement, overlay_params = connection.calls[-1]
+    assert "JOIN ontology_link link ON link.to_id=overlay.resource_id" in overlay_statement
+    assert "link.link_type='workload_runs_on'" in overlay_statement
+    assert overlay_params == ("workload:example",)
+
+
+async def test_stable_generation_rejects_realtime_change_in_workload_scope() -> None:
+    source = PostgresWaraScopeSource(
+        config=PostgresWaraScopeSourceConfig(dsn="postgresql://localhost/fdai")
+    )
+    connection = _StableGenerationConnection(pending_scope_change=True)
+
+    with pytest.raises(WaraScopeUnavailableError, match="workload scope"):
+        await source._require_stable_generation(  # noqa: SLF001
+            connection,
+            snapshot_id="generation-1",
+            completed_at=AT,
+            workload_id="workload:example",
         )
 
 

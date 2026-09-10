@@ -97,6 +97,7 @@ class PostgresWaraScopeSource:
                 connection,
                 snapshot_id=snapshot_id,
                 completed_at=completed_at,
+                workload_id=normalized_workload_id,
             )
             workload = await self._workload(connection, normalized_workload_id)
             ontology_release = _validate_workload(workload, now=observed_at)
@@ -135,6 +136,7 @@ class PostgresWaraScopeSource:
         *,
         snapshot_id: str,
         completed_at: datetime,
+        workload_id: str,
     ) -> None:
         failure_cursor = await connection.execute(
             "SELECT 1 FROM inventory_snapshot WHERE id<>%s AND started_at>%s AND "
@@ -147,13 +149,14 @@ class PostgresWaraScopeSource:
                 "promoted inventory has a newer failed or abandoned collection"
             )
         overlay_cursor = await connection.execute(
-            "SELECT COUNT(*) AS pending_changes FROM inventory_realtime_resource"
+            "SELECT 1 FROM inventory_realtime_resource overlay "
+            "JOIN ontology_link link ON link.to_id=overlay.resource_id "
+            "WHERE link.from_id=%s AND link.link_type='workload_runs_on' LIMIT 1",
+            (workload_id,),
         )
-        overlay = await overlay_cursor.fetchone()
-        pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
-        if pending_changes:
+        if await overlay_cursor.fetchone() is not None:
             raise WaraScopeUnavailableError(
-                "promoted inventory has unapplied realtime resource changes"
+                "promoted workload scope has unapplied realtime resource changes"
             )
 
     async def _workload(

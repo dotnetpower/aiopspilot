@@ -191,6 +191,9 @@ generation and records the failed revision and reason.
 Focused tests cover catalog completeness, profile coverage, evidence admission, process evidence,
 rule-derived absence claims, external supporting evidence, tradeoffs, replay, ontology authority,
 Operator decoding, localization, and projection quarantine.
+Realtime inventory changes invalidate a WAF run only when they target a resource linked to the
+selected workload. Unrelated subscription changes do not erase an otherwise stable workload
+snapshot; a newer failed or abandoned full reconciliation still blocks assessment.
 
 Local fixtures prove mechanics only. A validated WAF or CAF state additionally requires one
 governed live-Azure shadow receipt from an exact pushed required-CI-green revision. The retained
