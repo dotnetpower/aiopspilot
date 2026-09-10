@@ -62,12 +62,40 @@ def test_build_storage_state_preserves_local_storage_entries() -> None:
         {
             "origin": module.DEFAULT_ORIGIN,
             "sessionStorage": [],
-            "localStorage": [["msal.account", "signed-in"]],
+            "localStorage": [["console.preference", "live"]],
         },
         module.DEFAULT_ORIGIN,
     )
 
-    assert state["origins"][0]["localStorage"] == [{"name": "msal.account", "value": "signed-in"}]
+    assert state["origins"][0]["localStorage"] == [{"name": "console.preference", "value": "live"}]
+
+
+def test_build_storage_state_preserves_only_the_msal_encryption_cookie() -> None:
+    module = _load_module()
+
+    state = module.build_storage_state(
+        {
+            "origin": module.DEFAULT_ORIGIN,
+            "sessionStorage": [],
+            "localStorage": [["msal.account", "signed-in"]],
+            "cookies": [[module.MSAL_ENCRYPTION_COOKIE, "encryption-key"]],
+        },
+        module.DEFAULT_ORIGIN,
+        "http://localhost:5275",
+    )
+
+    assert state["cookies"] == [
+        {
+            "name": module.MSAL_ENCRYPTION_COOKIE,
+            "value": "encryption-key",
+            "domain": "localhost",
+            "path": "/",
+            "expires": -1,
+            "httpOnly": False,
+            "secure": False,
+            "sameSite": "Lax",
+        }
+    ]
 
 
 @pytest.mark.parametrize(
@@ -80,6 +108,21 @@ def test_build_storage_state_preserves_local_storage_entries() -> None:
             "origin": "http://localhost:5273",
             "sessionStorage": [],
             "localStorage": [["key", 1]],
+        },
+        {
+            "origin": "http://localhost:5273",
+            "sessionStorage": [],
+            "localStorage": [["msal.account", "signed-in"]],
+        },
+        {
+            "origin": "http://localhost:5273",
+            "sessionStorage": [],
+            "cookies": [["another-cookie", "value"]],
+        },
+        {
+            "origin": "http://localhost:5273",
+            "sessionStorage": [],
+            "cookies": [["msal.cache.encryption", ""]],
         },
     ],
 )

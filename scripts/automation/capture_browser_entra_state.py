@@ -8,8 +8,10 @@ import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlparse
 
 BOOTSTRAP_KEY = "fdai:e2e:browser-entra-session"
+MSAL_ENCRYPTION_COOKIE = "msal.cache.encryption"
 DEFAULT_ORIGIN = "http://localhost:5273"
 DEFAULT_OUTPUT = Path(".fdai/live-validation/browser-entra-storage-state.json")
 MAX_PAYLOAD_BYTES = 4 * 1024 * 1024
@@ -32,6 +34,11 @@ def build_storage_state(
         raise CaptureContractError("capture origin does not match the expected origin")
     session_entries = _storage_entries(payload, "sessionStorage")
     local_entries = _storage_entries(payload, "localStorage", required=False)
+    target_origin = storage_origin or origin
+    cookies = _playwright_cookies(payload, target_origin)
+    if any(name.startswith("msal.") and name != "msal.version" for name, _ in local_entries):
+        if not cookies:
+            raise CaptureContractError("MSAL cache requires its encryption cookie")
     local_storage = [{"name": name, "value": value} for name, value in local_entries]
     if session_entries:
         local_storage.append(
@@ -46,10 +53,10 @@ def build_storage_state(
         )
 
     return {
-        "cookies": [],
+        "cookies": cookies,
         "origins": [
             {
-                "origin": storage_origin or origin,
+                "origin": target_origin,
                 "localStorage": local_storage,
             }
         ],
@@ -77,6 +84,35 @@ def _storage_entries(
             raise CaptureContractError(f"{key} entries must be string pairs")
         entries.append(raw_entry)
     return entries
+
+
+def _playwright_cookies(
+    payload: dict[str, object],
+    target_origin: str,
+) -> list[dict[str, object]]:
+    entries = _storage_entries(payload, "cookies", required=False)
+    if not entries:
+        return []
+    if len(entries) != 1 or entries[0][0] != MSAL_ENCRYPTION_COOKIE:
+        raise CaptureContractError("capture accepts only the MSAL encryption cookie")
+    value = entries[0][1]
+    if not value:
+        raise CaptureContractError("MSAL encryption cookie must not be empty")
+    parsed = urlparse(target_origin)
+    if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
+        raise CaptureContractError("storage origin is invalid")
+    return [
+        {
+            "name": MSAL_ENCRYPTION_COOKIE,
+            "value": value,
+            "domain": parsed.hostname,
+            "path": "/",
+            "expires": -1,
+            "httpOnly": False,
+            "secure": parsed.scheme == "https",
+            "sameSite": "Lax",
+        }
+    ]
 
 
 def write_storage_state(destination: Path, state: dict[str, object]) -> None:
@@ -192,7 +228,7 @@ def main() -> int:
         args.storage_origin,
     )
     server.timeout = args.timeout
-    host, port = server.server_address
+    host, port = args.host, server.server_port
     print(f"receiver-ready url=http://{host}:{port} destination={destination}", flush=True)
     try:
         server.handle_request()

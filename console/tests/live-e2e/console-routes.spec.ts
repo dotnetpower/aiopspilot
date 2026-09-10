@@ -155,7 +155,9 @@ test("the live route inventory stays synchronized with the production registry",
 async function openCommandDeck(page: Page) {
   await page.goto("/settings/diagnostics", { waitUntil: "domcontentloaded" });
   await waitForPanel(page);
-  const deck = page.getByRole("complementary", { name: "Command deck" });
+  const deck = page.getByRole("complementary", { name: "Command deck" }).or(
+    page.getByRole("dialog", { name: "Command deck" }),
+  );
   if (!(await deck.isVisible())) {
     await page.locator(".deck-invoke").click();
   }
@@ -221,6 +223,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   test.setTimeout(150_000);
   await restoreBrowserEntraSessionStorage(page);
   const deck = await openCommandDeck(page);
+  await deck.getByRole("button", { name: /^Conversation history/ }).click();
   await deck.getByRole("button", { name: "New conversation" }).click();
   await page.evaluate(() => {
     const testWindow = window as Window & { __fdaiChatStreamBody?: Promise<string> };
