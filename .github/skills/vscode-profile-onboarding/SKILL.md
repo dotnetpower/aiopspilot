@@ -177,6 +177,12 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
 - Verify the destination with `stat` and a shape-only JSON check. Do not inspect or print token,
   cookie, or storage values. The resulting file can then be supplied through
   `FDAI_E2E_STORAGE_STATE` to the isolated Playwright context.
+- When authenticated evidence reaches a model-backed typed judgment boundary, do not repeatedly
+  rerun the same prompt or add raw phrase heuristics for each observed response. Collect the
+  distinct schema-valid intent, target, and facet shapes from bounded content-free logs, close the
+  equivalent forms in one deterministic predicate with parameterized regressions, and run one
+  focused browser retry. A new unmodeled shape after that retry is a contract gap to stop and
+  diagnose, not permission to continue an open-ended live loop.
 
 The isolated runner waits for Vite's `ready in` stdout marker. This avoids an unused-loopback HTTP
 or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN networking. Do not
