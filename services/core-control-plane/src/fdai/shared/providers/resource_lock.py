@@ -19,8 +19,299 @@ shape with no I/O.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from contextlib import AbstractAsyncContextManager
-from typing import Protocol, runtime_checkable
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Literal, Protocol, Self, runtime_checkable
+
+from fdai_service_contracts.ontology_query import content_digest
+
+_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
+_REVISION = re.compile(r"^commit:[a-f0-9]{40}(?:[a-f0-9]{24})?$")
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceLockAcquisitionReceipt:
+    """Historical provider-attested lock acquisition with no authority."""
+
+    schema_version: Literal["1.0.0"]
+    lock_key: str
+    target_digest: str
+    action_digest: str
+    attempt: int
+    provider_id: str
+    provider_version: str
+    producer_id: str
+    producer_version: str
+    owner_token_digest: str
+    fencing_generation: int | None
+    session_identity: str | None
+    provider_attestation_digest: str
+    trust_anchor_id: str
+    acquired_at: datetime
+    valid_until: datetime | None
+    source_revision: str
+    receipt_digest: str
+    execution_authority: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if type(self.schema_version) is not str or self.schema_version != "1.0.0":
+            raise ValueError(
+                f"unsupported resource lock receipt schema version: {self.schema_version}"
+            )
+        if self.execution_authority is not False:
+            raise ValueError("resource lock receipt MUST NOT grant execution authority")
+        if type(self.attempt) is not int or self.attempt < 1:
+            raise ValueError("resource lock receipt attempt MUST be a positive integer")
+        _validate_common(self)
+        lease = self.fencing_generation is not None
+        session = self.session_identity is not None
+        if lease == session:
+            raise ValueError("resource lock receipt requires exactly one lifetime form")
+        if lease and (
+            self.fencing_generation is None
+            or type(self.fencing_generation) is not int
+            or self.fencing_generation < 1
+            or self.valid_until is None
+            or self.valid_until <= self.acquired_at
+        ):
+            raise ValueError("resource lock lease lifetime is invalid")
+        if session and (
+            self.session_identity is None
+            or type(self.session_identity) is not str
+            or not self.session_identity.strip()
+            or self.session_identity != self.session_identity.strip()
+            or len(self.session_identity) > 512
+            or self.valid_until is not None
+        ):
+            raise ValueError("resource lock session lifetime is invalid")
+        if self.receipt_digest != _content_digest(self, "resource-lock-acquisition"):
+            raise ValueError("resource lock receipt digest mismatched")
+
+    @classmethod
+    def create(cls, **values: object) -> Self:
+        """Create one canonical historical acquisition receipt."""
+
+        if cls is not ResourceLockAcquisitionReceipt:
+            raise TypeError("resource lock receipt factory does not support subclasses")
+        payload = dict(values)
+        payload.setdefault("schema_version", "1.0.0")
+        payload.setdefault("execution_authority", False)
+        payload["acquired_at"] = _utc(payload.get("acquired_at"), "acquired_at")
+        if payload.get("valid_until") is not None:
+            payload["valid_until"] = _utc(payload.get("valid_until"), "valid_until")
+        payload["receipt_digest"] = _payload_digest(
+            payload,
+            "resource-lock-acquisition",
+        )
+        return cls(**payload)  # type: ignore[arg-type]
+
+
+class LockOwnershipRejectionReason(StrEnum):
+    """Why historical lock acquisition is not current ownership."""
+
+    ATTESTATION_INVALID = "attestation_invalid"
+    EXPIRED = "expired"
+    FENCE_MISMATCH = "fence_mismatch"
+    LOCK_LOST = "lock_lost"
+    SESSION_MISMATCH = "session_mismatch"
+    TRUST_ANCHOR_MISMATCH = "trust_anchor_mismatch"
+    VALIDITY_EXCEEDS_LOCK = "validity_exceeds_lock"
+
+
+_INDEPENDENT_LOCK_REJECTIONS = frozenset(
+    {
+        LockOwnershipRejectionReason.ATTESTATION_INVALID,
+        LockOwnershipRejectionReason.LOCK_LOST,
+    }
+)
+
+
+def _derive_lock_rejection_reasons(
+    receipt: ResourceLockAcquisitionReceipt,
+    *,
+    current_fencing_generation: int | None,
+    current_session_identity: str | None,
+    trust_anchor_id: str,
+    evaluated_at: datetime,
+    valid_until: datetime,
+    asserted_reasons: tuple[LockOwnershipRejectionReason, ...],
+) -> tuple[LockOwnershipRejectionReason, ...]:
+    reasons = set(asserted_reasons).intersection(_INDEPENDENT_LOCK_REJECTIONS)
+    if receipt.trust_anchor_id != trust_anchor_id:
+        reasons.add(LockOwnershipRejectionReason.TRUST_ANCHOR_MISMATCH)
+    if receipt.fencing_generation is not None:
+        if current_session_identity is not None:
+            reasons.add(LockOwnershipRejectionReason.SESSION_MISMATCH)
+        if current_fencing_generation != receipt.fencing_generation:
+            reasons.add(LockOwnershipRejectionReason.FENCE_MISMATCH)
+        if receipt.valid_until is None or evaluated_at >= receipt.valid_until:
+            reasons.add(LockOwnershipRejectionReason.EXPIRED)
+        elif valid_until > receipt.valid_until:
+            reasons.add(LockOwnershipRejectionReason.VALIDITY_EXCEEDS_LOCK)
+    else:
+        if current_fencing_generation is not None:
+            reasons.add(LockOwnershipRejectionReason.FENCE_MISMATCH)
+        if current_session_identity != receipt.session_identity:
+            reasons.add(LockOwnershipRejectionReason.SESSION_MISMATCH)
+    return tuple(sorted(reasons, key=str))
+
+
+@dataclass(frozen=True, slots=True)
+class LiveLockOwnershipAssessment:
+    """Current provider-attested lock ownership required before protected use."""
+
+    schema_version: Literal["1.0.0"]
+    acquisition_receipt: ResourceLockAcquisitionReceipt
+    current_fencing_generation: int | None
+    current_session_identity: str | None
+    verifier_id: str
+    verifier_version: str
+    trust_anchor_id: str
+    provider_attestation_digest: str
+    evaluated_at: datetime
+    valid_until: datetime
+    eligible: bool
+    rejection_reasons: tuple[LockOwnershipRejectionReason, ...]
+    assessment_digest: str
+    execution_authority: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if type(self.schema_version) is not str or self.schema_version != "1.0.0":
+            raise ValueError(
+                f"unsupported live lock assessment schema version: {self.schema_version}"
+            )
+        if type(self.acquisition_receipt) is not ResourceLockAcquisitionReceipt:
+            raise ValueError("live lock assessment requires a validated acquisition receipt")
+        if self.execution_authority is not False:
+            raise ValueError("live lock assessment MUST NOT grant execution authority")
+        _validate_text("verifier_id", self.verifier_id)
+        _validate_text("verifier_version", self.verifier_version)
+        _validate_text("trust_anchor_id", self.trust_anchor_id)
+        if self.current_fencing_generation is not None and (
+            type(self.current_fencing_generation) is not int or self.current_fencing_generation < 1
+        ):
+            raise ValueError("live lock assessment fencing generation MUST be a positive integer")
+        if self.current_session_identity is not None:
+            _validate_text("current_session_identity", self.current_session_identity)
+            if self.current_session_identity != self.current_session_identity.strip():
+                raise ValueError("live lock assessment session identity MUST be canonical")
+        _validate_utc("evaluated_at", self.evaluated_at)
+        _validate_utc("valid_until", self.valid_until)
+        if type(self.rejection_reasons) is not tuple or any(
+            type(reason) is not LockOwnershipRejectionReason for reason in self.rejection_reasons
+        ):
+            raise ValueError("live lock rejection reasons MUST use the canonical enum")
+        if self.rejection_reasons != tuple(sorted(set(self.rejection_reasons), key=str)):
+            raise ValueError("live lock rejection reasons MUST be unique and ordered")
+        if self.evaluated_at < self.acquisition_receipt.acquired_at:
+            raise ValueError("live lock assessment cannot predate lock acquisition")
+        if self.valid_until <= self.evaluated_at:
+            raise ValueError("live lock assessment validity MUST follow evaluation")
+        expected_reasons = _derive_lock_rejection_reasons(
+            self.acquisition_receipt,
+            current_fencing_generation=self.current_fencing_generation,
+            current_session_identity=self.current_session_identity,
+            trust_anchor_id=self.trust_anchor_id,
+            evaluated_at=self.evaluated_at,
+            valid_until=self.valid_until,
+            asserted_reasons=self.rejection_reasons,
+        )
+        if self.rejection_reasons != expected_reasons:
+            raise ValueError("live lock assessment rejection reasons mismatched state")
+        expected_eligibility = not expected_reasons
+        if type(self.eligible) is not bool or self.eligible is not expected_eligibility:
+            raise ValueError("live lock assessment eligibility mismatched reasons")
+        if (
+            type(self.provider_attestation_digest) is not str
+            or _DIGEST.fullmatch(self.provider_attestation_digest) is None
+        ):
+            raise ValueError("live lock assessment digest fields MUST be SHA-256")
+        if (
+            type(self.assessment_digest) is not str
+            or _DIGEST.fullmatch(self.assessment_digest) is None
+        ):
+            raise ValueError("live lock assessment digest MUST be SHA-256")
+        if self.assessment_digest != _content_digest(self, "live-lock-ownership"):
+            raise ValueError("live lock assessment digest mismatched")
+
+    @classmethod
+    def create(
+        cls,
+        receipt: ResourceLockAcquisitionReceipt,
+        *,
+        current_fencing_generation: int | None,
+        current_session_identity: str | None,
+        verifier_id: str,
+        verifier_version: str,
+        trust_anchor_id: str,
+        provider_attestation_digest: str,
+        evaluated_at: datetime,
+        valid_until: datetime,
+        rejection_reasons: tuple[LockOwnershipRejectionReason, ...] = (),
+    ) -> Self:
+        """Create a current assessment bound to one historical receipt."""
+
+        if cls is not LiveLockOwnershipAssessment:
+            raise TypeError("live lock assessment factory does not support subclasses")
+        if type(rejection_reasons) is not tuple or any(
+            type(reason) is not LockOwnershipRejectionReason for reason in rejection_reasons
+        ):
+            raise ValueError("live lock rejection reasons MUST use the canonical enum")
+        if set(rejection_reasons).difference(_INDEPENDENT_LOCK_REJECTIONS):
+            raise ValueError(
+                "live lock assessment caller may assert only provider-observed reasons"
+            )
+        normalized_at = _utc(evaluated_at, "evaluated_at")
+        normalized_until = _utc(valid_until, "valid_until")
+        reasons = _derive_lock_rejection_reasons(
+            receipt,
+            current_fencing_generation=current_fencing_generation,
+            current_session_identity=current_session_identity,
+            trust_anchor_id=trust_anchor_id,
+            evaluated_at=normalized_at,
+            valid_until=normalized_until,
+            asserted_reasons=rejection_reasons,
+        )
+        payload = {
+            "schema_version": "1.0.0",
+            "acquisition_receipt": receipt,
+            "current_fencing_generation": current_fencing_generation,
+            "current_session_identity": current_session_identity,
+            "verifier_id": verifier_id,
+            "verifier_version": verifier_version,
+            "trust_anchor_id": trust_anchor_id,
+            "provider_attestation_digest": provider_attestation_digest,
+            "evaluated_at": normalized_at,
+            "valid_until": normalized_until,
+            "eligible": not reasons,
+            "rejection_reasons": reasons,
+            "execution_authority": False,
+        }
+        payload["assessment_digest"] = _payload_digest(payload, "live-lock-ownership")
+        return cls(**payload)  # type: ignore[arg-type]
+
+
+def require_current_lock_ownership(
+    evidence: object,
+    *,
+    observed_at: datetime,
+) -> LiveLockOwnershipAssessment:
+    """Require eligible provider-attested ownership at one exact observation time."""
+
+    normalized_at = _utc(observed_at, "ownership observation time")
+    if type(evidence) is not LiveLockOwnershipAssessment:
+        raise ValueError("historical lock acquisition is not current ownership evidence")
+    if normalized_at < evidence.evaluated_at:
+        raise ValueError("live lock ownership assessment is not yet current")
+    if normalized_at >= evidence.valid_until:
+        raise ValueError("live lock ownership assessment is stale")
+    if not evidence.eligible:
+        raise ValueError("live lock ownership assessment is ineligible")
+    return evidence
 
 
 @runtime_checkable
@@ -43,4 +334,89 @@ class ResourceLock(Protocol):
         ...
 
 
-__all__ = ["ResourceLock"]
+def _validate_common(receipt: ResourceLockAcquisitionReceipt) -> None:
+    text_fields = (
+        receipt.lock_key,
+        receipt.provider_id,
+        receipt.provider_version,
+        receipt.producer_id,
+        receipt.producer_version,
+        receipt.trust_anchor_id,
+    )
+    if not all(type(value) is str and value.strip() and len(value) <= 512 for value in text_fields):
+        raise ValueError("resource lock receipt identity fields MUST be bounded")
+    if receipt.lock_key != receipt.lock_key.strip():
+        raise ValueError("resource lock receipt lock key MUST be canonical")
+    for digest in (
+        receipt.target_digest,
+        receipt.action_digest,
+        receipt.owner_token_digest,
+        receipt.provider_attestation_digest,
+        receipt.receipt_digest,
+    ):
+        if type(digest) is not str or _DIGEST.fullmatch(digest) is None:
+            raise ValueError("resource lock receipt digest fields MUST be SHA-256")
+    if (
+        type(receipt.source_revision) is not str
+        or _REVISION.fullmatch(receipt.source_revision) is None
+    ):
+        raise ValueError("resource lock receipt source revision MUST be canonical")
+    _validate_utc("acquired_at", receipt.acquired_at)
+    if receipt.valid_until is not None:
+        _validate_utc("valid_until", receipt.valid_until)
+
+
+def _utc(value: object, name: str) -> datetime:
+    if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"resource lock {name} MUST include a timezone")
+    return value.astimezone(UTC)
+
+
+def _validate_text(name: str, value: str) -> None:
+    if type(value) is not str or not value.strip() or len(value) > 512:
+        raise ValueError(f"resource lock {name} MUST be bounded")
+
+
+def _validate_utc(name: str, value: datetime) -> None:
+    if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"resource lock {name} MUST include a timezone")
+    if value.utcoffset() != timedelta(0):
+        raise ValueError(f"resource lock {name} MUST be normalized to UTC")
+
+
+def _payload_digest(payload: Mapping[str, object], domain: str) -> str:
+    body = dict(payload)
+    body.pop("receipt_digest", None)
+    body.pop("assessment_digest", None)
+    return content_digest({"domain": domain, "body": _normalize_digest_value(body)})
+
+
+def _normalize_digest_value(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat()
+    if isinstance(
+        value,
+        (ResourceLockAcquisitionReceipt, LiveLockOwnershipAssessment),
+    ):
+        return _normalize_digest_value(asdict(value))
+    if isinstance(value, Mapping):
+        return {str(key): _normalize_digest_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_normalize_digest_value(item) for item in value]
+    return value
+
+
+def _content_digest(
+    value: ResourceLockAcquisitionReceipt | LiveLockOwnershipAssessment,
+    domain: str,
+) -> str:
+    return _payload_digest(asdict(value), domain)
+
+
+__all__ = [
+    "LiveLockOwnershipAssessment",
+    "LockOwnershipRejectionReason",
+    "ResourceLock",
+    "ResourceLockAcquisitionReceipt",
+    "require_current_lock_ownership",
+]
