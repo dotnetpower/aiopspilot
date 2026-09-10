@@ -383,6 +383,15 @@ def test_operator_runtime_call_evidence_uses_exact_platform_resource_ids() -> No
     assert "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID" in _CORE_TERRAFORM
     assert "output -json runtime_call_evidence_binding" in materialize
     assert "output -raw operator_api_name" in materialize
+    assert 'terraform -chdir="$TERRAFORM_ROOT" output -json service' in materialize
+    assert 'select(test("-(operator-api|readapi)$"))' in materialize
+    assert "runtime_call_binding_is_exact()" in materialize
+    assert materialize.count("timeout 60s az containerapp show") == 2
+    assert "output -raw resource_group_name" in materialize
+    assert "output -raw core_app_name" in materialize
+    assert '--subscription "$ARM_SUBSCRIPTION_ID"' in materialize
+    assert "Unable to read the deployed Operator runtime-call identity." in materialize
+    assert "Unable to read the deployed Core runtime-call identity." in materialize
     assert "Operator deployment requires a runtime-call evidence binding." in materialize
     assert "runtime_call_evidence_transition:" in _WORKFLOW
     assert _WORKFLOW.count("RUNTIME_CALL_EVIDENCE_TRANSITION:") == 4

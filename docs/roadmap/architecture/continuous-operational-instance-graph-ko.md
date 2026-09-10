@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 0d1cfd115805fcc4519bdc08359b1011431c651f
+translation_source_sha: a741622afa0c30a34b211c18ff650a3797ca5343
 translation_revised: 2026-09-10
 ---
 # 지속형 운영 인스턴스 그래프
@@ -93,6 +93,14 @@ edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 �
 ID를 다시 검사합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
+
+보호된 서비스 배포는 먼저 플랫폼이 소유한 런타임 호출 바인딩을 사용합니다. Operator 상태
+이행으로 기존 플랫폼 모듈이 비활성화되면 두 Container App이 계속 배포되어 있어도 해당 출력이
+없을 수 있습니다. 이때 Virtual Network 내부 runner는 독립 서비스 상태에서 정확한 Operator 앱
+이름을 읽고 플랫폼 상태에서 Core 앱 이름과 리소스 그룹을 읽습니다. 이 이름과 고정된 구독을
+사용해 Azure에서 두 개의 정확한 Resource ID를 읽습니다. 이후 같은 폐쇄형 검증이 서로 다른 두
+Container App ID를 요구한 뒤에만 서비스에 바인딩을 제공합니다. 상태 또는 프로바이더 읽기가
+실패하거나 모호하면 계획을 차단하며 조합한 신원으로 대체하지 않습니다.
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
 
