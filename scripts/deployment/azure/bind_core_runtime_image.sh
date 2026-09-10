@@ -76,9 +76,22 @@ verify_runtime_image() {
 
   printf 'machine ghcr.io\nlogin %s\npassword %s\n' \
     "$GITHUB_ACTOR" "$GHCR_TOKEN" > "$netrc_file"
-  if ! printf '%s' "$GHCR_TOKEN" |
-    DOCKER_CONFIG="$docker_config" docker login ghcr.io \
-      -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1; then
+  if ! python3 - "$docker_config/config.json" <<'PY'
+import base64
+import json
+import os
+import sys
+
+actor = os.environ["GITHUB_ACTOR"]
+token = os.environ["GHCR_TOKEN"]
+if any(character in actor or character in token for character in "\r\n"):
+    raise SystemExit("GHCR credentials must not contain line breaks")
+encoded = base64.b64encode((actor + ":" + token).encode()).decode("ascii")
+with open(sys.argv[1], "w", encoding="utf-8") as stream:
+    json.dump({"auths": {"ghcr.io": {"auth": encoded}}}, stream, separators=(",", ":"))
+    stream.write("\n")
+PY
+  then
     echo "temporary GHCR authentication failed." >&2
     exit 1
   fi

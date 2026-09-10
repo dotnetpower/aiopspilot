@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 909c5705f35b05521508d39d32a6ca01e5ffae43
+translation_source_sha: be8857915612cca71bb245f5c0cc0315047f591a
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 일시적 GHCR 인증에서 Docker CLI 의존성을 제거했습니다. Binder는 기존 workflow 자격 증명을 프로세스 내부에서 mode 0600 파일로 렌더링하고 인자나 출력에 넣지 않으며 레지스트리 전용 출처 증명 검증을 유지합니다. | `current change`; Terraform과 Azure 전에 중단된 실패한 plan-only 실행 `34427330193`; 실행 가능한 binder 및 자격 증명 위생 회귀 검사. | 수정된 검증기를 게시하고 exact CI를 통과한 뒤 이미지를 승격하지 않는 보호 계획을 다시 실행합니다. |
 | 2026-09-10 | implemented | OCI 증명 검증을 위해 일시적인 GHCR 인증을 추가했습니다. binder는 mode 0700 Docker 구성에만 자격 증명을 쓰고 stdin으로 토큰을 받으며 종료할 때 디렉터리를 제거하고 인증 및 검증 실패를 명시적으로 보고합니다. | `current change`; 실패한 보호 인증 `34419767892`; 일시적 구성으로 수행한 로컬 다이제스트 검증 통과; 집중 자격 증명 위생 및 이미지 연결 검사. | 검증기 인증 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | Terraform 최상위 출력에서 기존 이력 Job ID와 보관 컨테이너 URL이 모두 비어 있음을 확인한 뒤 범위가 제한된 ARM fallback을 확장했습니다. 한 번의 열거로 인벤토리 런타임과 이력 런타임을 각각 정확히 하나 해석하고, 비어 있지 않은 최상위 출력과 교차 확인하며, 선택한 이력 Job을 안정 리소스 API로 다시 읽습니다. | `current change`; 실패한 보호 인증 `34416935783`; 정제한 실행기 재현; 범위가 제한된 실제 ARM 검증에서 정확한 인벤토리 계약과 이력 계약을 각각 1개 확인; 집중 작업 흐름 검사. | 이력 fallback을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-09 | implemented | 사용할 수 없는 프로바이더 컬렉션 엔드포인트를 범위가 제한된 일반 ARM 리소스 열거와 리소스별 안정 Container Apps 조회로 교체했습니다. fallback은 Job ID를 최대 64개까지 허용하고 각 조회 시간을 30초로 제한하며, 검토된 인벤토리 런타임 계약이 정확히 하나여야 한다는 조건을 유지합니다. | `current change`; 실패한 보호 인증 `34410700086`; 범위가 제한된 실제 열거에서 Job 12개와 정확한 계약 일치 항목 1개 확인; 집중 작업 흐름 계약 검사. | 범위가 제한된 열거를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
@@ -281,8 +282,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   생성하거나 복사한 뒤 해당 ACR 다이제스트를 ARB 근거 매니페스트의
   `signed-image-provenance`로 연결합니다. ACR용 두 번째 빌드는 다른 대상을 만들기 때문에
   수락하지 않습니다. Private-runner 실행기 계획은 하나의 출처 개정 번호를 attested GHCR
-  다이제스트로 해석합니다. OCI 검증은 mode 0700의 일시적 Docker 구성으로 인증하고 GitHub
-  토큰을 stdin으로만 받으며 단계가 끝날 때 자격 증명 디렉터리를 제거합니다. 계획은 명시적 승격
+  다이제스트로 해석합니다. OCI 검증은 workflow 토큰을 프로세스 내부에서 mode 0700의 일시적
+  Docker 구성 안의 mode 0600 파일로 렌더링하고 프로세스 인자나 출력에 넣지 않으며 단계가 끝날 때
+  자격 증명 디렉터리를 제거합니다. 계획은 명시적 승격
   입력이 있을 때만 해당 exact 대상을 가져오기하며 ACR Terraform 출력 또는 검증된 배포 Job
   이미지를 정확한 Azure login host로 정규화합니다. 이후 ACR 다이제스트가 동일한지 검증하고
   Terraform에 연결합니다. Exact 적용은 protected 계획에 기록된 이미지를 promote하거나 교체할

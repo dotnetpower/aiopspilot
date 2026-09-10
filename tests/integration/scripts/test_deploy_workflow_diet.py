@@ -180,14 +180,14 @@ def test_registry_credentials_are_private_file_backed_and_cleaned() -> None:
     )
     assert "--password " not in binder
     assert "--password=" not in binder
-    assert "--password-stdin" in binder
-    assert '"$GHCR_TOKEN" |' in binder
-    assert 'DOCKER_CONFIG="$docker_config" docker login ghcr.io' in binder
+    assert "--password-stdin" not in binder
+    assert "docker login" not in binder
     assert 'DOCKER_CONFIG="$docker_config" timeout 60s gh attestation verify' in binder
     assert 'rm -rf -- "$docker_config"' in binder
     assert '-H "Authorization: Bearer $registry_token"' not in binder
     assert '--header "@$bearer_header_file"' in binder
     assert 'chmod 0600 "$netrc_file" "$docker_config/config.json"' in binder
+    assert 'json.dump({"auths": {"ghcr.io": {"auth": encoded}}}' in binder
     assert 'rm -rf -- "$private_dir"' in binder
     assert "gh api" not in binder
     assert "api.github.com" not in binder
