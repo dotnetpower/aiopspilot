@@ -72,7 +72,7 @@ async def test_blob_baseline_source_requires_managed_identity_and_exact_digest()
         assert request.headers["Authorization"] == "Bearer test-token"
         return httpx.Response(
             200,
-            headers={"x-ms-meta-fdai-sha256": digest},
+            headers={"x-ms-meta-fdai_sha256": digest},
             content=payload,
         )
 
@@ -109,7 +109,7 @@ async def test_blob_baseline_source_rejects_metadata_or_content_mismatch() -> No
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            headers={"x-ms-meta-fdai-sha256": "b" * 64},
+            headers={"x-ms-meta-fdai_sha256": "b" * 64},
             content=payload,
         )
 

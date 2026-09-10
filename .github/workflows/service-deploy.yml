@@ -940,7 +940,7 @@ jobs:
                 --name "$blob_name" \
                 --auth-mode login \
                 --only-show-errors \
-                --query "metadata.\"fdai-sha256\"" \
+                --query "metadata.fdai_sha256" \
                 --output tsv
             )"
             [[ "$readback_sha256" == "$baseline_sha256" \
@@ -956,7 +956,7 @@ jobs:
               --file "$RUNNER_TEMP/configuration-baseline.json" \
               --auth-mode login \
               --overwrite false \
-              --metadata "fdai-sha256=$baseline_sha256" \
+              --metadata "fdai_sha256=$baseline_sha256" \
               --content-type application/json \
               --only-show-errors \
               --output none
@@ -1569,7 +1569,7 @@ jobs:
             --file "$RUNNER_TEMP/configuration-drift-live-receipt.json" \
             --auth-mode login \
             --overwrite false \
-            --metadata "fdai-sha256=$receipt_sha256" \
+            --metadata "fdai_sha256=$receipt_sha256" \
             --content-type application/json \
             --only-show-errors \
             --output none

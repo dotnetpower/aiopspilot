@@ -102,7 +102,7 @@ file digest alone does not establish cross-format equivalence.
   checks the exact canonical digest and expected resource count, and stores the content only as an
   immutable, content-addressed private Blob. The
   repository and service plan contain only the binding metadata. Core reads that Blob through its
-  Managed Identity, and post-apply verification reads the deployed binding and Blob independently
+  Managed Identity and verifies provider-valid digest metadata, and post-apply verification reads the deployed binding and Blob independently
   before comparing a fresh Azure Resource Graph observation. The retained receipt includes only
   digests, completeness, the decision, counts, and zero-valued authority counters. The Container
   Apps module emits no drift configuration by default.

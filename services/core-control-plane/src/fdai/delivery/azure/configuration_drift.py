@@ -120,7 +120,7 @@ class AzureBlobConfigurationBaselineSource:
                     raise AzureConfigurationBaselineError(
                         f"configuration baseline storage returned HTTP {response.status_code}"
                     )
-                metadata_digest = response.headers.get("x-ms-meta-fdai-sha256", "")
+                metadata_digest = response.headers.get("x-ms-meta-fdai_sha256", "")
                 if metadata_digest != self.config.expected_sha256:
                     raise AzureConfigurationBaselineError(
                         "configuration baseline Blob metadata digest mismatch"
