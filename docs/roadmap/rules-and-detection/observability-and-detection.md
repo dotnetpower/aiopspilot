@@ -528,6 +528,10 @@ its targets from the configured list plus the durable inventory projection, runs
 analyzers against the composed `MetricProvider`, and
 publishes one canonical Event per finding with a key derived from the resource, the signal, and the
 tick window. Inventory-backed resolution is read-only and fail-closed: a resource type without a
+The `fdai-incident-evidence-query` maintenance entry point reads the durable Incident audit through
+the service-owned store and returns only transition, distinct-Incident, maximum-member, and kind
+aggregates for one bounded correlation prefix. It never returns Incident IDs, member IDs, payloads,
+or database configuration. Inventory-backed resolution is read-only and fail-closed: a resource type without a
 reviewed analyzer mapping is skipped, an observed state fact that is stale, conflicting, partial, or
 synthetic is skipped with a stable reason, and an unreadable projection raises instead of degrading
 to the configured list alone, so the Job retries rather than silently narrowing coverage. The
