@@ -195,6 +195,15 @@ def test_batch_cannot_declare_importer_owned_trust_fields() -> None:
         CohortObservationBatch.model_validate(payload)
 
 
+@pytest.mark.parametrize("value", [True, False, "1"])
+def test_metric_value_must_be_a_strict_json_number(value: object) -> None:
+    payload = _batch().model_dump(mode="json")
+    payload["observations"][1]["value"] = value
+
+    with pytest.raises(ValidationError):
+        CohortObservationBatch.model_validate(payload)
+
+
 def test_batch_digest_and_canonical_order_are_enforced() -> None:
     payload = _batch().model_dump(mode="json")
     payload["batch_digest"] = _digest("f")

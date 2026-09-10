@@ -40,7 +40,7 @@ class NormalizedCohortMetricObservation(ContractBase):
     metric_id: Annotated[str, Field(pattern=_MEASURE_ID)]
     source_cluster_digest: Digest
     observed_at: datetime
-    value: float = Field(ge=0, allow_inf_nan=False)
+    value: float = Field(strict=True, ge=0, allow_inf_nan=False)
 
     @field_validator("observed_at")
     @classmethod
