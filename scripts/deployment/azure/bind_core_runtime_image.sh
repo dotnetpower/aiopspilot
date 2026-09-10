@@ -70,19 +70,31 @@ verified_source_digest=""
 
 verify_runtime_image() {
   local bearer_header_file="$private_dir/registry-authorization.header"
+  local docker_auth_config="$docker_config/config.json"
   local netrc_file="$private_dir/registry.netrc"
   local registry_token
   local source_digest
 
   printf 'machine ghcr.io\nlogin %s\npassword %s\n' \
     "$GITHUB_ACTOR" "$GHCR_TOKEN" > "$netrc_file"
-  if ! printf '%s' "$GHCR_TOKEN" |
-    DOCKER_CONFIG="$docker_config" docker login ghcr.io \
-      -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1; then
-    echo "temporary GHCR authentication failed." >&2
-    exit 1
-  fi
-  chmod 0600 "$netrc_file" "$docker_config/config.json"
+  python3 - "$docker_auth_config" <<'PY'
+import base64
+import json
+import os
+import sys
+
+credential = f"{os.environ['GITHUB_ACTOR']}:{os.environ['GHCR_TOKEN']}".encode()
+config = {
+    "auths": {
+        "ghcr.io": {
+            "auth": base64.b64encode(credential).decode("ascii"),
+        }
+    }
+}
+with open(sys.argv[1], "w", encoding="utf-8") as stream:
+    json.dump(config, stream, separators=(",", ":"), sort_keys=True)
+PY
+  chmod 0600 "$netrc_file" "$docker_auth_config"
 
   registry_token="$(
     curl --fail --silent --show-error --retry 3 --retry-delay 2 \
