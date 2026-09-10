@@ -52,12 +52,16 @@ def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> Non
     assert "--resource-type Microsoft.App/jobs" in _WORKFLOW
     assert "certification_job_ids" in _WORKFLOW
     assert "${#certification_job_ids[@]} <= 64" in _WORKFLOW
+    assert "job_scope=()" in _WORKFLOW
+    assert 'job_scope=(--resource-group "$resource_group")' in _WORKFLOW
     assert "timeout 30s az resource show" in _WORKFLOW
     assert "--api-version 2024-03-01" in _WORKFLOW
     assert "inventory_job_candidates" in _WORKFLOW
     assert "${#inventory_job_candidates[@]} -eq 1" in _WORKFLOW
     assert "history_job_candidates" in _WORKFLOW
     assert "history_container_candidates" in _WORKFLOW
+    assert "inventory_resource_group_candidates" in _WORKFLOW
+    assert "history_resource_group_candidates" in _WORKFLOW
     assert "${#history_job_candidates[@]} -eq 1" in _WORKFLOW
     assert "${#history_container_candidates[@]} -eq 1" in _WORKFLOW
     assert "az containerapp job list" not in _WORKFLOW
@@ -76,6 +80,8 @@ def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> Non
     assert "inventory job output does not match the reviewed ARM runtime" in _WORKFLOW
     assert "history job output does not match the reviewed ARM runtime" in _WORKFLOW
     assert "history container output does not match the reviewed ARM runtime" in _WORKFLOW
+    assert "certification jobs do not share one resource group" in _WORKFLOW
+    assert "resource group output does not match the reviewed ARM runtimes" in _WORKFLOW
     assert (
         '[[ "$mi_client_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
         "[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]"
