@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, tzinfo
 
 import pytest
@@ -293,6 +294,18 @@ def test_rejected_result_cannot_claim_an_orphan_bundle_digest() -> None:
             receipt_digest=receipt.receipt_digest,
             verification_bundle_digest=_DIGESTS[0],
         )
+
+
+async def test_eligible_result_cannot_include_rejection_details() -> None:
+    receipt = _receipt()
+    result = await _gate(receipt).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    with pytest.raises(ValueError, match="MUST NOT include rejections"):
+        replace(result, rejection_details=("contradictory_rejection",))
 
 
 @pytest.mark.parametrize(
