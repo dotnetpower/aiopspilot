@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: f8fa03f22243c268497043427bfdfe51c4f4a4e3
+translation_source_sha: db9c4f86c6240b95498b373f9ed8718704912001
 translation_revised: 2026-09-10
 ---
 
@@ -47,6 +47,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | OI-12 프로바이더 실패 및 복구 쿼리를 현재 활성 세대의 원본과 관측 종류로 제한했습니다. 폐기한 원본이 현재 운영 인스턴스 축을 영구 unavailable 상태로 유지할 수 없습니다. 복구는 여전히 실패 이후에 발생해야 하며 실패의 원본, 관측 종류, 범위와 리소스 종류에 정확히 일치해야 합니다. | `current change`; 실패한 보호 인증 `34445258249`; 정제한 읽기 전용 운영 집계에서 폐기한 `arm/observed` 원본은 이후 성공이 없고 활성 `arg/observed` 원본에는 정확한 194.335387초 복구가 있음을 확인; 집중 PostgreSQL 인증 검사. | 활성 원본 fence를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 실제 endpoint가 Job 소유의 `volumes`를 거부한 뒤 인벤토리 ARM 시작 본문을 안정 `JobExecutionTemplate` schema로 제한했습니다. Materializer는 검토된 전체 Job을 계속 검증하고 컨테이너 명령, 인자, 환경, 리소스, 시크릿 참조, 볼륨 mount와 초기화 컨테이너를 보존하지만 `containers`와 `initContainers`만 내보냅니다. 구성된 볼륨은 Job에서 제공합니다. | `current change`; 실패한 보호 인증 `34442888325`; 안정 Container Apps `2024-03-01` OpenAPI schema; 집중 materializer 및 작업 흐름 검사. | Schema에 맞는 시작 본문을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 인벤토리 새로 고침 CLI 이미지 override를 검토된 실제 실행 템플릿을 복사하고 정식 `inventory` 컨테이너 이미지만 바꾸는 안정 ARM 시작 요청으로 교체했습니다. 이 요청은 mode 0600의 일시적 본문에서 명령, 인자, 환경, 리소스, 볼륨, 시크릿 참조를 보존합니다. | `current change`; 실패한 보호 인증 `34440577232`; 정제한 실패 execution 템플릿에서 CLI override가 정식 이름, 명령, 환경을 제거함을 확인; 집중 작업 흐름 검사. | 템플릿을 보존하는 시작 경로를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 보호된 실행기가 `!=` 뒤의 줄바꿈을 거부한 뒤 리소스 그룹 동등성 guard를 유효한 Bash 이항 조건식 하나로 수정했습니다. 공급자가 관측한 값의 정확한 동등성 요구 사항은 바뀌지 않습니다. | `current change`; 실패한 보호 인증 `34439221020`; 집중 작업 흐름 계약 검사; actionlint. | 구문 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |

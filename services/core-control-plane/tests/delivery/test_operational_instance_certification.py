@@ -246,6 +246,9 @@ async def test_postgres_source_reads_one_sanitized_read_only_snapshot() -> None:
     query = connection.executions[1][0]
     assert "pg_database_size" in query
     assert "active.id AS active_generation" in query
+    assert "JOIN active AS current" in query
+    assert "current.source = failed.source" in query
+    assert "current.observation_kind = failed.observation_kind" in query
     assert "candidate.source = failed.source" in query
     assert "FROM latest_failure AS failed" in query
     assert "LEFT JOIN LATERAL" in query
