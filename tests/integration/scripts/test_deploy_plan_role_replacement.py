@@ -131,6 +131,11 @@ def test_guard_accepts_exact_operator_identity_role_replacement() -> None:
     )
 
 
+@pytest.mark.parametrize("mutation", ["successor-known-principal", "unknown-principal"])
+def test_guard_ignores_provider_computed_field_encoding(mutation: str) -> None:
+    assert guard.validate_operator_role_replacement(_plan(mutation)) is True
+
+
 def test_guard_cli_filters_the_temporary_review_copy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -154,12 +159,10 @@ def test_guard_cli_filters_the_temporary_review_copy(
         "successor-scope",
         "successor-name",
         "successor-replace-path",
-        "successor-known-principal",
         "scope",
         "role",
         "concrete-principal",
         "role-definition-id",
-        "unknown-principal",
         "replace-path",
         "action-order",
     ],
