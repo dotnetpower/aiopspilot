@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3feae5e5acce26fe1889eda0e30cf0722c197ce0
+translation_source_sha: caba6dc68bac444b0a24e6c34b463042d450a133
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -14,11 +14,8 @@ translation_revised: 2026-09-10
 ## 설계 개요
 
 - **서비스 distribution:** distribution 5개는 검증된 배포 근거를 유지합니다. 독립 패키지 시스템 지식 서비스는 자체 Terraform root, Blob CAS claim, Azure Bot 및 보호된 workflow를 갖는 여섯 번째 읽기 전용 후보입니다. 플랫폼 storage root는 재사용하는 claim 계정의 Blob 진단을 소유합니다.
-- **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유합니다.
-  `fdai_service_contracts.execution_safeguards`는 권한 및 효과 플래그가 `false`로 고정된 버전별
-  7개 증명 wire 묶음을 소유하며, 서비스 소유 검증기는 불일치, 최신성, 디스패치 및 효과 판정을
-  계속 담당합니다. `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는
-  갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
+- **공유 패키지 2개:** `packages/service-contracts/`는 권한 및 효과 플래그가 `false`로 고정된 버전별 `fdai_service_contracts.execution_safeguards` 7개 증명 묶음을 포함한 구현 없는 wire 계약을 소유하며, 서비스 소유 검증기는 불일치, 최신성, 디스패치 및 효과 판정을 계속 담당합니다.
+  `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
 - **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된
   ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자
   속성을 확인하기 전에 이 레지스트리를 사용합니다. 루트와 지원되는 중첩 메타데이터 소유자는 실제
