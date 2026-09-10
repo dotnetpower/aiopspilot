@@ -89,9 +89,9 @@ inventory writer then rechecks both endpoint IDs against the complete active gen
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
-The Operator lifecycle can also publish durable Incident intervention requests through the focused
-outbox lifecycle facade and its retry-safe worker. That worker creates no runtime-call witness,
-graph edge, provider observation, or execution authority.
+The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
+The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
+It creates no runtime-call witness, graph edge, provider observation, or execution authority.
 
 Protected service deployment first consumes the platform-owned runtime-call binding. After an
 Operator state migration disables the legacy platform module, that output can be absent while both

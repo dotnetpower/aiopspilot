@@ -32,9 +32,9 @@ correlation key, even after that opening row leaves the bounded display history.
 malformed, oversized, or ambiguous resource key keeps the intervention unavailable. The Operator
 API re-resolves the exact lifecycle state before durable acceptance, and Core independently
 recomputes the same target digest from its canonical Incident before it applies the request.
-The Operator lifecycle owns a retry-safe intervention outbox worker, and readiness stays false if
-that worker stops. Durable HTTP acceptance therefore cannot become a success-shaped terminal
-state while the typed request remains unpublished.
+The Operator lifecycle owns a retry-safe intervention outbox worker, and readiness stays false if that worker stops.
+Its logical request topic is explicitly allowlisted and multiplexed through the configured physical event transport.
+Durable HTTP acceptance cannot become a success-shaped terminal state while the typed request remains unpublished.
 
 Incident creation uses semantic draft plus typed confirmation routes and never adds a creation
 button to the roster panel.

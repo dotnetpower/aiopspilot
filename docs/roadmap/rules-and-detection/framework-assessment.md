@@ -32,8 +32,8 @@ The shared Operator PostgreSQL reader also serves unrelated operational families
 source-state and content-addressed diagnostic-receipt reads do not enter WAF or CAF scope,
 evidence admission, replay, or results.
 The shared Operator outbox lifecycle facade can also supervise the Incident intervention worker.
-Its requests and readiness state do not enter WAF or CAF scope, evidence admission, replay, or
-results.
+Its explicitly allowlisted logical topic, requests, and readiness state do not enter WAF or CAF
+scope, evidence admission, replay, or results.
 
 ## Design decision and critique
 
