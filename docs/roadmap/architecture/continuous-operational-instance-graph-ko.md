@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 05d8a92fa29c8bed0a2ce38ce5dc7cf580c590b9
+translation_source_sha: 1620578250af1b31aa33291ab8664f66d7cbf75a
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -103,6 +103,8 @@ ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID�
 함께 결속합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
+플랫폼의 `enable_runtime_call_evidence` 입력은 기존 Operator API 모듈과 독립적으로 이 Inventory
+Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수 없습니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
 결과로 유지합니다. 관측, 정제된 근거 및 변환 결과 계약은 형식 주석에만 의존하지 않고 실행
 중에도 실행 또는 변경 권한을 각각 거부합니다. 변환된 principal handle은 불투명한 인증 근거
