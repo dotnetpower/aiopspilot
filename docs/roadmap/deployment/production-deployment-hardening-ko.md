@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 66a423db0751eaa253fe622295e2123007fe13bf
+translation_source_sha: 99508a4ceaa3228782d10d91f85293f6f5efaa4a
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 첫 수동 실행에서 이벤트 비교 범위가 없어 과거 커밋 8,205개 전체를 검사한 뒤, 수동 CI secret 검사를 checkout된 보호 리비전으로 제한했습니다. Push와 pull request 실행은 전체 이력 checkout과 기존 커밋 범위 검사를 유지합니다. | 수동 CI 실행 `34517495951`, `current change`, 집중 CI workflow 계약 검사 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |
 | 2026-09-11 | implemented | 보호된 main push 이벤트를 사용할 수 없을 때도 전체 필수 검사 그래프를 보존하는 수동 CI trigger를 추가했습니다. 이 trigger는 checkout된 보호 main 리비전을 검증하며 호출자가 커밋을 선택하도록 허용하거나 push 및 pull request CI를 약화하지 않습니다. | `current change`, 집중 CI workflow 계약 검사 | 실패한 검사를 우회하는 용도가 아니라 정확한 보호 main 필수 검사를 복구할 때만 수동 trigger를 사용합니다. |
 | 2026-09-10 | implemented | 900초 trace 근거 lookback을 60초 detection bucket과 분리해 반복 멱등성 또는 Incident 상관관계 범위를 약화하지 않고 예약된 연속성 검사가 Log Analytics ingestion 하한을 포괄하도록 했습니다. | `current change`, 집중 trace source, runner, CLI 및 Terraform binding 테스트, 세 개의 수집된 scenario를 관측하는 데 900초가 필요했던 실시간 one-shot 근거 | 수정된 analyzer image를 배포하고 execution override 없이 수집된 scenario를 관측하는 예약 실행 하나를 보존합니다. |
 | 2026-09-10 | implemented | 관측성 요청의 적용 후 수렴 검사를 같은 state 전용 updater로 제한하고 독립 analyzer Job image readback을 추가했습니다. 다른 apply는 전체 root 수렴과 inventory image 검사를 유지합니다. | `current change`, 집중 수렴 routing 테스트, 보호 apply `34438595436`에서 updater와 image effect는 완료됐지만 이전 전체 root 수렴 불일치를 확인 | 성공한 재개 검증 또는 새로운 정확한 apply receipt를 하나 보존합니다. |
