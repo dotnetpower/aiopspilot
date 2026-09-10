@@ -44,9 +44,7 @@ For a fresh database, supply its administrator password through the protected in
 - **Application resource group:** Standalone bootstrap expects the group to exist before assigning the runner's roles.
 - **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Mutation-enabled Genesis runs `prepare-genesis-access-tools.sh` before provider or policy mutation, pinning stable Bastion and Microsoft Entra SSH CLI extensions without creating Azure resources. Run it directly only to prewarm or repair the local CLI; inspection mode remains read-only. Offline bootstrap also requires an exact prebuilt image.
 
-[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
-The optional Standard Bastion subnet is associated with the complete Azure-required inbound and
-outbound Network Security Group rule set; omitting a required platform rule blocks tunnel creation.
+[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup. The optional Standard Bastion subnet uses the complete Azure-required inbound and outbound Network Security Group rule set; a missing platform rule blocks tunnel creation.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
 `fdaictl provision plan --stage foundation` provides a private dry run. The local Genesis
 coordinator adds approved image and Foundation apply, Bastion enrollment, and verified state
