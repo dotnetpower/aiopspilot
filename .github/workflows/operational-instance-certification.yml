@@ -272,8 +272,7 @@ jobs:
               echo "history container output does not match the reviewed ARM runtime" >&2
               exit 1
             fi
-            if [[ "${inventory_resource_group_candidates[0]}" !=
-                  "${history_resource_group_candidates[0]}" ]]; then
+            if [[ "${inventory_resource_group_candidates[0]}" != "${history_resource_group_candidates[0]}" ]]; then
               echo "certification jobs do not share one resource group" >&2
               exit 1
             fi

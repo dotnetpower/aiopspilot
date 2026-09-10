@@ -80,6 +80,10 @@ def test_oi12_workflow_recovers_legacy_jobs_from_reviewed_arm_contracts() -> Non
     assert "inventory job output does not match the reviewed ARM runtime" in _WORKFLOW
     assert "history job output does not match the reviewed ARM runtime" in _WORKFLOW
     assert "history container output does not match the reviewed ARM runtime" in _WORKFLOW
+    assert (
+        '[[ "${inventory_resource_group_candidates[0]}" != '
+        '"${history_resource_group_candidates[0]}" ]]'
+    ) in _WORKFLOW
     assert "certification jobs do not share one resource group" in _WORKFLOW
     assert "resource group output does not match the reviewed ARM runtimes" in _WORKFLOW
     assert (
