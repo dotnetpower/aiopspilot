@@ -54,7 +54,7 @@ class PostgresStateTransitionStore:
                     try:
                         existing = await _read_existing_batch(
                             connection,
-                            batch_id=batch.batch_id,
+                            expected=batch,
                         )
                     except (TypeError, ValueError) as exc:
                         raise ValueError(
@@ -267,7 +267,12 @@ def _transition(row: dict[str, Any]) -> OperationalStateTransition:
     )
 
 
-async def _read_existing_batch(connection: Any, *, batch_id: str) -> StateTransitionBatch:
+async def _read_existing_batch(
+    connection: Any,
+    *,
+    expected: StateTransitionBatch,
+) -> StateTransitionBatch:
+    batch_id = expected.batch_id
     batch_cursor = await connection.execute(
         "SELECT batch_id, recorded_at FROM operational_state_transition_batch WHERE batch_id = %s",
         (batch_id,),
@@ -295,10 +300,21 @@ async def _read_existing_batch(connection: Any, *, batch_id: str) -> StateTransi
     coverage_rows = await coverage_cursor.fetchall()
     if len(batch_rows) != 1:
         raise ValueError("retained state transition batch identity is invalid")
+    transitions = tuple(_transition(row) for row in transition_rows)
+    coverage = tuple(_coverage(row) for row in coverage_rows)
+    transition_by_id = {item.transition_id: item for item in transitions}
+    coverage_by_id = {item.coverage_id: item for item in coverage}
+    if (
+        len(transition_by_id) != len(transitions)
+        or len(coverage_by_id) != len(coverage)
+        or set(transition_by_id) != {item.transition_id for item in expected.transitions}
+        or set(coverage_by_id) != {item.coverage_id for item in expected.coverage}
+    ):
+        raise ValueError("retained state transition batch children are invalid")
     return StateTransitionBatch(
         batch_id=str(batch_rows[0]["batch_id"]),
-        transitions=tuple(_transition(row) for row in transition_rows),
-        coverage=tuple(_coverage(row) for row in coverage_rows),
+        transitions=tuple(transition_by_id[item.transition_id] for item in expected.transitions),
+        coverage=tuple(coverage_by_id[item.coverage_id] for item in expected.coverage),
         recorded_at=batch_rows[0]["recorded_at"],
     )
 

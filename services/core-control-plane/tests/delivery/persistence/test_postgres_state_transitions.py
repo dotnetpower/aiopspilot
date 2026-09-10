@@ -96,10 +96,10 @@ class _Connection:
         return _Cursor(rows, self.many, rowcount=rowcount)
 
 
-def _transition() -> OperationalStateTransition:
+def _transition(suffix: str = "a") -> OperationalStateTransition:
     return OperationalStateTransition.create(
-        idempotency_key="resource-a:power:1",
-        subject_ref="resource-a",
+        idempotency_key=f"resource-{suffix}:power:1",
+        subject_ref=f"resource-{suffix}",
         subject_type="Resource",
         state_type="resource.power_state",
         from_state="running",
@@ -115,13 +115,13 @@ def _transition() -> OperationalStateTransition:
         producer_version="1.0.0",
         freshness_ceiling_seconds=600,
         completeness_basis_points=10_000,
-        evidence_refs=("evidence:transition",),
+        evidence_refs=(f"evidence:transition:{suffix}",),
     )
 
 
-def _coverage() -> StateTransitionCoverage:
+def _coverage(suffix: str = "a") -> StateTransitionCoverage:
     return StateTransitionCoverage.create(
-        subject_ref="resource-a",
+        subject_ref=f"resource-{suffix}",
         state_type="resource.power_state",
         coverage_start_at=NOW - timedelta(minutes=5),
         coverage_end_at=NOW + timedelta(seconds=1),
@@ -129,7 +129,7 @@ def _coverage() -> StateTransitionCoverage:
         source_identity="provider:inventory",
         source_revision="inventory:1",
         watermark="inventory:watermark:1",
-        evidence_ref="evidence:coverage",
+        evidence_ref=f"evidence:coverage:{suffix}",
         complete=True,
     )
 
@@ -236,6 +236,75 @@ async def test_identical_batch_replay_verifies_retained_children() -> None:
                     "limitation": coverage.limitation,
                     "synthetic": coverage.synthetic,
                 }
+            ],
+        ],
+        replay=True,
+    )
+
+    inserted = await _store(connection).append(batch)
+
+    assert inserted is False
+    assert len(connection.many) == 0
+
+
+async def test_batch_replay_restores_the_digest_bearing_child_order() -> None:
+    transitions = tuple(
+        sorted((_transition("a"), _transition("b")), key=lambda item: item.transition_id)
+    )
+    coverage = tuple(sorted((_coverage("a"), _coverage("b")), key=lambda item: item.coverage_id))
+    batch = StateTransitionBatch.create(
+        transitions=tuple(reversed(transitions)),
+        coverage=tuple(reversed(coverage)),
+        recorded_at=NOW + timedelta(seconds=2),
+    )
+    connection = _Connection(
+        [
+            [{"batch_id": batch.batch_id, "recorded_at": batch.recorded_at}],
+            [
+                {
+                    "transition_id": item.transition_id,
+                    "idempotency_key": item.idempotency_key,
+                    "subject_ref": item.subject_ref,
+                    "subject_type": item.subject_type,
+                    "state_type": item.state_type,
+                    "from_state": item.from_state,
+                    "to_state": item.to_state,
+                    "lane": item.lane.value,
+                    "authority": item.authority.value,
+                    "effective_at": item.effective_at,
+                    "evidence_cutoff": item.evidence_cutoff,
+                    "recorded_at": item.recorded_at,
+                    "source_identity": item.source_identity,
+                    "source_revision": item.source_revision,
+                    "producer_id": item.producer_id,
+                    "producer_version": item.producer_version,
+                    "freshness_ceiling_seconds": item.freshness_ceiling_seconds,
+                    "completeness_basis_points": item.completeness_basis_points,
+                    "evidence_refs": list(item.evidence_refs),
+                    "conflicts": list(item.conflicts),
+                    "correlation_refs": list(item.correlation_refs),
+                    "synthetic": item.synthetic,
+                    "execution_authority": False,
+                }
+                for item in transitions
+            ],
+            [
+                {
+                    "coverage_id": item.coverage_id,
+                    "subject_ref": item.subject_ref,
+                    "state_type": item.state_type,
+                    "coverage_start_at": item.coverage_start_at,
+                    "coverage_end_at": item.coverage_end_at,
+                    "recorded_at": item.recorded_at,
+                    "source_identity": item.source_identity,
+                    "source_revision": item.source_revision,
+                    "watermark": item.watermark,
+                    "evidence_ref": item.evidence_ref,
+                    "complete": item.complete,
+                    "limitation": item.limitation,
+                    "synthetic": item.synthetic,
+                }
+                for item in coverage
             ],
         ],
         replay=True,
