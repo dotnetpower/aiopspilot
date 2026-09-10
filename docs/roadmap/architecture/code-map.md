@@ -3,8 +3,7 @@ title: Code Map
 ---
 # Code Map
 
-This page maps FDAI runtime services, deployment tooling, and shared packages to their source, tests,
-and owning designs. Use it instead of the retired top-level application tree.
+This page maps FDAI runtime services, deployment tooling, and shared packages to their source, tests, and owning designs. Use it instead of the retired top-level application tree.
 
 > **Scope:** This map describes the validated local IS-08 repository ownership and IS-07 local upgrade and rollback proof. IS-09 owns the deferred remote verification.
 
@@ -13,12 +12,7 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Service distributions:** Five distributions retain validated deployment evidence. The independently packaged System Knowledge Service is a sixth read-only candidate with its own Terraform root, Blob CAS claims, Azure Bot, and protected workflow. The platform storage root owns Blob diagnostics for the reused claim account.
 - **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts, including the versioned `fdai_service_contracts.execution_safeguards` seven-proof bundle with false-only authority and effect flags; service-owned validators retain mismatch, freshness, dispatch, and effect decisions.
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
-- **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
-  reviewed ResourceType path registry. Core ontology projection and Operator read models consume
-  that registry before inspecting provider properties. Root and supported nested metadata owners
-  retain only canonical metadata paired with a present allowlisted value. Unsupported flat
-  metadata, generic `status`, and `provisioningState` cannot create an operational fact for an
-  inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
+- **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the reviewed ResourceType path registry. Core ontology projection and Operator read models consume that registry before inspecting provider properties. Root and supported nested metadata owners retain only canonical metadata paired with a present allowlisted value. Unsupported flat metadata, generic `status`, and `provisioningState` cannot create an operational fact for an inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
   and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
   `BuildStatus`; canonical ontology projection keeps that child source and effective time.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package; tracked release catalogs bind a reachable source revision and exact cited blobs.

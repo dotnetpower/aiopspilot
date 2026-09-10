@@ -5,18 +5,12 @@ title: Process Automation
 
 Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches around the control plane; it is a declarative sequence of ontology `ActionType` invocations that the same trust-routing control loop dispatches, one step at a time, under the same safety invariants as a single remediation.
 
-This document is the machine-readable counterpart to
-[agent-workflows.md](../agents/agent-workflows.md). Where that document describes the
-twelve cross-agent workflows in prose and sequence diagrams, this one defines
-the catalog schema, the ontology additions, and the runtime wiring that let a
-workflow ship as catalog-as-code and run in shadow mode.
+This document is the machine-readable counterpart to [agent-workflows.md](../agents/agent-workflows.md).
+It defines the catalog schema, ontology additions, and runtime wiring that let the twelve cross-agent workflows described there ship as catalog-as-code and run in shadow mode.
 
-> **Scope.** Everything here is customer-agnostic
-> ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-> A workflow references only the upstream `ActionType` catalog under
-> [`rule-catalog/action-types/`](../../../rule-catalog/action-types); it never
-> declares a new mutation primitive. A process that needs a new capability is
-> a signal to open an upstream `ActionType` doc PR first.
+> **Scope.** Everything here is customer-agnostic ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> A workflow references only the upstream `ActionType` catalog under [`rule-catalog/action-types/`](../../../rule-catalog/action-types); it never declares a new mutation primitive.
+> A process that needs a new capability is a signal to open an upstream `ActionType` doc PR first.
 ## 1. Four distinct concepts
 
 Process automation composes four concepts that MUST NOT be conflated. Each has

@@ -1,13 +1,12 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 340afaa816b6876628d604fd2dd8d996cf7e216a
+translation_source_sha: 4b0ef96b53da54b4419951b2e43afb8cec4fba09
 translation_revised: 2026-09-10
 ---
 # 코드 맵
 
-이 페이지는 FDAI 런타임 서비스, 배포 도구, 공유 패키지를 소스, 테스트, 설계 문서에 연결합니다.
-폐기된 최상위 애플리케이션 트리 대신 현재 소유권에 맞는 구현을 찾을 때 사용합니다.
+이 페이지는 FDAI 런타임 서비스, 배포 도구, 공유 패키지를 소스, 테스트, 설계 문서에 연결합니다. 폐기된 최상위 애플리케이션 트리 대신 현재 소유권에 맞는 구현을 찾을 때 사용합니다.
 
 > **범위:** 이 지도는 검증된 로컬 IS-08 저장소 소유권과 IS-07 로컬 업그레이드 및 롤백 증명을 설명합니다. 지연된 원격 검증은 IS-09가 소유합니다.
 
@@ -16,12 +15,7 @@ translation_revised: 2026-09-10
 - **서비스 distribution:** distribution 5개는 검증된 배포 근거를 유지합니다. 독립 패키지 시스템 지식 서비스는 자체 Terraform root, Blob CAS claim, Azure Bot 및 보호된 workflow를 갖는 여섯 번째 읽기 전용 후보입니다. 플랫폼 storage root는 재사용하는 claim 계정의 Blob 진단을 소유합니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 권한 및 효과 플래그가 `false`로 고정된 버전별 `fdai_service_contracts.execution_safeguards` 7개 증명 묶음을 포함한 구현 없는 wire 계약을 소유하며, 서비스 소유 검증기는 불일치, 최신성, 디스패치 및 효과 판정을 계속 담당합니다.
   `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
-- **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된
-  ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자
-  속성을 확인하기 전에 이 레지스트리를 사용합니다. 루트와 지원되는 중첩 메타데이터 소유자는 실제
-  허용 값과 연결된 표준 메타데이터만 유지합니다. 지원되지 않는 flat 메타데이터, 일반 `status`,
-  `provisioningState`는 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다. Azure 상태 보강기는
-  승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
+- **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된 ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자 속성을 확인하기 전에 이 레지스트리를 사용합니다. 루트와 지원되는 중첩 메타데이터 소유자는 실제 허용 값과 연결된 표준 메타데이터만 유지합니다. 지원되지 않는 flat 메타데이터, 일반 `status`, `provisioningState`는 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다. Azure 상태 보강기는 승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
   App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
   하위 리소스의 출처와 실제 적용 시각을 유지합니다.
 - **서비스 소유 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다. 추적된 release 카탈로그는 도달 가능한 source revision과 정확한 인용 blob을 연결합니다.

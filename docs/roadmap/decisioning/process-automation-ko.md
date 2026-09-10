@@ -1,24 +1,19 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: ce53b6cc7681c76bcece060a423c4740849b853a
+translation_source_sha: 83f47b892533adc5eb56c770d554538e515533f4
 translation_revised: 2026-09-10
 ---
 # 프로세스 자동화(프로세스 자동화)
 
 프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된 아티팩트로 바꾼다. 프로세스는 컨트롤 플레인을 우회하는 스크립트가 아니다. 이는 온톨로지 `ActionType` 호출의 선언적 시퀀스이며, 동일한 trust-routing 컨트롤 루프가 한 번에 한 스텝씩, 단일 교정 과 동일한 안전 불변식 아래에서 전달 한다.
 
-이 문서는 [agent-workflows.md](../agents/agent-workflows-ko.md) 의 머신-리더블 대응물이다.
-그 문서가 12개 cross-agent 워크플로를 산문과 시퀀스 다이어그램으로 기술한다면,
-이 문서는 워크플로를 catalog-as-code 로 출시하고 shadow 모드로 실행하게 하는
-카탈로그 스키마, 온톨로지 추가분, 런타임 배선을 정의한다.
+이 문서는 [agent-workflows.md](../agents/agent-workflows-ko.md)의 machine-readable 대응물입니다.
+그 문서가 12개 cross-agent 워크플로를 산문과 시퀀스 다이어그램으로 기술한다면, 이 문서는 워크플로를 catalog-as-code로 출시하고 shadow 모드로 실행하게 하는 카탈로그 스키마, 온톨로지 추가분, 런타임 배선을 정의합니다.
 
-> **범위.** 여기의 모든 것은 customer-agnostic 이다
-> ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-> 워크플로는 [`rule-catalog/action-types/`](../../../rule-catalog/action-types)
-> 아래의 업스트림 `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소 를
-> 선언하지 않는다. 새 기능 가 필요한 프로세스는 먼저 업스트림 `ActionType`
-> 문서 PR 을 열라는 신호다.
+> **범위.** 여기의 모든 것은 customer-agnostic입니다([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> 워크플로는 [`rule-catalog/action-types/`](../../../rule-catalog/action-types) 아래의 업스트림 `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소를 선언하지 않습니다.
+> 새 기능이 필요한 프로세스는 먼저 업스트림 `ActionType` 문서 PR을 열라는 신호입니다.
 ## 1. 혼동하면 안 되는 네 가지 개념
 
 프로세스 자동화는 절대 혼동하면 안 되는 네 개념을 조합한다. 각각 단일 책임을
