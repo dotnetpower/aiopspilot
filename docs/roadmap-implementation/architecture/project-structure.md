@@ -64,6 +64,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Rejected verification bundles issued before the selected verifier binding became active. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Capped each decision-evidence admission at the selected verifier binding's expiry. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Capped each decision-evidence admission at the source receipt's freshness expiry. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Rejected decision-critical evidence receipts whose freshness window ends before their recorded time. | `current change`; `fdai_service_contracts/decision_evidence.py`; focused receipt checks (`11 passed`). | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
