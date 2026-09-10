@@ -80,7 +80,6 @@ profiles:
       - {id: semantic-judgment, version: 14, layer: pack}
       - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
-      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
@@ -181,7 +180,6 @@ profiles:
       - {id: semantic-judgment, version: 14, layer: pack}
       - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
-      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
     system_token_budget: 8192
     request_token_budget: 32768
     reserved_output_tokens: 2048
