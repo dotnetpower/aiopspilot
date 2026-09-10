@@ -22,6 +22,12 @@
       "mttr_seconds": "deterministic_bootstrap_95"
     }
   },
+  "observation_import": {
+    "allowed_exporter_workflow_paths": {
+      "baseline": [],
+      "treatment": []
+    }
+  },
   "minimum_sample_size": 30,
   "required_metric_ids": [
     "auto_resolution_rate",

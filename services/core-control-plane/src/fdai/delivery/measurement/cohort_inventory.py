@@ -208,6 +208,13 @@ class PostgresCohortEvidenceInventorySource:
               AND entry->>'synthetic' = 'false'
               AND entry->>'source_cluster_digest' ~ '^sha256:[0-9a-f]{64}$'
               AND entry->>'observation_digest' ~ '^sha256:[0-9a-f]{64}$'
+              AND CASE
+                WHEN entry->>'observed_at' ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+([+]00:00|Z)$'
+                THEN (entry->>'observed_at')::TIMESTAMPTZ >= %s
+                  AND (entry->>'observed_at')::TIMESTAMPTZ <= %s
+                ELSE FALSE
+              END
               AND (
                 (%s = 'metric_id' AND jsonb_typeof(entry->'value') = 'number'
                   AND (entry->>'value')::NUMERIC >= 0)
@@ -223,6 +230,8 @@ class PostgresCohortEvidenceInventorySource:
                 self._policy.measurement_protocol_digest,
                 self._policy.measurement_protocol_version,
                 self._expected_revision,
+                window_start,
+                window_end,
                 identifier_key,
                 identifier_key,
             ),

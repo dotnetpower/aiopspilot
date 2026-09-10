@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fa93ef0f5e30940ee81cb7338d334d788ad3fed6
-translation_revised: 2026-09-10
+translation_source_sha: 648f386dfffb6197068f692e3073497de4cc5c97
+translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
 
@@ -428,8 +428,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Operational catalog 검토 및 측정**: `DeterministicCatalogValidator`는 고정 시나리오 디렉터리에서
   제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
-  `operational-promotion` 측정 작업은 exact-digest batch와 매니페스트 바인딩 causal 및 측정 단위
-  근거만 받아 승격 상태를 바꾸지 않고 증적을 저장합니다.
+  `operational-promotion` 작업은 상태 변경 없이 exact-digest 근거를 저장하고, `cohort_observation_import`는 산출물이 선언한 군, 리비전, 프로토콜, 승인 또는 권한을 받지 않습니다.
+  보호된 workflow가 정확한 정책 필드를 주입해 멱등하게 보존하며, 군별 exporter allowlist는 검토된 exporter와 정책 항목이 함께 추가될 때까지 경로를 차단합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule

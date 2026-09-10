@@ -142,6 +142,8 @@ async def test_measure_query_groups_the_single_bound_projection() -> None:
     assert "entry->>'synthetic' = 'false'" in connection.query
     assert "source_cluster_digest" in connection.query
     assert "observation_digest" in connection.query
+    assert "observed_at" in connection.query
+    assert "::TIMESTAMPTZ >= %s" in connection.query
     assert "jsonb_typeof(entry->'value') = 'number'" in connection.query
-    assert connection.query.count("%s") == len(connection.params) == 9
+    assert connection.query.count("%s") == len(connection.params) == 11
     assert REVISION in connection.params

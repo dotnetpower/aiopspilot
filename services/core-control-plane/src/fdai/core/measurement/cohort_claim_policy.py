@@ -38,6 +38,7 @@ COHORT_CLAIM_POLICY_SCHEMA_VERSION = "1.0.0"
 #: operational promotion requires, so a movable branch or tag name such as
 #: `main` can never pin a published cohort claim.
 _COMMIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_WORKFLOW_PATH = re.compile(r"^\.github/workflows/[a-z0-9][a-z0-9-]{0,99}\.yml$")
 
 #: Success metrics from `docs/roadmap/architecture/goals-and-metrics.md` that a
 #: published cohort claim MUST report as an absolute value with an interval.
@@ -83,6 +84,7 @@ class CohortClaimPolicy:
     measurement_protocol_digest: str
     maximum_window_seconds: int
     interval_methods: tuple[tuple[str, str], ...]
+    allowed_exporter_workflow_paths: tuple[tuple[str, tuple[str, ...]], ...]
     minimum_sample_size: int
     required_metric_ids: tuple[str, ...]
     required_guard_ids: tuple[str, ...]
@@ -145,6 +147,15 @@ class CohortClaimPolicy:
                 f"cohort claim policy cannot pin the expected revision: {error}"
             ) from error
 
+    def allowed_exporters(self, arm: str) -> tuple[str, ...]:
+        """Return reviewed exporter workflows for one cohort arm."""
+
+        exporters = dict(self.allowed_exporter_workflow_paths)
+        try:
+            return exporters[arm]
+        except KeyError as error:
+            raise CohortClaimPolicyError(f"unknown cohort arm: {arm}") from error
+
 
 def require_commit_revision(value: str) -> str:
     """Return one immutable full commit digest, or fail closed.
@@ -204,6 +215,11 @@ def load_cohort_claim_policy(path: Path) -> CohortClaimPolicy:
     _require_floor(guard_ids, ZERO_THRESHOLD_GUARD_IDS, "zero-threshold guard")
     basis = _mapping(body.get("measurement_basis"), "measurement_basis")
     _validate_measurement_basis(basis, minimum=minimum, metric_ids=metric_ids)
+    observation_import = _mapping(body.get("observation_import"), "observation_import")
+    exporter_paths = _exporter_workflow_paths(
+        observation_import.get("allowed_exporter_workflow_paths"),
+        policy_path=path,
+    )
     evidence = _mapping(body.get("evidence"), "evidence")
     freshness = _mapping(body.get("freshness_policy"), "freshness_policy")
     ceiling = freshness.get("ceiling_seconds")
@@ -230,7 +246,12 @@ def load_cohort_claim_policy(path: Path) -> CohortClaimPolicy:
             basis.get("protocol_version"),
             "measurement protocol_version",
         ),
-        measurement_protocol_digest=content_digest(dict(basis)),
+        measurement_protocol_digest=content_digest(
+            {
+                "measurement_basis": dict(basis),
+                "observation_import": dict(observation_import),
+            }
+        ),
         maximum_window_seconds=_integer(
             basis.get("maximum_window_seconds"),
             "measurement maximum_window_seconds",
@@ -247,6 +268,7 @@ def load_cohort_claim_policy(path: Path) -> CohortClaimPolicy:
                 ).items()
             )
         ),
+        allowed_exporter_workflow_paths=exporter_paths,
         minimum_sample_size=minimum,
         required_metric_ids=metric_ids,
         required_guard_ids=guard_ids,
@@ -309,6 +331,41 @@ def _identifiers(raw: Any, name: str) -> tuple[str, ...]:
     if values != tuple(sorted(values)) or len(values) != len(set(values)):
         raise CohortClaimPolicyError(f"cohort claim policy {name} MUST be unique and ordered")
     return values
+
+
+def _exporter_workflow_paths(
+    raw: Any,
+    *,
+    policy_path: Path,
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    mapping = _mapping(raw, "allowed_exporter_workflow_paths")
+    if set(mapping) != {"baseline", "treatment"}:
+        raise CohortClaimPolicyError("cohort exporter allowlist MUST define baseline and treatment")
+    repo_root = policy_path.resolve().parent.parent
+    result: list[tuple[str, tuple[str, ...]]] = []
+    for arm in ("baseline", "treatment"):
+        configured = mapping[arm]
+        if not isinstance(configured, list):
+            raise CohortClaimPolicyError(f"cohort exporter allowlist {arm} MUST be an array")
+        paths = tuple(configured)
+        if (
+            any(
+                not isinstance(item, str) or _WORKFLOW_PATH.fullmatch(item) is None
+                for item in paths
+            )
+            or paths != tuple(sorted(paths))
+            or len(paths) != len(set(paths))
+        ):
+            raise CohortClaimPolicyError(
+                f"cohort exporter allowlist {arm} MUST contain ordered workflow paths"
+            )
+        missing = [item for item in paths if not (repo_root / item).is_file()]
+        if missing:
+            raise CohortClaimPolicyError(
+                "cohort exporter workflow MUST exist in the policy revision: " + ", ".join(missing)
+            )
+        result.append((arm, paths))
+    return tuple(result)
 
 
 def _require_floor(values: tuple[str, ...], floor: tuple[str, ...], label: str) -> None:
