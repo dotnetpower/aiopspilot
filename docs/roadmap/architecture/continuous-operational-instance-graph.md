@@ -92,10 +92,12 @@ of fabricating an edge.
 
 Protected service deployment first consumes the platform-owned runtime-call binding. After an
 Operator state migration disables the legacy platform module, that output can be absent while both
-Container Apps remain deployed. In that case, the VNet runner uses the state-owned app names,
-resource group, and pinned subscription to read both exact Resource IDs from Azure. The same closed
-validation then requires two distinct Container App IDs before either service receives the binding.
-A failed or ambiguous provider read blocks the plan and never falls back to a constructed identity.
+Container Apps remain deployed. In that case, the VNet runner reads the exact Operator app name
+from independent service state and the Core app name and resource group from platform state. It
+uses those names with the pinned subscription to read both exact Resource IDs from Azure. The same
+closed validation then requires two distinct Container App IDs before either service receives the
+binding. A failed or ambiguous state or provider read blocks the plan and never falls back to a
+constructed identity.
 
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 
