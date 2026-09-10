@@ -34,6 +34,9 @@ from types import MappingProxyType
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai.shared.providers.resource_lock import (
+    resource_lock_key as canonical_resource_lock_key,
+)
 
 STOP_CONDITION = "stop_condition"
 ROLLBACK = "rollback"
@@ -233,7 +236,7 @@ def idempotency_lock_key(key: str) -> str:
 def resource_lock_key(resource_ref: str) -> str:
     """Return the logical lock key that serializes one target resource."""
 
-    return f"fdai:resource:{resource_ref}"
+    return canonical_resource_lock_key(resource_ref)
 
 
 def _invariant_safeguard(reason: str) -> str:

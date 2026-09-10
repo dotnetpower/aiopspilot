@@ -32,6 +32,7 @@ from fdai.shared.providers.resource_lock import (
     LiveLockOwnershipAssessment,
     LockOwnershipRejectionReason,
     ResourceLockAcquisitionReceipt,
+    ResourceLockAcquisitionRequest,
     resource_lock_target_digest,
 )
 from fdai_service_contracts.execution_safeguards import SafeguardProofKind
@@ -89,6 +90,14 @@ def _lock_acquisition(
     receipt: SafeguardReceipt,
     **overrides: object,
 ) -> ResourceLockAcquisitionReceipt:
+    request = ResourceLockAcquisitionRequest.create(
+        target_ref=action.target_resource_ref,
+        action_digest=full_action_digest(action),
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision=_SOURCE_REVISION,
+    )
     values: dict[str, object] = {
         "lock_key": receipt.resource_lock_key,
         "target_digest": resource_lock_target_digest(action.target_resource_ref),
@@ -106,6 +115,7 @@ def _lock_acquisition(
         "acquired_at": _NOW,
         "valid_until": _NOW + timedelta(minutes=1),
         "source_revision": _SOURCE_REVISION,
+        "request_digest": request.request_digest,
     }
     values.update(overrides)
     return ResourceLockAcquisitionReceipt.create(**values)
@@ -123,7 +133,7 @@ def _lock_assessment(
         "trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
         "provider_attestation_digest": "sha256:" + "6" * 64,
         "evaluated_at": _NOW,
-        "valid_until": _NOW + timedelta(seconds=30),
+        "valid_until": _NOW + timedelta(seconds=1),
     }
     values.update(overrides)
     return LiveLockOwnershipAssessment.create(

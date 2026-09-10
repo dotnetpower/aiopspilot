@@ -31,6 +31,82 @@ from fdai_service_contracts.ontology_query import content_digest
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _REVISION = re.compile(r"^commit:[a-f0-9]{40}(?:[a-f0-9]{24})?$")
+MAX_LOCK_ASSESSMENT_TTL = timedelta(seconds=5)
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceLockAcquisitionRequest:
+    """Canonical caller context for an adapter-owned evidenced acquisition."""
+
+    schema_version: Literal["1.0.0"]
+    target_ref: str
+    lock_key: str
+    target_digest: str
+    action_digest: str
+    attempt: int
+    producer_id: str
+    producer_version: str
+    source_revision: str
+    request_digest: str
+    execution_authority: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if type(self.schema_version) is not str or self.schema_version != "1.0.0":
+            raise ValueError(
+                f"unsupported resource lock request schema version: {self.schema_version}"
+            )
+        if self.execution_authority is not False:
+            raise ValueError("resource lock request MUST NOT grant execution authority")
+        _validate_target_ref(self.target_ref)
+        _validate_resource_lock_key(self.lock_key)
+        if self.lock_key != resource_lock_key(
+            self.target_ref
+        ) or self.target_digest != resource_lock_target_digest(self.target_ref):
+            raise ValueError("resource lock request target identity mismatched")
+        _validate_text("producer_id", self.producer_id)
+        _validate_text("producer_version", self.producer_version)
+        if type(self.attempt) is not int or self.attempt < 1:
+            raise ValueError("resource lock request attempt MUST be a positive integer")
+        for digest in (self.target_digest, self.action_digest, self.request_digest):
+            if type(digest) is not str or _DIGEST.fullmatch(digest) is None:
+                raise ValueError("resource lock request digest fields MUST be SHA-256")
+        if (
+            type(self.source_revision) is not str
+            or _REVISION.fullmatch(self.source_revision) is None
+        ):
+            raise ValueError("resource lock request source revision MUST be canonical")
+        if self.request_digest != _content_digest(self, "resource-lock-request"):
+            raise ValueError("resource lock request digest mismatched")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        target_ref: str,
+        action_digest: str,
+        attempt: int,
+        producer_id: str,
+        producer_version: str,
+        source_revision: str,
+    ) -> ResourceLockAcquisitionRequest:
+        """Create one request without accepting adapter-owned evidence fields."""
+
+        if cls is not ResourceLockAcquisitionRequest:
+            raise TypeError("resource lock request factory does not support subclasses")
+        payload: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "target_ref": target_ref,
+            "lock_key": resource_lock_key(target_ref),
+            "target_digest": resource_lock_target_digest(target_ref),
+            "action_digest": action_digest,
+            "attempt": attempt,
+            "producer_id": producer_id,
+            "producer_version": producer_version,
+            "source_revision": source_revision,
+            "execution_authority": False,
+        }
+        payload["request_digest"] = _payload_digest(payload, "resource-lock-request")
+        return cls(**payload)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +130,7 @@ class ResourceLockAcquisitionReceipt:
     acquired_at: datetime
     valid_until: datetime | None
     source_revision: str
+    request_digest: str
     receipt_digest: str
     execution_authority: Literal[False] = False
 
@@ -211,6 +288,8 @@ class LiveLockOwnershipAssessment:
             raise ValueError("live lock assessment cannot predate lock acquisition")
         if self.valid_until <= self.evaluated_at:
             raise ValueError("live lock assessment validity MUST follow evaluation")
+        if self.valid_until - self.evaluated_at > MAX_LOCK_ASSESSMENT_TTL:
+            raise ValueError("live lock assessment validity exceeds the maximum TTL")
         expected_reasons = _derive_lock_rejection_reasons(
             self.acquisition_receipt,
             current_fencing_generation=self.current_fencing_generation,
@@ -317,10 +396,112 @@ def require_current_lock_ownership(
 def resource_lock_target_digest(target_ref: str) -> str:
     """Return the canonical digest bound to one logical lock target."""
 
-    _validate_text("target_ref", target_ref)
-    if target_ref != target_ref.strip():
-        raise ValueError("resource lock target reference MUST be canonical")
+    _validate_target_ref(target_ref)
     return content_digest({"target_resource_ref": target_ref})
+
+
+def resource_lock_key(target_ref: str) -> str:
+    """Return the canonical logical lock key for one target reference."""
+
+    _validate_target_ref(target_ref)
+    return f"fdai:resource:{target_ref}"
+
+
+class HeldResourceLockLifecycle:
+    """Make an escaped held-lock handle inert after loss or context exit."""
+
+    __slots__ = ("__deactivated", "__receipt", "__request")
+
+    def __init__(
+        self,
+        acquisition_request: ResourceLockAcquisitionRequest,
+        acquisition_receipt: ResourceLockAcquisitionReceipt,
+    ) -> None:
+        if type(acquisition_request) is not ResourceLockAcquisitionRequest:
+            raise ValueError("held lock lifecycle requires a validated acquisition request")
+        if type(acquisition_receipt) is not ResourceLockAcquisitionReceipt:
+            raise ValueError("held lock lifecycle requires a validated acquisition receipt")
+        _validate_request_receipt_binding(acquisition_request, acquisition_receipt)
+        self.__request = acquisition_request
+        self.__receipt = acquisition_receipt
+        self.__deactivated = False
+
+    @property
+    def acquisition_request(self) -> ResourceLockAcquisitionRequest:
+        """Return the exact immutable request for this acquisition."""
+
+        return self.__request
+
+    @property
+    def acquisition_receipt(self) -> ResourceLockAcquisitionReceipt:
+        """Return the exact immutable receipt for this acquisition."""
+
+        return self.__receipt
+
+    def deactivate(self) -> None:
+        """Permanently invalidate this acquisition handle."""
+
+        self.__deactivated = True
+
+    def require_active(self) -> None:
+        """Fail closed after release, ownership loss, or context exit."""
+
+        if self.__deactivated is True:
+            raise RuntimeError("held resource lock is no longer active")
+
+
+@runtime_checkable
+class HeldResourceLock(Protocol):
+    """One adapter-owned evidenced acquisition valid only inside its context."""
+
+    @property
+    def acquisition_request(self) -> ResourceLockAcquisitionRequest:
+        """Return immutable caller context bound to the acquisition."""
+        ...
+
+    @property
+    def acquisition_receipt(self) -> ResourceLockAcquisitionReceipt:
+        """Return immutable historical acquisition evidence."""
+        ...
+
+    def require_active(self) -> None:
+        """Fail closed when this exact acquisition is no longer active."""
+        ...
+
+    async def assess_ownership(self) -> LiveLockOwnershipAssessment:
+        """Perform a fresh adapter-timed authoritative ownership readback."""
+        ...
+
+
+@runtime_checkable
+class EvidenceResourceLock(Protocol):
+    """Explicit mutation-target locking seam with no legacy fallback."""
+
+    @property
+    def production_eligible(self) -> bool:
+        """Whether this adapter can satisfy production composition."""
+        ...
+
+    def acquire_evidenced(
+        self,
+        request: ResourceLockAcquisitionRequest,
+    ) -> AbstractAsyncContextManager[HeldResourceLock]:
+        """Acquire the exact target and yield one lifecycle-bounded handle."""
+        ...
+
+
+def require_evidence_resource_lock(
+    provider: object,
+    *,
+    production: bool,
+) -> EvidenceResourceLock:
+    """Resolve the explicit evidenced seam without adapting a legacy lock."""
+
+    if not isinstance(provider, EvidenceResourceLock):
+        raise RuntimeError("evidenced resource lock provider is unavailable")
+    if production and provider.production_eligible is not True:
+        raise RuntimeError("evidenced resource lock provider is not production eligible")
+    return provider
 
 
 @runtime_checkable
@@ -345,7 +526,6 @@ class ResourceLock(Protocol):
 
 def _validate_common(receipt: ResourceLockAcquisitionReceipt) -> None:
     text_fields = (
-        receipt.lock_key,
         receipt.provider_id,
         receipt.provider_version,
         receipt.producer_id,
@@ -354,13 +534,13 @@ def _validate_common(receipt: ResourceLockAcquisitionReceipt) -> None:
     )
     if not all(type(value) is str and value.strip() and len(value) <= 512 for value in text_fields):
         raise ValueError("resource lock receipt identity fields MUST be bounded")
-    if receipt.lock_key != receipt.lock_key.strip():
-        raise ValueError("resource lock receipt lock key MUST be canonical")
+    _validate_resource_lock_key(receipt.lock_key)
     for digest in (
         receipt.target_digest,
         receipt.action_digest,
         receipt.owner_token_digest,
         receipt.provider_attestation_digest,
+        receipt.request_digest,
         receipt.receipt_digest,
     ):
         if type(digest) is not str or _DIGEST.fullmatch(digest) is None:
@@ -375,6 +555,23 @@ def _validate_common(receipt: ResourceLockAcquisitionReceipt) -> None:
         _validate_utc("valid_until", receipt.valid_until)
 
 
+def _validate_request_receipt_binding(
+    request: ResourceLockAcquisitionRequest,
+    receipt: ResourceLockAcquisitionReceipt,
+) -> None:
+    if (
+        receipt.request_digest != request.request_digest
+        or receipt.lock_key != request.lock_key
+        or receipt.target_digest != request.target_digest
+        or receipt.action_digest != request.action_digest
+        or receipt.attempt != request.attempt
+        or receipt.producer_id != request.producer_id
+        or receipt.producer_version != request.producer_version
+        or receipt.source_revision != request.source_revision
+    ):
+        raise ValueError("resource lock receipt does not match its acquisition request")
+
+
 def _utc(value: object, name: str) -> datetime:
     if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"resource lock {name} MUST include a timezone")
@@ -386,6 +583,20 @@ def _validate_text(name: str, value: str) -> None:
         raise ValueError(f"resource lock {name} MUST be bounded")
 
 
+def _validate_resource_lock_key(lock_key: str) -> None:
+    if type(lock_key) is not str or not lock_key:
+        raise ValueError("resource lock lock key MUST be non-empty")
+    prefix = "fdai:resource:"
+    if lock_key != lock_key.strip() or not lock_key.startswith(prefix):
+        raise ValueError("resource lock lock key MUST be canonical")
+    _validate_target_ref(lock_key.removeprefix(prefix))
+
+
+def _validate_target_ref(target_ref: str) -> None:
+    if type(target_ref) is not str or not target_ref.strip() or target_ref != target_ref.strip():
+        raise ValueError("resource lock target reference MUST be canonical")
+
+
 def _validate_utc(name: str, value: datetime) -> None:
     if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"resource lock {name} MUST include a timezone")
@@ -395,6 +606,8 @@ def _validate_utc(name: str, value: datetime) -> None:
 
 def _payload_digest(payload: Mapping[str, object], domain: str) -> str:
     body = dict(payload)
+    if domain == "resource-lock-request":
+        body.pop("request_digest", None)
     body.pop("receipt_digest", None)
     body.pop("assessment_digest", None)
     return content_digest({"domain": domain, "body": _normalize_digest_value(body)})
@@ -405,7 +618,11 @@ def _normalize_digest_value(value: object) -> object:
         return value.astimezone(UTC).isoformat()
     if isinstance(
         value,
-        (ResourceLockAcquisitionReceipt, LiveLockOwnershipAssessment),
+        (
+            ResourceLockAcquisitionRequest,
+            ResourceLockAcquisitionReceipt,
+            LiveLockOwnershipAssessment,
+        ),
     ):
         return _normalize_digest_value(asdict(value))
     if isinstance(value, Mapping):
@@ -416,17 +633,28 @@ def _normalize_digest_value(value: object) -> object:
 
 
 def _content_digest(
-    value: ResourceLockAcquisitionReceipt | LiveLockOwnershipAssessment,
+    value: (
+        ResourceLockAcquisitionRequest
+        | ResourceLockAcquisitionReceipt
+        | LiveLockOwnershipAssessment
+    ),
     domain: str,
 ) -> str:
     return _payload_digest(asdict(value), domain)
 
 
 __all__ = [
+    "EvidenceResourceLock",
+    "HeldResourceLock",
+    "HeldResourceLockLifecycle",
     "LiveLockOwnershipAssessment",
     "LockOwnershipRejectionReason",
+    "MAX_LOCK_ASSESSMENT_TTL",
     "ResourceLock",
+    "ResourceLockAcquisitionRequest",
     "ResourceLockAcquisitionReceipt",
+    "require_evidence_resource_lock",
     "require_current_lock_ownership",
+    "resource_lock_key",
     "resource_lock_target_digest",
 ]

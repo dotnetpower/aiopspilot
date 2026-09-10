@@ -29,6 +29,7 @@ and the code/CI gates in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | in-progress | Added the canonical no-authority acquisition request, exact request-bound acquisition receipt, five-second maximum live-assessment validity, explicit `EvidenceResourceLock` and held-handle protocols, an inert-after-exit lifecycle guard, and a production resolver that never adapts or falls back to the legacy lock seam. The canonical executor lock-key helper now delegates to the shared provider contract. | `current change`; `shared/providers/resource_lock.py`; `core/executor/safeguards.py`; `test_resource_lock_receipt.py`; 67 combined resource-lock and finalizer tests, Ruff, and strict mypy passed; independent critique reached no Medium-or-higher findings. | Complete #669 by applying the single-owner inventory to composition, proving every mutation path rejects the legacy seam, and retaining the local provider only for non-production evidence. |
 | 2026-09-10 | in-progress | Split #627 producer wiring into dependency-ordered lifecycle/migration, ownership-through-commit, crash-safe reservation, and authoritative audit-intent evidence blockers. The corrected graph prohibits caller-selected assessment time, legacy production fallback, duplicate target acquisition, unsafe redispatch from an expired in-flight reservation, and success claims from dispatch or sink commit. | `current change`; issues `#669`, `#670`, `#671`, and `#672`; independent design critique reached no Medium-or-higher findings. | Complete #669, then #670, #671, and #672 in dependency order before creating local/PostgreSQL provider and per-path producer integration children. |
 | 2026-09-10 | implemented | Required the pure safeguard finalizer to consume current provider-attested lock ownership at the bundle recording time. The finalizer binds the exact historical receipt to the action, target, source revision, causal timeline, configured verifier and trust anchor, and emits a composite lock proof digest that preserves both the operation statement and live assessment for replay. | `current change`; `core/executor/safeguard_proofs.py`; `shared/providers/resource_lock.py`; `test_safeguard_proofs.py`; `test_resource_lock_receipt.py`; 52 combined focused tests, Ruff, and strict mypy passed; independent critique reached no Medium-or-higher findings. | #660 has no residual work. Produce the validated evidence from real Core and workflow execution paths under #627. |
 | 2026-09-10 | implemented | Added no-authority resource-lock evidence that embeds the exact validated historical acquisition receipt in a current provider-attested fence/session ownership assessment. Canonical digests, exact runtime types, UTC time bounds, lease expiry, trust-anchor mismatch, and independently observed lock loss fail closed. | `current change`; `shared/providers/resource_lock.py`; `test_resource_lock_receipt.py`; 40 focused tests, Ruff, and strict mypy passed; independent critique reached no Medium-or-higher findings. | Keep #660 open until the safeguard finalizer requires this exact current assessment and rejects stale, lost, expired, wrong-verifier, wrong-trust-anchor, and fence-mismatched evidence. |
@@ -240,6 +241,21 @@ silence grants nothing, irreversible actions never use standing authorization, a
 no-ops. Pure A0 reads follow their bounded read authorization and evidence contracts rather than
 mutation rollback, dry-run, and lock requirements. Independent effect verification gates every
 success claim.
+
+### Target-lock ownership migration
+
+The evidenced target lock has one owner per mutation path. The migration keeps the legacy
+resource-claim fence until the selected executor is readiness-gated on the evidenced provider.
+It does not permit a temporary dual acquisition.
+
+| Path | Current target-lock boundary | Required owner after migration |
+|------|------------------------------|--------------------------------|
+| Thor dispatch | Legacy target lock around the generic executor call plus a separate durable resource claim | Keep the durable claim. Remove the duplicate target lock only when the selected executor rejects a missing evidenced provider. |
+| PR native/manual | Idempotency mutex, then an internal legacy target lock | The selected PR executor owns one evidenced target lock through publish and terminal persistence. |
+| Direct API | Idempotency mutex, then an internal legacy target lock | The direct-API executor owns one evidenced target lock through provider commit continuity and terminal persistence. |
+| Tool call | Idempotency mutex, then an internal legacy target lock | The tool-call executor owns one evidenced target lock through provider commit continuity and terminal persistence. |
+| Workflow | Orchestrates the selected executor and does not define a separate `ExecutionPath` | The selected executor owns the target lock. Workflow passes the immutable pre-bundle commitment and never reacquires the target. |
+| Isolated Executor | Shared-bundle revalidation remains open under #628 | The isolated executor must reject missing or stale evidenced ownership before dispatch and must not fall back to the legacy seam. |
 
 ## Rate Limiting and Kill-Switch (DoS and containment)
 

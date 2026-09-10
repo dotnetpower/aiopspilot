@@ -4,24 +4,44 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
+from inspect import signature
 
 import pytest
+from fdai.core.executor.lock import ResourceLockManager
 from fdai.shared.providers.resource_lock import (
+    EvidenceResourceLock,
+    HeldResourceLock,
+    HeldResourceLockLifecycle,
     LiveLockOwnershipAssessment,
     LockOwnershipRejectionReason,
     ResourceLockAcquisitionReceipt,
+    ResourceLockAcquisitionRequest,
     require_current_lock_ownership,
+    require_evidence_resource_lock,
+    resource_lock_key,
     resource_lock_target_digest,
 )
 
 _NOW = datetime(2026, 9, 10, 5, 0, tzinfo=UTC)
 
 
+def _request() -> ResourceLockAcquisitionRequest:
+    return ResourceLockAcquisitionRequest.create(
+        target_ref="example",
+        action_digest="sha256:" + "2" * 64,
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision="commit:" + "a" * 40,
+    )
+
+
 def _values() -> dict[str, object]:
+    request = _request()
     return {
         "lock_key": "fdai:resource:example",
-        "target_digest": "sha256:" + "1" * 64,
-        "action_digest": "sha256:" + "2" * 64,
+        "target_digest": request.target_digest,
+        "action_digest": request.action_digest,
         "attempt": 1,
         "provider_id": "postgres-advisory-lock",
         "provider_version": "1.0.0",
@@ -35,6 +55,7 @@ def _values() -> dict[str, object]:
         "acquired_at": _NOW,
         "valid_until": _NOW + timedelta(minutes=1),
         "source_revision": "commit:" + "a" * 40,
+        "request_digest": request.request_digest,
     }
 
 
@@ -156,6 +177,142 @@ def test_lock_target_digest_is_canonical() -> None:
         resource_lock_target_digest(" resource/example ")
 
 
+def test_acquisition_request_is_canonical_deterministic_and_authority_free() -> None:
+    first = ResourceLockAcquisitionRequest.create(
+        target_ref="resource/example",
+        action_digest="sha256:" + "2" * 64,
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision="commit:" + "a" * 40,
+    )
+    second = ResourceLockAcquisitionRequest.create(
+        target_ref="resource/example",
+        action_digest="sha256:" + "2" * 64,
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision="commit:" + "a" * 40,
+    )
+
+    assert first == second
+    assert first.target_ref == "resource/example"
+    assert first.lock_key == resource_lock_key("resource/example")
+    assert first.target_digest == resource_lock_target_digest("resource/example")
+    assert first.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("target_ref", " resource/example "),
+        ("action_digest", "not-a-digest"),
+        ("attempt", 0),
+        ("attempt", True),
+        ("producer_id", " "),
+        ("producer_version", ""),
+        ("source_revision", "main"),
+    ],
+)
+def test_acquisition_request_rejects_noncanonical_input(
+    field: str,
+    value: object,
+) -> None:
+    values: dict[str, object] = {
+        "target_ref": "resource/example",
+        "action_digest": "sha256:" + "2" * 64,
+        "attempt": 1,
+        "producer_id": "fdai.core.executor",
+        "producer_version": "1.0.0",
+        "source_revision": "commit:" + "a" * 40,
+    }
+    values[field] = value
+    with pytest.raises(ValueError):
+        ResourceLockAcquisitionRequest.create(**values)  # type: ignore[arg-type]
+
+
+def test_held_lock_lifecycle_becomes_permanently_inert() -> None:
+    lifecycle = HeldResourceLockLifecycle(_request(), _receipt())
+    lifecycle.require_active()
+    lifecycle.deactivate()
+    with pytest.raises(RuntimeError, match="no longer active"):
+        lifecycle.require_active()
+    with pytest.raises(AttributeError):
+        lifecycle._active = True
+    lifecycle.deactivate()
+    with pytest.raises(RuntimeError, match="no longer active"):
+        lifecycle.require_active()
+
+
+def test_evidenced_lock_assessment_signature_uses_adapter_owned_time() -> None:
+    assert tuple(signature(HeldResourceLock.assess_ownership).parameters) == ("self",)
+
+
+def test_evidenced_lock_resolution_has_no_legacy_or_production_fallback() -> None:
+    class TestEvidenceLock:
+        production_eligible = False
+
+        def acquire_evidenced(self, request: ResourceLockAcquisitionRequest) -> object:
+            raise NotImplementedError
+
+    local = TestEvidenceLock()
+    assert isinstance(local, EvidenceResourceLock)
+    assert require_evidence_resource_lock(local, production=False) is local
+    with pytest.raises(RuntimeError, match="not production eligible"):
+        require_evidence_resource_lock(local, production=True)
+    with pytest.raises(RuntimeError, match="unavailable"):
+        require_evidence_resource_lock(ResourceLockManager(), production=False)
+
+
+def test_held_lock_lifecycle_rejects_request_receipt_substitution() -> None:
+    request = ResourceLockAcquisitionRequest.create(
+        target_ref="example",
+        action_digest="sha256:" + "9" * 64,
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision="commit:" + "a" * 40,
+    )
+    receipt = _receipt()
+    with pytest.raises(ValueError, match="does not match"):
+        HeldResourceLockLifecycle(request, receipt)
+
+
+def test_session_assessment_rejects_excessive_ttl() -> None:
+    receipt = _receipt(
+        fencing_generation=None,
+        session_identity="session:example",
+        valid_until=None,
+    )
+    with pytest.raises(ValueError, match="maximum TTL"):
+        _assessment(
+            receipt,
+            current_fencing_generation=None,
+            current_session_identity="session:example",
+            valid_until=_NOW + timedelta(seconds=7),
+        )
+
+
+def test_request_rejects_substituted_target_identity() -> None:
+    request = ResourceLockAcquisitionRequest.create(
+        target_ref="resource/example",
+        action_digest="sha256:" + "2" * 64,
+        attempt=1,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        source_revision="commit:" + "a" * 40,
+    )
+    with pytest.raises(ValueError, match="target identity mismatched"):
+        replace(request, target_ref="resource/other")
+
+
+def test_canonical_lock_key_preserves_existing_long_target_support() -> None:
+    target_ref = "resource/" + "a" * 1024
+    lock_key = resource_lock_key(target_ref)
+    assert lock_key == f"fdai:resource:{target_ref}"
+    assert _receipt(lock_key=lock_key).lock_key == lock_key
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
@@ -177,6 +334,8 @@ def test_receipt_and_assessment_digest_tampering_fails_closed() -> None:
     receipt = _receipt()
     with pytest.raises(ValueError, match="digest mismatched"):
         replace(receipt, receipt_digest="sha256:" + "0" * 64)
+    with pytest.raises(ValueError, match="digest mismatched"):
+        replace(receipt, request_digest="sha256:" + "9" * 64)
 
     assessment = LiveLockOwnershipAssessment.create(
         receipt,
@@ -194,7 +353,7 @@ def test_receipt_and_assessment_digest_tampering_fails_closed() -> None:
 
 
 def test_live_assessment_cannot_predate_acquisition_or_outlive_lease() -> None:
-    receipt = _receipt()
+    receipt = _receipt(valid_until=_NOW + timedelta(seconds=2))
     with pytest.raises(ValueError, match="cannot predate"):
         _assessment(
             receipt,
@@ -354,7 +513,7 @@ def test_receipt_rejects_lock_key_string_subclass() -> None:
         def strip(self, chars: str | None = None) -> str:
             return self
 
-    with pytest.raises(ValueError, match="identity fields MUST be bounded"):
+    with pytest.raises(ValueError, match="lock key MUST be non-empty"):
         _receipt(lock_key=NonCanonicalString(" fdai:resource:example "))
 
 
