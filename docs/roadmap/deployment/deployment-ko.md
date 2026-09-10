@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: c64aeda175f7e39e0f31c626c5ee57707384a46a
+translation_source_sha: d7ad2a5961efdef776aead82b60febb1a0c49d80
 translation_revised: 2026-09-10
 ---
 
@@ -30,6 +30,7 @@ translation_revised: 2026-09-10
 | 새 clone 공개 개발 Core 경로 | implemented | `azd-up.sh`, 플랫폼 및 Core Terraform 루트, 기여자 배포 테스트, 집중 Terraform 계획 | 확인된 clean-checkout 실행은 공개 `dev` 구독 하나에서 플랫폼, 이미지, 스키마, 카탈로그, Core, Job, canary 및 초기 인벤토리를 단계적으로 배포합니다. 관찰 모드를 유지하며 비공개, 공유, 스테이징 또는 운영 경로가 아닙니다. |
 | 기능 라이선스 Trial 전달 | implemented | Core 라이선스 및 실행 게이트 테스트, 독립 Core Terraform 검증, 기여자 배포 계약 | 토큰 없는 배포는 관찰 전용으로 유지됩니다. 공개 개발 경로는 소유자 전용 로컬 키가 검증될 때만 최대 30일의 전체 카탈로그 토큰을 발급하고 파일 입력으로 토큰별 다이제스트 이름의 Key Vault 시크릿에 전송하며, 버전 없는 참조와 비밀이 아닌 다이제스트만 Terraform에 전달합니다. 실제 Azure 발급, 갱신 또는 만료 증적은 아직 보존하지 않았습니다. |
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
+| 보호된 구독 생성 plan-only 검증 | validated | 보호된 실행 `34436576350`, 정제된 `fdai.deployment-plan.v1` 메타데이터, 정확한 이행 및 파괴적 계획 가드 | 필수 CI를 통과한 개정 번호에서 선택한 Console, 운영 게이트웨이, Operator API, 문서 수집, 격리 실행기 범위의 준비된 계획을 생성했습니다. 전체 계획을 검토했으며 apply는 실행하지 않았습니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
 | Bot 소유의 보호된 Core 적용 요청 | validated | PR #455, 보호된 계획 `33965356996`, Bot 요청 `33965478498`, 정확한 적용 `33965498775` 및 이슈 #454 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
@@ -46,6 +47,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | validated | 선택한 애플리케이션 범위의 보호된 구독 생성 plan-only 검증을 완료했습니다. 검토한 계획에는 추가 26건, 제자리 변경 11건, 삭제 14건이 있습니다. 모든 삭제는 정확한 교체 12건과 비활성화된 측정 Job 제거 2건으로 설명되며, 일반 파괴 가드에서 검토되지 않은 삭제가 발견되지 않았습니다. 비용 검토에는 embedding 교체, ontology council 배포 3건, 파트너 AI 계정 1건, PostgreSQL SKU 하향이 포함되었습니다. | 보호된 실행 `34436576350`, 준비된 계획 `plan-34436576350-1`, 소스 개정 번호 `8a3bfc3b560034f564b0648c8ff10cb80e8bdfa8`, 검증된 런타임 이미지 개정 번호 `5eb80b2b5e74868dd9ccf7a0dcfeac8d8de1b630`, 정제된 계획 및 사전 점검 다이제스트. | Apply는 실행하지 않았습니다. Apply하려면 만료되지 않은 정확한 계획 ID와 다이제스트에 연결된 별도의 현재 사람 승인이 필요합니다. |
 | 2026-09-10 | implemented | 비활성화된 측정 기능이 unindexed 후속 항목을 만들지 않고 이전 indexed Job 두 개를 삭제한다는 보호 계획 결과에 맞춰 검토된 측정 제거 계약을 정정했습니다. 허용되는 각 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 삭제 전용 작업, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. | 실패한 보호 계획 `34435072691`; `guard_platform_migration_plan.py`; 집중 positive 및 negative 제거 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 검토된 플랫폼 역할 이행 검증을 권한에 영향을 주는 안정 필드로 제한하고 선택적 프로바이더 메타데이터 비교를 중단했습니다. 정확한 주소, 작업, 유일한 교체 경로, 역할 이름, 바뀌지 않은 범위 또는 principal은 계속 필수입니다. | 실패한 보호 계획 `34431365390`; 집중 프로바이더 변형 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 여섯 역할 principal 또는 범위 교체, unindexed create 후속 항목이 있는 indexed 측정 Job 제거 두 건, 검토된 `t1.embedding` 제품군, SKU, 용량 교체를 위한 별도의 정확한 이행 검증기를 추가했습니다. 검증된 파괴적 레코드만 임시 검토 복사본에서 제거하며 apply 권한은 바뀌지 않습니다. | 보호 계획 `34430417852`; Terraform 정의; 집중 positive 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |

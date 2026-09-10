@@ -101,6 +101,11 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 - `status` reads a sanitized projection. It never downloads Terraform state, secret values, DSNs,
   tokens, model request content, or provider payloads.
 
+Protected run `34436576350` validates this application plan-only transport for a required-CI-green
+source and attested runtime image. Its sanitized ready metadata and complete plan review prove the
+protected planning boundary without granting apply authority. The receipt does not validate
+foundation apply, remote-state handoff, or the complete zero-to-ready lifecycle.
+
 Use `--deploy-dev-operations-gateway` when the exact dev plan must preserve or provision the
 private-resource operations Function gateway. The selection is sealed into the context digest
 shared by plan, apply, and status, and it remains subject to the existing cutover, executor-effect,
