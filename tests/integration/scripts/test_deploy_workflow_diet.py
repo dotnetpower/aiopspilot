@@ -121,6 +121,18 @@ def test_deploy_workflow_initializes_remote_state_before_terraform_use() -> None
     assert init < first_state_use
 
 
+def test_core_image_provenance_verification_precedes_terraform_and_acr() -> None:
+    request = _WORKFLOW.index("- name: Validate deployment request")
+    init = _WORKFLOW.index("- name: Initialize Terraform remote state")
+    bind = _WORKFLOW.index("- name: Bind exact Core runtime image")
+    request_block = _WORKFLOW[request:].split("      - name:", maxsplit=1)[0]
+    bind_block = _WORKFLOW[bind:].split("      - name:", maxsplit=1)[0]
+
+    assert request < init < bind
+    assert "bind_core_runtime_image.sh --verify-only" in request_block
+    assert "bind_core_runtime_image.sh --bind-verified infra" in bind_block
+
+
 def test_plan_only_verifies_storage_without_mutating_it() -> None:
     step = _WORKFLOW.index("- name: Verify protected storage containers")
     following = _WORKFLOW.index("- name: Initialize Terraform remote state")
@@ -162,7 +174,7 @@ def test_gateway_publish_uses_bounded_cli_one_deploy() -> None:
     assert "--timeout 900" in block
 
 
-def test_registry_credentials_are_not_process_arguments() -> None:
+def test_registry_credentials_are_private_file_backed_and_cleaned() -> None:
     binder = (_ROOT / "scripts/deployment/azure/bind_core_runtime_image.sh").read_text(
         encoding="utf-8"
     )
@@ -173,7 +185,12 @@ def test_registry_credentials_are_not_process_arguments() -> None:
     assert 'DOCKER_CONFIG="$docker_config" docker login ghcr.io' in binder
     assert 'DOCKER_CONFIG="$docker_config" timeout 60s gh attestation verify' in binder
     assert 'rm -rf -- "$docker_config"' in binder
-    assert 'echo "::add-mask::$registry_token"' in binder
+    assert '-H "Authorization: Bearer $registry_token"' not in binder
+    assert '--header "@$bearer_header_file"' in binder
+    assert 'chmod 0600 "$netrc_file" "$docker_config/config.json"' in binder
+    assert 'rm -rf -- "$private_dir"' in binder
+    assert "gh api" not in binder
+    assert "api.github.com" not in binder
 
 
 def test_post_apply_verifies_inventory_job_image() -> None:

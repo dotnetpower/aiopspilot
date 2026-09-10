@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 2405fd824571e9b3f3f397104bceeb69a5415e56 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d6d46898c4ba9c0700ee0d368570c0b2da77bb15 }]
 ---
 
 # Deploy Quickstart
@@ -72,8 +72,12 @@ key, Core starts in observation-only Trial and denies acting paths.
 - Attested FDAI service images from `container-supply-chain.yml`. Protected
   service plans verify the exact Core, Operator, Document Ingestion API,
   Document Processing Worker, and Isolated Executor image attestations for the
-  selected source revision. Exact apply binds those digests and never promotes
-  or rebuilds an image.
+  selected source revision. Before Terraform initialization or any ACR command,
+  a protected platform plan verifies the Core image from the registry-hosted
+  GHCR OCI bundle with the exact source revision, SLSA v1 predicate, and signer
+  workflow. It has no GitHub API bundle fallback, and its owner-only temporary
+  Docker authentication is removed on exit. Exact apply binds the verified
+  digest and never promotes or rebuilds an image.
 - Keep the scheduled Inventory Job on the protected platform path. After apply,
   the workflow reads the Job back and stops if its inventory container does not
   use the exact digest-pinned Core image selected by the plan.

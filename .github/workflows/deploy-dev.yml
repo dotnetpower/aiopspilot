@@ -281,6 +281,8 @@ jobs:
         env:
           APPLY: ${{ inputs.apply }}
           GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
           DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
@@ -318,6 +320,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/deployment/azure/validate_deploy_request.py
+          if [[ "$APPLY" != "true" && -n "$RUNTIME_IMAGE_REVISION" ]]; then
+            bash scripts/deployment/azure/bind_core_runtime_image.sh --verify-only
+          fi
           if [[ "$APPLY" == "true" ]]; then
             # Verify protected environment approval policy before mutation.
             policy="$RUNNER_TEMP/environment-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
@@ -472,7 +477,6 @@ jobs:
             echo "FDAI_DEPLOYMENT_MODELS_PATH=$manifest"
             echo "FDAI_DEPLOYMENT_MODELS_SHA256=$deployment_digest"
           } >> "$GITHUB_ENV"
-
       - name: Verify protected storage containers
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY != 'true' }}
         run: |
@@ -487,7 +491,6 @@ jobs:
               exit 1
             }
           done
-
       - name: Initialize Terraform remote state
         if: ${{ inputs.apply || env.MODEL_BINDING_ONLY != 'true' }}
         run: |
@@ -555,17 +558,14 @@ jobs:
             echo "ACTIVE_CORE_IMAGE_DIGEST=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image_digest"])' <<< "$binding")"
             echo "ACTIVE_CORE_MODEL_DIGEST=$current"
           } >> "$GITHUB_ENV"
-
       - name: Bind exact Core runtime image
         if: ${{ !inputs.apply && inputs.runtime_image_revision != '' }}
         working-directory: ${{ github.workspace }}
         env:
-          GH_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
-        run: bash scripts/deployment/azure/bind_core_runtime_image.sh infra
-
+        run: bash scripts/deployment/azure/bind_core_runtime_image.sh --bind-verified infra
       - name: Adopt existing Azure resources
         if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}
         run: |
