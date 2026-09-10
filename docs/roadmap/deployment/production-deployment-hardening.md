@@ -29,6 +29,8 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Bounded the manual CI secret scan to the checked-out protected revision after the first dispatch scanned all 8,205 historical commits in the absence of an event comparison range. Push and pull-request runs retain full-history checkout and their normal commit-range scan. | Manual CI run `34517495951`; `current change`; focused CI workflow contract tests. | Produce one green manually dispatched required check on the exact protected main SHA. |
+| 2026-09-11 | implemented | Added a manual CI trigger that preserves the complete required-check graph when a protected main push event is unavailable. The trigger validates the checked-out protected main revision and does not accept a caller-selected commit or weaken push and pull-request CI. | `current change`; focused CI workflow contract tests. | Use the manual trigger only to restore an exact protected-main required check, not to bypass a failing check. |
 | 2026-09-10 | implemented | Separated the 900-second trace evidence lookback from the 60-second detection bucket so scheduled continuity checks cover the Log Analytics ingestion floor without weakening repeat idempotency or Incident correlation bounds. | `current change`; focused trace source, runner, CLI, and Terraform binding tests; live one-shot evidence required 900 seconds to observe three ingested scenarios. | Deploy the revised analyzer image and retain one scheduled run that observes an ingested scenario without an execution override. |
 | 2026-09-10 | implemented | Scoped post-apply convergence for observability requests to the same state-only updater and added an independent analyzer Job image readback. Other applies retain the full-root convergence and inventory image check. | `current change`; focused convergence-routing tests; protected apply `34438595436` completed the updater and image effect but exposed the prior full-root convergence mismatch. | Retain one successful resumed verification or new exact apply receipt. |
 | 2026-09-10 | implemented | Replaced direct analyzer-resource targeting with a state-only Terraform updater because the root compute module's prerequisite graph admitted unrelated configured drift. The updater validates both images as digest-pinned ACR references, updates one named container, verifies authoritative readback, and restores the prior digest on failure. | `current change`; focused success, no-op, rejection, effect-failure, and rollback tests; protected run `34435938544` proved direct targeting still admitted unrelated dependencies after state reconciliation and was correctly blocked. | Retain one create-only protected updater plan, exact apply, and successful analyzer tick receipt. |
@@ -179,7 +181,11 @@ Before the bootstrap plan, it independently reads the runner VM and requires the
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
 configured auto-shutdown and the lifecycle helper both reject deallocation because it resets the
-OS and GitHub registration.
+OS and GitHub registration. Full-scope drift also compares the stable deploy principal's direct
+Azure roles with the exact union in bootstrap and platform Terraform state. Missing roles and
+state-external grants both fail and retain a sanitized manifest receipt. The same run requires the
+disposable scenario state to be absent or empty of managed resource instances and retains a
+separate closure receipt.
 Monitoring, when enabled, provisions an action group, metric alerts for PostgreSQL, Key Vault,
 Event Hubs, and Container Apps, and diagnostic settings to Log Analytics. Alerts are human signals
 only, never autonomous actions.

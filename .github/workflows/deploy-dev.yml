@@ -5,6 +5,7 @@ run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, 
 #       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID,
 #       OPS_VNET_NAME, STATE_RESOURCE_GROUP, STATE_STORAGE_ACCOUNT, STATE_CONTAINER,
 #       CORE_IMAGE, DEV_DEPLOY_REQUIRED_APPROVALS,
+#       ENABLE_RUNTIME_CALL_EVIDENCE,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE,
 #       ENABLE_STEWARDSHIP_GOVERNANCE, GITOPS_OWNER, GITOPS_REPO,
@@ -144,6 +145,7 @@ jobs:
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       # tfvars-equivalent inputs (non-secret via Variables, secret via Secrets).
+      TF_VAR_deploy_runner_principal_id: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       TF_VAR_env: ${{ inputs.environment }}
       TF_VAR_region: ${{ vars.AZURE_REGION }}
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
@@ -153,6 +155,7 @@ jobs:
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
       TF_VAR_enable_design_mocks: ${{ inputs.deploy_design_mocks }}
       TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
+      TF_VAR_enable_runtime_call_evidence: ${{ vars.ENABLE_RUNTIME_CALL_EVIDENCE == 'true' }}
       TF_VAR_enable_operator_channel_edge: ${{ inputs.deploy_operator_channel_edge }}
       TF_VAR_operator_channel_edge_secret_ids: "${{ vars.OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON || '[]' }}"
       TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}
@@ -172,9 +175,10 @@ jobs:
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') || startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       TF_VAR_llm_public_network_access_enabled: ${{ vars.LLM_PUBLIC_NETWORK_ACCESS_ENABLED == 'true' }}
-      MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
+      MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       MODEL_BINDING_POLICY_JSON: ""
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
+      DEPLOY_IDENTITY_MIGRATION_ONLY: ${{ startsWith(inputs.request_id, 'plan-identity-') || startsWith(inputs.request_id, 'apply-identity-') }}
       DOCUMENT_OCR_ACTION: ${{ inputs.document_ocr_action }}
       OCR_POLICY_ONLY: ${{ startsWith(inputs.request_id, 'plan-ocr-') || startsWith(inputs.request_id, 'apply-ocr-') }}
       CORE_MODEL_QUORUM_ONLY: ${{ startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') }}
@@ -306,6 +310,7 @@ jobs:
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
           DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
           DEPLOY_OPERATIONAL_HISTORY: ${{ env.OPERATIONAL_HISTORY_ONLY }}
+          DEPLOY_IDENTITY_MIGRATION_ONLY: ${{ env.DEPLOY_IDENTITY_MIGRATION_ONLY }}
           RCA_READER_IDENTITY_ONLY: ${{ env.RCA_READER_IDENTITY_ONLY }}
           DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
           DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
@@ -321,6 +326,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/deployment/azure/validate_deploy_request.py
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || { echo "TF_CLI_ARGS_plan=$(python3 scripts/deployment/azure/guard_deploy_identity_plan.py targets)"; echo "TF_VAR_operational_history_legacy_deployer_principal_id="; } >> "$GITHUB_ENV"
           if [[ "$APPLY" != "true" && -n "$RUNTIME_IMAGE_REVISION" ]]; then
             bash scripts/deployment/azure/bind_core_runtime_image.sh --verify-only
           fi
@@ -502,6 +508,7 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
           bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py state-env --terraform-dir . >> "$GITHUB_ENV"
 
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
@@ -723,13 +730,15 @@ jobs:
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-')) }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-')) }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then
             mode=model-binding
             extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
+          elif [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" == "true" ]]; then
+            mode=deploy-identity; extra=()
           elif [[ "$CORE_MODEL_QUORUM_ONLY" == "true" ]]; then
             mode=core-model-quorum; extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
           elif [[ "${{ inputs.deploy_design_mocks }}" == "true" ]]; then
@@ -745,17 +754,19 @@ jobs:
             echo "bounded plan scope mode is unavailable" >&2
             exit 1
           fi
-          python3 scripts/deployment/azure/enforce_plan_scope.py \
+          PYTHONPATH="$GITHUB_WORKSPACE" python3 scripts/deployment/azure/enforce_plan_scope.py \
             --plan infra/dev.plan --mode "$mode" "${extra[@]}"
 
       - name: Reject destructive protected plan
-        if: ${{ !inputs.apply && inputs.request_id != '' }}
+        if: ${{ !inputs.apply && inputs.request_id != '' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         env:
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
         run: |
           set -euo pipefail
-          terraform show -json dev.plan > dev.plan.review.json && python3 ../scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json && python3 ../scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
           trap 'rm -f dev.plan.review.json' EXIT
+          terraform show -json dev.plan > dev.plan.review.json
+          python3 ../scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json
+          python3 ../scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
           python3 - <<'PY'
           import json
           import os
@@ -1391,6 +1402,11 @@ jobs:
               echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
             } >> "$GITHUB_ENV"
           fi
+          if [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" == "true" ]]; then
+            terraform show -json dev.plan > "$RUNNER_TEMP/deploy-identity-applied-plan.json"
+            python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py \
+              validate --plan "$RUNNER_TEMP/deploy-identity-applied-plan.json"
+          fi
 
       - name: Reverify active Core model fence
         if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
@@ -1554,7 +1570,10 @@ jobs:
 
       - name: Verify Terraform convergence
         if: ${{ inputs.apply }}
-        run: bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
+        run: |
+          bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || bash ../scripts/deployment/azure/verify-deploy-identity-effect.sh "$RUNNER_TEMP/deploy-identity-applied-plan.json" "$DEPLOY_RUNNER_PRINCIPAL_ID" "$RUNNER_TEMP/deploy-identity-effect-receipt.json" "${{ vars.STATE_STORAGE_ACCOUNT }}" "$TF_VAR_env" "${{ inputs.plan_id }}"
+
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         env:
@@ -1692,7 +1711,7 @@ jobs:
           fi
 
       - name: Synchronize console Entra redirect URI
-        if: ${{ inputs.apply && inputs.deploy_console }}
+        if: ${{ inputs.apply && inputs.deploy_console && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         env:
           EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
@@ -1790,7 +1809,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migrations
-        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -1850,7 +1869,7 @@ jobs:
           retention-days: 90
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2190,7 +2209,7 @@ jobs:
           retention-days: 7
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2218,6 +2237,7 @@ jobs:
         env:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          DEPLOY_IDENTITY_EFFECT_DIGEST: ${{ env.DEPLOY_IDENTITY_EFFECT_DIGEST }}
           MODEL_BINDING_READBACK_DIGEST: ${{ env.MODEL_BINDING_READBACK_DIGEST }}
         run: |
           set -euo pipefail
@@ -2250,6 +2270,9 @@ jobs:
                   "model_resolution": model_resolution,
                   "readback_receipt_digest": readback_digest,
               }
+          identity_effect_digest = os.environ.get("DEPLOY_IDENTITY_EFFECT_DIGEST", "")
+          if identity_effect_digest:
+              receipt["deploy_identity_effect_digest"] = identity_effect_digest
           with open("apply-receipt.json", "w", encoding="utf-8") as stream:
               json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")
@@ -2284,7 +2307,7 @@ jobs:
           retention-days: 90
 
       - name: Publish and verify console
-        if: ${{ inputs.apply && inputs.deploy_console }}
+        if: ${{ inputs.apply && inputs.deploy_console && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         env:
           EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}

@@ -99,6 +99,8 @@ verification receipt binds both endpoint Resource IDs and their active-generatio
 Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
+The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
+of the legacy Operator API module, so state migration cannot silently remove collection.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
 or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
 or mutation authority at runtime rather than relying on type annotations alone. The projected

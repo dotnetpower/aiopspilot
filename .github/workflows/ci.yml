@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # Cancel superseded runs on the same ref (typical PR workflow).
 concurrency:
@@ -585,8 +586,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history so gitleaks scans every commit in a PR.
-          fetch-depth: 0
+          # PR and push runs scan their commit range. Manual exact-main
+          # revalidation scans only the protected revision snapshot.
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 1 || 0 }}
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
