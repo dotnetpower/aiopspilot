@@ -174,13 +174,33 @@ async def test_property_keyed_inventory_state_selects_the_canonical_state_fact()
 
 
 @pytest.mark.asyncio
-async def test_property_keyed_inventory_state_without_canonical_state_is_unusable() -> None:
+async def test_property_metadata_without_generic_state_uses_identity_admission() -> None:
     store = StubStore(
         (
             _resource(
                 "res-aks",
                 "kubernetes-cluster",
                 state_fact={"availabilityState": _state_fact()},
+            ),
+        )
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == (
+        AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),
+    )
+    assert resolution.skipped_reasons == ()
+
+
+@pytest.mark.asyncio
+async def test_malformed_canonical_state_in_property_metadata_is_unusable() -> None:
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact={"state": "not-an-object"},
             ),
         )
     )
