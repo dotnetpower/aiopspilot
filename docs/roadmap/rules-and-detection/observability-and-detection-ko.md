@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 1977e71a537d3e8a20aaa7ff57b06ef3142443f7
+translation_source_sha: 618d46f5f75994e69f7e3c7804e2989af0ba3b0c
 translation_revised: 2026-09-10
 ---
 
@@ -517,6 +517,9 @@ telemetry / metrics
 근거가 충돌하지 않도록 별도의 내용 기반 시도로 보존하고, 이후의 동일한 tick도 첫 tick
 증적으로 축약하지 않습니다. 각 증적은 항상 `execution_authority: false`를 포함합니다. 안정적인
 실행 신원이 없는 로컬 실행은 운영 증적을 만들지 않습니다.
+보호된 분리 서비스 배포는 다이제스트로 고정된 GHCR OCI 대상을 통해 provenance, SBOM, Core
+모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
+않습니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,

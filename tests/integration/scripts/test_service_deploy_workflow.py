@@ -1026,6 +1026,7 @@ def test_workflow_uses_per_service_backend_and_never_platform_root() -> None:
 
 def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert _WORKFLOW.count("gh attestation verify") == 3
+    assert _WORKFLOW.count("--bundle-from-oci") == 3
     assert "manifests/sha-${COMMIT_SHA}" in _WORKFLOW
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW
