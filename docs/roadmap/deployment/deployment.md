@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Split OI-12 job resolution, exact OCI provenance verification, and ACR binding into separate protected steps. The verified repository, revision, and digest cross the step boundary only through `GITHUB_ENV`, and each stage now reports its own failure boundary. | `current change`; failed protected certification `34429999806`; `.github/workflows/operational-instance-certification.yml`; focused workflow contract test. | Publish the split workflow, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-10 | implemented | Removed the Docker CLI dependency from transient GHCR authentication. The binder renders the existing workflow credential in process into a mode-0600 file, never places it in arguments or output, and preserves registry-only provenance verification. | `current change`; failed plan-only run `34427330193` stopped before Terraform and Azure; executable binder and credential-hygiene regressions. | Publish the corrected verifier, pass exact CI, and rerun the non-promoting protected plan. |
 | 2026-09-10 | implemented | Added transient GHCR authentication for OCI attestation verification. The binder writes credentials only to a mode-0700 Docker config, receives the token through stdin, removes the directory at exit, and reports authentication and verification failures explicitly. | `current change`; failed protected certification `34419767892`; ephemeral-config digest verification passed locally; focused credential-hygiene and image-binding tests. | Publish the verifier authentication fix, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-10 | implemented | Extended the bounded ARM fallback to the legacy history Job ID and archive container URL after both Terraform root outputs were empty. One enumeration now resolves exactly one inventory runtime and one history runtime, cross-checks any non-empty root output, and re-reads the selected history Job through the stable resource API. | `current change`; failed protected certification `34416935783`; sanitized runner reproduction; bounded live ARM validation found one exact inventory and one exact history contract; focused workflow test. | Publish the history fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
@@ -298,6 +299,9 @@ prod topology so shadow evaluation is representative.
   each reviewed inventory and history runtime contract. A non-empty root output must match the
   selected ARM runtime. The fallback does not derive Job identity from a naming pattern or retain
   provider output after the step.
+  Job resolution, exact OCI provenance verification, and ACR binding run as separate protected
+  steps. Only the exact verified repository, revision, and digest cross from verification to
+  binding through the job environment.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.
