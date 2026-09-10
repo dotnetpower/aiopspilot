@@ -228,6 +228,13 @@ must independently validate each action and compensation receipt before a forwar
 the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
+The recovery-admission boundary separately binds the complete `WorkflowApprovalSnapshot` quorum,
+exact hold revision, approval step and attempt, target digest, compensation receipt digests,
+distinct requester, approver, and executor identities, and source revision to one current
+`DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant
+authority. Issue #630 owns atomic admission consumption and hold release; until that integration
+lands, the existing matching verified-recovery path remains unchanged.
+
 The upstream headless runtime and production Operator API bind
 `StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
 immutable receipt only for an enforce Action whose execution identity matches its

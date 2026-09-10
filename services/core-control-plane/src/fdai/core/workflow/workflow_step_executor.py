@@ -24,6 +24,7 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowOutcomeVerifier,
     approval_decisions,
     event_id,
+    normalize_workflow_principal,
     step_result,
     truthy,
 )
@@ -48,17 +49,6 @@ The executor pins one instant for the whole run so every step shares one causal
 clock. A long-running Process would otherwise resolve a late step against an
 instant that no longer describes the world, so an over-aged clock fails closed.
 """
-
-
-def _normalized_principal(value: object) -> str:
-    """Canonical form of a principal identifier for identity comparison.
-
-    Azure UPNs and object ids are case-insensitive, so two spellings name one
-    operator. Comparing raw strings would let that operator count twice toward
-    a quorum, or approve a step they requested.
-    """
-
-    return str(value or "").strip().casefold()
 
 
 class ShadowWorkflowStepExecutor:
@@ -501,7 +491,7 @@ class ShadowWorkflowStepExecutor:
 
     async def _durable_approval_result(self, step: RunbookStep) -> RunbookStepResult:
         provider = self._approval_provider
-        requester = _normalized_principal(self._context.get("requester.principal"))
+        requester = normalize_workflow_principal(self._context.get("requester.principal"))
         approval = self._approvals.get(step.id)
         if provider is None:
             return step_result(
@@ -670,11 +660,11 @@ class ShadowWorkflowStepExecutor:
     ) -> RunbookStepResult:
         if not decisions:
             return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval")
-        requester_normalized = _normalized_principal(requester)
+        requester_normalized = normalize_workflow_principal(requester)
         approved_by = {
             approver
             for approver in (
-                _normalized_principal(principal)
+                normalize_workflow_principal(principal)
                 for principal, decision in decisions.items()
                 if decision == "approved"
             )

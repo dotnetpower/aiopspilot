@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 8e1afcf3b20cb22b9a5296497c7898352e97672d
-translation_revised: 2026-09-09
+translation_source_sha: 5efc92727377732551cadc4c17e7f281d5e7c339
+translation_revised: 2026-09-10
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -222,6 +222,13 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 보상 증적을 독립적으로 검증해야 forward 단계가 완료되거나 프로세스가 `compensated`가
 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
 `recovery_incomplete`로 끝나며 성공이 되지 않습니다.
+
+복구 승인 경계는 완전한 `WorkflowApprovalSnapshot` 정족수, 정확한 보류 개정, 승인 단계와
+시도 번호, 대상 다이제스트, 보상 증적 다이제스트, 서로 다른 요청자, 승인자, 실행기 신원,
+소스 개정을 하나의 최신 `DecisionEvidenceAdmission`에 별도로 결속합니다. 이 경계는 타입이
+지정된 적격성만 반환하며 보류를 해제하거나 권한을 부여할 수 없습니다. 이슈 #630이 승인의
+원자적 사용과 보류 해제를 담당하며, 해당 통합이 완료될 때까지 기존의 일치하는 검증된 복구
+경로는 바뀌지 않습니다.
 
 업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과

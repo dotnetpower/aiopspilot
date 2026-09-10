@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 0ea66d4a8687bcba2c2b2a2585ef05604c3da1fa
+translation_source_sha: 64a87e39f1de62907764e729e6ba143d82c442bb
 translation_revised: 2026-09-10
 ---
 
@@ -24,7 +24,7 @@ translation_revised: 2026-09-10
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
 | 실행기 안전조건과 독립 효과 종결 | in-progress | `packages/service-contracts/src/fdai_service_contracts/execution_safeguards.py`; `schemas/execution-safeguard-proof-bundle/1.0.0.json`; `test_execution_safeguards.py`; `core/executor/safeguards.py`; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81`, `#620`, `#627`, `#628`, `#633` | 공급자 중립 7개 증명 wire 묶음을 구현했으며 이 묶음은 권한이나 효과 검증 주장을 부여하지 않습니다. Core 및 작업 흐름 생성기, Isolated 실행기 검증, 별도 승인된 통제된 교차 경로 효과 근거는 열린 작업으로 남아 있습니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
-| 자동화 보류 복구 승인 강화 | in-progress | [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630` | FDAI-CONST-009는 `implemented`를 유지합니다. 완료되지 않은 보상은 일치하는 검증된 복구가 보류를 해제할 때까지 이후 정방향 디스패치를 지속적으로 차단합니다. 열린 작업은 이 구현 상태를 되돌리지 않으면서 정확한 사람 승인, 승인 근거의 원자적 사용, 보류 해제와 새 보류 간 fence를 강화합니다. |
+| 자동화 보류 복구 승인 강화 | in-progress | `core/workflow/recovery_admission.py`; `test_recovery_admission.py`; [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630` | 보류를 변경하거나 권한을 부여하지 않는 정확한 사람 복구 승인을 구현했습니다. 이슈 `#630`에는 승인 근거의 원자적 사용과 보류 해제 및 새 보류 간 fence가 남아 있으며 FDAI-CONST-009는 `implemented`를 유지합니다. |
 | 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로; 이슈 `#371` | 주요 경계는 이제 공유 최소화와 민감정보 제거를 구현했지만 배포 privacy 승인과 보존된 운영 근거는 계속 열려 있습니다. |
 | 사전 사람 권한 부여(A3-E) | in-progress | `config/constitution-traceability.json`의 `FDAI-CONST-008` 요구 사항; [에스컬레이션과 사전 권한](../decisioning/escalation-and-standing-authority-ko.md); 완료된 이슈 `#331`; 이슈 `#621`, `#629`, `#631`, `#632` | 스키마, 평가기, 변경할 수 없는 수명 주기, 읽기 시점 fence가 있지만 의도적으로 연결하지 않은 상태입니다. 효과 전체 구간 fence, 비활성 승격 검토, 범위가 제한된 로컬 shadow 근거, 별도 승인된 통제된 승격이 남아 있습니다. |
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 보류를 해제하거나 권한을 부여하지 않고 별도 승인된 복구를 기존 작업 흐름 승인 및 의사 결정 근거 승인 계약에 결속했습니다. | `current change`; `recovery_admission.py`; `test_recovery_admission.py`; 집중 검사 45개, Ruff, strict mypy 통과. | 이슈 `#630`에서 승인을 원자적으로 사용하고 정확한 보류 개정을 해제합니다. |
 | 2026-09-10 | implemented | 공급자 중립 7개 안전조건 증명 묶음을 정식 순서와 권한 및 효과 플래그의 `false` 고정 조건을 갖춘 변경 불가능한 콘텐츠 주소 기반 wire 계약으로 추가했습니다. 서비스 소유의 불일치, 최신성, 디스패치 및 효과 판정은 이 패키지 밖에 유지합니다. | `current change`; `execution_safeguards.py`; `schemas/execution-safeguard-proof-bundle/1.0.0.json`; 집중 테스트 4개, Ruff, strict mypy 통과. | 이슈 `#627`, `#628`에서 묶음을 생성하고 검증한 뒤 이슈 `#633`에서 별도 승인된 통제된 근거를 보존합니다. |
 | 2026-09-10 | in-progress | P0 실행 안전성 잔여 작업 그래프를 조정했습니다. 완료된 이슈 `#331`은 A3-E 수명 주기 근거를 제공하며, 공급자 중립 안전조건, 작업 흐름, Isolated 실행기, 효과 전체 구간 lease, 비활성 승격, 로컬 shadow 코호트, 통제된 승격, 승인된 복구, 교차 경로 효과 근거는 각각 범위가 제한된 담당 이슈를 갖습니다. | `current change`; 상위 이슈 `#81`; 완료된 이슈 `#331`; 이슈 `#620`-`#622`, `#627`-`#633`. | 하위 패키지를 의존성 순서대로 완료한 뒤 헌법 상태를 변경하기 전에 별도 승인된 통제된 런타임 및 독립 효과 근거를 보존합니다. |
 | 2026-08-29 | in-progress | 공유 실행기 안전조건 계약, 완료된 모델 경계 최소화 증적, 그리고 남은 운영 예행 연습, privacy, A3-E 근거를 위한 명시적 이슈 인계를 반영하도록 보안 원장을 조정했습니다. | `core/executor/safeguards.py`; `tests/core/executor/test_safeguard_contract.py`; [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 이슈 `#81`, `#331`, `#371`, `#372` | 작업 흐름과 Isolated 실행기 경로에 동일한 안전조건 및 독립 효과 증적을 확장하고, 이후 통제된 운영 근거를 보존합니다. |
@@ -43,7 +44,8 @@ translation_revised: 2026-09-10
 - [ ] 이슈 `#627`에서 잠금 및 감사 의도 기록 뒤 Core와 작업 흐름 실행이 공유 묶음을 생성하게 합니다.
 - [ ] 이슈 `#628`에서 Core 검증기를 가져오지 않고 Isolated 실행기가 공유 묶음을 다시 검증하게 합니다.
 - [ ] 이슈 `#633`에서 별도 승인된 통제된 교차 경로 안전조건 및 독립 효과 근거를 보존합니다.
-- [ ] 이슈 `#622`, `#630`에서 기존 승인 및 의사 결정 근거 계약을 통해 별도 승인된 복구를 결속하고, 정확한 보류 개정을 해제하면서 해당 승인을 원자적으로 사용합니다. 이 강화 중에도 FDAI-CONST-009는 `implemented`를 유지합니다.
+- [x] 이슈 `#622`에서 보류를 변경하지 않고 기존 승인 및 의사 결정 근거 계약을 통해 별도 승인된 복구를 결속했습니다. 근거: `recovery_admission.py`, `test_recovery_admission.py`, 통과한 집중 검사 45개.
+- [ ] 이슈 `#630`에서 승인된 복구를 원자적으로 사용하면서 정확한 보류 개정을 해제하고 새 보류를 fence합니다. 이 강화 중에도 FDAI-CONST-009는 `implemented`를 유지합니다.
 - [ ] 하나의 고정된 배포 개정에서 통제된 kill switch, break-glass, 롤백, 신원 재인증 및 감사 앵커 예행 연습 증적을 보존합니다. 이 작업은 이슈 `#372`에서 추적합니다.
 - [ ] Privacy 검증을 주장하기 전에 데이터 거버넌스 운영 게이트를 완료합니다. 이 작업은 이슈 `#371`에서 추적합니다.
 - [ ] 이슈 `#621`, `#629`, `#631`, `#632`에서 효과 전체 구간 fence, 비활성 승격 검토, 범위가 제한된 로컬 shadow 근거, 별도 승인된 통제된 승격을 완료합니다. 완료된 이슈 `#331`은 수명 주기 영속성 근거로 유지합니다.

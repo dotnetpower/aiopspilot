@@ -20,6 +20,12 @@ _PARAM_TOKEN = re.compile(r"\$\{([a-z0-9_.]+)\}")
 _PROCESS_KEY_PREFIX = "process:"
 
 
+def normalize_workflow_principal(value: object) -> str:
+    """Canonicalize a case-insensitive workflow principal for identity comparison."""
+
+    return str(value or "").strip().casefold()
+
+
 def resolve_params(params: Mapping[str, object], context: Mapping[str, str]) -> dict[str, object]:
     """Substitute context tokens in string parameter values."""
     resolved: dict[str, object] = {}
