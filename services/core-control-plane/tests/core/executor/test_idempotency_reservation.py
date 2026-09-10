@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from fdai.core.executor import idempotency_reservation as reservation_model
@@ -21,6 +22,8 @@ from fdai.core.executor.idempotency_reservation import (
     dispatch_permitted,
     expire_reservation,
     reopen_reservation,
+    reservation_record_from_mapping,
+    reservation_record_to_mapping,
 )
 from fdai.shared.contracts.models import ExecutionPath
 from fdai.shared.providers.resource_lock import (
@@ -411,4 +414,50 @@ def test_transition_receipt_rejects_backdated_recovery_acquisition() -> None:
             expected_prior_revision=predecessor.revision,
             store_receipt_digest=_DIGEST,
             recorded_at=_NOW + timedelta(seconds=11),
+        )
+
+
+def test_reservation_record_mapping_round_trip_is_exact() -> None:
+    record = expire_reservation(
+        begin_dispatch(_reserved(), at=_NOW + timedelta(seconds=1)),
+        at=_NOW + timedelta(seconds=10),
+    )
+    mapping = reservation_record_to_mapping(record)
+
+    assert reservation_record_from_mapping(mapping) == record
+    with pytest.raises(ValueError, match="fields are invalid"):
+        reservation_record_from_mapping({**mapping, "unexpected": True})
+
+
+def test_reservation_record_mapping_rejects_corruption() -> None:
+    mapping = reservation_record_to_mapping(_reserved())
+    identity = cast(dict[str, object], mapping["identity"])
+    acquisition = cast(dict[str, object], identity["acquisition_receipt"])
+
+    with pytest.raises(ValueError, match="digest mismatched"):
+        reservation_record_from_mapping(
+            {
+                **mapping,
+                "record_digest": "sha256:" + "0" * 64,
+            }
+        )
+    with pytest.raises(ValueError, match="MUST be an ISO 8601 timestamp"):
+        reservation_record_from_mapping(
+            {
+                **mapping,
+                "reserved_at": "not-a-time",
+            }
+        )
+    with pytest.raises(ValueError):
+        reservation_record_from_mapping(
+            {
+                **mapping,
+                "identity": {
+                    **identity,
+                    "acquisition_receipt": {
+                        **acquisition,
+                        "execution_authority": True,
+                    },
+                },
+            }
         )

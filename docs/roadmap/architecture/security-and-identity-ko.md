@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 9176a0478b549f3b1207554f5cef17cfc72d6ab2
+translation_source_sha: 4f33dc59cf08ca8d9210f634beff8980abfedc8c
 translation_revised: 2026-09-10
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | in-progress | #679에 필요한 정확한 영구 JSON 코덱을 추가했습니다. 직렬화는 열거형 값과 UTC 시각을 생성합니다. 구문 분석은 정확한 중첩 키 집합을 요구하고 획득, 신원, 레코드를 복원하면서 모든 다이제스트, 무권한, 상태, 시간 순서 불변식을 다시 검사합니다. | `current change`; `core/executor/idempotency_reservation.py`; `test_idempotency_reservation.py`; 집중 테스트 18개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #679에서 PostgreSQL 테이블, 원자적 예약 및 CAS 및 읽기 어댑터, 경쟁 및 재시작 테스트, 이행 파일을 구현합니다. |
 | 2026-09-10 | in-progress | 영구 운영 구현을 PostgreSQL 근거 잠금 공급자, 예약 저장소, 감사 의도 저장소, 공유 수명 주기 조정기로 분리했습니다. 특정 시점 잠금 읽기, 영구 예약, 권위 있는 감사 영속화, 실행 순서를 각각 책임 있는 패키지로 유지합니다. | `current change`; 이슈 `#678`, `#679`, `#680`, `#681`; 상위 `#627`. | #678과 #679, 그다음 #680, #681을 완료한 뒤 경로별 PR, Direct API, 도구 호출, 작업 흐름 통합 패키지를 만듭니다. |
 | 2026-09-10 | implemented | 정확한 영구 예약 전환 증적을 포함하는 효과 전 감사 의도와 후보에 결속된 추가 및 읽기 결과를 정의했습니다. 성공 근거에는 영속화, 권위 있는 정확한 읽기, 예약 읽기 뒤이면서 lease 만료 전인 시각이 필요합니다. API 확인이나 호출자가 계산한 다이제스트만으로는 충분하지 않습니다. | `current change`; `core/executor/audit_intent.py`; `test_audit_intent.py`; 집중 테스트 7개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #672 계약 작업은 완료했습니다. 이후 #627 공급자 패키지에서 영구 감사 저장소와 재시작 및 부분 쓰기 근거를 구현합니다. |
 | 2026-09-10 | implemented | 장애에 안전한 예약 신원, 단조 상태 기계, 원자적 예약 결과, 정확한 이전 상태를 포함하는 CAS 및 읽기 증적, 공급자 경계를 정의했습니다. 만료된 실행 중 시도는 영구 결과 불명 격리가 되며, 중단에는 디스패치가 시작되지 않았다는 권위 있는 근거가 필요합니다. 입증된 미수락 뒤의 복구에는 더 늦은 잠금 획득과 더 높은 시도가 필요합니다. | `current change`; `core/executor/idempotency_reservation.py`; `test_idempotency_reservation.py`; 집중 테스트 16개, Ruff, strict mypy 통과; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #671 계약 작업은 완료했습니다. 이후 #627 공급자 패키지에서 재시작 및 경쟁 근거를 갖춘 영구 공급자를 구현하고, 다음으로 #672에서 권위 있는 감사 의도 근거를 정의합니다. |
