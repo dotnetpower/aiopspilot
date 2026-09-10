@@ -13,16 +13,18 @@ from fdai_service_contracts.ontology_query import content_digest
 from psycopg.rows import dict_row
 
 from fdai.core.executor.target_dispatch_fence import (
-    TargetDispatchFenceAcquireDecision,
-    TargetDispatchFenceAcquireResult,
     TargetDispatchFenceRecord,
     TargetDispatchFenceState,
     TargetDispatchFenceTransitionReceipt,
-    classify_target_fence,
 )
 from fdai.core.executor.target_dispatch_fence_codec import (
     target_dispatch_fence_from_mapping,
     target_dispatch_fence_to_mapping,
+)
+from fdai.core.executor.target_dispatch_fence_store import (
+    TargetDispatchFenceAcquireDecision,
+    TargetDispatchFenceAcquireResult,
+    classify_target_fence,
 )
 
 _SELECT_SQL = "SELECT record, recorded_at FROM target_dispatch_fence WHERE target_digest = %s"

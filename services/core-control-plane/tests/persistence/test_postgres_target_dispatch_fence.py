@@ -10,10 +10,12 @@ from datetime import UTC, datetime, timedelta
 import psycopg
 import pytest
 from fdai.core.executor.target_dispatch_fence import (
-    TargetDispatchFenceAcquireDecision,
     TargetDispatchFenceRecord,
     attach_prepared_evidence,
     resolve_target_fence_without_dispatch,
+)
+from fdai.core.executor.target_dispatch_fence_store import (
+    TargetDispatchFenceAcquireDecision,
 )
 from fdai.delivery.persistence.postgres_target_dispatch_fence import (
     PostgresTargetDispatchFenceStore,

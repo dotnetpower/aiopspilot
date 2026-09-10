@@ -20,23 +20,25 @@ from fdai.core.executor.lock_continuity import (
     OwnershipContinuityStrategy,
 )
 from fdai.core.executor.target_dispatch_fence import (
-    TargetDispatchFenceAcquireDecision,
-    TargetDispatchFenceAcquireResult,
     TargetDispatchFenceIdentity,
     TargetDispatchFenceRecord,
     TargetDispatchFenceState,
     TargetDispatchFenceTransitionReceipt,
     attach_prepared_evidence,
-    classify_target_fence,
     close_target_fence_after_release,
     mark_target_fence_in_flight,
     mark_target_fence_release_pending,
     resolve_target_fence_without_dispatch,
-    target_mutation_blocked,
 )
 from fdai.core.executor.target_dispatch_fence_codec import (
     target_dispatch_fence_from_mapping,
     target_dispatch_fence_to_mapping,
+)
+from fdai.core.executor.target_dispatch_fence_store import (
+    TargetDispatchFenceAcquireDecision,
+    TargetDispatchFenceAcquireResult,
+    classify_target_fence,
+    target_mutation_blocked,
 )
 from fdai.shared.contracts.models import ExecutionPath
 from fdai.shared.providers.resource_lock import (
@@ -455,6 +457,14 @@ def test_target_fence_codec_round_trip_and_corruption() -> None:
                 "record_digest": "sha256:" + "0" * 64,
             }
         )
+
+
+def test_store_symbols_keep_the_original_public_import_path() -> None:
+    from fdai.core.executor import target_dispatch_fence as original_module
+
+    assert original_module.TargetDispatchFenceAcquireDecision is TargetDispatchFenceAcquireDecision
+    assert original_module.classify_target_fence is classify_target_fence
+    assert original_module.target_mutation_blocked is target_mutation_blocked
 
 
 def test_transition_receipt_rejects_prepared_evidence_substitution() -> None:

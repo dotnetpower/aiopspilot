@@ -7,7 +7,8 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal, Protocol, Self, runtime_checkable
+from importlib import import_module
+from typing import TYPE_CHECKING, Literal, Self
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -22,6 +23,15 @@ from fdai.core.executor.lock_continuity import (
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 
+if TYPE_CHECKING:
+    from fdai.core.executor.target_dispatch_fence_store import (
+        TargetDispatchFenceAcquireDecision,
+        TargetDispatchFenceAcquireResult,
+        TargetDispatchFenceStore,
+        classify_target_fence,
+        target_mutation_blocked,
+    )
+
 
 class TargetDispatchFenceState(StrEnum):
     """Monotonic target-wide mutation admission state."""
@@ -32,14 +42,6 @@ class TargetDispatchFenceState(StrEnum):
     RELEASE_PENDING = "release_pending"
     RESOLVED = "resolved"
     QUARANTINED = "quarantined"
-
-
-class TargetDispatchFenceAcquireDecision(StrEnum):
-    """Atomic target-generation acquisition disposition."""
-
-    ACQUIRED = "acquired"
-    DUPLICATE_SAME = "duplicate_same"
-    BLOCKED = "blocked"
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,89 +310,6 @@ class TargetDispatchFenceTransitionReceipt:
             digest_field="receipt_digest",
         )
         return cls(**values)  # type: ignore[arg-type]
-
-
-@dataclass(frozen=True, slots=True)
-class TargetDispatchFenceAcquireResult:
-    """Atomic target-generation acquisition result."""
-
-    candidate_identity: TargetDispatchFenceIdentity
-    decision: TargetDispatchFenceAcquireDecision
-    observed_record: TargetDispatchFenceRecord
-    transition_receipt: TargetDispatchFenceTransitionReceipt | None
-
-    def __post_init__(self) -> None:
-        if type(self.candidate_identity) is not TargetDispatchFenceIdentity:
-            raise ValueError("target dispatch fence result requires an exact candidate")
-        if type(self.decision) is not TargetDispatchFenceAcquireDecision:
-            raise ValueError("target dispatch fence acquire decision is invalid")
-        if type(self.observed_record) is not TargetDispatchFenceRecord:
-            raise ValueError("target dispatch fence result requires an exact record")
-        if self.decision is TargetDispatchFenceAcquireDecision.ACQUIRED:
-            if (
-                type(self.transition_receipt) is not TargetDispatchFenceTransitionReceipt
-                or self.transition_receipt.record != self.observed_record
-                or self.observed_record.identity != self.candidate_identity
-                or self.observed_record.state is not TargetDispatchFenceState.PREPARING
-            ):
-                raise ValueError("acquired target dispatch fence requires exact insert evidence")
-        else:
-            if self.transition_receipt is not None:
-                raise ValueError("observed target dispatch fence MUST NOT claim insert evidence")
-            expected = classify_target_fence(
-                self.observed_record,
-                self.candidate_identity,
-            )
-            if self.decision is not expected:
-                raise ValueError("target dispatch fence result mismatched candidate")
-
-
-@runtime_checkable
-class TargetDispatchFenceStore(Protocol):
-    """Atomic target-unique insert, CAS transition, and readback seam."""
-
-    async def acquire_generation(
-        self,
-        record: TargetDispatchFenceRecord,
-    ) -> TargetDispatchFenceAcquireResult:
-        """Insert one preparing generation or return duplicate/blocked state."""
-        ...
-
-    async def compare_and_transition(
-        self,
-        *,
-        prior_record_digest: str,
-        expected_revision: int,
-        record: TargetDispatchFenceRecord,
-    ) -> TargetDispatchFenceTransitionReceipt:
-        """Replace the exact target record and authoritatively read it back."""
-        ...
-
-    async def read(
-        self,
-        target_digest: str,
-    ) -> TargetDispatchFenceRecord | None:
-        """Return the authoritative current generation for one target."""
-        ...
-
-
-def classify_target_fence(
-    existing: TargetDispatchFenceRecord,
-    candidate: TargetDispatchFenceIdentity,
-) -> TargetDispatchFenceAcquireDecision:
-    """Classify one candidate without granting sink-dispatch authority."""
-
-    if existing.identity.target_digest != candidate.target_digest:
-        raise ValueError("target dispatch fence classifier target mismatched")
-    if existing.identity.identity_digest == candidate.identity_digest:
-        return TargetDispatchFenceAcquireDecision.DUPLICATE_SAME
-    return TargetDispatchFenceAcquireDecision.BLOCKED
-
-
-def target_mutation_blocked(record: TargetDispatchFenceRecord | None) -> bool:
-    """Block every target mutation until the current generation is resolved."""
-
-    return bool(record is not None and record.state is not TargetDispatchFenceState.RESOLVED)
 
 
 def attach_prepared_evidence(
@@ -834,6 +753,27 @@ def _normalize_digest_value(value: object) -> object:
         return {str(key): _normalize_digest_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_normalize_digest_value(item) for item in value]
+    return value
+
+
+_STORE_COMPAT_EXPORTS = frozenset(
+    {
+        "TargetDispatchFenceAcquireDecision",
+        "TargetDispatchFenceAcquireResult",
+        "TargetDispatchFenceStore",
+        "classify_target_fence",
+        "target_mutation_blocked",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Lazily preserve store-symbol imports from the original module."""
+
+    if name not in _STORE_COMPAT_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    store_module = import_module("fdai.core.executor.target_dispatch_fence_store")
+    value: object = getattr(store_module, name)
     return value
 
 
