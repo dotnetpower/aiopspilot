@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from fdai_service_contracts.execution_safeguards import (
+    SafeguardProof,
+    SafeguardProofBundle,
+    SafeguardProofKind,
+)
 from fdai_service_contracts.executor_models import (
     Action,
     ActionStopCondition,
@@ -126,6 +131,9 @@ __all__ = [
     "ResourceLock",
     "RollbackKind",
     "RollbackRef",
+    "SafeguardProof",
+    "SafeguardProofBundle",
+    "SafeguardProofKind",
     "StateStore",
     "StopConditionKind",
     "WorkloadIdentity",

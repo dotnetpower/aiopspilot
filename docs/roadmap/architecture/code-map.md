@@ -11,7 +11,7 @@ and owning designs. Use it instead of the retired top-level application tree.
 ## Design at a glance
 
 - **Service distributions:** Five distributions retain validated deployment evidence. The independently packaged System Knowledge Service is a sixth read-only candidate with its own Terraform root, Blob CAS claims, Azure Bot, and protected workflow. The platform storage root owns Blob diagnostics for the reused claim account.
-- **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts;
+- **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts, including the versioned `fdai_service_contracts.execution_safeguards` seven-proof bundle with false-only authority and effect flags; service-owned validators retain mismatch, freshness, dispatch, and effect decisions.
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
 - **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
   reviewed ResourceType path registry. Core ontology projection and Operator read models consume

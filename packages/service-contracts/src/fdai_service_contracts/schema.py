@@ -16,6 +16,7 @@ from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceRec
 from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
 )
+from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 
 
 @runtime_checkable
@@ -66,6 +67,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "decision-evidence-verification",
         "1.0.0",
     ): "schemas/decision-evidence-verification/1.0.0.json",
+    (
+        "execution-safeguard-proof-bundle",
+        "1.0.0",
+    ): "schemas/execution-safeguard-proof-bundle/1.0.0.json",
     ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
     ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
     ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",
@@ -203,6 +208,8 @@ class JsonSchemaContractValidator:
             if schema_name == "decision-critical-evidence"
             else DecisionEvidenceVerificationBundle
             if schema_name == "decision-evidence-verification"
+            else SafeguardProofBundle
+            if schema_name == "execution-safeguard-proof-bundle"
             else None
         )
         if semantic_model is not None:

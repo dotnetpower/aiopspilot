@@ -27,7 +27,7 @@ access, composition, and workflow decisions in the service that owns them.
 | `src/fdai_service_contracts/codec.py`, `compatibility.py`, `manifest.py`, `transition.py`, `translators.py` | Wire encoding, release compatibility, and transition checks |
 | `src/fdai_service_contracts/document.py`, `operator.py`, `semantic_turn.py`, `ontology_query.py` | Cross-service domain records and read contracts |
 | `src/fdai_service_contracts/discovery.py`, `discovery_evidence.py`, `operational_activity.py` | Bounded discovery and operational evidence contracts |
-| `src/fdai_service_contracts/executor.py`, `executor_models.py`, `executor_providers.py` | Isolated Executor commands, receipts, values, and protocols |
+| `src/fdai_service_contracts/executor.py`, `executor_models.py`, `executor_providers.py`, `execution_safeguards.py` | Isolated Executor commands, receipts, seven-safeguard proof bundles, values, and protocols |
 | `src/fdai_service_contracts/schema.py`, `schemas/` | Package-backed JSON Schema registry and immutable schema versions |
 | `contract-generation.json`, `src/fdai_service_contracts/generated/` | Pinned generation policy and generated Python contract types |
 | `../../console/src/generated/service-contracts.ts` | Generated TypeScript contract types for FDAI Console |
