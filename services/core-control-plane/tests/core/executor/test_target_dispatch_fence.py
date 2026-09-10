@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import pytest
 from fdai.core.executor import target_dispatch_fence as fence_model
@@ -536,3 +538,332 @@ def test_transition_receipt_requires_fresh_quarantine_reconciliation() -> None:
             store_receipt_digest=_DIGEST,
             recorded_at=_NOW,
         )
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    (
+        ({"schema_version": "2.0.0"}, "unsupported"),
+        ({"execution_authority": True}, "MUST NOT grant authority"),
+        ({"effect_verification_authority": True}, "MUST NOT grant authority"),
+        ({"reservation_attempt": 0}, "attempt MUST be positive"),
+        ({"generation": 0}, "generation MUST be positive"),
+        ({"client_correlation_id": ""}, "canonical and bounded"),
+        ({"sink_idempotency_key": " padded "}, "canonical and bounded"),
+        ({"identity_digest": "sha256:" + "0" * 64}, "digest mismatched"),
+    ),
+)
+def test_target_fence_identity_rejects_invalid_fields(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_identity(), **cast(Any, changes))
+
+
+def test_target_fence_identity_factory_rejects_invalid_inputs() -> None:
+    reservation = _reservation_identity()
+
+    class DerivedIdentity(TargetDispatchFenceIdentity):
+        pass
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+        DerivedIdentity.create(
+            target_digest=reservation.acquisition_receipt.target_digest,
+            reservation_identity=reservation,
+            continuity_policy=_policy(),
+            generation=1,
+            client_correlation_id="dispatch:1",
+            sink_idempotency_key="sink:1",
+        )
+    with pytest.raises(ValueError, match="exact reservation identity"):
+        TargetDispatchFenceIdentity.create(
+            target_digest=reservation.acquisition_receipt.target_digest,
+            reservation_identity=cast(Any, object()),
+            continuity_policy=_policy(),
+            generation=1,
+            client_correlation_id="dispatch:1",
+            sink_idempotency_key="sink:1",
+        )
+    with pytest.raises(ValueError, match="target mismatched acquisition"):
+        TargetDispatchFenceIdentity.create(
+            target_digest="sha256:" + "0" * 64,
+            reservation_identity=reservation,
+            continuity_policy=_policy(),
+            generation=1,
+            client_correlation_id="dispatch:1",
+            sink_idempotency_key="sink:1",
+        )
+    with pytest.raises(ValueError, match="exact continuity policy"):
+        TargetDispatchFenceIdentity.create(
+            target_digest=reservation.acquisition_receipt.target_digest,
+            reservation_identity=reservation,
+            continuity_policy=cast(Any, object()),
+            generation=1,
+            client_correlation_id="dispatch:1",
+            sink_idempotency_key="sink:1",
+        )
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (lambda record: replace(record, schema_version="2.0.0"), "unsupported"),
+        (lambda record: replace(record, execution_authority=True), "MUST NOT grant authority"),
+        (lambda record: replace(record, effect_verified=True), "MUST NOT grant authority"),
+        (lambda record: replace(record, identity=cast(Any, object())), "exact identity"),
+        (lambda record: replace(record, state=cast(Any, "preparing")), "state is invalid"),
+        (lambda record: replace(record, revision=0), "revision MUST be positive"),
+        (
+            lambda record: replace(record, prior_record_digest=_DIGEST),
+            "MUST NOT have a predecessor",
+        ),
+        (
+            lambda record: replace(
+                record,
+                state_changed_at=record.identity.acquisition_acquired_at
+                - timedelta(microseconds=1),
+            ),
+            "predates lock acquisition",
+        ),
+        (
+            lambda record: replace(
+                record,
+                audit_append_receipt_digest=_DIGEST,
+            ),
+            "prerequisites are partial",
+        ),
+        (
+            lambda record: replace(record, record_digest="sha256:" + "0" * 64),
+            "digest mismatched",
+        ),
+    ),
+)
+def test_target_fence_record_rejects_invalid_fields(
+    factory: Any,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        factory(_preparing())
+
+
+def test_target_fence_record_factory_rejects_invalid_generation_inputs() -> None:
+    preparing = _preparing()
+    resolved = resolve_target_fence_without_dispatch(
+        preparing,
+        no_dispatch_evidence_digest=_DIGEST,
+        changed_at=_NOW,
+    )
+
+    class DerivedRecord(TargetDispatchFenceRecord):
+        pass
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+        DerivedRecord.create_preparing(identity=_identity(), changed_at=_NOW)
+    with pytest.raises(ValueError, match="generation MUST be one"):
+        TargetDispatchFenceRecord.create_preparing(
+            identity=_identity(generation=2),
+            changed_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="predecessor is invalid"):
+        TargetDispatchFenceRecord.create_preparing(
+            identity=_identity(),
+            changed_at=_NOW,
+            prior_resolved_record=cast(Any, object()),
+        )
+    with pytest.raises(ValueError, match="requires resolved predecessor"):
+        TargetDispatchFenceRecord.create_preparing(
+            identity=_identity(),
+            changed_at=_NOW,
+            prior_resolved_record=preparing,
+        )
+    later_reservation = _reservation_identity(
+        attempt=2,
+        acquired_at=_NOW + timedelta(seconds=1),
+    )
+    with pytest.raises(ValueError, match="generation MUST increase by one"):
+        TargetDispatchFenceRecord.create_preparing(
+            identity=_identity(
+                generation=3,
+                reservation_identity=later_reservation,
+            ),
+            changed_at=_NOW + timedelta(seconds=1),
+            prior_resolved_record=resolved,
+        )
+    with pytest.raises(ValueError, match="changes target"):
+        TargetDispatchFenceRecord.create_preparing(
+            identity=_identity(
+                generation=2,
+                reservation_identity=_reservation_identity(
+                    target_ref="resource/other",
+                    attempt=2,
+                    acquired_at=_NOW + timedelta(seconds=1),
+                ),
+            ),
+            changed_at=_NOW + timedelta(seconds=1),
+            prior_resolved_record=resolved,
+        )
+
+
+def test_target_fence_public_transitions_reject_stale_or_wrong_state() -> None:
+    preparing = _preparing()
+    prepared = _prepared()
+    in_flight = mark_target_fence_in_flight(prepared, changed_at=_NOW)
+
+    with pytest.raises(ValueError, match="cannot resolve as undispatched"):
+        resolve_target_fence_without_dispatch(
+            in_flight,
+            no_dispatch_evidence_digest=_DIGEST,
+            changed_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="no_dispatch_evidence_digest"):
+        resolve_target_fence_without_dispatch(
+            preparing,
+            no_dispatch_evidence_digest="invalid",
+            changed_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="not terminalizable"):
+        close_target_fence_after_release(
+            prepared,
+            quarantined=False,
+            resolution_evidence_digest=_DIGEST,
+            changed_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="transition is backdated"):
+        mark_target_fence_in_flight(
+            prepared,
+            changed_at=prepared.state_changed_at - timedelta(microseconds=1),
+        )
+    with pytest.raises(ValueError, match="requires predecessor digest"):
+        replace(prepared, prior_record_digest=None)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    (
+        ({"schema_version": "2.0.0"}, "unsupported"),
+        ({"execution_authority": True}, "MUST NOT grant authority"),
+        ({"record": object()}, "requires an exact record"),
+        ({"prior_record": object()}, "predecessor is invalid"),
+        ({"recorded_at": _NOW - timedelta(microseconds=1)}, "backdated"),
+        ({"receipt_digest": "sha256:" + "0" * 64}, "digest mismatched"),
+    ),
+)
+def test_target_fence_transition_receipt_rejects_invalid_fields(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    preparing = _preparing()
+    receipt = TargetDispatchFenceTransitionReceipt.create(
+        prior_record=None,
+        record=preparing,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+    if "prior_record" in changes:
+        prepared = _prepared()
+        receipt = TargetDispatchFenceTransitionReceipt.create(
+            prior_record=preparing,
+            record=prepared,
+            store_receipt_digest=_DIGEST,
+            recorded_at=_NOW,
+        )
+
+    with pytest.raises(ValueError, match=message):
+        replace(receipt, **cast(Any, changes))
+
+
+def test_target_fence_transition_factory_and_initial_shape_fail_closed() -> None:
+    preparing = _preparing()
+
+    class DerivedReceipt(TargetDispatchFenceTransitionReceipt):
+        pass
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+        DerivedReceipt.create(
+            prior_record=None,
+            record=preparing,
+            store_receipt_digest=_DIGEST,
+            recorded_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="initial target dispatch fence transition is invalid"):
+        TargetDispatchFenceTransitionReceipt.create(
+            prior_record=None,
+            record=_prepared(),
+            store_receipt_digest=_DIGEST,
+            recorded_at=_NOW,
+        )
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    (
+        ({"candidate_identity": object()}, "exact candidate"),
+        ({"decision": "acquired"}, "decision is invalid"),
+        ({"observed_record": object()}, "exact record"),
+        ({"transition_receipt": None}, "requires exact insert evidence"),
+    ),
+)
+def test_target_fence_acquire_result_rejects_invalid_evidence(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    preparing = _preparing()
+    receipt = TargetDispatchFenceTransitionReceipt.create(
+        prior_record=None,
+        record=preparing,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+    values: dict[str, object] = {
+        "candidate_identity": preparing.identity,
+        "decision": TargetDispatchFenceAcquireDecision.ACQUIRED,
+        "observed_record": preparing,
+        "transition_receipt": receipt,
+    }
+    values.update(changes)
+
+    with pytest.raises(ValueError, match=message):
+        TargetDispatchFenceAcquireResult(**cast(Any, values))
+
+
+def test_target_fence_classifier_and_observed_result_reject_mismatch() -> None:
+    preparing = _preparing()
+    wrong_target = _identity(
+        reservation_identity=_reservation_identity(target_ref="resource/other")
+    )
+    other_attempt = _identity(
+        reservation_identity=_reservation_identity(
+            attempt=2,
+            acquired_at=_NOW + timedelta(seconds=1),
+        )
+    )
+    receipt = TargetDispatchFenceTransitionReceipt.create(
+        prior_record=None,
+        record=preparing,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+
+    with pytest.raises(ValueError, match="target mismatched"):
+        classify_target_fence(preparing, wrong_target)
+    with pytest.raises(ValueError, match="MUST NOT claim insert evidence"):
+        TargetDispatchFenceAcquireResult(
+            candidate_identity=preparing.identity,
+            decision=TargetDispatchFenceAcquireDecision.DUPLICATE_SAME,
+            observed_record=preparing,
+            transition_receipt=receipt,
+        )
+    with pytest.raises(ValueError, match="mismatched candidate"):
+        TargetDispatchFenceAcquireResult(
+            candidate_identity=other_attempt,
+            decision=TargetDispatchFenceAcquireDecision.DUPLICATE_SAME,
+            observed_record=preparing,
+            transition_receipt=None,
+        )
+
+
+def test_target_fence_lazy_store_export_rejects_unknown_symbol() -> None:
+    assert fence_model.__getattr__("target_mutation_blocked") is target_mutation_blocked
+    with pytest.raises(AttributeError, match="has no attribute"):
+        fence_model.__getattr__("unknown_symbol")
