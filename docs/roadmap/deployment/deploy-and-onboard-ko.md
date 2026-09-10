@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d6529d13767c4aa0ffd99dfffc93d9282f3822dc
-translation_revised: 2026-09-10
+translation_source_sha: 56b075b60d8f6339eeabdf541caded5e78083a7d
+translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -36,7 +36,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
   data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
   레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
-  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
+  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다. 검토된 구성 기준선도 같은 private 러너 경계를 따릅니다. 보호된 Core 서비스 계획에는 정확한 콘텐츠 주소 기반 Blob 바인딩만 포함하고, Core는 Managed Identity로 읽으며, 적용 후 검증은 변경 불가능한 Blob과 새 Azure Resource Graph 관측값을 독립적으로 비교합니다.
 
 #### Terraform이 만들지 않는 것
 

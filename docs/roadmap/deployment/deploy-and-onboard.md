@@ -32,7 +32,7 @@ The production deployer permission boundary is owned by
   access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
   login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
   registry deliberately stays public - closing it without a private path would break every
-  image pull. Prod already requires Premium.
+  image pull. Prod already requires Premium. Reviewed configuration baselines follow the same private runner boundary: the protected Core service plan carries only an exact content-addressed Blob binding, Core reads it through Managed Identity, and post-apply verification independently compares that immutable Blob with a fresh Azure Resource Graph observation.
 
 #### What Terraform does not create
 

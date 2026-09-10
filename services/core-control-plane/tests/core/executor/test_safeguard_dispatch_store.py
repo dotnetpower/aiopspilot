@@ -91,7 +91,7 @@ def test_observed_result_rejects_receipt_decision_and_key_mismatch() -> None:
     record = _evidence_fixture()[0]
     receipt = _bundle_persistence_receipt(record)
     conflicting_identity = _evidence_fixture(action_name="other")[0].identity
-    wrong_target_identity = _evidence_fixture(target_resource_ref="resource/other")[0].identity
+    wrong_target_identity = _evidence_fixture(target_ref="resource/other")[0].identity
 
     with pytest.raises(ValueError, match="MUST NOT claim persistence"):
         SafeguardDispatchPersistenceResult(

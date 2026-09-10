@@ -14,6 +14,8 @@ from fdai_service_contracts.ontology_query import content_digest
 from fdai.shared.contracts.models import ExecutionPath
 from fdai.shared.providers.resource_lock import ResourceLockAcquisitionReceipt
 
+from .idempotency_reservation_identity import same_operation
+
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _FINGERPRINT = re.compile(r"^[a-f0-9]{64}$")
 _REVISION = re.compile(r"^commit:[a-f0-9]{40}(?:[a-f0-9]{24})?$")
@@ -586,7 +588,7 @@ def _validate_transition(
     if current.state_changed_at < prior.state_changed_at:
         raise ValueError("idempotency reservation transition is backdated")
     if current.state is ReservationState.RESERVED:
-        if not _same_operation(prior.identity, current.identity):
+        if not same_operation(prior.identity, current.identity):
             raise ValueError("idempotency reservation recovery changes the stable operation")
         if (
             current.identity.acquisition_receipt.attempt
@@ -630,21 +632,6 @@ def validate_reservation_transition(
     """Validate one exact monotonic reservation transition."""
 
     _validate_transition(prior, current)
-
-
-def _same_operation(
-    left: IdempotencyReservationIdentity,
-    right: IdempotencyReservationIdentity,
-) -> bool:
-    return bool(
-        left.idempotency_key == right.idempotency_key
-        and left.action_digest == right.action_digest
-        and left.execution_path is right.execution_path
-        and left.execution_fingerprint == right.execution_fingerprint
-        and left.source_revision == right.source_revision
-        and left.acquisition_receipt.lock_key == right.acquisition_receipt.lock_key
-        and left.acquisition_receipt.target_digest == right.acquisition_receipt.target_digest
-    )
 
 
 def _validate_text(name: str, value: str) -> None:
