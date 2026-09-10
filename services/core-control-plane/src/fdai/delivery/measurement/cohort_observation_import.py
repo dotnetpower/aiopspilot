@@ -149,13 +149,26 @@ class CohortObservationImportContext:
     imported_at: datetime
 
     def __post_init__(self) -> None:
+        if not isinstance(self.arm, CohortArm):
+            raise ValueError("cohort import arm MUST use the CohortArm contract")
         require_commit_revision(self.fdai_revision)
-        if _WORKFLOW_PATH.fullmatch(self.source_workflow_path) is None:
+        if (
+            not isinstance(self.source_workflow_path, str)
+            or _WORKFLOW_PATH.fullmatch(self.source_workflow_path) is None
+        ):
             raise ValueError("cohort source workflow path is invalid")
-        if self.source_run_id < 1 or self.source_run_attempt < 1:
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in (self.source_run_id, self.source_run_attempt)
+        ):
             raise ValueError("cohort source run identity MUST be positive")
-        if _ARTIFACT_NAME.fullmatch(self.source_artifact_name) is None:
+        if (
+            not isinstance(self.source_artifact_name, str)
+            or _ARTIFACT_NAME.fullmatch(self.source_artifact_name) is None
+        ):
             raise ValueError("cohort source artifact name is invalid")
+        if not isinstance(self.imported_at, datetime):
+            raise ValueError("cohort import time MUST use datetime")
         _aware_utc(self.imported_at, "cohort import time")
 
 

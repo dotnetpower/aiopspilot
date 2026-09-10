@@ -195,6 +195,26 @@ def test_batch_cannot_declare_importer_owned_trust_fields() -> None:
         CohortObservationBatch.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("arm", "treatment", "CohortArm"),
+        ("source_run_id", True, "run identity"),
+        ("source_run_attempt", "1", "run identity"),
+        ("source_workflow_path", 1, "workflow path"),
+        ("source_artifact_name", 1, "artifact name"),
+        ("imported_at", "2026-09-11T00:00:00Z", "datetime"),
+    ],
+)
+def test_trusted_import_context_uses_strict_runtime_types(
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        _context(**{field: value})
+
+
 @pytest.mark.parametrize("value", [True, False, "1"])
 def test_metric_value_must_be_a_strict_json_number(value: object) -> None:
     payload = _batch().model_dump(mode="json")
