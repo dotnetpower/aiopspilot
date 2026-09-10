@@ -38,6 +38,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Installed the pinned evidence runtime for every service plan before freezing a configured private baseline. | `current change`; protected service workflow; focused step-order contract check; failed Core plan `34515502047`. | Publish the fix and rerun the runtime-call plan. |
 | 2026-09-11 | implemented | Prevented disabled change accelerators from reading omitted collection-policy entries or contributing cursor deadlines. | `current change`; `inventory_sync_cli.py`; focused disabled-accelerator reconciliation check. | No remaining work for this fail-closed composition correction. |
 | 2026-09-11 | implemented | Restricted unavailable projection-source reasons to canonical machine tokens so principal text, endpoints, and provider details cannot cross the Operator read boundary. | `current change`; `postgres_family_store.py`; focused principal-text rejection check. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Bound Operator runtime-call link decoding to the exact selected inventory generation so stale or substituted metadata cannot be relabeled as current evidence. | `current change`; `postgres_family_store.py`; focused mismatched-generation rejection check. | Retain authenticated available-source evidence on standard ports under issue #260. |

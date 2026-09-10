@@ -1280,6 +1280,14 @@ def test_core_evidence_transition_freezes_and_verifies_private_configuration_bas
     assert "CONFIGURATION_BASELINE_BINDING_JSON" in _WORKFLOW
     assert "CONFIGURATION_BASELINE_GZIP_BASE64" in _WORKFLOW
     assert "Freeze reviewed configuration baseline in private Blob" in _WORKFLOW
+    install_uv = _WORKFLOW.split(
+        "- name: Install pinned uv for service migrations and evidence",
+        maxsplit=1,
+    )[1].split("      - name:", maxsplit=1)[0]
+    assert "\n        if:" not in install_uv
+    assert _WORKFLOW.index(
+        "Install pinned uv for service migrations and evidence"
+    ) < _WORKFLOW.index("Freeze reviewed configuration baseline in private Blob")
     assert "configuration_baseline_evidence.py" in _WORKFLOW
     assert '--metadata "fdai_sha256=$baseline_sha256"' in _WORKFLOW
     assert "Verify deployed configuration baseline and current state" in _WORKFLOW
