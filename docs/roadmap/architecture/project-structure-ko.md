@@ -176,7 +176,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   absence를 입증하지 않고 completeness를 낮춥니다.
 - Inventory projection contract는 다른 Resource topology link와 함께 검토된 `runtime_calls` link를
   등록합니다. 따라서 verified telemetry edge는 선언된 Resource-to-Resource 방향을 사용하며
-  current 및 historical read path에서 사용할 수 있습니다.
+  current 및 historical read path에서 사용할 수 있습니다. 신뢰할 수 없는 원격 분석 묶음에는
+  공개 변환 기능이 없습니다. 인증된 생성기만 정확한 다이제스트와 독립 원본 컨텍스트를
+  검증한 뒤 묶음을 변환합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
