@@ -343,7 +343,9 @@ The implementation runs on the isolated `roadmap-implementation/campaign` branch
 validated campaign commits into `main` through the normal maintainer workflow. Before selecting an
 issue, a clean campaign branch with no campaign-only commits fast-forwards to the current `main`.
 If both branches have advanced, the cycle holds instead of implementing from a stale or diverged
-base.
+base. The timer starts from the primary project checkout and recreates the configured campaign
+worktree when its directory and stale Git registration were removed, so a missing isolated
+checkout does not leave an enabled timer permanently failing before the runner starts.
 
 Stop repeating without deleting the worktree, branch, ledger, or central receipts:
 

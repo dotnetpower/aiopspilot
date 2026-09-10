@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 from scripts.quality.ci.pytest_shard import _assign_shards, _load_duration_weights
-from scripts.quality.ci.resolve_test_scope import classify_paths
+from scripts.quality.ci.resolve_test_scope import ChangeScope, classify_paths
 
 
 def test_shard_assignment_is_stable_balanced_and_bounded() -> None:
@@ -82,26 +83,93 @@ def test_duration_weights_are_versioned_and_validate_paths(tmp_path: Path) -> No
 
 
 def test_change_scope_classification_skips_expensive_python_for_docs_and_console() -> None:
-    assert classify_paths(["docs/roadmap/architecture/project-structure.md"]) == (
-        False,
-        True,
-        False,
+    assert classify_paths(["docs/roadmap/architecture/project-structure.md"]) == ChangeScope(
+        python=False,
+        docs=True,
+        terraform=False,
+        operator=False,
+        evaluation=False,
+        dependencies=False,
+        scenarios=False,
     )
-    assert classify_paths(["console/src/app.tsx"]) == (False, False, False)
-    assert classify_paths(["services/core-control-plane/src/fdai/core/risk_gate/gate.py"]) == (
-        True,
-        False,
-        False,
+    assert classify_paths(["console/src/app.tsx"]) == ChangeScope(
+        python=False,
+        docs=False,
+        terraform=False,
+        operator=True,
+        evaluation=False,
+        dependencies=False,
+        scenarios=False,
     )
-    assert classify_paths(["alembic/versions/revision.py"]) == (True, False, False)
-    assert classify_paths(["config/rbac-groups.yaml"]) == (True, False, False)
-    assert classify_paths(["tools/seed_p1_rules.py"]) == (True, False, False)
-    assert classify_paths(["extensions/code-assurance/assets/skill.json"]) == (
-        True,
-        False,
-        False,
+    assert classify_paths(["services/core-control-plane/src/fdai/core/risk_gate/gate.py"]).python
+    assert classify_paths(["alembic/versions/revision.py"]).python
+    assert classify_paths(["config/rbac-groups.yaml"]).python
+    assert classify_paths(["tools/seed_p1_rules.py"]).python
+    assert classify_paths(["extensions/code-assurance/assets/skill.json"]) == ChangeScope(
+        python=True,
+        docs=True,
+        terraform=False,
+        operator=True,
+        evaluation=True,
+        dependencies=False,
+        scenarios=False,
     )
-    assert classify_paths(["infra/scenario-lab/main.tf"]) == (False, False, True)
+    assert classify_paths(["infra/scenario-lab/main.tf"]).terraform
     assert classify_paths(
         ["services/core-control-plane/tests/core/risk_gate/test_gate.py", "README.md"]
-    ) == (True, True, False)
+    ).python
+
+
+@pytest.mark.parametrize(
+    ("path", "field"),
+    [
+        ("scripts/quality/localization/check-translations.sh", "docs"),
+        (
+            "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
+            "docs",
+        ),
+        (".github/instructions/architecture.instructions.md", "docs"),
+        (".github/actions/setup-opa/action.yml", "python"),
+        ("cli/src/main.ts", "operator"),
+        ("ui/calm-slate-tokens.css", "operator"),
+        ("mocks/ui/assets/calm-slate.css", "operator"),
+        ("packages/network-topology-contracts/src/index.d.ts", "operator"),
+        ("packages/service-contracts/openapi.json", "operator"),
+        ("tools/architecture-diagrams/assets/resource.svg", "operator"),
+        ("eval/golden-dataset/example.json", "python"),
+        ("eval/golden-dataset/example.json", "operator"),
+        ("eval/golden-dataset/example.json", "evaluation"),
+        ("evaluation-sdk/src/fdai_evaluation_sdk/client.py", "evaluation"),
+        ("benchmarks/cybergym/tests/test_adapter.py", "evaluation"),
+        ("pyproject.toml", "dependencies"),
+        ("services/core-control-plane/tests/scenarios/v1/example.json", "scenarios"),
+    ],
+)
+def test_change_scope_classification_selects_owning_ci_surface(
+    path: str,
+    field: str,
+) -> None:
+    assert getattr(classify_paths([path]), field)
+
+
+def test_ci_workflow_change_runs_every_scoped_surface() -> None:
+    assert all(classify_paths([".github/workflows/ci.yml"]))
+
+
+def test_every_system_knowledge_catalog_source_selects_derived_source_validation() -> None:
+    root = Path(__file__).resolve().parents[3]
+    catalog = json.loads(
+        (
+            root / "services/system-knowledge-service/src/"
+            "fdai_system_knowledge_service/data/catalog.json"
+        ).read_text(encoding="utf-8")
+    )
+    source_paths = {source["path"] for record in catalog["records"] for source in record["sources"]}
+
+    assert source_paths
+    assert all(classify_paths([path]).docs for path in source_paths)
+
+
+def test_unclassified_path_fails_safe_to_every_ci_surface() -> None:
+    assert all(classify_paths(["new-subsystem/unknown.input"]))
+    assert all(classify_paths(["docs/known.md", "new-subsystem/unknown.input"]))

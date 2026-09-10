@@ -38,7 +38,7 @@ successful result.
 | Area | Required control | Completion measure |
 |------|------------------|--------------------|
 | Shared writes | Detect overlapping staged and unstaged paths, unsafe shared-index commands, and active path reservations. | No unresolved overlap or unsafe commit command at the commit boundary. |
-| Validation | Report focused-check state, pushed-SHA CI state, and optional queue diagnostics without making local receipts authoritative. | Ordinary commits and pushes never wait for the optional queue; required CI remains attributable to the exact pushed SHA. |
+| Validation | Report focused-check state, pushed-SHA CI state, and optional queue diagnostics without making local receipts authoritative. Route documentation, operator, evaluation, dependency, frozen-scenario, and Terraform changes to their owning expensive jobs; split the full Python regression suite across four balanced shards. | Ordinary commits and pushes never wait for the optional queue; required CI remains attributable to the exact pushed SHA, and unrelated expensive jobs finish as intentional skips. |
 | Design context | Resolve a deduplicated route plan without treating cached bytes as proof that a new session read the design. | One plan per task and no repeated read of an unchanged required document in the same session. |
 | Session continuity | Persist bounded, secret-free worktree, diff, validation, and next-check metadata. | A new session resumes from one handover command without repository-wide discovery. |
 | Focused tests | Detect Python import, database, runtime environment, and checkout contamination before a test starts. | A contaminated check fails before importing task code or opening a database connection. |
@@ -51,6 +51,13 @@ successful result.
 Every diagnostic is bounded. Git history scans inspect at most 64 commits, validation latency uses
 at most 50 receipts, changed-file output uses at most 20 paths, process output uses at most 20 rows,
 HTTP probes use the committed local port inventory, and Azure reads use at most three attempts.
+
+The CI scope resolver is deterministic and fail-safe. A change to the CI workflow selects every
+scoped surface, and an unclassified path falls back to every scoped surface instead of skipping
+unknown consumers. Python changes retain the full regression, safety-core coverage, database,
+governance, derived-source, operator-surface, and evaluation checks. The required join accepts
+only successful jobs and intentional skips, so scope routing reduces unrelated work without
+converting a failed or cancelled check into success.
 
 ## Safety boundaries
 
@@ -77,6 +84,7 @@ HTTP probes use the committed local port inventory, and Azure reads use at most 
 | Git-common-dir state is missing or malformed | Report `unavailable` with a stable reason code. | Existing Git and hook commands fail independently. |
 | An optional validation receipt has invalid timestamps | Exclude it from latency calculation and report the invalid record count. | Optional receipt verification remains unchanged. |
 | A handover references unreachable history | Report drift and the nearest relevant reachable handover when available. | No branch or worktree is changed. |
+| A registered roadmap campaign worktree was deleted | Remove only that configured campaign's stale Git registration, recreate its isolated branch checkout, restore local dependency links, and run the cycle there. | The timer starts from the primary project checkout, so a missing campaign directory cannot prevent recovery or prune another worktree. |
 | A local service probe times out | Report the service and port as unavailable. | The service task remains independently controlled. |
 | VS Code process data is unavailable | Classify editor pressure as upstream-unavailable. | Focused CLI validation remains available. |
 | Azure returns a permanent error | Stop after the first attempt. | The read-only preflight fails closed. |

@@ -123,6 +123,12 @@ def _prepare_campaign_worktree(project: Path, campaign: Path, branch: str) -> Pa
         _link_local_dependencies(project, campaign)
         return campaign
 
+    subprocess.run(  # noqa: S603 - fixed Git command targets only this missing worktree.
+        [_GIT, "-C", str(project), "worktree", "remove", "--force", str(campaign)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     branch_exists = (
         subprocess.run(  # noqa: S603 - fixed git executable and validated ref
             [_GIT, "-C", str(project), "show-ref", "--verify", f"refs/heads/{branch}"],

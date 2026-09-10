@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 95cdb7f2204cee662808790acb6e92ed03b723a4
-translation_revised: 2026-08-20
+translation_source_sha: 085a51e4a5eddbd41a7af4581be2d0d33f0b3096
+translation_revised: 2026-09-10
 ---
 
 # 개발 워크플로 보증
@@ -43,7 +43,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 | 영역 | 필요한 통제 | 완료 측정값 |
 |------|-------------|-------------|
 | 공유 쓰기 | staged 및 unstaged 경로 중첩, 안전하지 않은 공유 index 명령 및 활성 경로 예약을 감지합니다. | 커밋 경계에 해결되지 않은 중첩 또는 안전하지 않은 commit 명령이 없습니다. |
-| 검증 | 로컬 receipt를 권위로 만들지 않고 집중 검사 상태, push된 SHA의 CI 상태 및 optional queue 진단을 보고합니다. | 일반 commit과 push는 optional queue를 기다리지 않으며, 필요한 CI는 정확한 push SHA에 귀속됩니다. |
+| 검증 | 로컬 증적을 권위로 만들지 않고 집중 검사 상태, push된 SHA의 CI 상태 및 선택적 대기열 진단을 보고합니다. 문서, 운영자 표면, 평가, 의존성, 고정 시나리오 및 Terraform 변경을 담당하는 고비용 작업으로 전달하고 전체 Python 회귀 테스트는 균형 잡힌 네 개 샤드로 분할합니다. | 일반 commit과 push는 선택적 대기열을 기다리지 않으며, 필요한 CI는 정확한 push SHA에 귀속됩니다. 관련 없는 고비용 작업은 의도적으로 생략됩니다. |
 | 설계 문맥 | 캐시된 바이트를 새 세션이 설계를 읽었다는 증명으로 취급하지 않고 중복 제거된 route 계획을 해석합니다. | 작업마다 계획 1개이며 같은 세션에서 변경되지 않은 필수 문서를 반복해서 읽지 않습니다. |
 | 세션 연속성 | 제한되고 비밀이 없는 worktree, diff, 검증 및 다음 검사 메타데이터를 보존합니다. | 새 세션이 저장소 전체 재탐색 없이 하나의 인계 명령으로 재개합니다. |
 | 집중 테스트 | 테스트 시작 전에 Python import, 데이터베이스, 런타임 환경 및 checkout 오염을 감지합니다. | 오염된 검사는 작업 코드를 import하거나 데이터베이스 연결을 열기 전에 실패합니다. |
@@ -56,6 +56,13 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 모든 진단은 제한됩니다. Git 기록 scan은 최대 64개 commit, validation 지연은 최대 50개
 receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최대 20개 행, HTTP probe는
 커밋된 로컬 port inventory, Azure 읽기는 최대 3회 시도를 사용합니다.
+
+CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택합니다. CI 워크플로 변경은 범위가
+있는 모든 표면을 선택하고, 분류되지 않은 경로는 알 수 없는 소비자를 건너뛰는 대신 범위가
+있는 모든 표면으로 돌아갑니다. Python 변경은 전체 회귀, 안전 핵심 coverage, database,
+governance, 파생 원본, 운영자 표면 및 평가 검사를 유지합니다. 필수 결합 작업은 성공한
+작업과 의도적으로 생략된 작업만 허용하므로, 범위 전달은 실패하거나 취소된 검사를 성공으로
+바꾸지 않고 관련 없는 작업만 줄입니다.
 
 ## 안전 경계
 
@@ -82,6 +89,7 @@ receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최
 | Git common dir 상태가 없거나 손상됨 | 안정적인 reason code와 함께 `unavailable`을 보고합니다. | 기존 Git 및 hook 명령은 독립적으로 실패합니다. |
 | Optional validation receipt의 timestamp가 잘못됨 | 지연 계산에서 제외하고 잘못된 record 수를 보고합니다. | Optional receipt 검증은 변경되지 않습니다. |
 | Handover가 도달 불가능한 기록을 참조함 | Drift와, 가능한 경우 가장 가까운 도달 가능한 관련 handover를 보고합니다. | Branch 또는 worktree를 변경하지 않습니다. |
+| 등록된 로드맵 캠페인 worktree가 삭제됨 | 구성된 해당 캠페인의 오래된 Git 등록만 제거하고, 격리 branch checkout을 다시 만든 다음 로컬 의존성 링크를 복구하고 그 위치에서 주기를 실행합니다. | 타이머는 기본 프로젝트 checkout에서 시작하므로 캠페인 디렉터리가 없어도 복구할 수 있고 다른 worktree를 정리하지 않습니다. |
 | 로컬 서비스 probe timeout | 서비스와 port를 unavailable로 보고합니다. | 서비스 task는 독립적으로 제어됩니다. |
 | VS Code 프로세스 데이터를 사용할 수 없음 | 편집기 부하를 upstream-unavailable로 분류합니다. | 집중 CLI 검증은 계속 사용할 수 있습니다. |
 | Azure가 영구 오류를 반환함 | 첫 시도 후 중단합니다. | 읽기 전용 preflight는 fail-closed 처리합니다. |

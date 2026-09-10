@@ -10,7 +10,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Shared writes and hooks | implemented | `developer_workflow_repository.py`; workflow tests for overlap and recovery classification | Enforcement remains in existing hooks. |
-| Validation and handover | implemented | Versioned queue records, bounded latency diagnostics, handover schema v2; 48 final focused tests passed | Window uncertainty and malformed state fail closed. |
+| Validation and handover | implemented | Versioned queue records, bounded latency diagnostics, handover schema v2; current CI scope routing and four-shard regression change passed 78 focused tests plus the CI contract checker | Window uncertainty and malformed state fail closed; pushed-SHA latency measurement remains open. |
+| Campaign continuation | implemented | `install_roadmap_implementation_campaign.py`; shared worktree preparation; 35 campaign and watchdog tests | A timer cycle recreates a deleted registered worktree; the installed legacy unit remains held until explicitly reinstalled. |
 | Hermetic checks and local services | implemented | Workflow environment preflight and checkout-owned service readiness; focused workflow tests | The diagnostic never starts or restarts a service. |
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
@@ -54,6 +55,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-16 | implemented | Round 29 re-reviewed the round 28 budgets against the real worst case of each job and script and confirmed they sit above it rather than truncating a slow but healthy deploy, that the `timeout` wrappers preserve exit-code propagation under `set -euo pipefail`, and that both job budgets are valid YAML at job level. The campaign exit condition is met: no reproducible finding above Low remains. | Current change; the round 29 confirmation review and the focused suites recorded in the rows above. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
 | 2026-08-17 | implemented | Removed centralized validation from the mandatory developer path while preserving focused checks, path reservations, commit scoping, structural pre-push gates, and SHA-addressed CI. | `current change`; issue #148; focused hook, dispatcher, and constitution tests. | Observe CI and push latency after adoption; keep the queue available only for explicit diagnostics. |
+| 2026-09-10 | implemented | Routed documentation, operator, evaluation, dependency, frozen-scenario, and Terraform changes to their owning CI jobs and split the full Python regression suite from three balanced shards into four. Unknown paths fall back to every scoped surface, while safety-critical joins and always-required repository, design, secret, and lint controls remain unchanged. | Current change; `uv run pytest -q --no-cov tests/integration/scripts/test_pytest_shard.py tests/integration/scripts/test_check_ci_contracts.py` passed 78 tests; `python3 scripts/quality/ci/check-ci-contracts.py` passed. | After an authorized push, retain at least 20 Python-triggering CI runs and compare queue and regression-shard p95 with the pre-change baseline. |
+| 2026-09-10 | implemented | Moved the roadmap implementation timer entry point to the primary project checkout and made each cycle remove only its own stale worktree registration before recreating a missing isolated campaign checkout. Status now distinguishes a missing worktree without claiming the timer is healthy. | Current change; `uv run pytest -q --no-cov tests/integration/scripts/test_roadmap_implementation_campaign.py tests/integration/scripts/test_roadmap_verification_watchdog.py` passed 35 tests; preview and status commands rendered the expected project-owned cycle. | Reinstall the legacy timer only after the active fixed two-document campaign conflict is intentionally resolved. |
 
 ### Remaining work
 
@@ -63,10 +66,16 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] The final independent review found no residual finding above Low.
 - [x] Completed 22 additional rounds with only the bounded Low residuals listed above.
 - [x] Integrated Top 20 revision `4a18ce982` and obtained its exact central validation receipt.
-- [ ] Complete issue #118 and synchronize the project board.
+- [x] Issue #118 is closed with the `completed` label and its bounded hardening evidence retained.
 - [x] Completed the bounded wait campaign critique rounds for issue #122; the round 28 acceptance
   review found no reproducible residual above Low.
 - [x] Central validation accepted the bounded wait revision `85c5aadf4` and the range was pushed.
 - [x] Removed automatic queue enrollment and per-commit receipt requirements from ordinary commit,
   push, and agent-tool paths in issue #148.
-- [ ] Complete issue #122 and synchronize the project board.
+- [x] Issue #122 is closed with the `completed` label and its bounded wait evidence retained.
+- [ ] After an authorized push, record at least 20 Python-triggering CI runs and confirm the
+  regression-shard p95 is below 5.0 minutes without increasing workflow queue p95; reopen tuning
+  if either condition fails.
+- [ ] After resolving the active fixed two-document campaign conflict, reinstall the roadmap
+  implementation timer and verify one cycle recreates its missing worktree without a systemd
+  `CHDIR` failure.

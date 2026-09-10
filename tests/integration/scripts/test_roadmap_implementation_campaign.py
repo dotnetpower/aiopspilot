@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -14,6 +16,18 @@ def _load() -> ModuleType:
     sys.path.insert(0, str(AUTOMATION))
     path = AUTOMATION / "roadmap_implementation_campaign.py"
     spec = importlib.util.spec_from_file_location("fdai_roadmap_implementation_campaign", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_installer() -> ModuleType:
+    sys.path.insert(0, str(AUTOMATION))
+    path = AUTOMATION / "install_roadmap_implementation_campaign.py"
+    spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_installer", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)
@@ -212,24 +226,22 @@ def test_require_document_updates_checks_both_languages() -> None:
         module._require_document_updates({"documents": documents}, changed[:-1])
 
 
-def test_installer_discovers_issues_and_repeats_persistently(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.syspath_prepend(str(AUTOMATION))
-    path = AUTOMATION / "install_roadmap_implementation_campaign.py"
-    spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_installer", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load {path}")
-    installer = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = installer
-    spec.loader.exec_module(installer)
+def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> None:
+    installer = _load_installer()
+    project = (tmp_path / "project").resolve()
+    campaign = (tmp_path / "campaign").resolve()
 
-    service, timer = installer._unit_text(tmp_path.resolve())
+    service, timer = installer._unit_text(
+        project,
+        campaign,
+        installer.DEFAULT_BRANCH,
+    )
 
-    assert "roadmap_implementation_campaign.py" in service
+    assert "install_roadmap_implementation_campaign.py" in service
+    assert "run-cycle" in service
+    assert f"WorkingDirectory={project}" in service
+    assert str(campaign) in service
     assert "--issue" not in service
-    assert "--max-active-sessions 2" in service
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
     assert "TimeoutStartSec=2h" in service
@@ -272,8 +284,6 @@ def _git_binary() -> str:
 
 
 def _init_repo(path: Path) -> None:
-    import subprocess
-
     def run(*args: str) -> None:
         subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
             [_git_binary(), *args],
@@ -290,6 +300,57 @@ def _init_repo(path: Path) -> None:
     (path / "seed.txt").write_text("seed\n", encoding="utf-8")
     run("add", "seed.txt")
     run("commit", "-qm", "seed")
+
+
+def test_campaign_cycle_recreates_a_deleted_registered_worktree(tmp_path: Path) -> None:
+    installer = _load_installer()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    runner = repo / "scripts" / "automation" / "roadmap_implementation_campaign.py"
+    runner.parent.mkdir(parents=True)
+    runner.write_text(
+        "from pathlib import Path\nPath('cycle-ran').write_text('ok\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    subprocess.run(  # noqa: S603 - fixed Git command in a temporary repository.
+        [_git_binary(), "add", str(runner.relative_to(repo))],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(  # noqa: S603 - fixed Git command in a temporary repository.
+        [_git_binary(), "commit", "-qm", "add campaign runner"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    campaign = tmp_path / "campaign"
+    installer._prepare_campaign_worktree(repo, campaign, installer.DEFAULT_BRANCH)
+    other = tmp_path / "other"
+    subprocess.run(  # noqa: S603 - fixed Git command in a temporary repository.
+        [_git_binary(), "worktree", "add", "-q", "-b", "other", str(other)],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    shutil.rmtree(campaign)
+    shutil.rmtree(other)
+
+    result = installer._run_campaign_cycle(repo, campaign, installer.DEFAULT_BRANCH)
+
+    assert result == 0
+    assert (campaign / "cycle-ran").read_text(encoding="utf-8") == "ok\n"
+    registrations = subprocess.run(  # noqa: S603 - fixed Git read in a temporary repository.
+        [_git_binary(), "worktree", "list", "--porcelain"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert f"worktree {other}" in registrations
 
 
 def test_a_real_merge_lands_the_batch_beside_an_unstaged_edit(tmp_path: Path, monkeypatch) -> None:

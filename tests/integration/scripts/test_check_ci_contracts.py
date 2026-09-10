@@ -129,6 +129,42 @@ def test_workflow_accepts_reviewed_immutable_action_ref(
     assert module._validate_action_runtime_versions() == []
 
 
+def test_ci_expensive_jobs_follow_change_scope_and_regression_uses_four_shards() -> None:
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    jobs = workflow["jobs"]
+    outputs = jobs["changes"]["outputs"]
+
+    assert set(outputs) == {
+        "python",
+        "docs",
+        "terraform",
+        "operator",
+        "evaluation",
+        "dependencies",
+        "scenarios",
+    }
+    scoped_jobs = {
+        "operator-surfaces": "operator",
+        "translations": "docs",
+        "governance-runtime-contracts": "python",
+        "evaluation-packages": "evaluation",
+        "deps-audit": "dependencies",
+        "terraform-validate": "terraform",
+    }
+    for job_name, scope in scoped_jobs.items():
+        job = jobs[job_name]
+        assert job["needs"] == "changes"
+        assert job["if"] == f"needs.changes.outputs.{scope} == 'true'"
+
+    freeze = jobs["freeze-scenarios"]
+    assert freeze["needs"] == "changes"
+    assert "needs.changes.outputs.scenarios == 'true'" in freeze["if"]
+
+    regression = jobs["python-regression"]
+    assert regression["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert regression["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
+
+
 def test_deploy_workspace_preparation_runs_before_checkout() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8")
     prepare_start = workflow.index("- name: Prepare self-hosted runner workspace")

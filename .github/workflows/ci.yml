@@ -23,7 +23,12 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       python: ${{ steps.scope.outputs.python }}
+      docs: ${{ steps.scope.outputs.docs }}
       terraform: ${{ steps.scope.outputs.terraform }}
+      operator: ${{ steps.scope.outputs.operator }}
+      evaluation: ${{ steps.scope.outputs.evaluation }}
+      dependencies: ${{ steps.scope.outputs.dependencies }}
+      scenarios: ${{ steps.scope.outputs.scenarios }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,14 +102,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
       FDAI_PYTEST_MODE: full
-      FDAI_PYTEST_SHARD_COUNT: "3"
+      FDAI_PYTEST_SHARD_COUNT: "4"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - name: Checkout
@@ -251,6 +256,8 @@ jobs:
 
   operator-surfaces:
     name: console and CLI tests • typecheck • build
+    needs: changes
+    if: needs.changes.outputs.operator == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -276,6 +283,8 @@ jobs:
 
   translations:
     name: documentation source contracts
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -391,6 +400,8 @@ jobs:
 
   governance-runtime-contracts:
     name: catalog and governance runtime contracts
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     permissions:
       checks: read
@@ -524,6 +535,8 @@ jobs:
 
   evaluation-packages:
     name: evaluation SDK and external-adapter packages
+    needs: changes
+    if: needs.changes.outputs.evaluation == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -582,6 +595,8 @@ jobs:
 
   deps-audit:
     name: pip-audit (dependency vulnerabilities)
+    needs: changes
+    if: needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -605,7 +620,10 @@ jobs:
 
   freeze-scenarios:
     name: Frozen scenario-set immutability (PR only)
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.scenarios == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -908,6 +926,8 @@ jobs:
 
   terraform-validate:
     name: Terraform fmt + validate + config tests
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
