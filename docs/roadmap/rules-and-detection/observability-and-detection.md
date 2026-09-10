@@ -532,6 +532,9 @@ The `fdai-incident-evidence-query` maintenance entry point reads the durable Inc
 the service-owned store and returns only transition, distinct-Incident, maximum-member, and kind
 aggregates for one bounded correlation prefix. It never returns Incident IDs, member IDs, payloads,
 or database configuration. Inventory-backed resolution is read-only and fail-closed: a resource type without a
+The `fdai-forecast-evidence-query` maintenance entry point returns the repeatable-read forecast
+health snapshot with explicit episode denominators and `null` rates when no scorable denominator
+exists. The snapshot is evidence-only and never grants promotion authority. Inventory-backed resolution is read-only and fail-closed: a resource type without a
 reviewed analyzer mapping is skipped, an observed state fact that is stale, conflicting, partial, or
 synthetic is skipped with a stable reason, and an unreadable projection raises instead of degrading
 to the configured list alone, so the Job retries rather than silently narrowing coverage. The
