@@ -116,6 +116,7 @@ async def test_authorized_batch_is_persisted_without_claim_authority() -> None:
     assert metric["execution_authority"] is False
     assert metric["claim_eligibility_authority"] is False
     assert metric["import_provenance"] == {
+        "batch_digest": _batch().batch_digest,
         "source_workflow_path": SOURCE_WORKFLOW,
         "source_run_id": 123,
         "source_run_attempt": 1,

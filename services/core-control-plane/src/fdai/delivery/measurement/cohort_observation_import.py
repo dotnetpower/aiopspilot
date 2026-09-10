@@ -222,7 +222,13 @@ async def import_cohort_observation_batch(
     imported_at = _aware_utc(context.imported_at, "cohort import time")
     earliest = imported_at - timedelta(seconds=policy.maximum_window_seconds)
     records = [
-        _record(item, context=context, policy=policy, earliest=earliest)
+        _record(
+            item,
+            batch_digest=batch.batch_digest,
+            context=context,
+            policy=policy,
+            earliest=earliest,
+        )
         for item in batch.observations
     ]
     for key, state, _ in records:
@@ -274,6 +280,7 @@ async def import_cohort_observation_batch(
 def _record(
     observation: NormalizedCohortObservation,
     *,
+    batch_digest: str,
     context: CohortObservationImportContext,
     policy: CohortClaimPolicy,
     earliest: datetime,
@@ -333,6 +340,7 @@ def _record(
         "idempotency_key": key,
         "observation_digest": observation_digest,
         "import_provenance": {
+            "batch_digest": batch_digest,
             "source_workflow_path": context.source_workflow_path,
             "source_run_id": context.source_run_id,
             "source_run_attempt": context.source_run_attempt,
