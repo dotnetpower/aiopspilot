@@ -392,125 +392,6 @@ def classify_reservation(
     )
 
 
-def dispatch_permitted(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-) -> bool:
-    """Allow only the first current reservation to begin dispatch."""
-
-    from .idempotency_reservation_lifecycle import dispatch_permitted as permitted
-
-    return permitted(record, at=at)
-
-
-def begin_dispatch(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-) -> IdempotencyReservationRecord:
-    """Move a current reservation to in-flight before calling the sink."""
-
-    from .idempotency_reservation_lifecycle import begin_dispatch as begin
-
-    return begin(record, at=at)
-
-
-def expire_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    dispatch_never_began_digest: str | None = None,
-) -> IdempotencyReservationRecord:
-    """Expire without converting an ambiguous in-flight effect into retry."""
-
-    from .idempotency_reservation_lifecycle import expire_reservation as expire
-
-    return expire(
-        record,
-        at=at,
-        dispatch_never_began_digest=dispatch_never_began_digest,
-    )
-
-
-def complete_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    terminal_outcome_digest: str,
-    authoritative_status_digest: str,
-    irrevocable_non_acceptance: bool = False,
-) -> IdempotencyReservationRecord:
-    """Resolve an in-flight or unknown reservation to one terminal outcome."""
-
-    from .idempotency_reservation_lifecycle import complete_reservation as complete
-
-    return complete(
-        record,
-        at=at,
-        terminal_outcome_digest=terminal_outcome_digest,
-        authoritative_status_digest=authoritative_status_digest,
-        irrevocable_non_acceptance=irrevocable_non_acceptance,
-    )
-
-
-def complete_reservation_from_verifier(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    terminal_outcome_digest: str,
-    independent_effect_receipt_digest: str,
-) -> IdempotencyReservationRecord:
-    """Resolve an ambiguous reservation from independent effect evidence."""
-
-    from .idempotency_reservation_lifecycle import (
-        complete_reservation_from_verifier as complete,
-    )
-
-    return complete(
-        record,
-        at=at,
-        terminal_outcome_digest=terminal_outcome_digest,
-        independent_effect_receipt_digest=independent_effect_receipt_digest,
-    )
-
-
-def quarantine_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    at: datetime,
-    continuity_evidence_digest: str,
-) -> IdempotencyReservationRecord:
-    """Make an in-flight reservation non-retryable when continuity is unproven."""
-
-    from .idempotency_reservation_lifecycle import quarantine_reservation as quarantine
-
-    return quarantine(
-        record,
-        at=at,
-        continuity_evidence_digest=continuity_evidence_digest,
-    )
-
-
-def reopen_reservation(
-    record: IdempotencyReservationRecord,
-    *,
-    candidate_identity: IdempotencyReservationIdentity,
-    reserved_at: datetime,
-    lease_expires_at: datetime,
-) -> IdempotencyReservationRecord:
-    """Create a new attempt only after authoritative non-dispatch evidence."""
-
-    from .idempotency_reservation_lifecycle import reopen_reservation as reopen
-
-    return reopen(
-        record,
-        candidate_identity=candidate_identity,
-        reserved_at=reserved_at,
-        lease_expires_at=lease_expires_at,
-    )
-
-
 def _build_record(
     *,
     identity: IdempotencyReservationIdentity,
@@ -709,6 +590,16 @@ def _normalize_digest_value(value: object) -> object:
         return [_normalize_digest_value(item) for item in value]
     return value
 
+
+from .idempotency_reservation_lifecycle import (  # noqa: E402
+    begin_dispatch,
+    complete_reservation,
+    complete_reservation_from_verifier,
+    dispatch_permitted,
+    expire_reservation,
+    quarantine_reservation,
+    reopen_reservation,
+)
 
 __all__ = [
     "IdempotencyReservationIdentity",
