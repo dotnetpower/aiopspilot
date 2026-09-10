@@ -172,12 +172,12 @@ profiles:
     promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-compact
-    version: 2
+    version: 3
     capability_id: semantic.judgment
     mode: shadow
     root: {id: semantic-judgment-common, version: 1, layer: base}
     packs:
-      - {id: semantic-judgment, version: 14, layer: pack}
+      - {id: semantic-judgment-compact, version: 1, layer: pack}
       - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
     system_token_budget: 8192
