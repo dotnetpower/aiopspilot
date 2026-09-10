@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 22f5a0c93ef71d3d5d3ff9e7df8cf4c5f6fa8fc3
+translation_source_sha: 6dc237fc8efed69948761cb6af2766722473f8fa
 translation_revised: 2026-09-11
 ---
 
@@ -105,6 +105,8 @@ cross-format 동등성이 성립하지 않습니다.
   Blob을 읽습니다. 적용 후 검증은 배포된 바인딩과 Blob을 독립적으로 다시 읽은 뒤 새 Azure Resource
   Graph 관측값과 비교합니다. 보존되는 증적에는 다이제스트, 완전성, 결정, 개수, 값이 0인 권한
   카운터만 포함됩니다. Container Apps 모듈은 기본적으로 구성 표류 설정을 내보내지 않습니다.
+  배포 소유자가 보호된 기준선 envelope 값 두 개를 모두 제공하면 이후 모든 Core 계획은 정확한
+  바인딩을 보존하고 성공한 모든 Core 적용은 독립적인 다시 읽기를 반복합니다.
 - Knowledge 수집은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
   Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 인용 상태는 근거 있음으로
   표시하지 않고 차단 상태로 유지합니다. 각 인용 신원에는 정확한 기준선 버전과 전체

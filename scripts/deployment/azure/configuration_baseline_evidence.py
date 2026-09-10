@@ -229,7 +229,11 @@ def verify_runtime(*, app_path: Path) -> None:
     raw = json.loads(app_path.read_text(encoding="utf-8"))
     containers = raw.get("properties", {}).get("template", {}).get("containers", [])
     core = next(
-        (item for item in containers if isinstance(item, Mapping) and item.get("name") == "core"),
+        (
+            item
+            for item in containers
+            if isinstance(item, Mapping) and item.get("name") == "core-control-plane"
+        ),
         None,
     )
     if not isinstance(core, Mapping):

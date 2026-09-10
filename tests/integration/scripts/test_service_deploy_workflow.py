@@ -1283,6 +1283,8 @@ def test_core_evidence_transition_freezes_and_verifies_private_configuration_bas
     assert "configuration_baseline_evidence.py" in _WORKFLOW
     assert '--metadata "fdai_sha256=$baseline_sha256"' in _WORKFLOW
     assert "Verify deployed configuration baseline and current state" in _WORKFLOW
+    assert 'select(.name == "core-control-plane")' in _WORKFLOW
+    assert "steps.baseline_verification.outputs.configured == 'true'" in _WORKFLOW
     assert "configuration-drift-live-receipt.json" in _WORKFLOW
     assert 'shred -u -- "$sensitive_file"' in _WORKFLOW
     assert "properties.latestReadyRevisionName" in _WORKFLOW
