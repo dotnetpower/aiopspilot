@@ -42,6 +42,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-10 | implemented | Added content-free progress boundaries and explicit failures around OCI attestation, ACR lookup, exact import, and digest readback. The binder now validates the ACR resource ID before any import request without logging registry, image, credential, or tenant values. | `current change`; failed protected certification `34424068277`; sanitized runner ACR lookup validation; focused image-binding and credential-hygiene tests. | Publish the bounded diagnostics, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-10 | implemented | Added transient GHCR authentication for OCI attestation verification. The binder writes credentials only to a mode-0700 Docker config, receives the token through stdin, removes the directory at exit, and reports authentication and verification failures explicitly. | `current change`; failed protected certification `34419767892`; ephemeral-config digest verification passed locally; focused credential-hygiene and image-binding tests. | Publish the verifier authentication fix, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-10 | implemented | Extended the bounded ARM fallback to the legacy history Job ID and archive container URL after both Terraform root outputs were empty. One enumeration now resolves exactly one inventory runtime and one history runtime, cross-checks any non-empty root output, and re-reads the selected history Job through the stable resource API. | `current change`; failed protected certification `34416935783`; sanitized runner reproduction; bounded live ARM validation found one exact inventory and one exact history contract; focused workflow test. | Publish the history fallback, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
 | 2026-09-09 | implemented | Replaced the unavailable provider collection endpoint with bounded generic ARM resource enumeration and stable per-resource Container Apps reads. The fallback admits at most 64 Job IDs, gives each read 30 seconds, and still requires exactly one reviewed inventory runtime contract. | `current change`; failed protected certification `34410700086`; bounded live enumeration found 12 Jobs and one exact contract match; focused workflow contract test. | Publish the bounded enumeration, produce an exact attested Core image, and retain a passing protected OI-12 receipt. |
@@ -287,7 +288,9 @@ prod topology so shadow evaluation is representative.
   credential directory at step exit. The plan optionally imports that exact subject only under an
   explicit promotion input, normalizes the Terraform ACR output or verified deployed Job image to
   its exact Azure login host, verifies the ACR digest is identical, and then binds the digest to
-  Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
+  Terraform. Content-free progress markers separate attestation, registry lookup, import acceptance,
+  and digest readback without exposing deployment values. Exact apply cannot promote or replace the
+  image recorded in the protected plan.
   Protected OI-12 binding prefers the platform root outputs for the inventory Job, history Job, and
   archive container URL. When a deployed state predates those outputs, it enumerates at most 64
   generic ARM Job IDs inside the exact platform resource group and reads each resource through the

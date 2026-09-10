@@ -62,6 +62,7 @@ if ! DOCKER_CONFIG="$docker_config" timeout 60s gh attestation verify \
   echo "verified runtime image attestation check failed." >&2
   exit 1
 fi
+echo "Verified exact runtime image attestation."
 
 login_server="$(terraform -chdir="$terraform_dir" output -raw container_registry_login_server)"
 if [[ -z "$login_server" && -n "${FDAI_ACR_LOGIN_SERVER:-}" ]]; then
@@ -75,8 +76,19 @@ if [[ ! "$login_server" =~ ^[a-z0-9]+[.]azurecr[.]io$ ]]; then
   exit 1
 fi
 registry_name="${login_server%%.*}"
+echo "Resolved the target ACR login host."
 if [[ "${PROMOTE_RUNTIME_IMAGE:-false}" == "true" ]]; then
-  registry_id="$(az acr show --name "$registry_name" --query id --output tsv)"
+  if ! registry_id="$(
+    az acr show --name "$registry_name" --query id --output tsv --only-show-errors
+  )"; then
+    echo "target ACR lookup failed." >&2
+    exit 1
+  fi
+  if [[ ! "$registry_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.ContainerRegistry/registries/* ]]; then
+    echo "target ACR lookup returned an invalid resource id." >&2
+    exit 1
+  fi
+  echo "Resolved the target ACR resource."
   SOURCE_REPOSITORY="$source_repository" SOURCE_DIGEST="$source_digest" \
     TARGET_REVISION="$revision" python3 - "$import_body" <<'PY'
 import json
@@ -98,10 +110,14 @@ payload = {
 with open(sys.argv[1], "w", encoding="utf-8") as stream:
     json.dump(payload, stream, separators=(",", ":"), sort_keys=True)
 PY
-  timeout 600s az rest --method post \
+  if ! timeout 600s az rest --method post \
     --uri "https://management.azure.com${registry_id}/importImage?api-version=2023-01-01-preview" \
-    --body "@$import_body" --output none
+    --body "@$import_body" --output none; then
+    echo "exact runtime image import request failed." >&2
+    exit 1
+  fi
   : > "$import_body"
+  echo "Accepted the exact runtime image import request."
 fi
 
 target_digest=""
@@ -125,6 +141,7 @@ if [[ "$target_digest" != "$source_digest" ]]; then
   echo "ACR runtime image digest does not match the verified GHCR subject." >&2
   exit 1
 fi
+echo "Verified the exact runtime image digest in ACR."
 {
   echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"
   echo "FDAI_RUNTIME_IMAGE_REVISION=${revision}"

@@ -973,6 +973,12 @@ def test_legacy_platform_imports_the_service_specific_core_image() -> None:
     assert "--password-stdin" in _IMAGE_BINDER
     assert "temporary GHCR authentication failed." in _IMAGE_BINDER
     assert "verified runtime image attestation check failed." in _IMAGE_BINDER
+    assert "Verified exact runtime image attestation." in _IMAGE_BINDER
+    assert "target ACR lookup failed." in _IMAGE_BINDER
+    assert "target ACR lookup returned an invalid resource id." in _IMAGE_BINDER
+    assert "exact runtime image import request failed." in _IMAGE_BINDER
+    assert "Accepted the exact runtime image import request." in _IMAGE_BINDER
+    assert "Verified the exact runtime image digest in ACR." in _IMAGE_BINDER
     assert '"registryUri": "ghcr.io"' in _IMAGE_BINDER
     assert '"registryUri": "https://ghcr.io"' not in _IMAGE_BINDER
     assert 'login_server="${login_server#https://}"' in _IMAGE_BINDER
