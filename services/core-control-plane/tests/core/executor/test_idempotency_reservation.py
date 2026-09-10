@@ -23,6 +23,7 @@ from fdai.core.executor.idempotency_reservation import (
     complete_reservation,
     dispatch_permitted,
     expire_reservation,
+    quarantine_reservation,
     reopen_reservation,
     reservation_record_from_mapping,
     reservation_record_to_mapping,
@@ -231,6 +232,24 @@ def test_invalid_state_shape_and_time_fail_closed() -> None:
             terminal_outcome_digest=_DIGEST,
             authoritative_status_digest=_DIGEST,
         )
+
+
+def test_unknown_state_rejects_backdated_continuity_evidence() -> None:
+    in_flight = begin_dispatch(_reserved(), at=_NOW + timedelta(seconds=1))
+    lease_expired = expire_reservation(in_flight, at=_NOW + timedelta(seconds=10))
+    with pytest.raises(ValueError, match="lease-expired.*predates expiry"):
+        replace(
+            lease_expired,
+            state_changed_at=lease_expired.lease_expires_at - timedelta(microseconds=1),
+        )
+
+    continuity_unknown = quarantine_reservation(
+        in_flight,
+        at=_NOW + timedelta(seconds=2),
+        continuity_evidence_digest=_DIGEST,
+    )
+    with pytest.raises(ValueError, match="continuity evidence predates dispatch"):
+        replace(continuity_unknown, state_changed_at=_NOW)
 
 
 def test_transition_receipt_requires_exact_predecessor_and_legal_edge() -> None:

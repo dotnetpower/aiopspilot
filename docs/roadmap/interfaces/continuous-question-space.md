@@ -62,7 +62,7 @@ The inventory preserves stable ids, bilingual wording, source digests, explicit 
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a Console starter catalog, regenerates both the machine
-inventory and human review catalog so their source-file digests stay exact.
+inventory and human review catalog; the generated-artifact test rejects any stale source digest.
 Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
 hand isn't supported.
 

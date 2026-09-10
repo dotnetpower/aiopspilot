@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 1f80a3ece01453f7b55d7e6dd26583b84be1281c
-translation_revised: 2026-09-10
+translation_source_sha: 2a9548bded5feb74b0ff23bf6d179b17e013206c
+translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
 
@@ -62,7 +62,7 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
 Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
-검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
+검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다.
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
 
