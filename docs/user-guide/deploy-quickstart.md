@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: f3f5208bf7b0017d9f929f1dda553418313b37d3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dfa226f6e0364339fd2ccd8b27d349fdbd91ebcc }]
 ---
 
 # Deploy Quickstart
@@ -56,6 +56,10 @@ key, Core starts in observation-only Trial and denies acting paths.
   permanent VM retains only this UAMI after migration. For a
   closed-network image, use `runner_bootstrap_mode = "offline"` only with an
   exact managed-image or numeric gallery-version ID.
+- Migrate deployer roles with the exclusive protected identity plan. It targets only role
+  addresses already owned by platform state. A paired storage prerequisite may only disable local
+  users and establish seven-day blob and container retention; Console, Entra, database, health,
+  and canary work remain outside the operation.
 - When you promote a reviewed blue/green candidate, set its existing VM name in
   `runner_vm_name` before importing the VM and network interface into bootstrap
   state. The scheduled posture check compares any model-only OS disk ID with the
