@@ -90,7 +90,7 @@ def _evidence_fixture(
     idempotency_key: str = "example-idem",
     attempt: int = 1,
     now: datetime = _NOW,
-    target_ref: str = "resource/example",
+    target_resource_ref: str = "resource/example",
 ) -> tuple[
     SafeguardDispatchEvidenceRecord,
     IdempotencyReservationIdentity,
@@ -102,7 +102,7 @@ def _evidence_fixture(
         created_at=now,
         idempotency_key=idempotency_key,
         params={"name": action_name},
-        target_resource_ref=target_ref,
+        target_resource_ref=target_resource_ref,
     )
     safeguard_receipt = evaluate_pre_dispatch(
         action,
