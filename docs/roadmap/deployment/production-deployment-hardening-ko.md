@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: d8d5f4452f1c32223c0ca4820205c564b5642eb1
+translation_source_sha: 7cfec8f4bf2f195c0e06fe8a3a6f1eed7622afc8
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 보호된 main push 이벤트를 사용할 수 없을 때도 전체 필수 검사 그래프를 보존하는 수동 CI trigger를 추가했습니다. 이 trigger는 checkout된 보호 main 리비전을 검증하며 호출자가 커밋을 선택하도록 허용하거나 push 및 pull request CI를 약화하지 않습니다. | `current change`, 집중 CI workflow 계약 검사 | 실패한 검사를 우회하는 용도가 아니라 정확한 보호 main 필수 검사를 복구할 때만 수동 trigger를 사용합니다. |
 | 2026-09-10 | implemented | 900초 trace 근거 lookback을 60초 detection bucket과 분리해 반복 멱등성 또는 Incident 상관관계 범위를 약화하지 않고 예약된 연속성 검사가 Log Analytics ingestion 하한을 포괄하도록 했습니다. | `current change`, 집중 trace source, runner, CLI 및 Terraform binding 테스트, 세 개의 수집된 scenario를 관측하는 데 900초가 필요했던 실시간 one-shot 근거 | 수정된 analyzer image를 배포하고 execution override 없이 수집된 scenario를 관측하는 예약 실행 하나를 보존합니다. |
 | 2026-09-10 | implemented | 관측성 요청의 적용 후 수렴 검사를 같은 state 전용 updater로 제한하고 독립 analyzer Job image readback을 추가했습니다. 다른 apply는 전체 root 수렴과 inventory image 검사를 유지합니다. | `current change`, 집중 수렴 routing 테스트, 보호 apply `34438595436`에서 updater와 image effect는 완료됐지만 이전 전체 root 수렴 불일치를 확인 | 성공한 재개 검증 또는 새로운 정확한 apply receipt를 하나 보존합니다. |
 | 2026-09-10 | implemented | Root compute module의 선행 조건 그래프가 관련 없는 구성 drift를 포함했으므로 analyzer 리소스 직접 지정을 state 전용 Terraform updater로 교체했습니다. Updater는 두 image를 digest로 고정된 ACR 참조로 검증하고, 이름이 지정된 container 하나를 갱신하며, 권위 있는 readback을 검증하고, 실패 시 이전 digest를 복원합니다. | `current change`, 성공, no-op, 거부, effect 실패 및 rollback 집중 테스트, state 조정 후에도 직접 대상 지정이 관련 없는 dependency를 포함했고 올바르게 차단되었음을 보호 실행 `34435938544`에서 확인 | 생성 전용 보호 updater 계획, 정확한 적용 및 성공한 analyzer tick receipt를 하나 보존합니다. |

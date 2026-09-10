@@ -458,6 +458,14 @@ def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     assert "sudo -n true" in workflow
 
 
+def test_ci_supports_exact_main_revalidation() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "  workflow_dispatch:" in workflow
+    assert "  push:" in workflow
+    assert "  pull_request:" in workflow
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
