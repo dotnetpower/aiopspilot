@@ -119,6 +119,15 @@ def test_receipt_rejects_digest_tampering_and_naive_time() -> None:
         )
 
 
+def test_receipt_rejects_evidence_that_expires_before_recording() -> None:
+    with pytest.raises(ValidationError, match="remain fresh when it is recorded"):
+        decision_critical_evidence_receipt_digest(
+            **_receipt_values(
+                recorded_at=NOW + timedelta(minutes=11),
+            )
+        )
+
+
 def test_json_schema_requires_authentication_evidence() -> None:
     receipt = _receipt().model_dump(mode="json")
     receipt.pop("authentication_evidence_digest")
