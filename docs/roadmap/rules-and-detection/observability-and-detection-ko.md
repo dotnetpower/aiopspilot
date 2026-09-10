@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 864bbb0e87c915438c2ac4293f0135b6b93b1ffe
+translation_source_sha: aecdaa03e6dd12d18d2aab5071742588005601f7
 translation_revised: 2026-09-10
 ---
 
@@ -504,9 +504,10 @@ telemetry / metrics
 키로 발견 건마다 정본 Event 하나를 게시합니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
 차단됩니다. 검토된 분석기 매핑이 없는 리소스 유형은 건너뛰고, stale, 충돌, 부분, 합성 관측
 상태 사실은 안정된 사유와 함께 건너뛰며, projection을 읽지 못하면 구성된 목록만으로 축소하지
-않고 예외를 올려 작업이 재시도합니다. 상태 사실 없이 투영된 리소스는 신원과 유형만 전달하며
-이는 대상 선택에 필요한 전부이므로 계속 적격입니다. 발견된 대상 수는 상한이 있고 순서는
-결정론적입니다. 이 작업들은 변경을 실행하지
+않고 예외를 올려 작업이 재시도합니다. Resolver는 이전 flat metadata 형식과 현재 속성별 collection
+형식에서 canonical generic `state` 사실만 허용하며 다른 속성별 사실로 대체하지 않습니다. 상태
+사실 없이 투영된 리소스는 신원과 유형만 전달하며 이는 대상 선택에 필요한 전부이므로 계속
+적격입니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 이 작업들은 변경을 실행하지
 않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
 게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
 추적 상태와 재시도에도 유지되는 명시적 실행 신원 또는 Container Apps 작업 실행 신원이 구성된

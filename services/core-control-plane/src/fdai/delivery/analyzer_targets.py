@@ -265,8 +265,12 @@ async def _state_fact_supports_selection(
     if not isinstance(raw, Mapping):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False
+    metadata_value = raw if "lane" in raw else raw.get("state")
+    if not isinstance(metadata_value, Mapping):
+        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        return False
     try:
-        metadata = StateFactMetadata.from_mapping(raw)
+        metadata = StateFactMetadata.from_mapping(metadata_value)
     except (ValueError, TypeError):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False
