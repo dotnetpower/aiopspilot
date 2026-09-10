@@ -11,6 +11,7 @@ from fdai.shared.providers.resource_lock import (
     LockOwnershipRejectionReason,
     ResourceLockAcquisitionReceipt,
     require_current_lock_ownership,
+    resource_lock_target_digest,
 )
 
 _NOW = datetime(2026, 9, 10, 5, 0, tzinfo=UTC)
@@ -147,6 +148,12 @@ def test_lock_evidence_replay_is_deterministic() -> None:
     second_receipt = _receipt()
     assert first_receipt == second_receipt
     assert _assessment(first_receipt) == _assessment(second_receipt)
+
+
+def test_lock_target_digest_is_canonical() -> None:
+    assert resource_lock_target_digest("resource/example").startswith("sha256:")
+    with pytest.raises(ValueError, match="MUST be canonical"):
+        resource_lock_target_digest(" resource/example ")
 
 
 @pytest.mark.parametrize(

@@ -28,9 +28,19 @@ from fdai.shared.contracts.models import (
     RollbackRef,
     StopConditionKind,
 )
+from fdai.shared.providers.resource_lock import (
+    LiveLockOwnershipAssessment,
+    LockOwnershipRejectionReason,
+    ResourceLockAcquisitionReceipt,
+    resource_lock_target_digest,
+)
+from fdai_service_contracts.execution_safeguards import SafeguardProofKind
 
 _NOW = datetime(2026, 9, 10, 4, 0, tzinfo=UTC)
 _SOURCE_REVISION = "commit:" + "a" * 40
+_LOCK_VERIFIER_ID = "postgres-lock-readback"
+_LOCK_VERIFIER_VERSION = "1.0.0"
+_LOCK_TRUST_ANCHOR_ID = "postgres:primary"
 
 
 def _action(**overrides: object) -> Action:
@@ -74,10 +84,60 @@ def _receipt(action: Action, path: ExecutionPath = ExecutionPath.DIRECT_API) -> 
     return receipt
 
 
+def _lock_acquisition(
+    action: Action,
+    receipt: SafeguardReceipt,
+    **overrides: object,
+) -> ResourceLockAcquisitionReceipt:
+    values: dict[str, object] = {
+        "lock_key": receipt.resource_lock_key,
+        "target_digest": resource_lock_target_digest(action.target_resource_ref),
+        "action_digest": full_action_digest(action),
+        "attempt": 1,
+        "provider_id": "postgres-advisory-lock",
+        "provider_version": "1.0.0",
+        "producer_id": "fdai.core.executor",
+        "producer_version": "1.0.0",
+        "owner_token_digest": "sha256:" + "0" * 64,
+        "fencing_generation": 4,
+        "session_identity": None,
+        "provider_attestation_digest": "sha256:" + "5" * 64,
+        "trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
+        "acquired_at": _NOW,
+        "valid_until": _NOW + timedelta(minutes=1),
+        "source_revision": _SOURCE_REVISION,
+    }
+    values.update(overrides)
+    return ResourceLockAcquisitionReceipt.create(**values)
+
+
+def _lock_assessment(
+    acquisition: ResourceLockAcquisitionReceipt,
+    **overrides: object,
+) -> LiveLockOwnershipAssessment:
+    values: dict[str, object] = {
+        "current_fencing_generation": 4,
+        "current_session_identity": None,
+        "verifier_id": _LOCK_VERIFIER_ID,
+        "verifier_version": _LOCK_VERIFIER_VERSION,
+        "trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
+        "provider_attestation_digest": "sha256:" + "6" * 64,
+        "evaluated_at": _NOW,
+        "valid_until": _NOW + timedelta(seconds=30),
+    }
+    values.update(overrides)
+    return LiveLockOwnershipAssessment.create(
+        acquisition,
+        **values,  # type: ignore[arg-type]
+    )
+
+
 def _proofs(
     action: Action,
     receipt: SafeguardReceipt,
 ):
+    acquisition = _lock_acquisition(action, receipt)
+    lock_assessment = _lock_assessment(acquisition)
     context = {
         "action_digest": full_action_digest(action),
         "execution_path": receipt.execution_path,
@@ -89,7 +149,7 @@ def _proofs(
         LogicalTargetLockProof.create(
             **context,
             lock_key=receipt.resource_lock_key,
-            operation_receipt_digest="sha256:" + "1" * 64,
+            operation_receipt_digest=acquisition.receipt_digest,
         ),
         IdempotencyReservationProof.create(
             **context,
@@ -102,6 +162,7 @@ def _proofs(
             audit_entry_digest="sha256:" + "3" * 64,
             append_receipt_digest="sha256:" + "4" * 64,
         ),
+        lock_assessment,
     )
 
 
@@ -109,7 +170,7 @@ def _proofs(
 def test_finalizer_emits_canonical_no_authority_bundle(path: ExecutionPath) -> None:
     action = _action()
     receipt = _receipt(action, path)
-    lock, idempotency, audit = _proofs(action, receipt)
+    lock, idempotency, audit, lock_assessment = _proofs(action, receipt)
 
     bundle = finalize_safeguard_proof_bundle(
         action,
@@ -117,6 +178,10 @@ def test_finalizer_emits_canonical_no_authority_bundle(path: ExecutionPath) -> N
         source_revision=_SOURCE_REVISION,
         recorded_at=_NOW,
         lock_proof=lock,
+        lock_assessment=lock_assessment,
+        expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+        expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+        expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
         idempotency_proof=idempotency,
         audit_intent_proof=audit,
     )
@@ -150,7 +215,7 @@ def test_full_action_digest_covers_structured_and_lineage_fields() -> None:
 def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
     action = _action()
     receipt = _receipt(action)
-    lock, idempotency, audit = _proofs(action, receipt)
+    lock, idempotency, audit, lock_assessment = _proofs(action, receipt)
 
     with pytest.raises(ValueError, match="action digest"):
         finalize_safeguard_proof_bundle(
@@ -159,6 +224,10 @@ def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
             source_revision=_SOURCE_REVISION,
             recorded_at=_NOW,
             lock_proof=lock,
+            lock_assessment=lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=idempotency,
             audit_intent_proof=audit,
         )
@@ -181,6 +250,10 @@ def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
                     operation_receipt_digest=lock.operation_receipt_digest,
                 ).proof_digest,
             ),
+            lock_assessment=lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=idempotency,
             audit_intent_proof=audit,
         )
@@ -204,6 +277,10 @@ def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
             source_revision=_SOURCE_REVISION,
             recorded_at=_NOW,
             lock_proof=wrong_lock,
+            lock_assessment=lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=idempotency,
             audit_intent_proof=audit,
         )
@@ -222,7 +299,7 @@ def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
 def test_proof_and_bundle_tampering_fail_closed() -> None:
     action = _action()
     receipt = _receipt(action)
-    lock, idempotency, audit = _proofs(action, receipt)
+    lock, idempotency, audit, lock_assessment = _proofs(action, receipt)
 
     with pytest.raises(ValueError, match="digest mismatched"):
         replace(lock, proof_digest="sha256:" + "0" * 64)
@@ -233,6 +310,10 @@ def test_proof_and_bundle_tampering_fail_closed() -> None:
             source_revision=_SOURCE_REVISION,
             recorded_at=_NOW,
             lock_proof=lock,
+            lock_assessment=lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=idempotency,
             audit_intent_proof=audit,
         )
@@ -275,12 +356,18 @@ def test_proof_and_bundle_tampering_fail_closed() -> None:
             source_revision=_SOURCE_REVISION,
             recorded_at=_NOW - timedelta(seconds=1),
             lock_proof=lock,
+            lock_assessment=lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=idempotency,
             audit_intent_proof=audit,
         )
     future_action = action.model_copy(update={"created_at": _NOW + timedelta(seconds=1)})
     future_receipt = _receipt(future_action)
-    future_lock, future_idempotency, future_audit = _proofs(future_action, future_receipt)
+    future_lock, future_idempotency, future_audit, future_lock_assessment = _proofs(
+        future_action, future_receipt
+    )
     with pytest.raises(ValueError, match="recorded_at"):
         finalize_safeguard_proof_bundle(
             future_action,
@@ -288,6 +375,10 @@ def test_proof_and_bundle_tampering_fail_closed() -> None:
             source_revision=_SOURCE_REVISION,
             recorded_at=_NOW,
             lock_proof=future_lock,
+            lock_assessment=future_lock_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
             idempotency_proof=future_idempotency,
             audit_intent_proof=future_audit,
         )
@@ -299,7 +390,262 @@ def test_proof_and_bundle_tampering_fail_closed() -> None:
         source_revision=_SOURCE_REVISION,
         recorded_at=_NOW.astimezone(offset),
         lock_proof=lock,
+        lock_assessment=lock_assessment,
+        expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+        expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+        expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
         idempotency_proof=idempotency,
         audit_intent_proof=audit,
     )
     assert bundle.recorded_at == _NOW
+
+
+def test_finalizer_rejects_historical_stale_lost_expired_and_wrong_fence() -> None:
+    action = _action()
+    receipt = _receipt(action)
+    lock, idempotency, audit, assessment = _proofs(action, receipt)
+    common = {
+        "receipt": receipt,
+        "source_revision": _SOURCE_REVISION,
+        "recorded_at": _NOW,
+        "lock_proof": lock,
+        "expected_lock_verifier_id": _LOCK_VERIFIER_ID,
+        "expected_lock_verifier_version": _LOCK_VERIFIER_VERSION,
+        "expected_lock_trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
+        "idempotency_proof": idempotency,
+        "audit_intent_proof": audit,
+    }
+
+    with pytest.raises(ValueError, match="historical lock acquisition"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **common,
+            lock_assessment=cast(LiveLockOwnershipAssessment, assessment.acquisition_receipt),
+        )
+
+    stale = _lock_assessment(
+        assessment.acquisition_receipt,
+        valid_until=_NOW + timedelta(seconds=1),
+    )
+    with pytest.raises(ValueError, match="is stale"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "recorded_at": stale.valid_until},
+            lock_assessment=stale,
+        )
+
+    lost = _lock_assessment(
+        assessment.acquisition_receipt,
+        rejection_reasons=(LockOwnershipRejectionReason.LOCK_LOST,),
+    )
+    with pytest.raises(ValueError, match="is ineligible"):
+        finalize_safeguard_proof_bundle(action, **common, lock_assessment=lost)
+
+    expired_acquisition = _lock_acquisition(
+        action,
+        receipt,
+        acquired_at=_NOW - timedelta(seconds=2),
+        valid_until=_NOW,
+    )
+    expired = _lock_assessment(
+        expired_acquisition,
+        evaluated_at=_NOW,
+        valid_until=_NOW + timedelta(seconds=1),
+    )
+    expired_lock = LogicalTargetLockProof.create(
+        action_digest=lock.action_digest,
+        execution_path=lock.execution_path,
+        execution_fingerprint=lock.execution_fingerprint,
+        lock_key=lock.lock_key,
+        source_revision=lock.source_revision,
+        completed_at=lock.completed_at,
+        operation_receipt_digest=expired_acquisition.receipt_digest,
+    )
+    with pytest.raises(ValueError, match="is ineligible"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "lock_proof": expired_lock},
+            lock_assessment=expired,
+        )
+
+    wrong_fence = _lock_assessment(
+        assessment.acquisition_receipt,
+        current_fencing_generation=5,
+    )
+    with pytest.raises(ValueError, match="is ineligible"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **common,
+            lock_assessment=wrong_fence,
+        )
+
+
+def test_finalizer_rejects_untrusted_verifier_anchor_and_receipt_substitution() -> None:
+    action = _action()
+    receipt = _receipt(action)
+    lock, idempotency, audit, assessment = _proofs(action, receipt)
+    common = {
+        "receipt": receipt,
+        "source_revision": _SOURCE_REVISION,
+        "recorded_at": _NOW,
+        "lock_proof": lock,
+        "lock_assessment": assessment,
+        "expected_lock_verifier_id": _LOCK_VERIFIER_ID,
+        "expected_lock_verifier_version": _LOCK_VERIFIER_VERSION,
+        "expected_lock_trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
+        "idempotency_proof": idempotency,
+        "audit_intent_proof": audit,
+    }
+
+    with pytest.raises(ValueError, match="trusted verifier"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "expected_lock_verifier_id": "untrusted-verifier"},
+        )
+    with pytest.raises(ValueError, match="trusted verifier"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "expected_lock_verifier_version": "9.9.9"},
+        )
+    with pytest.raises(ValueError, match="trusted verifier"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "expected_lock_trust_anchor_id": "postgres:other"},
+        )
+
+    substituted_lock = LogicalTargetLockProof.create(
+        action_digest=lock.action_digest,
+        execution_path=lock.execution_path,
+        execution_fingerprint=lock.execution_fingerprint,
+        lock_key=lock.lock_key,
+        source_revision=lock.source_revision,
+        completed_at=lock.completed_at,
+        operation_receipt_digest="sha256:" + "f" * 64,
+    )
+    with pytest.raises(ValueError, match="exact action context"):
+        finalize_safeguard_proof_bundle(
+            action,
+            **{**common, "lock_proof": substituted_lock},
+        )
+
+
+def test_finalizer_rejects_noncausal_lock_evidence() -> None:
+    action = _action()
+    receipt = _receipt(action)
+    lock, idempotency, audit, _assessment = _proofs(action, receipt)
+
+    early_acquisition = _lock_acquisition(
+        action,
+        receipt,
+        acquired_at=_NOW - timedelta(microseconds=1),
+    )
+    early_assessment = _lock_assessment(early_acquisition)
+    early_lock = LogicalTargetLockProof.create(
+        action_digest=lock.action_digest,
+        execution_path=lock.execution_path,
+        execution_fingerprint=lock.execution_fingerprint,
+        lock_key=lock.lock_key,
+        source_revision=lock.source_revision,
+        completed_at=lock.completed_at,
+        operation_receipt_digest=early_acquisition.receipt_digest,
+    )
+    with pytest.raises(ValueError, match="causal ordering"):
+        finalize_safeguard_proof_bundle(
+            action,
+            receipt=receipt,
+            source_revision=_SOURCE_REVISION,
+            recorded_at=_NOW,
+            lock_proof=early_lock,
+            lock_assessment=early_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
+            idempotency_proof=idempotency,
+            audit_intent_proof=audit,
+        )
+
+
+def test_bundle_binds_lock_statement_and_live_assessment_digests() -> None:
+    action = _action()
+    receipt = _receipt(action)
+    lock, idempotency, audit, assessment = _proofs(action, receipt)
+    evaluated_at = _NOW + timedelta(seconds=1)
+    later_assessment = _lock_assessment(
+        assessment.acquisition_receipt,
+        evaluated_at=evaluated_at,
+        valid_until=evaluated_at + timedelta(seconds=1),
+    )
+    later_lock = LogicalTargetLockProof.create(
+        action_digest=lock.action_digest,
+        execution_path=lock.execution_path,
+        execution_fingerprint=lock.execution_fingerprint,
+        lock_key=lock.lock_key,
+        source_revision=lock.source_revision,
+        completed_at=_NOW + timedelta(microseconds=1),
+        operation_receipt_digest=lock.operation_receipt_digest,
+    )
+    common = {
+        "receipt": receipt,
+        "source_revision": _SOURCE_REVISION,
+        "recorded_at": evaluated_at,
+        "lock_assessment": later_assessment,
+        "expected_lock_verifier_id": _LOCK_VERIFIER_ID,
+        "expected_lock_verifier_version": _LOCK_VERIFIER_VERSION,
+        "expected_lock_trust_anchor_id": _LOCK_TRUST_ANCHOR_ID,
+        "idempotency_proof": idempotency,
+        "audit_intent_proof": audit,
+    }
+
+    first = finalize_safeguard_proof_bundle(
+        action,
+        **common,
+        lock_proof=lock,
+    )
+    second = finalize_safeguard_proof_bundle(
+        action,
+        **common,
+        lock_proof=later_lock,
+    )
+
+    first_lock = next(
+        proof for proof in first.proofs if proof.kind is SafeguardProofKind.LOGICAL_TARGET_LOCK
+    )
+    second_lock = next(
+        proof for proof in second.proofs if proof.kind is SafeguardProofKind.LOGICAL_TARGET_LOCK
+    )
+    assert first_lock.proof_digest != second_lock.proof_digest
+    assert first.bundle_digest != second.bundle_digest
+
+    later_acquisition = _lock_acquisition(
+        action,
+        receipt,
+        acquired_at=_NOW + timedelta(seconds=1),
+    )
+    later_assessment = _lock_assessment(
+        later_acquisition,
+        evaluated_at=_NOW + timedelta(seconds=1),
+        valid_until=_NOW + timedelta(seconds=2),
+    )
+    later_lock = LogicalTargetLockProof.create(
+        action_digest=lock.action_digest,
+        execution_path=lock.execution_path,
+        execution_fingerprint=lock.execution_fingerprint,
+        lock_key=lock.lock_key,
+        source_revision=lock.source_revision,
+        completed_at=_NOW,
+        operation_receipt_digest=later_acquisition.receipt_digest,
+    )
+    with pytest.raises(ValueError, match="causal ordering"):
+        finalize_safeguard_proof_bundle(
+            action,
+            receipt=receipt,
+            source_revision=_SOURCE_REVISION,
+            recorded_at=_NOW + timedelta(seconds=1),
+            lock_proof=later_lock,
+            lock_assessment=later_assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
+            idempotency_proof=idempotency,
+            audit_intent_proof=audit,
+        )

@@ -24,6 +24,11 @@ from fdai.core.executor.safeguards import (
     resource_lock_key,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai.shared.providers.resource_lock import (
+    LiveLockOwnershipAssessment,
+    require_current_lock_ownership,
+    resource_lock_target_digest,
+)
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _HEX_DIGEST = re.compile(r"^[a-f0-9]{64}$")
@@ -233,6 +238,10 @@ def finalize_safeguard_proof_bundle(
     source_revision: str,
     recorded_at: datetime,
     lock_proof: LogicalTargetLockProof,
+    lock_assessment: LiveLockOwnershipAssessment,
+    expected_lock_verifier_id: str,
+    expected_lock_verifier_version: str,
+    expected_lock_trust_anchor_id: str,
     idempotency_proof: IdempotencyReservationProof,
     audit_intent_proof: AuditIntentProof,
 ) -> SafeguardProofBundle:
@@ -266,6 +275,10 @@ def finalize_safeguard_proof_bundle(
     ):
         raise ValueError("safeguard proof recorded_at MUST include a timezone")
 
+    current_lock = require_current_lock_ownership(
+        lock_assessment,
+        observed_at=recorded_at,
+    )
     statements = (lock_proof, idempotency_proof, audit_intent_proof)
     for statement in statements:
         if (
@@ -280,6 +293,29 @@ def finalize_safeguard_proof_bundle(
     expected_lock_key = resource_lock_key(action.target_resource_ref)
     if receipt.resource_lock_key != expected_lock_key or lock_proof.lock_key != expected_lock_key:
         raise ValueError("safeguard lock proof does not match the target lock")
+    acquisition = current_lock.acquisition_receipt
+    if (
+        acquisition.lock_key != expected_lock_key
+        or acquisition.target_digest != resource_lock_target_digest(action.target_resource_ref)
+        or acquisition.action_digest != action_digest
+        or acquisition.source_revision != source_revision
+        or lock_proof.operation_receipt_digest != acquisition.receipt_digest
+    ):
+        raise ValueError("safeguard live lock evidence does not match the exact action context")
+    if not (
+        action.created_at
+        <= acquisition.acquired_at
+        <= lock_proof.completed_at
+        <= current_lock.evaluated_at
+        <= recorded_at
+    ):
+        raise ValueError("safeguard live lock evidence violates causal ordering")
+    if (
+        current_lock.verifier_id != expected_lock_verifier_id
+        or current_lock.verifier_version != expected_lock_verifier_version
+        or current_lock.trust_anchor_id != expected_lock_trust_anchor_id
+    ):
+        raise ValueError("safeguard live lock evidence does not match trusted verifier")
     if idempotency_proof.idempotency_key != receipt.idempotency_key:
         raise ValueError("safeguard idempotency proof does not match the stable key")
     if idempotency_proof.reservation_outcome not in {"reserved", "duplicate_same"}:
@@ -319,7 +355,12 @@ def finalize_safeguard_proof_bundle(
         ),
         SafeguardProof(
             kind=SafeguardProofKind.LOGICAL_TARGET_LOCK,
-            proof_digest=lock_proof.proof_digest,
+            proof_digest=content_digest(
+                {
+                    "logical_target_lock_proof_digest": lock_proof.proof_digest,
+                    "live_lock_ownership_assessment_digest": (current_lock.assessment_digest),
+                }
+            ),
         ),
         SafeguardProof(
             kind=SafeguardProofKind.IDEMPOTENCY,

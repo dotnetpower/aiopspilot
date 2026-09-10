@@ -314,6 +314,15 @@ def require_current_lock_ownership(
     return evidence
 
 
+def resource_lock_target_digest(target_ref: str) -> str:
+    """Return the canonical digest bound to one logical lock target."""
+
+    _validate_text("target_ref", target_ref)
+    if target_ref != target_ref.strip():
+        raise ValueError("resource lock target reference MUST be canonical")
+    return content_digest({"target_resource_ref": target_ref})
+
+
 @runtime_checkable
 class ResourceLock(Protocol):
     """Serialize critical sections per ``resource_id``.
@@ -419,4 +428,5 @@ __all__ = [
     "ResourceLock",
     "ResourceLockAcquisitionReceipt",
     "require_current_lock_ownership",
+    "resource_lock_target_digest",
 ]
