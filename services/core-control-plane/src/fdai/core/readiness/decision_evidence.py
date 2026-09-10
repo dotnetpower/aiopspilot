@@ -79,6 +79,8 @@ class DecisionEvidenceReadinessResult:
             raise ValueError("decision evidence readiness admission mismatched eligibility")
         if self.eligible != (self.verification_bundle is not None):
             raise ValueError("decision evidence readiness bundle mismatched eligibility")
+        if (self.verification_bundle_digest is not None) != (self.verification_bundle is not None):
+            raise ValueError("decision evidence readiness bundle digest mismatched bundle presence")
         if self.admission is not None and (
             self.admission.receipt_digest != self.receipt_digest
             or self.admission.verification_bundle_digest != self.verification_bundle_digest

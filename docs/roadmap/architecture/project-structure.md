@@ -96,6 +96,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
   A verifier response that is not the registered bundle contract is a bounded verification failure.
   Core revalidates a returned bundle instead of trusting an in-memory model instance.
+  Readiness results cannot retain a verification-bundle digest without the matching validated bundle.
   A receipt is invalid when its evidence has already expired at `recorded_at`, so no decision can
   admit an evidence window that was never usable after recording. A successful admission expires
   no later than the receipt's own freshness window or the selected verifier binding.

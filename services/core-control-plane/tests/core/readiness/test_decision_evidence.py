@@ -9,6 +9,7 @@ import pytest
 from fdai.core.readiness.decision_evidence import (
     DecisionEvidenceReadinessGate,
     DecisionEvidenceReadinessReason,
+    DecisionEvidenceReadinessResult,
 )
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceVerificationError,
@@ -280,6 +281,18 @@ def test_verifier_binding_rejects_times_without_a_utc_offset() -> None:
     )
     with pytest.raises(ValueError, match="evaluation time MUST be timezone-aware"):
         binding.active_at(indeterminate)
+
+
+def test_rejected_result_cannot_claim_an_orphan_bundle_digest() -> None:
+    receipt = _receipt()
+
+    with pytest.raises(ValueError, match="bundle digest mismatched bundle presence"):
+        DecisionEvidenceReadinessResult(
+            eligible=False,
+            reason=DecisionEvidenceReadinessReason.VERIFIER_UNAVAILABLE,
+            receipt_digest=receipt.receipt_digest,
+            verification_bundle_digest=_DIGESTS[0],
+        )
 
 
 @pytest.mark.parametrize(
