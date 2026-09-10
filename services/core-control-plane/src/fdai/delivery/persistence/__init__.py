@@ -126,6 +126,11 @@ from fdai.delivery.persistence.postgres_outbox import (
     PostgresOutboxStore,
     PostgresOutboxStoreConfig,
 )
+from fdai.delivery.persistence.postgres_post_release_closure import (
+    PostgresPostReleaseClosureStore,
+    PostgresPostReleaseClosureStoreConfig,
+    PostReleaseClosureCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_post_turn_review import (
     PostgresPostTurnReviewLedger,
     PostgresPostTurnReviewLedgerConfig,
@@ -337,6 +342,8 @@ __all__ = [
     "PostgresOntologyInstanceStoreConfig",
     "PostgresOutboxStore",
     "PostgresOutboxStoreConfig",
+    "PostgresPostReleaseClosureStore",
+    "PostgresPostReleaseClosureStoreConfig",
     "PostgresProcessRuntimeStore",
     "PostgresProcessRuntimeStoreConfig",
     "PostgresProgrammaticPipelineStore",
@@ -390,6 +397,7 @@ __all__ = [
     "PostgresWorkflowDefinitionStore",
     "PostgresWorkflowDefinitionStoreConfig",
     "ReservationCompareAndSetError",
+    "PostReleaseClosureCompareAndSetError",
     "TargetDispatchFenceCompareAndSetError",
     "RpcClaimConflictError",
     "PostgresHilApprovalRegistry",

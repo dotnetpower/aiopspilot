@@ -34,8 +34,10 @@ class ReservationEvidenceKind(StrEnum):
 
     DISPATCH_NEVER_BEGAN = "dispatch_never_began"
     LEASE_EXPIRED = "lease_expired"
+    CONTINUITY_UNPROVEN = "continuity_unproven"
     SINK_TERMINAL_OUTCOME = "sink_terminal_outcome"
     IRREVOCABLE_NON_ACCEPTANCE = "irrevocable_non_acceptance"
+    INDEPENDENT_EFFECT_OUTCOME = "independent_effect_outcome"
 
 
 class ReservationMatch(StrEnum):
@@ -450,6 +452,44 @@ def complete_reservation(
     )
 
 
+def complete_reservation_from_verifier(
+    record: IdempotencyReservationRecord,
+    *,
+    at: datetime,
+    terminal_outcome_digest: str,
+    independent_effect_receipt_digest: str,
+) -> IdempotencyReservationRecord:
+    """Resolve an ambiguous reservation from independent effect evidence."""
+
+    from .idempotency_reservation_lifecycle import (
+        complete_reservation_from_verifier as complete,
+    )
+
+    return complete(
+        record,
+        at=at,
+        terminal_outcome_digest=terminal_outcome_digest,
+        independent_effect_receipt_digest=independent_effect_receipt_digest,
+    )
+
+
+def quarantine_reservation(
+    record: IdempotencyReservationRecord,
+    *,
+    at: datetime,
+    continuity_evidence_digest: str,
+) -> IdempotencyReservationRecord:
+    """Make an in-flight reservation non-retryable when continuity is unproven."""
+
+    from .idempotency_reservation_lifecycle import quarantine_reservation as quarantine
+
+    return quarantine(
+        record,
+        at=at,
+        continuity_evidence_digest=continuity_evidence_digest,
+    )
+
+
 def reopen_reservation(
     record: IdempotencyReservationRecord,
     *,
@@ -542,12 +582,25 @@ def _validate_state_shape(record: IdempotencyReservationRecord) -> None:
     elif record.state is ReservationState.OUTCOME_UNKNOWN:
         if (
             record.dispatch_started_at is None
-            or record.state_changed_at < record.lease_expires_at
-            or record.evidence_kind is not ReservationEvidenceKind.LEASE_EXPIRED
+            or record.evidence_kind
+            not in {
+                ReservationEvidenceKind.LEASE_EXPIRED,
+                ReservationEvidenceKind.CONTINUITY_UNPROVEN,
+            }
             or record.evidence_digest is None
             or record.terminal_outcome_digest is not None
         ):
-            raise ValueError("unknown idempotency state requires expired in-flight evidence")
+            raise ValueError("unknown idempotency state requires continuity evidence")
+        if (
+            record.evidence_kind is ReservationEvidenceKind.LEASE_EXPIRED
+            and record.state_changed_at < record.lease_expires_at
+        ):
+            raise ValueError("lease-expired idempotency evidence predates expiry")
+        if (
+            record.evidence_kind is ReservationEvidenceKind.CONTINUITY_UNPROVEN
+            and record.state_changed_at < record.dispatch_started_at
+        ):
+            raise ValueError("continuity evidence predates dispatch")
     elif (
         record.dispatch_started_at is None
         or record.state_changed_at < record.dispatch_started_at
@@ -555,6 +608,7 @@ def _validate_state_shape(record: IdempotencyReservationRecord) -> None:
         not in {
             ReservationEvidenceKind.SINK_TERMINAL_OUTCOME,
             ReservationEvidenceKind.IRREVOCABLE_NON_ACCEPTANCE,
+            ReservationEvidenceKind.INDEPENDENT_EFFECT_OUTCOME,
         }
         or record.evidence_digest is None
         or record.terminal_outcome_digest is None
@@ -631,6 +685,15 @@ def _validate_transition(
         and current.dispatch_started_at != prior.dispatch_started_at
     ):
         raise ValueError("idempotency reservation transition rewrote dispatch time")
+
+
+def validate_reservation_transition(
+    prior: IdempotencyReservationRecord,
+    current: IdempotencyReservationRecord,
+) -> None:
+    """Validate one exact monotonic reservation transition."""
+
+    _validate_transition(prior, current)
 
 
 def _same_operation(
@@ -736,9 +799,12 @@ __all__ = [
     "begin_dispatch",
     "classify_reservation",
     "complete_reservation",
+    "complete_reservation_from_verifier",
     "dispatch_permitted",
     "expire_reservation",
+    "quarantine_reservation",
     "reopen_reservation",
     "reservation_record_from_mapping",
     "reservation_record_to_mapping",
+    "validate_reservation_transition",
 ]

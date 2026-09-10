@@ -97,7 +97,10 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_effect",
         "document_worker_outbox",
         "executor_audit_intent",
+        "executor_audit_closure",
         "executor_idempotency_reservation",
+        "executor_post_release_closure",
+        "executor_post_release_outbox",
         "safeguard_dispatch_evidence",
         "target_dispatch_fence",
         "executor_receipt_outbox",
@@ -1538,6 +1541,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     safeguard_dispatch_evidence_migration = inventory_module.load_revision_metadata(
         safeguard_dispatch_evidence_path
     )
+    post_release_closure_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/"
+        "20260912_core_post_release_closure.py"
+    )
+    post_release_closure_migration = inventory_module.load_revision_metadata(
+        post_release_closure_path
+    )
     certification_support_path = (
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20260907_core_oi16_certification_support.py"
@@ -1574,6 +1584,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(executor_audit_intent_migration.owned_tables)
         | set(target_dispatch_fence_migration.owned_tables)
         | set(safeguard_dispatch_evidence_migration.owned_tables)
+        | set(post_release_closure_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
     )
     assert granted_tables == expected_tables

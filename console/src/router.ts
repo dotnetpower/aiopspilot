@@ -1,6 +1,7 @@
 import { resolvePanels } from "./panels";
 
 const ROUTE_EVENT = "fdai:route-changed";
+let transientRoute: ConsoleRoute | null = null;
 
 export const PANEL_PATHS: Readonly<Record<string, string>> = {
   dashboard: "/overview",
@@ -191,8 +192,31 @@ export function legacyHashHref(hash: string): string | null {
 }
 
 export function currentRoute(): ConsoleRoute {
+  if (transientRoute !== null) return transientRoute;
   if (typeof window === "undefined") return parseConsoleRoute("/overview");
   return parseConsoleRoute(window.location.pathname, window.location.search);
+}
+
+export function hasTransientRoute(): boolean {
+  return transientRoute !== null;
+}
+
+export function openTransientSettingsRoute(href = panelPath("settings-general")): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(href, window.location.origin);
+  const route = parseConsoleRoute(url.pathname, url.search);
+  const panel = resolvePanels().find((candidate) => candidate.id === route.panelId);
+  if (panel?.group !== "settings") {
+    throw new Error(`Transient Settings route MUST target a Settings panel: ${url.pathname}`);
+  }
+  transientRoute = route;
+  window.dispatchEvent(new Event(ROUTE_EVENT));
+}
+
+export function closeTransientRoute(): void {
+  if (typeof window === "undefined" || transientRoute === null) return;
+  transientRoute = null;
+  window.dispatchEvent(new Event(ROUTE_EVENT));
 }
 
 export function shouldReplaceUnmatchedRoute(route: ConsoleRoute, hash: string): boolean {
@@ -214,6 +238,14 @@ export function resetConsoleScroll(root: ConsoleScrollRoot): void {
 export function navigate(href: string, replace = false): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
+  const nextRoute = parseConsoleRoute(url.pathname, url.search);
+  const nextPanel = resolvePanels().find((panel) => panel.id === nextRoute.panelId);
+  if (transientRoute !== null && nextPanel?.group === "settings") {
+    transientRoute = nextRoute;
+    window.dispatchEvent(new Event(ROUTE_EVENT));
+    return;
+  }
+  transientRoute = null;
   const resetScroll = shouldResetScroll(window.location.pathname, url.pathname);
   const method = replace ? "replaceState" : "pushState";
   window.history[method](null, "", `${url.pathname}${url.search}`);
@@ -236,6 +268,10 @@ export function replaceRouteState(href: string): void {
 
 export function installNavigationListener(onRoute: () => void): () => void {
   if (typeof window === "undefined") return () => undefined;
+  const onHistoryRoute = () => {
+    transientRoute = null;
+    onRoute();
+  };
   const onClick = (event: MouseEvent) => {
     if (
       event.defaultPrevented ||
@@ -253,11 +289,11 @@ export function installNavigationListener(onRoute: () => void): () => void {
     event.preventDefault();
     navigate(`${url.pathname}${url.search}`);
   };
-  window.addEventListener("popstate", onRoute);
+  window.addEventListener("popstate", onHistoryRoute);
   window.addEventListener(ROUTE_EVENT, onRoute);
   document.addEventListener("click", onClick);
   return () => {
-    window.removeEventListener("popstate", onRoute);
+    window.removeEventListener("popstate", onHistoryRoute);
     window.removeEventListener(ROUTE_EVENT, onRoute);
     document.removeEventListener("click", onClick);
   };

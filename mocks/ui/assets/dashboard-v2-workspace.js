@@ -53,7 +53,7 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ow-row-action";
-    button.textContent = "Inspect records";
+    button.textContent = "Inspect";
     button.addEventListener("click", () => {
       byId("resource-reset").click();
       document.querySelector(`[data-resource-lens="${index === 3 ? "provisioning" : "operation"}"]`).click();

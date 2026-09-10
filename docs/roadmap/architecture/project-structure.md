@@ -94,8 +94,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   receipt, verifier version, trust anchor, and validity window. Core selects a current non-revoked
   binding through the provider-neutral registry and fails closed on producer self-verification,
   timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
-  Cancellation remains a control-flow signal and is never converted into a verification result.
-  Cloud SDK use remains in delivery:
+  Unregistered or malformed verifier responses fail verification; Core revalidates returned bundles, readiness cannot retain an orphan digest, and eligible results cannot carry rejection details. Evidence expired at `recorded_at`, bundles predating recording or verifier activation, admissions beyond receipt or binding freshness, and timestamps without a defined UTC offset are invalid.
+  Cancellation remains a control-flow signal and is never converted into a verification result. Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.

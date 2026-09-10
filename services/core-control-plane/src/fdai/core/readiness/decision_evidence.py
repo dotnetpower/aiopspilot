@@ -79,6 +79,10 @@ class DecisionEvidenceReadinessResult:
             raise ValueError("decision evidence readiness admission mismatched eligibility")
         if self.eligible != (self.verification_bundle is not None):
             raise ValueError("decision evidence readiness bundle mismatched eligibility")
+        if self.eligible and self.rejection_details:
+            raise ValueError("eligible decision evidence readiness MUST NOT include rejections")
+        if (self.verification_bundle_digest is not None) != (self.verification_bundle is not None):
+            raise ValueError("decision evidence readiness bundle digest mismatched bundle presence")
         if self.admission is not None and (
             self.admission.receipt_digest != self.receipt_digest
             or self.admission.verification_bundle_digest != self.verification_bundle_digest
@@ -150,6 +154,14 @@ class DecisionEvidenceReadinessGate:
             RuntimeError,
             ValueError,
         ):
+            return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
+        if not isinstance(bundle, DecisionEvidenceVerificationBundle):
+            return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
+        try:
+            bundle = DecisionEvidenceVerificationBundle.model_validate(
+                bundle.model_dump(mode="json")
+            )
+        except (PydanticValidationError, TypeError, ValueError):
             return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
         return _evaluate_bundle(
             receipt,
@@ -391,6 +403,10 @@ def _evaluate_bundle(
         or bundle.trust_anchor_id != binding.trust_anchor_id
     ):
         return _rejected(receipt, DecisionEvidenceReadinessReason.BUNDLE_MISMATCH)
+    if bundle.verified_at < receipt.recorded_at:
+        return _rejected(receipt, DecisionEvidenceReadinessReason.BUNDLE_MISMATCH)
+    if bundle.verified_at < binding.valid_from:
+        return _rejected(receipt, DecisionEvidenceReadinessReason.UNTRUSTED_VERIFIER)
     if not bundle.verified_at <= evaluated_at <= bundle.valid_until:
         return _rejected(receipt, DecisionEvidenceReadinessReason.PROOF_NOT_CURRENT)
     expected = expected_verification_subjects(
@@ -403,6 +419,13 @@ def _evaluate_bundle(
     actual = {proof.kind: proof.subject_digest for proof in bundle.proofs}
     if actual != expected:
         return _rejected(receipt, DecisionEvidenceReadinessReason.PROOF_MISMATCH)
+    admission_valid_until = min(
+        bundle.valid_until,
+        receipt.fresh_until,
+        binding.valid_until,
+    )
+    if admission_valid_until <= bundle.verified_at:
+        return _rejected(receipt, DecisionEvidenceReadinessReason.PROOF_NOT_CURRENT)
     return DecisionEvidenceReadinessResult(
         eligible=True,
         reason=DecisionEvidenceReadinessReason.VERIFIED,
@@ -417,7 +440,7 @@ def _evaluate_bundle(
             purpose_id=receipt.purpose_id,
             source_revision=receipt.source_revision,
             verified_at=bundle.verified_at,
-            valid_until=bundle.valid_until,
+            valid_until=admission_valid_until,
         ),
     )
 

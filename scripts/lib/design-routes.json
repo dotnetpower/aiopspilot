@@ -459,6 +459,7 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/security-and-identity.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
       ],
       "validate": [
@@ -487,6 +488,32 @@
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py",
         "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "service-migration-ownership",
+      "paths": [
+        "service-migrations/ownership.json",
+        "tests/integration/services/test_service_migration_inventory.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/services/test_service_migration_inventory.py",
+        "uv run python service-migrations/migrate.py all validate",
+        "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
     },
     {
@@ -1112,8 +1139,6 @@
         "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
         "services/operator-service/tests/test_semantic_turn*.py",
         "service-migrations/branches/operator-service/versions/**",
-        "service-migrations/ownership.json",
-        "tests/integration/services/test_service_migration_inventory.py",
         ".vscode/launch.json",
         ".vscode/tasks.json",
         "infra/services/**"
@@ -1995,24 +2020,18 @@
         "config/notifications-matrix.yaml",
         "console/src/api.ts",
         "console/src/api-cost-governance*",
-        "console/src/components/navigation-shell.tsx",
         "console/src/routes/cost-governance*",
         "console/src/routes/i18n/cost-governance*",
         "console/src/i18n/catalog-usage.test.ts",
         "console/src/i18n/index.test.ts",
-        "console/src/i18n/messages.en.json",
-        "console/src/i18n/messages.ko.json",
         "console/src/panels.tsx",
         "console/src/panels.test.ts",
         "console/src/panel-sources.ts",
         "console/src/panel-sources.test.ts",
-        "console/src/router.ts",
-        "console/src/router.test.ts",
         "infra/main.tf",
         "infra/variables.tf",
         "infra/outputs.tf",
         "infra/modules/compute/container-apps/*cost*",
-        "service-migrations/ownership.json",
         "service-migrations/branches/core-control-plane/versions/*cost*",
         "scripts/quality/architecture/check-cost-governance-package-inventory.py",
         "scripts/quality/architecture/check-cost-governance-package-convergence.py",
@@ -2027,7 +2046,6 @@
         "tests/integration/scripts/test_cost_governance_semantic_profile.py",
         "tests/integration/scripts/test_select_changed_images.py",
         "tests/integration/services/test_service_images.py",
-        "tests/integration/services/test_service_migration_inventory.py",
         "tests/integration/services/test_cost_governance_runtime_migration.py",
         "tests/integration/services/test_cost_governance_validation_migration.py",
         "services/core-control-plane/tests/agents/test_njord_cost_governance.py",

@@ -1806,6 +1806,8 @@
       "review": "제안자 / 검토자"
     },
     "open": "설정 열기",
+    "close": "설정 닫기",
+    "menuLabel": "설정 섹션",
     "switchLight": "라이트 테마로 전환",
     "switchDark": "다크 테마로 전환",
     "theme": "테마",
