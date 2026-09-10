@@ -756,23 +756,12 @@ def _normalize_digest_value(value: object) -> object:
     return value
 
 
-_STORE_COMPAT_EXPORTS = frozenset(
-    {
-        "TargetDispatchFenceAcquireDecision",
-        "TargetDispatchFenceAcquireResult",
-        "TargetDispatchFenceStore",
-        "classify_target_fence",
-        "target_mutation_blocked",
-    }
-)
-
-
 def __getattr__(name: str) -> object:
     """Lazily preserve store-symbol imports from the original module."""
 
-    if name not in _STORE_COMPAT_EXPORTS:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     store_module = import_module("fdai.core.executor.target_dispatch_fence_store")
+    if name not in store_module.__all__:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     value: object = getattr(store_module, name)
     return value
 

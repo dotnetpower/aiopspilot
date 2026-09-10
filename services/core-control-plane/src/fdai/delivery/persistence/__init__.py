@@ -163,6 +163,11 @@ from fdai.delivery.persistence.postgres_rpc_idempotency import (
     PostgresRpcIdempotencyStoreConfig,
     RpcClaimConflictError,
 )
+from fdai.delivery.persistence.postgres_safeguard_dispatch import (
+    PostgresSafeguardDispatchEvidenceStore,
+    PostgresSafeguardDispatchEvidenceStoreConfig,
+    SafeguardDispatchCompareAndSetError,
+)
 from fdai.delivery.persistence.postgres_schedule_run_ledger import (
     PostgresScheduleRunLedger,
     PostgresScheduleRunLedgerConfig,
@@ -310,6 +315,8 @@ __all__ = [
     "PostgresIdempotencyStoreConfig",
     "PostgresIdempotencyReservationStore",
     "PostgresIdempotencyReservationStoreConfig",
+    "PostgresSafeguardDispatchEvidenceStore",
+    "PostgresSafeguardDispatchEvidenceStoreConfig",
     "PostgresTargetDispatchFenceStore",
     "PostgresTargetDispatchFenceStoreConfig",
     "PostgresIncidentProposalStore",
@@ -399,6 +406,7 @@ __all__ = [
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",
     "StateStoreSemanticFeedbackCandidateStore",
+    "SafeguardDispatchCompareAndSetError",
     "T2CacheCatalogState",
     "T2CacheCatalogTransitionReceipt",
     "T2CacheEntry",
