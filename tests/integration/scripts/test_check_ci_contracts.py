@@ -464,6 +464,7 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert "  workflow_dispatch:" in workflow
     assert "  push:" in workflow
     assert "  pull_request:" in workflow
+    assert "github.event_name == 'workflow_dispatch' && 1 || 0" in workflow
 
 
 def test_shipped_workflows_satisfy_security_contracts() -> None:
