@@ -21,7 +21,7 @@ the settling window. Tolerated negative age never creates suppression when the c
 only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
 closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
-as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason.
+as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply.
 
 ## Core domain navigation decision
 
