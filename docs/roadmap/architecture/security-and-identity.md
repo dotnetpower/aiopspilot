@@ -261,6 +261,27 @@ It does not permit a temporary dual acquisition.
 | Workflow | Orchestrates the selected executor and does not define a separate `ExecutionPath` | The selected executor owns the target lock. Workflow passes the immutable pre-bundle commitment and never reacquires the target. |
 | Isolated Executor | Shared-bundle revalidation remains open under #628 | The isolated executor must reject missing or stale evidenced ownership before dispatch and must not fall back to the legacy seam. |
 
+### PostgreSQL continuity admission
+
+An effect sink is unsupported for production until its composition supplies one reviewed
+`EffectSinkContinuityPolicy`. The policy selects fenced and idempotent execution, complete
+lock-session atomicity, or cancellation with durable unknown-outcome quarantine and authoritative
+reconciliation. A generic Direct API or tool category is not a continuity strategy.
+
+The PostgreSQL evidence provider follows these boundaries:
+
+- One dedicated connection owns the exact advisory key for the complete acquisition context.
+  Reconnect or connection substitution creates a new acquisition and cannot continue the old one.
+- The acquisition binds the database identity, backend process ID, backend session discriminator,
+  request digest, and owner-reference digest without storing the DSN or a capability-bearing token.
+- `pg_locks` with `granted=true` is a point-in-time substrate observation. Provider-owned UTC time
+  and the five-second contract maximum bound the assessment, but neither predicts future ownership.
+- The provider checks the boolean advisory-unlock result. A connection loss, missing lock row, or
+  unknown unlock result produces lost or unknown release evidence and durable target quarantine.
+- A sink commit does not clear quarantine or claim operational success. The selected sink policy
+  must provide stable sink idempotency or authoritative status reconciliation, and independent
+  effect verification remains a separate terminal axis.
+
 ## Rate Limiting and Kill-Switch (DoS and containment)
 
 - The event loop and executor enforce **rate/budget caps** (per-tier, per-resource, and global);
