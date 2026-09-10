@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 014bb72b18f3dff22bd11a91583e81edd35cedc5
+translation_source_sha: e7902fe4018ef491cbeaf754f247219cd753343b
 translation_revised: 2026-09-10
 ---
 
@@ -505,6 +505,9 @@ telemetry / metrics
 `fdai-incident-evidence-query` 유지관리 진입점은 service 소유 store를 통해 영속 Incident audit를
 읽고 범위가 제한된 correlation prefix 하나에 대한 transition 수, 고유 Incident 수, 최대 member 수,
 kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 구성은 반환하지 않습니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
+`fdai-forecast-evidence-query` 유지관리 진입점은 명시적 episode 분모와 평가 가능한 분모가 없을 때
+`null` rate를 포함하는 repeatable-read forecast health snapshot을 반환합니다. 이 snapshot은 근거
+전용이며 promotion 권한을 부여하지 않습니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
 차단됩니다. 검토된 분석기 매핑이 없는 리소스 유형은 건너뛰고, stale, 충돌, 부분, 합성 관측
 상태 사실은 안정된 사유와 함께 건너뛰며, projection을 읽지 못하면 구성된 목록만으로 축소하지
 않고 예외를 올려 작업이 재시도합니다. Resolver는 이전 flat metadata 형식과 현재 속성별 collection
