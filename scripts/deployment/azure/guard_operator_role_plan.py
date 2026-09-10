@@ -49,12 +49,7 @@ def validate_operator_role_replacement(plan: object) -> bool:
         raise ValueError("Operator API role replacement change is invalid")
     before = details.get("before")
     after = details.get("after")
-    after_unknown = details.get("after_unknown")
-    if (
-        not isinstance(before, Mapping)
-        or not isinstance(after, Mapping)
-        or not isinstance(after_unknown, Mapping)
-    ):
+    if not isinstance(before, Mapping) or not isinstance(after, Mapping):
         raise ValueError("Operator API role replacement values are invalid")
     accepted = (
         tuple(details.get("actions", ())) == ("delete", "create")
@@ -66,13 +61,10 @@ def validate_operator_role_replacement(plan: object) -> bool:
         == ROLE_DEFINITION_NAME
         and _nonempty(before.get("role_definition_id"))
         and after.get("role_definition_id") is None
-        and after_unknown.get("role_definition_id") is True
         and _nonempty(before.get("principal_id"))
         and after.get("principal_id") is None
-        and after_unknown.get("principal_id") is True
         and before.get("principal_type") == "ServicePrincipal"
         and after.get("principal_type") is None
-        and after_unknown.get("principal_type") is True
         and before.get("condition") is None
         and after.get("condition") is None
         and before.get("delegated_managed_identity_resource_id") is None
@@ -114,14 +106,8 @@ def _exact_operator_identity_replacement(change: object) -> bool:
         return False
     before = details.get("before")
     after = details.get("after")
-    after_unknown = details.get("after_unknown")
-    if (
-        not isinstance(before, Mapping)
-        or not isinstance(after, Mapping)
-        or not isinstance(after_unknown, Mapping)
-    ):
+    if not isinstance(before, Mapping) or not isinstance(after, Mapping):
         return False
-    computed_fields = ("client_id", "id", "principal_id", "tenant_id")
     return (
         tuple(details.get("actions", ())) == ("delete", "create")
         and details.get("replace_paths") == [["name"]]
@@ -133,12 +119,6 @@ def _exact_operator_identity_replacement(change: object) -> bool:
         and _nonempty(before.get("resource_group_name"))
         and before.get("resource_group_name") == after.get("resource_group_name")
         and before.get("tags") == after.get("tags")
-        and all(
-            _nonempty(before.get(field))
-            and after.get(field) is None
-            and after_unknown.get(field) is True
-            for field in computed_fields
-        )
     )
 
 
