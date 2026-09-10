@@ -380,6 +380,38 @@ async def test_expected_verifier_failure_is_a_bounded_rejection(failure: Excepti
     assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
 
 
+async def test_malformed_verifier_return_is_a_bounded_rejection() -> None:
+    receipt = _receipt()
+
+    class _MalformedVerifier:
+        async def verify(self, receipt, *, trust_anchor_id):
+            del receipt, trust_anchor_id
+            return object()
+
+    registry = DecisionEvidenceVerifierRegistry(
+        (
+            DecisionEvidenceVerifierBinding(
+                authority_class=receipt.authority_class,
+                method_id=receipt.method_id,
+                verifier_id="azure.readback",
+                verifier_version="1.0.0",
+                trust_anchor_id="azure:managed-identity",
+                verifier=_MalformedVerifier(),
+            ),
+        )
+    )
+
+    result = await DecisionEvidenceReadinessGate(registry=registry).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
+
+
 async def test_verifier_cancellation_is_not_converted_to_rejection() -> None:
     receipt = _receipt()
 
