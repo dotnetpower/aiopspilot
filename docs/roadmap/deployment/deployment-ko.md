@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: bd6740635af6bf332f9b034c61ab9f73b835b1a3
+translation_source_sha: 630acdedd87e8fd161cc7eb5369c105fac4b3dd3
 translation_revised: 2026-09-10
 ---
 
