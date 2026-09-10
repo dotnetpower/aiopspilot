@@ -81,7 +81,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`. The generated FDAI Conversation Quality
+`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale question-bank source digests. The generated FDAI Conversation Quality
 Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
