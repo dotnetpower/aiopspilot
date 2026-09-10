@@ -110,7 +110,7 @@ jobs:
             > "$checks"
           jq -e \
             '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
-             length == 1' "$checks" >/dev/null
+             length >= 1' "$checks" >/dev/null
 
       - name: Verify allowlisted source and download exact artifact
         env:

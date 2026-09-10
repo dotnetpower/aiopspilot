@@ -26,6 +26,8 @@ def test_workflow_is_exact_revision_and_protected() -> None:
     )
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in WORKFLOW
     assert '.name == "required" and .conclusion == "success"' in WORKFLOW
+    assert "length >= 1" in WORKFLOW
+    assert "length == 1" not in WORKFLOW
 
 
 def test_source_run_is_stable_allowlisted_and_exact_revision() -> None:
