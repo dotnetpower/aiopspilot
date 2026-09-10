@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,11 +21,14 @@ from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
 )
-from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
+from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_sync import InventorySyncCoordinator, PromotedInventoryObservation
-from fdai.delivery.kubernetes_inventory import UnavailableKubernetesInventoryEnricher
+from fdai.delivery.inventory_sync_cli import (
+    _build_kubernetes_enricher as build_kubernetes_inventory_enricher,
+)
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -62,23 +66,11 @@ from fdai.shared.providers.inventory_snapshot import (
     InventorySource,
     InventorySourcesExhaustedError,
 )
-from fdai.shared.providers.workload_identity import IdentityToken
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
-class AsyncAzureCliIdentity:
-    """Adapt the dev-only synchronous Azure CLI identity to async provider I/O."""
-
-    def __init__(self) -> None:
-        self._identity = AzureCliWorkloadIdentity.from_env()
-
-    async def get_token(self, audience: str) -> IdentityToken:
-        """Acquire one cached, audience-scoped token without blocking the event loop."""
-        return await asyncio.to_thread(self._identity.get_token_sync, audience)
 
 
 async def refresh() -> InventoryOntologyProjectionResult:
@@ -89,6 +81,15 @@ async def refresh() -> InventoryOntologyProjectionResult:
         raise RuntimeError("FDAI_STATE_STORE_DSN MUST be configured")
     if not subscription_id:
         raise RuntimeError("AZURE_SUBSCRIPTION_ID MUST be configured")
+    inventory_config = InventoryJobConfig.from_env(
+        {
+            **os.environ,
+            "FDAI_INVENTORY_DSN": dsn,
+            "FDAI_INVENTORY_SCOPES": subscription_id,
+            "FDAI_INVENTORY_RECOVERY_DELTA": "0",
+            "FDAI_INVENTORY_RESOURCE_CHANGE_FEED": "0",
+        }
+    )
 
     registry = PackageResourceSchemaRegistry()
     catalog_root = REPO_ROOT / "rule-catalog"
@@ -103,6 +104,9 @@ async def refresh() -> InventoryOntologyProjectionResult:
         )
     )
     query_types = tuple(item.id for item in resource_types if item.azure_arm_type is not None)
+    relationship_catalog = load_provider_relationship_mapping_catalog(
+        catalog_root / "vocabulary/provider-relationship-mappings"
+    )
 
     ontology_store = PostgresOntologyInstanceStore(
         config=PostgresOntologyInstanceStoreConfig(dsn=dsn),
@@ -172,15 +176,23 @@ async def refresh() -> InventoryOntologyProjectionResult:
         )
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with AsyncExitStack() as stack:
+            client = await stack.enter_async_context(httpx.AsyncClient())
+            identity = AsyncAzureCliWorkloadIdentity.from_env()
+            kubernetes_enricher = await build_kubernetes_inventory_enricher(
+                config=inventory_config,
+                relationship_catalog=relationship_catalog,
+                stack=stack,
+                identity=identity,
+            )
             query_factory = AzureArgQueryFactory(
-                identity=AsyncAzureCliIdentity(),
+                identity=identity,
                 resource_types=resource_types,
                 http_client=client,
                 config=AzureArgQueryFactoryConfig(subscription_scopes=(subscription_id,)),
             )
             query = AzureArmInventoryFactory(
-                identity=AsyncAzureCliIdentity(),
+                identity=identity,
                 resource_types=resource_types,
                 http_client=client,
                 config=AzureArmInventoryFactoryConfig(
@@ -223,10 +235,8 @@ async def refresh() -> InventoryOntologyProjectionResult:
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_observer=project,
-                promotion_enricher=UnavailableKubernetesInventoryEnricher(),
-                relationship_mapping_catalog=load_provider_relationship_mapping_catalog(
-                    catalog_root / "vocabulary/provider-relationship-mappings"
-                ),
+                promotion_enricher=kubernetes_enricher,
+                relationship_mapping_catalog=relationship_catalog,
             ).run((source,))
             active_snapshot_id = await snapshot_store.active_snapshot_id()
             if active_snapshot_id is None:
@@ -278,6 +288,8 @@ async def _write_operator_inventory_projection(
             "SELECT COUNT(*) AS pending_changes FROM inventory_realtime_resource"
         )
         overlay = await overlay_cursor.fetchone()
+        if overlay is None:
+            raise RuntimeError("inventory realtime overlay count is unavailable")
         resource_cursor = await connection.execute(
             "SELECT resource_id, resource_type, props FROM inventory_snapshot_resource "
             "WHERE snapshot_id=%s ORDER BY resource_id LIMIT 1001",

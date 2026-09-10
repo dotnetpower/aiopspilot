@@ -43,6 +43,8 @@ the two reviewed configuration functions; gateway diagnostics add `routes_to` an
 gateway function. This projection is a prompt-minimization view, not another manifest or authority
 source. Every descriptor still originates in the complete principal-scoped manifest, and plan
 verification still resolves against the exact release.
+The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
+Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
@@ -134,6 +136,21 @@ same-name Endpoints relationships. It emits no active graph link on partial inpu
 or duplicate candidates. A separate complete-generation verifier must attach immutable observation
 metadata before inventory projection can expose either relationship. Production Kubernetes
 inventory binding and retained composition receipts remain open.
+
+The AKS diagnostic evidence plane extends the canonical ResourceType registry with PVC, PV,
+StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange identities. Source schema v2
+adds reviewed cluster, namespace, storage, selector, and kind-qualified autoscale relationships.
+These objects and links remain observed inventory facts; they do not create diagnosis, policy,
+approval, or execution authority.
+EndpointSlice projection keeps only backend counts, conditions, and exact target Pod UIDs. It
+stores no endpoint address, and the reviewed `routes_to` link remains configuration evidence rather
+than proof that traffic arrived.
+Content-free Pod log evidence now separates returned records from provider-window coverage. A
+point-only provider can supply record digests but cannot make a diagnosis complete without source
+revision, provider cutoff, and an independent coverage receipt.
+The AKS diagnostic reducer combines only exact-target typed facts and independently qualified
+metric windows. It emits a Forseti-owned T0 evidence receipt, preserves every concurrent signal and
+gap, and fixes causal and execution authority false. Forseti remains the root-cause decision owner.
 
 Focused production-composition checks use an exact-release Interface that spans Resource and
 Observation evidence, then invoke the issued Pod function through its secured dependency digest.
@@ -494,7 +511,7 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Dynamic authority | Prediction, model agreement, or model promotion evidence cannot approve or execute an action. |
 | Dynamic closure | Only complete independent observations score trajectory fidelity or update a challenger. |
 | Pod telemetry | A purpose-scoped secured graph plus state evidence yields deterministic verified, unverified, stale, and missing segments without provider I/O or health inference. |
-| Pod diagnosis | One exact secured Pod UID can join bounded lifecycle and content-free log evidence; zero rows, incomplete sources, and scope conflicts remain explicit and cannot grant cause or execution authority. |
+| Pod diagnosis | One exact secured Pod UID can join bounded lifecycle and content-free log evidence. Inventory promotion also persists a content-addressed Forseti receipt, and Operator exposes it only when UID, resourceVersion, generation, release, cutoff, and fleet source match. Zero rows, incomplete sources, retained coverage gaps, and scope conflicts remain explicit and cannot grant cause or execution authority. |
 | Historical topology | PostgreSQL replay retains the exact ontology release and source receipt bindings for each selected revision batch; dangling active links lower completeness. |
 | Projection reload | The inventory status marker and manifest share a content digest, so a restart never exposes a mixed generation. |
 

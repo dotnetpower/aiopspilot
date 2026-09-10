@@ -26,6 +26,7 @@ owner remains focused on its normative design and safety boundary.
 | 2026-09-09 | in-progress | Replaced the proposed Core and Operator integration with a dedicated system-knowledge microservice and Teams bot boundary. | `current change`; canonical bilingual design and this ledger. | Implement contracts, catalog, search, Teams transport, package, image, and focused checks; keep production enablement blocked until runtime evidence exists. |
 | 2026-09-09 | implemented | Added the separate service contracts, 14-record release catalog, deterministic bilingual search, mention-only Teams boundary, restart-safe claim ledger, package, and non-root image. | `current change`; 18 service and contract tests, strict mypy, Ruff, wheel build, image build, and runtime-layer source-isolation check passed. | Retain downstream Teams, persistent-volume, cost, disable, and timed rollback evidence before changing production scope to `validated`. |
 | 2026-09-10 | implemented | Replaced the deployment volume assumption with Managed Identity Blob CAS, added the independent Terraform root, deterministic Teams package, protected plan/apply workflow, and explicit enable/disable rollback boundary. | `current change`; 21 service tests, deployment-helper and workflow tests, strict mypy, Ruff, Terraform validation, and Teams package determinism checks. | Push an exact green revision, apply its guarded plan, install the Teams package, run mention and restart canaries, record cost, and prove disable within 15 minutes. |
+| 2026-09-10 | implemented | Published the protected rollout and bootstrapped its deployment-only Graph OIDC installer, then stopped before plan or apply because the tenant has neither a Teams-capable license nor one explicitly approved FDAI development Team. | Commits `901e365f5` and `d369fed3b`; required CI run `34419203476`; image supply-chain run `34419751005`; issue #611 evidence comment. | Assign a Teams-capable license or approve one standard Team and channel, set the two protected Teams secrets, then run the guarded plan, apply, canaries, cost check, and timed disable and restore. |
 
 ### Remaining work
 
@@ -36,6 +37,11 @@ owner remains focused on its normative design and safety boundary.
   and duplicate-delivery tests.
 - [x] Build the service wheel and non-root container image with repository source absent from the
   runtime layer.
+- [x] Publish an exact required-CI revision, verify SLSA and SPDX image attestations, and bootstrap
+  the deployment-only Graph OIDC identity without a client secret.
+- [ ] Assign an approved Teams-capable license or explicitly approve one standard Team and channel,
+  then set `SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON` and
+  `SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON` without exposing tenant values.
 - [ ] Record a downstream Teams canary and Blob-backed restart-deduplication receipt for the exact
   image.
 - [ ] Record cost evidence and a protected disable and rollback rehearsal within 15 minutes before changing the

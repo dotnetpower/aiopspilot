@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: def900e6879ac4f4cc3b84434a4f911d28f7c046
+translation_source_sha: f8651abdb21e1c0780371aff036ec7c2b84439ac
 translation_revised: 2026-09-10
 ---
 
@@ -124,6 +124,11 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
   `inventory_kubernetes_audience`를 함께 제공합니다. Inventory managed identity에는 AKS RBAC
   Reader만 부여하며 request 시점에 수명이 짧은 token을 취득합니다. Kubernetes bearer token을
   Terraform 또는 environment 구성에 넣지 마세요.
+- 여러 AKS 클러스터를 관측하려면 기존 값 4개 대신
+  `inventory_kubernetes_cluster_bindings_json`을 제공합니다. 자격 증명이 없는 HTTPS endpoint,
+  CA PEM, workload-identity audience, `auth_mode: workload-identity`를 사용하는 정확한 클러스터
+  ARM ID를 1-32개 구성합니다. 같은 인벤토리 신원은 정확한 각 클러스터 범위에서 Reader를
+  부여받습니다. 배포 값은 소스 제어 밖에 보관하세요.
 - rule-watcher 스냅샷을 보존하고 초안 전용 수집 검토를 열려면
   `enable_rule_catalog_snapshot_storage`와 기존 운영 책임(`stewardship`) GitOps 연결을 함께
   활성화하세요.

@@ -59,6 +59,14 @@ cannot replace complete reconciliation or raise readiness. A one-shot scheduled 
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
 local long-running profile records that exact failure and retries only after its configured loop
 interval. Neither mode changes source authority or readiness semantics.
+AKS fleet observation accepts at most 32 exact cluster bindings and keeps them mutually exclusive
+with the legacy single-cluster variables. Each cluster contributes an independent sanitized source
+state; a partial fleet cannot raise the initial inventory readiness gate.
+The same bounded collection loop leases and advances Kubernetes Event cursors independently per
+binding, so one unavailable cluster remains visible without blocking another cluster's append.
+Successful promotion also appends bounded content-addressed AKS diagnostic receipts with an atomic
+audit entry. Pending promotion recovery replays that step even when ontology projection is
+disabled, while retained Event coverage segments keep earlier cursor gaps incomplete.
 A promoted generation records an exact active-scope graph checkpoint separately from the all-scope
 retention fence. Retained inactive-scope history cannot block current-scope readiness, while active
 post-snapshot observations still keep readiness incomplete until projection catches up.

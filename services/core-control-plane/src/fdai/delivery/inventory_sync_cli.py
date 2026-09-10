@@ -16,8 +16,15 @@ from datetime import UTC, datetime
 import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
+from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
+    AksDiagnosticReceiptService,
+)
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.aks_diagnostic_receipts import (
+    InventoryPromotionAksDiagnosticObserver,
+    StateStoreAksDiagnosticReceiptWriter,
+)
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
@@ -230,44 +237,47 @@ async def _build_kubernetes_enricher(
     stack: AsyncExitStack,
     identity: WorkloadIdentity | None = None,
 ) -> InventoryPromotionEnricher:
-    if (
-        config.kubernetes_api_server is None
-        or config.kubernetes_cluster_ref is None
-        or config.kubernetes_auth_mode is None
-        or (config.kubernetes_ca_path is None and config.kubernetes_ca_pem is None)
-    ):
+    if not config.kubernetes_bindings:
         return UnavailableKubernetesInventoryEnricher()
-    try:
-        kubernetes_ssl = ssl.create_default_context(
-            cafile=(str(config.kubernetes_ca_path) if config.kubernetes_ca_path else None),
-            cadata=config.kubernetes_ca_pem,
+    enrichers: list[InventoryPromotionEnricher] = []
+    for binding in config.kubernetes_bindings:
+        try:
+            kubernetes_ssl = ssl.create_default_context(
+                cafile=str(binding.ca_path) if binding.ca_path else None,
+                cadata=binding.ca_pem,
+            )
+        except OSError as exc:
+            raise RuntimeError("Kubernetes CA bundle is unavailable") from exc
+        auth: KubernetesApiAuth
+        if binding.auth_mode == "workload-identity":
+            if identity is None or binding.audience is None:
+                raise RuntimeError("Kubernetes workload identity is unavailable")
+            auth = WorkloadIdentityKubernetesAuth(
+                identity=identity,
+                audience=binding.audience,
+            )
+        else:
+            if binding.token_path is None:
+                raise RuntimeError("Kubernetes service-account token path is unavailable")
+            auth = ServiceAccountTokenAuth(binding.token_path)
+        kubernetes_client = await stack.enter_async_context(
+            httpx.AsyncClient(verify=kubernetes_ssl)
         )
-    except OSError as exc:
-        raise RuntimeError("Kubernetes CA bundle is unavailable") from exc
-    auth: KubernetesApiAuth
-    if config.kubernetes_auth_mode == "workload-identity":
-        if identity is None or config.kubernetes_audience is None:
-            raise RuntimeError("Kubernetes workload identity is unavailable")
-        auth = WorkloadIdentityKubernetesAuth(
-            identity=identity,
-            audience=config.kubernetes_audience,
+        enrichers.append(
+            KubernetesInventoryEnricher(
+                source=KubernetesApiInventorySource(
+                    config=KubernetesApiInventoryConfig(
+                        api_server=binding.api_server,
+                        cluster_ref=binding.cluster_ref,
+                    ),
+                    auth=auth,
+                    http_client=kubernetes_client,
+                ),
+                relationship_mapping_catalog=relationship_catalog,
+                scope_digest=binding.scope_digest,
+            )
         )
-    else:
-        if config.kubernetes_token_path is None:
-            raise RuntimeError("Kubernetes service-account token path is unavailable")
-        auth = ServiceAccountTokenAuth(config.kubernetes_token_path)
-    kubernetes_client = await stack.enter_async_context(httpx.AsyncClient(verify=kubernetes_ssl))
-    return KubernetesInventoryEnricher(
-        source=KubernetesApiInventorySource(
-            config=KubernetesApiInventoryConfig(
-                api_server=config.kubernetes_api_server,
-                cluster_ref=config.kubernetes_cluster_ref,
-            ),
-            auth=auth,
-            http_client=kubernetes_client,
-        ),
-        relationship_mapping_catalog=relationship_catalog,
-    )
+    return enrichers[0] if len(enrichers) == 1 else SequentialInventoryPromotionEnricher(*enrichers)
 
 
 _resolve_resource_types = inventory_sync_cli_support.resolve_resource_types
@@ -282,22 +292,33 @@ def _build_ontology_observer(
     evidence_counts: dict[str, int],
 ) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     observation_journal = build_observation_journal(config.dsn, os.environ)
+    catalog_root = _REPO_ROOT / "rule-catalog"
+    catalog = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+    ontology_release_digest = catalog.build_release().digest
+    diagnostic_observer = InventoryPromotionAksDiagnosticObserver(
+        service=AksDiagnosticReceiptService(
+            writer=StateStoreAksDiagnosticReceiptWriter(
+                store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+            )
+        ),
+        ontology_release=ontology_release_digest,
+        scope_by_cluster_ref={
+            binding.cluster_ref: binding.scope_digest for binding in config.kubernetes_bindings
+        },
+    )
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
     topology_publisher: InventoryTopologyHistoryPublisher | None = None
     if read_bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
-        catalog_root = _REPO_ROOT / "rule-catalog"
-        catalog = load_ontology_catalog(
-            catalog_root,
-            schema_registry=PackageResourceSchemaRegistry(),
-            probes_root=catalog_root / "probes",
-        )
         ontology_store = PostgresOntologyInstanceStore(
             config=PostgresOntologyInstanceStoreConfig(dsn=config.dsn),
             object_types=catalog.object_types,
             link_types=catalog.link_types,
         )
-        ontology_release_digest = catalog.build_release().digest
         projector = InventoryOntologyProjector(
             store=ontology_store,
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
@@ -330,6 +351,7 @@ def _build_ontology_observer(
             observation.links
         )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
+        await diagnostic_observer.observe(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return
         failures: list[tuple[str, Exception]] = []
@@ -399,8 +421,6 @@ def _build_ontology_observer(
             raise RuntimeError("inventory ontology projection is incomplete")
 
     async def _recover() -> None:
-        if projector is None or ontology_store is None or topology_publisher is None:
-            return
         pending = await observation_journal.load_pending_promoted_snapshot()
         if pending is not None:
             await _observe(pending)

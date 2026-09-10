@@ -565,6 +565,8 @@ function resourceContextRecord(resource: OntologyInstanceResource): Record<strin
     type: resource.resource_type,
     status: resource.status,
     model_deployment: resource.model_deployment ?? null,
+    kubernetes_identity: resource.kubernetes_identity ?? null,
+    kubernetes_diagnostics: resource.kubernetes_diagnostics ?? null,
     recorded_states: resource.states ?? null,
     location: resource.location,
     resource_group: resource.resource_group,

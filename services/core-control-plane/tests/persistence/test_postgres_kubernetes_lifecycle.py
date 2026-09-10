@@ -10,6 +10,7 @@ import psycopg
 import pytest
 from fdai.core.ontology_platform.kubernetes_lifecycle import (
     KubernetesLifecycleBatch,
+    KubernetesLifecycleCoverageSegment,
     KubernetesLifecycleObservation,
 )
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
@@ -57,6 +58,7 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
     dsn = _dsn()
     store = PostgresKubernetesLifecycleStore(config=PostgresKubernetesLifecycleConfig(dsn=dsn))
     cluster_ref = f"test-cluster:{uuid4()}"
+    other_cluster_ref = f"test-cluster:{uuid4()}"
     observation = _observation(cluster_ref)
     try:
         first = await store.acquire(
@@ -111,6 +113,12 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
         )
         assert third is not None
         assert third.sequence == 2
+        incomplete_segment = KubernetesLifecycleCoverageSegment(
+            cluster_ref=cluster_ref,
+            started_at=NOW + timedelta(seconds=20),
+            ended_at=NOW + timedelta(seconds=40),
+            limitation="result_limit",
+        )
         assert await store.append(
             KubernetesLifecycleBatch(
                 cluster_ref=cluster_ref,
@@ -119,7 +127,8 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
                 coverage_started_at=NOW,
                 coverage_through_at=NOW + timedelta(seconds=40),
                 observations=(observation,),
-                limitation=None,
+                limitation="result_limit",
+                incomplete_coverage_segment=incomplete_segment,
             ),
             holder="collector-c",
             now=NOW + timedelta(seconds=40),
@@ -142,6 +151,26 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
             )
             is None
         )
+        rejected_segment = KubernetesLifecycleCoverageSegment(
+            cluster_ref=cluster_ref,
+            started_at=NOW + timedelta(seconds=40),
+            ended_at=NOW + timedelta(seconds=50),
+            limitation="cursor_expired",
+        )
+        assert not await store.append(
+            KubernetesLifecycleBatch(
+                cluster_ref=cluster_ref,
+                expected_sequence=fourth.sequence - 1,
+                next_resume_token=None,
+                coverage_started_at=NOW + timedelta(seconds=50),
+                coverage_through_at=NOW + timedelta(seconds=50),
+                observations=(),
+                limitation="cursor_expired",
+                incomplete_coverage_segment=rejected_segment,
+            ),
+            holder="collector-d",
+            now=NOW + timedelta(seconds=43),
+        )
         assert not await store.append(
             KubernetesLifecycleBatch(
                 cluster_ref=cluster_ref,
@@ -155,6 +184,20 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
             holder="collector-d",
             now=NOW + timedelta(seconds=43),
         )
+        assert await store.append(
+            KubernetesLifecycleBatch(
+                cluster_ref=cluster_ref,
+                expected_sequence=fourth.sequence,
+                next_resume_token="opaque-replayed-segment",
+                coverage_started_at=NOW,
+                coverage_through_at=NOW + timedelta(seconds=60),
+                observations=(),
+                limitation="result_limit",
+                incomplete_coverage_segment=incomplete_segment,
+            ),
+            holder="collector-d",
+            now=NOW + timedelta(seconds=50),
+        )
 
         current = await store.read_cursor(cluster_ref)
         retained = await store.read_observations(
@@ -162,18 +205,73 @@ async def test_lease_reacquire_duplicate_and_reorder_are_safe() -> None:
             object_uid=None,
             since=NOW - timedelta(seconds=1),
         )
+        segments = await store.read_incomplete_coverage_segments(
+            cluster_ref=cluster_ref,
+            since=NOW,
+            through=NOW + timedelta(seconds=60),
+        )
+        later_segments = await store.read_incomplete_coverage_segments(
+            cluster_ref=cluster_ref,
+            since=NOW + timedelta(seconds=41),
+            through=NOW + timedelta(seconds=60),
+        )
         assert current is not None
-        assert current.sequence == 3
+        assert current.sequence == 4
         assert len(retained) == 1
         assert retained[0].occurrence_count == 17
+        assert segments == (incomplete_segment,)
+        assert later_segments == ()
+
+        other_cursor = await store.acquire(
+            cluster_ref=other_cluster_ref,
+            holder="collector-other",
+            now=NOW,
+            lease_until=NOW + timedelta(seconds=30),
+        )
+        assert other_cursor is not None
+        other_segment = KubernetesLifecycleCoverageSegment(
+            cluster_ref=other_cluster_ref,
+            started_at=NOW,
+            ended_at=NOW + timedelta(seconds=10),
+            limitation="source_unavailable",
+        )
+        assert await store.append(
+            KubernetesLifecycleBatch(
+                cluster_ref=other_cluster_ref,
+                expected_sequence=other_cursor.sequence,
+                next_resume_token=None,
+                coverage_started_at=NOW,
+                coverage_through_at=NOW + timedelta(seconds=10),
+                observations=(),
+                limitation="source_unavailable",
+                incomplete_coverage_segment=other_segment,
+            ),
+            holder="collector-other",
+            now=NOW + timedelta(seconds=10),
+        )
+        assert await store.read_incomplete_coverage_segments(
+            cluster_ref=other_cluster_ref,
+            since=NOW,
+            through=NOW + timedelta(seconds=60),
+        ) == (other_segment,)
+        assert await store.read_incomplete_coverage_segments(
+            cluster_ref=cluster_ref,
+            since=NOW,
+            through=NOW + timedelta(seconds=60),
+        ) == (incomplete_segment,)
     finally:
         plain = dsn.replace("postgresql+psycopg://", "postgresql://", 1)
         async with await psycopg.AsyncConnection.connect(plain) as connection:
-            await connection.execute(
-                "DELETE FROM kubernetes_lifecycle_observation WHERE cluster_ref = %s",
-                (cluster_ref,),
-            )
-            await connection.execute(
-                "DELETE FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
-                (cluster_ref,),
-            )
+            for cleanup_cluster_ref in (cluster_ref, other_cluster_ref):
+                await connection.execute(
+                    "DELETE FROM kubernetes_lifecycle_coverage_segment WHERE cluster_ref = %s",
+                    (cleanup_cluster_ref,),
+                )
+                await connection.execute(
+                    "DELETE FROM kubernetes_lifecycle_observation WHERE cluster_ref = %s",
+                    (cleanup_cluster_ref,),
+                )
+                await connection.execute(
+                    "DELETE FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
+                    (cleanup_cluster_ref,),
+                )

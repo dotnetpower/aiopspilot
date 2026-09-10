@@ -19,7 +19,76 @@ export interface OntologyInstanceResource {
   readonly last_seen: string | null;
   readonly selected: boolean;
   readonly model_deployment?: OntologyInstanceModelDeployment | null;
+  readonly kubernetes_identity?: OntologyInstanceKubernetesIdentity | null;
+  readonly kubernetes_diagnostics?: Readonly<Record<string, OntologyInstanceDiagnosticValue>> | null;
+  readonly aks_diagnostic_receipt?: OntologyInstanceAksDiagnosticReceipt | null;
   readonly states?: RecordedResourceStates;
+}
+
+export interface OntologyInstanceKubernetesIdentity {
+  readonly api_version: string;
+  readonly kind: string;
+  readonly name: string;
+  readonly namespace: string | null;
+  readonly resource_version: string;
+  readonly uid: string;
+}
+
+export type OntologyInstanceAksDiagnosticStatus =
+  | "autoscale_limited"
+  | "control_plane_unavailable"
+  | "crash_loop"
+  | "endpoint_unready"
+  | "evicted"
+  | "held"
+  | "image_pull_failed"
+  | "node_pressure"
+  | "networking_unavailable"
+  | "no_failure_signal"
+  | "oom_killed"
+  | "probe_failure_evidence"
+  | "quota_constrained"
+  | "resource_pressure"
+  | "rollout_stalled"
+  | "scheduling_blocked"
+  | "storage_blocked";
+
+export interface OntologyInstanceAksDiagnosticReceipt {
+  readonly schema_version: "1.0.0";
+  readonly owner_agent: "Forseti";
+  readonly principal_class: string;
+  readonly purpose: "operations-review";
+  readonly producer_version: string;
+  readonly method_version: string;
+  readonly target_resource_id: string;
+  readonly target_uid: string;
+  readonly target_resource_version: string;
+  readonly ontology_release: string;
+  readonly cutoff: string;
+  readonly source_cutoffs: Readonly<Record<string, string>>;
+  readonly source_revisions: Readonly<Record<string, string>>;
+  readonly status: OntologyInstanceAksDiagnosticStatus;
+  readonly signals: readonly OntologyInstanceAksDiagnosticStatus[];
+  readonly complete: boolean;
+  readonly evidence_gaps: readonly string[];
+  readonly conflicts: readonly string[];
+  readonly evidence_refs: readonly string[];
+  readonly synthetic: false;
+  readonly cause_claim_supported: false;
+  readonly execution_authority: false;
+  readonly audit_correlation_id: string;
+}
+
+export type OntologyInstanceDiagnosticValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly OntologyInstanceDiagnosticValue[]
+  | OntologyInstanceDiagnosticObject;
+
+export interface OntologyInstanceDiagnosticObject {
+  readonly [key: string]: OntologyInstanceDiagnosticValue;
 }
 
 export interface OntologyInstanceModelDeployment {
@@ -268,6 +337,7 @@ export interface OntologyInstanceActivity {
 
 export interface OntologyInstanceSource {
   readonly source: string;
+  readonly scope_digest: string | null;
   readonly status: "available" | "unavailable";
   readonly observed_at: string | null;
   readonly reason: string | null;
@@ -845,6 +915,20 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
   if (resources.filter((resource) => resource.selected).map((resource) => resource.id).join() !== rootId) {
     throw new Error("instance resources MUST select exactly the root");
   }
+  const rootReceipt = resources.find((resource) => resource.id === rootId)?.aks_diagnostic_receipt;
+  if (
+    rootReceipt
+    && (
+      rootReceipt.ontology_release !== releaseDigest
+      || rootReceipt.cutoff !== sourceCutoff
+      || rootReceipt.source_cutoffs.inventory_snapshot !== sourceCutoff
+    )
+  ) {
+    throw new Error("AKS diagnostic receipt MUST match the selected current source");
+  }
+  if (resources.some((resource) => resource.id !== rootId && resource.aks_diagnostic_receipt)) {
+    throw new Error("AKS diagnostic receipt MUST only decorate the selected root");
+  }
   const links = array(record.links, "links", 1600).map((item) => decodeLink(item, resourceIds, linkTypes));
   const linkKeys = new Set(links.map((link) => `${link.source}\u0000${link.link_type}\u0000${link.target}`));
   if (linkKeys.size !== links.length) throw new Error("instance links MUST be unique");
@@ -866,8 +950,11 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
   if (timelineComplete === (timelineReason !== null)) {
     throw new Error("instance timeline completeness contradicts truncation");
   }
-  const sources = array(record.sources, "sources", 8).map(decodeSource);
-  if (new Set(sources.map((source) => source.source)).size !== sources.length) {
+  const sources = array(record.sources, "sources", 43).map(decodeSource);
+  if (
+    new Set(sources.map((source) => `${source.source}\u0000${source.scope_digest ?? ""}`)).size
+    !== sources.length
+  ) {
     throw new Error("instance sources MUST be unique");
   }
   const sourceNames = new Set(sources.map((source) => source.source));
@@ -878,6 +965,24 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     "runtime_call_graph",
   ]) {
     if (!sourceNames.has(required)) throw new Error(`instance source ${required} is required`);
+  }
+  const kubernetesReceiptCutoff = rootReceipt?.source_cutoffs.kubernetes_runtime_inventory;
+  const kubernetesReceiptRevision = rootReceipt?.source_revisions.kubernetes_runtime_inventory;
+  if (
+    rootReceipt
+    && (
+      (kubernetesReceiptCutoff === undefined) !== (kubernetesReceiptRevision === undefined)
+      || (
+        kubernetesReceiptCutoff !== undefined
+        && !sources.some((source) =>
+          source.source === "kubernetes_runtime_inventory"
+          && source.status === "available"
+          && source.observed_at === kubernetesReceiptCutoff
+          && source.scope_digest === kubernetesReceiptRevision)
+      )
+    )
+  ) {
+    throw new Error("AKS diagnostic receipt source is not current");
   }
   const complete = boolean(record.complete, "complete");
   const identityFields = decodeContextIdentity(record, complete);
@@ -1089,8 +1194,38 @@ function decodeResource(value: unknown): OntologyInstanceResource {
   ) {
     throw new Error("model deployment details MUST use the llm-model-deployment Resource type");
   }
+  if (
+    (
+      record.kubernetes_identity !== undefined
+      || record.kubernetes_diagnostics !== undefined
+      || record.aks_diagnostic_receipt !== undefined
+    )
+    && !resourceType.startsWith("kubernetes.")
+  ) {
+    throw new Error("Kubernetes details MUST use a Kubernetes runtime Resource type");
+  }
+  const id = requiredString(record.id, "Resource id", 1024);
+  const kubernetesIdentity =
+    record.kubernetes_identity === undefined || record.kubernetes_identity === null
+      ? null
+      : decodeKubernetesIdentity(record.kubernetes_identity);
+  const aksDiagnosticReceipt =
+    record.aks_diagnostic_receipt === undefined || record.aks_diagnostic_receipt === null
+      ? null
+      : decodeAksDiagnosticReceipt(record.aks_diagnostic_receipt);
+  if (
+    aksDiagnosticReceipt
+    && (
+      kubernetesIdentity === null
+      || aksDiagnosticReceipt.target_resource_id !== id
+      || aksDiagnosticReceipt.target_uid !== kubernetesIdentity.uid
+      || aksDiagnosticReceipt.target_resource_version !== kubernetesIdentity.resource_version
+    )
+  ) {
+    throw new Error("AKS diagnostic receipt MUST match the exact Kubernetes Resource");
+  }
   return {
-    id: requiredString(record.id, "Resource id", 1024),
+    id,
     object_type: "Resource",
     resource_type: resourceType,
     name: nullableString(record.name, "Resource name", 512),
@@ -1105,8 +1240,228 @@ function decodeResource(value: unknown): OntologyInstanceResource {
     model_deployment: record.model_deployment === undefined || record.model_deployment === null
       ? null
       : decodeModelDeployment(record.model_deployment),
+    kubernetes_identity: kubernetesIdentity,
+    kubernetes_diagnostics:
+      record.kubernetes_diagnostics === undefined || record.kubernetes_diagnostics === null
+        ? null
+        : decodeKubernetesDiagnostics(record.kubernetes_diagnostics),
+    ...(record.aks_diagnostic_receipt === undefined
+      ? {}
+      : { aks_diagnostic_receipt: aksDiagnosticReceipt }),
     ...(record.states === undefined ? {} : { states: decodeRecordedResourceStates(record.states) }),
   };
+}
+
+const KUBERNETES_DIAGNOSTIC_KEYS = new Set([
+  "access_modes", "address_type", "affinity_kinds", "allow_volume_expansion", "available_replicas",
+  "capacity_storage", "claim_name", "claim_namespace", "claim_uid", "container_count",
+  "container_resources", "container_terminations", "container_waiting_reasons",
+  "current_healthy", "current_replicas", "diagnostic_conditions", "disruptions_allowed",
+  "desired_healthy", "desired_replicas", "egress_rule_count", "endpoint_count",
+  "ephemeral_container_count", "ephemeral_container_ready_count",
+  "ephemeral_container_restart_count", "ephemeral_container_termination_reasons",
+  "ephemeral_container_waiting_reasons", "expected_pods", "init_container_count",
+  "init_container_ready_count",
+  "init_container_restart_count", "init_container_termination_reasons",
+  "init_container_waiting_reasons", "ingress_rule_count", "limit_summaries", "max_replicas",
+  "max_unavailable", "min_available", "min_replicas", "node_selector", "observed_generation",
+  "phase", "policy_types", "port_count", "priority_class_name", "probe_kinds",
+  "progressing_reason", "progressing_status", "provisioner", "pvc_claim_names", "qos_class",
+  "quota_hard", "quota_used", "ready", "ready_container_count", "ready_replicas",
+  "ready_status", "ready_unknown", "reason", "reclaim_policy", "requested_storage",
+  "restart_count", "restart_policy",
+  "scale_target_api_version", "scale_target_kind", "scale_target_name", "scheduler_name",
+  "selector", "selector_matches_all", "serving", "serving_unknown", "service_account_name",
+  "status_counts",
+  "storage_class_name", "target_uids", "terminating", "terminating_unknown", "tolerations",
+  "unavailable_replicas", "updated_replicas", "volume_binding_mode", "volume_mode", "volume_name",
+]);
+
+function decodeKubernetesIdentity(value: unknown): OntologyInstanceKubernetesIdentity {
+  const record = objectRecord(value, "Kubernetes identity");
+  return {
+    api_version: requiredString(record.api_version, "Kubernetes api version", 512),
+    kind: requiredString(record.kind, "Kubernetes kind", 256),
+    name: requiredString(record.name, "Kubernetes name", 512),
+    namespace: nullableString(record.namespace, "Kubernetes namespace", 253),
+    resource_version: requiredString(record.resource_version, "Kubernetes resource version", 512),
+    uid: requiredString(record.uid, "Kubernetes uid", 512),
+  };
+}
+
+const AKS_DIAGNOSTIC_STATUSES = new Set<OntologyInstanceAksDiagnosticStatus>([
+  "autoscale_limited",
+  "control_plane_unavailable",
+  "crash_loop",
+  "endpoint_unready",
+  "evicted",
+  "held",
+  "image_pull_failed",
+  "node_pressure",
+  "networking_unavailable",
+  "no_failure_signal",
+  "oom_killed",
+  "probe_failure_evidence",
+  "quota_constrained",
+  "resource_pressure",
+  "rollout_stalled",
+  "scheduling_blocked",
+  "storage_blocked",
+]);
+
+function decodeAksDiagnosticReceipt(value: unknown): OntologyInstanceAksDiagnosticReceipt {
+  const record = objectRecord(value, "AKS diagnostic receipt");
+  if (
+    record.schema_version !== "1.0.0"
+    || record.owner_agent !== "Forseti"
+    || record.purpose !== "operations-review"
+    || record.synthetic !== false
+    || record.cause_claim_supported !== false
+    || record.execution_authority !== false
+  ) {
+    throw new Error("AKS diagnostic receipt contract is invalid");
+  }
+  const ontologyRelease = requiredString(record.ontology_release, "AKS ontology release", 128);
+  if (!/^sha256:[a-f0-9]{64}$/.test(ontologyRelease)) {
+    throw new Error("AKS diagnostic ontology release MUST be sha256");
+  }
+  const status = requiredString(record.status, "AKS diagnostic status", 128);
+  if (!AKS_DIAGNOSTIC_STATUSES.has(status as OntologyInstanceAksDiagnosticStatus)) {
+    throw new Error("AKS diagnostic status is invalid");
+  }
+  const signals = uniqueStrings(record.signals, "AKS diagnostic signals", 16);
+  if (signals.some((signal) =>
+    !AKS_DIAGNOSTIC_STATUSES.has(signal as OntologyInstanceAksDiagnosticStatus))) {
+    throw new Error("AKS diagnostic signal is invalid");
+  }
+  const sourceCutoffs = decodeAksSourceCutoffs(record.source_cutoffs);
+  const sourceRevisions = decodeAksSourceRevisions(record.source_revisions);
+  if (
+    Object.keys(sourceCutoffs).length === 0
+    || Object.keys(sourceCutoffs).length !== Object.keys(sourceRevisions).length
+    || Object.keys(sourceCutoffs).some((source) => !(source in sourceRevisions))
+    || sourceCutoffs.inventory_snapshot === undefined
+  ) {
+    throw new Error("AKS diagnostic source identities are invalid");
+  }
+  const cutoff = timestamp(record.cutoff, "AKS diagnostic cutoff");
+  if (Object.values(sourceCutoffs).some((sourceCutoff) =>
+    Date.parse(sourceCutoff) > Date.parse(cutoff))) {
+    throw new Error("AKS diagnostic source cutoff exceeds the receipt cutoff");
+  }
+  return {
+    schema_version: "1.0.0",
+    owner_agent: "Forseti",
+    principal_class: requiredString(record.principal_class, "AKS principal class", 64),
+    purpose: "operations-review",
+    producer_version: requiredString(record.producer_version, "AKS producer version", 128),
+    method_version: requiredString(record.method_version, "AKS method version", 128),
+    target_resource_id: requiredString(record.target_resource_id, "AKS target Resource id", 1024),
+    target_uid: requiredString(record.target_uid, "AKS target uid", 512),
+    target_resource_version: requiredString(
+      record.target_resource_version,
+      "AKS target resource version",
+      512,
+    ),
+    ontology_release: ontologyRelease,
+    cutoff,
+    source_cutoffs: sourceCutoffs,
+    source_revisions: sourceRevisions,
+    status: status as OntologyInstanceAksDiagnosticStatus,
+    signals: signals as OntologyInstanceAksDiagnosticStatus[],
+    complete: boolean(record.complete, "AKS diagnostic complete"),
+    evidence_gaps: diagnosticReasonCodes(record.evidence_gaps, "AKS evidence gaps"),
+    conflicts: diagnosticReasonCodes(record.conflicts, "AKS conflicts"),
+    evidence_refs: boundedStrings(record.evidence_refs, "AKS evidence refs", 32, 512),
+    synthetic: false,
+    cause_claim_supported: false,
+    execution_authority: false,
+    audit_correlation_id: requiredString(
+      record.audit_correlation_id,
+      "AKS audit correlation id",
+      128,
+    ),
+  };
+}
+
+function decodeAksSourceCutoffs(value: unknown): Readonly<Record<string, string>> {
+  const record = objectRecord(value, "AKS source cutoffs");
+  if (Object.keys(record).length > 16) throw new Error("AKS source cutoffs exceed their bound");
+  return Object.fromEntries(Object.entries(record).map(([source, cutoff]) => [
+    diagnosticSourceName(source),
+    timestamp(cutoff, `AKS ${source} cutoff`),
+  ]));
+}
+
+function decodeAksSourceRevisions(value: unknown): Readonly<Record<string, string>> {
+  const record = objectRecord(value, "AKS source revisions");
+  if (Object.keys(record).length > 16) throw new Error("AKS source revisions exceed their bound");
+  return Object.fromEntries(Object.entries(record).map(([source, revision]) => [
+    diagnosticSourceName(source),
+    requiredString(revision, `AKS ${source} revision`, 256),
+  ]));
+}
+
+function diagnosticSourceName(value: string): string {
+  if (!/^[a-z0-9][a-z0-9_.-]{0,127}$/.test(value)) {
+    throw new Error("AKS source identity MUST be a bounded reason code");
+  }
+  return value;
+}
+
+function diagnosticReasonCodes(value: unknown, label: string): readonly string[] {
+  const values = uniqueStrings(value, label, 32);
+  if (values.some((item) => !/^[a-z0-9][a-z0-9_.-]{0,127}$/.test(item))) {
+    throw new Error(`${label} MUST contain bounded reason codes`);
+  }
+  return values;
+}
+
+function boundedStrings(
+  value: unknown,
+  label: string,
+  maximum: number,
+  itemMaximum: number,
+): readonly string[] {
+  const values = array(value, label, maximum).map((item) =>
+    requiredString(item, label, itemMaximum));
+  if (new Set(values).size !== values.length) throw new Error(`${label} MUST be unique`);
+  return values;
+}
+
+function decodeKubernetesDiagnostics(
+  value: unknown,
+): Readonly<Record<string, OntologyInstanceDiagnosticValue>> {
+  const record = objectRecord(value, "Kubernetes diagnostics");
+  if (Object.keys(record).some((key) => !KUBERNETES_DIAGNOSTIC_KEYS.has(key))) {
+    throw new Error("Kubernetes diagnostics contain an unsupported key");
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, item]) => [key, decodeDiagnosticValue(item, 0)]),
+  );
+}
+
+function decodeDiagnosticValue(value: unknown, depth: number): OntologyInstanceDiagnosticValue {
+  if (depth > 4) throw new Error("Kubernetes diagnostic nesting exceeds its bound");
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.length > 512) throw new Error("Kubernetes diagnostic text exceeds its bound");
+    return value;
+  }
+  if (typeof value === "number" && Number.isInteger(value) && Math.abs(value) <= 2_147_483_647) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 128) throw new Error("Kubernetes diagnostic array exceeds its bound");
+    return value.map((item) => decodeDiagnosticValue(item, depth + 1));
+  }
+  const record = objectRecord(value, "Kubernetes diagnostic object");
+  if (Object.keys(record).length > 128) {
+    throw new Error("Kubernetes diagnostic object exceeds its bound");
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, item]) => [key, decodeDiagnosticValue(item, depth + 1)]),
+  );
 }
 
 function decodeModelDeployment(value: unknown): OntologyInstanceModelDeployment {
@@ -1272,11 +1627,16 @@ function decodeSource(value: unknown): OntologyInstanceSource {
   }
   const observedAt = nullableTimestamp(record.observed_at, "source observation");
   const reason = nullableString(record.reason, "source reason", 128);
+  const scopeDigest = nullableString(record.scope_digest ?? null, "source scope digest", 71);
+  if (scopeDigest !== null && !/^sha256:[a-f0-9]{64}$/.test(scopeDigest)) {
+    throw new Error("instance source scope digest is invalid");
+  }
   if (status === "available" ? reason !== null : reason === null) {
     throw new Error("instance source reason contradicts availability");
   }
   return {
     source: requiredString(record.source, "source name", 128),
+    scope_digest: scopeDigest,
     status,
     observed_at: observedAt,
     reason,

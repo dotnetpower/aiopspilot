@@ -45,6 +45,9 @@ def _logs(**changes: object) -> KubernetesPodLogEvidence:
         "last_recorded_at": _END - timedelta(minutes=5),
         "record_digests": ("sha256:" + ("a" * 64),),
         "evidence_refs": ("pod-log-source:azure-monitor",),
+        "source_revision": "v1",
+        "provider_cutoff": _END,
+        "coverage_receipt_ref": "log-coverage:example",
     }
     values.update(changes)
     return KubernetesPodLogEvidence(**values)  # type: ignore[arg-type]

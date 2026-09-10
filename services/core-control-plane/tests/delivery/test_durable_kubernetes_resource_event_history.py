@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.ontology_platform.kubernetes_lifecycle import (
+    KubernetesLifecycleCoverageSegment,
     KubernetesLifecycleCursor,
     KubernetesLifecycleObservation,
 )
@@ -36,6 +37,7 @@ class _Store:
         coverage_started_at: datetime,
         limitation: str | None = None,
         reason: str = "BackOff",
+        incomplete_segments: tuple[KubernetesLifecycleCoverageSegment, ...] = (),
     ) -> None:
         self.cursor = KubernetesLifecycleCursor(
             cluster_ref=CLUSTER,
@@ -48,6 +50,7 @@ class _Store:
         )
         self.object_uid: str | None = None
         self.reason = reason
+        self.incomplete_segments = incomplete_segments
 
     async def read_cursor(self, cluster_ref: str) -> KubernetesLifecycleCursor:
         assert cluster_ref == CLUSTER
@@ -82,6 +85,21 @@ class _Store:
                 evidence_ref=f"kubernetes-lifecycle:{'a' * 64}",
             ),
         )
+
+    async def read_incomplete_coverage_segments(
+        self,
+        *,
+        cluster_ref: str,
+        since: datetime,
+        through: datetime,
+        limit: int,
+    ) -> tuple[KubernetesLifecycleCoverageSegment, ...]:
+        assert cluster_ref == CLUSTER
+        return tuple(
+            segment
+            for segment in self.incomplete_segments
+            if segment.started_at <= through and segment.ended_at >= since
+        )[:limit]
 
 
 async def test_exact_uid_history_becomes_complete_only_after_window_coverage() -> None:
@@ -144,6 +162,62 @@ async def test_stale_cursor_tail_cannot_claim_short_window_absence() -> None:
 
     assert result.complete is False
     assert result.limitation == "source_retention_stale"
+
+
+async def test_exact_uid_history_refuses_overlapping_incomplete_segment() -> None:
+    segment = KubernetesLifecycleCoverageSegment(
+        cluster_ref=CLUSTER,
+        started_at=NOW - timedelta(minutes=30),
+        ended_at=NOW - timedelta(minutes=20),
+        limitation="cursor_expired",
+    )
+    store = _Store(
+        coverage_started_at=NOW - timedelta(hours=2),
+        incomplete_segments=(segment,),
+    )
+    reader = DurableKubernetesResourceEventHistoryReader(
+        store=store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+
+    result = await reader.read_history_with_identity(
+        resource_ids=(RESOURCE_ID,),
+        resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert result.events
+    assert result.complete is False
+    assert result.limitation == "cursor_expired"
+
+
+async def test_exact_uid_history_ignores_non_overlapping_incomplete_segment() -> None:
+    segment = KubernetesLifecycleCoverageSegment(
+        cluster_ref=CLUSTER,
+        started_at=NOW - timedelta(hours=2),
+        ended_at=NOW - timedelta(hours=1, seconds=1),
+        limitation="source_unavailable",
+    )
+    store = _Store(
+        coverage_started_at=NOW - timedelta(hours=3),
+        incomplete_segments=(segment,),
+    )
+    reader = DurableKubernetesResourceEventHistoryReader(
+        store=store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+
+    result = await reader.read_history_with_identity(
+        resource_ids=(RESOURCE_ID,),
+        resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert result.complete is True
 
 
 def test_postgres_store_accepts_standard_sqlalchemy_psycopg_dsn() -> None:

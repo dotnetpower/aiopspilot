@@ -80,7 +80,11 @@ def _item(
     spec: dict[str, object] | None = None,
     status: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    metadata: dict[str, object] = {"name": name, "uid": uid}
+    metadata: dict[str, object] = {
+        "name": name,
+        "resourceVersion": f"rv-{uid}",
+        "uid": uid,
+    }
     if namespace is not None:
         metadata["namespace"] = namespace
     if labels is not None:
@@ -269,13 +273,17 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
         )
         snapshot = await source.collect()
 
-    assert len(requested_paths) == 14
+    assert len(requested_paths) == 22
     assert set(authorization_headers) == {"Bearer test-token"}
     by_type = {resource.type: resource for resource in snapshot.resources}
     assert by_type["kubernetes.namespace"].props["namespace"] == "default"
     assert by_type["kubernetes.node"].props["node_pool"] == "system"
     assert by_type["kubernetes.node"].props["ready_status"] == "True"
     assert by_type["kubernetes.node"].props["ready"] is True
+    assert by_type["kubernetes.node"].props["diagnostic_conditions"] == (
+        {"status": "False", "type": "MemoryPressure"},
+        {"status": "True", "type": "Ready"},
+    )
     assert by_type["kubernetes.node"].props["provider_resource_ref"] == (
         "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
         "Microsoft.Compute/virtualMachineScaleSets/vmss-example/virtualMachines/0"
@@ -507,6 +515,9 @@ async def test_rollout_status_projection_omits_raw_image_and_message_content() -
         snapshot = await source.collect()
 
     pod = next(resource for resource in snapshot.resources if resource.type == "kubernetes.pod")
+    assert pod.props["api_version"] == "v1"
+    assert pod.props["kind"] == "Pod"
+    assert pod.props["resource_version"] == "rv-uid-pod"
     assert pod.props["container_waiting_reasons"] == ("ErrImagePull",)
     assert pod.props["container_terminations"] == (
         {

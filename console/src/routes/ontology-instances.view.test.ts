@@ -91,6 +91,20 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toContain(".ontology-instance-state-badge.is-warning");
   });
 
+  it("renders persisted AKS diagnostics as bounded evidence fields", () => {
+    expect(inspectorSource).toContain("<AksDiagnosticEvidence");
+    expect(inspectorSource).toContain('class="ontology-instance-diagnostic-receipt"');
+    expect(inspectorSource).toContain("receipt.source_cutoffs");
+    expect(inspectorSource).toContain("receipt.source_revisions");
+    expect(inspectorSource).toContain("receipt.evidence_gaps");
+    expect(inspectorSource).toContain("receipt.conflicts");
+    expect(inspectorSource).toContain("receipt.evidence_refs");
+    expect(inspectorSource).toContain("ontology.instances.diagnosticNoAuthority");
+    expect(inspectorSource).not.toMatch(
+      /AksDiagnosticEvidence[\s\S]*JSON\.stringify\(receipt\)/,
+    );
+  });
+
   it("keeps all registry views in one compact scrollable tab row", () => {
     expect(globalStyles).toMatch(/\.ontology-tabs\s*\{[^}]*display:\s*flex[^}]*min-height:\s*34px[^}]*overflow-x:\s*auto/s);
     expect(globalStyles).toMatch(/\.ontology-tabs a\.is-active::after\s*\{[^}]*height:\s*2px/s);

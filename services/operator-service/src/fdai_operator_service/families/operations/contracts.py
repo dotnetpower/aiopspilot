@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -65,6 +66,7 @@ class InventoryProjectionSourceState:
     status: str
     observed_at: datetime | None
     reason: str | None
+    scope_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +163,28 @@ class InventoryImpactReader(Protocol):
 
 
 UNSELECTABLE_INSTANCE_DIRECTORY_TYPES = frozenset({"authorization.role-assignment"})
+AKS_DIAGNOSTIC_STATUSES = frozenset(
+    {
+        "autoscale_limited",
+        "control_plane_unavailable",
+        "crash_loop",
+        "endpoint_unready",
+        "evicted",
+        "held",
+        "image_pull_failed",
+        "node_pressure",
+        "networking_unavailable",
+        "no_failure_signal",
+        "oom_killed",
+        "probe_failure_evidence",
+        "quota_constrained",
+        "resource_pressure",
+        "rollout_stalled",
+        "scheduling_blocked",
+        "storage_blocked",
+    }
+)
+_REASON_CODE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,127}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +258,99 @@ class InventoryInstanceActivityPage:
     truncated: bool
 
 
+@dataclass(frozen=True, slots=True)
+class InventoryAksDiagnosticReceipt:
+    """Strict no-authority AKS evidence receipt safe for Operator projection."""
+
+    principal_class: str
+    producer_version: str
+    method_version: str
+    target_resource_id: str
+    target_uid: str
+    target_resource_version: str
+    ontology_release: str
+    cutoff: datetime
+    source_cutoffs: Mapping[str, datetime]
+    source_revisions: Mapping[str, str]
+    status: str
+    signals: tuple[str, ...]
+    complete: bool
+    evidence_gaps: tuple[str, ...]
+    conflicts: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+    audit_correlation_id: str
+    cause_claim_supported: bool = False
+    execution_authority: bool = False
+
+    def __post_init__(self) -> None:
+        for field_name, value, maximum in (
+            ("principal_class", self.principal_class, 64),
+            ("producer_version", self.producer_version, 128),
+            ("method_version", self.method_version, 128),
+            ("target_resource_id", self.target_resource_id, 1_024),
+            ("target_uid", self.target_uid, 512),
+            ("target_resource_version", self.target_resource_version, 512),
+            ("ontology_release", self.ontology_release, 128),
+            ("audit_correlation_id", self.audit_correlation_id, 128),
+        ):
+            if not value.strip() or len(value) > maximum:
+                raise ValueError(f"AKS diagnostic {field_name} exceeds its bound")
+        if re.fullmatch(r"sha256:[a-f0-9]{64}", self.ontology_release) is None:
+            raise ValueError("AKS diagnostic ontology release is malformed")
+        if self.cutoff.tzinfo is None:
+            raise ValueError("AKS diagnostic cutoff MUST be timezone-aware")
+        if (
+            not self.source_cutoffs
+            or len(self.source_cutoffs) > 16
+            or set(self.source_cutoffs) != set(self.source_revisions)
+        ):
+            raise ValueError("AKS diagnostic source identities are malformed")
+        for source, cutoff in self.source_cutoffs.items():
+            revision = self.source_revisions.get(source)
+            if (
+                _REASON_CODE.fullmatch(source) is None
+                or cutoff.tzinfo is None
+                or cutoff > self.cutoff
+                or not isinstance(revision, str)
+                or not revision.strip()
+                or len(revision) > 256
+            ):
+                raise ValueError("AKS diagnostic source evidence is malformed")
+        if self.status not in AKS_DIAGNOSTIC_STATUSES or any(
+            signal not in AKS_DIAGNOSTIC_STATUSES for signal in self.signals
+        ):
+            raise ValueError("AKS diagnostic status is malformed")
+        if len(self.signals) > len(AKS_DIAGNOSTIC_STATUSES) or len(set(self.signals)) != len(
+            self.signals
+        ):
+            raise ValueError("AKS diagnostic signals exceed their bound")
+        if len(self.evidence_gaps) > 32 or len(self.conflicts) > 32:
+            raise ValueError("AKS diagnostic evidence reasons exceed their bound")
+        if any(
+            _REASON_CODE.fullmatch(reason) is None
+            for reason in (*self.evidence_gaps, *self.conflicts)
+        ):
+            raise ValueError("AKS diagnostic evidence reason is malformed")
+        if len(set(self.evidence_gaps)) != len(self.evidence_gaps) or len(
+            set(self.conflicts)
+        ) != len(self.conflicts):
+            raise ValueError("AKS diagnostic evidence reasons MUST be unique")
+        if len(self.evidence_refs) > 32 or any(
+            not ref.strip() or len(ref) > 512 for ref in self.evidence_refs
+        ):
+            raise ValueError("AKS diagnostic evidence refs exceed their bound")
+        if len(set(self.evidence_refs)) != len(self.evidence_refs):
+            raise ValueError("AKS diagnostic evidence refs MUST be unique")
+        if not isinstance(self.complete, bool):
+            raise ValueError("AKS diagnostic completeness MUST be boolean")
+        if self.complete and (self.evidence_gaps or self.conflicts):
+            raise ValueError("complete AKS diagnostic evidence MUST NOT report gaps or conflicts")
+        if self.cause_claim_supported is not False or self.execution_authority is not False:
+            raise ValueError(
+                "AKS diagnostic receipt MUST NOT grant causation or execution authority"
+            )
+
+
 class InventoryInstanceReader(Protocol):
     """Read the active Resource neighborhood and durable activity without mutation authority."""
 
@@ -270,6 +387,14 @@ class InventoryInstanceReader(Protocol):
         limit: int,
     ) -> InventoryInstanceActivityPage:
         """Return sanitized exact-resource audit activity in newest-first order."""
+        ...
+
+    async def read_latest_aks_diagnostic_receipt(
+        self,
+        *,
+        resource_id: str,
+    ) -> InventoryAksDiagnosticReceipt | None:
+        """Return the latest well-formed immutable receipt for one exact Resource."""
         ...
 
 

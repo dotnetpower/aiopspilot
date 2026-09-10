@@ -3,10 +3,27 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Literal
 
 _MAX_TEXT = 512
+KubernetesLifecycleCoverageLimitation = Literal[
+    "authorization_denied",
+    "cursor_expired",
+    "resource_event_response_invalid",
+    "result_limit",
+    "source_unavailable",
+]
+_COVERAGE_LIMITATIONS = frozenset(
+    (
+        "authorization_denied",
+        "cursor_expired",
+        "resource_event_response_invalid",
+        "result_limit",
+        "source_unavailable",
+    )
+)
 
 
 def _bounded(name: str, value: str, *, maximum: int = _MAX_TEXT) -> None:
@@ -95,6 +112,37 @@ class KubernetesLifecycleCursor:
 
 
 @dataclass(frozen=True, slots=True)
+class KubernetesLifecycleCoverageSegment:
+    """One immutable interval where lifecycle collection was incomplete."""
+
+    cluster_ref: str
+    started_at: datetime
+    ended_at: datetime
+    limitation: KubernetesLifecycleCoverageLimitation
+    coverage_segment_id: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        _bounded("cluster_ref", self.cluster_ref)
+        if self.started_at.tzinfo is None or self.ended_at.tzinfo is None:
+            raise ValueError("Kubernetes lifecycle coverage times MUST be timezone-aware")
+        if self.ended_at <= self.started_at:
+            raise ValueError("Kubernetes lifecycle coverage interval MUST be positive")
+        if self.limitation not in _COVERAGE_LIMITATIONS:
+            raise ValueError("Kubernetes lifecycle coverage limitation is not declared")
+        object.__setattr__(
+            self,
+            "coverage_segment_id",
+            lifecycle_digest(
+                "incomplete-coverage",
+                self.cluster_ref,
+                self.started_at.astimezone(UTC).isoformat(),
+                self.ended_at.astimezone(UTC).isoformat(),
+                self.limitation,
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class KubernetesLifecycleBatch:
     """One bounded watch result committed atomically with its next checkpoint."""
 
@@ -105,6 +153,7 @@ class KubernetesLifecycleBatch:
     coverage_through_at: datetime
     observations: tuple[KubernetesLifecycleObservation, ...]
     limitation: str | None
+    incomplete_coverage_segment: KubernetesLifecycleCoverageSegment | None = None
 
     def __post_init__(self) -> None:
         _bounded("cluster_ref", self.cluster_ref)
@@ -123,6 +172,13 @@ class KubernetesLifecycleBatch:
             raise ValueError("Kubernetes lifecycle batch widened cluster scope")
         if self.limitation is not None:
             _bounded("limitation", self.limitation, maximum=128)
+        segment = self.incomplete_coverage_segment
+        if segment is not None and (
+            segment.cluster_ref != self.cluster_ref
+            or segment.ended_at > self.coverage_through_at
+            or segment.limitation != self.limitation
+        ):
+            raise ValueError("Kubernetes lifecycle coverage segment does not match its batch")
 
 
 def lifecycle_digest(*parts: str) -> str:
@@ -154,6 +210,8 @@ def advance_lifecycle_cursor(
 
 __all__ = [
     "KubernetesLifecycleBatch",
+    "KubernetesLifecycleCoverageLimitation",
+    "KubernetesLifecycleCoverageSegment",
     "KubernetesLifecycleCursor",
     "KubernetesLifecycleObservation",
     "advance_lifecycle_cursor",

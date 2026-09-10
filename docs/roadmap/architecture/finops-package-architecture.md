@@ -24,6 +24,8 @@ domain code and assets. It does not create another control plane or move authori
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
+> Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
+> assignments are not Cost Governance package inputs and cannot activate its runtime.
 > Live-authoritative lifecycle, observation
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability

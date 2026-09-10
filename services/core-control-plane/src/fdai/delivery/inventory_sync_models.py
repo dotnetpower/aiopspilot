@@ -45,11 +45,18 @@ class InventoryProjectionSourceState:
     status: InventoryProjectionSourceStatus
     observed_at: datetime | None
     reason: str | None
+    scope_digest: str | None = None
     coverage: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.source.strip() or len(self.source) > 128:
             raise ValueError("inventory projection source MUST be bounded non-empty text")
+        if self.scope_digest is not None and (
+            not self.scope_digest.startswith("sha256:")
+            or len(self.scope_digest) != 71
+            or any(character not in "0123456789abcdef" for character in self.scope_digest[7:])
+        ):
+            raise ValueError("inventory projection source scope_digest MUST be lowercase SHA-256")
         if self.observed_at is not None and self.observed_at.tzinfo is None:
             raise ValueError("inventory projection source observed_at MUST be timezone-aware")
         if self.status is InventoryProjectionSourceStatus.AVAILABLE:
@@ -74,6 +81,8 @@ class InventoryProjectionSourceState:
         }
         if self.coverage:
             metadata["coverage"] = dict(sorted(self.coverage.items()))
+        if self.scope_digest is not None:
+            metadata["scope_digest"] = self.scope_digest
         return metadata
 
 

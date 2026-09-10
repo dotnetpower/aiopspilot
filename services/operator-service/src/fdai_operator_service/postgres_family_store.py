@@ -17,6 +17,7 @@ from uuid import uuid4
 import anyio
 import psycopg
 from fdai_service_contracts import OperatorRole, SemanticInvestigationContinuation
+from fdai_service_contracts.ontology_query import content_digest
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
@@ -26,7 +27,9 @@ from fdai_operator_service.families.conversation.background_tasks import (
 )
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.operations.contracts import (
+    AKS_DIAGNOSTIC_STATUSES,
     UNSELECTABLE_INSTANCE_DIRECTORY_TYPES,
+    InventoryAksDiagnosticReceipt,
     InventoryImpactContext,
     InventoryImpactEdge,
     InventoryImpactLinkPage,
@@ -80,6 +83,35 @@ _INVENTORY_INVALIDATION_SCHEMA_VERSION: Final = "1.0.0"
 _LOGGER = logging.getLogger(__name__)
 _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
+_MAX_PROJECTION_SOURCE_STATES: Final = 40
+_AKS_DIAGNOSTIC_RECEIPT_PREFIX: Final = "aks-diagnostic-receipt:v1:"
+_AKS_DIAGNOSTIC_RECEIPT_KEYS: Final = frozenset(
+    {
+        "audit_correlation_id",
+        "cause_claim_supported",
+        "complete",
+        "conflicts",
+        "cutoff",
+        "evidence_gaps",
+        "evidence_refs",
+        "execution_authority",
+        "method_version",
+        "ontology_release",
+        "owner_agent",
+        "principal_class",
+        "producer_version",
+        "purpose",
+        "schema_version",
+        "signals",
+        "source_cutoffs",
+        "source_revisions",
+        "status",
+        "synthetic",
+        "target_resource_id",
+        "target_resource_version",
+        "target_uid",
+    }
+)
 # A realtime event reports fresher state, not a whole Resource, so it enriches the snapshot
 # record rather than replacing it. Replacing it dropped the name, location, and resource group.
 _EFFECTIVE_RESOURCES_CTE: Final = (
@@ -854,6 +886,38 @@ class PostgresFamilyStore:
             ontology_release_digest=release_digest,
             manifest_digest=manifest_digest,
         )
+
+    async def read_latest_aks_diagnostic_receipt(
+        self,
+        *,
+        resource_id: str,
+    ) -> InventoryAksDiagnosticReceipt | None:
+        """Read the latest content-addressed receipt for one exact Resource."""
+
+        if not resource_id.strip() or len(resource_id) > 1_024:
+            raise ValueError("AKS diagnostic resource_id MUST be bounded non-empty text")
+        resource_digest = hashlib.sha256(resource_id.encode()).hexdigest()
+        key_prefix = f"{_AKS_DIAGNOSTIC_RECEIPT_PREFIX}{resource_digest}:"
+        rows = await self._fetch_all(
+            "SELECT key, value FROM state_kv "
+            "WHERE key LIKE %(key_prefix)s "
+            "ORDER BY key DESC LIMIT 1",
+            {"key_prefix": f"{key_prefix}%"},
+        )
+        if not rows:
+            return None
+        try:
+            return _aks_diagnostic_receipt(
+                rows[0],
+                expected_key_prefix=key_prefix,
+                expected_resource_id=resource_id,
+            )
+        except (PostgresFamilyStoreUnavailable, ValueError):
+            _LOGGER.warning(
+                "withheld malformed AKS diagnostic receipt for resource digest %s",
+                resource_digest,
+            )
+            return None
 
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
         """Check one exact Resource identity inside the selected snapshot."""
@@ -3544,6 +3608,188 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _aks_diagnostic_receipt(
+    row: Mapping[str, object],
+    *,
+    expected_key_prefix: str,
+    expected_resource_id: str,
+) -> InventoryAksDiagnosticReceipt:
+    key = row.get("key")
+    if (
+        not isinstance(key, str)
+        or re.fullmatch(
+            re.escape(expected_key_prefix) + r"\d{8}T\d{12}Z:[a-f0-9]{64}",
+            key,
+        )
+        is None
+    ):
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic receipt key is malformed")
+    envelope = _json_object(row.get("value"), label="AKS diagnostic receipt envelope")
+    if set(envelope) != {"record_type", "record_digest", "receipt"}:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic receipt envelope is malformed")
+    receipt = _json_object(envelope.get("receipt"), label="AKS diagnostic receipt")
+    record_digest = envelope.get("record_digest")
+    if (
+        envelope.get("record_type") != "aks_diagnostic_evidence_receipt"
+        or not isinstance(record_digest, str)
+        or re.fullmatch(r"sha256:[a-f0-9]{64}", record_digest) is None
+        or record_digest != content_digest(receipt)
+        or set(receipt) != _AKS_DIAGNOSTIC_RECEIPT_KEYS
+        or receipt.get("schema_version") != "1.0.0"
+        or receipt.get("owner_agent") != "Forseti"
+        or receipt.get("purpose") != "operations-review"
+        or receipt.get("synthetic") is not False
+        or receipt.get("cause_claim_supported") is not False
+        or receipt.get("execution_authority") is not False
+        or receipt.get("target_resource_id") != expected_resource_id
+    ):
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic receipt integrity is malformed")
+    source_cutoffs = _aks_diagnostic_source_cutoffs(receipt.get("source_cutoffs"))
+    source_revisions = _aks_diagnostic_source_revisions(receipt.get("source_revisions"))
+    status = receipt.get("status")
+    if not isinstance(status, str) or status not in AKS_DIAGNOSTIC_STATUSES:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic status is malformed")
+    cutoff = _receipt_timestamp(receipt.get("cutoff"), label="cutoff")
+    target_uid = _receipt_text(receipt, "target_uid")
+    target_resource_version = _receipt_text(receipt, "target_resource_version")
+    ontology_release = _receipt_text(receipt, "ontology_release")
+    identity = {
+        "target_resource_id": expected_resource_id,
+        "target_uid": target_uid,
+        "target_resource_version": target_resource_version,
+        "ontology_release": ontology_release,
+        "cutoff": receipt.get("cutoff"),
+        "source_cutoffs": dict(
+            sorted(_json_object(receipt.get("source_cutoffs"), label="cutoffs").items())
+        ),
+        "source_revisions": dict(sorted(source_revisions.items())),
+    }
+    expected_key = (
+        expected_key_prefix
+        + cutoff.astimezone(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        + ":"
+        + content_digest(identity)[7:]
+    )
+    if key != expected_key:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic receipt key identity is malformed")
+    try:
+        return InventoryAksDiagnosticReceipt(
+            principal_class=_receipt_text(receipt, "principal_class"),
+            producer_version=_receipt_text(receipt, "producer_version"),
+            method_version=_receipt_text(receipt, "method_version"),
+            target_resource_id=expected_resource_id,
+            target_uid=target_uid,
+            target_resource_version=target_resource_version,
+            ontology_release=ontology_release,
+            cutoff=cutoff,
+            source_cutoffs=source_cutoffs,
+            source_revisions=source_revisions,
+            status=status,
+            signals=_receipt_text_sequence(receipt.get("signals"), label="signals", maximum=16),
+            complete=_receipt_boolean(receipt, "complete"),
+            evidence_gaps=_receipt_text_sequence(
+                receipt.get("evidence_gaps"),
+                label="evidence_gaps",
+                maximum=32,
+            ),
+            conflicts=_receipt_text_sequence(
+                receipt.get("conflicts"),
+                label="conflicts",
+                maximum=32,
+            ),
+            evidence_refs=_receipt_text_sequence(
+                receipt.get("evidence_refs"),
+                label="evidence_refs",
+                maximum=32,
+                item_maximum=512,
+            ),
+            audit_correlation_id=_receipt_text(receipt, "audit_correlation_id"),
+            cause_claim_supported=False,
+            execution_authority=False,
+        )
+    except ValueError as exc:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic receipt fields are malformed") from exc
+
+
+def _aks_diagnostic_source_cutoffs(value: object) -> dict[str, datetime]:
+    raw = _json_object(value, label="AKS diagnostic source cutoffs")
+    if not raw or len(raw) > 16:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic source cutoffs are malformed")
+    return {
+        _receipt_mapping_key(key): _receipt_timestamp(item, label=f"source cutoff {key}")
+        for key, item in raw.items()
+    }
+
+
+def _aks_diagnostic_source_revisions(value: object) -> dict[str, str]:
+    raw = _json_object(value, label="AKS diagnostic source revisions")
+    if not raw or len(raw) > 16:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic source revisions are malformed")
+    revisions: dict[str, str] = {}
+    for key, item in raw.items():
+        bounded_key = _receipt_mapping_key(key)
+        if not isinstance(item, str) or not item.strip() or len(item) > 256:
+            raise PostgresFamilyStoreUnavailable("AKS diagnostic source revision is malformed")
+        revisions[bounded_key] = item
+    return revisions
+
+
+def _receipt_mapping_key(value: str) -> str:
+    if re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,127}", value) is None:
+        raise PostgresFamilyStoreUnavailable("AKS diagnostic source identity is malformed")
+    return value
+
+
+def _receipt_timestamp(value: object, *, label: str) -> datetime:
+    if not isinstance(value, str) or len(value) > 64:
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {label} is malformed")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {label} is malformed") from exc
+    if parsed.tzinfo is None:
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {label} is timezone-naive")
+    return parsed
+
+
+def _receipt_text(
+    receipt: Mapping[str, object],
+    field: str,
+    *,
+    maximum: int = 1_024,
+) -> str:
+    value = receipt.get(field)
+    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {field} is malformed")
+    return value
+
+
+def _receipt_boolean(receipt: Mapping[str, object], field: str) -> bool:
+    value = receipt.get(field)
+    if not isinstance(value, bool):
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {field} is malformed")
+    return value
+
+
+def _receipt_text_sequence(
+    value: object,
+    *,
+    label: str,
+    maximum: int,
+    item_maximum: int = 128,
+) -> tuple[str, ...]:
+    if (
+        not isinstance(value, list)
+        or len(value) > maximum
+        or any(
+            not isinstance(item, str) or not item.strip() or len(item) > item_maximum
+            for item in value
+        )
+    ):
+        raise PostgresFamilyStoreUnavailable(f"AKS diagnostic {label} is malformed")
+    return tuple(value)
+
+
 def _json_object(value: object, *, label: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise PostgresFamilyStoreUnavailable(f"{label} is not a JSON object")
@@ -3639,7 +3885,7 @@ def _relationship_drop_classifications(
 def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceState, ...]:
     """Decode only reviewed no-authority source availability records."""
 
-    if not isinstance(value, list) or len(value) > 8:
+    if not isinstance(value, list) or len(value) > _MAX_PROJECTION_SOURCE_STATES:
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
     allowed_sources = {
         "azure_activity_log",
@@ -3656,10 +3902,18 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         status = item.get("status")
         observed_at = item.get("observed_at")
         reason = item.get("reason")
+        scope_digest = item.get("scope_digest")
         if (
             not isinstance(source, str)
             or source not in allowed_sources
             or status not in {"available", "unavailable"}
+            or (
+                scope_digest is not None
+                and (
+                    not isinstance(scope_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", scope_digest) is None
+                )
+            )
         ):
             raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
         if status == "available":
@@ -3692,11 +3946,12 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
                 status=status,
                 observed_at=parsed_at,
                 reason=parsed_reason,
+                scope_digest=scope_digest,
             )
         )
-    if len({state.source for state in states}) != len(states):
+    if len({(state.source, state.scope_digest) for state in states}) != len(states):
         raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
-    return tuple(sorted(states, key=lambda state: state.source))
+    return tuple(sorted(states, key=lambda state: (state.source, state.scope_digest or "")))
 
 
 def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | None:
