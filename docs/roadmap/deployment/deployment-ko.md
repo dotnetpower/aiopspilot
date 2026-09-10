@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: fee73509434b1e7728ed7c1217dcec8bcad78d2a
+translation_source_sha: 154c3a72aad36b57d4f9ea8e5b7171c86157ce21
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 검토된 플랫폼 역할 이행 검증을 권한에 영향을 주는 안정 필드로 제한하고 선택적 프로바이더 메타데이터 비교를 중단했습니다. 정확한 주소, 작업, 유일한 교체 경로, 역할 이름, 바뀌지 않은 범위 또는 principal은 계속 필수입니다. | 실패한 보호 계획 `34431365390`; 집중 프로바이더 변형 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | 여섯 역할 principal 또는 범위 교체, unindexed create 후속 항목이 있는 indexed 측정 Job 제거 두 건, 검토된 `t1.embedding` 제품군, SKU, 용량 교체를 위한 별도의 정확한 이행 검증기를 추가했습니다. 검증된 파괴적 레코드만 임시 검토 복사본에서 제거하며 apply 권한은 바뀌지 않습니다. | 보호 계획 `34430417852`; Terraform 정의; 집중 positive 및 negative 이행 테스트. | Plan-only를 다시 실행해 정제한 메타데이터를 보존하고 모든 변경과 비용 민감 리소스를 검토한 뒤 apply 전에 중단합니다. |
 | 2026-09-10 | implemented | OI-12 Job 해석, 정확한 OCI 출처 증명 검증, ACR 연결을 별도의 보호된 단계로 분리했습니다. 검증된 저장소, 개정 번호, 다이제스트만 `GITHUB_ENV`를 통해 단계 경계를 넘으며 각 단계는 자체 실패 경계를 보고합니다. | `current change`; 실패한 보호 인증 `34429999806`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 분리된 작업 흐름을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 일시적 GHCR 인증에서 Docker CLI 의존성을 제거했습니다. Binder는 기존 workflow 자격 증명을 프로세스 내부에서 mode 0600 파일로 렌더링하고 인자나 출력에 넣지 않으며 레지스트리 전용 출처 증명 검증을 유지합니다. | `current change`; Terraform과 Azure 전에 중단된 실패한 plan-only 실행 `34427330193`; 실행 가능한 binder 및 자격 증명 위생 회귀 검사. | 수정된 검증기를 게시하고 exact CI를 통과한 뒤 이미지를 승격하지 않는 보호 계획을 다시 실행합니다. |

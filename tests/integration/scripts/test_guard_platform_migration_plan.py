@@ -113,6 +113,21 @@ def test_filters_only_exact_reviewed_platform_migrations() -> None:
     }
 
 
+def test_role_guard_ignores_optional_provider_metadata() -> None:
+    plan = _plan()
+    first_role = next(iter(guard._ROLE_REPLACEMENTS))  # noqa: SLF001
+    role_change = _change(plan, first_role)["change"]
+    assert isinstance(role_change, dict)
+    after = role_change["after"]
+    assert isinstance(after, dict)
+    after["condition"] = ""
+    after["delegated_managed_identity_resource_id"] = "provider-computed"
+
+    _filtered, validated = guard.filter_reviewed_platform_migrations(plan)
+
+    assert first_role in validated
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
