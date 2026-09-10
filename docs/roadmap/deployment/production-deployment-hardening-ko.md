@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 30f45cd40121cc32b2fe90f6065de1d9f563b62c
+translation_source_sha: b0b5c9656a9d92fde6432aaee9a5f9b1b6d2919c
 translation_revised: 2026-09-10
 ---
 # 운영 배포 강화
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | 함수 수준 guard가 있었지만 parser가 workflow 호출을 거부한 문제를 수정하기 위해 실행 가능한 계획 범위 CLI 경계에 범위가 제한된 analyzer 모드를 등록했습니다. | `current change`, CLI 허용 및 부정 범위 계약 테스트, 실패한 보호 실행 `34430430009` | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | Analyzer 전용 계획 중 기록된 state 이동을 마무리하도록 Terraform이 요구하는 두 legacy Container Apps Job 주소를 허용된 변경 집합에는 추가하지 않고 대상 closure에 포함했습니다. | `current change`, workflow 대상 및 부정 범위 계약 테스트, 실패한 보호 계획 `34428877985`에서 필요한 closure 확인 | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | 증명된 런타임 이미지를 결속하면서 관련 없는 플랫폼 리소스를 계획에 노출하지 않는 analyzer 전용 보호 계획 경로를 추가했습니다. | `current change`, 범위가 제한된 계획 범위 및 workflow 계약 테스트 | 삭제가 없는 보호 계획, 정확한 적용 및 성공한 실시간 analyzer receipt를 하나 보존합니다. |
 | 2026-09-09 | implemented | 일반 역할 관리 권한을 부여하지 않고 플랫폼 인벤토리 및 RCA 서비스 주체에 필요한 구독 읽기와 조건부 역할 위임을 추가했습니다. | `current change`; bootstrap Terraform 검증 및 집중 신원 계약 테스트. | 승인된 기반 계층 적용에서 유효 역할과 privileged 역할 거부 관측을 보존합니다. |

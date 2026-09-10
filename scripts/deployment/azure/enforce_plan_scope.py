@@ -232,6 +232,7 @@ def main() -> int:
             "design-mocks",
             "monitoring",
             "model-binding",
+            "observability-analyzer",
             "rca-reader-identity",
             "operational-history",
         ),
