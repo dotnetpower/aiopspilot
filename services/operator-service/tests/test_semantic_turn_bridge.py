@@ -2496,9 +2496,18 @@ async def test_advisory_stream_and_replay_preserve_goal_metadata_without_blanket
     stored_turn = store.turns[receipt.proposal_id]
     adaptive = AdaptiveAnswer.model_validate(
         {
-            "answer": "An SLO is a measurable service objective.",
+            "answer": (
+                "A review-only incident mitigation draft needs an exact incident identity, "
+                "verified evidence, safety limits, approval, rollback, and independent "
+                "verification. This guidance creates no execution authority."
+            ),
             "goals": [
-                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True},
+                {
+                    "goal_id": "incident_mitigation_requirements",
+                    "kind": "knowledge",
+                    "status": "answered",
+                    "required": True,
+                },
                 {
                     "goal_id": "example",
                     "kind": "environment_example",

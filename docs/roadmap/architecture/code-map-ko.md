@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: caba6dc68bac444b0a24e6c34b463042d450a133
+translation_source_sha: b477707430a75151369da793a9dbcda34345b471
 translation_revised: 2026-09-10
 ---
 # 코드 맵
@@ -236,7 +236,7 @@ optional package 카탈로그를 해석하므로 새 경로가 누락된 English
 결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
-다중 pair 관계 계획 및 조회를 소유합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
+다중 pair 관계 계획 및 조회를 소유합니다. 장애 완화 요구사항 질문은 자문으로 유지하고 초안 요청은 타입이 지정된 초안을 만들기 전에 정확한 장애 ID를 요구합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
 필요한 모든 LinkType 증적을 결속합니다. `conversation_preflight_answer_safety.py`와 `conversation_preflight_targets.py`는 모델 답변 안전성과 정확한 대상, 시간 및 구독 범위 검증을 분리하고, `semantic_planning_preflight.py`와 `semantic_target_candidate_constants.py`는 간결한 서술자 선택과 타입 기반 대상 후보 집합을 소유합니다. Gateway plan은 권한이 있는 같은 진단 유형 이름을 수집하고 `semantic_target_suggestions.py`는 대상을 다시 결속하지 않고 후보 순위를 정합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
