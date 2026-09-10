@@ -7,7 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -686,9 +686,38 @@ case "$1 $2" in
         touch "$FAKE_GROUP_STATE"
         [[ "${FAKE_GROUP_CREATE_MODE:-success}" != "timeout_after_create" ]] || exit 124
         ;;
-  "group delete") rm -f "$FAKE_GROUP_STATE" ;;
-  "keyvault create") ;;
+    "group delete")
+        rm -f "$FAKE_GROUP_STATE"
+        if [[ -n "${FAKE_KV_STATE:-}" && -f "$FAKE_KV_STATE" ]]; then
+            rm -f "$FAKE_KV_STATE"
+            touch "$FAKE_KV_DELETED_STATE"
+        fi
+        ;;
+    "resource list")
+        if [[ -f "$FAKE_KV_STATE" ]]; then
+            printf '1\t1\n'
+        else
+            printf '0\t0\n'
+        fi
+        ;;
+    "keyvault create")
+        touch "$FAKE_KV_STATE"
+        [[ "${FAKE_KV_CREATE_MODE:-success}" != "timeout_after_create" ]] || exit 124
+        ;;
   "keyvault show") echo "${FAKE_KV_ACCESS:-Enabled}" ;;
+    "keyvault list-deleted")
+        if [[ -f "$FAKE_KV_DELETED_STATE" ]]; then
+            deleted_run_id="${FAKE_KV_DELETED_RUN_ID:-abcdef123456}"
+            printf '1\n'
+            [[ "$deleted_run_id" == "abcdef123456" ]] && printf '1\n' || printf '0\n'
+        else
+            printf '0\n0\n'
+        fi
+        ;;
+    "keyvault purge")
+        [[ "${FAKE_KV_PURGE_MODE:-success}" == "success" ]] || exit 5
+        rm -f "$FAKE_KV_DELETED_STATE"
+        ;;
   "storage account")
     if [[ "$3" == "show" ]]; then
       printf '%s\n%s\n' "${FAKE_STORAGE_ACCESS:-Enabled}" "${FAKE_SHARED_KEY:-True}"
@@ -702,15 +731,22 @@ esac
     path.chmod(0o755)
 
 
-@pytest.mark.parametrize(
-    ("key_vault_access", "expected_route"),
-    (("Enabled", "public-dev"), ("Disabled", "private-runner")),
-)
-def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
+@dataclass(frozen=True, slots=True)
+class PolicyProbeExecution:
+    result: subprocess.CompletedProcess[str]
+    output: Path
+    group_state: Path
+    deleted_key_vault_state: Path
+    invocations: str
+
+
+def _run_policy_probe(
     tmp_path: Path,
-    key_vault_access: str,
-    expected_route: str,
-) -> None:
+    *,
+    group_exists: bool = False,
+    deleted_key_vault_exists: bool = False,
+    environment: dict[str, str] | None = None,
+) -> PolicyProbeExecution:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     _write_fake_az(fake_bin / "az")
@@ -719,6 +755,12 @@ def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
     output = output_dir / "route.json"
     calls = tmp_path / "calls"
     group_state = tmp_path / "group"
+    key_vault_state = tmp_path / "key-vault"
+    deleted_key_vault_state = tmp_path / "deleted-key-vault"
+    if group_exists:
+        group_state.touch()
+    if deleted_key_vault_exists:
+        deleted_key_vault_state.touch()
     env = {
         **os.environ,
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
@@ -727,9 +769,10 @@ def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
         "FDAI_POLICY_PROBE_APPROVED": "1",
         "FAKE_AZ_CALLS": str(calls),
         "FAKE_GROUP_STATE": str(group_state),
-        "FAKE_KV_ACCESS": key_vault_access,
+        "FAKE_KV_STATE": str(key_vault_state),
+        "FAKE_KV_DELETED_STATE": str(deleted_key_vault_state),
+        **(environment or {}),
     }
-
     result = subprocess.run(  # noqa: S603 - controlled repository script
         [
             str(_ROOT / "infra/bootstrap/preflight-policy-check.sh"),
@@ -744,133 +787,138 @@ def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
         text=True,
         check=False,
     )
+    return PolicyProbeExecution(
+        result=result,
+        output=output,
+        group_state=group_state,
+        deleted_key_vault_state=deleted_key_vault_state,
+        invocations=calls.read_text(encoding="ascii"),
+    )
 
-    assert result.returncode == 0, result.stderr
-    payload: dict[str, Any] = json.loads(output.read_text(encoding="utf-8"))
+
+@pytest.mark.parametrize(
+    ("key_vault_access", "expected_route"),
+    (("Enabled", "public-dev"), ("Disabled", "private-runner")),
+)
+def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
+    tmp_path: Path,
+    key_vault_access: str,
+    expected_route: str,
+) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        environment={"FAKE_KV_ACCESS": key_vault_access},
+    )
+
+    assert execution.result.returncode == 0, execution.result.stderr
+    payload: dict[str, Any] = json.loads(execution.output.read_text(encoding="utf-8"))
     assert payload["route"] == expected_route
     assert payload["cleanup_complete"] is True
     assert payload["subscription_ready"] is False
-    assert not group_state.exists()
-    invocations = calls.read_text(encoding="ascii")
-    assert invocations.index("account show") < invocations.index("group create")
-    assert "group delete" in invocations
+    assert not execution.group_state.exists()
+    assert not execution.deleted_key_vault_state.exists()
+    assert execution.invocations.index("account show") < execution.invocations.index("group create")
+    assert "group delete" in execution.invocations
+    assert execution.invocations.index("group delete") < execution.invocations.index(
+        "keyvault purge"
+    )
 
 
 def test_policy_probe_cleans_up_after_ambiguous_group_create_timeout(tmp_path: Path) -> None:
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    _write_fake_az(fake_bin / "az")
-    output_dir = tmp_path / "output"
-    output_dir.mkdir(mode=0o700)
-    group_state = tmp_path / "group"
-    calls = tmp_path / "calls"
-    env = {
-        **os.environ,
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        "AZURE_SUBSCRIPTION_ID": _SUBSCRIPTION,
-        "AZURE_TENANT_ID": _TENANT,
-        "FDAI_POLICY_PROBE_APPROVED": "1",
-        "FAKE_AZ_CALLS": str(calls),
-        "FAKE_GROUP_STATE": str(group_state),
-        "FAKE_GROUP_CREATE_MODE": "timeout_after_create",
-    }
-
-    result = subprocess.run(  # noqa: S603 - controlled repository script
-        [
-            str(_ROOT / "infra/bootstrap/preflight-policy-check.sh"),
-            "--run-id",
-            "abcdef123456",
-            "--output-file",
-            str(output_dir / "route.json"),
-        ],
-        cwd=_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
+    execution = _run_policy_probe(
+        tmp_path,
+        environment={"FAKE_GROUP_CREATE_MODE": "timeout_after_create"},
     )
 
-    assert result.returncode == 4
-    assert not group_state.exists()
-    assert "group delete" in calls.read_text(encoding="ascii")
+    assert execution.result.returncode == 4
+    assert not execution.group_state.exists()
+    assert "group delete" in execution.invocations
+
+
+def test_policy_probe_cleans_up_after_ambiguous_key_vault_create_timeout(
+    tmp_path: Path,
+) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        environment={"FAKE_KV_CREATE_MODE": "timeout_after_create"},
+    )
+
+    assert execution.result.returncode == 4
+    payload: dict[str, Any] = json.loads(execution.output.read_text(encoding="utf-8"))
+    assert payload["state"] == "incomplete"
+    assert payload["cleanup_complete"] is True
+    assert "key_vault_probe_create_failed" in payload["reason_codes"]
+    assert not execution.group_state.exists()
+    assert not execution.deleted_key_vault_state.exists()
+    assert "keyvault purge" in execution.invocations
+
+
+def test_policy_probe_refuses_complete_cleanup_when_key_vault_purge_fails(
+    tmp_path: Path,
+) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        environment={"FAKE_KV_PURGE_MODE": "fail"},
+    )
+
+    assert execution.result.returncode == 4
+    payload: dict[str, Any] = json.loads(execution.output.read_text(encoding="utf-8"))
+    assert payload["state"] == "incomplete"
+    assert payload["route"] == "incomplete"
+    assert payload["cleanup_complete"] is False
+    assert "policy_probe_cleanup_failed" in payload["reason_codes"]
+    assert execution.deleted_key_vault_state.exists()
+
+
+def test_policy_probe_retry_purges_exact_deleted_key_vault_before_recreating(
+    tmp_path: Path,
+) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        deleted_key_vault_exists=True,
+    )
+
+    assert execution.result.returncode == 0, execution.result.stderr
+    assert execution.invocations.index("keyvault purge") < execution.invocations.index(
+        "group create"
+    )
+    assert execution.invocations.count("keyvault purge") == 2
+    assert not execution.deleted_key_vault_state.exists()
+
+
+def test_policy_probe_never_purges_deleted_key_vault_without_exact_ownership(
+    tmp_path: Path,
+) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        deleted_key_vault_exists=True,
+        environment={"FAKE_KV_DELETED_RUN_ID": "999999999999"},
+    )
+
+    assert execution.result.returncode == 4
+    assert "held by an unrelated deleted resource" in execution.result.stderr
+    assert "keyvault purge" not in execution.invocations
+    assert "group create" not in execution.invocations
+    assert execution.deleted_key_vault_state.exists()
 
 
 def test_policy_probe_never_deletes_a_group_without_exact_ownership(tmp_path: Path) -> None:
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    _write_fake_az(fake_bin / "az")
-    output_dir = tmp_path / "output"
-    output_dir.mkdir(mode=0o700)
-    group_state = tmp_path / "group"
-    calls = tmp_path / "calls"
-    env = {
-        **os.environ,
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        "AZURE_SUBSCRIPTION_ID": _SUBSCRIPTION,
-        "AZURE_TENANT_ID": _TENANT,
-        "FDAI_POLICY_PROBE_APPROVED": "1",
-        "FAKE_AZ_CALLS": str(calls),
-        "FAKE_GROUP_STATE": str(group_state),
-        "FAKE_GROUP_OWNED": "false",
-    }
-
-    result = subprocess.run(  # noqa: S603 - controlled repository script
-        [
-            str(_ROOT / "infra/bootstrap/preflight-policy-check.sh"),
-            "--run-id",
-            "abcdef123456",
-            "--output-file",
-            str(output_dir / "route.json"),
-        ],
-        cwd=_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
+    execution = _run_policy_probe(
+        tmp_path,
+        group_exists=True,
+        environment={"FAKE_GROUP_OWNED": "false"},
     )
 
-    assert result.returncode == 4
-    assert group_state.exists()
-    assert "group delete" not in calls.read_text(encoding="ascii")
+    assert execution.result.returncode == 4
+    assert execution.group_state.exists()
+    assert "group delete" not in execution.invocations
 
 
 def test_policy_probe_retry_cleans_its_exact_owned_group_before_recreating(
     tmp_path: Path,
 ) -> None:
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    _write_fake_az(fake_bin / "az")
-    output_dir = tmp_path / "output"
-    output_dir.mkdir(mode=0o700)
-    group_state = tmp_path / "group"
-    group_state.touch()
-    calls = tmp_path / "calls"
-    env = {
-        **os.environ,
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        "AZURE_SUBSCRIPTION_ID": _SUBSCRIPTION,
-        "AZURE_TENANT_ID": _TENANT,
-        "FDAI_POLICY_PROBE_APPROVED": "1",
-        "FAKE_AZ_CALLS": str(calls),
-        "FAKE_GROUP_STATE": str(group_state),
-    }
+    execution = _run_policy_probe(tmp_path, group_exists=True)
 
-    result = subprocess.run(  # noqa: S603 - controlled repository script
-        [
-            str(_ROOT / "infra/bootstrap/preflight-policy-check.sh"),
-            "--run-id",
-            "abcdef123456",
-            "--output-file",
-            str(output_dir / "route.json"),
-        ],
-        cwd=_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    invocations = calls.read_text(encoding="ascii")
-    assert invocations.index("group delete") < invocations.index("group create")
-    assert not group_state.exists()
+    assert execution.result.returncode == 0, execution.result.stderr
+    assert execution.invocations.index("group delete") < execution.invocations.index("group create")
+    assert not execution.group_state.exists()

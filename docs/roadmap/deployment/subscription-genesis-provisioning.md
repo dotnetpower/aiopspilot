@@ -45,7 +45,7 @@ subscription-onboarding product:
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
 | Operator entry point | `fdaictl` provides bootstrap reconciliation plus protected application plan, exact apply, status, and verification-only resume | Approved foundation apply, remote-state handoff, and one complete ready receipt remain open. |
-| Genesis progress | `genesis-up.sh` now runs an eight-stage local router with private JSON status, exact completed and remaining counts, provider reconciliation, and an effective-policy probe. One exact-green live run registered three missing baseline namespaces, read back 16 of 16, selected `private-runner`, verified probe cleanup, and left zero deployment-owned resources. | The private route still requires a signed offline kit, exact managed runner image, Foundation profile and variables, exact plan review, and an approved apply executor. No durable Blob-to-Operator mirror or complete readiness producer exists. |
+| Genesis progress | `genesis-up.sh` now runs an eight-stage local router with private JSON status, exact completed and remaining counts, provider reconciliation, and an effective-policy probe. One exact-green live run registered three missing baseline namespaces, read back 16 of 16, and selected `private-runner`. A later exact-green run exposed and recovered two soft-deleted probe vaults, so cleanup now includes exact tagged deleted-vault purge and absence readback. | The private route still requires a signed offline kit, exact managed runner image, Foundation profile and variables, exact plan review, and an approved apply executor. No durable Blob-to-Operator mirror or complete readiness producer exists. |
 | Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
@@ -97,7 +97,8 @@ Missing or malformed target axes return exit code `64` before the first Azure co
 
 The explicitly authorized policy probe creates one deterministic, tagged Key Vault and Storage
 resource group, observes the effective post-policy network posture, and accepts a route only after
-exact ownership cleanup is verified. A public-compatible result runs a noninteractive `azd`
+exact resource-group deletion plus tagged Key Vault soft-delete purge and absence readback are
+verified. A public-compatible result runs a noninteractive `azd`
 preview and waits for an exact approved plan. A private result waits for the separately reviewed
 Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
 preview, or sets subscription readiness.

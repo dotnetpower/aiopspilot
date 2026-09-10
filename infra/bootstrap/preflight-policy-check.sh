@@ -12,6 +12,7 @@ REGION="${REGION:-koreacentral}"
 RUN_ID=""
 OUTPUT_FILE=""
 GROUP_CLEANUP_REQUIRED=0
+KEY_VAULT_PURGE_REQUIRED=0
 PROBE_COMPLETE=0
 
 usage() {
@@ -101,7 +102,7 @@ group_state() {
   fi
 }
 
-cleanup_probe() {
+cleanup_group() {
   local deadline state
   ((GROUP_CLEANUP_REQUIRED == 1)) || return 0
   deadline=$((SECONDS + 300))
@@ -133,6 +134,110 @@ cleanup_probe() {
   return 1
 }
 
+deleted_key_vault_state() {
+  local counts expected_id output query
+  expected_id="/subscriptions/$EXPECTED_SUBSCRIPTION/resourceGroups/$resource_group/providers/Microsoft.KeyVault/vaults/$key_vault"
+  query="[length([?name == '$key_vault']), length([?name == '$key_vault'"
+  query+=" && properties.location == '$REGION'"
+  query+=" && properties.vaultId == '$expected_id'"
+  query+=" && properties.tags.\"fdai:managed\" == 'true'"
+  query+=" && properties.tags.\"fdai:layer\" == 'policy-probe'"
+  query+=" && properties.tags.\"fdai:run-id\" == '$RUN_ID'])]"
+  if ! output="$(timeout 30s az keyvault list-deleted \
+    --subscription "$EXPECTED_SUBSCRIPTION" \
+    --query "$query" \
+    --output tsv --only-show-errors 2>/dev/null)"; then
+    printf 'unknown\n'
+    return
+  fi
+  readarray -t counts <<<"$output"
+  case "${counts[0]:-}:${counts[1]:-}" in
+    0:0) printf 'absent\n' ;;
+    1:1) printf 'owned\n' ;;
+    1:0) printf 'foreign\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+live_key_vault_state() {
+  local query state
+  query="[?name == '$key_vault'] | [length(@), length([?"
+  query+="location == '$REGION'"
+  query+=" && tags.\"fdai:managed\" == 'true'"
+  query+=" && tags.\"fdai:layer\" == 'policy-probe'"
+  query+=" && tags.\"fdai:run-id\" == '$RUN_ID'])]"
+  if ! state="$(timeout 30s az resource list \
+    --subscription "$EXPECTED_SUBSCRIPTION" \
+    --resource-group "$resource_group" \
+    --resource-type Microsoft.KeyVault/vaults \
+    --query "$query" \
+    --output tsv --only-show-errors 2>/dev/null)"; then
+    printf 'unknown\n'
+    return
+  fi
+  case "$state" in
+    $'0\t0') printf 'absent\n' ;;
+    $'1\t1') printf 'owned\n' ;;
+    $'1\t0') printf 'foreign\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+cleanup_deleted_key_vault() {
+  local deadline purge_requested=0 state
+  ((KEY_VAULT_PURGE_REQUIRED == 1)) || return 0
+  deadline=$((SECONDS + 300))
+  while ((SECONDS < deadline)); do
+    state="$(deleted_key_vault_state)"
+    case "$state" in
+      absent)
+        if ((purge_requested == 1)); then
+          KEY_VAULT_PURGE_REQUIRED=0
+          return 0
+        fi
+        ;;
+      owned)
+        if ((purge_requested == 0)); then
+          if ! timeout 60s az keyvault purge \
+            --subscription "$EXPECTED_SUBSCRIPTION" \
+            --name "$key_vault" \
+            --location "$REGION" \
+            --only-show-errors >/dev/null 2>&1; then
+            return 1
+          fi
+          purge_requested=1
+          continue
+        fi
+        ;;
+      foreign)
+        echo "policy probe refused purge of a Key Vault without exact ownership evidence" >&2
+        return 1
+        ;;
+      unknown) ;;
+    esac
+    sleep 5
+  done
+  return 1
+}
+
+cleanup_probe() {
+  local live_state
+  if ((GROUP_CLEANUP_REQUIRED == 1 && KEY_VAULT_PURGE_REQUIRED == 0)); then
+    live_state="$(live_key_vault_state)"
+    case "$live_state" in
+      owned) KEY_VAULT_PURGE_REQUIRED=1 ;;
+      absent) ;;
+      foreign)
+        echo "policy probe refused cleanup of a Key Vault without exact ownership tags" >&2
+        return 1
+        ;;
+      *) return 1 ;;
+    esac
+  fi
+  cleanup_group || return 1
+  cleanup_deleted_key_vault
+}
+
 on_exit() {
   local status=$?
   trap - EXIT
@@ -145,7 +250,26 @@ on_exit() {
 trap on_exit EXIT
 
 case "$(group_state)" in
-  absent) ;;
+  absent)
+    case "$(deleted_key_vault_state)" in
+      absent) ;;
+      owned)
+        KEY_VAULT_PURGE_REQUIRED=1
+        if ! cleanup_deleted_key_vault; then
+          echo "policy probe could not purge its exact prior Key Vault" >&2
+          exit 4
+        fi
+        ;;
+      foreign)
+        echo "policy probe Key Vault name is held by an unrelated deleted resource" >&2
+        exit 4
+        ;;
+      *)
+        echo "policy probe could not verify that its Key Vault name is reusable" >&2
+        exit 4
+        ;;
+    esac
+    ;;
   owned)
     GROUP_CLEANUP_REQUIRED=1
     if ! cleanup_probe; then
@@ -187,8 +311,10 @@ if timeout 120s az keyvault create \
   --location "$REGION" \
   --enable-rbac-authorization true \
   --public-network-access Enabled \
+  --tags fdai:managed=true fdai:layer=policy-probe fdai:run-id="$RUN_ID" \
   --output none --only-show-errors >/dev/null 2>&1; then
   key_vault_created=true
+  KEY_VAULT_PURGE_REQUIRED=1
 fi
 if timeout 120s az storage account create \
   --subscription "$EXPECTED_SUBSCRIPTION" \

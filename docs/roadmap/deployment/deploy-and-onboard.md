@@ -186,7 +186,7 @@ These customer-agnostic helpers keep both deployment routes repeatable:
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs eight noninteractive
   stages with exact progress and remaining counts. Inspection reports missing Resource Providers
   without mutation. Explicit mutation mode registers only those providers, runs a tagged policy
-  probe with verified cleanup, and selects `public-dev` or `private-runner`. The private wait reports
+  probe with exact group and tagged deleted-vault cleanup, and selects `public-dev` or `private-runner`. The private wait reports
   `private_foundation_external_artifacts_required`, names the signed kit, exact runner image, Foundation profile, and exact plan generation, and keeps exit `2` as waiting rather than readiness or apply.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair before mutation.

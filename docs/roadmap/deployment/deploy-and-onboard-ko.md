@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 332955c6ed1a15301665c55f87a9065e1a7038a6
+translation_source_sha: cb10c412f9712bf8a09d7e18ca959c01d569df6e
 translation_revised: 2026-09-10
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -188,7 +188,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 정확한 진행률과 남은 단계
   수를 표시하는 8개의 비대화형 단계를 실행합니다. 검사 모드는 Azure를 변경하지 않고 누락된
   Resource Provider를 보고합니다. 명시적 변경 모드는 해당 Provider만 등록하고, 태그가 지정된
-  정책 프로브의 정리를 검증한 뒤 `public-dev` 또는 `private-runner`를 선택합니다. 비공개 대기는
+  정책 프로브의 그룹 및 태그 기반 삭제 Vault 정리를 검증한 뒤 `public-dev` 또는 `private-runner`를 선택합니다. 비공개 대기는
   `private_foundation_external_artifacts_required`와 서명된 키트, 정확한 실행기 이미지, 기반 계층 프로필, 정확한 계획 생성을 보고하며 종료 코드 `2`는 준비나 적용이 아닌 대기 상태입니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
   Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
