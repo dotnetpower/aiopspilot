@@ -212,7 +212,11 @@ def test_require_document_updates_checks_both_languages() -> None:
         module._require_document_updates({"documents": documents}, changed[:-1])
 
 
-def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> None:
+def test_installer_discovers_issues_and_repeats_persistently(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.syspath_prepend(str(AUTOMATION))
     path = AUTOMATION / "install_roadmap_implementation_campaign.py"
     spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_installer", path)
     if spec is None or spec.loader is None:
