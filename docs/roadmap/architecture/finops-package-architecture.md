@@ -22,8 +22,9 @@ domain code and assets. It does not create another control plane or move authori
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
 > mechanics. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
-> The Incident intervention outbox is one such unrelated worker. Its lifecycle and readiness state
-> cannot activate a Cost Governance package or publish a Njord-owned record.
+> The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
+> lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
+> record.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader

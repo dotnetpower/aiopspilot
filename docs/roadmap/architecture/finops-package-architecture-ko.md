@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 382483fab034b7b1f97c5e18e6680274503225a9
+translation_source_sha: 66b86bd627ccb1c5e2839376dcc14f509962558d
 translation_revised: 2026-09-10
 ---
 
@@ -25,8 +25,9 @@ translation_revised: 2026-09-10
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
 > 메커니즘이 있습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
 > Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
-> Incident 개입 보낼 편지함은 이러한 관련 없는 작업자 중 하나입니다. 해당 수명 주기와 준비
-> 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수 없습니다.
+> 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 제공합니다. 해당 수명
+> 주기와 준비 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수
+> 없습니다.
 > 에이전트가 아닌 런타임 관찰 소비자도 재생 및 상태 근거만 기록하며 Njord 소유권, 패키지 활성화
 > 또는 작업 권한을 바꾸지 않습니다.
 > 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할

@@ -17,7 +17,6 @@ from fdai_service_contracts.venue import (
     uses_workload_identity,
 )
 
-from fdai_operator_service.action_confirmation_runtime import ActionConfirmationBridge
 from fdai_operator_service.adapters import (
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
@@ -89,13 +88,14 @@ from fdai_operator_service.iam_composition import (
     build_teams_hil_http_client,
     build_unavailable_iam_bindings,
 )
-from fdai_operator_service.incident_intervention_runtime import (
-    IncidentInterventionBridge,
-)
 from fdai_operator_service.model_lifecycle_composition import (
     AsyncResolvedModelsSource,
     OperatorResolvedModelsRevisionOwner,
     build_model_revision_owner,
+)
+from fdai_operator_service.outbox_runtime import (
+    ActionConfirmationBridge,
+    IncidentInterventionBridge,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
