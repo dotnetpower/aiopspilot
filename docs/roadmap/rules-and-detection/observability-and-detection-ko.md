@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 17337cb352e3e41dfcaefee68d9c9c572c0da9db
+translation_source_sha: a91964fd14d28d83766729a3ef9f53a82598adce
 translation_revised: 2026-09-10
 ---
 
@@ -521,8 +521,9 @@ telemetry / metrics
 모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
 않습니다.
 보호된 `plan-observability-*` 및 `apply-observability-*` 요청 계열은 analyzer Container Apps
-Job만 대상으로 합니다. 따라서 증명된 런타임 이미지를 갱신할 때 관련 없는 플랫폼 리소스를
-삭제하거나 교체할 수 없습니다.
+Job의 변경만 허용합니다. 계획 대상 closure는 Terraform에 기록된 state 이동을 완료할 목적으로만
+두 legacy Job 주소를 포함하며, 범위가 제한된 guard는 이 Job과 다른 모든 플랫폼 리소스의 no-op이
+아닌 변경을 거부합니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,

@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 7827039374f1bf4905c86c700fc4ccb31de07fd2
+translation_source_sha: 30f45cd40121cc32b2fe90f6065de1d9f563b62c
 translation_revised: 2026-09-10
 ---
 # 운영 배포 강화
@@ -23,7 +23,7 @@ translation_revised: 2026-09-10
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. 구독 역할 위임은 서비스 주체용 읽기 역할 3개로 제한됩니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-security` 작업은 하나의 필수 CI 결과 아래에서 고정 버전 Checkov 및 Trivy 검사를 실행합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
-| 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, 집중 범위 및 workflow 계약 테스트 | `plan-observability-*` 요청은 analyzer Container Apps Job만 대상으로 지정합니다. 이에 대응하는 apply는 봉인된 계획을 사용하고, 범위 guard는 해당 Job 외부의 모든 변경 주소를 거부합니다. |
+| 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, 집중 범위 및 workflow 계약 테스트 | `plan-observability-*` 요청은 analyzer Container Apps Job의 변경만 허용합니다. Terraform 대상 closure에는 기록된 state 이동을 완료하는 데 필요한 두 legacy Job 주소도 포함하지만, 범위 guard는 이 주소의 no-op이 아닌 변경을 모두 거부합니다. |
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | Scenario-lab 실행기 도구 준비 | implemented | `sre-demo-lab.yml`, `test_scenario_lab.py`, CI 계약 검사, actionlint, 다운로드한 checksum 검증 | 보호된 workflow는 요청 선행 조건을 확인하기 전에 checksum으로 고정된 Helm과 kubelogin을 실행기 임시 저장소에 설치합니다. 후보 실행기에 Helm이 미리 설치됐다고 가정하지 않으며 설치는 Azure 리소스나 실행기 이미지를 변경하지 않습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | Analyzer 전용 계획 중 기록된 state 이동을 마무리하도록 Terraform이 요구하는 두 legacy Container Apps Job 주소를 허용된 변경 집합에는 추가하지 않고 대상 closure에 포함했습니다. | `current change`, workflow 대상 및 부정 범위 계약 테스트, 실패한 보호 계획 `34428877985`에서 필요한 closure 확인 | 삭제가 없는 보호 analyzer 계획과 정확한 적용을 하나 보존합니다. |
 | 2026-09-10 | implemented | 증명된 런타임 이미지를 결속하면서 관련 없는 플랫폼 리소스를 계획에 노출하지 않는 analyzer 전용 보호 계획 경로를 추가했습니다. | `current change`, 범위가 제한된 계획 범위 및 workflow 계약 테스트 | 삭제가 없는 보호 계획, 정확한 적용 및 성공한 실시간 analyzer receipt를 하나 보존합니다. |
 | 2026-09-09 | implemented | 일반 역할 관리 권한을 부여하지 않고 플랫폼 인벤토리 및 RCA 서비스 주체에 필요한 구독 읽기와 조건부 역할 위임을 추가했습니다. | `current change`; bootstrap Terraform 검증 및 집중 신원 계약 테스트. | 승인된 기반 계층 적용에서 유효 역할과 privileged 역할 거부 관측을 보존합니다. |
 | 2026-09-08 | implemented | 후보 self-hosted 실행기에 Helm이 없어 SRE demo plan 선행 검사가 실패한 문제를 수정했습니다. Workflow는 공식 배포 위치에서 Helm v3.18.6을 내려받고 고정된 SHA-256을 확인한 뒤 실행기 임시 저장소에만 설치하며 요청 선행 조건 전에 바이너리를 검증합니다. | `current change`, scenario-lab 검사 7개, CI/workflow 계약 검사 54개, actionlint 통과, 공개 고정 archive checksum 일치, 전체 Operator surface CI 명령에서 Console 테스트 2,827개와 타입 검사 및 빌드 통과 | 공유 branch를 조정하고 작업 소유 변경을 커밋한 뒤에만 push합니다. 이후 apply를 제출하지 않고 새 plan-only 실행을 관찰합니다. |
