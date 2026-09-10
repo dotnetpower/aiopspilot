@@ -126,12 +126,7 @@ jobs:
             -backend-config="container_name=${{ vars.STATE_CONTAINER || 'tfstate' }}" \
             -backend-config="key=fdai-${TARGET_ENVIRONMENT}.tfstate"
 
-      - name: Bind exact attested runtime and certification jobs
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ github.token }}
-          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
-          RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
+      - name: Resolve exact certification jobs
         run: |
           set -euo pipefail
           resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
@@ -280,8 +275,6 @@ jobs:
               select(.name == "operational-history-lifecycle") | .image' "$job_json"
           )"
           [[ "$deployed_image" =~ ^[^/]+/fdai@sha256:[0-9a-f]{64}$ ]]
-          FDAI_ACR_LOGIN_SERVER="${deployed_image%%/*}" \
-            bash scripts/deployment/azure/bind_core_runtime_image.sh infra
           mi_client_id="$(
             jq -er '.properties.template.containers[] |
               select(.name == "operational-history-lifecycle") |
@@ -294,7 +287,23 @@ jobs:
             echo "CERTIFICATION_JOB_NAME=$history_job_name"
             echo "CERTIFICATION_CONTAINER_URL=$container_url"
             echo "CERTIFICATION_MI_CLIENT_ID=$mi_client_id"
+            echo "FDAI_ACR_LOGIN_SERVER=${deployed_image%%/*}"
           } >> "$GITHUB_ENV"
+          echo "Resolved exact certification job bindings."
+
+      - name: Verify exact runtime image provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
+        run: bash scripts/deployment/azure/bind_core_runtime_image.sh --verify-only infra
+
+      - name: Bind exact runtime image to ACR
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
+        run: bash scripts/deployment/azure/bind_core_runtime_image.sh --bind-verified infra
 
       - name: Refresh authoritative inventory with exact runtime
         run: |

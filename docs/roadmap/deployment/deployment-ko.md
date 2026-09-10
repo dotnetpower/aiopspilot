@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: be8857915612cca71bb245f5c0cc0315047f591a
+translation_source_sha: 91e6d3c3702ec8b0f68cca54619eca1eca0686c0
 translation_revised: 2026-09-10
 ---
 
@@ -46,6 +46,7 @@ translation_revised: 2026-09-10
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-10 | implemented | OI-12 Job 해석, 정확한 OCI 출처 증명 검증, ACR 연결을 별도의 보호된 단계로 분리했습니다. 검증된 저장소, 개정 번호, 다이제스트만 `GITHUB_ENV`를 통해 단계 경계를 넘으며 각 단계는 자체 실패 경계를 보고합니다. | `current change`; 실패한 보호 인증 `34429999806`; `.github/workflows/operational-instance-certification.yml`; 집중 작업 흐름 계약 검사. | 분리된 작업 흐름을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 일시적 GHCR 인증에서 Docker CLI 의존성을 제거했습니다. Binder는 기존 workflow 자격 증명을 프로세스 내부에서 mode 0600 파일로 렌더링하고 인자나 출력에 넣지 않으며 레지스트리 전용 출처 증명 검증을 유지합니다. | `current change`; Terraform과 Azure 전에 중단된 실패한 plan-only 실행 `34427330193`; 실행 가능한 binder 및 자격 증명 위생 회귀 검사. | 수정된 검증기를 게시하고 exact CI를 통과한 뒤 이미지를 승격하지 않는 보호 계획을 다시 실행합니다. |
 | 2026-09-10 | implemented | OCI 증명 검증을 위해 일시적인 GHCR 인증을 추가했습니다. binder는 mode 0700 Docker 구성에만 자격 증명을 쓰고 stdin으로 토큰을 받으며 종료할 때 디렉터리를 제거하고 인증 및 검증 실패를 명시적으로 보고합니다. | `current change`; 실패한 보호 인증 `34419767892`; 일시적 구성으로 수행한 로컬 다이제스트 검증 통과; 집중 자격 증명 위생 및 이미지 연결 검사. | 검증기 인증 수정 사항을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | Terraform 최상위 출력에서 기존 이력 Job ID와 보관 컨테이너 URL이 모두 비어 있음을 확인한 뒤 범위가 제한된 ARM fallback을 확장했습니다. 한 번의 열거로 인벤토리 런타임과 이력 런타임을 각각 정확히 하나 해석하고, 비어 있지 않은 최상위 출력과 교차 확인하며, 선택한 이력 Job을 안정 리소스 API로 다시 읽습니다. | `current change`; 실패한 보호 인증 `34416935783`; 정제한 실행기 재현; 범위가 제한된 실제 ARM 검증에서 정확한 인벤토리 계약과 이력 계약을 각각 1개 확인; 집중 작업 흐름 검사. | 이력 fallback을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
@@ -296,6 +297,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   컨테이너가 각각 정확히 하나여야 합니다. 비어 있지 않은 최상위 출력은 선택한 ARM 런타임과
   일치해야 합니다. fallback은 이름 패턴으로 Job 신원을 유추하지 않으며 단계가 끝난 뒤
   프로바이더 출력을 보존하지 않습니다.
+  Job 해석, 정확한 OCI 출처 증명 검증, ACR 연결은 별도의 보호된 단계에서 실행합니다. 정확히
+  검증된 저장소, 개정 번호, 다이제스트만 작업 환경을 통해 검증 단계에서 연결 단계로 전달합니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + 의존성 + 시크릿 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.
