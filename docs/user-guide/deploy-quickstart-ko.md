@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: c83e0419f96dad87a1e3b68be9fe2925fcf1a8ab
+translation_source_sha: 1d43cf4d343adbe932ea7f4381baa6fce5bacdcb
 translation_revised: 2026-09-10
 ---
 
@@ -11,18 +11,26 @@ translation_revised: 2026-09-10
 FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Terraform이 실행 엔진이자 단일
 기준입니다. 비공개 `dev` 및 `staging` 환경에는 보호된 `fdaictl` 작업 흐름을 사용하는 것이
 좋습니다. 기여자는 깨끗한 clone에서 보호 장치가 있는 `azd` 래퍼를 사용해 공개 네트워크 개발
-구독에 공유 플랫폼과 독립 Core 서비스 하나를 배포할 수 있습니다.
+구독에 공유 플랫폼과 독립 Core 서비스 하나를 배포할 수 있습니다. 유효 네트워크 정책 경로를
+알 수 없다면 먼저 비대화형 Genesis 라우터를 사용합니다.
 
 ## 배포 경로 선택
 
 | 환경 | 사용할 경로 | 결과 |
 |------|-------------|------|
+| 정책 경로를 알 수 없는 신규 또는 일부 구성된 구독 | 명시적 대상 축, 저장소, 변경 권한과 함께 `genesis-up.sh` 실행 | 정확한 대상 및 CI 검사, 기준 Resource Provider 조정, 유효 정책 경로 선택 후 공개 미리 보기 또는 비공개 기반 계층 승인 대기 |
 | 개인 Azure 퍼블릭 클라우드 개발 구독 | `az login` 실행 후 `make azd-up`을 실행하고 표시된 리전을 승인 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
 | 비공개 네트워크, 공유, 스테이징 또는 운영 환경 | 보호된 `fdaictl` 계획 및 exact 적용 | 비공개 상태, VNet runner, 승인 정책, 선택한 모든 독립 서비스 및 보호된 증거 |
 | 기존 사용자 지정 Terraform 자동화 | Terraform 직접 실행 | 배포 소유 상태, 이미지, 마이그레이션 및 검증 오케스트레이션을 사용하는 전문가 통합 |
 
 공개 경로는 개발 부트스트랩이며 운영 우회 경로가 아닙니다. 자율 작업은 관찰 모드로 유지되며
 Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
+
+Genesis는 사용자 입력 없이 번호가 지정된 8개 단계, 정확한 진행률, 남은 작업을 표시합니다.
+`--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및
+Storage 정책 프로브의 생성 및 검증된 정리만 승인합니다. `public-dev` 결과는 정확히 승인된
+계획을 위해 미리 보기 후 대기합니다. `private-runner` 결과는 별도로 검토한 기반 계층 계획을
+기다립니다. 어느 경로도 봉인되지 않은 계획을 적용하거나 구독 준비 상태를 주장하지 않습니다.
 
 소유자 전용 `secrets/license-signing-key.pem`이 패키지 공개 키와 일치하면 확인된 공개 경로가
 정확한 이미지와 배포에 연결된 최대 30일 토큰을 발급하고 전체 토큰 다이제스트 이름의 Key Vault

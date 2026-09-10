@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d6529d13767c4aa0ffd99dfffc93d9282f3822dc }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 760fb59a19243febb24419452e550c428fdcd39b }]
 ---
 
 # Deploy Quickstart
@@ -11,11 +11,13 @@ execution engine and the source of truth. We recommend the protected `fdaictl`
 workflow for private or shared `dev` and `staging` environments. A contributor
 with a clean clone can use the guarded `azd` wrapper to deploy the shared platform
 and one independently owned Core service to a public-network development subscription.
+Use the noninteractive Genesis router first when the effective network-policy route is unknown.
 
 ## Choose a deployment path
 
 | Your environment | Use | Result |
 |------------------|-----|--------|
+| New or partially configured subscription with an unknown policy route | Run `genesis-up.sh` with explicit target axes, repository, and mutation authorization | Exact target and CI checks, baseline Resource Provider reconciliation, effective policy routing, then a public preview or private Foundation approval wait |
 | Personal Azure public-cloud subscription for development | Run `az login`, then `make azd-up` and approve the displayed region | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
 | Private-network, shared, staging, or production environment | Protected `fdaictl` plan and exact apply | Private state, VNet runner, approval policy, all selected independent services, and protected evidence |
 | Existing custom Terraform automation | Direct Terraform | Expert integration with deployment-owned state, image, migration, and verification orchestration |
@@ -23,6 +25,12 @@ and one independently owned Core service to a public-network development subscri
 The public path is a development bootstrap, not a production shortcut. It keeps autonomous actions
 in observation mode and does not deploy Console, Operator API, document services, or the isolated
 Executor.
+
+Genesis displays eight numbered stages, exact progress, and remaining work without prompting. Its
+`--apply --allow-probe-resources` flags authorize only missing-provider registration and creation
+plus verified cleanup of the tagged Key Vault and Storage policy probe. A `public-dev` result stops
+after preview for an exact approved plan. A `private-runner` result stops for the separately
+reviewed Foundation plan. Neither route applies an unsealed plan or claims subscription readiness.
 
 If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
 public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by

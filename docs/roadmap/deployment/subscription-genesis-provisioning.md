@@ -45,7 +45,7 @@ subscription-onboarding product:
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
 | Operator entry point | `fdaictl` provides bootstrap reconciliation plus protected application plan, exact apply, status, and verification-only resume | Approved foundation apply, remote-state handoff, and one complete ready receipt remain open. |
-| Genesis progress | `genesis-up.sh` is a fail-closed compatibility shim; the CLI and Console share a bounded status snapshot that separates stage completion from readiness | No authoritative Azure producer or durable Blob-to-Operator mirror exists. |
+| Genesis progress | `genesis-up.sh` now runs an eight-stage local router with private JSON status, exact completed and remaining counts, provider reconciliation, and an effective-policy probe | The router stops at the exact application or foundation approval boundary. No durable Blob-to-Operator mirror or complete readiness producer exists. |
 | Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
@@ -74,6 +74,38 @@ post-snapshot observations still keep readiness incomplete until projection catc
 ## Target operator experience
 
 The high-level path uses the canonical command groups and adds durable run identity:
+
+### Noninteractive policy router
+
+Use the local router to complete every currently authorized prerequisite in one invocation. Supply
+the target through the environment so no identifier enters source control:
+
+```bash
+AZURE_SUBSCRIPTION_ID=<subscription-id> \
+AZURE_TENANT_ID=<tenant-id> \
+scripts/deployment/azure/genesis-up.sh \
+  --repository <owner>/<repository> \
+  --region <azure-region> \
+  --apply --allow-probe-resources --output json
+```
+
+The router verifies tools, both Azure target axes, the region, clean source, and the latest exact
+`required` check. It then inspects the declared Foundation and public-Core Resource Provider sets.
+Inspection is read-only. Mutation-enabled preflight registers only missing namespaces, reads every
+namespace back under one cumulative deadline, and retains registrations on rollback.
+
+The explicitly authorized policy probe creates one deterministic, tagged Key Vault and Storage
+resource group, observes the effective post-policy network posture, and accepts a route only after
+exact ownership cleanup is verified. A public-compatible result runs a noninteractive `azd`
+preview and waits for an exact approved plan. A private result waits for the separately reviewed
+Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
+preview, or sets subscription readiness.
+
+Each transition prints an ASCII progress bar, percentage, completed-stage count, and remaining
+stage count. The same identifier-free state is replaced atomically in a mode-`0600` JSON file under
+a mode-`0700` work directory. Retries and long commands share the persisted total deadline. Exit
+code `2` means that the safe automated portion completed and a
+documented approval or prerequisite remains; it does not mean the subscription is ready.
 
 ```bash
 fdaictl provision inspect --profile .fdai/environments/dev.json

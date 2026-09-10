@@ -181,17 +181,17 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 #### Onboarding automation
 
-These customer-agnostic, parameterized helpers make both deployment paths repeatable:
-Protected and non-interactive callers set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` explicitly.
-Interactive `azd-up.sh` reads the active `az login` pair and requires `y` or another verified region before deployment.
-[`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) still proves both axes and fails before mutation when the identity cannot access the exact pair.
+These customer-agnostic helpers keep both deployment routes repeatable:
 
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs eight noninteractive
+  stages with exact progress and remaining counts. Inspection reports missing Resource Providers
+  without mutation. Explicit mutation mode registers only those providers, runs a tagged policy
+  probe with verified cleanup, and selects `public-dev` or `private-runner`. The public route stops
+  after preview, and the private route stops before Foundation actuation; exact approval remains separate.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
-  CLI and `azd` entry points to the approved subscription and tenant pair.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) reads an interactive Azure CLI target, confirms or replaces the `koreacentral` region, then previews and stages the public `dev` platform, exact Core image, migrations, catalogs, independent Core, canary, and initial inventory in one command. Empty input never approves deployment. When the fixed owner-only license key exists and matches the packaged public key, it also issues a maximum-30-day token, uploads it through the Key Vault file-input boundary under a per-token digest-derived name, and forces a Core revision with that non-secret digest. Without the key it deploys the same image in observation-only Trial. It is not a private or production path.
-- [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) probes a
-  throwaway KV + storage to tell you up front whether the tenant forces private-everything
-  (and thus mandates the runner path).
+  CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
+  `dev` path. It is not a private, shared, staging, or production deployment path.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) runs create-state-account -> bootstrap
   apply -> prints the GitHub Actions config (idempotent).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
