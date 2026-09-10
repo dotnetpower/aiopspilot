@@ -352,7 +352,7 @@ jobs:
             --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
 
       - name: Install pinned uv for service migrations and evidence
-        if: ${{ inputs.apply || inputs.core_evidence_bindings_transition }}
+        if: ${{ inputs.apply || inputs.service == 'core-control-plane' }}
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.32"
@@ -880,12 +880,17 @@ jobs:
                 --output "$RUNNER_TEMP/service.tfvars.json"
 
       - name: Freeze reviewed configuration baseline in private Blob
-        if: ${{ !inputs.apply && !inputs.migrate_state && inputs.core_evidence_bindings_transition && inputs.service == 'core-control-plane' }}
+        if: ${{ !inputs.apply && !inputs.migrate_state && inputs.service == 'core-control-plane' }}
         env:
           CONFIGURATION_BASELINE_BINDING_JSON: ${{ secrets.CONFIGURATION_BASELINE_BINDING_JSON }}
           CONFIGURATION_BASELINE_GZIP_BASE64: ${{ secrets.CONFIGURATION_BASELINE_GZIP_BASE64 }}
         run: |
           set -euo pipefail
+          if [[ -z "$CONFIGURATION_BASELINE_BINDING_JSON" \
+            && -z "$CONFIGURATION_BASELINE_GZIP_BASE64" ]]; then
+            echo "No reviewed configuration baseline is configured."
+            exit 0
+          fi
           [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" \
             && -n "$CONFIGURATION_BASELINE_GZIP_BASE64" ]] || {
             echo "The reviewed configuration baseline envelope is required for the Core evidence transition." >&2
@@ -1528,11 +1533,35 @@ jobs:
             "$TRUSTED_CONTROLS/scripts/deployment/service"
 
       - name: Verify deployed configuration baseline and current state
-        if: ${{ inputs.apply && inputs.core_evidence_bindings_transition && inputs.service == 'core-control-plane' && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        id: baseline_verification
+        if: ${{ inputs.apply && inputs.service == 'core-control-plane' && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
         env:
           CONFIGURATION_BASELINE_BINDING_JSON: ${{ secrets.CONFIGURATION_BASELINE_BINDING_JSON }}
         run: |
           set -euo pipefail
+          service_resource_id="$(
+            jq -er '.target.service_resource_id' \
+              "$RUNNER_TEMP/service-plan-bundle/service-context.json"
+          )"
+          timeout 60s az containerapp show \
+            --ids "$service_resource_id" \
+            --only-show-errors \
+            --output json >"$RUNNER_TEMP/configuration-baseline-core-app.json"
+          drift_enabled="$(
+            jq -r '
+              [
+                .properties.template.containers[]
+                | select(.name == "core-control-plane")
+                | .env[]
+                | select(.name == "FDAI_CONFIGURATION_DRIFT_ENABLED")
+                | .value
+              ] | if length == 1 then .[0] else "" end
+            ' "$RUNNER_TEMP/configuration-baseline-core-app.json"
+          )"
+          if [[ "$drift_enabled" != "1" ]]; then
+            echo "Deployed Core has no configuration baseline binding."
+            exit 0
+          fi
           [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" ]] || {
             echo "CONFIGURATION_BASELINE_BINDING_JSON is required for deployed verification." >&2
             exit 1
@@ -1548,14 +1577,6 @@ jobs:
           echo "::add-mask::$container_url"
           echo "::add-mask::$storage_account"
           export CONFIGURATION_BASELINE_CONTAINER_URL="$container_url"
-          service_resource_id="$(
-            jq -er '.target.service_resource_id' \
-              "$RUNNER_TEMP/service-plan-bundle/service-context.json"
-          )"
-          timeout 60s az containerapp show \
-            --ids "$service_resource_id" \
-            --only-show-errors \
-            --output json >"$RUNNER_TEMP/configuration-baseline-core-app.json"
           evidence_cli="$TRUSTED_CONTROLS/scripts/deployment/azure/configuration_baseline_evidence.py"
           evidence_python=(
             uv run --directory "$TRUSTED_CONTROLS" --frozen
@@ -1581,9 +1602,10 @@ jobs:
             --content-type application/json \
             --only-show-errors \
             --output none
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload sanitized configuration drift receipt
-        if: ${{ inputs.apply && inputs.core_evidence_bindings_transition && inputs.service == 'core-control-plane' && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        if: ${{ steps.baseline_verification.outputs.configured == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: configuration-drift-live-receipt-${{ github.run_id }}-${{ github.run_attempt }}

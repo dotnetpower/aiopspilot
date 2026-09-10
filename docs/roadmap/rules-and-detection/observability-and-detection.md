@@ -106,6 +106,9 @@ file digest alone does not establish cross-format equivalence.
   before comparing a fresh Azure Resource Graph observation. The retained receipt includes only
   digests, completeness, the decision, counts, and zero-valued authority counters. The Container
   Apps module emits no drift configuration by default.
+  Once a deployment owner supplies both protected baseline envelope values, every later Core plan
+  installs the pinned evidence toolchain, preserves that exact binding, and every successful Core
+  apply repeats independent readback.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
   blocked rather than being reported as supported. Each citation identity includes the exact

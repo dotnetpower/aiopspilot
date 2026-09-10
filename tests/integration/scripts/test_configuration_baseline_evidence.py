@@ -166,7 +166,7 @@ def test_runtime_readback_requires_every_exact_binding_value(
             "template": {
                 "containers": [
                     {
-                        "name": "core",
+                        "name": "core-control-plane",
                         "env": [
                             {"name": "FDAI_CONFIGURATION_DRIFT_ENABLED", "value": "1"},
                             {
