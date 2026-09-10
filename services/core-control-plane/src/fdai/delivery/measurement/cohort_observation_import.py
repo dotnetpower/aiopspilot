@@ -27,7 +27,7 @@ from fdai_service_contracts.ontology_query import content_digest
 from pydantic import Field, field_validator, model_validator
 
 MAX_COHORT_OBSERVATION_BATCH_BYTES = 8 * 1024 * 1024
-MAX_COHORT_OBSERVATIONS = 10_000
+MAX_COHORT_OBSERVATIONS = 1_000
 _MEASURE_ID = r"^[a-z][a-z0-9_]{0,63}$"
 _WORKFLOW_PATH = re.compile(r"^\.github/workflows/[a-z0-9][a-z0-9-]{0,99}\.yml$")
 _ARTIFACT_NAME = re.compile(r"^cohort-observations-[a-z0-9][a-z0-9-]{0,99}$")

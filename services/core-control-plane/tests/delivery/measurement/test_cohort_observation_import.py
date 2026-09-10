@@ -15,6 +15,7 @@ from fdai.core.measurement.cohort_claim_policy import (
 )
 from fdai.delivery.measurement.cohort_observation_import import (
     MAX_COHORT_OBSERVATION_BATCH_BYTES,
+    MAX_COHORT_OBSERVATIONS,
     CohortObservationBatch,
     CohortObservationConflictError,
     CohortObservationImportContext,
@@ -259,6 +260,28 @@ def test_load_rejects_an_oversized_batch(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="8 MiB limit"):
         load_cohort_observation_batch(path)
+
+
+def test_batch_rejects_more_than_the_bounded_observation_count() -> None:
+    observations = [
+        {
+            "kind": "metric",
+            "metric_id": "auto_resolution_rate",
+            "source_cluster_digest": f"sha256:{index:064x}",
+            "observed_at": NOW.isoformat(),
+            "value": 1.0,
+        }
+        for index in range(MAX_COHORT_OBSERVATIONS + 1)
+    ]
+
+    with pytest.raises(ValidationError):
+        CohortObservationBatch.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "observations": observations,
+                "batch_digest": _digest("f"),
+            }
+        )
 
 
 def test_load_round_trips_a_valid_batch(tmp_path: Path) -> None:
