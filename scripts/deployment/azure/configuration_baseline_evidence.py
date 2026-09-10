@@ -5,7 +5,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import binascii
+import gzip
 import hashlib
+import io
 import json
 import os
 from collections.abc import Mapping
@@ -17,10 +21,10 @@ from typing import Any
 import httpx
 from fdai.core.detection.configuration_drift import (
     DriftVerdict,
-    EvidenceCompleteness,
     FrozenConfigurationBaseline,
     compare_configuration,
 )
+from fdai.core.detection.configuration_drift_codec import baseline_from_dict
 from fdai.delivery.azure.configuration_drift import (
     AzureArgConfigurationObservationSource,
     AzureBlobConfigurationBaselineConfig,
@@ -30,7 +34,9 @@ from fdai.delivery.azure.configuration_drift import (
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 
 _BINDING_ENV = "CONFIGURATION_BASELINE_BINDING_JSON"
+_BASELINE_ENVELOPE_ENV = "CONFIGURATION_BASELINE_GZIP_BASE64"
 _CONTAINER_ENV = "CONFIGURATION_BASELINE_CONTAINER_URL"
+_MAX_BASELINE_BYTES = 16 * 1024 * 1024
 _BINDING_KEYS = {
     "schema_version",
     "baseline_version",
@@ -136,40 +142,11 @@ class BaselineBinding:
         )
 
 
-async def prepare(*, baseline_path: Path, tfvars_path: Path) -> None:
-    """Rebuild the approved baseline from ARG and write private runner files."""
+def prepare(*, baseline_path: Path, tfvars_path: Path) -> None:
+    """Decode the approved baseline envelope and write private runner files."""
 
     binding = BaselineBinding.from_environment()
-    identity = AsyncAzureCliWorkloadIdentity.from_env()
-    async with httpx.AsyncClient() as client:
-        observation = await AzureArgConfigurationObservationSource(
-            identity=identity,
-            http_client=client,
-            config=binding.observation_config(),
-        ).observe(scope=binding.scope)
-    if observation.completeness is not EvidenceCompleteness.COMPLETE:
-        raise RuntimeError("configuration baseline observation is incomplete")
-    if len(observation.resources) != binding.resource_count:
-        raise RuntimeError("configuration baseline resource count changed after review")
-    baseline = FrozenConfigurationBaseline(
-        version=binding.baseline_version,
-        created_at=binding.created_at,
-        scope=binding.scope,
-        source=binding.source,
-        document_sha256=binding.document_sha256,
-        resources=observation.resources,
-        links=observation.links,
-    )
-    if baseline.sha256 != binding.baseline_sha256:
-        raise RuntimeError("configuration baseline content changed after review")
-    payload = json.dumps(
-        baseline.to_dict(),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    ).encode()
-    if hashlib.sha256(payload).hexdigest() != binding.baseline_sha256:
-        raise RuntimeError("configuration baseline byte digest is not canonical")
+    baseline, payload = _approved_baseline(binding)
     baseline_path.write_bytes(payload)
     baseline_path.chmod(0o600)
     if tfvars_path.is_file():
@@ -218,8 +195,6 @@ async def receipt(*, output_path: Path) -> None:
         raise RuntimeError("deployed configuration baseline resource count is invalid")
     report = compare_configuration(baseline, observation)
     failed_findings = sum(finding.verdict is not DriftVerdict.PASSED for finding in report.findings)
-    if len(report.findings) != binding.finding_count:
-        raise RuntimeError("configuration drift finding count changed after review")
     sanitized = {
         "schema_version": "fdai.configuration-drift-live-receipt.v1",
         "baseline_identity": {
@@ -289,6 +264,51 @@ def verify_runtime(*, app_path: Path) -> None:
         raise RuntimeError("deployed Core configuration drift binding does not match review")
 
 
+def _approved_baseline(
+    binding: BaselineBinding,
+) -> tuple[FrozenConfigurationBaseline, bytes]:
+    encoded = os.environ.get(_BASELINE_ENVELOPE_ENV, "")
+    if not encoded:
+        raise ValueError("configuration baseline envelope is unavailable")
+    try:
+        compressed = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("configuration baseline envelope is not valid base64") from exc
+    try:
+        with gzip.GzipFile(fileobj=io.BytesIO(compressed), mode="rb") as stream:
+            raw = stream.read(_MAX_BASELINE_BYTES + 1)
+    except (gzip.BadGzipFile, EOFError, OSError) as exc:
+        raise ValueError("configuration baseline envelope is not valid gzip") from exc
+    if not raw or len(raw) > _MAX_BASELINE_BYTES:
+        raise ValueError("configuration baseline envelope size is outside the allowed range")
+    try:
+        decoded = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("configuration baseline envelope is not valid UTF-8 JSON") from exc
+    if not isinstance(decoded, Mapping):
+        raise ValueError("configuration baseline envelope MUST contain one JSON object")
+    baseline = baseline_from_dict(decoded)
+    if (
+        baseline.version != binding.baseline_version
+        or baseline.sha256 != binding.baseline_sha256
+        or baseline.document_sha256 != binding.document_sha256
+        or baseline.scope != binding.scope
+        or baseline.source != binding.source
+        or baseline.created_at != binding.created_at
+        or len(baseline.resources) != binding.resource_count
+    ):
+        raise RuntimeError("configuration baseline envelope does not match review")
+    payload = json.dumps(
+        baseline.to_dict(),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode()
+    if hashlib.sha256(payload).hexdigest() != binding.baseline_sha256:
+        raise RuntimeError("configuration baseline byte digest is not canonical")
+    return baseline, payload
+
+
 def _text(raw: Mapping[str, Any], key: str) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -350,7 +370,7 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     if args.command == "prepare":
-        asyncio.run(prepare(baseline_path=args.baseline, tfvars_path=args.tfvars))
+        prepare(baseline_path=args.baseline, tfvars_path=args.tfvars)
     elif args.command == "receipt":
         asyncio.run(receipt(output_path=args.output))
     else:

@@ -875,10 +875,12 @@ jobs:
         if: ${{ !inputs.apply && !inputs.migrate_state && inputs.core_evidence_bindings_transition && inputs.service == 'core-control-plane' }}
         env:
           CONFIGURATION_BASELINE_BINDING_JSON: ${{ secrets.CONFIGURATION_BASELINE_BINDING_JSON }}
+          CONFIGURATION_BASELINE_GZIP_BASE64: ${{ secrets.CONFIGURATION_BASELINE_GZIP_BASE64 }}
         run: |
           set -euo pipefail
-          [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" ]] || {
-            echo "CONFIGURATION_BASELINE_BINDING_JSON is required for the Core evidence transition." >&2
+          [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" \
+            && -n "$CONFIGURATION_BASELINE_GZIP_BASE64" ]] || {
+            echo "The reviewed configuration baseline envelope is required for the Core evidence transition." >&2
             exit 1
           }
           container_url="$(

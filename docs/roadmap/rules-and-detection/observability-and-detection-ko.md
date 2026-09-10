@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 08a36648f912242e09d1ce76e1ce25c59a26326e
+translation_source_sha: a28080c8b9bd75b567d1d52896698384b4a4f8c4
 translation_revised: 2026-09-11
 ---
 
@@ -97,8 +97,9 @@ cross-format 동등성이 성립하지 않습니다.
   잘못되었거나 범위를 벗어난 결과를 차단합니다. 토폴로지를 추론하거나 임의의 프로바이더 속성 묶음을
   수집하지 않습니다. 런타임 부트스트랩은 `FDAI_CONFIGURATION_DRIFT_ENABLED`가 명시적이고
   모든 범위, 기준선, 구독 및 속성 전제 조건이 유효할 때만 소스를 연결합니다. 보호된 Core 서비스
-  전환은 Virtual Network에 통합된 배포 러너에서 검토된 스냅샷을 다시 만들고, 정확한 정규 다이제스트와
-  예상 리소스 수를 확인한 뒤, 변경 불가능한 콘텐츠 주소 기반 private Blob으로만 저장합니다.
+  전환은 Virtual Network에 통합된 배포 러너에서 범위가 제한된 보호 secret envelope로 검토된
+  스냅샷을 복원하고, 정확한 정규 다이제스트와 예상 리소스 수를 확인한 뒤, 변경 불가능한 콘텐츠
+  주소 기반 private Blob으로만 저장합니다.
   저장소와 서비스 계획에는 바인딩 메타데이터만 포함됩니다. Core는 Managed Identity를 통해 해당
   Blob을 읽습니다. 적용 후 검증은 배포된 바인딩과 Blob을 독립적으로 다시 읽은 뒤 새 Azure Resource
   Graph 관측값과 비교합니다. 보존되는 증적에는 다이제스트, 완전성, 결정, 개수, 값이 0인 권한

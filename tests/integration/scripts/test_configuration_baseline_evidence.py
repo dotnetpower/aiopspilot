@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import gzip
 import importlib.util
 import json
 import sys
@@ -12,6 +14,7 @@ from fdai.core.detection.configuration_drift import (
     ConfigurationResource,
     EvidenceCompleteness,
 )
+from fdai.core.detection.configuration_drift_codec import baseline_from_dict
 
 _ROOT = Path(__file__).resolve().parents[3]
 _PATH = _ROOT / "scripts/deployment/azure/configuration_baseline_evidence.py"
@@ -42,6 +45,34 @@ def _binding(**overrides: object) -> dict[str, object]:
     return value
 
 
+def _approved_envelope() -> tuple[dict[str, object], str]:
+    baseline = {
+        "schema_version": "1.0.0",
+        "version": "example-v1",
+        "created_at": "2026-09-10T00:00:00+00:00",
+        "document_sha256": "b" * 64,
+        "source": "reviewed snapshot",
+        "scope": "scope:example",
+        "resources": [
+            {
+                "local_name": "widget#0000000000000000",
+                "resource_type": "example/widgets",
+                "region": "example-region",
+                "attributes": {"sku.name": "Standard"},
+                "unknown_attributes": [],
+                "unauthorized_attributes": [],
+            }
+        ],
+        "links": [],
+        "allowed_exceptions": [],
+        "unknown_items": [],
+    }
+    encoded = base64.b64encode(
+        gzip.compress(json.dumps(baseline).encode(), compresslevel=9, mtime=0)
+    ).decode()
+    return baseline, encoded
+
+
 def test_binding_is_strict_and_builds_content_addressed_blob_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -58,6 +89,41 @@ def test_binding_is_strict_and_builds_content_addressed_blob_url(
 
     assert binding.resource_count == 1
     assert binding.blob_url.endswith(f"/configuration-baselines/{'a' * 64}.json")
+
+
+def test_prepare_decodes_exact_reviewed_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    baseline, encoded = _approved_envelope()
+    binding = _binding(baseline_sha256=baseline_from_dict(baseline).sha256)
+    monkeypatch.setenv("CONFIGURATION_BASELINE_BINDING_JSON", json.dumps(binding))
+    monkeypatch.setenv("CONFIGURATION_BASELINE_GZIP_BASE64", encoded)
+    monkeypatch.setenv(
+        "CONFIGURATION_BASELINE_CONTAINER_URL",
+        "https://example.blob.core.windows.net/decision-evidence",
+    )
+    tfvars = tmp_path / "service.tfvars.json"
+    tfvars.write_text('{"name":"example"}', encoding="utf-8")
+
+    _MODULE.prepare(baseline_path=tmp_path / "baseline.json", tfvars_path=tfvars)
+
+    materialized = json.loads(tfvars.read_text(encoding="utf-8"))
+    assert materialized["name"] == "example"
+    assert materialized["configuration_drift"]["baseline_sha256"] == binding["baseline_sha256"]
+    assert (tmp_path / "baseline.json").stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("encoded", ("not-base64", base64.b64encode(b"not-gzip").decode()))
+def test_prepare_rejects_invalid_envelopes(
+    monkeypatch: pytest.MonkeyPatch,
+    encoded: str,
+) -> None:
+    monkeypatch.setenv("CONFIGURATION_BASELINE_BINDING_JSON", json.dumps(_binding()))
+    monkeypatch.setenv("CONFIGURATION_BASELINE_GZIP_BASE64", encoded)
+
+    with pytest.raises(ValueError, match="envelope"):
+        _MODULE._approved_baseline(_MODULE.BaselineBinding.from_environment())
 
 
 @pytest.mark.parametrize(
