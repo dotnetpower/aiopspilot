@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal, Protocol, Self, cast, runtime_checkable
+from typing import Literal, Protocol, Self, runtime_checkable
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -356,12 +356,9 @@ def reservation_record_to_mapping(
 ) -> dict[str, object]:
     """Serialize one canonical record for durable JSON storage."""
 
-    if type(record) is not IdempotencyReservationRecord:
-        raise ValueError("idempotency reservation serializer requires an exact record")
-    normalized = _normalize_digest_value(asdict(record))
-    if not isinstance(normalized, dict):
-        raise ValueError("idempotency reservation serialization is not an object")
-    return cast(dict[str, object], normalized)
+    from .idempotency_reservation_codec import reservation_record_to_mapping as serialize
+
+    return serialize(record)
 
 
 def reservation_record_from_mapping(
@@ -369,144 +366,9 @@ def reservation_record_from_mapping(
 ) -> IdempotencyReservationRecord:
     """Parse one exact durable record and rerun every semantic invariant."""
 
-    record = _exact_mapping(
-        value,
-        {
-            "schema_version",
-            "identity",
-            "state",
-            "revision",
-            "owner_reference_digest",
-            "reserved_at",
-            "lease_expires_at",
-            "state_changed_at",
-            "dispatch_started_at",
-            "evidence_kind",
-            "evidence_digest",
-            "terminal_outcome_digest",
-            "record_digest",
-            "execution_authority",
-            "effect_verified",
-        },
-        "record",
-    )
-    identity_raw = _exact_mapping(
-        _mapping_field(record, "identity"),
-        {
-            "schema_version",
-            "idempotency_key",
-            "action_digest",
-            "execution_path",
-            "execution_fingerprint",
-            "source_revision",
-            "acquisition_receipt",
-            "identity_digest",
-            "execution_authority",
-        },
-        "identity",
-    )
-    acquisition_raw = _exact_mapping(
-        _mapping_field(identity_raw, "acquisition_receipt"),
-        {
-            "schema_version",
-            "lock_key",
-            "target_digest",
-            "action_digest",
-            "attempt",
-            "provider_id",
-            "provider_version",
-            "producer_id",
-            "producer_version",
-            "owner_token_digest",
-            "fencing_generation",
-            "session_identity",
-            "provider_attestation_digest",
-            "trust_anchor_id",
-            "acquired_at",
-            "valid_until",
-            "source_revision",
-            "request_digest",
-            "receipt_digest",
-            "execution_authority",
-        },
-        "acquisition receipt",
-    )
-    acquisition = ResourceLockAcquisitionReceipt(
-        schema_version=_schema_version_field(acquisition_raw),
-        lock_key=_str_field(acquisition_raw, "lock_key"),
-        target_digest=_str_field(acquisition_raw, "target_digest"),
-        action_digest=_str_field(acquisition_raw, "action_digest"),
-        attempt=_int_field(acquisition_raw, "attempt"),
-        provider_id=_str_field(acquisition_raw, "provider_id"),
-        provider_version=_str_field(acquisition_raw, "provider_version"),
-        producer_id=_str_field(acquisition_raw, "producer_id"),
-        producer_version=_str_field(acquisition_raw, "producer_version"),
-        owner_token_digest=_str_field(acquisition_raw, "owner_token_digest"),
-        fencing_generation=_optional_int_field(
-            acquisition_raw,
-            "fencing_generation",
-        ),
-        session_identity=_optional_str_field(acquisition_raw, "session_identity"),
-        provider_attestation_digest=_str_field(
-            acquisition_raw,
-            "provider_attestation_digest",
-        ),
-        trust_anchor_id=_str_field(acquisition_raw, "trust_anchor_id"),
-        acquired_at=_datetime_field(acquisition_raw, "acquired_at"),
-        valid_until=_optional_datetime_field(acquisition_raw, "valid_until"),
-        source_revision=_str_field(acquisition_raw, "source_revision"),
-        request_digest=_str_field(acquisition_raw, "request_digest"),
-        receipt_digest=_str_field(acquisition_raw, "receipt_digest"),
-        execution_authority=_false_field(
-            acquisition_raw,
-            "execution_authority",
-        ),
-    )
-    identity = IdempotencyReservationIdentity(
-        schema_version=_schema_version_field(identity_raw),
-        idempotency_key=_str_field(identity_raw, "idempotency_key"),
-        action_digest=_str_field(identity_raw, "action_digest"),
-        execution_path=_enum_field(
-            identity_raw,
-            "execution_path",
-            ExecutionPath,
-        ),
-        execution_fingerprint=_str_field(
-            identity_raw,
-            "execution_fingerprint",
-        ),
-        source_revision=_str_field(identity_raw, "source_revision"),
-        acquisition_receipt=acquisition,
-        identity_digest=_str_field(identity_raw, "identity_digest"),
-        execution_authority=_false_field(identity_raw, "execution_authority"),
-    )
-    return IdempotencyReservationRecord(
-        schema_version=_schema_version_field(record),
-        identity=identity,
-        state=_enum_field(record, "state", ReservationState),
-        revision=_int_field(record, "revision"),
-        owner_reference_digest=_str_field(record, "owner_reference_digest"),
-        reserved_at=_datetime_field(record, "reserved_at"),
-        lease_expires_at=_datetime_field(record, "lease_expires_at"),
-        state_changed_at=_datetime_field(record, "state_changed_at"),
-        dispatch_started_at=_optional_datetime_field(
-            record,
-            "dispatch_started_at",
-        ),
-        evidence_kind=_optional_enum_field(
-            record,
-            "evidence_kind",
-            ReservationEvidenceKind,
-        ),
-        evidence_digest=_optional_str_field(record, "evidence_digest"),
-        terminal_outcome_digest=_optional_str_field(
-            record,
-            "terminal_outcome_digest",
-        ),
-        record_digest=_str_field(record, "record_digest"),
-        execution_authority=_false_field(record, "execution_authority"),
-        effect_verified=_false_field(record, "effect_verified"),
-    )
+    from .idempotency_reservation_codec import reservation_record_from_mapping as parse
+
+    return parse(value)
 
 
 def classify_reservation(
@@ -533,11 +395,9 @@ def dispatch_permitted(
 ) -> bool:
     """Allow only the first current reservation to begin dispatch."""
 
-    observed_at = _utc(at, "dispatch_at")
-    return bool(
-        record.state is ReservationState.RESERVED
-        and record.reserved_at <= observed_at < record.lease_expires_at
-    )
+    from .idempotency_reservation_lifecycle import dispatch_permitted as permitted
+
+    return permitted(record, at=at)
 
 
 def begin_dispatch(
@@ -547,18 +407,9 @@ def begin_dispatch(
 ) -> IdempotencyReservationRecord:
     """Move a current reservation to in-flight before calling the sink."""
 
-    started_at = _utc(at, "dispatch_started_at")
-    if not dispatch_permitted(record, at=started_at):
-        raise ValueError("idempotency reservation is not eligible to dispatch")
-    return _build_record(
-        identity=record.identity,
-        state=ReservationState.IN_FLIGHT,
-        revision=record.revision + 1,
-        reserved_at=record.reserved_at,
-        lease_expires_at=record.lease_expires_at,
-        state_changed_at=started_at,
-        dispatch_started_at=started_at,
-    )
+    from .idempotency_reservation_lifecycle import begin_dispatch as begin
+
+    return begin(record, at=at)
 
 
 def expire_reservation(
@@ -569,42 +420,13 @@ def expire_reservation(
 ) -> IdempotencyReservationRecord:
     """Expire without converting an ambiguous in-flight effect into retry."""
 
-    expired_at = _utc(at, "expired_at")
-    if expired_at < record.lease_expires_at:
-        raise ValueError("idempotency reservation lease has not expired")
-    if record.state is ReservationState.RESERVED:
-        if dispatch_never_began_digest is None:
-            raise ValueError("abandonment requires proof that dispatch never began")
-        _validate_digest("dispatch_never_began_digest", dispatch_never_began_digest)
-        return _build_record(
-            identity=record.identity,
-            state=ReservationState.ABANDONED,
-            revision=record.revision + 1,
-            reserved_at=record.reserved_at,
-            lease_expires_at=record.lease_expires_at,
-            state_changed_at=expired_at,
-            evidence_kind=ReservationEvidenceKind.DISPATCH_NEVER_BEGAN,
-            evidence_digest=dispatch_never_began_digest,
-        )
-    if record.state is ReservationState.IN_FLIGHT:
-        return _build_record(
-            identity=record.identity,
-            state=ReservationState.OUTCOME_UNKNOWN,
-            revision=record.revision + 1,
-            reserved_at=record.reserved_at,
-            lease_expires_at=record.lease_expires_at,
-            state_changed_at=expired_at,
-            dispatch_started_at=record.dispatch_started_at,
-            evidence_kind=ReservationEvidenceKind.LEASE_EXPIRED,
-            evidence_digest=content_digest(
-                {
-                    "domain": "idempotency-reservation-expiry",
-                    "record_digest": record.record_digest,
-                    "expired_at": expired_at.isoformat(),
-                }
-            ),
-        )
-    raise ValueError("idempotency reservation state cannot be expired")
+    from .idempotency_reservation_lifecycle import expire_reservation as expire
+
+    return expire(
+        record,
+        at=at,
+        dispatch_never_began_digest=dispatch_never_began_digest,
+    )
 
 
 def complete_reservation(
@@ -617,33 +439,14 @@ def complete_reservation(
 ) -> IdempotencyReservationRecord:
     """Resolve an in-flight or unknown reservation to one terminal outcome."""
 
-    completed_at = _utc(at, "completed_at")
-    if record.state not in {ReservationState.IN_FLIGHT, ReservationState.OUTCOME_UNKNOWN}:
-        raise ValueError("idempotency reservation is not awaiting a terminal outcome")
-    if (
-        record.dispatch_started_at is None
-        or completed_at < record.dispatch_started_at
-        or completed_at < record.state_changed_at
-    ):
-        raise ValueError("idempotency terminal outcome predates current state")
-    _validate_digest("terminal_outcome_digest", terminal_outcome_digest)
-    _validate_digest("authoritative_status_digest", authoritative_status_digest)
-    evidence_kind = (
-        ReservationEvidenceKind.IRREVOCABLE_NON_ACCEPTANCE
-        if irrevocable_non_acceptance
-        else ReservationEvidenceKind.SINK_TERMINAL_OUTCOME
-    )
-    return _build_record(
-        identity=record.identity,
-        state=ReservationState.TERMINAL,
-        revision=record.revision + 1,
-        reserved_at=record.reserved_at,
-        lease_expires_at=record.lease_expires_at,
-        state_changed_at=completed_at,
-        dispatch_started_at=record.dispatch_started_at,
-        evidence_kind=evidence_kind,
-        evidence_digest=authoritative_status_digest,
+    from .idempotency_reservation_lifecycle import complete_reservation as complete
+
+    return complete(
+        record,
+        at=at,
         terminal_outcome_digest=terminal_outcome_digest,
+        authoritative_status_digest=authoritative_status_digest,
+        irrevocable_non_acceptance=irrevocable_non_acceptance,
     )
 
 
@@ -656,37 +459,13 @@ def reopen_reservation(
 ) -> IdempotencyReservationRecord:
     """Create a new attempt only after authoritative non-dispatch evidence."""
 
-    recoverable = bool(
-        record.state is ReservationState.ABANDONED
-        or (
-            record.state is ReservationState.TERMINAL
-            and record.evidence_kind is ReservationEvidenceKind.IRREVOCABLE_NON_ACCEPTANCE
-        )
-    )
-    if not recoverable:
-        raise ValueError("idempotency reservation has no safe recovery evidence")
-    if not _same_operation(record.identity, candidate_identity):
-        raise ValueError("idempotency reservation recovery changes the stable operation")
-    if (
-        candidate_identity.acquisition_receipt.attempt
-        <= record.identity.acquisition_receipt.attempt
-    ):
-        raise ValueError("idempotency reservation recovery attempt MUST increase")
-    normalized_reserved_at = _utc(reserved_at, "reserved_at")
-    if normalized_reserved_at < record.state_changed_at:
-        raise ValueError("idempotency reservation recovery predates its predecessor")
-    if (
-        candidate_identity.acquisition_receipt.acquired_at < record.state_changed_at
-        or candidate_identity.acquisition_receipt.acquired_at > normalized_reserved_at
-    ):
-        raise ValueError("idempotency reservation recovery acquisition time is invalid")
-    return _build_record(
-        identity=candidate_identity,
-        state=ReservationState.RESERVED,
-        revision=record.revision + 1,
-        reserved_at=normalized_reserved_at,
-        lease_expires_at=_utc(lease_expires_at, "lease_expires_at"),
-        state_changed_at=normalized_reserved_at,
+    from .idempotency_reservation_lifecycle import reopen_reservation as reopen
+
+    return reopen(
+        record,
+        candidate_identity=candidate_identity,
+        reserved_at=reserved_at,
+        lease_expires_at=lease_expires_at,
     )
 
 
@@ -872,126 +651,6 @@ def _same_operation(
 def _validate_text(name: str, value: str) -> None:
     if type(value) is not str or not value.strip() or value != value.strip() or len(value) > 512:
         raise ValueError(f"idempotency reservation {name} MUST be canonical and bounded")
-
-
-def _exact_mapping(
-    value: Mapping[str, object],
-    expected_keys: set[str],
-    name: str,
-) -> Mapping[str, object]:
-    if type(value) is not dict or set(value) != expected_keys:
-        raise ValueError(f"idempotency reservation {name} fields are invalid")
-    return value
-
-
-def _mapping_field(
-    value: Mapping[str, object],
-    name: str,
-) -> Mapping[str, object]:
-    field = value.get(name)
-    if type(field) is not dict:
-        raise ValueError(f"idempotency reservation {name} MUST be an object")
-    return cast(dict[str, object], field)
-
-
-def _str_field(value: Mapping[str, object], name: str) -> str:
-    field = value.get(name)
-    if type(field) is not str:
-        raise ValueError(f"idempotency reservation {name} MUST be a string")
-    return field
-
-
-def _schema_version_field(
-    value: Mapping[str, object],
-) -> Literal["1.0.0"]:
-    if _str_field(value, "schema_version") != "1.0.0":
-        raise ValueError("idempotency reservation schema version is unsupported")
-    return "1.0.0"
-
-
-def _optional_str_field(
-    value: Mapping[str, object],
-    name: str,
-) -> str | None:
-    field = value.get(name)
-    if field is None:
-        return None
-    if type(field) is not str:
-        raise ValueError(f"idempotency reservation {name} MUST be a string or null")
-    return field
-
-
-def _int_field(value: Mapping[str, object], name: str) -> int:
-    field = value.get(name)
-    if type(field) is not int:
-        raise ValueError(f"idempotency reservation {name} MUST be an integer")
-    return field
-
-
-def _optional_int_field(
-    value: Mapping[str, object],
-    name: str,
-) -> int | None:
-    field = value.get(name)
-    if field is None:
-        return None
-    if type(field) is not int:
-        raise ValueError(f"idempotency reservation {name} MUST be an integer or null")
-    return field
-
-
-def _datetime_field(
-    value: Mapping[str, object],
-    name: str,
-) -> datetime:
-    field = _str_field(value, name)
-    try:
-        parsed = datetime.fromisoformat(field)
-    except ValueError as exc:
-        raise ValueError(f"idempotency reservation {name} MUST be an ISO 8601 timestamp") from exc
-    return _utc(parsed, name)
-
-
-def _optional_datetime_field(
-    value: Mapping[str, object],
-    name: str,
-) -> datetime | None:
-    field = value.get(name)
-    if field is None:
-        return None
-    return _datetime_field(value, name)
-
-
-def _enum_field[EnumT: StrEnum](
-    value: Mapping[str, object],
-    name: str,
-    enum_type: type[EnumT],
-) -> EnumT:
-    field = _str_field(value, name)
-    try:
-        return enum_type(field)
-    except ValueError as exc:
-        raise ValueError(f"idempotency reservation {name} is invalid") from exc
-
-
-def _optional_enum_field[EnumT: StrEnum](
-    value: Mapping[str, object],
-    name: str,
-    enum_type: type[EnumT],
-) -> EnumT | None:
-    if value.get(name) is None:
-        return None
-    return _enum_field(value, name, enum_type)
-
-
-def _false_field(
-    value: Mapping[str, object],
-    name: str,
-) -> Literal[False]:
-    field = value.get(name)
-    if field is not False:
-        raise ValueError(f"idempotency reservation {name} MUST be false")
-    return False
 
 
 def _validate_digest(name: str, value: str) -> None:

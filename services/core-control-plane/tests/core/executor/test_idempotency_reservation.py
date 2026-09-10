@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Literal, cast
 
 import pytest
 from fdai.core.executor import idempotency_reservation as reservation_model
@@ -461,3 +463,458 @@ def test_reservation_record_mapping_rejects_corruption() -> None:
                 },
             }
         )
+
+
+def test_reservation_record_mapping_rejects_invalid_field_types() -> None:
+    mapping = reservation_record_to_mapping(_reserved())
+
+    with pytest.raises(ValueError, match="exact record"):
+        reservation_record_to_mapping(cast(IdempotencyReservationRecord, object()))
+
+    corruptions: tuple[tuple[tuple[str, ...], object, str], ...] = (
+        (("identity",), None, "MUST be an object"),
+        (("schema_version",), 1, "MUST be a string"),
+        (("schema_version",), "2.0.0", "schema version is unsupported"),
+        (("evidence_digest",), 1, "string or null"),
+        (("revision",), "1", "MUST be an integer"),
+        (("state",), "invalid", "state is invalid"),
+        (("identity", "acquisition_receipt", "fencing_generation"), "1", "integer or null"),
+    )
+    for path, value, message in corruptions:
+        corrupted = copy.deepcopy(mapping)
+        target = corrupted
+        for segment in path[:-1]:
+            target = cast(dict[str, object], target[segment])
+        target[path[-1]] = value
+        with pytest.raises(ValueError, match=message):
+            reservation_record_from_mapping(corrupted)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (
+            lambda identity: replace(
+                identity,
+                schema_version=cast(Literal["1.0.0"], "2.0.0"),
+            ),
+            "identity schema",
+        ),
+        (
+            lambda identity: replace(
+                identity,
+                execution_authority=cast(Literal[False], True),
+            ),
+            "MUST NOT grant authority",
+        ),
+        (lambda identity: replace(identity, idempotency_key=""), "canonical and bounded"),
+        (lambda identity: replace(identity, action_digest="invalid"), "MUST be SHA-256"),
+        (
+            lambda identity: replace(
+                identity,
+                execution_path=cast(ExecutionPath, "direct_api"),
+            ),
+            "execution path is invalid",
+        ),
+        (
+            lambda identity: replace(identity, execution_fingerprint="A" * 64),
+            "lowercase SHA-256",
+        ),
+        (
+            lambda identity: replace(identity, source_revision="main"),
+            "source revision MUST be canonical",
+        ),
+        (
+            lambda identity: replace(
+                identity,
+                acquisition_receipt=cast(ResourceLockAcquisitionReceipt, object()),
+            ),
+            "exact acquisition receipt",
+        ),
+    ),
+)
+def test_identity_boundary_validation_fails_closed(
+    mutate: Callable[[IdempotencyReservationIdentity], IdempotencyReservationIdentity],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        mutate(_identity())
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (
+            lambda record: replace(
+                record,
+                schema_version=cast(Literal["1.0.0"], "2.0.0"),
+            ),
+            "record schema",
+        ),
+        (
+            lambda record: replace(
+                record,
+                effect_verified=cast(Literal[False], True),
+            ),
+            "MUST NOT grant authority",
+        ),
+        (
+            lambda record: replace(
+                record,
+                identity=cast(IdempotencyReservationIdentity, object()),
+            ),
+            "exact identity",
+        ),
+        (
+            lambda record: replace(
+                record,
+                state=cast(ReservationState, "reserved"),
+            ),
+            "state is invalid",
+        ),
+        (lambda record: replace(record, revision=0), "revision MUST be positive"),
+        (
+            lambda record: replace(record, owner_reference_digest="invalid"),
+            "MUST be SHA-256",
+        ),
+        (
+            lambda record: replace(
+                record,
+                owner_reference_digest="sha256:" + "9" * 64,
+            ),
+            "owner mismatched",
+        ),
+        (
+            lambda record: replace(
+                record,
+                reserved_at=datetime(2026, 9, 10, 8, 0),
+            ),
+            "normalized to UTC",
+        ),
+        (
+            lambda record: replace(
+                record,
+                lease_expires_at=datetime(2026, 9, 10, 8, 1),
+            ),
+            "normalized to UTC",
+        ),
+        (
+            lambda record: replace(
+                record,
+                state_changed_at=datetime(2026, 9, 10, 8, 0),
+            ),
+            "normalized to UTC",
+        ),
+        (lambda record: replace(record, lease_expires_at=_NOW), "lease MUST follow"),
+        (
+            lambda record: replace(
+                record,
+                reserved_at=_NOW - timedelta(seconds=1),
+            ),
+            "predates its lock acquisition",
+        ),
+        (
+            lambda record: replace(
+                record,
+                state_changed_at=_NOW - timedelta(seconds=1),
+            ),
+            "predates reservation",
+        ),
+        (
+            lambda record: replace(
+                record,
+                dispatch_started_at=datetime(2026, 9, 10, 8, 0),
+            ),
+            "normalized to UTC",
+        ),
+        (
+            lambda record: replace(
+                record,
+                dispatch_started_at=_NOW - timedelta(seconds=1),
+            ),
+            "cannot predate",
+        ),
+        (
+            lambda record: replace(
+                record,
+                evidence_kind=cast(ReservationEvidenceKind, "lease_expired"),
+            ),
+            "evidence kind is invalid",
+        ),
+        (
+            lambda record: replace(record, evidence_digest="invalid"),
+            "MUST be SHA-256",
+        ),
+        (
+            lambda record: replace(record, terminal_outcome_digest="invalid"),
+            "MUST be SHA-256",
+        ),
+    ),
+)
+def test_record_boundary_validation_fails_closed(
+    mutate: Callable[[IdempotencyReservationRecord], IdempotencyReservationRecord],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        mutate(_reserved())
+
+
+def test_every_state_shape_and_minimum_revision_is_validated() -> None:
+    reserved = _reserved()
+    in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=1))
+    abandoned = expire_reservation(
+        reserved,
+        at=reserved.lease_expires_at,
+        dispatch_never_began_digest=_DIGEST,
+    )
+    unknown = expire_reservation(in_flight, at=in_flight.lease_expires_at)
+    terminal = complete_reservation(
+        in_flight,
+        at=_NOW + timedelta(seconds=2),
+        terminal_outcome_digest="sha256:" + "7" * 64,
+        authoritative_status_digest="sha256:" + "8" * 64,
+    )
+
+    invalid_shapes = (
+        (replace, reserved, {"state_changed_at": _NOW + timedelta(seconds=1)}),
+        (replace, in_flight, {"dispatch_started_at": None}),
+        (replace, abandoned, {"evidence_digest": None}),
+        (replace, unknown, {"evidence_digest": None}),
+        (replace, terminal, {"terminal_outcome_digest": None}),
+    )
+    for mutate, record, changes in invalid_shapes:
+        with pytest.raises(ValueError):
+            mutate(record, **changes)
+    with pytest.raises(ValueError, match="revision is impossible"):
+        replace(in_flight, revision=1)
+
+
+def test_lifecycle_rejects_unsafe_terminal_and_recovery_paths() -> None:
+    reserved = _reserved()
+    in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=1))
+    terminal = complete_reservation(
+        in_flight,
+        at=_NOW + timedelta(seconds=2),
+        terminal_outcome_digest="sha256:" + "7" * 64,
+        authoritative_status_digest="sha256:" + "8" * 64,
+    )
+    abandoned = expire_reservation(
+        reserved,
+        at=reserved.lease_expires_at,
+        dispatch_never_began_digest=_DIGEST,
+    )
+
+    with pytest.raises(ValueError, match="cannot be expired"):
+        expire_reservation(terminal, at=terminal.lease_expires_at)
+    with pytest.raises(ValueError, match="not awaiting"):
+        complete_reservation(
+            reserved,
+            at=_NOW + timedelta(seconds=1),
+            terminal_outcome_digest=_DIGEST,
+            authoritative_status_digest=_DIGEST,
+        )
+    with pytest.raises(ValueError, match="no safe recovery evidence"):
+        reopen_reservation(
+            in_flight,
+            candidate_identity=_identity(attempt=2),
+            reserved_at=_NOW + timedelta(seconds=2),
+            lease_expires_at=_NOW + timedelta(seconds=20),
+        )
+    with pytest.raises(ValueError, match="attempt MUST increase"):
+        reopen_reservation(
+            abandoned,
+            candidate_identity=_identity(acquired_at=abandoned.state_changed_at),
+            reserved_at=abandoned.state_changed_at,
+            lease_expires_at=_NOW + timedelta(seconds=20),
+        )
+    with pytest.raises(ValueError, match="acquisition time is invalid"):
+        reopen_reservation(
+            abandoned,
+            candidate_identity=_identity(
+                attempt=2,
+                acquired_at=_NOW + timedelta(seconds=12),
+            ),
+            reserved_at=_NOW + timedelta(seconds=11),
+            lease_expires_at=_NOW + timedelta(seconds=20),
+        )
+
+
+def test_reservation_factories_reject_subclasses() -> None:
+    identity = _identity()
+    record = _reserved()
+
+    class IdentitySubclass(IdempotencyReservationIdentity):
+        pass
+
+    class RecordSubclass(IdempotencyReservationRecord):
+        pass
+
+    class TransitionSubclass(IdempotencyReservationTransitionReceipt):
+        pass
+
+    with pytest.raises(TypeError, match="identity does not support subclasses"):
+        IdentitySubclass.create(
+            idempotency_key=identity.idempotency_key,
+            action_digest=identity.action_digest,
+            execution_path=identity.execution_path,
+            execution_fingerprint=identity.execution_fingerprint,
+            source_revision=identity.source_revision,
+            acquisition_receipt=identity.acquisition_receipt,
+        )
+    with pytest.raises(TypeError, match="record does not support subclasses"):
+        RecordSubclass.create_reserved(
+            identity=identity,
+            reserved_at=record.reserved_at,
+            lease_expires_at=record.lease_expires_at,
+        )
+    with pytest.raises(TypeError, match="receipt does not support subclasses"):
+        TransitionSubclass.create(
+            prior_record=None,
+            record=record,
+            expected_prior_revision=0,
+            store_receipt_digest=_DIGEST,
+            recorded_at=_NOW,
+        )
+
+
+def test_transition_receipt_boundary_validation_fails_closed() -> None:
+    reserved = _reserved()
+    in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=1))
+    initial = IdempotencyReservationTransitionReceipt.create(
+        prior_record=None,
+        record=reserved,
+        expected_prior_revision=0,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+    transition = IdempotencyReservationTransitionReceipt.create(
+        prior_record=reserved,
+        record=in_flight,
+        expected_prior_revision=reserved.revision,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW + timedelta(seconds=1),
+    )
+    invalid_receipts: tuple[Callable[[], object], ...] = (
+        lambda: replace(
+            initial,
+            schema_version=cast(Literal["1.0.0"], "2.0.0"),
+        ),
+        lambda: replace(
+            initial,
+            execution_authority=cast(Literal[False], True),
+        ),
+        lambda: replace(
+            initial,
+            record=cast(IdempotencyReservationRecord, object()),
+        ),
+        lambda: replace(initial, expected_prior_revision=-1),
+        lambda: replace(initial, prior_record=reserved),
+        lambda: replace(
+            transition,
+            prior_record=replace(reserved, revision=2),
+        ),
+        lambda: replace(initial, store_receipt_digest="invalid"),
+        lambda: replace(initial, recorded_at=datetime(2026, 9, 10, 8, 0)),
+        lambda: replace(
+            transition,
+            recorded_at=_NOW,
+        ),
+    )
+    for build_invalid in invalid_receipts:
+        with pytest.raises(ValueError):
+            build_invalid()
+
+
+def test_reserve_result_boundary_validation_fails_closed() -> None:
+    reserved = _reserved()
+    receipt = IdempotencyReservationTransitionReceipt.create(
+        prior_record=None,
+        record=reserved,
+        expected_prior_revision=0,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+    invalid_results: tuple[Callable[[], object], ...] = (
+        lambda: IdempotencyReservationReserveResult(
+            candidate_identity=reserved.identity,
+            match=cast(ReservationMatch, "acquired"),
+            observed_record=reserved,
+            transition_receipt=receipt,
+        ),
+        lambda: IdempotencyReservationReserveResult(
+            candidate_identity=cast(IdempotencyReservationIdentity, object()),
+            match=ReservationMatch.ACQUIRED,
+            observed_record=reserved,
+            transition_receipt=receipt,
+        ),
+        lambda: IdempotencyReservationReserveResult(
+            candidate_identity=reserved.identity,
+            match=ReservationMatch.ACQUIRED,
+            observed_record=cast(IdempotencyReservationRecord, object()),
+            transition_receipt=receipt,
+        ),
+        lambda: IdempotencyReservationReserveResult(
+            candidate_identity=reserved.identity,
+            match=ReservationMatch.ACQUIRED,
+            observed_record=reserved,
+            transition_receipt=None,
+        ),
+        lambda: IdempotencyReservationReserveResult(
+            candidate_identity=reserved.identity,
+            match=ReservationMatch.DUPLICATE_SAME,
+            observed_record=reserved,
+            transition_receipt=receipt,
+        ),
+    )
+    for build_invalid in invalid_results:
+        with pytest.raises(ValueError):
+            build_invalid()
+
+
+def test_transition_validation_rejects_backdating_and_missing_recovery_evidence() -> None:
+    reserved = _reserved()
+    later_in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=5))
+    earlier_terminal = complete_reservation(
+        begin_dispatch(reserved, at=_NOW + timedelta(seconds=1)),
+        at=_NOW + timedelta(seconds=2),
+        terminal_outcome_digest="sha256:" + "7" * 64,
+        authoritative_status_digest="sha256:" + "8" * 64,
+    )
+    with pytest.raises(ValueError, match="transition is backdated"):
+        reservation_model._validate_transition(  # noqa: SLF001
+            later_in_flight,
+            earlier_terminal,
+        )
+
+    terminal = complete_reservation(
+        begin_dispatch(reserved, at=_NOW + timedelta(seconds=1)),
+        at=_NOW + timedelta(seconds=2),
+        terminal_outcome_digest="sha256:" + "7" * 64,
+        authoritative_status_digest="sha256:" + "8" * 64,
+    )
+    candidate = _identity(
+        attempt=2,
+        acquired_at=_NOW + timedelta(seconds=2),
+    )
+    recovered = reservation_model._build_record(  # noqa: SLF001
+        identity=candidate,
+        state=ReservationState.RESERVED,
+        revision=terminal.revision + 1,
+        reserved_at=_NOW + timedelta(seconds=3),
+        lease_expires_at=_NOW + timedelta(seconds=20),
+        state_changed_at=_NOW + timedelta(seconds=3),
+    )
+    with pytest.raises(ValueError, match="lacks non-dispatch evidence"):
+        reservation_model._validate_transition(terminal, recovered)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("idempotency_key", (" padded", "padded ", "x" * 513))
+def test_identity_rejects_noncanonical_bounded_keys(idempotency_key: str) -> None:
+    with pytest.raises(ValueError, match="canonical and bounded"):
+        _identity(idempotency_key=idempotency_key)
+
+
+def test_digest_normalization_preserves_sequence_order() -> None:
+    assert reservation_model._normalize_digest_value(  # noqa: SLF001
+        (ReservationState.RESERVED, _NOW)
+    ) == ["reserved", _NOW.isoformat()]
