@@ -64,18 +64,20 @@ def _plan() -> dict[str, object]:
         _role(address, replacement_field=field, role_name=role)
         for address, (field, role) in guard._ROLE_REPLACEMENTS.items()  # noqa: SLF001
     ]
-    for retired, successor in guard._MEASUREMENT_RETIREMENTS.items():  # noqa: SLF001
-        changes.extend(
-            [
-                {
-                    "address": retired,
-                    "change": {"actions": ["delete"], "before": {}, "after": None},
+    for retired, resource_name in guard._MEASUREMENT_RETIREMENTS.items():  # noqa: SLF001
+        changes.append(
+            {
+                "address": retired,
+                "mode": "managed",
+                "type": "azurerm_container_app_job",
+                "name": resource_name,
+                "index": 0,
+                "change": {
+                    "actions": ["delete"],
+                    "before": {"name": f"example-{resource_name}"},
+                    "after": None,
                 },
-                {
-                    "address": successor,
-                    "change": {"actions": ["create"], "before": None, "after": {}},
-                },
-            ]
+            }
         )
     changes.extend(
         [
@@ -107,10 +109,7 @@ def test_filters_only_exact_reviewed_platform_migrations() -> None:
     assert len(validated) == 12
     remaining = filtered["resource_changes"]
     assert isinstance(remaining, list)
-    assert {change["address"] for change in remaining} == {
-        *guard._MEASUREMENT_RETIREMENTS.values(),  # noqa: SLF001
-        "unrelated.safe_update",
-    }
+    assert {change["address"] for change in remaining} == {"unrelated.safe_update"}
 
 
 def test_role_guard_ignores_optional_provider_metadata() -> None:
@@ -135,7 +134,13 @@ def test_role_guard_ignores_optional_provider_metadata() -> None:
         "role-path",
         "role-stable-field",
         "measurement-action",
-        "measurement-successor",
+        "measurement-mode",
+        "measurement-type",
+        "measurement-resource-name",
+        "measurement-index",
+        "measurement-before",
+        "measurement-after",
+        "measurement-replacement-path",
         "embedding-family",
         "embedding-capacity",
     ],
@@ -144,7 +149,6 @@ def test_rejects_platform_migration_shape_drift(mutation: str) -> None:
     plan = copy.deepcopy(_plan())
     first_role = next(iter(guard._ROLE_REPLACEMENTS))  # noqa: SLF001
     first_retired = next(iter(guard._MEASUREMENT_RETIREMENTS))  # noqa: SLF001
-    first_successor = guard._MEASUREMENT_RETIREMENTS[first_retired]  # noqa: SLF001
 
     if mutation.startswith("role-"):
         role_change = _change(plan, first_role)["change"]
@@ -163,10 +167,24 @@ def test_rejects_platform_migration_shape_drift(mutation: str) -> None:
         retirement = _change(plan, first_retired)["change"]
         assert isinstance(retirement, dict)
         retirement["actions"] = ["delete", "create"]
-    elif mutation == "measurement-successor":
-        successor = _change(plan, first_successor)["change"]
-        assert isinstance(successor, dict)
-        successor["actions"] = ["update"]
+    elif mutation == "measurement-mode":
+        _change(plan, first_retired)["mode"] = "data"
+    elif mutation == "measurement-type":
+        _change(plan, first_retired)["type"] = "azurerm_container_app"
+    elif mutation == "measurement-resource-name":
+        _change(plan, first_retired)["name"] = "other_job"
+    elif mutation == "measurement-index":
+        _change(plan, first_retired)["index"] = 1
+    elif mutation in {"measurement-before", "measurement-after"}:
+        retirement = _change(plan, first_retired)["change"]
+        assert isinstance(retirement, dict)
+        retirement[mutation.removeprefix("measurement-")] = (
+            None if mutation.endswith("before") else {}
+        )
+    elif mutation == "measurement-replacement-path":
+        retirement = _change(plan, first_retired)["change"]
+        assert isinstance(retirement, dict)
+        retirement["replace_paths"] = [["name"]]
     else:
         embedding = _change(plan, guard._EMBEDDING_ADDRESS)["change"]  # noqa: SLF001
         assert isinstance(embedding, dict)
