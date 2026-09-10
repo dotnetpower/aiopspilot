@@ -31,6 +31,8 @@ retain different catalogs, scope contracts, provider adapters, and user-facing e
 The shared Operator PostgreSQL reader also serves unrelated operational families. Its scoped AKS
 source-state and content-addressed diagnostic-receipt reads do not enter WAF or CAF scope,
 evidence admission, replay, or results.
+The shared Operator lifecycle can also supervise the Incident intervention outbox. Its requests and
+readiness state do not enter WAF or CAF scope, evidence admission, replay, or results.
 
 ## Design decision and critique
 

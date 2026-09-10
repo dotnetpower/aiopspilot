@@ -42,7 +42,8 @@ def _verify(_token: str) -> Mapping[str, object]:
 def test_production_composition_binds_action_confirmation_to_core_event_topic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: list[tuple[object, object, str]] = []
+    action_captured: list[tuple[object, object, str]] = []
+    intervention_captured: list[tuple[object, object]] = []
 
     class _Bus:
         def __init__(self, *, config: Any, credential: Any) -> None:
@@ -72,7 +73,20 @@ def test_production_composition_binds_action_confirmation_to_core_event_topic(
 
     class _Bridge:
         def __init__(self, *, store: object, publisher: object, topic: str) -> None:
-            captured.append((store, publisher, topic))
+            action_captured.append((store, publisher, topic))
+
+        def workers_ready(self) -> bool:
+            return True
+
+        async def start(self) -> None:
+            return None
+
+        async def aclose(self) -> None:
+            return None
+
+    class _InterventionBridge:
+        def __init__(self, *, store: object, publisher: object) -> None:
+            intervention_captured.append((store, publisher))
 
         def workers_ready(self) -> bool:
             return True
@@ -85,14 +99,20 @@ def test_production_composition_binds_action_confirmation_to_core_event_topic(
 
     monkeypatch.setattr(composition_module, "OperatorSemanticKafkaBus", _Bus)
     monkeypatch.setattr(composition_module, "ActionConfirmationBridge", _Bridge)
+    monkeypatch.setattr(
+        composition_module,
+        "IncidentInterventionBridge",
+        _InterventionBridge,
+    )
 
     runtime = ProductionOperatorComposition(
         verifier_factory=lambda _environment: _verify,
     ).build_runtime(_BASE_ENV)
 
-    assert len(captured) == 1
-    store, publisher, topic = captured[0]
+    assert len(action_captured) == 1
+    store, publisher, topic = action_captured[0]
     assert store is not None
     assert publisher is not None
     assert topic == "fdai.events"
+    assert intervention_captured == [(store, publisher)]
     assert runtime.lifecycle is not None
