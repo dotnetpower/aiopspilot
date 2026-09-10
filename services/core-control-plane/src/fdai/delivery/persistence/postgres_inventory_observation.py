@@ -44,7 +44,12 @@ from fdai.delivery.persistence.postgres_observation_lifecycle import (
     bind_observation_lifecycle,
     close_observation_corrections,
 )
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.inventory_observation import (
     INVENTORY_OBSERVATION_SCHEMA_VERSION,
     InventoryObservationKind,
@@ -561,11 +566,15 @@ def _snapshot_recovery_observation(
         for row in resource_rows
     )
     links: list[LinkRecord] = []
+    relationship_drops = list(projection_replay_drops(metadata, prior_manifest))
     for row in link_rows:
         properties = dict(_mapping(row["props"]))
         raw_observation = properties.pop(LINK_OBSERVATION_METADATA_PROPERTY, None)
         if not isinstance(raw_observation, Mapping):
-            raise ValueError("pending inventory relationship has no observation metadata")
+            relationship_drops.append(
+                RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA)
+            )
+            continue
         links.append(
             LinkRecord(
                 from_id=str(row["from_id"]),
@@ -582,7 +591,7 @@ def _snapshot_recovery_observation(
         resources=resources,
         links=tuple(links),
         complete=True,
-        relationship_drops=projection_replay_drops(metadata, prior_manifest),
+        relationship_drops=tuple(relationship_drops),
         recorded_at=recorded_at,
         state_base_generation=(
             str(metadata["state_base_generation"])
