@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -78,7 +78,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
             "when deploy_console is enabled"
         )
-    if re.fullmatch(r"(?:plan|apply)-(?:history-|rca-)?[0-9a-f]{48}", request_id):
+    if re.fullmatch(r"(?:plan|apply)-(?:history-|observability-|rca-)?[0-9a-f]{48}", request_id):
         if values.get("TARGET_ENVIRONMENT") == "prod":
             raise ValueError("fdaictl production deployment inputs are not implemented")
         _require_match(
@@ -100,6 +100,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_id.removeprefix("plan-").removeprefix("apply-")
         request_suffix = request_suffix.removeprefix("rca-")
         request_suffix = request_suffix.removeprefix("history-")
+        request_suffix = request_suffix.removeprefix("observability-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (
@@ -176,6 +177,28 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         "DEPLOY_MONITORING",
         "DEPLOY_OPERATIONAL_HISTORY",
     )
+    observability_analyzer_only = (
+        re.fullmatch(r"(?:plan|apply)-observability-[0-9a-f]{48}", request_id) is not None
+    )
+    if observability_analyzer_only:
+        if values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("observability analyzer deployment is restricted to dev")
+        if (
+            any(_enabled(values, key) for key in targets)
+            or document_ocr_action != "preserve"
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or rca_reader_identity
+            or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
+            or cutover
+            or verify_effect
+            or resume
+        ):
+            raise ValueError(
+                "observability analyzer deployment cannot be combined with another target"
+            )
     if deploy_operational_history:
         operational_history_mixed = (
             "DEPLOY_CONSOLE",

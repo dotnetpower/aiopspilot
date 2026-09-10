@@ -604,6 +604,50 @@ def test_fdaictl_runtime_image_revision_plan_apply_parity() -> None:
     )
 
 
+def _observability_request(mode: str, **overrides: str) -> dict[str, str]:
+    values = _request(
+        APPLY="true" if mode == "apply" else "false",
+        COMMIT_SHA=_COMMIT,
+        RUNTIME_IMAGE_REVISION=_IMAGE_REVISION,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+        **overrides,
+    )
+    context_digest = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context_digest,
+        mode=mode,
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"{mode}-observability-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context_digest,
+    )
+    if mode == "apply":
+        values.update(PLAN_ID="plan-123-1", PLAN_DIGEST=_DIGEST)
+    return values
+
+
+def test_observability_analyzer_request_is_context_bound_and_isolated() -> None:
+    validate(_observability_request("plan", PROMOTE_RUNTIME_IMAGE="true"), checkout_commit=_COMMIT)
+    validate(_observability_request("apply"), checkout_commit=_COMMIT)
+
+    for mixed_target in ("DEPLOY_OPERATOR_API", "DEPLOY_OPERATOR_CHANNEL_EDGE"):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            validate(
+                _observability_request("plan", **{mixed_target: "true"}),
+                checkout_commit=_COMMIT,
+            )
+
+
+def test_observability_analyzer_request_is_dev_only() -> None:
+    with pytest.raises(ValueError, match="restricted to dev"):
+        validate(
+            _observability_request("plan", TARGET_ENVIRONMENT="staging"),
+            checkout_commit=_COMMIT,
+        )
+
+
 def test_fdaictl_runtime_image_revision_digest_drift() -> None:
     """Changing the image revision changes the context digest."""
     ctx_with = _executor_context(image_revision=_IMAGE_REVISION)
