@@ -17,7 +17,8 @@
       --cs-sage: #5E8259; --cs-terracotta: #BC7449;
       --cs-dusty-red: #AC5A5A; --cs-teal: #4F847E; --cs-plum: #7B6C9C;
       --cs-radius: 8px; --cs-radius-sm: 6px;
-      --nav-w: 248px;
+      --activity-bar-w: 56px;
+      --explorer-w: 248px;
       --hdr-h: 56px;
       color-scheme: light;
     }
@@ -30,13 +31,22 @@
     .skip-link { position: fixed; top: -48px; left: 12px; z-index: 200; padding: 8px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-navy); color: #fff; font-weight: 600; }
     .skip-link:focus { top: 8px; }
 
-    .app { display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr); grid-template-rows: var(--hdr-h) 1fr; height: 100vh; }
+    .app { position: relative; display: grid; grid-template-columns: var(--activity-bar-w) minmax(0, 1fr); grid-template-rows: var(--hdr-h) minmax(0, 1fr); height: 100vh; }
     .hdr { grid-column: 1 / 3; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--cs-card); border-bottom: 1px solid var(--cs-hairline); }
     .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--cs-navy); font-size: 13px; font-weight: 700; }
     .brand-logo { display: block; width: 42px; height: 28px; object-fit: contain; flex: 0 0 auto; }
     .brand-tag { margin-left: 2px; color: var(--cs-text-soft); font-size: 12px; font-weight: 500; }
-    .nav-toggle { display: none; width: 44px; height: 44px; align-items: center; justify-content: center; flex: 0 0 auto; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font-size: 20px; cursor: pointer; }
-    .nav-toggle:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+    .activity-bar { z-index: 90; grid-column: 1; grid-row: 2; display: flex; min-height: 0; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-right: 1px solid var(--cs-hairline); background: var(--cs-card); }
+    .activity-bar-spacer { min-height: 8px; flex: 1; }
+    .rail-separator { width: 28px; height: 1px; margin: 4px 0; flex: 0 0 auto; background: var(--cs-hairline); }
+    .rail-button { position: relative; display: inline-flex; width: 44px; min-height: 44px; align-items: center; justify-content: center; flex: 0 0 auto; border: 0; border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); cursor: pointer; }
+    .rail-button:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .rail-button.is-active { background: rgba(68,104,142,.08); color: var(--cs-navy); }
+    .rail-button.is-active::before { position: absolute; inset: 8px auto 8px -6px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cs-steel); content: ""; }
+    .rail-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .rail-button[data-tooltip]::after { position: absolute; z-index: 140; top: 50%; left: 52px; max-width: 180px; padding: 5px 8px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-navy); color: #fff; box-shadow: 0 4px 14px rgba(44,51,58,.16); content: attr(data-tooltip); font-size: 12px; font-weight: 600; line-height: 1.3; opacity: 0; pointer-events: none; transform: translateY(calc(-50% + 2px)); transition: opacity 80ms ease, transform 80ms ease; white-space: nowrap; }
+    .app.is-nav-collapsed .rail-button[data-tooltip]:is(:hover, :focus-visible)::after { opacity: 1; transform: translateY(-50%); }
+    .nav-toggle:focus-visible, .rail-button:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
     .header-operations { display: inline-flex; align-items: center; gap: 6px; min-width: 0; margin-left: auto; }
     .header-control { min-height: 32px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
     .header-control:hover { border-color: #C8C4BE; background: var(--cs-shade); color: var(--cs-text); text-decoration: none; }
@@ -63,12 +73,19 @@
     .preview-details .path { position: absolute; right: 0; top: 100%; z-index: 50; min-width: 260px; max-width: 360px; padding: 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); overflow-wrap: anywhere; white-space: normal; }
     :is(a, button, summary, input):focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
 
-    .side { grid-row: 2 / 3; padding: 12px 8px 20px; overflow-y: auto; background: var(--cs-card); border-right: 1px solid var(--cs-hairline); scrollbar-color: transparent transparent; scrollbar-width: thin; }
+    .side { z-index: 80; grid-column: 2; grid-row: 2; width: var(--explorer-w); min-height: 0; padding: 0 8px 20px; overflow-y: auto; background: var(--cs-card); border-right: 1px solid var(--cs-hairline); box-shadow: 8px 0 18px rgba(44,51,58,.08); opacity: 1; scrollbar-color: transparent transparent; scrollbar-width: thin; transform: translateX(0); transition: opacity 100ms ease, transform 120ms ease, visibility 0s; }
+    .app.is-nav-collapsed .side { visibility: hidden; opacity: 0; pointer-events: none; transform: translateX(-12px); transition: opacity 100ms ease, transform 120ms ease, visibility 0s 120ms; }
     .side:hover, .side:focus-within { scrollbar-color: #B9B5B0 transparent; }
     .side::-webkit-scrollbar { width: 7px; }
     .side::-webkit-scrollbar-track { background: transparent; }
     .side::-webkit-scrollbar-thumb { border-radius: 7px; background: transparent; }
     .side:hover::-webkit-scrollbar-thumb, .side:focus-within::-webkit-scrollbar-thumb { background: #B9B5B0; }
+    .nav-explorer-head { position: sticky; z-index: 2; top: 0; display: flex; min-height: 64px; align-items: center; gap: 8px; margin: 0 -8px 10px; padding: 10px 8px 8px 14px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-card); }
+    .nav-explorer-head > div { display: grid; min-width: 0; flex: 1; gap: 1px; }
+    .nav-explorer-head strong { color: var(--cs-text); font-size: 13px; font-weight: 600; }
+    .nav-explorer-head small { overflow: hidden; color: var(--cs-text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-collapse { width: 36px; min-height: 36px; }
+    .nav-collapse svg { width: 18px; height: 18px; }
     .side .fam { margin: 10px 8px 4px; display: flex; align-items: center; gap: 8px; }
     .side .fam h3, .side .family-label { margin: 0; min-width: 0; font-size: 12px; letter-spacing: 0; color: var(--cs-text-soft); font-weight: 600; }
     .side .fam .count { margin-left: auto; flex: 0 0 auto; color: var(--cs-text-soft); font-size: 12px; white-space: nowrap; }
@@ -119,7 +136,7 @@
     .side .fam.is-land  .swatch { background: var(--cs-terracotta); }
     .side .fam.is-mail  .swatch { background: var(--cs-dusty-red); }
 
-    .preview { grid-row: 2 / 3; position: relative; background: var(--cs-bg); }
+    .preview { grid-column: 2; grid-row: 2; position: relative; min-width: 0; background: var(--cs-bg); }
     .preview:focus { outline: none; }
     .preview iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--cs-bg); }
     .nav-empty { margin: 16px 8px; font-size: 13px; }
@@ -127,16 +144,19 @@
     .nav-empty button { min-height: 36px; padding: 6px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-steel); font: inherit; cursor: pointer; }
 
     @media (max-width: 780px) {
-      .app { grid-template-columns: 1fr; grid-template-rows: var(--hdr-h) auto 1fr; }
-      .nav-toggle { display: inline-flex; }
+      :root { --activity-bar-w: 52px; }
+      .app { grid-template-columns: var(--activity-bar-w) minmax(0, 1fr); grid-template-rows: var(--hdr-h) minmax(0, 1fr); }
       .brand-tag { display: none; }
       .hdr .now .path, .hdr .now .open { display: none; }
-      .side { grid-row: 2 / 3; grid-column: 1; border-right: 0; border-bottom: 1px solid var(--cs-hairline); max-height: 45vh; }
+      .side { grid-row: 2; grid-column: 2; width: 100%; max-height: none; border-right: 0; box-shadow: none; }
       .side .nav-group-head, .side a, .side button.fam { min-height: 44px; }
-      .preview { grid-row: 3 / 4; }
-      .app.is-mobile-nav-closed { grid-template-rows: var(--hdr-h) 1fr; }
-      .app.is-mobile-nav-closed .side { display: none; }
-      .app.is-mobile-nav-closed .preview { grid-row: 2 / 3; }
+      .preview { grid-row: 2; grid-column: 2; }
+      .app:not(.is-nav-collapsed) .preview { visibility: hidden; }
+      .rail-button { width: 44px; min-height: 44px; }
+      .rail-button[data-tooltip]::after { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .side, .app.is-nav-collapsed .side, .rail-button[data-tooltip]::after { transition: none; }
     }
     @media (max-width: 1100px) {
       .hdr .now .path { display: none; }
@@ -165,7 +185,6 @@
   <a class="skip-link" href="#preview">Skip to preview</a>
   <div class="app" id="mock-app">
     <header class="hdr">
-      <button class="nav-toggle" type="button" aria-label="Toggle mock navigation" aria-controls="master-nav" aria-expanded="false" data-nav-toggle>&#9776;</button>
       <span class="brand"><img class="brand-logo" src="console/public/brand/fdai-logo.png" alt="FDAI" /><span class="brand-name" aria-hidden="true">FDAI</span><span class="brand-tag">design mocks</span></span>
       <span class="preview-boundary" data-preview-boundary><strong>Synthetic preview</strong><span class="boundary-detail"> / No runtime actions</span></span>
       <div class="header-operations" aria-label="Illustrative operational controls">
@@ -188,16 +207,60 @@
       </span>
     </header>
 
+    <nav class="activity-bar" aria-label="Design mock navigation groups">
+      <button class="rail-button nav-toggle" type="button" aria-label="Toggle design navigation" aria-controls="master-nav" aria-expanded="false" data-tooltip="Toggle navigation" data-nav-toggle>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>
+      </button>
+      <div class="rail-separator" aria-hidden="true"></div>
+      <button class="rail-button" type="button" aria-label="Overview" aria-controls="master-nav" aria-expanded="false" data-tooltip="Overview" data-nav-target="overview">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="14" width="3" height="4" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Operations" aria-controls="master-nav" aria-expanded="false" data-tooltip="Operations" data-nav-target="operations">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h8v8l10-12h-8Z" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Agents" aria-controls="master-nav" aria-expanded="false" data-tooltip="Agents" data-nav-target="agents">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="10" r="2" /><path d="M3 20c0-4 3-7 6-7s6 3 6 7M14 15c3 0 5 2 5 5" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Governance" aria-controls="master-nav" aria-expanded="false" data-tooltip="Governance" data-nav-target="governance">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 4 8.5 8 9.5 4-1 8-4.5 8-9.5V6Z" /><path d="m9 12 2 2 4-4" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Knowledge" aria-controls="master-nav" aria-expanded="false" data-tooltip="Knowledge" data-nav-target="knowledge">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5ZM8 8h8M8 12h8" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Evidence" aria-controls="master-nav" aria-expanded="false" data-tooltip="Evidence" data-nav-target="evidence">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 11.5M4 4v5h5M12 8v4l3 2" /></svg>
+      </button>
+      <div class="activity-bar-spacer"></div>
+      <button class="rail-button" type="button" aria-label="Design collections" aria-controls="master-nav" aria-expanded="false" data-tooltip="Design collections" data-nav-target="design-collections">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5Zm-9 10 9 5 9-5M3 17l9 5 9-5" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Labs" aria-controls="master-nav" aria-expanded="false" data-tooltip="Labs" data-nav-target="labs">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 15h8" /></svg>
+      </button>
+      <button class="rail-button" type="button" aria-label="Settings" aria-controls="master-nav" aria-expanded="false" data-tooltip="Settings" data-nav-target="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3A1.7 1.7 0 0 0 14 21v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14h-.2v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg>
+      </button>
+    </nav>
+
     <aside class="side" id="master-nav" aria-label="Master navigation">
+      <header class="nav-explorer-head">
+        <div>
+          <strong>Design navigation</strong>
+          <small>96 synthetic previews</small>
+        </div>
+        <button class="rail-button nav-collapse" type="button" aria-label="Collapse design navigation" aria-controls="master-nav" data-nav-collapse>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+        </button>
+      </header>
       <label class="nav-search">
         <span class="sr-only">Filter design mocks</span>
         <input type="search" placeholder="Filter design mocks" autocomplete="off" data-nav-search />
       </label>
       <span class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-nav-result></span>
       <div class="nav-empty" data-nav-empty hidden><p>No matching previews.</p><button type="button" data-nav-clear>Clear search</button></div>
-      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">53 pages</span></div>
+      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">58 pages</span></div>
       <nav class="console-groups" aria-label="Console mock navigation">
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="overview">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Overview</span><span class="count">8</span></button>
           <ul>
             <li><a data-page="mocks/ui/dashboard.html" data-title="Dashboard"><span class="dot is-sage"></span>Dashboard</a></li>
@@ -211,7 +274,7 @@
           </ul>
         </section>
 
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="operations">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Operations</span><span class="count">14</span></button>
           <ul>
             <li><a data-page="mocks/ui/live.html" data-title="Live"><span class="dot"></span>Live</a></li>
@@ -231,7 +294,7 @@
           </ul>
         </section>
 
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="agents">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Agents</span><span class="count">3</span></button>
           <ul>
             <li><a data-page="mocks/ui/agents.html" data-title="Fleet"><span class="dot is-sage"></span>Fleet</a></li>
@@ -240,7 +303,7 @@
           </ul>
         </section>
 
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="governance">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Governance</span><span class="count">11</span></button>
           <ul>
             <li><a data-page="mocks/ui/architecture.html" data-title="Architecture"><span class="dot is-steel"></span>Architecture</a></li>
@@ -257,28 +320,39 @@
           </ul>
         </section>
 
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="knowledge">
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Knowledge</span><span class="count">5</span></button>
+          <ul>
+            <li><a data-page="mocks/ui/knowledge.html" data-title="Knowledge overview"><span class="dot is-steel"></span>Overview</a></li>
+            <li><a data-page="mocks/ui/documents.html" data-title="Documents"><span class="dot is-navy"></span>Documents</a></li>
+            <li><a data-page="mocks/ui/github.html" data-title="GitHub"><span class="dot is-plum"></span>GitHub</a></li>
+            <li><a data-page="mocks/ui/gitlab.html" data-title="GitLab"><span class="dot is-teal"></span>GitLab</a></li>
+            <li><a data-page="mocks/ui/azure-devops.html" data-title="Azure DevOps"><span class="dot is-sage"></span>Azure DevOps</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group" data-nav-section="evidence">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Evidence</span><span class="count">9</span></button>
           <ul>
             <li><a data-page="mocks/ui/audit.html" data-title="Audit log"><span class="dot is-terracotta"></span>Audit log</a></li>
             <li><a data-page="mocks/ui/browser-evidence.html" data-title="Browser evidence"><span class="dot is-steel"></span>Browser evidence</a></li>
             <li><a data-page="mocks/ui/forecast-learning.html" data-title="Forecast learning"><span class="dot is-plum"></span>Forecast learning</a></li>
+            <li><a data-page="mocks/ui/assurance-twin.html" data-title="Assurance Twin"><span class="dot is-navy"></span>Assurance Twin</a></li>
             <li><a data-page="mocks/ui/conversation-search.html" data-title="Conversation search"><span class="dot is-teal"></span>Conversation search</a></li>
             <li><a data-page="mocks/ui/conversation-assurance.html" data-title="Conversation assurance"><span class="dot is-sage"></span>Conversation assurance</a></li>
             <li><a data-page="mocks/ui/reports.html" data-title="Reports"><span class="dot is-terracotta"></span>Reports</a></li>
             <li><a data-page="mocks/ui/rule-trace.html" data-title="Trace"><span class="dot is-teal"></span>Trace</a></li>
             <li><a data-page="mocks/ui/rca.html" data-title="RCA"><span class="dot is-teal"></span>RCA</a></li>
-            <li><a data-page="mocks/ui/documents.html" data-title="Documents"><span class="dot is-navy"></span>Documents</a></li>
           </ul>
         </section>
 
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="labs">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Labs</span><span class="count">1</span></button>
           <ul>
             <li><a data-page="mocks/ui/labs.html" data-title="Labs"><span class="dot is-steel"></span>Labs</a></li>
           </ul>
         </section>
-        <section class="nav-group">
+        <section class="nav-group" data-nav-section="settings">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Settings</span><span class="count">7</span></button>
           <ul>
             <li><a data-page="mocks/ui/settings.html" data-title="General settings"><span class="dot is-steel"></span>General</a></li>
@@ -368,6 +442,8 @@
       const side = document.querySelector('.side');
       const preview = document.getElementById('preview');
       const navToggle = document.querySelector('[data-nav-toggle]');
+      const navCollapse = document.querySelector('[data-nav-collapse]');
+      const railButtons = Array.from(document.querySelectorAll('[data-nav-target]'));
       const navSearch = document.querySelector('[data-nav-search]');
       const navResult = document.querySelector('[data-nav-result]');
       const navEmpty = document.querySelector('[data-nav-empty]');
@@ -381,6 +457,7 @@
       let currentPage = '';
       let currentSection = '';
       let pendingPage = '';
+      let selectedRailTarget = 'overview';
 
       function parseRouteHash() {
         const parts = location.hash.replace(/^#/, '').split('::');
@@ -398,14 +475,50 @@
         return '#' + page + (section ? '::' + section : '');
       }
 
-      function setMobileNavOpen(open) {
-        const expanded = mobileQuery.matches ? open : true;
-        app.classList.toggle('is-mobile-nav-closed', !expanded);
-        navToggle.setAttribute('aria-expanded', String(expanded));
-        if (expanded) {
+      function navigationIsOpen() {
+        return !app.classList.contains('is-nav-collapsed');
+      }
+
+      function updateRailState() {
+        const open = navigationIsOpen();
+        navToggle.setAttribute('aria-expanded', String(open));
+        railButtons.forEach((button) => {
+          const active = open && button.dataset.navTarget === selectedRailTarget;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-expanded', String(active));
+        });
+      }
+
+      function setNavigationOpen(open) {
+        app.classList.toggle('is-nav-collapsed', !open);
+        side.setAttribute('aria-hidden', String(!open));
+        side.inert = !open;
+        updateRailState();
+        if (open) {
           ensureActiveVisible();
           requestAnimationFrame(ensureActiveVisible);
         }
+      }
+
+      function focusNavigationTarget(target) {
+        selectedRailTarget = target;
+        if (target === 'design-collections') {
+          navGroups.forEach((group) => setGroupExpanded(group, false));
+          let selectedFamily = mockFamilies.find((family) =>
+            family.nextElementSibling.querySelector(`[data-page="${currentPage.split('?')[0]}"]`));
+          if (!selectedFamily) selectedFamily = mockFamilies[0];
+          mockFamilies.forEach((family) => setFamilyExpanded(family, family === selectedFamily));
+          setNavigationOpen(true);
+          selectedFamily.scrollIntoView({ block: 'nearest' });
+          return;
+        }
+
+        const selectedGroup = navGroups.find((group) => group.dataset.navSection === target);
+        if (!selectedGroup) return;
+        navGroups.forEach((group) => setGroupExpanded(group, group === selectedGroup));
+        mockFamilies.forEach((family) => setFamilyExpanded(family, false));
+        setNavigationOpen(true);
+        selectedGroup.scrollIntoView({ block: 'nearest' });
       }
 
       function ensureActiveVisible() {
@@ -431,15 +544,19 @@
         page = page.split('?')[0];
         const selected = navGroups.find((group) => group.querySelector(`[data-page="${page}"]`));
         if (selected) {
+          selectedRailTarget = selected.dataset.navSection;
           navGroups.forEach((group) => setGroupExpanded(group, group === selected));
           mockFamilies.forEach((family) => setFamilyExpanded(family, false));
+          updateRailState();
           return;
         }
 
         const selectedFamily = mockFamilies.find((family) => family.nextElementSibling.querySelector(`[data-page="${page}"]`));
         if (!selectedFamily) return;
+        selectedRailTarget = 'design-collections';
         navGroups.forEach((group) => setGroupExpanded(group, false));
         mockFamilies.forEach((family) => setFamilyExpanded(family, family === selectedFamily));
+        updateRailState();
       }
 
       function filterNavigation(query) {
@@ -470,17 +587,21 @@
       navGroups.forEach((group) => {
         const head = group.querySelector('.nav-group-head');
         head.addEventListener('click', () => {
+          selectedRailTarget = group.dataset.navSection;
           const expand = group.classList.contains('is-collapsed');
           navGroups.forEach((candidate) => setGroupExpanded(candidate, expand && candidate === group));
           mockFamilies.forEach((family) => setFamilyExpanded(family, false));
+          updateRailState();
         });
         setGroupExpanded(group, false);
       });
       mockFamilies.forEach((family) => {
         family.addEventListener('click', () => {
+          selectedRailTarget = 'design-collections';
           const expand = family.classList.contains('is-collapsed');
           navGroups.forEach((group) => setGroupExpanded(group, false));
           mockFamilies.forEach((candidate) => setFamilyExpanded(candidate, expand && candidate === family));
+          updateRailState();
         });
         setFamilyExpanded(family, false);
       });
@@ -524,7 +645,7 @@
         const hash = routeHash(page, currentSection);
         if (restore || location.hash === hash) history.replaceState(null, '', hash);
         else history.pushState(null, '', hash);
-        if (mobileQuery.matches) setMobileNavOpen(false);
+        if (mobileQuery.matches) setNavigationOpen(false);
       }
 
       function syncFrameRoute() {
@@ -575,7 +696,26 @@
       });
 
       navToggle.addEventListener('click', () => {
-        setMobileNavOpen(app.classList.contains('is-mobile-nav-closed'));
+        setNavigationOpen(!navigationIsOpen());
+      });
+      navCollapse.addEventListener('click', () => {
+        setNavigationOpen(false);
+        railButtons.find((button) => button.dataset.navTarget === selectedRailTarget)?.focus();
+      });
+      railButtons.forEach((button, index) => {
+        button.addEventListener('click', () => {
+          if (navigationIsOpen() && selectedRailTarget === button.dataset.navTarget) {
+            setNavigationOpen(false);
+            return;
+          }
+          focusNavigationTarget(button.dataset.navTarget);
+        });
+        button.addEventListener('keydown', (event) => {
+          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+          event.preventDefault();
+          const direction = event.key === 'ArrowDown' ? 1 : -1;
+          railButtons[(index + direction + railButtons.length) % railButtons.length].focus();
+        });
       });
       incidentControl.addEventListener('click', (event) => {
         event.preventDefault();
@@ -598,9 +738,9 @@
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         document.querySelector('.preview-details').open = false;
-        if (mobileQuery.matches && !app.classList.contains('is-mobile-nav-closed')) {
-          setMobileNavOpen(false);
-          navToggle.focus();
+        if (navigationIsOpen()) {
+          setNavigationOpen(false);
+          railButtons.find((button) => button.dataset.navTarget === selectedRailTarget)?.focus();
         }
       });
 
@@ -625,11 +765,11 @@
         if (route.page) open(route.page, '', route.section, true);
       });
 
-      mobileQuery.addEventListener('change', () => setMobileNavOpen(!mobileQuery.matches));
+      mobileQuery.addEventListener('change', () => setNavigationOpen(!mobileQuery.matches));
 
       const initial = parseRouteHash();
       open(initial.page || 'mocks/ui/dashboard.html', '', initial.section, true);
-      setMobileNavOpen(!mobileQuery.matches);
+      setNavigationOpen(!mobileQuery.matches);
     })();
   </script>
 </body>

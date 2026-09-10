@@ -65,37 +65,92 @@ const filenameAliases = {
   "settings": "settings-general",
 };
 
+function mockPanelId(path) {
+  const file = basename(path, ".html");
+  return filenameAliases[file] || file;
+}
+
 function consolePanelIds() {
   const core = panelRegistry.slice(
     panelRegistry.indexOf("export const CORE_PANELS"),
     panelRegistry.indexOf("export const EXTRA_PANELS"),
   );
   const ids = Array.from(core.matchAll(/\bid: "([a-z0-9-]+)"/g), (match) => match[1]);
+  ids.push(...Array.from(
+    core.matchAll(/knowledgeSourcePanel\("([a-z0-9-]+)"/g),
+    (match) => match[1],
+  ));
   ids.push("dashboard");
   return ids.sort();
 }
 
+function consolePanelGroups() {
+  const registry = panelRegistry.slice(
+    panelRegistry.indexOf("const DASHBOARD_PANEL"),
+    panelRegistry.indexOf("export const EXTRA_PANELS"),
+  );
+  const groups = new Map(Array.from(
+    registry.matchAll(/\bid: "([a-z0-9-]+)",[\s\S]*?\bgroup: "([a-z]+)"/g),
+    (match) => [match[1], match[2]],
+  ));
+  Array.from(
+    registry.matchAll(/knowledgeSourcePanel\("([a-z0-9-]+)"/g),
+    (match) => match[1],
+  ).forEach((id) => groups.set(id, "knowledge"));
+  return groups;
+}
+
 function mockPanelIds() {
-  return consoleMockPaths.map((path) => {
-    const file = basename(path, ".html");
-    return filenameAliases[file] || file;
-  }).sort();
+  return consoleMockPaths.map(mockPanelId).sort();
 }
 
 test("master mock navigation mirrors every production Console panel", () => {
-  assert.equal(consoleMockPaths.length, 53);
-  assert.equal(new Set(consoleMockPaths).size, 53);
+  assert.equal(consoleMockPaths.length, 58);
+  assert.equal(new Set(consoleMockPaths).size, 58);
   assert.deepEqual(mockPanelIds(), consolePanelIds());
   consoleMockPaths.forEach((path) => {
     assert.ok(existsSync(join(repoRoot, path)), `missing Console mock: ${path}`);
   });
 });
 
+test("master mock navigation follows the Console group hierarchy", () => {
+  const consoleGroups = consolePanelGroups();
+  const mockGroups = new Map();
+  const groups = Array.from(
+    consoleNav.matchAll(/<section class="nav-group"[^>]*>([\s\S]*?)<\/section>/g),
+    (match) => {
+      const label = match[1].match(/class="nav-group-label">([^<]+)</)?.[1];
+      const paths = Array.from(
+        match[1].matchAll(/data-page="(mocks\/ui\/[^"]+\.html)"/g),
+        (item) => item[1],
+      );
+      paths.forEach((path) => mockGroups.set(mockPanelId(path), label.toLowerCase()));
+      const count = paths.length;
+      return [label, count];
+    },
+  );
+  assert.deepEqual(groups, [
+    ["Overview", 8],
+    ["Operations", 14],
+    ["Agents", 3],
+    ["Governance", 11],
+    ["Knowledge", 5],
+    ["Evidence", 9],
+    ["Labs", 1],
+    ["Settings", 7],
+  ]);
+  assert.deepEqual(
+    Array.from(mockGroups).sort(([left], [right]) => left.localeCompare(right)),
+    Array.from(consoleGroups).sort(([left], [right]) => left.localeCompare(right)),
+  );
+});
+
 test("master navigation exposes every local design mock without duplicate destinations", () => {
   const masterMarkup = masterLanding.slice(0, masterLanding.indexOf("<script>"));
   const paths = Array.from(masterMarkup.matchAll(/data-page="([^"]+)"/g), (match) => match[1]);
-  assert.equal(paths.length, 91);
-  assert.equal(new Set(paths).size, 91);
+  assert.equal(paths.length, 96);
+  assert.equal(new Set(paths).size, 96);
+  assert.equal(paths.length - consoleMockPaths.length, 38);
   paths.forEach((path) => {
     assert.ok(existsSync(join(repoRoot, path)), `missing design mock: ${path}`);
   });
@@ -114,7 +169,7 @@ test("nested and direct mock navigation expose the same Console destinations", (
     assert.ok(nestedPaths.includes(path), `nested index missing ${path}`);
     assert.ok(directPaths.includes(path), `direct mock navigation missing ${path}`);
   });
-  assert.equal(new Set(directPaths).size, 75);
+  assert.equal(new Set(directPaths).size, 80);
 });
 
 test("every parity wrapper resolves to a rendered specification", () => {
@@ -123,11 +178,11 @@ test("every parity wrapper resolves to a rendered specification", () => {
     .map((file) => [file, readFileSync(join(uiRoot, file), "utf8")])
     .filter(([, html]) => html.includes("data-console-parity-page"));
 
-  assert.equal(wrappers.length, 12);
+  assert.equal(wrappers.length, 17);
   wrappers.forEach(([file, html]) => {
     const pageId = html.match(/data-console-page="([^"]+)"/)?.[1];
     assert.ok(pageId, `${file} is missing a Console page id`);
-    assert.match(parityScript, new RegExp(`"${pageId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}": \\{`));
+    assert.match(parityScript, new RegExp(`"${pageId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}":`));
     assert.match(html, /assets\/console-parity\.css/);
     assert.match(html, /assets\/console-parity\.js/);
     assert.match(html, /assets\/calm-slate\.css/);
@@ -150,6 +205,31 @@ test("master navigation can filter all mock families without losing the active r
   assert.match(masterLanding, /function filterNavigation\(query\)/);
   assert.match(masterLanding, /if \(!normalized\) revealPageGroup\(currentPage\)/);
   assert.match(masterLanding, /navSearch\.placeholder = 'Filter ' \+ items\.length \+ ' design mocks'/);
+});
+
+test("master navigation uses a Console-like collapsible Activity Bar and Explorer", () => {
+  const railTargets = Array.from(
+    masterLanding.matchAll(/data-nav-target="([^"]+)"/g),
+    (match) => match[1],
+  );
+  assert.deepEqual(railTargets, [
+    "overview",
+    "operations",
+    "agents",
+    "governance",
+    "knowledge",
+    "evidence",
+    "design-collections",
+    "labs",
+    "settings",
+  ]);
+  assert.match(masterLanding, /class="activity-bar"/);
+  assert.match(masterLanding, /class="side" id="master-nav"/);
+  assert.match(masterLanding, /function setNavigationOpen\(open\)/);
+  assert.match(masterLanding, /app\.classList\.toggle\('is-nav-collapsed', !open\)/);
+  assert.match(masterLanding, /side\.inert = !open/);
+  assert.match(masterLanding, /aria-controls="master-nav"/);
+  assert.match(masterLanding, /prefers-reduced-motion: reduce/);
 });
 
 test("knowledge graph renders every generated ontology node kind", () => {
