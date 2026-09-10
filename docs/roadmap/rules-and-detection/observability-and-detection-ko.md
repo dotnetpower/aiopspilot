@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 73d757a9a40690ae5297aa5f18f0736d24f717cd
+translation_source_sha: 08a36648f912242e09d1ce76e1ce25c59a26326e
 translation_revised: 2026-09-11
 ---
 
@@ -92,7 +92,8 @@ cross-format 동등성이 성립하지 않습니다.
   `delivery/azure/configuration_drift.py`는 서버가 소유하는 범위 하나를 위한 읽기 전용 Azure
   Resource Graph 소스를 추가합니다. 배포 구성은 엄격한 식별자 문법을 통해 최대 64개의 스칼라
   속성 경로를 선택합니다. 어댑터는 쿼리를 구성하고 선택한 값만 반환하며, 누락된 값을 알 수 없음으로
-  표시하고, 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸며, 부분적이거나 너무 크거나 형식이
+  표시합니다. 비어 있지 않은 존재 여부 토큰을 사용하므로 생략된 false 값이 명시적으로 존재하는 빈
+  스칼라로 오인되지 않습니다. 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸며, 부분적이거나 너무 크거나 형식이
   잘못되었거나 범위를 벗어난 결과를 차단합니다. 토폴로지를 추론하거나 임의의 프로바이더 속성 묶음을
   수집하지 않습니다. 런타임 부트스트랩은 `FDAI_CONFIGURATION_DRIFT_ENABLED`가 명시적이고
   모든 범위, 기준선, 구독 및 속성 전제 조건이 유효할 때만 소스를 연결합니다. 보호된 Core 서비스

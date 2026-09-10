@@ -92,7 +92,8 @@ file digest alone does not establish cross-format equivalence.
   `delivery/azure/configuration_drift.py` adds a read-only Azure Resource Graph source for one
   server-owned scope. Deployment configuration selects at most 64 scalar attribute paths through a
   strict identifier grammar. The adapter constructs the query, returns only selected values, marks
-  missing values as unknown, replaces provider ids with stable digest suffixes, and rejects partial,
+  missing values as unknown, uses non-empty presence tokens so an omitted false value cannot alias
+  an explicitly present empty scalar, replaces provider ids with stable digest suffixes, and rejects partial,
   oversized, malformed, or out-of-scope results. It does not infer topology or collect arbitrary
   provider property bags. Runtime bootstrap binds the source only when
   `FDAI_CONFIGURATION_DRIFT_ENABLED` is explicit and every scope, baseline, subscription, and
